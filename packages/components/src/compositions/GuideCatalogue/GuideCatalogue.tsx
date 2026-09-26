@@ -2,9 +2,8 @@ import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerE
 
 import { GUIDE_GROUPS, GUIDES } from "../../guides";
 import type { Guide, GuideGroupId } from "../../guides/guide";
-import { useGuideShape } from "../../guide-shape";
 import { Sheet } from "../../primitives/Sheet/Sheet";
-import { GuideShaped } from "../GuideShaped/GuideShaped";
+import { GuideSteps } from "../GuideSteps/GuideSteps";
 
 /**
  * Every guide: the list on the left, the one you chose open beside it.
@@ -322,25 +321,9 @@ function ListHandle({ width, onResize }: { width: number; onResize: (width: numb
  * that interrupted you carries the guide and the way out.
  */
 function GuideBody({ guide }: { guide: Guide }) {
-  // The mock's `?guides=`, for the shape comparison. Bridge provides no shape,
-  // so this is `prose` in the app and the rendering below is untouched.
-  const shape = useGuideShape();
-  const shaped = shape !== "prose" && guide.shapes !== undefined ? shape : undefined;
   return (
     <>
-      {/* No frame is held for a picture that does not exist — the guide data's
-          own rule, and none of the fourteen carries one yet. */}
-      {guide.picture === undefined ? null : (
-        <img className="armada-guides__picture" src={guide.picture.src} alt={guide.picture.alt} />
-      )}
-      {shaped !== undefined ? <GuideShaped guide={guide} shape={shaped} where="panel" /> : null}
-      {shaped !== undefined
-        ? null
-        : guide.body.map((paragraph) => (
-            <p key={paragraph} className="armada-guides__paragraph">
-              {paragraph}
-            </p>
-          ))}
+      <GuideSteps guide={guide} where="panel" />
       {/* A machine value carries a word naming it. Not a link: it names a file
           in the repository rather than an address, and no surface navigates. */}
       {guide.concept === undefined ? null : (
