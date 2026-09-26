@@ -74,6 +74,13 @@ export type Guide = {
    * and the first time the piece is on a screen somebody is looking at, the
    * card opens once by itself. The id is what is remembered, so renaming one
    * gives every reader their first contact back.
+   *
+   * **Five pieces carry no `?`, and that is decided** — the owner, 26
+   * September 2026. A `?` explains the thing it sits beside, and *What is a
+   * job?* sits beside nothing in particular; a card firing on every job screen
+   * is the noise this whole system exists to remove. `job.what`, `job.before`,
+   * `plan.what`, `run.drone` and `workflow.what` are reached from the
+   * catalogue and nowhere else. Do not add marks for them.
    */
   piece: string;
   /**
