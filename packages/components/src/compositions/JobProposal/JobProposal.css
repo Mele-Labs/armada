@@ -129,15 +129,6 @@
   text-overflow: ellipsis;
 }
 
-/* Edit, at the trailing edge of the line the repository is on. The words
-   below are what it opens, so the control belongs to the card and sits on the
-   card's own head rather than floating over the text it changes. */
-.armada-proposal__against-act {
-  display: flex;
-  flex: none;
-  margin-inline-start: auto;
-}
-
 /* The request as a field. It takes the height the reading had, so pressing
    Edit does not resize the card under the pointer. */
 .armada-proposal__said-field {

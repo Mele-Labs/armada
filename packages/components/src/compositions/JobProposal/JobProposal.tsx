@@ -1,6 +1,3 @@
-import { useState } from "react";
-
-import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Textarea } from "../../primitives/Textarea/Textarea";
@@ -265,15 +262,13 @@ export function JobProposal({
  * What was asked, and — before approval — the words themselves to change.
  *
  * **Editable, since 28 Sep 2026** (`d9b3`). These words are what every Drone
- * is handed, and the approval gate is the last moment anybody reads them
- * before one does; until now the one thing a person could not fix here was
- * the thing the whole Job is built on.
+ * is handed, and the gate is the last moment anybody reads them before one
+ * does.
  *
- * **Reading is the state it opens in, and Edit is a press.** A textarea
- * standing where the request is says the words are a field; they are a record
- * of what somebody asked, and changing one is a decision. The press is also
- * what makes the well an editor rather than a well that happens to accept
- * typing, which is what the drawing's Edit link already said.
+ * **No Edit press and no Done** (the owner, 28 Sep): *"Just let me edit
+ * without needing to click a button."* Before approval it is a field, after
+ * approval it is a reading, and approval is the only thing that moves between
+ * them — a press in the middle was a third state pretending to be the second.
  */
 function ProposalAsked({
   request,
@@ -284,22 +279,17 @@ function ProposalAsked({
   frozen: boolean;
   onRequest?: (said: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const open = onRequest !== undefined && editing;
   return (
     <section className="armada-proposal__card" aria-label="What was asked">
       <div className="armada-proposal__against">
         <span className="armada-proposal__eyebrow">Against</span>
         <span className="armada-proposal__chip">{request.repository}</span>
-        {onRequest === undefined ? null : (
-          <span className="armada-proposal__against-act">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(!editing)}>
-              {editing ? "Done" : "Edit"}
-            </Button>
-          </span>
-        )}
       </div>
-      {open ? (
+      {onRequest === undefined ? (
+        <div className="armada-proposal__said" data-absent={request.said === "" || undefined}>
+          {request.said === "" ? request.absent : request.said}
+        </div>
+      ) : (
         <div className="armada-proposal__said-field">
           <Textarea
             aria-label="What was asked"
@@ -307,10 +297,6 @@ function ProposalAsked({
             placeholder="What this Job is for, in your own words"
             onChange={(event) => onRequest(event.target.value)}
           />
-        </div>
-      ) : (
-        <div className="armada-proposal__said" data-absent={request.said === "" || undefined}>
-          {request.said === "" ? request.absent : request.said}
         </div>
       )}
       <p className="armada-proposal__foot">{frozen ? REQUEST_FOOT.frozen : REQUEST_FOOT.open}</p>
