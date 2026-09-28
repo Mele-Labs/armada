@@ -143,9 +143,15 @@ const NODE_TYPES = { sketch: BoxView };
 const EDGE_TYPES = {};
 
 /**
- * Room around a fitted picture. **A tenth rather than React Flow's default**:
- * the acts sit over the top-right corner and the zoom pair over the
- * bottom-right, so a picture fitted edge to edge has a box under each of them.
+ * Room around a fitted picture. **A tenth rather than React Flow's default**,
+ * so a picture fitted edge to edge still has air between its outermost box and
+ * the pane's own edge — and the bar hovering over a box picked there has
+ * somewhere to sit.
+ *
+ * **Only on open, and only where there is a picture.** `GraphCanvas` reads
+ * `fitView` once and refuses it on an empty canvas; a blank pad that kept the
+ * fit armed zoomed onto the first box added, which is what the owner read on
+ * 28 Sep 2026.
  */
 const FIT: FitViewOptions = { padding: 0.1 };
 

@@ -11,7 +11,7 @@ import {
   type NodeTypes,
   type OnNodesChange,
 } from "@xyflow/react";
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import { Maximize } from "lucide-react";
 
@@ -172,6 +172,15 @@ function Surface<N extends Node, E extends Edge>({
     ({ nodes: picked }: { nodes: N[] }) => onSelectionChange?.(picked.map((node) => node.id)),
     [onSelectionChange],
   );
+  // **A canvas that opens empty asks for no fit** — the owner, 28 Sep 2026, on
+  // the sketch pad. `fitView` is a queue React Flow arms and only disarms once
+  // every node is measured, and `adoptUserNodes` reports an empty graph as not
+  // initialized — so a blank pad kept the fit armed and the first box a person
+  // added satisfied it, alone, at `maxZoom`. Measured: scale 1 to scale 2.
+  //
+  // Read once, because the prop is watched: turning it on when the first node
+  // arrives would queue exactly the fit this refuses.
+  const [fitsOnOpen] = useState(() => fitView && nodes.length > 0);
 
   return (
     <ReactFlow<N, E>
@@ -190,7 +199,7 @@ function Surface<N extends Node, E extends Edge>({
       edgesReconnectable={false}
       deleteKeyCode={null}
       ariaLabelConfig={ARIA}
-      fitView={fitView}
+      fitView={fitsOnOpen}
       fitViewOptions={fitViewOptions}
       {...(minZoom === undefined ? {} : { minZoom })}
       // The attribution is a link out of the app, and no surface may navigate.
