@@ -78,6 +78,42 @@ export const Fit: Story = {
 };
 
 /**
+ * Pulse's band: the label over its figure, the figures packed from the leading
+ * edge, and one rule where what the Job is running stops and what it is taking
+ * begins.
+ *
+ * **The figure is the only thing here a person lands on**, so it is the only
+ * thing drawn large. `play` measures that rather than reading it: a value set
+ * at the label's size reads identically through `getByRole`.
+ */
+export const Strip: Story = {
+  args: {
+    column: "strip",
+    figures: [
+      { label: "Drones running", value: "3" },
+      { label: "Checks running", value: "1" },
+      { label: "Judges running", value: "0" },
+      { label: "Spend", value: "~$9.20", detail: "of $30.00", apart: true },
+      { label: "Turns", value: "1204", detail: "of 3000" },
+      { label: "Processes", value: "5" },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const [index, value] of canvas.getAllByRole("definition").entries()) {
+      const label = canvas.getAllByRole("term")[index]!;
+      const figure = Number.parseFloat(getComputedStyle(value.firstElementChild!).fontSize);
+      const said = Number.parseFloat(getComputedStyle(label).fontSize);
+      await expect(figure).toBeGreaterThan(said);
+      // Under it, never beside it: the label's box ends before the figure's starts.
+      await expect(value.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+        label.getBoundingClientRect().bottom,
+      );
+    }
+  },
+};
+
+/**
  * **The longest figure either caller draws, at the narrowest width there is.**
  * `up` runs to `171h 55m` and a worktree to `1.2 GiB`, and the left column's
  * Fleet panel is 160px — so this is where a right-aligned value would meet its

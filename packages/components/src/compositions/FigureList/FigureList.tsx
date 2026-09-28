@@ -41,6 +41,16 @@ export type Figure = {
   words?: boolean;
   /** Whether the value is a fault. Draws it in `--error`. */
   wrong?: boolean;
+  /**
+   * A rule before this figure, splitting the list into two kinds of reading.
+   *
+   * **`strip` alone draws it.** A column of rows is already read down one
+   * edge, and a rule across it would cut the edge in half; a strip runs across
+   * with nothing between one figure and the next, which is what leaves the
+   * groups indistinguishable. Pulse puts it before the first figure that is a
+   * cost, so what is running reads apart from what it is taking.
+   */
+  apart?: boolean;
 };
 
 /**
@@ -68,7 +78,12 @@ export function FigureList({ figures, column = "wide" }: FigureListProps) {
   return (
     <dl className="armada-figures" data-column={column}>
       {figures.map((figure) => (
-        <div key={figure.label} className="armada-figures__row" data-wrong={figure.wrong || undefined}>
+        <div
+          key={figure.label}
+          className="armada-figures__row"
+          data-wrong={figure.wrong || undefined}
+          data-apart={figure.apart || undefined}
+        >
           <dt className="armada-figures__label">{figure.label}</dt>
           {/* The value is a box of its own lines rather than the text itself,
               because a detail under it has to clip on its own terms — and a
