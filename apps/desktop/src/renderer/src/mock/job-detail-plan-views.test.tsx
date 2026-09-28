@@ -99,3 +99,48 @@ test("a task on the graph opens the sheet the list's own row opens", async () =>
     .element(page.getByRole("dialog", { name: /Serve one read of everything running/ }).last())
     .toBeVisible();
 });
+
+/**
+ * What the Job is held to leads the destination.
+ *
+ * **A break test on order**, which is the whole of the owner's note of 28 Sep
+ * 2026 — *Why is this part of the plan buried at the very bottom?* The words
+ * were on the page before and after; only where they sit changed, so nothing
+ * that reads text can see this.
+ */
+test("what the Job is held to leads, above the plan that was written to meet it", async () => {
+  await page.viewport(2000, 900);
+  const within = await plan();
+  await within.getByRole("tab", { name: "List" }).click();
+  await expect.element(listGroups(within)).toBeVisible();
+
+  const held = (await within.getByText("What this Job is held to").element()) as HTMLElement;
+  const groups = (await listGroups(within).element()) as HTMLElement;
+  const toggle = (await within.getByRole("tab", { name: "List" }).element()) as HTMLElement;
+  const after = Node.DOCUMENT_POSITION_FOLLOWING;
+  expect(held.compareDocumentPosition(toggle) & after).toBeTruthy();
+  expect(held.compareDocumentPosition(groups) & after).toBeTruthy();
+  expect(held.getBoundingClientRect().top).toBeLessThan(groups.getBoundingClientRect().top);
+});
+
+/**
+ * A group's own overlap warning, on the group that has it.
+ *
+ * **A break test on where**, the owner's note of 28 Sep 2026: the same
+ * sentence in a band above the plan named two groups a reader then had to go
+ * and find. Group 1 shares nothing and says nothing.
+ */
+test("two groups claiming one file is said inside each of them", async () => {
+  await page.viewport(2000, 900);
+  const within = await plan();
+  await within.getByRole("tab", { name: "List" }).click();
+  const cards = (await listGroups(within).element()).children;
+  expect(cards[0]?.textContent).not.toContain("writes these files too");
+  expect(cards[3]?.textContent).toContain("Group 2 writes these files too");
+  expect(cards[3]?.textContent).toContain("Group 3 writes these files too");
+  expect(cards[2]?.textContent).toContain("Group 4 writes these files too");
+  // The root is what a head says now, and the files it stopped naming are not
+  // back under it.
+  expect(cards[0]?.textContent).toContain("crates/**");
+  expect(cards[0]?.textContent).not.toContain("crates/api/src/running.rs");
+});

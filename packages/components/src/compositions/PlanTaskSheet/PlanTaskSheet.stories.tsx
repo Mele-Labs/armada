@@ -73,8 +73,8 @@ export const Done: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("Expects")).toBeVisible();
-    await expect(sheet.getByText("Shown")).toBeVisible();
+    await expect(sheet.getByText("The plan asked for")).toBeVisible();
+    await expect(sheet.getByText("The work showed")).toBeVisible();
   },
 };
 
@@ -102,8 +102,8 @@ export const NothingBeyondTheTitle: Story = {
     const sheet = within(canvasElement);
     await expect(sheet.getByText("Its title and the files below, and nothing else.")).toBeVisible();
     await expect(sheet.getByText("Nothing. It runs on its own.")).toBeVisible();
-    await expect(sheet.getByText("Nothing covers this task.")).toBeVisible();
-    await expect(sheet.queryByText("What the planner holds it to")).toBeNull();
+    await expect(sheet.getByText("No test covers this task yet.")).toBeVisible();
+    await expect(sheet.queryByText("How we will know it worked")).toBeNull();
   },
 };
 
@@ -130,7 +130,8 @@ export const ItsOwnAgent: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("medium · sonnet · its own agent")).toBeVisible();
+    await expect(sheet.getByText("medium · sonnet")).toBeVisible();
+    await expect(sheet.getByText("Run by its own agent")).toBeVisible();
     await expect(sheet.getByText("T5")).toBeVisible();
     await expect(sheet.getByText("not covered")).toBeVisible();
   },
@@ -177,7 +178,9 @@ export const AgainstWhatItTouched: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("Files · declared 10 · touched 8 · unplanned 1")).toBeVisible();
+    await expect(
+      sheet.getByText("10 in the plan · 8 written to · 1 the plan never named"),
+    ).toBeVisible();
     await expect(sheet.getAllByText("not touched")).toHaveLength(2);
     await expect(sheet.getByText("crates/ipc/src/activity.rs")).toBeVisible();
   },
@@ -203,7 +206,7 @@ export const EverythingItNamed: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("Files · declared 2 · touched 2")).toBeVisible();
+    await expect(sheet.getByText("2 in the plan · 2 written to")).toBeVisible();
     await expect(sheet.queryByText("not touched")).toBeNull();
   },
 };
@@ -218,7 +221,7 @@ export const NotReadAgainstAnything: Story = {
   args: { ...LONG, state: "working" },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("Files · 10")).toBeVisible();
+    await expect(sheet.getByText("10 in the plan")).toBeVisible();
     await expect(sheet.queryByText("not touched")).toBeNull();
   },
 };
@@ -266,5 +269,96 @@ export const TheRewriteIsOut: Story = {
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
     await expect(sheet.getByRole("textbox")).toBeDisabled();
+  },
+};
+
+/**
+ * Twenty-four paths.
+ *
+ * **A break test, because a cap that stopped working looks like a long list.**
+ * The claim is a number of rows and a control that changes it, not that files
+ * are drawn — a sheet with the cap removed passes every other story here.
+ * The owner asked what 20+ would do (28 Sep 2026).
+ */
+export const ManyFiles: Story = {
+  args: {
+    id: "T1",
+    title: "Fleet: one read of every Drone",
+    state: "done",
+    scope: Array.from({ length: 24 }, (_, at) => `crates/fleet/src/file-${at + 1}.rs`),
+  },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement);
+    const files = canvasElement.querySelector(".armada-task-sheet__files")!;
+    await expect(files.children).toHaveLength(12);
+    await expect(sheet.queryByText("crates/fleet/src/file-13.rs")).toBeNull();
+    await userEvent.click(sheet.getByRole("button", { name: "Show 12 more" }));
+    await expect(files.children).toHaveLength(24);
+    await expect(sheet.queryByRole("button", { name: /Show \d+ more/ })).toBeNull();
+  },
+};
+
+/**
+ * A path the plan never named survives the cap.
+ *
+ * **It is the row worth stopping on**, so it is never what the twelve eat —
+ * twelve declared paths plus every unplanned one.
+ */
+export const ManyFilesAndOneUnplanned: Story = {
+  args: {
+    ...ManyFiles.args,
+    touched: {
+      declared: Array.from({ length: 24 }, (_, at) => ({
+        path: `crates/fleet/src/file-${at + 1}.rs`,
+        touched: true,
+      })),
+      unplanned: ["crates/ipc/src/activity.rs"],
+    },
+  } as Story["args"],
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement);
+    await expect(canvasElement.querySelector(".armada-task-sheet__files")!.children).toHaveLength(13);
+    await expect(sheet.getByText("crates/ipc/src/activity.rs")).toBeVisible();
+  },
+};
+
+/**
+ * Every label has a value in a box of its own.
+ *
+ * **A break test on a size, because this is the note that keeps coming back.**
+ * The owner has made it four times across four surfaces: a run of fields all
+ * in one weight reads as a wall. A stylesheet that stopped drawing the box
+ * would still put every word on the screen, and every other story would pass.
+ */
+export const LabelsAndValues: Story = {
+  args: { ...LONG, state: "working", tier: "difficult", model: "opus" },
+  play: async ({ canvasElement }) => {
+    const labels = canvasElement.querySelectorAll(".armada-task-sheet__label");
+    const values = canvasElement.querySelectorAll(".armada-task-sheet__value");
+    await expect(labels.length).toBeGreaterThan(3);
+    await expect(values).toHaveLength(labels.length);
+    const model = [...values].find((one) => one.textContent === "difficult · opus")!;
+    const box = getComputedStyle(model);
+    await expect(box.borderBottomStyle).toBe("solid");
+    await expect(box.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  },
+};
+
+/**
+ * The mark is left of the title and the id.
+ *
+ * **A break test on position**, which is the whole of what the owner asked for
+ * (28 Sep 2026) and the one thing a text assertion cannot see: the mark was in
+ * the head's trailing controls, beside Close, and read the same to a test.
+ */
+export const TheMarkLeads: Story = {
+  args: { ...LONG, state: "done" },
+  play: async ({ canvasElement }) => {
+    const mark = canvasElement.querySelector(".armada-task-mark")!;
+    const title = canvasElement.querySelector(".armada-sheet__title")!;
+    await expect(mark.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(mark.getBoundingClientRect().left).toBeLessThan(
+      title.getBoundingClientRect().left,
+    );
   },
 };

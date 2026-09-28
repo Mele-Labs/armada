@@ -34,13 +34,15 @@ async function planList(moment: string) {
     .toBeVisible();
 }
 
-/** One group's card, by the heading it carries. Case-sensitive: the clash warning names the same groups in lower case. */
+/**
+ * One group's card, by the name the card carries.
+ *
+ * **By its name and never by its text.** A card now says `Group 4 writes these
+ * files too` where it overlaps group 4, so a text match for group 4 reaches
+ * whichever card mentions it first.
+ */
 const groupCard = (ordinal: number) =>
-  page
-    .getByRole("list", { name: "Groups, in the order they run" })
-    .getByRole("listitem")
-    .filter({ hasText: new RegExp(`Group ${ordinal}`) })
-    .first();
+  page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
@@ -48,6 +50,16 @@ const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^
 /** The Checks region inside one group's card — the boundary's own reading. */
 const boundaryOf = (ordinal: number) =>
   groupCard(ordinal).getByRole("region", { name: "Checks at this boundary" });
+
+/**
+ * Pull the Checks strip open. **A press, because the names are behind one** —
+ * the bar carries how many and what it came to, and the Check names wrapping
+ * under it was the miss the owner named on 28 Sep 2026. A failed boundary is
+ * already open and the press shuts it, so nothing here presses one.
+ */
+async function openChecks(ordinal: number) {
+  await boundaryOf(ordinal).getByRole("button", { name: /^Checks/ }).click();
+}
 
 describe("implement", () => {
   test(
@@ -86,10 +98,12 @@ describe("implement", () => {
       // came to read.
       await planList("arc/executing-sequential");
 
-      await expect.element(taskRow("T1")).toHaveTextContent("34 turns · ~$2.40");
-      await expect.element(taskRow("T2")).toHaveTextContent("12 turns · ~$0.64");
-      await expect.element(taskRow("T3")).toHaveTextContent("8 turns · ~$0.26");
-      await expect.element(taskRow("T4")).toHaveTextContent("9 turns · ~$0.31");
+      // Turns and cost are two columns now, so the row carries them apart.
+      await expect.element(taskRow("T1")).toHaveTextContent("34 turns");
+      await expect.element(taskRow("T1")).toHaveTextContent("~$2.40");
+      await expect.element(taskRow("T2")).toHaveTextContent("~$0.64");
+      await expect.element(taskRow("T3")).toHaveTextContent("~$0.26");
+      await expect.element(taskRow("T4")).toHaveTextContent("~$0.31");
     },
   );
 
@@ -103,10 +117,16 @@ describe("implement", () => {
       await expect.element(groupCard(3)).toHaveTextContent("2 tasks, at the same time");
       // The Job's cap rode on that line until 28 Sep, and read as one number twice.
       await expect.element(groupCard(3)).not.toHaveTextContent("Drones at once");
-      await expect.element(taskRow("T5")).toHaveTextContent("its own agent");
-      await expect.element(taskRow("T5")).toHaveTextContent("runs beside T6");
-      await expect.element(taskRow("T6")).toHaveTextContent("its own agent");
-      await expect.element(taskRow("T6")).toHaveTextContent("runs beside T5");
+      await expect.element(taskRow("T5")).toHaveTextContent("beside T6");
+      await expect.element(taskRow("T6")).toHaveTextContent("beside T5");
+      // **How a task is run is in its inspector and not on its row.** The
+      // design board gives the row one column for the model, and a column
+      // reading `its own agent` on all eight tasks is a column saying nothing.
+      await expect.element(taskRow("T5")).not.toHaveTextContent("its own agent");
+      await taskRow("T5").getByRole("button").first().click();
+      await expect
+        .element(page.getByRole("dialog").first())
+        .toHaveTextContent("Run by its own agent");
     },
   );
 
@@ -116,10 +136,11 @@ describe("implement", () => {
     async () => {
       await planList("arc/executing-concurrent");
 
-      await expect.element(taskRow("T5")).toHaveTextContent("27 turns · ~$1.90");
-      await expect.element(taskRow("T6")).toHaveTextContent("15 turns · ~$0.72");
+      await expect.element(taskRow("T5")).toHaveTextContent("~$1.90");
+      await expect.element(taskRow("T6")).toHaveTextContent("~$0.72");
       // The boundary has not run, and the two costs are on screen anyway.
-      await expect.element(boundaryOf(3)).toHaveTextContent("7 checks will run at this boundary");
+      await expect.element(boundaryOf(3)).toHaveTextContent("will run at this boundary");
+      await openChecks(3);
       await expect.element(boundaryOf(3)).toHaveTextContent("not run");
     },
   );
@@ -136,7 +157,11 @@ describe("implement", () => {
       // **What the next Drone is given is the Check's own output, not a summary**
       // — the reading the owner kept this board for, and the only place in the
       // app it is drawn.
-      await expect.element(boundaryOf(3)).toHaveTextContent("What the next Drone is told");
+      // **Labelled as the gate's record, not as the whole of what a Drone
+      // reads.** `CheckRun.expected` and `produced` are the measure and the
+      // exit code; the output is a file, and the line under says so.
+      await expect.element(boundaryOf(3)).toHaveTextContent("What the gate wrote down");
+      await expect.element(boundaryOf(3)).toHaveTextContent("The run's whole output is kept");
       await expect.element(boundaryOf(3)).toHaveTextContent("1 of 1384 failed");
       // The ordering rule came off this boundary on 28 Sep — guide 4's now, and
       // true of a step that never ran.
@@ -158,13 +183,17 @@ describe("implement", () => {
     async () => {
       await planList("arc/group-failed");
 
-      const checks = boundaryOf(3).getByRole("listitem");
+      // **A failed boundary opens itself**, so nothing is pressed to read
+      // this. By `data-reads` and not by role: the region's guide `?` is a
+      // list item too, and it is not a Check.
+      const checks = () => [...boundaryOf(3).element().querySelectorAll("li[data-reads]")];
       // Every Check the boundary declares has a row, and exactly one is red.
-      await expect.poll(() => checks.all().length).toBe(7);
-      const reads = () => checks.all().map((one) => one.element().getAttribute("data-reads"));
+      await expect.poll(() => checks().length).toBe(7);
+      const reads = () => checks().map((one) => one.getAttribute("data-reads"));
       expect(reads().filter((one) => one === "failed")).toHaveLength(1);
       expect(reads().filter((one) => one === "passed")).toHaveLength(6);
-      await expect.element(checks.filter({ hasText: "typecheck" }).first()).toHaveTextContent("passed");
+      const typecheck = checks().find((one) => one.textContent?.startsWith("typecheck"));
+      expect(typecheck?.textContent).toContain("passed");
     },
   );
 

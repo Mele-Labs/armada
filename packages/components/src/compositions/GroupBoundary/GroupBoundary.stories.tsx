@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import { GroupBoundary, type GroupBoundaryCheck } from "./GroupBoundary";
 
@@ -23,11 +23,24 @@ const NAMES = ["typecheck", "format", "screens_test", "components_test", "bridge
 const all = (reads: GroupBoundaryCheck["reads"]): GroupBoundaryCheck[] =>
   NAMES.map((name) => ({ name, reads }));
 
-/** Nothing has reached it: seven segments, no verdict and no commit. */
+/**
+ * Nothing has reached it: seven segments, no verdict and no commit.
+ *
+ * **A break test on absence.** The Check names are behind the strip's press,
+ * and a disclosure that forgot to close would draw them — which reads as the
+ * wrapping list the owner called a big miss, with no test failing.
+ */
 export const NotRun: Story = {
   args: {
     clause: "will run at this boundary",
     checks: all("not run"),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    const strip = canvas.getAllByRole("button", { expanded: false })[0]!;
+    await expect(canvas.queryByText("screens_test")).toBeNull();
+    await expect(canvasElement.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
+    await userEvent.click(strip);
+    await expect(canvas.getByText("screens_test")).toBeVisible();
   },
 };
 
@@ -54,6 +67,14 @@ export const AllPassed: Story = {
       { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
     ],
   },
+  play: async ({ canvas }) => {
+    // A boundary that passed stays shut, which is what makes a failed one
+    // opening itself a reading rather than the default.
+    const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
+    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
+    await expect(checks).toHaveTextContent("all 7 passed");
+    await expect(checks).toHaveTextContent("7a2f0c5");
+  },
 };
 
 /**
@@ -77,10 +98,17 @@ export const OneFailed: Story = {
   },
   play: async ({ canvas }) => {
     const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
+    // **The break test.** What failed is why anybody is on the card, so the
+    // strip opens itself — shut, every assertion below would read nothing and
+    // the screen would be hiding the one thing it exists to show.
+    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "true");
     await expect(checks).toHaveTextContent("screens_test");
     await expect(checks).toHaveTextContent("second run");
     await expect(checks).toHaveTextContent("1 of 1384 failed");
     await expect(checks.querySelectorAll('[data-reads="passed"]')).toHaveLength(6);
+    // Not the output, and the region says so rather than claiming to be it.
+    await expect(checks).toHaveTextContent("What the gate wrote down");
+    await expect(checks).toHaveTextContent("The run's whole output is kept");
     // The two sentences the owner cut on 28 Sep. The ordering rule is guide
     // 4's, and the reason there is no case named Fleet and not this Job.
     await expect(checks).not.toHaveTextContent("No task of group");

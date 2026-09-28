@@ -104,8 +104,24 @@ function planned(): PlanBoardGroup[] {
   ];
 }
 
+/**
+ * The plan before anything runs.
+ *
+ * **A break test on absence.** A group says where it writes and not every file
+ * it writes (owner, 28 Sep 2026), and a card that went back to listing them
+ * would still pass every other assertion on this board.
+ */
 export const Planned: Story = {
   args: { approach: APPROACH, groups: planned(), onOpenTask: fn() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("packages/screens/src/**")).toBeVisible();
+    await expect(canvas.queryByText("packages/screens/src/Running.tsx")).toBeNull();
+    await expect(canvas.queryByText("packages/screens/src/running-rows.tsx")).toBeNull();
+    // Three figures per row, lined up down the card by the list's own tracks.
+    const rows = canvasElement.querySelectorAll(".armada-plan-board__task-model");
+    await expect(rows).toHaveLength(4);
+  },
 };
 
 /**
@@ -159,6 +175,7 @@ export const GroupFailed: Story = {
     await expect(card).toHaveTextContent("screens_test failed");
     await expect(card).toHaveTextContent("second run");
     await expect(card).toHaveTextContent("1 of 1384 failed");
+    await expect(card).toHaveTextContent("What the gate wrote down");
     // Cut on 28 Sep, and neither comes back with the reading.
     await expect(card).not.toHaveTextContent("No task of group");
     await expect(card).not.toHaveTextContent("does not serve the cases");
@@ -246,13 +263,16 @@ export const OpeningATask: Story = {
   args: { ...Planned.args, openTaskId: "T5" } as Story["args"],
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: /T1/ }));
+    await userEvent.click(canvas.getByRole("button", { name: /T1 Serve one read/ }));
     await expect(args.onOpenTask).toHaveBeenCalledWith("T1");
-    await expect(canvas.getByRole("button", { name: /T5/ })).toHaveAttribute(
+    // `/T5/` alone now matches T6's row too, which says `beside T5`.
+    await expect(canvas.getByRole("button", { name: /T5 Draw what is running/ })).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await expect(canvas.getByRole("button", { name: /T1/ })).not.toHaveAttribute("aria-current");
+    await expect(canvas.getByRole("button", { name: /T1 Serve one read/ })).not.toHaveAttribute(
+      "aria-current",
+    );
   },
 };
 

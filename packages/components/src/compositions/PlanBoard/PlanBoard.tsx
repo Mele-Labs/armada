@@ -250,7 +250,10 @@ function GroupCard({
   onAsk?: (groupId: string, askId: string) => void;
 }) {
   return (
-    <li className="armada-plan-board__group">
+    // **Named, because a card now carries other groups' ordinals.** An overlap
+    // warning says `Group 4 writes these files too`, so a reader — and a test —
+    // looking for group 4 by its text reaches the card that mentions it first.
+    <li className="armada-plan-board__group" aria-label={`Group ${group.ordinal}`}>
       <Card data-state={group.state}>
         <CardHeader className="armada-plan-board__group-head">
           <CardTitle className="armada-plan-board__group-name">Group {group.ordinal}</CardTitle>

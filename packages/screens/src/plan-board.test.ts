@@ -102,8 +102,8 @@ describe("a task carries only its own agent", () => {
 describe("fan out, then join", () => {
   test("a concurrent group says its tasks run at the same time, and names what each is beside", () => {
     expect(groupAt(executingConcurrent(), 3).shapeSays).toContain("2 tasks, at the same time");
-    expect(taskIn(executingConcurrent(), 3, "T5").besideSays).toBe("runs beside T6");
-    expect(taskIn(executingConcurrent(), 3, "T6").besideSays).toBe("runs beside T5");
+    expect(taskIn(executingConcurrent(), 3, "T5").besideSays).toBe("beside T6");
+    expect(taskIn(executingConcurrent(), 3, "T6").besideSays).toBe("beside T5");
   });
 
   test("a group whose tasks run in order says so, and a group of one says it runs alone", () => {
