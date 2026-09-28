@@ -63,6 +63,13 @@ const STEPS: ProposalGateRow[] = [
   },
 ];
 
+/**
+ * The address that makes a reference a link. **A forge is never named here**
+ * — which one a repository uses is `armada.yml`'s business and the adapter's,
+ * and a story is neither.
+ */
+const ISSUE_ADDRESS = "https://forge.example/armada/issues/1162";
+
 const CRITERIA = [
   {
     id: "a1",
@@ -70,14 +77,14 @@ const CRITERIA = [
     origin: "From issue",
     // The address is what makes the reference a link. Nothing on the wire
     // carries one, so the frozen story below draws the same reference as text.
-    issue: { ref: "armada/1162", url: "https://github.com/NickMele/armada/issues/1162" },
+    issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
     decidedBy: "A Check will decide it",
   },
   {
     id: "a2",
     text: "Pressing the stat lists the Drone's Job and step",
     origin: "From issue",
-    issue: { ref: "armada/1162", url: "https://github.com/NickMele/armada/issues/1162" },
+    issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
     decidedBy: "The Judge will decide it",
   },
 ];
@@ -85,7 +92,8 @@ const CRITERIA = [
 /** Every workflow this repository declares, as the picker offers them. */
 const WORKFLOWS = [
   { id: "feature", name: "feature", steps: 4 },
-  { id: "bug", name: "bug", steps: 3 },
+  // Seven, as `workflow-samples/bug.json` declares — the reference sample.
+  { id: "bug", name: "bug", steps: 7 },
 ];
 
 const COMPLETE = [

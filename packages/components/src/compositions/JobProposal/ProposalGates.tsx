@@ -139,7 +139,7 @@ export function ProposalGates({
           <li className="armada-proposal__gate" key={step.id} aria-label={step.label}>
             <span
               className="armada-proposal__gate-step"
-              data-identifier={step.labelIsAnIdentifier || undefined}
+              data-identifier={step.labelIsAnIdentifier === true ? "true" : undefined}
             >
               {step.label}
             </span>
