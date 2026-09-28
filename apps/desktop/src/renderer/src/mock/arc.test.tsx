@@ -511,58 +511,10 @@ describe("the plan", () => {
   });
 });
 
-// The implement board is on no destination (owner, 28 Sep 2026: *I dont think
-// we need the groups/plan info on the workflow view*). Every claim below is
-// still owed and none of them can be made through `App` until the board has a
-// destination again — back to the `test.todo` each of them started as, which
-// is what a claim with no surface is. `ImplementBoard` and `implementBoardOf`
-// are untouched, and `implement.test.ts` still holds what the board says.
-describe("implement", () => {
-  test.todo(
-    "arc/executing-sequential: groups one and two read passed with the commit each left, " +
-      "group three is working, and group four has not started",
-  );
-
-  test.todo(
-    "arc/executing-sequential: the working task shows its turns and no cost, because its " +
-      "agent has not stopped",
-  );
-
-  test.todo(
-    "arc/executing-sequential: every finished task shows what it cost, including the ones in " +
-      "a group that has already passed",
-  );
-
-  test.todo(
-    "arc/executing-concurrent: T5 and T6 are drawn as having run at the same time, each with " +
-      "its own agent, and group three reads joining",
-  );
-
-  test.todo(
-    "arc/executing-concurrent: both tasks show a cost the moment their own agent stopped, " +
-      "before their group has been checked",
-  );
-
-  test.todo(
-    "arc/group-failed: group three reads failed with the one Check that failed named, and " +
-      "says this is its second run",
-  );
-
-  test.todo(
-    "arc/group-failed: the six Checks that passed are drawn beside the one that did not, " +
-      "rather than the group reading red with nothing said",
-  );
-
-  test.todo(
-    "arc/done-touched: T6 still reads done and carries a flag saying a later task edited the " +
-      "file it had finished, and T7 is named as the task that did",
-  );
-
-  test.todo(
-    "arc/executing-sequential: a task opens into what its Drone was told, what it may touch, " +
-      "what it runs beside, and a redirect addressed to that task's own Drone",
-  );
-});
+// The nine claims about a plan that is running are in
+// `arc-implement.test.tsx`, live. The owner decided on 28 Sep 2026 that the
+// board's reading moves under the Plan tab's List view, and this file is at its
+// ceiling.
 
 describe("the Record", () => {
   test(
@@ -588,8 +540,8 @@ describe("the Record", () => {
       expect(whoSaid(rows, /^screens_test$/)).toBe("Check");
       // The same Job's Drone and Fleet are both on screen, so Check is a
       // distinction the table is drawing rather than the only word it has.
-      expect(rows.map((row) => row["Who ran it"])).toContain("Drone");
-      expect(rows.map((row) => row["Who ran it"])).toContain("Fleet");
+      expect(rows.map((row) => row["Who"])).toContain("Drone");
+      expect(rows.map((row) => row["Who"])).toContain("Fleet");
     },
   );
 
@@ -655,9 +607,10 @@ function ledger(): Record<string, string>[] {
   );
 }
 
-/** Who ran the one row whose What matches. */
+/** Who ran the one row whose What matches. The column is `Who`: the owner cut
+    the longer heading, and a merge left these three claims reading the old one. */
 function whoSaid(rows: Record<string, string>[], what: RegExp): string | undefined {
-  return rows.find((row) => what.test(row["What"] ?? ""))?.["Who ran it"];
+  return rows.find((row) => what.test(row["What"] ?? ""))?.["Who"];
 }
 
 describe("Pulse", () => {
@@ -717,7 +670,7 @@ describe("Pulse", () => {
       // What stays is the reading: when, and how often it is taken again.
       await expect.element(page.getByText(/^Read .* ago\. Taken again every 10s while open\.$/)).toBeVisible();
       await expect.element(markFor(GUIDE_LOOK)).toBeVisible();
-      await expect.element(page.getByRole("button", { name: "Look now" })).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Refresh" })).toBeVisible();
     },
   );
 });

@@ -3,8 +3,9 @@ import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Clamped } from "../Clamped/Clamped";
 import { FactChip } from "../FactChip/FactChip";
+import { GroupBoundary, type GroupBoundaryProps } from "../GroupBoundary/GroupBoundary";
 import { GuideMark } from "../GuideMark/GuideMark";
-import { GUIDE_PLAN_ASKS } from "../../guides";
+import { GUIDE_GROUP_ORDER, GUIDE_PLAN_ASKS } from "../../guides";
 import { PathChip } from "../PathChip/PathChip";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
 
@@ -15,9 +16,13 @@ import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
  * (`#1530`, 21 Sep). A task carries what its own agent does; the boundary
  * under it carries what runs once every task in the card has stopped.
  *
- * **It composes no sentence.** Every line of prose here is written by the
- * caller — `packages/screens/src/tab-plan-read.ts` — for `StepBar`'s own
- * reason: a count in words is copy, and copy has one owner.
+ * **One board, not two.** A second one drew these same groups under the
+ * Workflow canvas until the owner took them off it (28 Sep 2026); its reading
+ * of a group that has run is these fields, filled in.
+ * `docs/journeys/monitor-active-work.md`.
+ *
+ * **It composes no sentence.** Every line of prose here is the caller's —
+ * `packages/screens/src/tab-plan-read.ts`.
  */
 
 /** Where a group is, for its hue alone. The word is `says`, which is prose. */
@@ -40,6 +45,8 @@ export type PlanBoardTask = {
   /** How hard the planner thought it was, and the model that tier resolved to. */
   tier: string;
   model: string;
+  /** `its own agent` — how it is run. Absent before the plan says. */
+  runBy?: string;
   /** `runs beside T5`, written by the caller. Absent where it runs alone. */
   besideSays?: string;
   /** `touched later · T7` — a later task edited a file this one had finished. */
@@ -70,24 +77,17 @@ export type PlanBoardGroup = {
   state: PlanGroupState;
   /** Where the group is, in words — `working`, `passed`, `failed at its checks`. */
   says: string;
+  /** `2 tasks, at the same time`, `4 tasks, one after another`, `1 task, on its own`. */
+  shapeSays: string;
   /** Every path its tasks claim, de-duplicated, in first-seen order. */
   scope: readonly string[];
   tasks: readonly PlanBoardTask[];
-  /** `7 checks will run at this boundary`. */
-  boundarySays: string;
-  /** The Checks by name, in the order the Manifest declares them. */
-  checks: readonly string[];
-  /** Which of them failed, by name. Drawn beside the ones that passed. */
-  checksFailed?: readonly string[];
-  /** `1 test runs at this boundary`. Absent where none does. */
-  testsSay?: string;
-  tests?: readonly PlanBoardTest[];
-  /** `second run`, where the group has been run again. */
-  retrySays?: string;
-  /** The commit it left. Absent until it left one. */
-  commit?: string;
-  /** `both tasks run at the same time`. Absent where they run in order. */
-  concurrentSays?: string;
+  /**
+   * What runs once every task in the card has stopped, and what it came to —
+   * **`GroupBoundary`'s own reading**, so the commit a group left and the
+   * failed Check's output are drawn once rather than spelled twice.
+   */
+  boundary: GroupBoundaryProps;
   /**
    * What may be asked of the Drone about this group. **Empty draws nothing**,
    * which is every plan already approved: the plan is a record then, and a
@@ -155,6 +155,7 @@ function TaskRow({
       <span className="armada-plan-board__task-title">{task.title}</span>
       <span className="armada-plan-board__task-tier">
         {task.tier} · {task.model}
+        {task.runBy === undefined ? null : ` · ${task.runBy}`}
       </span>
     </>
   );
@@ -192,48 +193,16 @@ function TaskRow({
           )}
         </span>
       )}
+      {/* Labelled, because the reason is the Drone's own words and a bare
+          sentence under a row reads as a note somebody left (owner, 28 Sep).
+          The boundary's `What the next Drone is told` pattern. */}
       {task.failedReason === undefined ? null : (
-        <span className="armada-plan-board__task-failed">{task.failedReason}</span>
+        <span className="armada-plan-board__task-failed">
+          <span className="armada-plan-board__task-eyebrow">Why it stopped</span>
+          <span>{task.failedReason}</span>
+        </span>
       )}
     </li>
-  );
-}
-
-function Boundary({ group }: { group: PlanBoardGroup }) {
-  const failed = new Set(group.checksFailed ?? []);
-  return (
-    <div className="armada-plan-board__boundary">
-      <p className="armada-plan-board__boundary-says">{group.boundarySays}</p>
-      {/* Every Check, named, including the ones that passed. A group reading
-          red with nothing said is what the issue asked to be rid of. */}
-      <ul className="armada-plan-board__checks">
-        {group.checks.map((name) => (
-          <li key={name}>
-            <FactChip {...(failed.has(name) ? { named: "failed" as const } : {})}>{name}</FactChip>
-          </li>
-        ))}
-      </ul>
-      {group.testsSay === undefined ? null : (
-        <p className="armada-plan-board__boundary-says">{group.testsSay}</p>
-      )}
-      {group.tests === undefined || group.tests.length === 0 ? null : (
-        <ul className="armada-plan-board__tests">
-          {group.tests.map((test) => (
-            <li key={test.id}>
-              {/* **Only the exceptional reading is noted.** A note on every
-                  row would put a word beside each and say nothing; the row
-                  worth stopping on is the case nothing will run. */}
-              <PathChip
-                {...splitPath(test.spec)}
-                {...(test.reads === "owed"
-                  ? {}
-                  : { note: test.droppedSays ?? test.reads })}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 
@@ -294,12 +263,11 @@ function GroupCard({
           </span>
         </CardHeader>
         <CardContent>
+          {/* The shape, and nothing the boundary below already says: the
+              commit it left and which run this is are what the boundary came
+              to, and a chip up here would be the same fact read twice. */}
           <div className="armada-plan-board__group-facts">
-            {group.concurrentSays === undefined ? null : (
-              <FactChip>{group.concurrentSays}</FactChip>
-            )}
-            {group.retrySays === undefined ? null : <FactChip>{group.retrySays}</FactChip>}
-            {group.commit === undefined ? null : <FactChip>{group.commit}</FactChip>}
+            <FactChip>{group.shapeSays}</FactChip>
           </div>
           <ul className="armada-plan-board__scope" aria-label={`Group ${group.ordinal} scope`}>
             {group.scope.map((path) => (
@@ -321,7 +289,12 @@ function GroupCard({
           {onAsk === undefined || (group.asks ?? []).length === 0 ? null : (
             <GroupAsks group={group} pending={askPending} onAsk={onAsk} />
           )}
-          <Boundary group={group} />
+          {/* Divided from the tasks by a rule: the boundary is a different
+              actor, not a fifth task. The wrapper carries the rule so this
+              stylesheet reaches into no other one. */}
+          <div className="armada-plan-board__boundary">
+            <GroupBoundary {...group.boundary} />
+          </div>
         </CardContent>
       </Card>
     </li>
@@ -357,13 +330,14 @@ export function PlanBoard({
       )}
       <div className="armada-plan-board__group-region">
         {/* The noun and nothing else. **A label, not the sentence that was
-            here** — `Groups` is true of a plan that has never run, the same
-            class as `Checks at this boundary`, and it is what the `?` hangs on
-            now that the line saying what an ask is has gone (#1602). The mark
-            is drawn only where the asks are, because that is what it
-            explains. */}
+            here** — `Groups` is true of a plan that has never run (#1602).
+            Guide 4 hangs here because the list is named for the order the
+            groups run in, and one at a time is the rule that order obeys; it
+            came off the board that was taken off Workflow. The asks' mark is
+            drawn only where the asks are. */}
         <div className="armada-plan-board__groups-head">
           <h3 className="armada-plan-board__groups-title">Groups</h3>
+          <GuideMark guide={GUIDE_GROUP_ORDER} />
           {askable ? <GuideMark guide={GUIDE_PLAN_ASKS} /> : null}
         </div>
         <ol className="armada-plan-board__groups" aria-label="Groups, in the order they run">

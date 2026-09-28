@@ -24,10 +24,19 @@ async function at(moment: string, tab: string): Promise<void> {
   await expect.element(page.getByRole("tabpanel", { name: tab })).toBeVisible();
 }
 
-/** One group of the running board, by the heading it carries. */
-const runGroup = (ordinal: number) =>
+/** The plan as a list. The board's reading is under this view since 28 Sep 2026. */
+async function planList(moment: string): Promise<void> {
+  await at(moment, "Plan");
+  await page.getByRole("tab", { name: "List" }).click();
+  await expect
+    .element(page.getByRole("list", { name: "Groups, in the order they run" }))
+    .toBeVisible();
+}
+
+/** One group's card, by the heading it carries. */
+const groupCard = (ordinal: number) =>
   page
-    .getByRole("list", { name: "The groups of this step, in the order they run" })
+    .getByRole("list", { name: "Groups, in the order they run" })
     .getByRole("listitem")
     .filter({ hasText: new RegExp(`Group ${ordinal}`) })
     .first();
@@ -35,19 +44,21 @@ const runGroup = (ordinal: number) =>
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
 
-describe("the implement board", () => {
+describe("the plan board", () => {
   test(
     "arc/group-failed: no band at the boundary claims anything about a case, and the task " +
       "that stopped says whose words the reason is",
     async () => {
-      await at("arc/group-failed", "Workflow");
+      // On the Plan tab's List view since 28 Sep 2026, when the owner took the
+      // groups off Workflow and the board's reading came here.
+      await planList("arc/group-failed");
 
       // The band said Fleet serves no case yet, which is a fact about the
       // build rather than about this Job.
       await expect
-        .element(runGroup(3).getByRole("region", { name: "Tests at this boundary" }))
+        .element(groupCard(3).getByRole("region", { name: "Tests at this boundary" }))
         .not.toBeInTheDocument();
-      await expect.element(runGroup(3)).not.toHaveTextContent("does not serve the cases");
+      await expect.element(groupCard(3)).not.toHaveTextContent("does not serve the cases");
 
       // The reason the task stopped stays. It is the Drone's own words, and
       // the label in front of it is what says so — a bare sentence under a

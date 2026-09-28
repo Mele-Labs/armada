@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
+import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -24,6 +25,11 @@ export type PlanTaskSheetProps = {
   id: string;
   title: string;
   state: TaskMarkState;
+  /**
+   * Where its own agent has got to, as a sentence — turns while it runs, the
+   * cost once it stopped. Absent before anything was dispatched at it.
+   */
+  doing?: string;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
   /** What the other fields cannot hold. Absent where the task has none. */
@@ -62,9 +68,23 @@ export type PlanTaskSheetProps = {
    * is approved it is a record, and a record takes no requests.
    */
   rewrite?: PlanTaskRewrite;
+  /**
+   * Telling this task's own Drone something while it works.
+   *
+   * **Review and reply are one loop**, so the box is in the surface the task is
+   * read in. Absent where nothing is live to reach — and it says which Drone it
+   * reaches, because a task with an agent of its own is not the Job's one Drone.
+   */
+  redirect?: PlanTaskRedirect;
   /** The window is at `--window-floor`. */
   floor?: boolean;
   onClose?: () => void;
+};
+
+/** The redirect, with the Drone it is addressed to named. */
+export type PlanTaskRedirect = Omit<DroneMessageBoxProps, "placeholder"> & {
+  /** What the box reaches — `Drone on T5`, or the Job's one Drone. */
+  reaches: string;
 };
 
 /**
@@ -131,6 +151,7 @@ export function PlanTaskSheet({
   id,
   title,
   state,
+  doing,
   reason,
   note,
   scope = [],
@@ -144,6 +165,7 @@ export function PlanTaskSheet({
   tests = [],
   failedReason,
   rewrite,
+  redirect,
   floor = false,
   onClose,
 }: PlanTaskSheetProps) {
@@ -165,6 +187,14 @@ export function PlanTaskSheet({
       onClose={onClose}
     >
       <div className="armada-task-sheet__body">
+        {/* Where its agent has got to, above everything the plan decided:
+            what a person opening a task mid-run came for is what it is doing,
+            and the plan is what it was told to do. */}
+        {doing === undefined ? null : (
+          <Field label="Where it has got to">
+            <p className="armada-task-sheet__prose">{doing}</p>
+          </Field>
+        )}
         {reason === undefined ? null : (
           <Field label="Dropped because">
             <p className="armada-task-sheet__prose">{reason}</p>
@@ -256,6 +286,25 @@ export function PlanTaskSheet({
           )}
         </Field>
         {rewrite === undefined ? null : <Rewrite {...rewrite} />}
+        {/* Named, so the box says which Drone a correction reaches: a task
+            with an agent of its own is not the Job's one Drone, and a box
+            that said neither would send to either. */}
+        {redirect === undefined ? null : (
+          <section className="armada-task-sheet__field" aria-label="Redirect">
+            <h3 className="armada-task-sheet__label">Redirect</h3>
+            <p className="armada-task-sheet__reaches" role="note">
+              Reaches {redirect.reaches}
+            </p>
+            <DroneMessageBox
+              value={redirect.value}
+              onChange={redirect.onChange}
+              onSend={redirect.onSend}
+              disabled={redirect.disabled}
+              disabledReason={redirect.disabledReason}
+              waiting={redirect.waiting}
+            />
+          </section>
+        )}
       </div>
     </Sheet>
   );

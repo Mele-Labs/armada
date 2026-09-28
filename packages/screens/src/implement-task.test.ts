@@ -13,9 +13,9 @@ import {
   NO_EDIT_READ,
   NO_TURNS_WATCHED,
   briefOfTask,
-  doingOfTask,
   taskReadingOf,
 } from "./implement-task";
+import { doingOfTask } from "./tab-plan-read";
 
 /** The Job whole behind a moment, and its groups. */
 function reading(moment: ReturnType<typeof executingSequential>) {

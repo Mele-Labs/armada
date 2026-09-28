@@ -5,7 +5,7 @@
 // prose, for `StepBar`'s reason: a count in words is copy, and copy has one
 // owner. So does the rule that decides it.
 
-import type { PlanBoardAsk, PlanBoardGroup, PlanBoardProps, PlanBoardTask, PlanBoardTest } from "@armada/components";
+import type { PlanBoardAsk, PlanBoardTest } from "@armada/components";
 import type { PlanTaskSheetProps, PlanTaskTest, TaskMarkState } from "@armada/components";
 import type { JobDetail, StepDetail } from "@armada/protocol";
 
@@ -304,23 +304,6 @@ export function markOf(state: TaskView["state"]): TaskMarkState {
   return state;
 }
 
-function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTask {
-  const beside = besideSaid(task);
-  const spent = spentSaid(task);
-  const later = touchedBy.get(task.id);
-  return {
-    id: task.id,
-    title: task.title,
-    mark: markOf(task.state),
-    tier: task.tier,
-    model: task.model,
-    ...(beside === undefined ? {} : { besideSays: beside }),
-    ...(spent === undefined ? {} : { spentSays: spent }),
-    ...(later === undefined ? {} : { touchedSays: `touched later · ${later}` }),
-    ...(task.failed_reason === undefined ? {} : { failedReason: task.failed_reason }),
-  };
-}
-
 /**
  * Which Checks failed at a group's boundary, by name.
  *
@@ -351,76 +334,51 @@ export function retrySaid(retries: number): string | undefined {
   return `run ${retries + 1}`;
 }
 
-/** One group's card, sentences and all. */
-export function groupCardOf(
-  group: GroupView,
-  cases: readonly CaseView[],
-  touchedBy: Map<string, string>,
-  whole: JobDetail | null,
-  asks: readonly PlanBoardAsk[] = [],
-): PlanBoardGroup {
-  const atBoundary = cases.filter((one) => one.groups.includes(group.id));
-  const tests = atBoundary.map(testOf);
-  const saidTests = testsSaid(group.state, tests.length);
-  const failed = failedChecksOf(whole, group);
-  const retry = retrySaid(group.retry_count);
-  return {
-    id: group.id,
-    ordinal: group.ordinal,
-    state: group.state,
-    says: groupSaid(group.state),
-    scope: group.scope,
-    tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
-    boundarySays: boundarySaid(group.state, group.checks_selected.length),
-    checks: group.checks_selected,
-    ...(failed.length === 0 ? {} : { checksFailed: failed }),
-    ...(saidTests === undefined ? {} : { testsSay: saidTests }),
-    ...(tests.length === 0 ? {} : { tests }),
-    ...(retry === undefined ? {} : { retrySays: retry }),
-    ...(group.commit === undefined ? {} : { commit: group.commit }),
-    ...(group.concurrent
-      ? { concurrentSays: `${group.tasks.length} tasks run at the same time` }
-      : {}),
-    ...(asks.length === 0 ? {} : { asks }),
-  };
+// The group card and the whole board are `plan-board.ts`'s: composing a card
+// needs both these sentences and what only a group that has run says, and one
+// direction of import is the price of not spelling either twice.
+
+/**
+ * What the task is doing now, as a sentence. **Read off the record** — turns
+ * while it runs, the cost once its own agent stopped, the reason where it
+ * failed. A live cost would be invented: it reaches Armada on a session's last
+ * line (`#1530`, 22 Sep).
+ */
+export function doingOfTask(task: TaskView): string {
+  const spent = spentSaid(task);
+  switch (task.state) {
+    case "working":
+      return spent === undefined
+        ? "Its agent is working. Nothing it has spent can be read until that agent stops."
+        : `Its agent is working — ${spent} so far. What it cost reads once that agent stops.`;
+    case "done":
+      return spent === undefined
+        ? "Its agent has stopped and the work is in."
+        : `Its agent stopped after ${spent}.`;
+    case "failed":
+      return task.failed_reason ?? "Its agent stopped without finishing.";
+    case "dropped":
+      return task.reason === undefined ? "This task was dropped." : `Dropped — ${task.reason}`;
+    default:
+      return "Nothing has been dispatched at this task yet.";
+  }
 }
 
 /**
- * The whole board, from a Job and whatever draft the moment carries.
+ * Which Drone a correction about this task reaches, and what to call it.
  *
- * `revisable` is whether the plan may still be asked about — the step that
- * recorded it is waiting on a person, and nothing else is out. **A plan past
- * its gate draws no controls at all**: it is a record then, and a control
- * that sends an ask nobody will answer is worse than none.
+ * **Labelled for what it actually reaches.** A task with an agent of its own is
+ * addressed by task; the Job's one Drone is the fallback and says so, because
+ * Fleet runs one per Job and calling it `Drone on T5` would be a claim the wire
+ * does not make. `undefined` where there is no Drone at all.
  */
-export function planBoardOf(
+export function droneOfTask(
   whole: JobDetail | null,
-  draft: JobDraft | undefined,
-  onOpenTask: (taskId: string) => void,
-  openTaskId?: string,
-  revisable = false,
-): PlanBoardProps | undefined {
-  const groups = groupsOf(whole, draft);
-  if (groups.length === 0) return undefined;
-  const cases = casesOf(whole, draft);
-  const touchedBy = touchedByOf(groups);
-  const clashes = clashesOf(groups);
-  return {
-    approach: whole?.work_plan?.approach ?? "",
-    groups: groups.map((group, at) =>
-      groupCardOf(
-        group,
-        cases,
-        touchedBy,
-        whole,
-        revisable ? asksOf(groups, at) : [],
-      ),
-    ),
-    ...(clashes.length === 0 ? {} : { clashes }),
-    ...(revisable ? { askable: true } : {}),
-    ...(openTaskId === undefined ? {} : { openTaskId }),
-    onOpenTask,
-  };
+  task: TaskView,
+): { id: string; label: string } | undefined {
+  if (task.drone_id !== undefined) return { id: task.drone_id, label: `Drone on ${task.id}` };
+  const job = whole?.job.assigned_drone;
+  return job === undefined ? undefined : { id: job, label: "This Job's Drone" };
 }
 
 /**
@@ -443,6 +401,7 @@ export function taskSheetOf(
     id: task.id,
     title: task.title,
     state: markOf(task.state),
+    doing: doingOfTask(task),
     scope: task.scope,
     tier: task.tier,
     model: task.model,

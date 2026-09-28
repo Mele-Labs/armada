@@ -45,6 +45,15 @@
   text-wrap: pretty;
 }
 
+/* Which Drone the box below reaches. Quieter than the prose above it: it is a
+   fact about the control, not part of the reading. */
+.armada-task-sheet__reaches {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
 .armada-task-sheet__files {
   list-style: none;
   margin: 0;
