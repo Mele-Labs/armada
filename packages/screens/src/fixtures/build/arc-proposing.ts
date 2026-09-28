@@ -23,6 +23,7 @@ import {
   arcResources,
   arcSteps,
   arcWatched,
+  bugWorkflow,
   featureWorkflow,
 } from "./arc-base";
 import { ARC_LANDING, arcProposal, dispatchTyping } from "./arc-dispatch";
@@ -92,7 +93,9 @@ function atTheGate(status: string, over = {}): JobFixture {
     name: `${status} — the proposal is on screen and nothing has run`,
     job,
     watched: arcWatched(whole),
-    workflows: [featureWorkflow()],
+    // Both, because the proposal's picker offers every workflow this
+    // repository declares and a picker with one option is not a picker.
+    workflows: [featureWorkflow(), bugWorkflow()],
     manifests: arcManifests(),
     observed: { state: "none" },
     journalled: {
