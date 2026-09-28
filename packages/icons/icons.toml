@@ -83,6 +83,14 @@
   reserved = "The Guides surface only. Never a document, a log, a transcript, a brief or an evidence bundle — those are the file-* family's, and never a workflow, which is `scroll-text`."
   notes = "Minted 23 Sep 2026 with the guidance system (#1602, #1603), for the owner's catalogue of guides: a `?` beside a piece opens its card, and this rail row is where every card can be read again. Against the Navigation set it collides with none — `layout-dashboard` is a grid of panes, `clipboard-list` an upright board with a clip, `presentation` a board on legs, `hard-drive` a horizontal vessel, `briefcase` a case whose handle breaks its top edge, and `bell`, `stethoscope`, `file-cog` and `settings` are each an outline with something drawn on or inside it. Two leaves rising from a centre spine is none of those, and the spine is the silhouette rather than interior detail, so rule 3 holds at 16px. What was refused: `file-question-mark` reads exactly right and cannot be taken, because `file-*` means evidence throughout by its own reservation; `circle-help` is refused twice over, since `circle-*` is reserved to Judge criterion verdicts and a ring outline collides with `circle-dot`; `info` is the same ring with the same two problems and names a notice rather than a place; `scroll-text` already means the workflow a Job runs, so a rail row wearing it would say *workflow* where it means *guides*; `library` and a closed `book` are both rectangles at 16px, which is `file` and `archive` territory. **The objection to expect is `scroll-text`**, since a rolled sheet and an open book are both something authored — it passes rule 4 because the two are in different groups at different sizes, 16px Navigation against 12px Graph, and the contract admits collisions across those. The mark that opens one card is not a glyph at all: it is the character `?`, which is the owner's own word for the control."
 
+[icons.bookmark]
+  means = "A ribbon with a notched foot \u2014 a thing set aside to come back to"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Deferring what a Studio node raised. Never a favourite, never a saved search, never a kept Job \u2014 nothing in Armada is bookmarked in that sense, and a second meaning here would leave the bar ambiguous the way `pin`'s reservation keeps the rail's from being."
+  notes = "Minted 2026-09-28 when the owner opened the mint for the hovering node bar. Defer writes a Deferred node: what was raised is not wrong and not now, which is what a ribbon left in a page says. Refused: `clock`, `alarm-clock`, `timer` and `calendar-clock`, since the set holds one time-shaped mark by decision and `hourglass` is banned outright, so a second clock face is rule 4's collision on the very glyph that row exists to protect; `flag`, reserved outright against every other use in Armada; `archive`, a Job state meaning the record no longer describes the work; `moon` and `snowflake`, metaphors for later that P1 confines to proper nouns."
+
 [icons.briefcase]
   means = "Kit — a case with a handle above its body, which is the tool set you bring"
   group = "Navigation"
@@ -177,6 +185,14 @@
   size = "12px"
   status = "Specified"
   notes = "The square-with-radiating-ticks outline is unique in the system, which is what matters at 12px."
+
+[icons.download]
+  means = "An arrow entering an open tray \u2014 what is behind an address, brought in"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Reading a source into a Studio. Never a file written to disk, never an export, and never a fetch or a poll, which is `rotate-cw`."
+  notes = "Minted 2026-09-28 with the node bar's mint. Read in takes an address a Studio already holds and brings what is behind it in as nodes, so the arrow points into the surface rather than out of it. Against `arrow-up-to-line`, the Escalation reason: that is a bare ascender meeting a hard horizontal line and carries no vessel, this is an arrow entering one \u2014 and the two never appear together, a 12px badge in a Job row against a 16px control on a canvas, which is the cross-group collision the `link` row already argues the contract permits. Refused: `import`, whose box is interior detail at 16px; `book-open`, reserved to the Guides surface; `glasses`, which says *read* rather than *read in*; `scan-text`, which reads as reading a code, the objection that kept `scan` off Fit."
 
 [icons.external-link]
   status = "Specified"
@@ -298,6 +314,14 @@
   size = "12px"
   status = "Specified"
 
+[icons.group]
+  means = "Two like figures inside a dashed frame \u2014 a selection made into one thing"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Accepting several Notes as one Cluster. Never a generic grouping control, never a folder, and never the Plan's own groups, which draw their boundary instead of a glyph."
+  notes = "Minted 2026-09-28 with the node bar's mint. Clustering is the one act that takes several nodes and gives back one, and a marquee round two figures depicts that rather than standing for it. Against `shapes` on the rail beside it: that is three unlike figures overlapping and carries no frame, this is two like figures inside one \u2014 the frame is both the outline difference rule 3 asks for and the whole of the claim. Refused: `layers`, reserved to how many places a Job writes; `boxes`, three cubes, which says a pile rather than a union; `combine` and `merge`, whose arrows promise something is consumed, where a Cluster leaves every Note standing."
+
 [icons.hard-drive]
   means = "A drum lying on its side, cut through by a line running the full width of the grid, with two short marks below it — disk, drawn as the object and never as anything done to one"
   group = "Navigation"
@@ -312,6 +336,14 @@
   status = "Banned"
   reserved = "Banned."
   notes = "Removed from stalled because it reads as be patient for the state that most needs to read as wrong. Nothing in Armada may use it."
+
+[icons.image]
+  means = "A frame with a horizon and a sun \u2014 a picture that can be opened"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Opening the picture a Studio Note kept, full size. Never an attachment, never a staged file, and never a Sketch node, which is `shapes`."
+  notes = "Minted 2026-09-28 with the node bar's mint. `shapes`'s own row refused `image` on the grounds that it *promises a picture a person can open*, which is exactly what this act does \u2014 so that refusal is the argument for it here, and the same sentence is what keeps the two apart. Refused: `file-image`, since `file-*` is reserved to evidence throughout; `frame`, which reads as a crop; `eye`, reserved to Review; `maximize`, reserved to fitting a canvas to what is on it."
 
 [icons.layers]
   means = "how many places a Job writes — one layer for one, stacked layers for several"
@@ -340,6 +372,14 @@
     size = "16px"
     status = "Specified"
     notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A second context on a glyph carrying no reservation, which is what a `usage` sub-table is for. A chain is what every surface a person has ever used draws a hyperlink as, and a Studio's Link node is an address and nothing else — so the silhouette is already read correctly before the tooltip opens. It is a cross-group collision with the Queued reason above and the contract permits those: that one is a 12px badge glyph in `--status-queued`, this is a 16px control on a canvas, and no surface draws the two together. Refused: `external-link` is Chrome's and means *this press leaves the app*, which placing a node does not; `paperclip` would say attachment, and a Link on a Studio is a node like any other rather than something clipped to one."
+
+[icons.list-ordered]
+  means = "Numbered lines \u2014 things read in an order"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Reading several Studio nodes as one Outline. Never a plan, never a step list, and never a generic list control."
+  notes = "Minted 2026-09-28 with the node bar's mint. An Outline is several nodes read *in order*, and the digits carry the whole claim \u2014 which is why `list`, the same lines without them, is refused: unordered is the one thing an Outline is not. Refused besides: `clipboard-list`, which is the Job Board and carries a board and a clip; `list-tree`, a hierarchy an Outline does not have; `align-left`, which says how text is set rather than what it is."
 
 [icons.lock]
   means = "Cannot be skipped, even on retry"
@@ -454,6 +494,14 @@
   status = "Specified"
   reserved = "churning only. Refresh and poll controls use rotate-cw."
   notes = "Two arrows chasing each other is busy-going-nowhere exactly."
+
+[icons.rocket]
+  means = "A hull with fins, on a diagonal"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Sending a Studio node's text or address through the Job proposer. Never a Job running, never a step starting, and never the title row's Dispatch, which is `plus`."
+  notes = "Minted 2026-09-28 with the node bar's mint. An object standing for its verb, the construction `pin`, `stamp` and `wrench` already use, so P1's confinement of metaphor to proper nouns is not crossed. **The reservation is the load-bearing half**: nothing runs on this press \u2014 the node goes to the proposer and waits at the approval gate \u2014 and a launch silhouette left unreserved reads as *start it now* the first time somebody meets it. Refused: `plus`, whose own row reserves it to the title row's Dispatch segment *only*, and that word is the owner's to move rather than this file's; `send`, which means dispatched, the act a composed request performs once sent, and so names the wrong end of this one; `play`, a triangle, which separates from `triangle-alert` at 16px on interior detail alone; `ship`, whose subject is `armada-mark`'s and reserved absolutely."
 
 [icons.rotate-cw]
   means = "Redispatch"
@@ -591,6 +639,14 @@
   status = "Specified"
   reserved = "Pilot only."
 
+[icons.trash-2]
+  means = "A bin with its lid lifted clear"
+  group = "Node bar"
+  size = "12 and 16px"
+  status = "Specified"
+  reserved = "A person taking off something they put there \u2014 a Studio node deleted, a sketch box removed, an attachment dropped from a request. Never a Job ending, never a record cleaned up, and never a machine discarding anything: every use is somebody's own act on their own thing."
+  notes = "Minted 2026-09-28, and it is the mint the node bar's open question said would pay for itself: one decision serving the Studio's Delete, the sketch pad's Remove and `AttachmentChip`'s dismiss rather than three. `trash-2` rather than `trash`, whose lid sits on the bin and loses its gap at 12px. Refused, and refused before the mint opened: `x`, reserved to system failure and banned by its own row from carrying a human decision; `minus`, reserved to a record nothing checked and a dropped plan task; `ban`, which is `rejected`'s and means a person declined a whole Job; the `circle-*` and `shield-*` families, which are verdicts; `eraser`, which says a mark rubbed out and collides with `pencil` on the one surface that draws both."
+
 [icons.triangle-alert]
   means = "a check warns"
   group = "Doctor"
@@ -598,6 +654,14 @@
   status = "Specified"
   notes = "The one place triangle-alert lives, plus generic warnings in toasts."
   reserved = "Reserved to Doctor. A release on the grounds that Doctor draws no glyphs was withdrawn 25 Aug 2026 — the reservation holds whether or not the health grid draws it. No other surface may adopt it as its own mark."
+
+[icons.type]
+  means = "A capital T \u2014 the one letterform in the set, standing for words set down"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Writing a Studio node up into prose. Never a text field, never a rename, never a font or a style control, and never editing what is already written."
+  notes = "Minted 2026-09-28 with the node bar's mint. Write up turns a Note, a Cluster, a Contradiction or an Outline into an Issue draft, which is prose with a title and a body \u2014 so the glyph has to say *words* and not *a document*. Refused: `file-text` and `file-pen`, since `file-*` is reserved to evidence throughout and a draft is not a submission; `notebook-pen` and `square-pen`, compounds whose pens collide with `pencil`, reserved to the sketch pad and banned there from meaning edit; `feather`, a held instrument on a diagonal, which is `pencil`'s own silhouette at 16px; `notepad-text`, a lined pad, which parts from `sticky-note` and `clipboard-list` on interior detail alone."
 
 [icons.undo-2]
   means = "An arrow bending back on itself over a straight tail, pointing against the reading direction"

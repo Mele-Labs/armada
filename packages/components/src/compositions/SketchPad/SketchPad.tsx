@@ -9,7 +9,7 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { Pencil, SquarePlus, Undo2 } from "lucide-react";
+import { Pencil, SquarePlus, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
@@ -242,10 +242,11 @@ function PadRail({
 /**
  * The acts on the boxes a person picked, hovering over them.
  *
- * **Words rather than glyphs**, which is `[node-bar-glyphs]` in
- * `docs/contracts/iconography.md`: nothing in the registry means *join* or
- * *remove this*, and this does not mint one on the spot. The Studio's own bar
- * draws the same control, so the two read as one vocabulary.
+ * **Remove draws `trash-2` and Join draws its word** — `docs/contracts/`
+ * `iconography.md`, *The node bar*. The mint for *remove this* serves the
+ * Studio, the pad and the attachment chip at once; nothing in the registry
+ * means *join two boxes*. The Studio's own bar draws the same control, so the
+ * two read as one vocabulary.
  */
 function BoxActs({
   picked,
@@ -267,7 +268,13 @@ function BoxActs({
         why="Pick two boxes to join them."
         onPress={() => onJoin(picked[0]!, picked[1]!)}
       />
-      <GraphCanvasNodeAct name="Remove" danger disabled={disabled} onPress={() => onRemove(picked)} />
+      <GraphCanvasNodeAct
+        name="Remove"
+        icon={Trash2}
+        danger
+        disabled={disabled}
+        onPress={() => onRemove(picked)}
+      />
     </GraphCanvasNodeBar>
   );
 }

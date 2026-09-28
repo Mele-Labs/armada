@@ -11,7 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Link as LinkGlyph, Power, Shapes, StickyNote } from "lucide-react";
+import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   ACTION,
@@ -504,7 +504,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
       : []),
     ...(selected?.kind === "note" && selected.capture?.frame !== undefined
-      ? [{ id: "frame", label: "Open frame", press: () => setOpened(selected.id) }]
+      ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
     ...(openable === undefined
       ? []
@@ -548,6 +548,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           {
             id: "remove-picked",
             label: clearingLabel(onBoard.length),
+            icon: Trash2,
             danger: true,
             press: () => setClearing(true),
           },

@@ -20,7 +20,7 @@ import { GraphCanvasNodeAct } from "../GraphCanvas/GraphCanvasRail";
  * One act on what is picked. `id` is the caller's own word for it.
  *
  * **What decides between a glyph and a word is the registry, never the room** —
- * `docs/contracts/iconography.md`, `[node-bar-glyphs]`.
+ * `docs/contracts/iconography.md`, *The node bar*.
  */
 export type StudioPickedAct = {
   id: string;
@@ -40,9 +40,22 @@ export type StudioPickedProps = {
   disabled?: boolean;
 };
 
-/** Destructive acts last, which is the rule the menu kept and a row keeps too. */
+/**
+ * Glyphs, then words, then the destructive act — each keeping the order the
+ * caller declared inside its own run.
+ *
+ * **A word between two glyphs breaks the row.** The bar reads as a toolbar
+ * because the squares are one block; an act that has to draw its name is twice
+ * as wide as its neighbours and puts a gap in the middle of them. Destructive
+ * last is the rule the menu kept and a row keeps too.
+ */
 function ordered(acts: readonly StudioPickedAct[]): StudioPickedAct[] {
-  return [...acts.filter((act) => act.danger !== true), ...acts.filter((act) => act.danger === true)];
+  const live = acts.filter((act) => act.danger !== true);
+  return [
+    ...live.filter((act) => act.icon !== undefined),
+    ...live.filter((act) => act.icon === undefined),
+    ...acts.filter((act) => act.danger === true),
+  ];
 }
 
 /** **No surface of its own**: `GraphCanvasNodeBar` is the frame it sits in. */

@@ -122,8 +122,8 @@ export type GraphCanvasNodeBarProps = {
  * that has icon buttons for the actions that I can take on this node*.
  *
  * **A glyph where the registry sanctions one, the word where it does not.**
- * `docs/contracts/iconography.md`, `[node-bar-glyphs]`, holds what was refused
- * and why; nothing here mints a silhouette to avoid a word.
+ * `docs/contracts/iconography.md`, *The node bar*, holds what was minted and
+ * what was refused; nothing here reaches for a glyph that row does not give.
  */
 export type GraphCanvasNodeActProps = {
   /** Sentence case, naming what the press does. The accessible name. */

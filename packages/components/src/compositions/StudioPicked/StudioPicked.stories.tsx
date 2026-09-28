@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
-import { ExternalLink } from "lucide-react";
+import { Bookmark, ExternalLink, Trash2, Type } from "lucide-react";
 
 import { StudioPicked, type StudioPickedAct } from "./StudioPicked";
 
@@ -22,12 +22,15 @@ type Story = StoryObj<typeof StudioPicked>;
 /** Everything a Contradiction offers, with #1406's Open and the delete beside them. */
 const EVERY_ACT: StudioPickedAct[] = [
   { id: "open", label: "Open", icon: ExternalLink },
-  { id: "write_up", label: "Write up" },
-  { id: "defer", label: "Defer" },
+  { id: "write_up", label: "Write up", icon: Type },
+  { id: "defer", label: "Defer", icon: Bookmark },
   { id: "settled", label: "Not a problem" },
   { id: "resolved", label: "Resolved here" },
-  { id: "remove", label: "Delete node", danger: true },
+  { id: "remove", label: "Delete node", icon: Trash2, danger: true },
 ];
+
+/** The order the row draws: glyphs, then the acts that must say their names, then the delete. */
+const AS_DRAWN = ["Open", "Write up", "Defer", "Not a problem", "Resolved here", "Delete node"];
 
 /**
  * One node offering six acts. **Every one is a press**, which is the owner's
@@ -38,7 +41,7 @@ export const OneNode: Story = {
   play: async ({ canvas, args, userEvent, step }) => {
     await step("every act is on the bar, the delete last", async () => {
       const offered = canvas.getAllByRole("button").map((one) => one.getAttribute("aria-label"));
-      await expect(offered).toEqual(EVERY_ACT.map((act) => act.label));
+      await expect(offered).toEqual(AS_DRAWN);
     });
 
     await step("one press acts, with nothing opened first", async () => {
@@ -53,7 +56,7 @@ export const ManyNodes: Story = {
   args: {
     acts: [
       { id: "outline", label: "Outline" },
-      { id: "remove", label: "Delete 40 nodes", danger: true },
+      { id: "remove", label: "Delete 40 nodes", icon: Trash2, danger: true },
     ],
     onAct: fn(),
   },
