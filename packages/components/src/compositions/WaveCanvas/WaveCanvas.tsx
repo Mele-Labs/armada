@@ -235,7 +235,6 @@ export function WaveCanvas({ nodes: given, edges: givenEdges, label, opensOn }: 
       edges={edges}
       nodeTypes={NODE_TYPES}
       edgeTypes={EDGE_TYPES}
-      controls="signs"
       minZoom={FURTHEST_OUT}
       fitViewOptions={fitViewOptions}
     >

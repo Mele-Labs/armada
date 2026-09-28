@@ -72,11 +72,25 @@ export type StudioWhiteboardProps = {
    */
   readOnly?: boolean;
   /**
-   * What the surface draws over the board's top-right corner — the acts on
-   * what is selected, and the relations waiting on a person. The whiteboard
-   * itself decides nothing.
+   * What the surface draws over the board's top-right corner — the relations
+   * waiting on a person, and the field behind whatever the rail opened. The
+   * whiteboard itself decides nothing.
    */
   children?: ReactNode;
+  /**
+   * The bar down the board's leading edge — what a person puts on a Studio.
+   * `GraphCanvasRail` is what goes here, and the sketch pad mounts the same
+   * one: `docs/contracts/iconography.md`, *The canvas rail*.
+   */
+  rail?: ReactNode;
+  /**
+   * The acts on what is picked, hovering over it — `GraphCanvasNodeBar`.
+   *
+   * **Drawn inside the board rather than beside it**, which is where React
+   * Flow's own store resolves and so the only place the bar can find the nodes
+   * it hangs over.
+   */
+  nodeBar?: ReactNode;
 };
 
 /** The relation's label, as `studio.md`, Edges, names it. Produced has none. */
@@ -206,6 +220,8 @@ function Board({
   pick = null,
   readOnly = false,
   children,
+  rail,
+  nodeBar,
 }: StudioWhiteboardProps) {
   // Placement is the whiteboard's to hold between moves; the caller hears each
   // one through `onNodeMoved` and keeps it wherever positions are kept.
@@ -264,8 +280,11 @@ function Board({
       onSelectionChange={onSelectionChange}
       nodesDraggable={!readOnly}
       multiSelectionKeyCode={JOINS_THE_SELECTION}
+      rail={rail}
       aside={children}
-    />
+    >
+      {nodeBar}
+    </GraphCanvas>
   );
 }
 

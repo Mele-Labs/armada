@@ -328,6 +328,13 @@
   status = "Specified"
   notes = "Changed from lock. A lock says you lack permission; nothing is locked, something upstream is unfinished."
 
+  [[icons.link.usage]]
+    means = "A Link node placed on a Studio's whiteboard — an address a person kept"
+    group = "Canvas rail"
+    size = "16px"
+    status = "Specified"
+    notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A second context on a glyph carrying no reservation, which is what a `usage` sub-table is for. A chain is what every surface a person has ever used draws a hyperlink as, and a Studio's Link node is an address and nothing else — so the silhouette is already read correctly before the tooltip opens. It is a cross-group collision with the Queued reason above and the contract permits those: that one is a 12px badge glyph in `--status-queued`, this is a 16px control on a canvas, and no surface draws the two together. Refused: `external-link` is Chrome's and means *this press leaves the app*, which placing a node does not; `paperclip` would say attachment, and a Link on a Studio is a node like any other rather than something clipped to one."
+
 [icons.lock]
   means = "Cannot be skipped, even on retry"
   group = "Step and Verdict"
@@ -335,6 +342,14 @@
   status = "Specified"
   reserved = "Never a permission, never a security or auth state, never a locked file. Armada has no lock that means access."
   notes = "Added 2026-08-21 with the hard-prerequisite mark. Sits at the step row's trailing edge in --fg-muted, label only, with no row action behind it — the way past a locked step is Pilot. A hard prerequisite is a property of the workflow definition rather than of this run, so it reads the same on a Job that has not started as on one that stopped."
+
+[icons.maximize]
+  means = "Four corner brackets facing outward — the whole of a thing brought into its frame"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Fitting a canvas to what is on it. Never full screen, never a window control, and never expanding a panel or a row."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), when the owner moved the zoom pair and Fit out of the bottom-right corner and onto the rail. Fit was the word `Fit` in a text button, which a 32px square rail button cannot hold beside two signs — so the act needed a mark, and four disjoint corner brackets is the one silhouette nothing else in the set carries. The zoom pair beside it keeps `−` and `+`: those are signs rather than glyphs under rule 1, and minting `zoom-in` and `zoom-out` would put two magnifiers next to `search`, which is Chrome's. Refused: `scan`, the same four corners with a line through them, which reads as reading a code; `expand` and `fullscreen`, which promise the window control this reservation bans; `crosshair`, which says centre on a point rather than show the whole."
 
 [icons.megaphone]
   means = "A horn flaring from a narrow throat, over a handle that hangs below it — the only cone in the badge set, and the only glyph in it depicting the Job's own act rather than a person's"
@@ -380,6 +395,22 @@
   size = "16px"
   status = "Specified"
   notes = "Two bars, the most legible glyph in the set. snowflake rejected as decorative."
+
+[icons.pencil]
+  means = "A held drawing instrument at an angle, tip to the lower leading corner — drawing by hand"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "The sketch pad's pen only. Never edit, never rename, and never compose — a pencil here means a line a person draws with the pointer, not a field they type in."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), minted because the set held no drawing glyph at all: freehand is the sketch pad's alone, per docs/contracts/design-system.md hard rule 6, so nothing had needed one. The control is a mode and draws `aria-pressed`, which is why the reservation names edit and rename — a pencil that sometimes means *type here* and sometimes means *draw here* is the mixed-meaning failure rule 4 exists to stop, and Studios' own rename is a text control with no glyph. Against the group it joins it collides with nothing: `square-plus` is a box with a cross in it, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with a peeled corner, `shapes` three overlapping figures. Refused: `pen-tool`, which draws a bezier handle and would promise a curve tool the pad does not have; `brush` and `highlighter`, whose loaded heads are interior detail rule 3 will not have at this size; `signature`, which sits beside `stamp`'s attestation and would read as a mark you make rather than a picture you draw."
+
+[icons.pin]
+  means = "A pushpin seen from the side, head over a driven point — a view held on one thing"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "The workflow canvas's Stay on the running step only. Never a pinned row, a favourite, a bookmark or a kept item — nothing in Armada is pinned in that sense, and a second meaning here would make the rail's own group ambiguous."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). It is its own group under the view group rather than inside it, because a zoom acts once and this hands the viewport over for as long as it is on — and it is not a tool, since it places nothing. A pushpin is an object standing for the verb, which is the construction `stamp` means attest and `wrench` means repair already use, so P1's confinement of metaphor to proper nouns is not crossed. Refused: `crosshair` and `locate-fixed`, both rings, which is `circle-dot`'s silhouette and `circle-dot` is the running step's own mark — the collision would land on the one canvas where this control exists and be about the very node it follows; `eye` is reserved to Review; `flag` to a stopped step; `signpost` is the neutral confirm's."
 
 [icons.plus]
   means = "Compose a new job"
@@ -458,6 +489,14 @@
   reserved = "The Settings surface only. Never Kit, which is `briefcase`, and never a Manifest, which is `file-cog`."
   notes = "This row said `means = \"Kit\"` from the day it was written until 2026-09-18, and `file-cog` and `wrench` each cited it — three rows calling the cog Kit's while Bridge's Settings surface wore it, which nobody noticed until Kit took a rail row of its own (#1275). The owner settled it the other way on 18 Sep: Settings keeps the cog, and Kit is `briefcase`. Promoted from 12px to 16px with the correction, because the rail draws at 16 and the cog's teeth are interior detail rule 3 will not have at 12."
 
+[icons.shapes]
+  means = "A circle, a square and a triangle overlapping — a diagram, drawn as the figures it is made of"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Placing a Sketch node on a Studio's whiteboard only. Never a shape tool, never a style or a fill picker, and never the sketch pad's own boxes — a Studio's Sketch node is `{ body: String }` and has no geometry to pick."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). Three overlapping figures is the only silhouette in lucide that says *a diagram* without saying *a picture file*, which matters because a Studio's Sketch is the diagram written out in words for an agent to read, per StudioAddNode's own note. The reservation is the load-bearing half: a rail button drawn as three shapes is exactly what a person expects to be a shape tool in every other canvas they have used, so the row says outright that Armada has none. Refused: `image` and `file-image`, both of which promise a picture a person can open, and `file-*` is reserved to evidence besides; `pencil-ruler`, which is a compound glyph whose ruler is interior detail at 16px and which collides with `pencil` above in the same rail; `frame`, which reads as a crop; `workflow` and `waypoints`, which name a workflow and the Graph view toggle, both things Armada already has."
+
 [icons.signpost]
   means = "A post with one horizontal blade pointing off it"
   group = "Action"
@@ -503,6 +542,14 @@
   status = "Specified"
   notes = "Changed from git-fork, which loses its nodes at 12px. One line becoming two is literally what fanning out means, and it frees git-* for real git operations."
 
+[icons.square-plus]
+  means = "A square with a cross centred inside it — a box added"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Adding one node to a canvas: the sketch pad's box, and the Studio rail's own kinds where a kind has no glyph of its own. Never composing a Job, which is `plus`, and never a generic add anywhere off a canvas."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). `plus` alone was refused by its own reservation, which is the title row's Dispatch segment and nothing else: a bare cross means *open the composer*, and a canvas rail carrying it would say a box and a Job are the same act. Enclosing the cross is what makes the claim specific — the square is the thing being added, which is literally what a box on the sketch pad is. Against the rail it joins it collides with nothing: `pencil` is a held instrument on a diagonal, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with one corner peeled, `shapes` three overlapping figures. The objection to expect is `sticky-note`, also a square: they differ inside rather than on the outline, which rule 3 normally refuses — admitted because the rail draws at 16px where a peeled corner survives, and because the two never appear in the same rail. Refused: `plus-circle`, since `circle-*` is reserved to Judge criterion verdicts outright; `square-dashed`, which reads as a placeholder or a selection region rather than an act."
+
 [icons.stamp]
   means = "A plunger over a base line"
   group = "Job state"
@@ -516,6 +563,14 @@
   size = "16px"
   status = "Specified"
   notes = "Literal. heart-pulse and activity were rejected as collisions with Active jobs, which no longer exists — both are free again, and this row is the reason to re-read that choice rather than assume it still holds."
+
+[icons.sticky-note]
+  means = "A square with one corner peeled back — a note stuck on a board"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Placing a Note node on a Studio's whiteboard only. Never a comment, never an annotation, and never the Note's own kept picture."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A Studio is a whiteboard and a Note is what a person sticks on one, so this is the literal depiction rather than a metaphor — which is what P1 asks of a glyph that is not a proper noun. It does not answer `[record-kind-marks]`: that question is the Job ledger's Kind column, where every candidate was reserved to an *outcome*, and a Studio node kind is a different population with nothing reserved against it. Refused: `file-text`, since `file-*` is reserved to evidence throughout and a Note is not a submission; `message-square`, which is Helm's rail glyph and would say *a Drone said this* where a person wrote it; `notebook-pen`, a compound whose pen collides with `pencil` in the same rail; `pen-line`, which says writing rather than the thing written."
 
 [icons.terminal]
   means = "A window with a prompt caret inside it"
@@ -531,6 +586,14 @@
   status = "Specified"
   notes = "The one place triangle-alert lives, plus generic warnings in toasts."
   reserved = "Reserved to Doctor. A release on the grounds that Doctor draws no glyphs was withdrawn 25 Aug 2026 — the reservation holds whether or not the health grid draws it. No other surface may adopt it as its own mark."
+
+[icons.undo-2]
+  means = "An arrow bending back on itself over a straight tail, pointing against the reading direction"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Taking back the last thing a person made by hand, on a canvas. Never a refresh or a poll, which is `rotate-cw`, and never a retry."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). The rule it has to clear is rule 4 against the two circular arrows already in the set — `refresh-cw`, reserved to churning, and `rotate-cw`, every refresh and poll control — and it clears it on outline rather than on hue: both of those are closed loops, and this is an open arrow with a straight tail, which is why `rotate-ccw` was refused outright as a mirror image of `rotate-cw` at 16px. `undo-2` rather than `undo`, whose tail curls and reads as a third loop. What it takes back is one freehand line and nothing else — a box comes off under Remove, which draws its word — so the reservation says *by hand* and does not reach a retry, which is a Job's act and `rotate-cw`'s."
 
 [icons.unplug]
   means = "A plug and socket with a visible gap between the two fragments"
