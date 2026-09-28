@@ -10,10 +10,10 @@
 // the one that came off Workflow — `plan-canvas.ts` places it — and the list
 // is this board, unchanged. A press on a task opens the same sheet either way.
 //
-// What this file holds is the open state of one reading — which task the
-// inspector is on, and which change has been asked for and not yet sent. What
-// the board says is `tab-plan-read.ts`, what an ask says is `tab-plan-ask.tsx`,
-// and what it all looks like is `PlanBoard`.
+// What this file holds is the open state of one reading — which task the sheet
+// is on, and what has been asked or typed and not sent. What the board says is
+// `plan-board.ts` over `tab-plan-read.ts`'s sentences, what an ask says is
+// `tab-plan-ask.tsx`, and what it all looks like is `PlanBoard`.
 
 import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
 import { Button } from "@armada/components";
@@ -27,13 +27,17 @@ import { RedirectControl } from "./Redirect";
 import {
   casesOf,
   criteriaOf,
+  droneOfTask,
   groupsOf,
-  planBoardOf,
   REWRITE_ASK,
   revisionsOf,
   taskSheetOf,
+  tasksOf,
   touchedByOf,
 } from "./tab-plan-read";
+import { planBoardOf } from "./plan-board";
+import { steeringOf } from "./steering";
+import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { PlanAskDialog, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
 import { planGraphOf } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
@@ -313,6 +317,9 @@ export function PlanTab({
   // ask that survived leaving the destination would be a dialog opening over
   // a plan somebody has stopped reading.
   const [asking, setAsking] = useState<PlanAskInFlight | null>(null);
+  // What has been typed at the open task's Drone and not sent. This tab's own
+  // state, on the sheet's terms: it goes when the sheet does.
+  const [instruction, setInstruction] = useState("");
 
   const step = planStepOf(whole);
   // Whether the split above is this Job's plan. A wave's plan is the Jobs it
@@ -327,7 +334,12 @@ export function PlanTab({
   const groups = groupsOf(whole, draft);
   const cases = casesOf(whole, draft);
   const touchedBy = touchedByOf(groups);
-  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable);
+  // **The step the groups are worked at, for the failed Check's own output.**
+  // The board draws what each boundary came to now that no second board does
+  // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
+  const worksAt =
+    whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
+  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable, worksAt);
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
   const graph = planGraphOf({ groups, onOpenTask: setOpenTask, openTask });
@@ -341,6 +353,28 @@ export function PlanTab({
           pending: acting,
           onAsk: (instruction: string) =>
             onRedirect(job.id, rewriteInstruction(reading.id, instruction)),
+        };
+  // **Telling this task's own Drone something, in the surface the task is read
+  // in** — review and reply are one loop (`#1536`). Drawn only past the gate: a
+  // plan still waiting on a person offers the rewrite ask above instead, and two
+  // boxes about one task would be two ways to say the same thing to nobody.
+  const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
+  const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
+  const steering = steeringOf(job, whole);
+  const redirect =
+    reading === undefined || drone === undefined
+      ? undefined
+      : {
+          reaches: drone.label,
+          value: instruction,
+          onChange: setInstruction,
+          onSend: () => {
+            onRedirect(job.id, instruction);
+            setInstruction("");
+          },
+          disabled: stale || steering.act === undefined,
+          disabledReason: NO_DRONE,
+          ...(steering.sent === undefined ? {} : { waiting: steering.sent }),
         };
 
   return (
@@ -422,7 +456,11 @@ export function PlanTab({
         open
         floor={floor}
         {...(rewrite === undefined ? {} : { rewrite })}
-        onClose={() => setOpenTask(null)}
+        {...(redirect === undefined ? {} : { redirect })}
+        onClose={() => {
+          setOpenTask(null);
+          setInstruction("");
+        }}
       />
     )}
     <PlanAskDialog
@@ -437,3 +475,10 @@ export function PlanTab({
     </>
   );
 }
+
+/**
+ * Why the redirect box is closed. **One Drone per Job today**, so a task on a
+ * Job with nothing on it has nothing to reach — `tab-workflow.tsx` says the
+ * same of a step, off the same pointer.
+ */
+const NO_DRONE = "No Drone is on this Job, so there is nothing to redirect.";

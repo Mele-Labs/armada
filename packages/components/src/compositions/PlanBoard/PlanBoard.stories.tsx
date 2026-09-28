@@ -31,6 +31,10 @@ const BRIDGE = [
   "components_test",
 ];
 
+/** Every Check at a boundary nothing has reached yet. */
+const notRun = (names: readonly string[]) =>
+  names.map((name) => ({ name, reads: "not run" as const }));
+
 function planned(): PlanBoardGroup[] {
   return [
     {
@@ -55,10 +59,13 @@ function planned(): PlanBoardGroup[] {
           model: "sonnet",
         },
       ],
-      boundarySays: "4 checks will run at this boundary",
-      checks: RUST,
-      testsSay: "1 test runs at this boundary",
-      tests: [{ id: "c-api", spec: "crates/api/src/tests/running.rs", reads: "owed" }],
+      shapeSays: "2 tasks, one after another",
+      boundary: {
+        says: "4 checks will run at this boundary",
+        checks: notRun(RUST),
+        testsSay: "1 test runs at this boundary",
+        tests: [{ id: "c-api", spec: "crates/api/src/tests/running.rs", reads: "owed" }],
+      },
     },
     {
       id: "g3",
@@ -66,7 +73,7 @@ function planned(): PlanBoardGroup[] {
       state: "pending",
       says: "not started",
       scope: ["packages/screens/src/Running.tsx", "packages/screens/src/running-rows.tsx"],
-      concurrentSays: "both tasks run at the same time",
+      shapeSays: "2 tasks, at the same time",
       tasks: [
         {
           id: "T5",
@@ -85,12 +92,14 @@ function planned(): PlanBoardGroup[] {
           besideSays: "runs beside T5",
         },
       ],
-      boundarySays: "7 checks will run at this boundary",
-      checks: BRIDGE,
-      testsSay: "1 test runs at this boundary",
-      tests: [
-        { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
-      ],
+      boundary: {
+        says: "7 checks will run at this boundary",
+        checks: notRun(BRIDGE),
+        testsSay: "1 test runs at this boundary",
+        tests: [
+          { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
+        ],
+      },
     },
   ];
 }
@@ -99,6 +108,15 @@ export const Planned: Story = {
   args: { approach: APPROACH, groups: planned(), onOpenTask: fn() },
 };
 
+/**
+ * A boundary that broke, with the group carrying it.
+ *
+ * **A `play`, because this is the reading that came off the second board.** The
+ * commit a group left, what its boundary came to, how many times it has been
+ * run and the failed Check's own output handed to the next Drone were drawn
+ * only under the Workflow canvas until the owner took the groups off it (28 Sep
+ * 2026). And the reason a task stopped says whose words it is.
+ */
 export const GroupFailed: Story = {
   args: {
     approach: APPROACH,
@@ -107,7 +125,6 @@ export const GroupFailed: Story = {
         ...planned()[1]!,
         state: "retrying",
         says: "failed at its checks",
-        retrySays: "second run",
         tasks: [
           { ...planned()[1]!.tasks[0]!, mark: "done", spentSays: "27 turns · $1.90" },
           {
@@ -117,10 +134,36 @@ export const GroupFailed: Story = {
             failedReason: "The row's press opened the Board rather than the Job",
           },
         ],
-        boundarySays: "7 checks ran at this boundary",
-        checksFailed: ["screens_test"],
+        boundary: {
+          says: "7 checks ran at this boundary",
+          checks: BRIDGE.map((name) => ({
+            name,
+            reads: name === "screens_test" ? ("failed" as const) : ("passed" as const),
+          })),
+          verdictSays: "screens_test failed",
+          verdictNamed: "failed",
+          retrySays: "second run",
+          toldNext: "1 of 1384 failed: the Drones row opened the Board",
+        },
       },
     ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = canvas.getByRole("listitem", { name: /^T6 / });
+    await expect(row).toHaveTextContent("Why it stopped");
+    await expect(row).toHaveTextContent("The row's press opened the Board rather than the Job");
+
+    const card = canvas.getByRole("list", { name: "Group 2 tasks" }).closest("li")!;
+    await expect(card).toHaveTextContent("screens_test failed");
+    await expect(card).toHaveTextContent("second run");
+    await expect(card).toHaveTextContent("1 of 1384 failed");
+    // Cut on 28 Sep, and neither comes back with the reading.
+    await expect(card).not.toHaveTextContent("No task of group");
+    await expect(card).not.toHaveTextContent("does not serve the cases");
+    // The shape, and nothing about the Job's Drone cap.
+    await expect(card).toHaveTextContent("2 tasks, at the same time");
+    await expect(card).not.toHaveTextContent("Drones at once");
   },
 };
 
@@ -132,7 +175,6 @@ export const DoneTouchedLater: Story = {
         ...planned()[1]!,
         state: "passed",
         says: "passed",
-        commit: "b81c3e4",
         tasks: [
           { ...planned()[1]!.tasks[0]!, mark: "done", spentSays: "27 turns · $1.90" },
           {
@@ -142,9 +184,24 @@ export const DoneTouchedLater: Story = {
             touchedSays: "touched later · T7",
           },
         ],
-        boundarySays: "7 checks ran at this boundary",
+        boundary: {
+          says: "7 checks ran at this boundary",
+          checks: BRIDGE.map((name) => ({ name, reads: "passed" as const })),
+          verdictSays: "all 7 passed",
+          verdictNamed: "passed",
+          commit: "b81c3e4",
+        },
       },
     ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The commit is at the boundary, which is where the group's end produced it.
+    const card = canvas.getByRole("list", { name: "Group 2 tasks" }).closest("li")!;
+    await expect(card).toHaveTextContent("b81c3e4");
+    await expect(canvas.getByRole("listitem", { name: /^T6 / })).toHaveTextContent(
+      "touched later · T7",
+    );
   },
 };
 

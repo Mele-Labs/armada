@@ -1,6 +1,10 @@
-// What the implement board says, over the four moments inside the step.
-// `#1536`. Arithmetic and copy are proved here so the browser tests are left
-// with what only a rendering can show.
+// What the plan board says about a group that has run, over the four moments
+// inside the step. `#1536`. Arithmetic and copy are proved here so the browser
+// tests are left with what only a rendering can show.
+//
+// **One board.** These claims were made against a second one under the Workflow
+// canvas until the owner took the groups off it (28 Sep 2026); they are made
+// against the card on the Plan tab's List view now, which is the same reading.
 
 import { describe, expect, test } from "vitest";
 
@@ -11,16 +15,8 @@ import {
   groupFailed,
 } from "./fixtures/build/arc";
 import type { ArcMoment } from "./fixtures/build/arc-base";
-import type { GroupView } from "./draft/group";
-import {
-  boundaryOf,
-  groupsThatOpen,
-  implementBoardOf,
-  shapeSaid,
-  tierSaid,
-  toldNextOf,
-  verdictSaid,
-} from "./implement";
+import { boundaryOf, planBoardOf, shapeSaid, toldNextOf, verdictSaid } from "./plan-board";
+import { runBySaid } from "./tab-plan-read";
 import { tasksField } from "./step";
 
 /** The Job whole behind a moment, and the step its groups hang under. */
@@ -37,15 +33,10 @@ function reading(moment: ArcMoment) {
   };
 }
 
-/** The board a moment draws, with nothing opened by hand. */
+/** The board a moment draws, past its gate, with no task open. */
 function board(moment: ArcMoment) {
   const read = reading(moment);
-  return implementBoardOf({
-    ...read,
-    openGroups: groupsThatOpen(read.groups),
-    onOpenGroup: () => undefined,
-    onOpenTask: () => undefined,
-  });
+  return planBoardOf(read.whole, moment.draft, () => undefined, undefined, false, read.step);
 }
 
 const groupAt = (moment: ArcMoment, ordinal: number) =>
@@ -55,16 +46,16 @@ const taskIn = (moment: ArcMoment, ordinal: number, id: string) =>
   groupAt(moment, ordinal).tasks.find((one) => one.id === id)!;
 
 describe("one group at a time", () => {
-  test("the board is the step's own label, and every group is drawn in order", () => {
-    const drawn = board(executingSequential())!;
-    expect(drawn.stepName).toBe("Implement");
-    expect(drawn.groups.map((one) => one.ordinal)).toEqual([1, 2, 3, 4]);
+  test("every group is drawn in the order it runs", () => {
+    expect(board(executingSequential())!.groups.map((one) => one.ordinal)).toEqual([1, 2, 3, 4]);
   });
 
+  // The commit is at the boundary and nowhere else on the card: it is what the
+  // group's end produced, and a chip beside the state would say it twice.
   test("groups one and two read passed with the commit each left", () => {
     expect(groupAt(executingSequential(), 1).says).toBe("passed");
-    expect(groupAt(executingSequential(), 1).commit).toBe("4c1b9d2");
-    expect(groupAt(executingSequential(), 2).commit).toBe("7a2f0c5");
+    expect(groupAt(executingSequential(), 1).boundary.commit).toBe("4c1b9d2");
+    expect(groupAt(executingSequential(), 2).boundary.commit).toBe("7a2f0c5");
   });
 
   test("group four has not started, and its Checks read as not run", () => {
@@ -73,16 +64,6 @@ describe("one group at a time", () => {
     expect(four.boundary.says).toBe("7 checks will run at this boundary");
     expect(new Set(four.boundary.checks.map((one) => one.reads))).toEqual(new Set(["not run"]));
     expect(four.boundary.verdictSays).toBeUndefined();
-  });
-
-  // `groupsThatOpen` is the whole of what a person sees first, and it is the
-  // difference between reading a run and opening four groups in turn.
-  test("the group that is moving opens itself, and a run with none open falls to the last", () => {
-    const moving = reading(executingSequential()).groups;
-    expect(groupsThatOpen(moving)).toEqual(["g3"]);
-    const over: GroupView[] = moving.map((one) => ({ ...one, state: "passed" }));
-    expect(groupsThatOpen(over)).toEqual(["g4"]);
-    expect(groupsThatOpen([])).toEqual([]);
   });
 });
 
@@ -97,9 +78,13 @@ describe("a task carries only its own agent", () => {
     expect(taskIn(executingSequential(), 1, "T1").spentSays).toBe("34 turns · ~$2.40");
   });
 
-  test("the tier, the model it resolved to and how it is run are one line", () => {
-    expect(taskIn(executingSequential(), 1, "T1").says).toBe("difficult · opus · its own agent");
-    expect(taskIn(executingSequential(), 2, "T3").says).toBe("easy · haiku · its own agent");
+  // Three fields, not one line: the board joins them, and a caller that joined
+  // them first would be composing prose. `PlanBoard`'s own rule.
+  test("the tier, the model it resolved to and how it is run are the row's three fields", () => {
+    const one = taskIn(executingSequential(), 1, "T1");
+    expect([one.tier, one.model, one.runBy]).toEqual(["difficult", "opus", "its own agent"]);
+    const three = taskIn(executingSequential(), 2, "T3");
+    expect([three.tier, three.model, three.runBy]).toEqual(["easy", "haiku", "its own agent"]);
   });
 
   test("a cost is on a task the moment its agent stopped, before its group is checked", () => {
@@ -185,29 +170,19 @@ describe("a done task a later task edited", () => {
 
 describe("what the board refuses to draw", () => {
   test("a Job with no group draws no board at all, rather than an empty one", () => {
-    const read = reading(executingSequential());
-    expect(
-      implementBoardOf({
-        ...read,
-        groups: [],
-        openGroups: [],
-        onOpenGroup: () => undefined,
-        onOpenTask: () => undefined,
-      }),
-    ).toBeUndefined();
+    expect(planBoardOf(null, undefined, () => undefined)).toBeUndefined();
   });
 
-  test("a plan whose step cannot be found draws none either", () => {
-    const read = reading(executingSequential());
-    expect(
-      implementBoardOf({
-        ...read,
-        step: undefined,
-        openGroups: [],
-        onOpenGroup: () => undefined,
-        onOpenTask: () => undefined,
-      }),
-    ).toBeUndefined();
+  // The step is only where a failed Check's output is read from, so a plan whose
+  // step cannot be found still draws: the groups are the plan's, and the
+  // boundary simply hands nothing on. The second board needed the step for its
+  // own heading, and there is no second board.
+  test("a plan whose step cannot be found still draws its groups, and hands nothing on", () => {
+    const read = reading(groupFailed());
+    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined)!;
+    expect(drawn.groups.map((one) => one.ordinal)).toEqual([1, 2, 3, 4]);
+    expect(drawn.groups[2]!.boundary.toldNext).toBeUndefined();
+    expect(drawn.groups[2]!.boundary.verdictSays).toBe("screens_test failed");
   });
 
   test("a boundary with no Check says so rather than drawing an empty bar", () => {
@@ -233,10 +208,10 @@ describe("what the board refuses to draw", () => {
     expect(toldNextOf(read.step, [])).toBeUndefined();
   });
 
-  test("the tier line never invents a model the planner did not choose a tier for", () => {
+  test("how a task is run is read off its treatment and never invented", () => {
     const task = reading(executingSequential()).groups[0]!.tasks[0]!;
-    expect(tierSaid({ ...task, treatment: "step_drone" })).toContain("the step's Drone");
-    expect(tierSaid({ ...task, treatment: "job" })).toContain("a Job of its own");
+    expect(runBySaid({ ...task, treatment: "step_drone" })).toBe("the step's Drone");
+    expect(runBySaid({ ...task, treatment: "job" })).toBe("a Job of its own");
   });
 });
 

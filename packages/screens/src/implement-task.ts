@@ -15,7 +15,7 @@ import type { TaskView } from "./draft/task";
 import { editsIn } from "./task-files";
 import { taskAt } from "./narration";
 import { entriesOf } from "./story";
-import { spentSaid, tasksOf } from "./tab-plan-read";
+import { doingOfTask, droneOfTask, tasksOf } from "./tab-plan-read";
 import type { WorkflowReading } from "./workflow-inspector";
 
 /** How many of a task's own lines the panel draws. The rest is the log sheet's. */
@@ -27,30 +27,9 @@ export const NO_TURNS_WATCHED =
 export const NO_EDIT_READ = "Nothing this task wrote has been read on this step yet.";
 export const NO_BRIEF = "The planner recorded no words of its own for this task.";
 
-/**
- * What the task is doing now, as a sentence. **Read off the record** — turns
- * while it runs, the cost once its own agent stopped, and the reason where it
- * failed.
- */
-export function doingOfTask(task: TaskView): string {
-  const spent = spentSaid(task);
-  switch (task.state) {
-    case "working":
-      return spent === undefined
-        ? "Its agent is working. Nothing it has spent can be read until that agent stops."
-        : `Its agent is working — ${spent} so far. What it cost reads once that agent stops.`;
-    case "done":
-      return spent === undefined
-        ? "Its agent has stopped and the work is in."
-        : `Its agent stopped after ${spent}.`;
-    case "failed":
-      return task.failed_reason ?? "Its agent stopped without finishing.";
-    case "dropped":
-      return task.reason === undefined ? "This task was dropped." : `Dropped — ${task.reason}`;
-    default:
-      return "Nothing has been dispatched at this task yet.";
-  }
-}
+// What a task is doing now, and which Drone a correction about it reaches, are
+// `tab-plan-read.ts`'s: the Plan tab's task sheet says both, so a second
+// spelling here would be the same sentence on two surfaces.
 
 /**
  * What its Drone was told. The planner's `note` and what it expects, joined —
@@ -130,16 +109,7 @@ export function taskReadingOf({
   const brief = briefOfTask(task);
   const edit = lastEditOf(whole, turns, taskId);
   const lines = linesOfTask(whole, turns, stepId, taskId);
-  // **Labelled for what it actually reaches.** A task with a Drone of its own
-  // is addressed by task; the Job's one Drone is the fallback and says so,
-  // because Fleet runs one per Job and calling it "the Drone on T5" would be a
-  // claim the wire does not make.
-  const drone =
-    task.drone_id !== undefined
-      ? { id: task.drone_id, label: `Drone on ${task.id}` }
-      : whole?.job.assigned_drone === undefined
-        ? undefined
-        : { id: whole.job.assigned_drone, label: "This Job's Drone" };
+  const drone = droneOfTask(whole, task);
   return {
     name: `${task.id} · ${task.title}`,
     kind: "task",

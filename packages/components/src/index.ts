@@ -363,7 +363,6 @@ export * from "./compositions/JobMembers/JobMembers";
 // The implement step opened — its groups, their tasks, and what ran at each
 // group's end. #1536.
 export * from "./compositions/GroupBoundary/GroupBoundary";
-export * from "./compositions/ImplementBoard/ImplementBoard";
 // A wave of Jobs under one plan, and which of them waits on which. #1544.
 export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is

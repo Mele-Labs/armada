@@ -14,9 +14,7 @@ import {
   casesOf,
   clashesOf,
   droppedSaid,
-  groupCardOf,
   groupsOf,
-  planBoardOf,
   retrySaid,
   revisionsOf,
   runBySaid,
@@ -26,6 +24,7 @@ import {
   testsSaid,
   touchedByOf,
 } from "./tab-plan-read";
+import { groupCardOf, planBoardOf } from "./plan-board";
 
 const GROUPS = arcGroups();
 const CASES = arcCases();
@@ -188,23 +187,23 @@ describe("one group's card", () => {
   test("the group writing Rust runs four checks and the ones writing Bridge run seven", () => {
     const rust = groupCardOf(GROUPS[0]!, CASES, touched, null);
     const bridge = groupCardOf(GROUPS[1]!, CASES, touched, null);
-    expect(rust.boundarySays).toBe("4 checks will run at this boundary");
-    expect(bridge.boundarySays).toBe("7 checks will run at this boundary");
+    expect(rust.boundary.says).toBe("4 checks will run at this boundary");
+    expect(bridge.boundary.says).toBe("7 checks will run at this boundary");
   });
 
   test("a case covering a file two groups touch is drawn at the last of them", () => {
     const second = groupCardOf(GROUPS[1]!, CASES, touched, null);
     const last = groupCardOf(GROUPS[3]!, CASES, touched, null);
-    expect(second.tests?.map((one) => one.id)).not.toContain("c-overview");
-    expect(last.tests?.map((one) => one.id)).toContain("c-overview");
+    expect(second.boundary.tests?.map((one) => one.id)).not.toContain("c-overview");
+    expect(last.boundary.tests?.map((one) => one.id)).toContain("c-overview");
   });
 
   // The chip carried the Job's Drone cap behind a middle dot until 28 Sep,
   // and the owner cut it: two facts in one sentence, the second the Job's
   // rather than the group's, and Overview draws it frozen at the gate.
   test("a concurrent group says its tasks run at once, and nothing about the Drone cap", () => {
-    const chip = groupCardOf(GROUPS[2]!, CASES, touched, null).concurrentSays;
-    expect(chip).toBe("2 tasks run at the same time");
+    const chip = groupCardOf(GROUPS[2]!, CASES, touched, null).shapeSays;
+    expect(chip).toBe("2 tasks, at the same time");
     expect(chip).not.toContain("Drones at once");
   });
 
@@ -214,9 +213,11 @@ describe("one group's card", () => {
     const groups = groupsOf(whole, moment.draft);
     const passed = groupCardOf(groups[1]!, CASES, touched, whole);
     const broke = groupCardOf(groups[2]!, CASES, touched, whole);
-    expect(passed.checksFailed).toBeUndefined();
-    expect(broke.checksFailed).toEqual(["screens_test"]);
-    expect(broke.retrySays).toBe("second run");
+    expect(passed.boundary.checks.some((one) => one.reads === "failed")).toBe(false);
+    expect(
+      broke.boundary.checks.filter((one) => one.reads === "failed").map((one) => one.name),
+    ).toEqual(["screens_test"]);
+    expect(broke.boundary.retrySays).toBe("second run");
   });
 });
 

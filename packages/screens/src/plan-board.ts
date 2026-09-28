@@ -1,31 +1,41 @@
-// The implement step, opened — pure, so every sentence the board draws is
-// tested without a browser. `#1536`.
+// The plan board, composed — pure, so every sentence it draws is tested without
+// a browser. `#1536`, `#1535`.
 //
-// **The sentences are `tab-plan-read.ts`'s wherever that file already wrote
-// one.** A group's state in words, a task's spend, the retry count and the flag
-// naming the later task are all the same claim read on two destinations, and a
-// second spelling of any of them is the drift `lib/job-states.js` was deleted
-// for. What is written here is what only a running step says: what the boundary
-// came to, what stopping it forbids, and what the next Drone is told.
+// **One board, because there was never more than one thing drawn.** A second
+// one stood under the Workflow canvas drawing these same groups until the owner
+// took them off it (28 Sep 2026). What it said that a plan alone does not —
+// what a boundary came to, and the failed Check's own output handed on — is
+// composed here, on the card the plan already had.
+//
+// **The sentences are `tab-plan-read.ts`'s**, which this imports and which
+// imports nothing back: a second spelling of a group's state or a task's spend
+// is the drift `lib/job-states.js` was deleted for.
 
 import type {
   GroupBoundaryCheck,
   GroupBoundaryProps,
-  ImplementBoardProps,
-  ImplementGroup,
-  ImplementTask,
+  PlanBoardAsk,
+  PlanBoardGroup,
+  PlanBoardProps,
+  PlanBoardTask,
 } from "@armada/components";
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import type { CaseView } from "./draft/cases";
+import type { JobDraft } from "./draft/held";
 import type { GroupState, GroupView } from "./draft/group";
 import type { TaskView } from "./draft/task";
 import {
+  asksOf,
   besideSaid,
   boundarySaid,
   caseReads,
+  casesOf,
+  clashesOf,
+  droppedSaid,
   failedChecksOf,
   groupSaid,
+  groupsOf,
   markOf,
   retrySaid,
   runBySaid,
@@ -102,13 +112,14 @@ export function shapeSaid(group: GroupView): string {
   return `${many}, at the same time`;
 }
 
-/** `difficult · opus · its own agent`. The planner's tier, and what it resolved to. */
-export function tierSaid(task: TaskView): string {
-  return `${task.tier} · ${task.model} · ${runBySaid(task)}`;
-}
-
-/** One task's row, as the running board draws it. */
-function taskRowOf(task: TaskView, touchedBy: Map<string, string>): ImplementTask {
+/**
+ * One task's row.
+ *
+ * **The tier, the model it resolved to and how it is run are three fields, not
+ * one line.** The board joins them; a caller that joined them first would be
+ * composing prose, which is `PlanBoard`'s own rule.
+ */
+function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTask {
   const beside = besideSaid(task);
   const spent = spentSaid(task);
   const later = touchedBy.get(task.id);
@@ -116,7 +127,9 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): ImplementTas
     id: task.id,
     title: task.title,
     mark: markOf(task.state),
-    says: tierSaid(task),
+    tier: task.tier,
+    model: task.model,
+    runBy: runBySaid(task),
     ...(spent === undefined ? {} : { spentSays: spent }),
     ...(beside === undefined ? {} : { besideSays: beside }),
     ...(later === undefined ? {} : { touchedSays: `touched later · ${later}` }),
@@ -140,7 +153,14 @@ export function boundaryOf(
   const retry = retrySaid(group.retry_count);
   const told = toldNextOf(step, failed);
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
-  const tests = atBoundary.map((one) => ({ id: one.id, spec: one.spec, reads: caseReads(one) }));
+  // **What dropped a case, where one did.** `reads` is the whole of what a row
+  // says here, so a case a scope revision took out has to say that in it or
+  // the row reads as `dropped` with nothing naming who dropped it.
+  const tests = atBoundary.map((one) => ({
+    id: one.id,
+    spec: one.spec,
+    reads: droppedSaid(one) ?? caseReads(one),
+  }));
   const testsSay = testsSaid(group.state, tests.length);
   return {
     says: boundarySaid(group.state, checks.length),
@@ -160,66 +180,61 @@ export function boundaryOf(
   };
 }
 
-/** Which groups open themselves: the one that is moving, or the one that broke. */
-export function groupsThatOpen(groups: readonly GroupView[]): string[] {
-  const moving = groups.filter((one) => one.state !== "pending" && one.state !== "passed" && one.state !== "landed");
-  if (moving.length > 0) return moving.map((one) => one.id);
-  const last = groups[groups.length - 1];
-  return last === undefined ? [] : [last.id];
-}
-
-export type ImplementBoardReading = {
-  whole: JobWhole | null;
-  groups: readonly GroupView[];
-  cases: readonly CaseView[];
-  /** The step the groups hang under, off `workflow-canvas.ts`'s own rule. */
-  step: StepDetail | undefined;
-  openGroups: readonly string[];
-  onOpenGroup: (groupId: string) => void;
-  openTaskId?: string;
-  onOpenTask: (taskId: string) => void;
-  /**
-   * How many Drones this Job may run at once, where the gate settled one.
-   *
-   * **Read by nothing here since 28 Sep.** It rode on a concurrent group's
-   * shape line, which the owner cut; Overview draws the cap as `Drones at
-   * once`. The field is still accepted so `tab-workflow.tsx` keeps passing it
-   * without a second change, and that caller should drop it.
-   */
-  droneCap?: number;
-};
-
 /**
- * The whole board. `undefined` where the plan holds no group, which is a step
- * with nothing to open rather than an empty board.
+ * One group's card, sentences and all.
+ *
+ * **`step` is only where a failed Check's output is read from.** Absent, the
+ * boundary hands nothing on — which is what a plan nobody has run yet says.
  */
-export function implementBoardOf({
-  whole,
-  groups,
-  cases,
-  step,
-  openGroups,
-  onOpenGroup,
-  openTaskId,
-  onOpenTask,
-}: ImplementBoardReading): ImplementBoardProps | undefined {
-  if (groups.length === 0 || step === undefined) return undefined;
-  const touchedBy = touchedByOf(groups);
-  const drawn: ImplementGroup[] = groups.map((group) => ({
+export function groupCardOf(
+  group: GroupView,
+  cases: readonly CaseView[],
+  touchedBy: Map<string, string>,
+  whole: JobWhole | null,
+  asks: readonly PlanBoardAsk[] = [],
+  step?: StepDetail,
+): PlanBoardGroup {
+  return {
     id: group.id,
     ordinal: group.ordinal,
     state: group.state,
     says: groupSaid(group.state),
     shapeSays: shapeSaid(group),
-    ...(group.commit === undefined ? {} : { commit: group.commit }),
+    scope: group.scope,
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
     boundary: boundaryOf(group, cases, whole, step),
-  }));
+    ...(asks.length === 0 ? {} : { asks }),
+  };
+}
+
+/**
+ * The whole board, from a Job and whatever draft the moment carries.
+ *
+ * `revisable` is whether the plan may still be asked about — the step that
+ * recorded it is waiting on a person, and nothing else is out. **A plan past
+ * its gate draws no controls at all**: it is a record then, and a control that
+ * sends an ask nobody will answer is worse than none.
+ */
+export function planBoardOf(
+  whole: JobWhole | null,
+  draft: JobDraft | undefined,
+  onOpenTask: (taskId: string) => void,
+  openTaskId?: string,
+  revisable = false,
+  step?: StepDetail,
+): PlanBoardProps | undefined {
+  const groups = groupsOf(whole, draft);
+  if (groups.length === 0) return undefined;
+  const cases = casesOf(whole, draft);
+  const touchedBy = touchedByOf(groups);
+  const clashes = clashesOf(groups);
   return {
-    stepName: step.label,
-    groups: drawn,
-    openGroups,
-    onOpenGroup,
+    approach: whole?.work_plan?.approach ?? "",
+    groups: groups.map((group, at) =>
+      groupCardOf(group, cases, touchedBy, whole, revisable ? asksOf(groups, at) : [], step),
+    ),
+    ...(clashes.length === 0 ? {} : { clashes }),
+    ...(revisable ? { askable: true } : {}),
     ...(openTaskId === undefined ? {} : { openTaskId }),
     onOpenTask,
   };
