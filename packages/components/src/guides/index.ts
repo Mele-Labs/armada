@@ -29,6 +29,7 @@ import { GUIDE_BEFORE_A_RUN } from "./016-what-can-i-change-before-a-job-runs";
 import { GUIDE_PLAN } from "./017-what-is-a-plan";
 import { GUIDE_DRONE } from "./018-what-is-a-drone";
 import { GUIDE_WORKFLOW } from "./019-what-is-a-workflow";
+import { GUIDE_DRIFT } from "./020-what-if-a-step-changes-a-file-it-never-said-it-would";
 
 export * from "./guide";
 export {
@@ -50,6 +51,7 @@ export {
   GUIDE_PLAN,
   GUIDE_DRONE,
   GUIDE_WORKFLOW,
+  GUIDE_DRIFT,
 };
 
 /**
@@ -76,6 +78,7 @@ export const GUIDES: readonly Guide[] = [
   GUIDE_STEP_BAR,
   GUIDE_ALWAYS_LOOKS,
   GUIDE_CRITERIA,
+  GUIDE_DRIFT,
   GUIDE_WORKFLOW,
   GUIDE_PROCESSES,
   GUIDE_WORKTREE_SIZE,

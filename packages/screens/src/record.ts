@@ -9,6 +9,7 @@ import type { JobLedgerFilter, JobLedgerRow, LedgerTone, LedgerWho } from "@arma
 import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "./duration";
+import { markFor, whatCellOf } from "./record-cells";
 import { taskGroupsOf } from "./draft/group";
 import {
   countsOf,
@@ -20,7 +21,7 @@ import {
   type LedgerRow,
 } from "./draft/ledger";
 
-/** All, and the seven families after it. The strip draws them in this order. */
+/** All, and the eight families after it. The strip draws them in this order. */
 export const RECORD_FILTERS = ["all", ...LEDGER_FAMILIES] as const;
 
 export type RecordFilter = (typeof RECORD_FILTERS)[number];
@@ -28,6 +29,7 @@ export type RecordFilter = (typeof RECORD_FILTERS)[number];
 /** What each filter is called. Sentence case, and the noun the issue names. */
 const FILTER_LABEL: Record<RecordFilter, string> = {
   all: "All",
+  job: "Job",
   evidence: "Evidence",
   files: "Files",
   checks: "Checks",
@@ -60,12 +62,12 @@ function whoOf(actor: LedgerActor): LedgerWho {
 }
 
 /**
- * The eight filters, with how many rows each holds.
+ * The nine filters, with how many rows each holds.
  *
- * **All is the total and the seven are families of it, which is not the same
- * as All being their sum.** A row the Job's own machine made answers to none
- * of the seven, so the seven can come to less — `unfiledSays` is what tells a
- * reader by how much, rather than leaving them the subtraction.
+ * **All is the total and the eight are families of it, which is not the same as
+ * All being their sum.** `kind` is opaque, so a kind this Bridge has never heard
+ * of answers to none of the eight and they can come to less — `unfiledSays` is
+ * what tells a reader by how much, rather than leaving them the subtraction.
  */
 export function filtersOf(rows: readonly LedgerRow[]): JobLedgerFilter[] {
   const counts = countsOf(rows);
@@ -103,9 +105,10 @@ export function ledgerRowsFor(
       where: whereOf(row, steps, groups),
       who: whoOf(row.actor),
       whoSays: WHO_SAYS[row.actor],
-      kind: row.kind,
-      what: row.what,
+      what: whatCellOf(row),
     };
+    const mark = markFor(row.kind);
+    if (mark !== undefined) drawn.mark = mark;
     const exact = absoluteOf(row.at);
     if (exact !== null) drawn.whenExact = exact;
     if (row.outcome !== "") drawn.outcome = row.outcome;
@@ -147,10 +150,17 @@ export function whereOf(
  * **Read off the outcome's own words and never off the actor.** A Check's row
  * is green or red by what the Check did; a Judge answering `met` is the same
  * green, and a Drone arriving has no outcome and takes no hue at all.
+ *
+ * **Drift takes no hue, and it drew red until 28 September 2026.** An outcome
+ * starting `outside the plan` was in the failing arm below, so a file nobody
+ * declared filled its row with `--status-completed-failed` — while `grounds.ts`
+ * called the same fact `quiet` and `events.ts` calls `outside_plan` *a mark, not
+ * a judgement*. The owner read the red and asked whether it hurt the Job. It
+ * does not: the Judge weighs drift and no gate fails on it.
  */
 export function toneOf(row: LedgerRow): LedgerTone | undefined {
   const said = row.outcome.toLowerCase();
-  if (said.startsWith("failed") || said.startsWith("not met") || said.startsWith("outside the plan")) {
+  if (said.startsWith("failed") || said.startsWith("not met")) {
     return "failed";
   }
   if (said.startsWith("passed") || said.startsWith("met") || said.startsWith("advanced")) {
@@ -165,18 +175,18 @@ export function toneOf(row: LedgerRow): LedgerTone | undefined {
  * What All holds that no filter does, in one line — or nothing, where every
  * row answers to a filter.
  *
- * **It names what those rows are, not just how many.** A person reading `All
- * 24` against families summing to 21 is owed the three, and "the Job's own
- * moves" is the answer for almost all of them: a Job created, approved,
- * started or ended. The sentence covers a kind this Bridge has no filter for
- * as well, because both are the same fact — a row under All and nowhere else.
+ * **The Job filter is what emptied this in the ordinary case.** It said the
+ * Job's own moves answered to nothing, which is where the owner stood when he
+ * asked for that filter (28 September 2026). What is left is the fact the
+ * filters cannot ever cover: `kind` is opaque, so a kind this Bridge has never
+ * heard of is a row under All and nowhere else.
  */
 export function unfiledSays(rows: readonly LedgerRow[]): string | undefined {
   const count = unfiledIn(rows).length;
   if (count === 0) return undefined;
   return count === 1
-    ? "One more row is under All alone: the Job's own machine moving, which no filter names."
-    : `${count} more rows are under All alone: the Job's own machine moving, which no filter names.`;
+    ? "One more row is under All alone: a kind no filter names."
+    : `${count} more rows are under All alone: kinds no filter names.`;
 }
 
 export type { LedgerFamily };

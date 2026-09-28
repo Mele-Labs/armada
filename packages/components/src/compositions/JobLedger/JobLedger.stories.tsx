@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
+import { FileCheck, FileDiff } from "lucide-react";
 import { useState } from "react";
 import { JobLedger, type JobLedgerRow } from "./JobLedger";
 
@@ -19,6 +20,9 @@ export default meta;
 
 type Story = StoryObj<typeof JobLedger>;
 
+/* 12px at strokeWidth 2, `docs/contracts/iconography.md`'s only badge size. */
+const MARK = { size: 12, strokeWidth: 2, "aria-hidden": true } as const;
+
 const ROWS: JobLedgerRow[] = [
   {
     id: "r1",
@@ -27,7 +31,6 @@ const ROWS: JobLedgerRow[] = [
     where: "Implement · group 3",
     who: "check",
     whoSays: "Check",
-    kind: "checked",
     what: "screens_test",
     outcome: "failed — 1 of 1384 failed: the Drones row opened the Board",
     tone: "failed",
@@ -39,7 +42,6 @@ const ROWS: JobLedgerRow[] = [
     where: "Implement · group 2",
     who: "check",
     whoSays: "Check",
-    kind: "checked",
     what: "typecheck",
     outcome: "passed",
     tone: "passed",
@@ -51,7 +53,6 @@ const ROWS: JobLedgerRow[] = [
     where: "Implement · group 1 · T1",
     who: "drone",
     whoSays: "Drone",
-    kind: "task_done",
     what: "T1 — Serve one read of everything running",
     outcome: "The read answers Drones, Checks and Judge calls in one call",
     tone: "passed",
@@ -63,7 +64,6 @@ const ROWS: JobLedgerRow[] = [
     where: "Plan the change",
     who: "judge",
     whoSays: "Judge",
-    kind: "judged",
     what: "The rail's Drones stat reads one running beside the machine's most",
     outcome: "met",
   },
@@ -74,7 +74,6 @@ const ROWS: JobLedgerRow[] = [
     where: "Plan the change",
     who: "fleet",
     whoSays: "Fleet",
-    kind: "plan_recorded",
     what: "the plan was recorded",
     outcome: "8 tasks",
   },
@@ -85,21 +84,45 @@ const ROWS: JobLedgerRow[] = [
     where: "The Job itself",
     who: "you",
     whoSays: "You",
-    kind: "status_queued",
     what: "approved the dispatch",
+    // No mark: the icon registry assigns the Job's own moves no glyph, and a
+    // borrowed one would mean something else. `[record-kind-marks]`.
     outcome: "the workflow and the gates are frozen",
+  },
+  {
+    id: "r7",
+    when: "09:38",
+    whenExact: "2026-09-22T09:38:00Z",
+    where: "Implement · T1",
+    who: "drone",
+    whoSays: "Drone",
+    what: "running-rows.tsx",
+    outcome: "modified, which the step never said it would change",
+    mark: { glyph: <FileDiff {...MARK} />, says: "file_written" },
+  },
+  {
+    id: "r8",
+    when: "09:36",
+    whenExact: "2026-09-22T09:36:00Z",
+    where: "Plan the change",
+    who: "drone",
+    whoSays: "Drone",
+    what: "The plan reads back as eight tasks in three groups",
+    outcome: "plan.md",
+    mark: { glyph: <FileCheck {...MARK} />, says: "evidence_submitted" },
   },
 ];
 
 /**
- * All is the total; the seven are families of it. They come to five, because
- * `status_queued` — the Job's own machine moving — answers to none of them.
- * `NOTE` is what tells a reader that rather than leaving the subtraction.
+ * All is the total; the eight are families of it. **Job is one of them** (the
+ * owner, 28 September 2026): the Job's own machine moving answered to no filter
+ * before it, which is what the `note` had to say out loud on every Record.
  */
 const FILTERS = [
   { id: "all", label: "All", count: ROWS.length },
-  { id: "evidence", label: "Evidence", count: 0 },
-  { id: "files", label: "Files", count: 0 },
+  { id: "job", label: "Job", count: 1 },
+  { id: "evidence", label: "Evidence", count: 1 },
+  { id: "files", label: "Files", count: 1 },
   { id: "checks", label: "Checks", count: 2 },
   { id: "judges", label: "Judges", count: 1 },
   { id: "drones", label: "Drones", count: 0 },
@@ -107,23 +130,18 @@ const FILTERS = [
   { id: "tests", label: "Tests", count: 0 },
 ];
 
-const NOTE = "One more row is under All alone: the Job's own machine moving, which no filter names.";
-
-/** The ledger with nothing open — eight filters, and the table under them. */
+/** The ledger with nothing open — nine filters, and the table under them. */
 export const OneLedger: Story = {
   args: {
     rows: ROWS,
     filters: FILTERS,
     filter: "all",
     onFilter: () => undefined,
-    note: NOTE,
   },
   /**
-   * **No row is counted twice, and the difference is said out loud.** The
-   * defect this was built against is a board whose All read 34 while its
-   * filters summed to 35 — so the families may never exceed All. They may come
-   * to less, and where they do a reader is owed the line rather than the
-   * subtraction.
+   * **No row is counted twice, and Who is one word.** The defect the counts
+   * were built against is a board whose All read 34 while its filters summed to
+   * 35, so the families may never exceed All.
    */
   play: async ({ args, canvas }) => {
     const all = args.filters.find((one) => one.id === "all")!.count;
@@ -132,6 +150,27 @@ export const OneLedger: Story = {
       .reduce((total, one) => total + one.count, 0);
 
     await expect(families).toBeLessThanOrEqual(all);
+    await expect(canvas.getByRole("columnheader", { name: "Who" })).toBeVisible();
+    await expect(canvas.queryByRole("columnheader", { name: "Who ran it" })).toBeNull();
+  },
+};
+
+/**
+ * A row no filter names, counted under All and said out loud.
+ *
+ * **Job closed most of this gap and cannot close all of it**: `kind` is an
+ * opaque string, so a kind this Bridge has never heard of still answers to
+ * nothing, and the line is what a reader is owed instead of the subtraction.
+ */
+export const ARowNoFilterNames: Story = {
+  args: {
+    rows: ROWS,
+    filters: FILTERS.map((one) => (one.id === "job" ? { ...one, count: 0 } : one)),
+    filter: "all",
+    onFilter: () => undefined,
+    note: "One more row is under All alone: a kind no filter names.",
+  },
+  play: async ({ canvas }) => {
     await expect(canvas.getByRole("note")).toHaveTextContent(/under All alone/);
   },
 };
@@ -143,30 +182,51 @@ export const ARowOpen: Story = {
     filters: FILTERS,
     filter: "all",
     onFilter: () => undefined,
-    note: NOTE,
     openRow: "r1",
     inspector: <p className="armada-ledger__note">What this Check printed goes here.</p>,
   },
 };
 
-/** Under `--layout-breakpoint`: the Kind column gives way and the panel folds. */
-export const Narrow: Story = {
+/**
+ * All, with each row led by its kind's mark.
+ *
+ * **Two families have a glyph and the rest have none.** `file-check` is a
+ * submission that landed and `file-diff` is reading what one file changed, both
+ * by their own reservations; nothing in `packages/icons/icons.toml` means *a
+ * Check ran* or *a Drone arrived*, and a borrowed glyph would say something
+ * else. `[record-kind-marks]` is where that gap is filed.
+ */
+export const KindMarkedOnAll: Story = {
   args: {
     rows: ROWS,
     filters: FILTERS,
     filter: "all",
     onFilter: () => undefined,
-    narrow: true,
+    kindMarks: true,
   },
-  /**
-   * **Kind is the column that gives way, and the identifier never does.** The
-   * `what` beside it carries the same fact in words, so a reader loses a
-   * spelling rather than a fact — and Where, which is what places a row in the
-   * Job, is still drawn.
-   */
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("columnheader", { name: "Kind" })).toBeInTheDocument();
+    await expect(canvas.getByText("file_written")).toBeInTheDocument();
+    await expect(canvas.getByText("evidence_submitted")).toBeInTheDocument();
+  },
+};
+
+/**
+ * One family chosen, and the mark column gone with it.
+ *
+ * **A filter has already said the kind.** Repeating it down the rows of Files
+ * is one glyph over and over, which trains the eye to stop reading the channel.
+ */
+export const OneFamilyNoMarks: Story = {
+  args: {
+    rows: ROWS.filter((row) => row.mark?.says === "file_written"),
+    filters: FILTERS,
+    filter: "files",
+    onFilter: () => undefined,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("columnheader", { name: "Kind" })).toBeNull();
-    await expect(canvas.getByRole("columnheader", { name: "Where" })).toBeVisible();
+    await expect(canvas.queryByText("file_written")).toBeNull();
   },
 };
 
@@ -196,7 +256,7 @@ export const BoundedAndSaidSo: Story = {
    * truncation the v1 failure log is full of.
    */
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/8 older rows are not drawn/)).toBeVisible();
+    await expect(canvas.getByText(/12 older rows are not drawn/)).toBeVisible();
   },
 };
 
