@@ -27,6 +27,7 @@ const GATES: GateView[] = [
 const PROPOSAL: ProposalView = {
   status: "awaiting_approval",
   title: "Show what is running in the Drones stat",
+  workflow_id: "feature",
   gates: GATES,
   fleet_always_looks: true,
   tiers: { difficult: "opus", medium: "sonnet", easy: null },
@@ -141,12 +142,14 @@ describe("what the Job is held to", () => {
     },
   ];
 
-  it("says where each line's words came from, apart from how it is answered", () => {
+  it("says where each line's words came from, apart from what will decide it", () => {
     const rows = criteriaRowsOf(criteria);
 
-    expect(rows[0]?.origin).toBe("from armada/1162");
-    expect(rows[0]?.verifiedBy).toBe("check");
-    expect(rows[1]?.origin).toBe("from the prompt");
+    expect(rows[0]?.origin).toBe("From issue");
+    expect(rows[0]?.issue?.ref).toBe("armada/1162");
+    expect(rows[0]?.decidedBy).toBe("A Check will decide it");
+    expect(rows[1]?.origin).toBe("From your prompt");
+    expect(rows[1]?.issue).toBeUndefined();
   });
 
   // The Job keeps the words it froze and says the issue has moved since — the

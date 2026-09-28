@@ -7,7 +7,7 @@
   display: grid;
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-4) - var(--w-run-column-min))), var(--w-run-column));
+    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-4) - var(--w-run-column-min))), var(--w-proposal-settings));
   gap: var(--space-4);
   align-items: stretch;
   flex: 1;
@@ -26,15 +26,23 @@
   min-height: 0;
 }
 
-.armada-proposal__request-column > .armada-proposal__region {
+.armada-proposal__done-when {
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
 }
 
 /* Each half is a card, which is what separates the two columns — the drawing
-   carries no rule between them, only these surfaces against the gutter. */
+   carries no rule between them, only these surfaces against the gutter.
+
+   **Done when is a card too, since 28 Sep 2026.** It was a bare region on the
+   page ground holding one --bg-sunken box per criterion, each holding a
+   --bg-sunken field: a filled box on a filled ground with the input the same
+   colour again, which is what the owner read as no separation at all (xma8).
+   A card here puts the one relationship the contract states for an input back
+   — the well is recessed and the surface around it is raised. */
 .armada-proposal__card,
+.armada-proposal__done-when,
 .armada-proposal__settings {
   display: flex;
   flex-direction: column;
@@ -121,11 +129,38 @@
   text-overflow: ellipsis;
 }
 
-.armada-proposal__against-word {
+/* Edit, at the trailing edge of the line the repository is on. The words
+   below are what it opens, so the control belongs to the card and sits on the
+   card's own head rather than floating over the text it changes. */
+.armada-proposal__against-act {
+  display: flex;
   flex: none;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-subtle);
+  margin-inline-start: auto;
+}
+
+/* The request as a field. It takes the height the reading had, so pressing
+   Edit does not resize the card under the pointer. */
+.armada-proposal__said-field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-proposal__said-field > .armada-textarea-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The field stands exactly where the reading stood: same box, same padding,
+   same type. Pressing Edit swaps what the words are in, and moving them a
+   step left as it did would read as the card reflowing. */
+.armada-proposal__said-field .armada-textarea {
+  height: 100%;
+  padding: var(--space-4);
+  resize: none;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
 }
 
 /* The request itself, on the well: it is the one thing on this screen nobody
@@ -216,15 +251,6 @@
   color: var(--fg-muted);
 }
 
-/* A tier sits under Model rather than beside it, so the three read as one
-   answer split three ways. */
-.armada-proposal__field[data-indent] .armada-proposal__field-label {
-  justify-self: end;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
 /* The value in a box of its own. **This is what separates one setting from
    the next** — the grid without it was a wall of same-weight text. */
 .armada-proposal__field-value {
@@ -281,11 +307,25 @@
   background: var(--bg-sunken);
 }
 
+/* The step's name. **Sans since 28 Sep 2026** (0bgt): mono is for a value a
+   person copies — a branch, a path, an id — and a step's name is prose the
+   workflow wrote. The mono was transcribed from the board, where the step
+   names happened to be their own ids. */
 .armada-proposal__gate-step {
   min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+/* The workflow where it is read rather than chosen — after approval, and on
+   a window Fleet has told nothing about its workflows. */
+.armada-proposal__workflow-said {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-default);
 }
 
@@ -343,12 +383,17 @@
   line-height: var(--leading-2xs);
 }
 
-/* What the Job is held to: one criterion per row, each in a box of its own —
-   the same rule the settings keep, for the same reason. */
+/* What the Job is held to: one criterion per row, on the card's own surface.
+ *
+ * **No box per row** (xma8, 28 Sep). Each row was a filled well with a filled
+ * field inside it, on a ground the same colour again — three surfaces and no
+ * separation between any two. The field is the recessed thing now and the
+ * card is what it is recessed into, which is the relationship `Input.css`
+ * states; a hairline tells one row from the next, which is what the box was
+ * doing badly. */
 .armada-proposal__criteria {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -358,12 +403,29 @@
 .armada-proposal__criterion {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+  padding: var(--space-3) 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-proposal__criterion:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* The field, and the control that takes the line off. They share a row so
+   Remove reads as this criterion's and not as the list's. */
+.armada-proposal__criterion-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-proposal__criterion-row > .armada-input-field {
+  flex: 1;
+  min-width: 0;
 }
 
 .armada-proposal__criterion-text {
@@ -376,11 +438,62 @@
 }
 
 .armada-proposal__criterion-origin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
   min-width: 0;
   margin: 0;
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
+}
+
+/* The reference the words came from. Mono, because it is a value a person
+   copies into a browser or a `gh` command, unlike the step name above. */
+.armada-proposal__criterion-ref,
+.armada-proposal__criterion-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* The same reference where an address is known, so it opens the issue. A
+   control rather than an anchor: Bridge refuses every navigation and main
+   resolves the address, per `apps/desktop/src/main/forge.ts`. The styling is
+   `VerdictSheet`'s pull-request link, which is the one precedent. */
+.armada-proposal__criterion-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.armada-proposal__criterion-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.armada-proposal__criterion-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-proposal__criterion-dot {
+  color: var(--fg-subtle);
+}
+
+/* Add a criterion, under the list it appends to. */
+.armada-proposal__criteria-foot {
+  display: flex;
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 .armada-proposal__absent {

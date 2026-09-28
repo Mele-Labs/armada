@@ -15,19 +15,29 @@
 
 import { JobProposal } from "@armada/components";
 import type { GateBox, ProposalLandingValue } from "@armada/components";
-import type { JobDetail as JobWhole, JobSummary, ManifestSummary } from "@armada/protocol";
+import type {
+  JobDetail as JobWhole,
+  JobSummary,
+  ManifestSummary,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import type { TierModels } from "./draft/proposal";
 import {
   completeChoices,
+  criteriaAdded,
   criteriaRowsOf,
   criteriaWith,
+  criteriaWithout,
   frozenAtOf,
   gateRowsOf,
   gatesWith,
   landingValueOf,
   landingWith,
+  proposalOnWorkflow,
+  stepLabelsOf,
+  workflowChoicesOf,
 } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
 
@@ -40,6 +50,8 @@ export type ProposalTabProps = {
   onEdits: (edits: ProposalEdits) => void;
   /** The models a tier may name. Empty until the connection answers. */
   models: readonly string[];
+  /** Every workflow Fleet holds. The picker offers this Job's repository's. */
+  workflows: readonly WorkflowSummary[];
   /** Nothing may be moved while what is shown is not live. */
   stale: boolean;
   /** The Manifest this Job was dispatched against, where Bridge holds it. */
@@ -52,6 +64,7 @@ export function ProposalTab({
   edits,
   onEdits,
   models,
+  workflows,
   stale,
   manifest,
 }: ProposalTabProps) {
@@ -69,20 +82,40 @@ export function ProposalTab({
         // What the Job runs against, and the words it was asked in. The
         // request is `JobDetail.facts` — the requester's own text, which is
         // the one thing on this screen nobody here wrote.
+        // The base branch is not here: it reads under How it lands, beside
+        // where the work lands, which is the pair it is read against (`3m23`).
         request={{
           repository: manifest?.repository ?? job.owner_manifest_id,
-          ...(landing.from_ref === null ? {} : { from: landing.from_ref }),
-          ...(whole?.facts === undefined ? {} : { said: whole.facts }),
+          said: proposal.asked ?? whole?.facts ?? "",
           absent: "This job was given no context beyond its title.",
         }}
+        {...(open
+          ? {
+              onRequest: (said: string) => moved({ proposal: { ...proposal, asked: said } }),
+            }
+          : {})}
         title={proposal.title}
         {...(open
           ? { onTitle: (title: string) => moved({ proposal: { ...proposal, title } }) }
           : {})}
         // The workflow's own name where Fleet holds it, and the id where it
         // does not — a Job naming a workflow this Fleet has no record of.
-        workflow={job.workflow_id}
-        steps={gateRowsOf(proposal.gates, whole)}
+        workflow={proposal.workflow_id}
+        workflowChoices={workflowChoicesOf(workflows, job.owner_manifest_id)}
+        {...(open
+          ? {
+              // Picking another workflow rebuilds every gate, because a gate
+              // belongs to a step — `proposalOnWorkflow` is where that is
+              // written down and why.
+              onWorkflow: (workflowId: string) =>
+                moved({ proposal: proposalOnWorkflow(proposal, workflows, workflowId) }),
+            }
+          : {})}
+        steps={gateRowsOf(
+          proposal.gates,
+          whole,
+          stepLabelsOf(workflows, proposal.workflow_id),
+        )}
         {...(open
           ? {
               onGate: (stepId: string, box: GateBox, ticked: boolean) =>
@@ -128,7 +161,13 @@ export function ProposalTab({
         completeChoices={completeChoices()}
         criteria={criteriaRowsOf(criteria)}
         {...(open
-          ? { onCriterion: (at: number, text: string) => moved({ criteria: criteriaWith(criteria, at, text) }) }
+          ? {
+              onCriterion: (at: number, text: string) =>
+                moved({ criteria: criteriaWith(criteria, at, text) }),
+              onAddCriterion: () => moved({ criteria: criteriaAdded(criteria) }),
+              onRemoveCriterion: (at: number) =>
+                moved({ criteria: criteriaWithout(criteria, at) }),
+            }
           : {})}
         {...(frozenAt === undefined ? {} : { frozenAt })}
       />

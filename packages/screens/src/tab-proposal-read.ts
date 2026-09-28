@@ -8,15 +8,15 @@
 // the draft's shapes and the control's own.
 
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
-import type { ProposalLandingValue } from "@armada/components";
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
+import type { JobDetail as JobWhole, WorkflowSummary } from "@armada/protocol";
 
-import { originSaidOf } from "./draft/criterion";
+import { criterionWritten, decidedSaidOf, originSaidOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
-import { gateReadingOf, unmeantOf } from "./draft/proposal";
+import { gateReadingOf, gatesForSteps, unmeantOf } from "./draft/proposal";
 import type { GateView, ProposalView } from "./draft/proposal";
 import { absoluteOf } from "./duration";
 
@@ -68,6 +68,8 @@ export function proposalEditsOf(draft: JobDraft | undefined): ProposalEdits | un
 export function gateRowsOf(
   gates: readonly GateView[],
   whole: JobWhole | null,
+  /** What the chosen workflow calls each step, where it is not the frozen one. */
+  labels: ReadonlyMap<string, string> = new Map(),
 ): ProposalGateRow[] {
   return gates.map((gate) => {
     const step = whole?.steps.find((one) => one.step_id === gate.step_id);
@@ -80,7 +82,7 @@ export function gateRowsOf(
     });
     const row: ProposalGateRow = {
       id: gate.step_id,
-      label: step?.label ?? gate.step_id,
+      label: step?.label ?? labels.get(gate.step_id) ?? gate.step_id,
       checks: gate.checks,
       judge: gate.judge,
       you: gate.you,
@@ -92,6 +94,57 @@ export function gateRowsOf(
     if (unmeant !== undefined) row.unmeant = unmeant;
     return row;
   });
+}
+
+/**
+ * The workflows the picker offers, in the order Fleet holds them.
+ *
+ * **Only this Job's repository.** A workflow belongs to a Manifest, and a Job
+ * cannot run one declared for another repository — offering them would be a
+ * picker most of whose options are refused at the press.
+ */
+export function workflowChoicesOf(
+  workflows: readonly WorkflowSummary[],
+  manifestId: string,
+): WorkflowChoice[] {
+  return workflows
+    .filter((workflow) => workflow.manifest_id === manifestId)
+    .map((workflow) => ({ id: workflow.id, name: workflow.name, steps: workflow.steps.length }));
+}
+
+/**
+ * This proposal on another workflow.
+ *
+ * **Every gate is rebuilt from the new workflow's steps.** A gate belongs to
+ * a step, so the ticks a person moved name steps the new workflow may not
+ * have; carrying them over by position would put a tick meant for `handoff`
+ * on whatever runs fourth. A workflow Fleet holds no record of leaves the
+ * gates alone — there are no steps to rebuild them from, and emptying the
+ * list would draw a workflow with no steps at all.
+ */
+export function proposalOnWorkflow(
+  proposal: ProposalView,
+  workflows: readonly WorkflowSummary[],
+  workflowId: string,
+): ProposalView {
+  const picked = workflows.find((workflow) => workflow.id === workflowId);
+  if (picked === undefined) return { ...proposal, workflow_id: workflowId };
+  return { ...proposal, workflow_id: workflowId, gates: gatesForSteps(picked.steps) };
+}
+
+/**
+ * What the steps read as while the chosen workflow is not the frozen one.
+ *
+ * **The label comes off the workflow once a person has picked another**, and
+ * off the Job's own frozen steps until then: `JobDetail.steps` is what the
+ * proposer chose, and it holds no step of a workflow nobody approved.
+ */
+export function stepLabelsOf(
+  workflows: readonly WorkflowSummary[],
+  workflowId: string,
+): ReadonlyMap<string, string> {
+  const picked = workflows.find((workflow) => workflow.id === workflowId);
+  return new Map((picked?.steps ?? []).map((step) => [step.step_id, step.label]));
 }
 
 /** One box moved on one step, with every other step carried through. */
@@ -160,11 +213,13 @@ export function landingWith(
 /** What the Job is held to, with where each line's words came from. */
 export function criteriaRowsOf(criteria: readonly CriterionView[]): ProposalCriterion[] {
   return criteria.map((criterion, at) => {
+    const from = originSaidOf(criterion);
     const row: ProposalCriterion = {
       id: criterion.criterion_id ?? String(at),
       text: criterion.text,
-      origin: originSaidOf(criterion),
-      verifiedBy: criterion.verified_by,
+      origin: from.said,
+      ...(from.issue === undefined ? {} : { issue: from.issue }),
+      decidedBy: decidedSaidOf(criterion),
     };
     // The instant is the issue's own edit and never the freeze — absent is the
     // ordinary case, where nothing has moved since.
@@ -186,6 +241,25 @@ export function criteriaWith(
   return criteria.map((criterion, index) =>
     index === at ? { ...criterion, text } : criterion,
   );
+}
+
+/**
+ * One more line, appended empty.
+ *
+ * **At the foot, never at the head.** The order is the brief's and a citation
+ * names a criterion's place in it (`concepts.tsx`, `#`), so a line inserted
+ * above the others would renumber every citation already written.
+ */
+export function criteriaAdded(criteria: readonly CriterionView[]): CriterionView[] {
+  return [...criteria, criterionWritten()];
+}
+
+/** One line taken off, with the rest carried through. */
+export function criteriaWithout(
+  criteria: readonly CriterionView[],
+  at: number,
+): CriterionView[] {
+  return criteria.filter((_criterion, index) => index !== at);
 }
 
 /**

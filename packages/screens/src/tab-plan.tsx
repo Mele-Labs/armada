@@ -45,6 +45,7 @@ import { WavePlan } from "./wave-plan";
 import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
 import type { HeldAct } from "./Acts";
 import type { JobDraft } from "./draft/held";
+import { decidedSaidOf, originLineOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
 
@@ -103,15 +104,15 @@ function planStepOf(whole: JobWhole | null): StepDetail | undefined {
   );
 }
 
-/** Where a criterion's words came from, as one line. */
+/**
+ * Where a criterion's words came from, as one line.
+ *
+ * **Read from `draft/criterion.ts` rather than spelled again here.** This
+ * file had its own copy, which is how Plan came to say `answered by the
+ * check` on a Job nothing had judged after the classifying screen stopped.
+ */
 function originSaid(criterion: CriterionView): string {
-  const from =
-    criterion.origin.origin === "issue"
-      ? `from ${criterion.origin.ref}`
-      : criterion.origin.origin === "person"
-        ? "written by you"
-        : "from the prompt";
-  return `${from} · answered by the ${criterion.verified_by}`;
+  return `${originLineOf(criterion)} · ${decidedSaidOf(criterion)}`;
 }
 
 /**
