@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 import type { JobExamined, Look } from "@armada/protocol";
+import { GUIDE_LOOK, GUIDE_PULSE } from "../../guides";
 
 import { JobResources, type PulseReading } from "./JobResources";
 
@@ -273,8 +274,12 @@ export const FleetIsNotAnswering: Story = {
     await expect(canvas.getByText(/Nothing here is a reading of this job/)).toBeVisible();
     // The whole point: no control that asks Fleet, disabled or otherwise.
     await expect(canvas.queryByRole("button", { name: /Refresh/ })).toBeNull();
-    // The `?` goes with the act. Nothing to ask means nothing to explain.
-    await expect(canvas.queryByRole("button", { name: /^Open guide/ })).toBeNull();
+    // The look's `?` goes with the act. Nothing to ask means nothing to explain.
+    await expect(canvas.queryByRole("button", { name: new RegExp(GUIDE_LOOK.title) })).toBeNull();
+    // The board's own `?` stays. What Pulse is does not depend on Fleet
+    // answering, and a person who arrived here confused is the likeliest
+    // reader there is.
+    await expect(canvas.getByRole("button", { name: new RegExp(GUIDE_PULSE.title) })).toBeVisible();
   },
 };
 
