@@ -31,7 +31,15 @@ export const NotStarted: Story = {
   },
 };
 
-/** The step the Job is on. One mark pulses per screen and this is it. */
+/**
+ * The step the Job is on — edged, washed and swept, the live phase's own three
+ * things (`design-system.md`, Motion). The owner asked for the running node to
+ * read like the running panel, 28 Sep 2026.
+ *
+ * **A `play`, because a still cannot show a loop**, and the thing most at risk
+ * here is the second one: one loop per card, so the mark beside the sweep has
+ * to hold still.
+ */
 export const Running: Story = {
   args: {
     kind: "step",
@@ -43,9 +51,23 @@ export const Running: Story = {
     facts: [{ value: "4 groups" }, { value: "11 checks" }, { value: "attempt 2" }],
     onOpen: fn(),
   },
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector(".armada-wf-card")!;
+    const sweep = card.querySelector(".armada-wf-card__sweep");
+    await expect(sweep).not.toBeNull();
+    // The bar itself is a pseudo-element, so the loop is read off the subtree.
+    await expect(sweep!.getAnimations({ subtree: true }).length).toBeGreaterThan(0);
+    // And nothing else on the card loops: the mark that pulses on a card with
+    // no sweep holds still under one.
+    await expect(card.querySelector(".armada-step-mark[data-pulsing]")).toBeNull();
+  },
 };
 
-/** A step waiting on a person says what it is waiting for. */
+/**
+ * A step waiting on a person says what it is waiting for — and it is the step
+ * the Job is on, which is the pair worth drawing beside the one above:
+ * **a card that is not working does not move at all.**
+ */
 export const WaitingOnYou: Story = {
   args: {
     kind: "step",
@@ -53,9 +75,15 @@ export const WaitingOnYou: Story = {
     activity: "awaiting_human",
     said: "awaiting review",
     ordinal: 4,
+    current: true,
     gate: "a person answers",
     facts: [{ value: "delivers" }],
     onOpen: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector(".armada-wf-card")!;
+    await expect(card.querySelector(".armada-wf-card__sweep")).toBeNull();
+    await expect(card.getAnimations({ subtree: true })).toHaveLength(0);
   },
 };
 

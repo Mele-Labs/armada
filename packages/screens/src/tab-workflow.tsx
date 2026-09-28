@@ -5,38 +5,29 @@
 // a second edge from the step that worked each group. It is one node now,
 // carrying the group count and the task count, and pressing it opens the Plan
 // tab where the plan is drawn whole. The second edge went with the group
-// nodes, knowingly: `plan-canvas.ts` carries what was traded away. The running
-// step's board stays under the run — the graph says which steps there are, the
-// board says what happened inside the one that is moving.
+// nodes, knowingly: `plan-canvas.ts` carries what was traded away.
 //
-// **Canvas by default, stacked available, at every width** (#1530, 21 and 22
-// Sep). The toggle is remembered per viewer, and where it is kept is the
-// caller's: this package holds no storage.
+// **And nothing of the plan but that node** (owner, 28 Sep 2026). The implement
+// board is gone, and with it the only route into a task from here — a task is
+// opened from Plan. `docs/journeys/monitor-active-work.md` carries what that
+// board still owes and where it has no destination.
 //
-// **Narrow opens on where you are.** A whole plan fitted into 768px is cards
-// nobody can read, so the canvas narrows onto the step a person is on and the
-// plan that step holds rather than shrinking the run.
+// **Canvas by default, stacked available, at every width** (#1530). Narrow
+// opens on where you are: a whole plan fitted into 768px is cards nobody can
+// read, so the canvas narrows onto the step a person is on rather than
+// shrinking the run. The toggle is remembered per viewer, and where it is kept
+// is the caller's: this package holds no storage.
 
-import {
-  ImplementBoard,
-  Tabs,
-  WorkflowCanvas,
-  WorkflowInspector,
-  WorkflowStacked,
-} from "@armada/components";
+import { Tabs, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
 import { useState } from "react";
-import type { JobDetail as JobWhole, JobSummary, Turn } from "@armada/protocol";
+import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import type { ActingAct } from "./pending";
-import type { CaseView } from "./draft/cases";
 import { TAB_LABEL } from "./detail-tabs";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
-import { groupsThatOpen, implementBoardOf } from "./implement";
-import { taskReadingOf } from "./implement-task";
 import { steeringOf } from "./steering";
-import { groupNodeId, taskNodeId } from "./plan-canvas";
 import { PLAN_NODE_ID, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { workflowReadingOf } from "./workflow-inspector";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
@@ -56,23 +47,13 @@ export type WorkflowTabProps = {
   view: WorkflowView;
   onView: (view: WorkflowView) => void;
   /**
-   * The groups the implement step opens into, where this Job's boards were
-   * handed them (`#1532`'s draft, on `JobDetailProps.draft`). **Absent derives
-   * one group per task from what Fleet serves**, which is thinner and never
-   * broken — `draft/group.ts` carries the reasoning.
+   * The plan's groups, for what the Plan node counts and for what the
+   * inspector says about the step that works them (`#1532`'s draft, on
+   * `JobDetailProps.draft`). **Absent derives one group per task from what
+   * Fleet serves**, which is thinner and never broken — `draft/group.ts`
+   * carries the reasoning.
    */
   groups?: readonly GroupView[];
-  /** The cases the plan owes, for the tests drawn apart at each boundary. */
-  cases?: readonly CaseView[];
-  /** How many Drones this Job may run at once, as the gate settled it. `#1550`. */
-  droneCap?: number;
-  /**
-   * The Job's turns, where the second socket is carrying them. A task's own
-   * lines and its last edit are read off these — `implement-task.ts`.
-   */
-  turns?: readonly Turn[];
-  /** Whether anything is watching those turns, so an absence can say which it is. */
-  watching?: boolean;
   /** A press is out and Fleet has not answered. */
   acting: boolean;
   actingAct?: ActingAct;
@@ -95,10 +76,6 @@ export function WorkflowTab({
   view,
   onView,
   groups: given,
-  cases = [],
-  droneCap,
-  turns = [],
-  watching = false,
   acting,
   actingAct,
   onRedirect,
@@ -115,11 +92,6 @@ export function WorkflowTab({
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
   const [instruction, setInstruction] = useState("");
-  // The task a person has open, and which groups they have folded or unfolded.
-  // **`null` for the groups means nobody has chosen yet**, so the group that is
-  // moving opens itself — and a person's first press is what takes that over.
-  const [openTask, setOpenTask] = useState<string | null>(null);
-  const [opened, setOpened] = useState<string[] | null>(null);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -148,62 +120,27 @@ export function WorkflowTab({
 
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
-  const step = whole.steps.find((one) => one.step_id === groupsUnder);
-  const openGroups = opened ?? groupsThatOpen(groups);
-  // The steps, and the one Plan node. A press on a step opens it in the panel
-  // and takes that panel off whichever task the board had open, rather than
-  // leaving two selections live; a press on the Plan node leaves for the Plan
-  // tab, so nothing here is selected by it.
+  // The steps, and the one Plan node. A press on a step opens it in the panel;
+  // a press on the Plan node leaves for the Plan tab, so nothing here is
+  // selected by it.
   const run = workflowRunOf({
     whole,
     groups,
-    selected: openTask === null ? open : taskNodeId(openTask),
+    selected: open,
     onOpen: (id) => {
       if (id === PLAN_NODE_ID) {
         onOpenPlan();
         return;
       }
       setOpen(id);
-      setOpenTask(null);
     },
-  });
-  // The running step, opened under the graph — `#1536`. **The graph says where
-  // a group came from; the board says what happened inside it**: the commit it
-  // left, what its boundary came to, what stopping it holds back and the failed
-  // Check's own output handed to the next Drone. A node on a canvas carries
-  // none of that, which is why the two are not the same thing drawn twice.
-  const board = implementBoardOf({
-    whole,
-    groups,
-    cases,
-    step,
-    ...(droneCap === undefined ? {} : { droneCap }),
-    openGroups,
-    onOpenGroup: (id) => {
-      setOpened(openGroups.includes(id) ? openGroups.filter((one) => one !== id) : [...openGroups, id]);
-      setOpen(groupNodeId(id));
-      setOpenTask(null);
-    },
-    ...(openTask === null ? {} : { openTaskId: openTask }),
-    onOpenTask: (id) => setOpenTask(id === openTask ? null : id),
   });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026). The panel
   // used to land on the step the Job is on, so the column beside the canvas was
   // never blank — there is no column now. The canvas has the tab's whole width
   // and this is a layer over it, so a reading nobody asked for would be a panel
-  // covering the run it exists to explain. A task outranks a node: it is the
-  // newest press and the narrowest reading.
-  const reading =
-    (openTask === null
-      ? undefined
-      : taskReadingOf({
-          whole,
-          groups,
-          taskId: openTask,
-          turns,
-          watching,
-          ...(groupsUnder === undefined ? {} : { stepId: groupsUnder }),
-        })) ?? workflowReadingOf({ whole, groups, selected: open, groupsUnder });
+  // covering the run it exists to explain.
+  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder });
   const steering = steeringOf(job, whole);
   const label = `${job.title}, as its workflow's run`;
 
@@ -235,13 +172,6 @@ export function WorkflowTab({
           ) : (
             <WorkflowStacked label={label} rows={run.rows} />
           )}
-          {/* What is inside the step the Job is on. The graph above says where
-              each group came from; this says what happened in it. `#1536`. */}
-          {board === undefined ? null : (
-            <div className="armada-workflow-tab__opened">
-              <ImplementBoard {...board} />
-            </div>
-          )}
         </div>
 
         {/* Nothing until a press, and then a layer over the canvas rather than
@@ -252,10 +182,7 @@ export function WorkflowTab({
             <div className="armada-workflow-tab__inspector">
               <WorkflowInspector
                 {...reading}
-                onClose={() => {
-                  setOpen(null);
-                  setOpenTask(null);
-                }}
+                onClose={() => setOpen(null)}
                 redirect={{
                   value: instruction,
                   onChange: setInstruction,

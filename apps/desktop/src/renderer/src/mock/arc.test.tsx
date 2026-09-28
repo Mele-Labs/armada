@@ -511,176 +511,153 @@ describe("the plan", () => {
   });
 });
 
+// The implement board is on no destination (owner, 28 Sep 2026: *I dont think
+// we need the groups/plan info on the workflow view*). Every claim below is
+// still owed and none of them can be made through `App` until the board has a
+// destination again — back to the `test.todo` each of them started as, which
+// is what a claim with no surface is. `ImplementBoard` and `implementBoardOf`
+// are untouched, and `implement.test.ts` still holds what the board says.
 describe("implement", () => {
-  test(
+  test.todo(
     "arc/executing-sequential: groups one and two read passed with the commit each left, " +
       "group three is working, and group four has not started",
-    async () => {
-      await at("arc/executing-sequential", "Workflow");
-
-      await expect.element(runGroup(1)).toHaveTextContent("passed");
-      await expect.element(runGroup(1)).toHaveTextContent("4c1b9d2");
-      await expect.element(runGroup(2)).toHaveTextContent("passed");
-      await expect.element(runGroup(2)).toHaveTextContent("7a2f0c5");
-      await expect.element(runGroup(3)).toHaveTextContent("working");
-      await expect.element(runGroup(4)).toHaveTextContent("not started");
-      // The rule that one group runs at a time is the board's no longer —
-      // `job-detail-workflow.test.tsx` holds the mark that carries it (#1602).
-      await expect.element(page.getByText(/No task of the next group starts/)).not.toBeInTheDocument();
-    },
   );
 
-  test(
+  test.todo(
     "arc/executing-sequential: the working task shows its turns and no cost, because its " +
       "agent has not stopped",
-    async () => {
-      await at("arc/executing-sequential", "Workflow");
-
-      // Group three is the one moving, so it opens itself.
-      await expect.element(runTask("T5")).toHaveTextContent("14 turns");
-      await expect.element(runTask("T5")).not.toHaveTextContent("$");
-    },
   );
 
-  test(
+  test.todo(
     "arc/executing-sequential: every finished task shows what it cost, including the ones in " +
       "a group that has already passed",
-    async () => {
-      await at("arc/executing-sequential", "Workflow");
-      await openGroup(1);
-      await openGroup(2);
-
-      await expect.element(runTask("T1")).toHaveTextContent("34 turns · ~$2.40");
-      await expect.element(runTask("T2")).toHaveTextContent("12 turns · ~$0.64");
-      await expect.element(runTask("T3")).toHaveTextContent("8 turns · ~$0.26");
-      await expect.element(runTask("T4")).toHaveTextContent("9 turns · ~$0.31");
-    },
   );
 
-  test(
+  test.todo(
     "arc/executing-concurrent: T5 and T6 are drawn as having run at the same time, each with " +
       "its own agent, and group three reads joining",
-    async () => {
-      await at("arc/executing-concurrent", "Workflow");
-
-      await expect.element(runGroup(3)).toHaveTextContent("joining its work");
-      await expect.element(runGroup(3)).toHaveTextContent("2 tasks, at the same time");
-      // The Job's cap rode here until 28 Sep, and read as one number twice.
-      await expect.element(runGroup(3)).not.toHaveTextContent("Drones at once");
-      await expect.element(runTask("T5")).toHaveTextContent("its own agent");
-      await expect.element(runTask("T5")).toHaveTextContent("runs beside T6");
-      await expect.element(runTask("T6")).toHaveTextContent("its own agent");
-      await expect.element(runTask("T6")).toHaveTextContent("runs beside T5");
-    },
   );
 
-  test(
+  test.todo(
     "arc/executing-concurrent: both tasks show a cost the moment their own agent stopped, " +
       "before their group has been checked",
-    async () => {
-      await at("arc/executing-concurrent", "Workflow");
-
-      await expect.element(runTask("T5")).toHaveTextContent("27 turns · ~$1.90");
-      await expect.element(runTask("T6")).toHaveTextContent("15 turns · ~$0.72");
-      // The boundary has not run, and the two costs are on screen anyway.
-      const boundary = runGroup(3).getByRole("region", { name: "Checks at this boundary" });
-      await expect.element(boundary).toHaveTextContent("7 checks will run at this boundary");
-      await expect.element(boundary).toHaveTextContent("not run");
-    },
   );
 
-  test(
+  test.todo(
     "arc/group-failed: group three reads failed with the one Check that failed named, and " +
       "says this is its second run",
-    async () => {
-      await at("arc/group-failed", "Workflow");
-
-      await expect.element(runGroup(3)).toHaveTextContent("failed at its checks");
-      const boundary = runGroup(3).getByRole("region", { name: "Checks at this boundary" });
-      await expect.element(boundary).toHaveTextContent("screens_test failed");
-      await expect.element(boundary).toHaveTextContent("second run");
-      // What the next Drone is given is the Check's own output, not a summary.
-      await expect.element(boundary).toHaveTextContent("1 of 1384 failed");
-      // The ordering rule came off this boundary on 28 Sep — guide 4's, and
-      // true of a step that never ran. Group 4's own row says it is waiting.
-      await expect.element(boundary).not.toHaveTextContent("No task of group 4 starts");
-    },
   );
 
-  test(
+  test.todo(
     "arc/group-failed: the six Checks that passed are drawn beside the one that did not, " +
       "rather than the group reading red with nothing said",
-    async () => {
-      await at("arc/group-failed", "Workflow");
-
-      const checks = runGroup(3)
-        .getByRole("region", { name: "Checks at this boundary" })
-        .getByRole("listitem");
-      // Every Check the boundary declares has a row, and exactly one is red.
-      await expect.poll(() => checks.all().length).toBe(7);
-      const reads = () => checks.all().map((one) => one.element().getAttribute("data-reads"));
-      expect(reads().filter((one) => one === "failed")).toHaveLength(1);
-      expect(reads().filter((one) => one === "passed")).toHaveLength(6);
-      await expect.element(checks.filter({ hasText: "typecheck" }).first()).toHaveTextContent("passed");
-    },
   );
 
-  test(
+  test.todo(
     "arc/done-touched: T6 still reads done and carries a flag saying a later task edited the " +
       "file it had finished, and T7 is named as the task that did",
-    async () => {
-      await at("arc/done-touched", "Workflow");
-      // Group three passed, so it is folded — a done task is read by opening it.
-      await openGroup(3);
+  );
 
-      await expect.element(runTask("T6")).toHaveTextContent("touched later · T7");
-      await expect.element(runTask("T6").getByText("Done")).toBeInTheDocument();
-      await expect.element(runGroup(3)).toHaveTextContent("passed");
-      // And the task that did it is still working, with turns and no cost.
-      await expect.element(runTask("T7")).toHaveTextContent("6 turns");
-      await expect.element(runTask("T7")).not.toHaveTextContent("$");
+  test.todo(
+    "arc/executing-sequential: a task opens into what its Drone was told, what it may touch, " +
+      "what it runs beside, and a redirect addressed to that task's own Drone",
+  );
+});
+
+describe("the Record", () => {
+  test(
+    "arc/planned: the Record's who column says Judge on the row where the plan was judged, " +
+      "and Fleet on the row where the plan was recorded",
+    async () => {
+      await record("arc/planned");
+      const rows = ledger();
+
+      expect(whoSaid(rows, /Pressing the stat lists the Drone's Job and step/)).toBe("Judge");
+      expect(whoSaid(rows, /^the plan was recorded$/)).toBe("Fleet");
     },
   );
 
   test(
-    "arc/executing-sequential: a task opens into what its Drone was told, what it may touch, " +
-      "what it runs beside, and a redirect addressed to that task's own Drone",
+    "arc/executing-sequential: a Check's run is its own row, with Check in the who column — " +
+      "not Fleet, and not the Drone that produced the work",
     async () => {
-      await at("arc/executing-sequential", "Workflow");
-      await runTask("T5").getByRole("button").first().click();
+      await record("arc/executing-sequential");
+      const rows = ledger();
 
-      const panel = page.getByRole("region", { name: /^T5 · .*, task$/ });
-      await expect.element(panel).toBeVisible();
-      await expect.element(panel).toHaveTextContent("Its agent is working");
-      await expect.element(panel).toHaveTextContent("14 turns");
-      await expect.element(panel).toHaveTextContent("Running.tsx");
-      await expect
-        .element(panel.getByRole("region", { name: "What its Drone was told" }))
-        .toHaveTextContent("The panel lists Drones");
-      await expect
-        .element(panel.getByRole("region", { name: "Redirect" }))
-        .toHaveTextContent("Drone on T5");
-      // Hold to stop this task, in the same panel as the reading. #1536.
-      await expect.element(panel.getByRole("button", { name: /^Hold to/ })).toBeVisible();
+      expect(whoSaid(rows, /^typecheck$/)).toBe("Check");
+      expect(whoSaid(rows, /^screens_test$/)).toBe("Check");
+      // The same Job's Drone and Fleet are both on screen, so Check is a
+      // distinction the table is drawing rather than the only word it has.
+      expect(rows.map((row) => row["Who ran it"])).toContain("Drone");
+      expect(rows.map((row) => row["Who ran it"])).toContain("Fleet");
+    },
+  );
+
+  // **The group is named where it holds more than one task.** Today's wire has
+  // no groups, so `taskGroupsOf` derives one per task — and `Implement · group
+  // 1 · T1` would then put the same fact on the row twice. The coordinate
+  // still carries the group; `draft/ledger.test.ts` is where that is pinned.
+  test(
+    "arc/executing-sequential: each row says where in the Job it happened, down to the task " +
+      "where it has one",
+    async () => {
+      await record("arc/executing-sequential");
+      const rows = ledger();
+
+      expect(rows.every((row) => row["Where"] !== "")).toBe(true);
+      expect(rows.map((row) => row["Where"])).toContain("Implement · T1");
+      expect(rows.map((row) => row["Where"])).toContain("Plan the change");
+    },
+  );
+
+  // **Reworded from "the approval row".** The instant a Job was approved is a
+  // status move, and status moves live in `GET /jobs/:job_id/events`, which no
+  // arc fixture answers — so the row carrying this claim is the Job's creation.
+  // The claim itself is unchanged: a fact about the Job names no step.
+  test(
+    "arc/approved-frozen: the row for the Job's own machine moving names no step at all, " +
+      "because that is a fact about the Job",
+    async () => {
+      await record("arc/approved-frozen");
+      const rows = ledger();
+
+      expect(rows.map((row) => row["Where"])).toContain("The Job itself");
+      expect(whoSaid(rows, /^this Job was created$/)).toBe("You");
     },
   );
 });
 
-/** One group of the implement step, on the run, by the heading it carries. */
-const runGroup = (ordinal: number) =>
-  page
-    .getByRole("list", { name: "The groups of this step, in the order they run" })
-    .getByRole("listitem")
-    .filter({ hasText: new RegExp(`^Group ${ordinal}`) })
-    .first();
+/** App on an arc moment, with the Record open. */
+async function record(name: string): Promise<void> {
+  mount(name);
+  await page.getByRole("tab", { name: /^Record/ }).click();
+  await expect.poll(() => ledger().length).toBeGreaterThan(0);
+}
 
-/** One task's row on the run, by the name the board gives it. */
-const runTask = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
+/**
+ * The Record's rows, each keyed by the column its cells sit under.
+ *
+ * Read through the table's own header rather than by position, so a column
+ * added or reordered moves the keys with it instead of silently shifting every
+ * assertion one cell along.
+ */
+function ledger(): Record<string, string>[] {
+  const table = document.querySelector("table");
+  if (table === null) return [];
+  const columns = [...table.querySelectorAll("thead th")].map((one) => one.textContent?.trim() ?? "");
+  return [...table.querySelectorAll("tbody tr")].map((row) =>
+    Object.fromEntries(
+      [...row.querySelectorAll("td")].map((cell, at) => [
+        columns[at] ?? String(at),
+        cell.textContent?.trim() ?? "",
+      ]),
+    ),
+  );
+}
 
-/** Open a group that is not the one moving, the way a person opens it. */
-async function openGroup(ordinal: number): Promise<void> {
-  const head = runGroup(ordinal).getByRole("button", { name: new RegExp(`^Group ${ordinal}`) }).first();
-  if (head.element().getAttribute("aria-expanded") === "false") await head.click();
+/** Who ran the one row whose What matches. */
+function whoSaid(rows: Record<string, string>[], what: RegExp): string | undefined {
+  return rows.find((row) => what.test(row["What"] ?? ""))?.["Who ran it"];
 }
 
 describe("Pulse", () => {
@@ -740,7 +717,7 @@ describe("Pulse", () => {
       // What stays is the reading: when, and how often it is taken again.
       await expect.element(page.getByText(/^Read .* ago\. Taken again every 10s while open\.$/)).toBeVisible();
       await expect.element(markFor(GUIDE_LOOK)).toBeVisible();
-      await expect.element(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Look now" })).toBeVisible();
     },
   );
 });

@@ -1706,9 +1706,9 @@
   flex-direction: column;
   position: relative;
   /* **The destination scrolls, not the panes.** The canvas is a fixed frame a
-     person pans inside and the board under it is a page; a pane that scrolled
-     put the board under a fold nobody had a reason to reach for, with the
-     inspector drawn above it. Stacked's own rule since #1539, now the rule. */
+     person pans inside and the stacked run under the toggle is a page; a pane
+     that scrolled put the run under a fold nobody had a reason to reach for,
+     with the inspector drawn above it. Stacked's own rule since #1539. */
   flex: none;
   min-width: 0;
   min-height: 0;
@@ -1735,11 +1735,9 @@
    `--h-workflow-canvas` is measured for; `--h-workflow-run-canvas` draws the
    plan itself, on the Plan tab. */
 
-/* The step's own board, under the run it is inside. */
-.armada-workflow-tab__opened {
-  flex: none;
-  padding-block-start: var(--space-4);
-}
+/* No board under the run any more (owner, 28 Sep 2026: *I dont think we need
+   the groups/plan info on the workflow view*). The tab is the run, the toggle
+   above it and the inspector over it; the groups are the Plan tab's. */
 
 /* The inspector's layer, over the run rather than a track beside it — Helm's
    `__dock-layer`, at the one place this screen differs from it.
