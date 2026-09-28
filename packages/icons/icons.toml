@@ -192,6 +192,12 @@
     size = "16px"
     notes = "The log-reference row's trailing control. The same reading as the PR use one step down: the thing opens outside Bridge, in whatever the machine opens it with. Deliberately not the copy glyph — the value beside it already copies on click, and a value that copies does not also get a button that copies it."
 
+  [[icons.external-link.usage]]
+    means = "Open a Studio node's own address — a Link, an Issue, a Pull request, an Epic"
+    group = "Canvas rail"
+    size = "16px"
+    notes = "Added 2026-09-28 when the owner asked for the hovering node bar to be a row of icon buttons rather than a menu. The third context on a row carrying no reservation, and the same reading as the other two: the address is handed to whatever browses the web on this machine, so the press leaves Bridge. That is exactly the claim the Canvas rail's `link` row refused `external-link` for — placing a Link node stays inside the app, and opening one does not — so the two sit in one group without colliding. Refused here: `eye`, reserved to Review; `book-open`, reserved to the Guides surface; `maximize`, reserved to fitting a canvas."
+
 [icons.eye]
   means = "An eye — an almond outline around a circle"
   group = "Job state"
@@ -426,6 +432,12 @@
   size = "12 and 16px"
   status = "Specified"
   notes = "The universal deliberate-stop glyph. Pairs against unplug to encode deliberate against accidental."
+
+  [[icons.power.usage]]
+    means = "Stop the server a Studio's Run node is holding"
+    group = "Canvas rail"
+    size = "16px"
+    notes = "Added 2026-09-28 with the hovering node bar's row of icon buttons. One meaning in two places rather than a second meaning: a person pressing this stopped the thing on purpose, which is what the row above says the silhouette is for, and `unplug` stays the accidental half in both. Refused: `pause`, which is Freeze dispatch and would promise the server comes back; `x` and `ban`, both reserved elsewhere and neither about a process; `circle-*`, the Judge's verdicts."
 
 [icons.presentation]
   means = "Studios — a whiteboard on its stand, which is what a Studio is drawn as"

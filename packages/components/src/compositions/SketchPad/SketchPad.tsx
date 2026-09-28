@@ -13,10 +13,9 @@ import { Pencil, SquarePlus, Undo2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
-import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
-import { GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
+import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
 import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
 /**
@@ -239,7 +238,8 @@ function PadRail({
  *
  * **Words rather than glyphs**, which is `[node-bar-glyphs]` in
  * `docs/contracts/iconography.md`: nothing in the registry means *join* or
- * *remove this*, and this does not mint one on the spot.
+ * *remove this*, and this does not mint one on the spot. The Studio's own bar
+ * draws the same control, so the two read as one vocabulary.
  */
 function BoxActs({
   picked,
@@ -255,18 +255,13 @@ function BoxActs({
   const joinable = picked.length === A_JOIN_TAKES;
   return (
     <GraphCanvasNodeBar label={BOX_ACTS_LABEL} nodeIds={picked}>
-      <Button
-        size="sm"
-        ground="sunken"
+      <GraphCanvasNodeAct
+        name="Join"
         disabled={disabled || !joinable}
-        title={joinable ? undefined : "Pick two boxes to join them."}
-        onClick={() => onJoin(picked[0]!, picked[1]!)}
-      >
-        Join
-      </Button>
-      <Button size="sm" ground="sunken" disabled={disabled} onClick={() => onRemove(picked)}>
-        Remove
-      </Button>
+        why="Pick two boxes to join them."
+        onPress={() => onJoin(picked[0]!, picked[1]!)}
+      />
+      <GraphCanvasNodeAct name="Remove" danger disabled={disabled} onPress={() => onRemove(picked)} />
     </GraphCanvasNodeBar>
   );
 }

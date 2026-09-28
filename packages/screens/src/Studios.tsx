@@ -11,7 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useEffect, useState } from "react";
-import { Link as LinkGlyph, Shapes, StickyNote } from "lucide-react";
+import { ExternalLink, Link as LinkGlyph, Power, Shapes, StickyNote } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   ACTION,
@@ -63,7 +63,6 @@ import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNod
 import { absoluteOf } from "./duration";
 import {
   framesDrawn,
-  nodeNamed,
   proposedRelations,
   UNTITLED_STUDIO,
   whiteboardEdges,
@@ -502,7 +501,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
    */
   const own: (StudioPickedAct & { press: () => void })[] = [
     ...(selected !== undefined && keepsAnAddress(selected)
-      ? [{ id: "open", label: "Open", press: () => openAddress(selected.id) }]
+      ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
       : []),
     ...(selected?.kind === "note" && selected.capture?.frame !== undefined
       ? [{ id: "frame", label: "Open frame", press: () => setOpened(selected.id) }]
@@ -536,6 +535,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           {
             id: "stop-server",
             label: "Stop the server",
+            icon: Power,
             press: () => void props.onStopServer(serving.id).then(answered),
           },
         ]),
@@ -626,8 +626,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           nodeBar={
             <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
               <StudioPicked
-                picked={onBoard.map((id) => nodeNamed(studio, id, jobs, board))}
-                acts={[...(editable ? promotion.acts : []), ...own]}
+                // Reading first, then what a rung makes of the node. The
+                // delete is in `own` and the bar draws it last wherever it sits.
+                acts={[...own, ...(editable ? promotion.acts : [])]}
                 onAct={(id) => {
                   const mine = own.find((act) => act.id === id);
                   return mine === undefined ? promotion.onAct(id) : mine.press();

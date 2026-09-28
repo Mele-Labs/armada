@@ -508,11 +508,13 @@ a square button, which rule 1 already settles, and minting a pair of magnifiers
 beside `search` would be two more silhouettes for a meaning a sign carries.
 `Fit` is `maximize`, because a word cannot sit in a square beside them.
 
-**A rail act earns a glyph; an act on a selection does not.** The rail's
-membership is fixed by the surface, so a reader learns it once and the icon is
-what buys the room back. The acts on whatever is currently selected hover over
-that selection instead, they come and go with it, and they draw their words:
-see `[node-bar-glyphs]` below for what was refused there.
+**A rail act earns a glyph; an act on a selection takes one only where the
+registry already holds it.** The rail's membership is fixed by the surface, so
+a reader learns it once and the icon is what buys the room back. The acts on
+whatever is currently selected hover over that selection instead and come and
+go with it — **a row of presses, never a menu**, at the owner's word of 28 Sep
+2026 — so most of them draw their words. Which two do not, and why the rest
+may not, is `[node-bar-glyphs]` below.
 
 **This is where an act's tooltip is load-bearing rather than an addition.** An
 icon-only control has no other way to say its name, which is the sanctioned use
@@ -777,6 +779,20 @@ should paper over.
   chip, the bar and the Studio at once — one decision, not three — or a
   ruling that a hovering bar is label-only by construction, the way Doctor's
   health grid settled `[doctor-warn-glyph]`.
+
+  **Half of it is now ruled, and by the owner.** On 28 Sep 2026 he read the
+  bar and asked for *a toolbar that has icon buttons for the actions that I
+  can take on this node* — so the bar is a row of presses and each act takes
+  a glyph **where the registry already sanctions one**. Two do: `external-link`
+  on *Open*, a third `usage` on a row carrying no reservation and the same
+  reading as its other two, the thing opens outside Bridge; and `power` on
+  *Stop the server*, which is the set's deliberate-stop glyph and means that
+  here too. Every other act draws its word — the rungs of promotion, the two
+  other opens, Capture, Delete, and the pad's Join and Remove — because
+  nothing in the set means *write this up*, *defer this* or *remove this*,
+  and a glyph borrowed to fill a row is rule 4's failure with extra steps.
+  What is still open is only the mint: a silhouette for *remove this* that
+  serves the chip, the bar and the Studio at once.
 
 - **[kit-file-icons]** Do the three Kit-file states — in Kit, drifted, not
   in Kit — get icons, or stay label-only?
