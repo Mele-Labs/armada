@@ -2,7 +2,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { criterionViewOf, criterionViewsOf } from "./criterion";
+import {
+  criterionViewOf,
+  criterionViewsOf,
+  criterionWritten,
+  decidedSaidOf,
+  originLineOf,
+  originSaidOf,
+} from "./criterion";
+import type { CriterionView } from "./criterion";
 import { sampleDetail } from "./sample";
 
 function criterion(source: string, text = "The gate refuses a main-process import") {
@@ -52,5 +60,73 @@ describe("a Job's criteria", () => {
 
   it("is empty on a Job held to nothing", () => {
     expect(criterionViewsOf(sampleDetail())).toEqual([]);
+  });
+});
+
+describe("what a criterion says about itself", () => {
+  const written = (over: Partial<CriterionView> = {}): CriterionView => ({
+    text: "The stat reads one running",
+    verified_by: "judge",
+    origin: { origin: "prompt" },
+    ...over,
+  });
+
+  // The owner read `answered by the check` on a Job nobody had approved and
+  // took it for a verdict already in (`f9yw`, 28 Sep).
+  it("says what will decide it, never what decided it", () => {
+    expect(decidedSaidOf(written({ verified_by: "check" }))).toBe("A Check will decide it");
+    expect(decidedSaidOf(written({ verified_by: "judge" }))).toBe("The Judge will decide it");
+    expect(decidedSaidOf(written({ verified_by: "attested" }))).toBe("You will decide it");
+  });
+
+  // A bare `owner/number` is a repository, a path and a branch as readily as
+  // an issue, which is what he asked (`u7y9`).
+  it("names an issue as an issue, and hands the reference over whole", () => {
+    const said = originSaidOf(written({ origin: { origin: "issue", ref: "armada/1162" } }));
+
+    expect(said.said).toBe("From issue");
+    expect(said.issue).toEqual({ ref: "armada/1162" });
+  });
+
+  it("carries the forge address where a surface has been given one", () => {
+    const said = originSaidOf(
+      written({ origin: { origin: "issue", ref: "armada/1162", url: "https://example/1162" } }),
+    );
+
+    expect(said.issue?.url).toBe("https://example/1162");
+  });
+
+  it("gives the other two origins no reference, because they are not places", () => {
+    expect(originSaidOf(written({ origin: { origin: "prompt" } }))).toEqual({
+      said: "From your prompt",
+    });
+    expect(originSaidOf(written({ origin: { origin: "person" } }))).toEqual({
+      said: "You wrote this",
+    });
+  });
+
+  it("flattens to one line for a surface that draws no link", () => {
+    expect(originLineOf(written({ origin: { origin: "issue", ref: "armada/1162" } }))).toBe(
+      "From issue armada/1162",
+    );
+    expect(originLineOf(written())).toBe("From your prompt");
+  });
+});
+
+describe("a criterion somebody adds at the gate", () => {
+  // A Check is the workflow's and is frozen at creation, so a line typed here
+  // has no Check to run against it.
+  it("is empty, is yours, and is the Judge's to decide", () => {
+    const fresh = criterionWritten();
+
+    expect(fresh.text).toBe("");
+    expect(fresh.origin).toEqual({ origin: "person" });
+    expect(fresh.verified_by).toBe("judge");
+  });
+
+  // Absent is the honest answer: nothing has minted one, and a Bridge-side id
+  // would be a value Fleet never agreed to.
+  it("carries no id, because nothing has minted one", () => {
+    expect(criterionWritten().criterion_id).toBeUndefined();
   });
 });

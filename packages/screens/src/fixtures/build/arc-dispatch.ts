@@ -54,6 +54,7 @@ export function arcProposal(over: Partial<ProposalView> = {}): ProposalView {
   return {
     status: "proposing",
     title: "Show what is running in the Drones stat",
+    workflow_id: "feature",
     gates: [],
     fleet_always_looks: true,
     tiers: ARC_TIERS,

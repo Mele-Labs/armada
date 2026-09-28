@@ -9,6 +9,12 @@ import { ConceptLabel } from "../../concepts";
  * line up down the panel rather than per row. Content-sized rather than a
  * drawn width: a fixed label column transcribed from a board truncates the
  * longest label beside empty space, which is the defect `bridge.md` records.
+ *
+ * **Every label starts at the same edge, and the tier rows used to not**
+ * (`yc0v`, 28 Sep). Difficult, Medium and Easy were right-aligned and a size
+ * smaller, to read as belonging to the heading above them — which took three
+ * of the panel's labels off the line the other nine sit on. The heading
+ * already says they belong to it.
  */
 export function ProposalFields({ children }: { children: ReactNode }) {
   return <div className="armada-proposal__fields">{children}</div>;
@@ -24,20 +30,17 @@ export function ProposalFields({ children }: { children: ReactNode }) {
  */
 export function ProposalField({
   label,
-  indent,
   bare,
   children,
 }: {
   /** The setting's name. A word `concepts.ts` knows gets its sentence on hover. */
   label: string;
-  /** A setting that belongs to the one above it — a tier under Model. */
-  indent?: boolean;
   /** The value is a control, which already draws its own box. */
   bare?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="armada-proposal__field" data-indent={indent || undefined}>
+    <div className="armada-proposal__field">
       <ConceptLabel className="armada-proposal__field-label">{label}</ConceptLabel>
       <div className="armada-proposal__field-value" data-bare={bare === true ? "true" : undefined}>
         {children}

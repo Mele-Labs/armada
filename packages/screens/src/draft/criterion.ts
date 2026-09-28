@@ -21,9 +21,15 @@ export type VerifiedBy = "check" | "judge" | "attested";
  *
  * `issue` carries the reference so a surface can say the issue has moved since
  * the Job froze its words — the Job keeps what it froze (#1530, 22 Sep).
+ *
+ * **`url` is the forge address of that issue, and nothing serves it yet.** A
+ * reference reads as `armada/1162`, which the owner could not tell from a
+ * branch or a path (`u7y9`, 28 Sep), so a surface that has an address opens
+ * the issue and one that has none draws the reference as the text it is.
+ * Fleet carries no address on a criterion today, so nothing sets this.
  */
 export type CriterionOrigin =
-  | { origin: "issue"; ref: string }
+  | { origin: "issue"; ref: string; url?: string }
   | { origin: "prompt" }
   | { origin: "person" };
 
@@ -76,20 +82,81 @@ function verifiedByOf(source: string): VerifiedBy {
 }
 
 /**
+ * Where a criterion's words came from: the words, and the issue behind them
+ * where there is one.
+ *
+ * **Two parts rather than one string, so the reference can be a link.** A
+ * screen with an address draws `armada/1162` as the issue it opens; a screen
+ * with none draws the same reference as text. Flattening them here would put
+ * the reference inside a sentence nothing could reach into.
+ */
+export type OriginSaid = {
+  /** The lead words. Reads whole on its own where there is no issue. */
+  said: string;
+  /** The issue these words came from, where they came from one. */
+  issue?: { ref: string; url?: string };
+};
+
+/**
  * Where a criterion's words came from, as a person reads it.
  *
  * **One sentence, written once.** Three surfaces say it — the classifying
  * screen while it is yours to change, the same screen frozen, and Plan — and a
  * second spelling of "from the issue" is how two of them end up saying
  * different things about the same line.
+ *
+ * **The word `issue` is on the line since 28 Sep 2026.** It read `from
+ * armada/1162`, and the owner asked what that was (`u7y9`): a bare
+ * `owner/number` is a repository, a path and a branch as readily as an issue.
  */
-export function originSaidOf(criterion: CriterionView): string {
-  switch (criterion.origin.origin) {
+export function originSaidOf(criterion: CriterionView): OriginSaid {
+  const origin = criterion.origin;
+  switch (origin.origin) {
     case "issue":
-      return `from ${criterion.origin.ref}`;
+      return {
+        said: "From issue",
+        issue: origin.url === undefined ? { ref: origin.ref } : { ref: origin.ref, url: origin.url },
+      };
     case "person":
-      return "written by you";
+      return { said: "You wrote this" };
     default:
-      return "from the prompt";
+      return { said: "From your prompt" };
   }
+}
+
+/** The same thing on one line, for a surface that draws text and no link. */
+export function originLineOf(criterion: CriterionView): string {
+  const { said, issue } = originSaidOf(criterion);
+  return issue === undefined ? said : `${said} ${issue.ref}`;
+}
+
+/**
+ * What will decide whether this criterion is met.
+ *
+ * **Future, because none of it has happened.** It read `answered by the
+ * check` on a Job nobody had approved, which the owner read as a verdict
+ * already in (`f9yw`, 28 Sep) — and on the classifying screen there is not
+ * even a Drone yet. `verified_by` names who decides, never what they decided.
+ */
+export function decidedSaidOf(criterion: CriterionView): string {
+  switch (criterion.verified_by) {
+    case "check":
+      return "A Check will decide it";
+    case "attested":
+      return "You will decide it";
+    default:
+      return "The Judge will decide it";
+  }
+}
+
+/**
+ * A criterion somebody typed here, with nothing filled in.
+ *
+ * **The Judge decides it, because nothing else can.** A Check is declared by
+ * the workflow and frozen at creation, so a line added at the approval gate
+ * has no Check to run against it; the Judge is the one reader that takes words
+ * it was handed. `criterion_id` stays absent — nothing has minted one.
+ */
+export function criterionWritten(): CriterionView {
+  return { text: "", verified_by: "judge", origin: { origin: "person" } };
 }

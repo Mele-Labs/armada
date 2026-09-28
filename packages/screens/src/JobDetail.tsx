@@ -213,6 +213,7 @@ function OneJob(props: JobDetailProps) {
           edits={edits}
           onEdits={setEdits}
           models={props.models?.models ?? []}
+          workflows={props.workflows}
           stale={props.stale}
           manifest={props.manifests.find((one) => one.id === job.owner_manifest_id)}
         />

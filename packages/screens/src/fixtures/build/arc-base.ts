@@ -199,6 +199,88 @@ export function featureWorkflow(): WorkflowSummary {
   };
 }
 
+/**
+ * Bug, the other workflow this repository declares, so the picker has
+ * somewhere to go. **Transcribed from
+ * `crates/core-model/domain/workflow-samples/bug.json`**, which
+ * `workflows.toml` calls the reference sample and the one to copy from.
+ *
+ * It is the real seven rather than an invented three because the picker's
+ * claim is that choosing a workflow rebuilds every gate from *that
+ * workflow's* steps, and the real one carries two `manifest_rule` gates —
+ * the fourth state no tick box expresses — and a step gated on a Check
+ * alone. **No step declares a label**, so each reads as its own id.
+ */
+export function bugWorkflow(): WorkflowSummary {
+  const judge = [{ criteria: 1, gaming_check: false }];
+  return {
+    id: "bug",
+    name: "bug",
+    version: 2,
+    manifest_id: MANIFEST_ID,
+    steps: [
+      {
+        step_id: "repro",
+        label: "repro",
+        checks: [{ kind: "test_run", expect_exit_code: 1 }],
+        judge_checks: judge,
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "root_cause",
+        label: "root_cause",
+        checks: [{ kind: "artifact_exists", name: "root_cause_note" }],
+        judge_checks: judge,
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "fix",
+        label: "fix",
+        checks: [{ kind: "diff_nonempty" }],
+        // A panel of three, and the sample's own gaming check.
+        judge_checks: [{ criteria: 1, gaming_check: true, panel_size: 3 }],
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "regression_verify",
+        label: "regression_verify",
+        checks: [{ kind: "manifest_check", name: "test", expect_exit_code: 0 }],
+        judge_checks: judge,
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "review",
+        // Advisory: it summarises for a person and does not gate.
+        label: "review",
+        checks: [],
+        judge_checks: judge,
+        advance_gate: "manifest_rule:review_gate",
+        delivers: false,
+      },
+      {
+        step_id: "merge",
+        label: "merge",
+        checks: [],
+        judge_checks: [],
+        advance_gate: "manifest_rule:auto_merge",
+        delivers: true,
+      },
+      {
+        step_id: "close",
+        label: "close",
+        checks: [{ kind: "pr_merged" }],
+        judge_checks: [],
+        advance_gate: "auto",
+        delivers: false,
+      },
+    ],
+  };
+}
+
 /** The two things the Job is held to, out of the issue it was cut from. */
 export const ARC_CRITERIA: Criterion[] = [
   {

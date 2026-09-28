@@ -13,7 +13,13 @@
 // proposing screens draft twice over: the shape is draft, and so is the idea
 // that it exists before a Job does.
 
-import type { JobDetail, LimitValues, StepDetail } from "@armada/protocol";
+import type {
+  DeclaredCheck,
+  DeclaredJudge,
+  JobDetail,
+  LimitValues,
+  WorkflowStep,
+} from "@armada/protocol";
 
 import type { PrMode } from "./landing";
 import type { TaskTier } from "./task";
@@ -53,6 +59,24 @@ export type ProposalView = {
   /** `classifying`, and the same status #1159 calls `proposing`. */
   status: string;
   title: string;
+  /**
+   * The workflow this Job runs, by the id `WorkflowSummary.id` declares.
+   *
+   * **Editable up to the press, like everything else here** — the owner asked
+   * for the picker on 28 Sep (`2b4j`), and what locks, locks at approval
+   * (#1530). Changing it replaces every gate, because a gate belongs to a step
+   * and the steps are the new workflow's: `gatesForSteps` is that rebuild.
+   */
+  workflow_id: string;
+  /**
+   * The request, in the requester's own words. `JobDetail.facts`, and absent
+   * where a Job was given no context beyond its title.
+   *
+   * **Held here because it is editable before approval** (`d9b3`, 28 Sep).
+   * Every Drone is given these words, so the last chance to fix them is the
+   * gate; `facts` on the wire is a read and Fleet takes no rewrite of it.
+   */
+  asked?: string;
   gates: GateView[];
   /**
    * The line the ticks cannot turn off.
@@ -98,6 +122,7 @@ export function proposalViewOf(
   const view: ProposalView = {
     status: detail.job.status,
     title: detail.job.title,
+    workflow_id: detail.job.workflow_id,
     gates: detail.steps.map(gateViewOf),
     fleet_always_looks: true,
     // Per-tier models are the draft's own. Today one model is resolved for the
@@ -112,11 +137,42 @@ export function proposalViewOf(
     from_ref: fromRef,
     pr_mode: "ready",
   };
+  if (detail.facts !== undefined) {
+    view.asked = detail.facts;
+  }
   if (detail.job.started_at !== undefined) {
     view.approved_at = detail.job.started_at;
   }
   return view;
 }
+
+/**
+ * A gate per step of a workflow, as that workflow declares them.
+ *
+ * **What picking another workflow costs.** A gate belongs to a step, so the
+ * gates a person moved on the old workflow name steps the new one does not
+ * have; carrying them across by position would put a tick meant for `handoff`
+ * on whatever runs fourth. So the rebuild is total, and the screen says so
+ * beside the picker rather than silently discarding the ticks.
+ */
+export function gatesForSteps(steps: readonly WorkflowStep[]): GateView[] {
+  return steps.map(gateViewOf);
+}
+
+/**
+ * What a gate is read off, on a step Fleet holds and on one a workflow only
+ * declares. `WorkflowSummary.steps` and `JobDetail.steps` carry the same four
+ * fields with the same meanings, and this is the intersection rather than
+ * either — a gate needs no other field, and taking the wider type would make
+ * the workflow picker cast.
+ */
+export type GateDeclared = {
+  step_id: string;
+  checks?: readonly DeclaredCheck[];
+  judge_checks?: readonly DeclaredJudge[];
+  advance_gate?: string;
+  overridden?: boolean;
+};
 
 /**
  * One step's gate, from its `advance_gate`.
@@ -126,7 +182,7 @@ export function proposalViewOf(
  * stopping for a person, which is the answer that cannot advance work nobody
  * looked at.
  */
-export function gateViewOf(step: StepDetail): GateView {
+export function gateViewOf(step: GateDeclared): GateView {
   const gate = step.advance_gate;
   const view: GateView = {
     step_id: step.step_id,
