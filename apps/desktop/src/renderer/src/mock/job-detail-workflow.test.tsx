@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
-import { GUIDE_GROUP_ORDER, GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
+import { GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
 
 import { mount, unmountAfterEach } from "./testing";
 
@@ -261,47 +261,32 @@ test("Stacked says what the graph says, in words", async () => {
   expect(await page.getByText("worked at Implement").elements()).toHaveLength(0);
 });
 
-test("a press on a task in the step's board opens that task, and a press on its group takes the panel back", async () => {
+// # The tab is the run, and nothing of the plan but that node
+//
+// The owner's note of 28 Sep: *I dont think we need the groups/plan info on
+// the workflow view.* The implement board stood under the canvas drawing the
+// groups, their tasks, their checks and their commits — the plan read a second
+// time on the destination the plan had just been taken off.
+
+test("no board stands under the run, so the groups are the Plan tab's alone", async () => {
   await page.viewport(2000, 900);
   await failed();
-  // The board under the run is what a task is opened from now: the canvas
-  // above draws steps and the plan, and the board draws what is inside the
-  // step that is moving.
-  const task = page.getByRole("listitem", { name: "T6 Open a Drone's Job from its row" }).last();
-  await task.getByRole("button").first().click();
-  await expect.element(page.getByRole("region", { name: "T6 · Open a Drone's Job from its row, task" }).last()).toBeVisible();
-  await page.getByRole("button", { name: /^Group 3\b/ }).last().click();
-  await expect.element(page.getByRole("region", { name: "Group 3, group" }).last()).toBeVisible();
+  // The run first: an absence passes against a window that has not drawn yet,
+  // so a negative stands behind a positive.
+  await expect.element(card("Implement")).toBeVisible();
+  expect(page.getByRole("heading", { name: "Groups", exact: true }).elements()).toHaveLength(0);
+  expect(
+    page.getByRole("list", { name: "The groups of this step, in the order they run" }).elements(),
+  ).toHaveLength(0);
+  // And with the board goes the only route into a task from this destination.
+  expect(page.getByRole("listitem", { name: /^T\d /}).elements()).toHaveLength(0);
 });
 
-// # What this destination no longer says, and the mark that carries it
-//
-// The implement board's order line stood over the groups and is guide 4 now.
-// It is true of a Job that had never run, which is #1602's test.
-
-/** One guide's `?`, by the name `GuideMark` gives it. */
-const markFor = (guide: { number: number; title: string }) =>
-  page.getByRole("button", { name: `Open guide ${guide.number}, ${guide.title}` });
-
-test("the implement board heads its groups with the noun, and the mark hangs on that", async () => {
-  await workflow();
-  // The head first: an assertion that something is absent passes against a
-  // window that has not drawn yet, so a negative stands behind a positive.
-  const head = page.getByRole("heading", { name: "Groups", exact: true }).last();
-  await expect.element(head).toBeVisible();
-  // The noun and nothing else. *The groups, in the order they run* would be
-  // the sentence that came off wearing a hat.
-  await expect.element(head).toHaveTextContent(/^Groups$/);
-  await expect.element(markFor(GUIDE_GROUP_ORDER).last()).toBeVisible();
-  // *One group at a time. No task of the next group starts…* stood over the
-  // groups and was the only evidence of the rule. It is guide 4 now.
-  await expect
-    .element(page.getByText(/No task of the next group starts while this one is being checked/))
-    .not.toBeInTheDocument();
-  // The board still reports: the groups are there, in the order they run.
-  await expect
-    .element(page.getByRole("list", { name: "The groups of this step, in the order they run" }).last())
-    .toBeVisible();
+test("a step still opens into the inspector, which is what the tab reads into now", async () => {
+  await page.viewport(2000, 900);
+  await failed();
+  await card("Implement").click();
+  await expect.element(page.getByRole("region", { name: /^Implement/ }).last()).toBeVisible();
 });
 
 test("the canvas head carries no mark, because the guide that hung there is retired", async () => {
