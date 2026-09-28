@@ -40,7 +40,15 @@ export type TheShellProps = {
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */
   dispatchDisabled?: boolean;
-  surfaces: SidebarItem[];
+  /**
+   * The rail's panels, each its own rounded panel in the column — the owner
+   * split Navigation in two on 28 Sep 2026. **The roster and the grouping are
+   * both the caller's**: this counts nothing and names nothing.
+   *
+   * The collapse toggle is drawn in the first panel's head alone. Two toggles
+   * for one column would be two controls on one act.
+   */
+  panels: { id: string; label: string; surfaces: SidebarItem[] }[];
   activeId?: string;
   /**
    * The 48px icon rail — the column's narrowest, and the narrowest it ever
@@ -151,7 +159,7 @@ export function TheShell({
   onSearch,
   onDispatch,
   dispatchDisabled,
-  surfaces,
+  panels,
   activeId,
   collapsed,
   onCollapsedChange,
@@ -187,19 +195,25 @@ export function TheShell({
             className="armada-shell__left"
             style={collapsed || leftWidth === undefined ? undefined : { width: `${leftWidthValue}px` }}
           >
-            <Sidebar
-              header={railHeader}
-              sectionLabel={null}
-              surfaces={surfaces}
-              activeId={activeId}
-              collapsed={collapsed}
-              {...(onCollapsedChange === undefined ? {} : { onCollapsedChange })}
-              {...(collapseBinding === undefined ? {} : { collapseBinding })}
-              // The column holds the width. Left to its own 200px default, the
-              // nav stayed put while Stats and Fleet followed a drag.
-              width="100%"
-              onSelect={onSelect}
-            />
+            {panels.map((panel, at) => (
+              <Sidebar
+                key={panel.id}
+                // The first panel alone carries the header slot and the
+                // collapse control: the header is the drag region under the
+                // traffic lights, and one column has one toggle.
+                {...(at === 0 ? { header: railHeader } : {})}
+                sectionLabel={panel.label}
+                surfaces={panel.surfaces}
+                activeId={activeId}
+                collapsed={collapsed}
+                {...(at === 0 && onCollapsedChange !== undefined ? { onCollapsedChange } : {})}
+                {...(at === 0 && collapseBinding !== undefined ? { collapseBinding } : {})}
+                // The column holds the width. Left to its own 200px default, the
+                // nav stayed put while Stats and Fleet followed a drag.
+                width="100%"
+                onSelect={onSelect}
+              />
+            ))}
             <StatsPanel {...stats} narrow={collapsed} />
             <FleetPanel {...fleet} narrow={collapsed} />
           </div>

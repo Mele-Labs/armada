@@ -51,13 +51,13 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 ## Top-level shell
 
-Bridge's shell is a **title row** across the top — the repository picker with a control beside it that opens the picked repository's [Manifest](manifest.md), search, Dispatch and, once Helm's dock is closed, its own reopen button — a **left column** of three resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
+Bridge's shell is a **title row** across the top — the repository picker with a control beside it that opens the picked repository's [Manifest](manifest.md), search, Dispatch and, once Helm's dock is closed, its own reopen button — a **left column** of resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
 
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id. The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-**The left column stacks Navigation, Stats and Fleet**, one panel each, resizing and collapsing as a single unit rather than three panels each settling their own width — Bridge/1088's replacement for the rail and the status bar. See `../contracts/design-system.md`, Left column, and Component → token mapping.
+**The left column stacks Work, Machine, Stats and Fleet**, one panel each, resizing and collapsing as a single unit rather than each settling its own width — Bridge/1088's replacement for the rail and the status bar, with Navigation split in two by the owner on 28 Sep 2026. See `../contracts/design-system.md`, Left column, and Component → token mapping.
 
-Navigation carries Overview, Job Board, Studios, Alerts, Doctor, Manifest, Cleanup, Kit and Settings. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
+Work carries Overview, Job Board, Studios, Alerts, Doctor and Cleanup; Machine carries Kit, Settings and Guides. Manifest is in neither: it is reached from the control beside the title row's picker (#1595), which is why the rail's panels name their members rather than taking every surface the roster holds. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else. See [Studio](studio.md).
 

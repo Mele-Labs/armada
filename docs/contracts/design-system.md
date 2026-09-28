@@ -787,21 +787,41 @@ opens.
 
 ### Left column
 
-Bridge/1088 replaced the rail and the status bar with one column of three
-rounded panels — **Navigation**, **Stats** and **Fleet** — collapsible and
-resizable, and both states are designed rather than one being an afterthought.
+Bridge/1088 replaced the rail and the status bar with one column of rounded
+panels — collapsible and resizable, and both states are designed rather than
+one being an afterthought. They are **Work**, **Machine**, **Stats** and
+**Fleet**.
+
+**Navigation is two panels, not one.** The owner split it on 28 Sep 2026 —
+*"We should split this into two panels ... its about jobs and studios"*. Work
+holds where the work is read; Machine holds what this machine has and is.
+
+> **Rule.** The rail's panels and their membership are declared, not derived
+> from the surface roster. A surface is in a panel because it was put there,
+> and a surface in no panel has no rail row while staying reachable by every
+> other route.
+> Why: the roster is every destination Bridge can reach and the palette lists
+> all of them. Manifest is reached from the title row's picker rather than from
+> a row (#1595), and a rail derived from the roster could not express that
+> without deleting the destination.
+
+**Machine, because Kit and Settings are both `scope = "Machine"`** in
+`crates/config/settings.toml` — Kit is what this machine has and Settings is
+what it is. *Setup* was the runner-up and was rejected: it already names a view
+on the Manifest surface, and one word meaning two things in one window is what
+the lexicon exists to prevent.
 
 ```
 default     200px
 drag range  160-320px
-collapsed   48px icon rail — Navigation's own form; Stats and Fleet
-            collapse to one centred status dot at the same width
-control     a toggle in Navigation's head, and ⌘\, at any width above
+collapsed   48px icon rail — the two nav panels keep their glyphs; Stats
+            and Fleet collapse to one centred status dot at the same width
+control     a toggle in Work's head, and ⌘\, at any width above
             --layout-breakpoint; drawn in both states, saying which it is in
 persistence width and collapsed state survive app restart
 ```
 
-**One panel style, shared by all three.** `--radius-lg` and the card
+**One panel style, shared by every one of them.** `--radius-lg` and the card
 treatment under Depth, held apart by the column's own 16px gap (`--space-4`)
 rather than by margin on each panel. A panel's head is 40px
 (`--space-8` + `--space-2`), 12px horizontal padding (`--space-3`), and
@@ -809,16 +829,18 @@ collapses to its head only — never to nothing, so a glance still answers
 the one question the panel is for. Token treatment for Stats and Fleet's
 own content is under Component → token mapping.
 
-**One width, shared by all three.** Navigation, Stats and Fleet resize and
-collapse together, on one drag handle at the column's trailing edge — never
-one handle per panel, and never three panels each resolving their own width.
+**One width, shared by every panel.** Work, Machine, Stats and Fleet resize and
+collapse together, on one drag handle at the column's trailing edge — never one
+handle per panel, and never four panels each resolving their own width. **One
+collapse control too**, in Work's head: two toggles for one column would be two
+controls on one act.
 
-**Navigation is one level, Bridge's own.** It lists Bridge's surfaces and
-nothing else — Helm left it for the dock (#948), so there is no second tier
-beneath it any more.
+**Each nav panel is one level, Bridge's own.** They list Bridge's surfaces and
+nothing else — Helm left the rail for the dock (#948), so there is no tier
+beneath a row.
 
 **The column never disappears. It reaches the rail, and stops there.** 48px is
-cheap, and losing Navigation, Stats and Fleet entirely is worse than losing
+cheap, and losing the panels entirely is worse than losing
 48px at any width.
 
 > **Rule.** The left column collapses to its 48px rail below
@@ -859,7 +881,10 @@ correction still stands and is what the rule above says; only the second band
 it applied to has gone.
 
 **At 48px Stats and Fleet keep their one status dot each**, so a glance still
-says whether anything needs attention, and Navigation keeps its glyphs.
+says whether anything needs attention, and the nav panels keep their glyphs.
+Four panels at the rail read as four stacks held apart by the column's gap;
+photographed under `--layout-breakpoint` on 28 Sep 2026, when the split
+landed.
 
 **Fleet's liveness is also one dot in the title row, at every width.** #1438
 drew that dot only while the left column was absent, which was the right shape
@@ -1007,7 +1032,7 @@ floors at 390px, which leaves 358px between its gutters.
 
 | | ≥ 1100px | < 1100px | Touch client |
 | --- | --- | --- | --- |
-| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Navigation, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
+| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
 | Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | An edge strip; open draws it as a sheet over the content instead | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
@@ -2068,7 +2093,7 @@ What Bridge does with the version it reads.
 - **~~Window and layout model~~** **Closed.** Specified in full under
   Window and layout model above — frameless `hiddenInset` chrome insetting
   the traffic lights over the title row, a collapsible/resizable left column
-  carrying Navigation, Stats and Fleet as one unit, full-width routes with no
+  carrying Work, Machine, Stats and Fleet as one unit, full-width routes with no
   inspector but for Helm's dock, no page head and no status bar, and the
   floors and breakpoint under Responsive behaviour. Delivered as one
   responsive prototype rather than per-width comps.

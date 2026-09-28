@@ -88,7 +88,7 @@ import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { ALL_REPOSITORIES } from "./RepositoryOptions";
 import { repositoryLabel } from "./repository-label";
-import { SURFACE, SURFACES } from "./surfaces";
+import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
 
 export type ShellProps = {
   connection: Connection;
@@ -215,22 +215,26 @@ export function Shell({
           </>
         ),
       }}
-      surfaces={SURFACES.map((surface) => ({
-        id: surface.id,
-        label: surface.label,
-        icon: surface.icon,
-        shortcut: surface.shortcut,
-        // Only the Board carries one. What Fleet is holding disk for is read
-        // while that screen is open and not before, so a number here would be
-        // right for as long as somebody was looking at it and stale after —
-        // and a count nobody can trust is worse than a row with none.
-        //
-        // **Active Jobs only.** Finished and cleared ones are the Board's
-        // record rather than its work, and the owner ruled on 11 Sep 2026
-        // that the rail counts the work. Zero draws no count, as a tab's does.
-        ...(surface.id === SURFACE.board && activeOf(boardJobs) > 0
-          ? { count: activeOf(boardJobs) }
-          : {}),
+      panels={RAIL_PANELS.map((panel) => ({
+        id: panel.id,
+        label: panel.label,
+        surfaces: panelSurfaces(panel).map((surface) => ({
+          id: surface.id,
+          label: surface.label,
+          icon: surface.icon,
+          shortcut: surface.shortcut,
+          // Only the Board carries one. What Fleet is holding disk for is read
+          // while that screen is open and not before, so a number here would be
+          // right for as long as somebody was looking at it and stale after —
+          // and a count nobody can trust is worse than a row with none.
+          //
+          // **Active Jobs only.** Finished and cleared ones are the Board's
+          // record rather than its work, and the owner ruled on 11 Sep 2026
+          // that the rail counts the work. Zero draws no count, as a tab's does.
+          ...(surface.id === SURFACE.board && activeOf(boardJobs) > 0
+            ? { count: activeOf(boardJobs) }
+            : {}),
+        })),
       }))}
       activeId={showing}
       onSelect={onSurface}

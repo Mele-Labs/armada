@@ -185,13 +185,17 @@ export function Sidebar({
   return (
     <nav
       className="armada-sidebar armada-glass"
+      // **Named, because there is more than one.** The rail is two panels since
+      // 28 Sep 2026, and two unlabelled navigation regions are one region said
+      // twice. The name holds at the rail too, where the label is not drawn.
+      {...(typeof sectionLabel === "string" ? { "aria-label": sectionLabel } : {})}
       data-collapsed={collapsed || undefined}
       style={{ width: collapsed ? "var(--sidebar-rail)" : (width ?? "var(--sidebar-default)") }}
     >
       {appName ? <div className="armada-sidebar__chrome">{appName}</div> : null}
-      {/* Above the surfaces, at the column's trailing edge open and centred at
-          the rail — the one place that is the same place in both states. */}
-      {onCollapsedChange === undefined ? null : (
+      {/* At the rail the toggle is the only thing on its row, so it is centred
+          and alone — there is no label beside it to sit against. */}
+      {collapsed && onCollapsedChange !== undefined ? (
         <div className="armada-sidebar__tools">
           <CollapseToggle
             collapsed={collapsed}
@@ -199,11 +203,24 @@ export function Sidebar({
             onCollapsedChange={onCollapsedChange}
           />
         </div>
-      )}
+      ) : null}
       {!collapsed && header ? <div className="armada-sidebar__header">{header}</div> : null}
 
-      {!collapsed && sectionLabel ? (
-        <div className="armada-sidebar__section">{sectionLabel}</div>
+      {/* The panel's head: its name, and the column's toggle on the panel that
+          carries one. **One row, not two** — the toggle sat above the label in
+          a band of its own, which at the column's resting width read as an
+          empty row. Photographed 28 Sep 2026. */}
+      {!collapsed && (sectionLabel || onCollapsedChange !== undefined) ? (
+        <div className="armada-sidebar__head">
+          <span className="armada-sidebar__section">{sectionLabel}</span>
+          {onCollapsedChange === undefined ? null : (
+            <CollapseToggle
+              collapsed={collapsed}
+              {...(collapseBinding === undefined ? {} : { binding: collapseBinding })}
+              onCollapsedChange={onCollapsedChange}
+            />
+          )}
+        </div>
       ) : null}
 
       <div className="armada-sidebar__group">

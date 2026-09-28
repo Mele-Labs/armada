@@ -176,6 +176,31 @@ export const SURFACES: readonly PaletteSurface[] = [
 ];
 
 /**
+ * The rail's two panels, and which surfaces each holds — the owner, 28 Sep 2026.
+ *
+ * **Work and Machine.** Work is his own framing of the first group, *"about jobs
+ * and studios"*. Machine is the second because Kit and Settings are both
+ * `scope = "Machine"` in `crates/config/settings.toml`. *Setup* was rejected: it
+ * already names a view on the Manifest surface.
+ *
+ * **Membership is named, not derived.** `SURFACES` is every destination and the
+ * palette lists all of them; a panel holds the ones he put in it. That is what
+ * lets Manifest be reachable with no rail row — #1595 folded it into the title
+ * row's picker, which is a control rather than a row.
+ */
+export const RAIL_PANELS = [
+  { id: "work", label: "Work", surfaces: [SURFACE.overview, SURFACE.board, SURFACE.studios, SURFACE.worktrees] },
+  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides] },
+] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
+
+/** One panel's rows, in the order it names them, skipping any surface that is not built. */
+export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurface[] {
+  return panel.surfaces
+    .map((id) => SURFACES.find((one) => one.id === id))
+    .filter((one): one is PaletteSurface => one !== undefined);
+}
+
+/**
  * `⌘1`…`⌘n`, bound to the rail in rail order.
  *
  * **The binding the contract already publishes, finally answered.** Every
