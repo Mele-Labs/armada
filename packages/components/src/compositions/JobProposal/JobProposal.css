@@ -300,14 +300,24 @@
 
 /* The step's name. **Sans since 28 Sep 2026** (0bgt): mono is for a value a
    person copies — a branch, a path, an id — and a step's name is prose the
-   workflow wrote. The mono was transcribed from the board, where the step
-   names happened to be their own ids. */
+   workflow wrote. Every step was mono before, `Plan the change` included. */
 .armada-proposal__gate-step {
   min-width: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
   color: var(--fg-default);
+}
+
+/* Unless the name *is* the id, which is what Fleet substitutes for a workflow
+   declaring no label — `bug`, the reference sample, is all seven. Then it is
+   an identifier and reads as one, which is the same rule `Inspector.tsx`
+   keeps for a step in the run tree. */
+.armada-proposal__gate-step[data-identifier] {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-body);
 }
 
 /* The workflow where it is read rather than chosen — after approval, and on

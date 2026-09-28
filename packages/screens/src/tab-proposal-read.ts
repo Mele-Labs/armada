@@ -9,7 +9,7 @@
 
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
 import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
-import type { JobDetail as JobWhole, WorkflowSummary } from "@armada/protocol";
+import type { JobDetail as JobWhole, WorkflowStep, WorkflowSummary } from "@armada/protocol";
 
 import { criterionWritten, decidedSaidOf, originSaidOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
@@ -68,21 +68,28 @@ export function proposalEditsOf(draft: JobDraft | undefined): ProposalEdits | un
 export function gateRowsOf(
   gates: readonly GateView[],
   whole: JobWhole | null,
-  /** What the chosen workflow calls each step, where it is not the frozen one. */
-  labels: ReadonlyMap<string, string> = new Map(),
+  /** What the chosen workflow declares, where it is not the frozen one. */
+  declared: ReadonlyMap<string, WorkflowStep> = new Map(),
 ): ProposalGateRow[] {
   return gates.map((gate) => {
-    const step = whole?.steps.find((one) => one.step_id === gate.step_id);
+    // The frozen step first, then the chosen workflow's. A step neither holds
+    // declares nothing, which is a Job naming a workflow Fleet has no record
+    // of — and a box ticked on it says so.
+    const step = whole?.steps.find((one) => one.step_id === gate.step_id) ??
+      declared.get(gate.step_id);
     const reading = gateReadingOf(gate);
-    // What the step declares, which a tick cannot change. A step Fleet holds
-    // no record of declares nothing, and a box ticked on it says so.
+    // What the step declares, which a tick cannot change.
     const unmeant = unmeantOf(gate, {
       checks: (step?.checks?.length ?? 0) > 0,
       judge: (step?.judge_checks?.length ?? 0) > 0,
     });
+    const label = step?.label ?? gate.step_id;
     const row: ProposalGateRow = {
       id: gate.step_id,
-      label: step?.label ?? labels.get(gate.step_id) ?? gate.step_id,
+      label,
+      // Fleet substitutes the id where a workflow declares no label, and an
+      // id reads as one. `run.ts` and `stopped.ts` derive it the same way.
+      labelIsAnIdentifier: label === gate.step_id,
       checks: gate.checks,
       judge: gate.judge,
       you: gate.you,
@@ -133,18 +140,24 @@ export function proposalOnWorkflow(
 }
 
 /**
- * What the steps read as while the chosen workflow is not the frozen one.
+ * What each step of the chosen workflow declares, by its id.
  *
- * **The label comes off the workflow once a person has picked another**, and
- * off the Job's own frozen steps until then: `JobDetail.steps` is what the
- * proposer chose, and it holds no step of a workflow nobody approved.
+ * **Read off the workflow once a person has picked another**, and off the
+ * Job's own frozen steps until then: `JobDetail.steps` is what the proposer
+ * chose, and it holds no step of a workflow nobody approved.
+ *
+ * **The whole step, not its label.** It was the label alone for an hour, and
+ * every row of a newly picked workflow then read *this step declares no
+ * Check* under a ticked box — `unmeantOf` asks what the step declares, and a
+ * step the Job never froze declared nothing it could see. A workflow's own
+ * `checks` and `judge_checks` are exactly that answer.
  */
-export function stepLabelsOf(
+export function stepsDeclaredOf(
   workflows: readonly WorkflowSummary[],
   workflowId: string,
-): ReadonlyMap<string, string> {
+): ReadonlyMap<string, WorkflowStep> {
   const picked = workflows.find((workflow) => workflow.id === workflowId);
-  return new Map((picked?.steps ?? []).map((step) => [step.step_id, step.label]));
+  return new Map((picked?.steps ?? []).map((step) => [step.step_id, step]));
 }
 
 /** One box moved on one step, with every other step carried through. */

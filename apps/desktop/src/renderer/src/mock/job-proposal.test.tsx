@@ -166,9 +166,32 @@ describe("what a person may still change", () => {
       // by position, which would put a tick meant for `handoff` on whatever
       // the bug workflow runs fourth.
       expect(page.getByRole("listitem", { name: "Plan the change" }).all()).toHaveLength(0);
+      // `bug` is the reference sample and it runs seven, so the rebuild is a
+      // rebuild rather than a relabelling of the four the Job had.
       await expect
         .element(page.getByRole("region", { name: "Workflow" }))
-        .toHaveTextContent("bug — 3 steps");
+        .toHaveTextContent("bug — 7 steps");
+      await expect.element(page.getByRole("listitem", { name: "repro" })).toBeVisible();
+      await expect.element(page.getByRole("listitem", { name: "close" })).toBeVisible();
+
+      // Two of its seven defer to the repository, which is the fourth state
+      // the three tick boxes cannot express.
+      expect(page.getByText("The repository decides", { exact: false }).all()).toHaveLength(2);
+
+      // And one is gated on a Check with no Judge and nobody, which is the
+      // other combination `feature` never shows.
+      await expect
+        .element(page.getByRole("listitem", { name: "close" }))
+        .toHaveTextContent("Its Checks are the whole gate");
+
+      // **What the new steps declare is read off the new workflow.** It was
+      // read off the Job's frozen steps, which hold none of these, so every
+      // row of a picked workflow said *this step declares no Check* under a
+      // ticked box. Six of the seven declare one.
+      await expect
+        .element(page.getByRole("listitem", { name: "repro" }))
+        .not.toHaveTextContent("declares no Check");
+      expect(page.getByText("declares no Check", { exact: false }).all()).toHaveLength(0);
     },
   );
 });

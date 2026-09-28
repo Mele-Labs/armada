@@ -19,6 +19,17 @@ export type ProposalGateRow = {
   id: string;
   /** What the step is called. */
   label: string;
+  /**
+   * Whether that name is the `step_id`, so it renders in mono.
+   *
+   * **Mono is for a value a person copies, and a step's name is not one**
+   * (`0bgt`, 28 Sep) — every step here was mono, including `Plan the change`.
+   * A workflow that declares no label gets its id substituted by Fleet
+   * (`WorkflowSummary.steps`), and *that* is an identifier; `bug` is the
+   * reference sample and every one of its seven steps reads that way. The
+   * spelling is `Inspector.tsx`'s, which is where this rule already lives.
+   */
+  labelIsAnIdentifier?: boolean;
   checks: boolean;
   judge: boolean;
   you: boolean;
@@ -126,7 +137,12 @@ export function ProposalGates({
       <ul className="armada-proposal__gates">
         {steps.map((step) => (
           <li className="armada-proposal__gate" key={step.id} aria-label={step.label}>
-            <span className="armada-proposal__gate-step">{step.label}</span>
+            <span
+              className="armada-proposal__gate-step"
+              data-identifier={step.labelIsAnIdentifier || undefined}
+            >
+              {step.label}
+            </span>
             {step.repositoryDecides !== undefined && step.overridden !== true ? (
               <Deferred
                 step={step}

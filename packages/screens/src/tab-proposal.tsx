@@ -36,7 +36,7 @@ import {
   landingValueOf,
   landingWith,
   proposalOnWorkflow,
-  stepLabelsOf,
+  stepsDeclaredOf,
   workflowChoicesOf,
 } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
@@ -114,7 +114,7 @@ export function ProposalTab({
         steps={gateRowsOf(
           proposal.gates,
           whole,
-          stepLabelsOf(workflows, proposal.workflow_id),
+          stepsDeclaredOf(workflows, proposal.workflow_id),
         )}
         {...(open
           ? {
