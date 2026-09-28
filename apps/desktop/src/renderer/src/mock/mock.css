@@ -6,6 +6,10 @@
   right: var(--space-6);
   bottom: var(--space-6);
   z-index: var(--z-menu);
+  /* Flex, so the frame is exactly what it holds: a block around an inline-flex
+     button takes a line box's descender space, and collapsed the frame's height
+     is the whole promise — one small control, not a card. */
+  display: flex;
 }
 
 /* Placed by hand: the resting corner has to let go, or `right` and `left`
@@ -21,22 +25,57 @@
   gap: var(--space-2);
 }
 
-/* The grip takes the width the collapse button leaves, so there is something to
-   grab. `grab` is what says it moves before it has moved, and it has to beat
-   `.armada-button`'s own `pointer`. */
+/* The grip is a handle and not a row of text — `.armada-shell__dock-handle`
+   turned for a row: a short bar at the centre of the hit area, drawn at
+   --border-default so it is there at rest, and stepping to --border-strong and
+   twice the width on hover, focus or drag. It says nothing: the select carries
+   the scenario, once. `grab` beats `.armada-button`'s own `pointer`. */
 .armada-mock-picker [data-grip] {
-  flex: 1;
-  min-width: 0;
-  max-width: var(--w-menu);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: none;
+  width: var(--space-4);
+  padding: 0;
   cursor: grab;
+  touch-action: none;
 }
 
-.armada-mock-picker[data-dragging] [data-grip] {
+.armada-mock-picker [data-grip]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--border-width);
+  height: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--border-default);
+  transform: translate(-50%, -50%);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    width var(--duration-fast) var(--ease);
+}
+
+.armada-mock-picker [data-grip]:hover::before,
+.armada-mock-picker [data-grip]:focus-visible::before,
+.armada-mock-picker[data-dragging] [data-grip]::before {
+  width: calc(var(--border-width) * 2);
+  background: var(--border-strong);
+}
+
+.armada-mock-picker[data-dragging] [data-grip],
+.armada-mock-picker[data-dragging] [data-chip] {
   cursor: grabbing;
 }
 
 .armada-mock-picker__field {
-  margin-top: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  max-width: var(--w-menu);
+}
+
+/* Collapsed it is a chip, not a smaller card: one small control tall, its own
+   ground since there is no card behind it, and the whole of it is the press
+   that reopens the picker. It drags too, which is the cursor. */
+.armada-mock-picker [data-chip] {
+  max-width: var(--w-menu);
+  cursor: grab;
+  touch-action: none;
 }
