@@ -84,14 +84,6 @@
   color: var(--fg-default);
 }
 
-.armada-boundary__stops {
-  margin: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-  text-wrap: pretty;
-}
-
 .armada-boundary__told {
   display: flex;
   flex-direction: column;

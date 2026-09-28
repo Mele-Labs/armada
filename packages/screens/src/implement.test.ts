@@ -17,13 +17,11 @@ import {
   groupsThatOpen,
   implementBoardOf,
   shapeSaid,
-  stopsSaid,
   tierSaid,
   toldNextOf,
   verdictSaid,
 } from "./implement";
 import { tasksField } from "./step";
-import { dronesAtOnceSaid } from "./tab-plan-read";
 
 /** The Job whole behind a moment, and the step its groups hang under. */
 function reading(moment: ArcMoment) {
@@ -36,9 +34,6 @@ function reading(moment: ArcMoment) {
     groups,
     step,
     cases: [...(moment.draft.cases ?? [])],
-    ...(moment.draft.proposal?.drone_cap === undefined
-      ? {}
-      : { droneCap: moment.draft.proposal.drone_cap }),
   };
 }
 
@@ -145,10 +140,13 @@ describe("a boundary that failed", () => {
     expect(three.checks.filter((one) => one.reads === "passed")).toHaveLength(6);
   });
 
-  test("it says this is its second run, and which group it is holding back", () => {
+  // The boundary said which group it holds back until 28 Sep. The owner cut
+  // it: the ordering rule is true of a step that never ran, guide 4 carries
+  // it, and group 4's own row says it is waiting.
+  test("it says this is its second run, and nothing about what the next group may do", () => {
     const three = groupAt(groupFailed(), 3).boundary;
     expect(three.retrySays).toBe("second run");
-    expect(three.stopsSays).toBe("No task of group 4 starts until this boundary passes.");
+    expect(JSON.stringify(three)).not.toContain("No task of group");
   });
 
   test("what the next Drone is told is the Check's own output, not a summary", () => {
@@ -164,7 +162,6 @@ describe("a boundary that failed", () => {
     expect(one.verdictSays).toBe("all 4 passed");
     expect(one.checks.some((check) => check.reads === "failed")).toBe(false);
     expect(one.toldNext).toBeUndefined();
-    expect(one.stopsSays).toBeUndefined();
   });
 
   test("a task whose own agent stopped without finishing carries its reason", () => {
@@ -216,22 +213,23 @@ describe("what the board refuses to draw", () => {
   test("a boundary with no Check says so rather than drawing an empty bar", () => {
     const read = reading(executingSequential());
     const bare = { ...read.groups[3]!, checks_selected: [] };
-    const drawn = boundaryOf(bare, undefined, [], read.whole, read.step);
+    const drawn = boundaryOf(bare, [], read.whole, read.step);
     expect(drawn.checks).toEqual([]);
     expect(drawn.checksAbsent).toBe("No Check runs at this group's end.");
   });
 
-  // Fleet serves no cases, and an empty list there would read as "none owed",
-  // which is the confusion the two regions were separated for.
-  test("a boundary with no case names what is missing rather than reading as none owed", () => {
+  // The band said Fleet serves no case yet, which is a fact about the build.
+  // The owner cut it on 28 Sep, and the boundary now carries no case and no
+  // sentence about one.
+  test("a boundary with no case says nothing about cases at all", () => {
     const three = groupAt(executingSequential(), 3).boundary;
-    expect(three.testsAbsent).toContain("does not serve the cases");
+    expect(three.tests).toBeUndefined();
+    expect(JSON.stringify(three)).not.toContain("Fleet");
   });
 
   test("a boundary nothing has reached says nothing about a verdict", () => {
     const read = reading(executingSequential());
     expect(verdictSaid(read.groups[3]!, [])).toBeUndefined();
-    expect(stopsSaid(read.groups[3]!, read.groups[3])).toBeUndefined();
     expect(toldNextOf(read.step, [])).toBeUndefined();
   });
 
@@ -258,23 +256,21 @@ describe("the open step's own line on Overview", () => {
   });
 });
 
-// `#1550`: the cap is settled at the gate and bounds the fan out, so a group
-// running at once is the one place on this screen where it decides anything.
-describe("how many Drones this Job may run at once", () => {
-  test("a concurrent group carries the cap beside its shape", () => {
-    expect(groupAt(executingConcurrent(), 3).shapeSays).toBe(
-      "2 tasks, at the same time · this Job runs 2 Drones at once",
-    );
+// The cap rode on a concurrent group's shape line until 28 Sep, behind a
+// middle dot: `2 tasks, at the same time · this Job runs 2 Drones at once`.
+// The owner cut it. Two facts in one sentence, and the second is the Job's
+// rather than the group's, which Overview already draws frozen at the gate.
+describe("a group's shape says the shape and nothing else", () => {
+  test("a concurrent group says how many tasks and that they run together", () => {
+    expect(groupAt(executingConcurrent(), 3).shapeSays).toBe("2 tasks, at the same time");
   });
 
-  test("a group whose tasks run in order carries none, because nothing fans out", () => {
+  test("a group whose tasks run in order says so", () => {
     expect(groupAt(executingConcurrent(), 1).shapeSays).toBe("2 tasks, one after another");
   });
 
-  test("no cap is as many as the machine allows, which is not this Job's claim", () => {
-    const group = reading(executingConcurrent()).groups[2]!;
-    expect(shapeSaid(group)).toBe("2 tasks, at the same time");
-    expect(dronesAtOnceSaid(undefined)).toBeUndefined();
-    expect(dronesAtOnceSaid(1)).toBe("this Job runs 1 Drone at once");
+  test("no group's line mentions the Job's Drone cap, whatever the gate settled", () => {
+    const drawn = board(executingConcurrent())!;
+    expect(drawn.groups.map((one) => one.shapeSays).join(" ")).not.toContain("Drones at once");
   });
 });

@@ -90,7 +90,6 @@ export const AStepNotStarted: Story = {
     doing: "Nothing has entered this step.",
     tasksAbsent: "No task is planned under this step.",
     checks: checks.map((check) => ({ name: check.name })),
-    testsAbsent: "No case is owed here until the work declares one.",
   },
 };
 

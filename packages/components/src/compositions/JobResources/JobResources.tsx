@@ -5,7 +5,7 @@
 // working*, and the figures come after. `docs/contracts/design-system.md` →
 // Fleet panel, for the figure rows; #1538 for the board.
 
-import { Search } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Finding, JobExamined, Look } from "@armada/protocol";
@@ -107,12 +107,17 @@ export function JobResources({
         />
         {/* No act where there is nothing to ask. **Absent rather than
             disabled**: a greyed control still says an act exists here and puts
-            the reason on a person to work out. */}
+            the reason on a person to work out.
+
+            **`Refresh` on `rotate-cw`**, the owner's own word for the button
+            on 28 Sep. `refresh-cw` is reserved to churning and
+            `docs/contracts/iconography.md` sends every refresh control here;
+            `search` went with the old label. */}
         {nothingToAsk !== undefined ? null : (
           <span className="armada-holds__act">
             <Button size="sm" onClick={onExamine} disabled={looking}>
-              <Search size={12} strokeWidth={2} aria-hidden="true" />
-              {looking ? "Looking" : "Look now"}
+              <RotateCw size={12} strokeWidth={2} aria-hidden="true" />
+              {looking ? "Refreshing" : "Refresh"}
             </Button>
             {/* What a look is, what it costs and what its three answers mean.
                 Beside the act rather than beside the verdict: the verdict is
@@ -225,10 +230,13 @@ function Headline({
   if (looking) {
     return <p className="armada-holds__verdict">Looking at this job now.</p>;
   }
+  // **The absence, in the job's own words.** It read *Nobody has asked
+  // whether this job is working* until 28 Sep, which sat over a panel of
+  // figures that had plainly been read and made the two look like one claim
+  // (owner: "out of place or wrong"). The figures are the poll; this line is
+  // the look, and the look has not run.
   if (examined === null) {
-    return (
-      <p className="armada-holds__verdict">Nobody has asked whether this job is working.</p>
-    );
+    return <p className="armada-holds__verdict">This job has not been looked at.</p>;
   }
   return (
     <p className="armada-holds__verdict" data-found={examined.found}>
