@@ -90,7 +90,7 @@ test("a job whose Studio has been deleted says so, and offers no press", async (
 
 test("a job nothing dispatched from a Studio says nothing extra", async () => {
   mount(onJob(running(), { whereOpen: true }));
-  await expect.element(page.getByText(running().job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: running().job.handle })).toBeVisible();
   expect(page.getByText("That Studio has been deleted").query()).toBeNull();
   expect(page.getByRole("button", { name: `Open ${EVERY_KIND_NAME}` }).query()).toBeNull();
 });

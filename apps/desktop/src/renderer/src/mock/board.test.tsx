@@ -117,7 +117,7 @@ test("j and k move the cursor, Enter opens the row under it, and x asks to kill 
   drawn[1]!.focus();
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => rows().length).toBe(0);
-  await expect.element(page.getByText(handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: handle })).toBeVisible();
 });
 
 test("n opens the composer from the Board, and typing n into search does not", async () => {

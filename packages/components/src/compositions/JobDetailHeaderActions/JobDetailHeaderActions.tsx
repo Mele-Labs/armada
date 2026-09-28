@@ -46,7 +46,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { Fragment, useCallback } from "react";
-import { conceptSaid } from "../../concepts";
+import { ConceptLabel } from "../../concepts";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -128,6 +128,17 @@ export type JobDetailHeaderActionsProps = {
    */
   jobId?: ReactNode;
   /**
+   * The whole of the identifier, where what is drawn is short for it.
+   *
+   * **The reading is never the value, on `href`'s own rule.** A Job's handle
+   * is its number and a slug of its title, and the owner read
+   * `3-show-what-s-running-in-the-drones-stat` as a string that had come out
+   * wrong. `Job 3` is what he is asked to read; this is what a click puts on
+   * the clipboard and what the hover carries whole, because the handle is the
+   * branch name and the worktree directory and it has to stay reachable.
+   */
+  jobIdWhole?: string;
+  /**
    * What the id is called. **Drawn, not optional in practice**: the run is a
    * line of bare values and the first of them was the one nobody could name.
    * `undefined` draws the id alone, for a caller whose id needs no word.
@@ -169,6 +180,7 @@ export function JobDetailHeaderActions({
   statusLabel,
   headline,
   jobId,
+  jobIdWhole,
   jobIdLabel,
   fields,
   actions,
@@ -235,7 +247,27 @@ export function JobDetailHeaderActions({
                 <FactLabel>{jobIdLabel}</FactLabel>{" "}
               </>
             ) : null}
-            <span data-mono>{jobId}</span>
+            {/* The whole identifier on the hover and on the clipboard, the
+                short one on screen. A tooltip carrying the value behind an
+                abbreviated one is the first of the three things the contract
+                lets a tooltip hold. */}
+            {jobIdWhole === undefined ? (
+              <span data-mono>{jobId}</span>
+            ) : (
+              // A control, because it copies: the short form read aloud is a
+              // number with nothing round it, so the whole handle is the name.
+              <Tooltip asChild label={jobIdWhole}>
+                <button
+                  type="button"
+                  data-mono
+                  data-copies=""
+                  aria-label={jobIdWhole}
+                  onClick={(e) => copy(e, jobIdWhole)}
+                >
+                  {jobId}
+                </button>
+              </Tooltip>
+            )}
           </span>
         ) : null}
         {runs.map((run, i) => (
@@ -301,19 +333,9 @@ export function JobDetailHeaderActions({
  * **The sentence is looked up, never written here.** `Workflow`, `Branch` and
  * `Spend, estimated` are the vocabulary rather than this header's copy, so one
  * explanation serves the header, the run tree and *Where things are* alike —
- * the same word explained twice is two things that can disagree. A label naming
- * nothing in the vocabulary draws nothing.
+ * the same word explained twice is two things that can disagree.
  *
- * `asChild` on a bare span: the fact run is one nowrap line per fact and a
- * wrapper with a display of its own would break the label off its value.
+ * It was this file's own copy of `ConceptLabel` until the proposal wanted a
+ * third; the shared one lives beside the sentences, in `concepts.tsx`.
  */
-function FactLabel({ children }: { children: ReactNode }) {
-  const says = conceptSaid(children);
-  return says === undefined ? (
-    <>{children}</>
-  ) : (
-    <Tooltip asChild label={says}>
-      <span>{children}</span>
-    </Tooltip>
-  );
-}
+const FactLabel = ConceptLabel;

@@ -34,6 +34,17 @@ export const JUDGE_ANSWER: Record<JudgeAnswer, { label: string; means: string }>
 };
 
 /**
+ * The three, in the order they are offered, with the weight each carries.
+ * **One primary, and it is the one-step answer** — "always" changes what this
+ * repository asks about forever, so it must not read as the inviting press.
+ */
+const ANSWERS: readonly [JudgeAnswer, "primary" | "secondary"][] = [
+  ["agree", "secondary"],
+  ["disagree_once", "primary"],
+  ["disagree_always", "secondary"],
+];
+
+/**
  * A Judge criterion refused and a person is being asked about it, rather than
  * the step stopping over it — `docs/concepts/judge.md`'s asking design.
  *
@@ -77,6 +88,13 @@ export type JudgeQuestionProps = {
    * and every other one is off; `false` is nothing out. #1117.
    */
   pending?: boolean;
+  /**
+   * Draw the three down a column, each with what it does written under it,
+   * and leave the question to the caller's own heading. **For a decision that
+   * has a column of its own** — beside a list of members there is no room for
+   * three buttons across.
+   */
+  stacked?: boolean;
 };
 
 export function JudgeQuestion({
@@ -88,6 +106,7 @@ export function JudgeQuestion({
   disabled = false,
   disabledNote,
   pending = false,
+  stacked = false,
 }: JudgeQuestionProps) {
   const [note, setNote] = useState("");
   const noteId = useId();
@@ -108,8 +127,14 @@ export function JudgeQuestion({
   };
 
   return (
-    <section className="armada-judge-question" aria-label="A judge refusal you are being asked about">
-      <p className="armada-judge-question__asked">{question}</p>
+    <section
+      className="armada-judge-question"
+      data-stacked={stacked || undefined}
+      aria-label="A judge refusal you are being asked about"
+    >
+      {/* Stacked, the caller has already headed its column with the question,
+          and printing it twice is the same sentence twice. */}
+      {stacked ? null : <p className="armada-judge-question__asked">{question}</p>}
 
       <dl className="armada-judge-question__finding">
         {JUDGE_FINDING.map((field) => (
@@ -134,32 +159,21 @@ export function JudgeQuestion({
       />
 
       <div className="armada-judge-question__answers" role="group" aria-label="Your answer">
-        <Button
-          variant="secondary"
-          pending={pressed === "agree" && pending}
-          disabled={off}
-          onClick={() => send("agree")}
-        >
-          {pressed === "agree" && pending ? UNDERWAY.agree : JUDGE_ANSWER.agree.label}
-        </Button>
-        <Button
-          variant="primary"
-          pending={pressed === "disagree_once" && pending}
-          disabled={off}
-          onClick={() => send("disagree_once")}
-        >
-          {pressed === "disagree_once" && pending ? UNDERWAY.disagree_once : JUDGE_ANSWER.disagree_once.label}
-        </Button>
-        <Button
-          variant="secondary"
-          pending={pressed === "disagree_always" && pending}
-          disabled={off}
-          onClick={() => send("disagree_always")}
-        >
-          {pressed === "disagree_always" && pending
-            ? UNDERWAY.disagree_always
-            : JUDGE_ANSWER.disagree_always.label}
-        </Button>
+        {ANSWERS.map(([answer, variant]) => (
+          <div className="armada-judge-question__answer" key={answer}>
+            <Button
+              variant={variant}
+              pending={pressed === answer && pending}
+              disabled={off}
+              onClick={() => send(answer)}
+            >
+              {pressed === answer && pending ? UNDERWAY[answer] : JUDGE_ANSWER[answer].label}
+            </Button>
+            {stacked ? (
+              <span className="armada-judge-question__means">{JUDGE_ANSWER[answer].means}</span>
+            ) : null}
+          </div>
+        ))}
       </div>
 
       {stillWaiting ? (

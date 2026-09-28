@@ -28,7 +28,7 @@ unmountAfterEach();
 /** App, with this Job open, and the fake it talks to. */
 async function opened(fixture: JobFixture, options: { whereOpen?: boolean } = {}) {
   const app = mount(onJob(fixture, options));
-  await expect.element(page.getByText(fixture.job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   return app.api;
 }
 

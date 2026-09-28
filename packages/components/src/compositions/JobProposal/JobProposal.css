@@ -1,50 +1,170 @@
 /* A Job at its approval gate, and the same Job frozen one press later.
  *
- * One column of regions on the destination's own ground, rather than a card
- * per region: these are one decision read top to bottom, and five cards would
- * say they were five. Nothing here takes a status hue — a proposal is not a
- * state of the machine, and the Job's own badge in the header is where its
- * status is drawn. */
+ * Two columns: what was asked and what the Job is held to on the left, every
+ * setting on the right. One column put a screen's worth of prose in front of
+ * the thing being approved, which is what a laptop had to scroll past. */
 .armada-proposal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-4) - var(--w-run-column-min))), var(--w-run-column));
+  gap: var(--space-4);
+  align-items: stretch;
+  flex: 1;
   min-width: 0;
-  /* Every field row inside reads its own width rather than the window's: this
-     panel is the whole content area at one width and a column beside Helm's
-     dock at another. */
-  container-type: inline-size;
-  padding: var(--space-4);
+  min-height: 0;
 }
 
-.armada-proposal__head {
+/* The request takes the slack and what the Job is held to keeps its own
+   height at the foot: the criteria are the other half of the approval and
+   must not be the half that scrolls off. */
+.armada-proposal__request-column {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-proposal__request-column > .armada-proposal__region {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Each half is a card, which is what separates the two columns — the drawing
+   carries no rule between them, only these surfaces against the gutter. */
+.armada-proposal__card,
+.armada-proposal__settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--pad-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-proposal__card {
+  flex: 1;
+}
+
+.armada-proposal__settings {
+  gap: var(--space-4);
+  overflow-y: auto;
+}
+
+.armada-proposal__settings-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.armada-proposal__settings-name {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+  white-space: nowrap;
+}
+
+.armada-proposal__settings-meta {
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-align: end;
+}
+
+/* What the Job runs against: the repository, and the ref the work is cut
+   from. Two values a person reads against each other, so they are two chips
+   on one line rather than two settings. */
+.armada-proposal__against {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.armada-proposal__title {
+.armada-proposal__eyebrow {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.armada-proposal__chip {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
   min-width: 0;
-  margin: 0;
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
   color: var(--fg-default);
-  font-size: var(--text-lg);
-  line-height: var(--leading-lg);
-  font-weight: var(--weight-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-proposal__against-word {
+  flex: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
+
+/* The request itself, on the well: it is the one thing on this screen nobody
+   wrote for it, so it reads as quoted rather than as the screen's own prose. */
+.armada-proposal__said {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  color: var(--fg-default);
+  overflow-y: auto;
   text-wrap: pretty;
 }
 
-.armada-proposal__workflow {
-  min-width: 0;
-  color: var(--fg-muted);
+.armada-proposal__said[data-absent] {
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+  color: var(--fg-subtle);
+}
+
+.armada-proposal__foot {
+  margin: 0;
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
 }
 
 .armada-proposal__region {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -59,22 +179,86 @@
 .armada-proposal__heading {
   min-width: 0;
   margin: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-medium);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  font-weight: var(--weight-body);
 }
 
-.armada-proposal__said {
+/* The settings, label beside value down one column.
+ *
+ * **Two tracks declared here and borrowed by each row through `subgrid`**, so
+ * the labels line up down the panel rather than per row. Content-sized rather
+ * than a drawn width: a fixed label column truncates the longest label beside
+ * empty space, which `bridge.md` records as the defect fixed widths shipped. */
+.armada-proposal__fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
   min-width: 0;
-  color: var(--fg-subtle);
+}
+
+.armada-proposal__field {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-width: 0;
+}
+
+.armada-proposal__field-label {
+  min-width: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-  text-wrap: pretty;
+  color: var(--fg-muted);
 }
 
-/* The line the ticks cannot turn off. A well rather than a sentence in the
-   flow, because it is the one thing in this region that is not a choice. */
+/* A tier sits under Model rather than beside it, so the three read as one
+   answer split three ways. */
+.armada-proposal__field[data-indent] .armada-proposal__field-label {
+  justify-self: end;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+/* The value in a box of its own. **This is what separates one setting from
+   the next** — the grid without it was a wall of same-weight text. */
+.armada-proposal__field-value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+/* A control brings its own box, so nothing is drawn round it. */
+.armada-proposal__field-value[data-bare="true"] {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  min-height: 0;
+}
+
+.armada-proposal__field-note {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
+}
 
 .armada-proposal__gates {
   display: flex;
@@ -89,45 +273,26 @@
 .armada-proposal__gate {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-}
-
-.armada-proposal__gate-head {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-  justify-content: space-between;
-  min-width: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
 }
 
 .armada-proposal__gate-step {
   min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-medium);
-}
-
-/* The `advance_gate` this combination is. Mono, because it is the wire's own
-   spelling and not a word this screen chose — a person reading it is reading
-   what Fleet will be told. */
-.armada-proposal__wire {
-  flex: none;
-  color: var(--fg-subtle);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
+  color: var(--fg-default);
 }
 
 .armada-proposal__boxes {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -139,16 +304,15 @@
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  margin: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   text-wrap: pretty;
 }
 
 .armada-proposal__gate-frozen {
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  color: var(--fg-muted);
 }
 
 /* A combination Fleet cannot act on yet. `--status-awaiting-review` is the one
@@ -157,71 +321,34 @@
 .armada-proposal__unmeant,
 .armada-proposal__moved {
   min-width: 0;
+  margin: 0;
   color: var(--status-awaiting-review);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   text-wrap: pretty;
 }
 
 .armada-proposal__deferred {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
   align-items: center;
   min-width: 0;
 }
 
 .armada-proposal__deferred-said {
   min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-/* Fields across, two to a row where there is room. A field is read against the
-   one beside it — From against Lands in — so the tracks are equal and give up
-   width together. */
-.armada-proposal__fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.armada-proposal__frozen-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  min-width: 0;
-  margin: 0;
-}
-
-.armada-proposal__frozen-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.armada-proposal__frozen-field dt {
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
 }
 
-.armada-proposal__frozen-field dd {
-  min-width: 0;
-  margin: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  text-wrap: pretty;
-}
-
+/* What the Job is held to: one criterion per row, each in a box of its own —
+   the same rule the settings keep, for the same reason. */
 .armada-proposal__criteria {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -233,31 +360,34 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
 }
 
 .armada-proposal__criterion-text {
   min-width: 0;
+  margin: 0;
   color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   text-wrap: pretty;
 }
 
 .armada-proposal__criterion-origin {
   min-width: 0;
+  margin: 0;
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
 }
 
-/* Where two fields stop being two fields. Below this a pair reads as one
-   column of labels, which is what the narrow window is for.
-
-   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
-   480px is the figure the dispatch settings' own tier row collapses at — docs/contracts/design-system.md */
-@container (max-width: 480px) {
-  .armada-proposal__fields,
-  .armada-proposal__frozen-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.armada-proposal__absent {
+  margin: 0;
+  min-width: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-wrap: pretty;
 }

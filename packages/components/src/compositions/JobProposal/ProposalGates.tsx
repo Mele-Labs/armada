@@ -28,7 +28,14 @@ export type ProposalGateRow = {
   repositoryDecides?: string;
   /** Whether this Job took the decision off the repository for itself. */
   overridden?: boolean;
-  /** The `advance_gate` this combination is on the wire today. */
+  /**
+   * The `advance_gate` this combination is on the wire today.
+   *
+   * **Held, and not drawn.** The wire stays an enum until the schema lock, so
+   * the field stays; a raw `auto_if_judge_passes` beside a step name is
+   * Fleet's spelling in a place a person is deciding, and the sentence under
+   * the boxes already says what it does.
+   */
   advanceGate: string;
   /** What Fleet does with it, in one sentence. */
   does: string;
@@ -45,32 +52,31 @@ export type GateBox = "checks" | "judge" | "you";
 
 export type ProposalGatesProps = {
   steps: readonly ProposalGateRow[];
+  /** Approved, so the heading says the gate cannot move any more. */
+  frozen?: boolean;
   /** One box moved on one step. Absent draws every gate as a frozen reading. */
   onGate?: (stepId: string, box: GateBox, ticked: boolean) => void;
   /** Take the decision off the repository for this Job, or hand it back. */
   onOverride?: (stepId: string, overridden: boolean) => void;
 };
 
-export function ProposalGates({ steps, onGate, onOverride }: ProposalGatesProps) {
+export function ProposalGates({ steps, frozen, onGate, onOverride }: ProposalGatesProps) {
   return (
-    <section className="armada-proposal__region" aria-label="What each step is gated by">
+    <section className="armada-proposal__region" aria-label="The gate on each step">
       {/* The `?` on the heading, not on a row: what the ticks cannot turn off
           is the same about every step, and a mark per row would read as a
           property of that row. The sentence that used to stand here is guide
           9 — it was true of a Job nobody had approved (#1602). */}
       <div className="armada-proposal__heading-row">
-        <h3 className="armada-proposal__heading">What each step is gated by</h3>
+        <h3 className="armada-proposal__heading">
+          {frozen ? "The gate on each step, frozen" : "The gate on each step"}
+        </h3>
         <GuideMark guide={GUIDE_ALWAYS_LOOKS} />
       </div>
       <ul className="armada-proposal__gates">
         {steps.map((step) => (
           <li className="armada-proposal__gate" key={step.id} aria-label={step.label}>
-            <div className="armada-proposal__gate-head">
-              <span className="armada-proposal__gate-step">{step.label}</span>
-              <span className="armada-proposal__wire" title="advance_gate">
-                {step.advanceGate}
-              </span>
-            </div>
+            <span className="armada-proposal__gate-step">{step.label}</span>
             {step.repositoryDecides !== undefined && step.overridden !== true ? (
               <Deferred
                 step={step}

@@ -34,7 +34,7 @@ test("with no Job focused, an act on one Job is left out, and a row not built ye
 test("with a Job open, its acts are back", async () => {
   const fixture = running();
   mount(onJob(fixture));
-  await expect.element(page.getByText(fixture.job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   const list = await palette();
   await expect.element(list.getByRole("option", { name: /^Kill/ }).first()).toBeInTheDocument();
 });

@@ -21,7 +21,6 @@ import type { FileReport, JobDetail as JobWhole, JobSummary, Outcome } from "@ar
 import { Acts, type ConfirmableAct, type HeldAct } from "./Acts";
 import { factsOf } from "./facts";
 import type { ActAnswer, ActingAct } from "./pending";
-import { settingsButtonOf } from "./settings";
 import { openPullRequest, type OpenPullRequest } from "./opening";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
@@ -59,8 +58,6 @@ export type Heading = {
   /** Whether the turn-cap dialog is up. Held by the screen; `T` opens it too. */
   raisingTurns: boolean;
   onRaisingTurns: (raising: boolean) => void;
-  /** Open the Job settings panel. The sheet is the screen's, so the screen opens it. */
-  onOpenSettings: () => void;
   onOpenPullRequest: OpenPullRequest;
   /** Land on another Job. The `Redispatched from` fact is the header's one. */
   onOpenJob?: ((jobId: string) => void) | undefined;
@@ -96,7 +93,6 @@ export function headingOf({
   onRaiseTurnCap,
   raisingTurns,
   onRaisingTurns,
-  onOpenSettings,
   onOpenPullRequest,
   onOpenJob,
   onCopied,
@@ -112,53 +108,55 @@ export function headingOf({
     // first word in the badge, and the badge is the header.
     statusLabel: leading(reading.verb),
     headline: job.title,
-    // **The handle, not the ULID.** This is the mono value a person copies out
-    // of the header, and what they copy is what they have to type back — into
-    // a branch name, a worktree path, or a sentence to somebody else. The id
-    // still names every request the screen makes; it is just not the thing a
-    // person is asked to read.
+    // **The number, with the whole handle one click away.** The handle is the
+    // Job's number and a slug of its title — a branch name and a worktree
+    // directory — and drawn whole it read as a value that had come out wrong:
+    // *"Is the id really 'Job 3 - show…'?"*, the owner, 28 Sep 2026. What a
+    // person is asked to read is `Job 3`; the handle is on the hover and on
+    // the clipboard, because it is what gets pasted into a terminal.
+    //
+    // **The ULID is still not here.** It names every request the screen makes
+    // and it is not the thing a person reads.
     //
     // **Behind the word `Job`, since #1484.** It was the first value on the
     // line and it was bare, so it read as one more unexplained string in a run
-    // of them — the owner's own question about this header was which of them
-    // was the id.
-    jobId: job.handle,
+    // of them.
+    jobId: numberOf(job.handle),
+    jobIdWhole: job.handle,
     jobIdLabel: "Job",
     fields: factsOf(job, whole, now),
     // The acts that end or replace the Job. **Pilot's slot is this one**, left
     // of the kill group — #250, and it lands without this line changing.
     //
-    // **The way into a running Job's settings goes first**, left of the acts:
-    // it ends nothing, so it sits before the group that does. It opens rather
-    // than sends, so stale and in flight leave it on — the panel is where its
-    // controls go off.
+    // **Settings is not a control here any more.** It was a quiet button left
+    // of the acts; the owner made it the sixth destination on 28 Sep 2026 —
+    // *"It should be part of the segment control where overview, workflow,
+    // plan, record, and pulse are now"* — so the strip is the one way in and
+    // the header carries acts alone.
     actions: (
-      <>
-        {settingsButtonOf(job, whole, onOpenSettings)}
-        <Acts
-          job={job}
-          whole={whole}
-          render={render}
-          acting={acting}
-          actingAct={actingAct}
-          answered={answered}
-          approving={approving}
-          stale={stale}
-          onAct={onAct}
-          onActHeld={onActHeld}
-          onApprove={onApprove}
-          onReport={onReport}
-          reporting={reporting}
-          onReporting={onReporting}
-          onRaiseCap={onRaiseCap}
-          raising={raising}
-          onRaising={onRaising}
-          onRaiseTurnCap={onRaiseTurnCap}
-          raisingTurns={raisingTurns}
-          onRaisingTurns={onRaisingTurns}
-          onCopied={onCopied}
-        />
-      </>
+      <Acts
+        job={job}
+        whole={whole}
+        render={render}
+        acting={acting}
+        actingAct={actingAct}
+        answered={answered}
+        approving={approving}
+        stale={stale}
+        onAct={onAct}
+        onActHeld={onActHeld}
+        onApprove={onApprove}
+        onReport={onReport}
+        reporting={reporting}
+        onReporting={onReporting}
+        onRaiseCap={onRaiseCap}
+        raising={raising}
+        onRaising={onRaising}
+        onRaiseTurnCap={onRaiseTurnCap}
+        raisingTurns={raisingTurns}
+        onRaisingTurns={onRaisingTurns}
+        onCopied={onCopied}
+      />
     ),
     // The pull request fact, followed. The address the link carries is what the
     // fact drew from; what is sent is the Job id, so the string never decides
@@ -172,6 +170,23 @@ export function headingOf({
     // job this one replaced already performs, from the other end — `#1474`.
     onOpenJob,
   };
+}
+
+/**
+ * The Job's number, out of its handle.
+ *
+ * **Derived, because nothing on the wire carries it.** `handle_of` composes a
+ * handle out of the number and a slug of the title — `3-show-what-s-running`
+ * — and the number is everything before the first `-`. A title naming a
+ * credential is carried by its number alone, so the whole handle is digits
+ * there and answers itself.
+ *
+ * A handle with no leading digits is not one Fleet writes, and it reads whole
+ * rather than as a number this guessed at.
+ */
+export function numberOf(handle: string): string {
+  const digits = /^\d+/.exec(handle);
+  return digits === null ? handle : digits[0];
 }
 
 /**

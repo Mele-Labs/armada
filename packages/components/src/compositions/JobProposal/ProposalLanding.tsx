@@ -1,5 +1,6 @@
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
+import { ProposalField, ProposalFields } from "./ProposalFields";
 
 /**
  * How the work reaches the repository.
@@ -59,78 +60,89 @@ export function ProposalLanding({ landing, onLanding, completeChoices }: Proposa
   const moved = (change: Partial<ProposalLandingValue>): void =>
     onLanding?.({ ...landing, ...change });
   const chosen = completeChoices.find((one) => one.value === landing.completeWhen);
+  const open = onLanding !== undefined;
   return (
     <section className="armada-proposal__region" aria-label="How it lands">
       <h3 className="armada-proposal__heading">How it lands</h3>
-      {onLanding === undefined ? (
-        <dl className="armada-proposal__frozen-fields">
-          <Frozen label="From" value={landing.from === "" ? "The Manifest names no base" : landing.from} />
-          <Frozen
-            label="Lands in"
-            value={landing.target === "" ? "The Manifest names no base" : landing.target}
-          />
-          <Frozen label="Branches" value={BRANCHING[landing.branching]} />
-          <Frozen label="Complete when" value={chosen?.label ?? landing.completeWhen} />
-          <Frozen label="Pull request" value={PR_MODE[landing.prMode]} />
-        </dl>
-      ) : (
-        <div className="armada-proposal__fields">
-          <Input label="From" value={landing.from} mono onChange={(event) => moved({ from: event.target.value })} />
-          <Input
-            label="Lands in"
-            value={landing.target}
-            mono
-            onChange={(event) => moved({ target: event.target.value })}
-          />
-          <Select
-            label="Branches"
-            value={landing.branching}
-            onChange={(event) =>
-              moved({ branching: event.target.value as ProposalLandingValue["branching"] })
-            }
-          >
-            <option value="job">{BRANCHING.job}</option>
-            <option value="group">{BRANCHING.group}</option>
-          </Select>
-          <Select
-            label="Complete when"
-            value={landing.completeWhen}
-            onChange={(event) => moved({ completeWhen: event.target.value })}
-          >
-            {completeChoices.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Pull request"
-            value={landing.prMode}
-            onChange={(event) =>
-              moved({ prMode: event.target.value as ProposalLandingValue["prMode"] })
-            }
-          >
-            <option value="ready">{PR_MODE.ready}</option>
-            <option value="draft">{PR_MODE.draft}</option>
-          </Select>
-        </div>
-      )}
-      {/* An answer nothing on the record can observe yet says so where it is
-          chosen, rather than looking like a setting that does something. */}
-      {chosen === undefined || chosen.served ? null : (
-        <p className="armada-proposal__said" role="note">
-          {`Nothing on a Job's record answers "${chosen.label}" yet, so Armada cannot tell you when it has happened.`}
-        </p>
-      )}
+      <ProposalFields>
+        <ProposalField label="From" bare={open}>
+          {open ? (
+            <Input
+              aria-label="From"
+              value={landing.from}
+              mono
+              onChange={(event) => moved({ from: event.target.value })}
+            />
+          ) : landing.from === "" ? (
+            "The Manifest names no base"
+          ) : (
+            landing.from
+          )}
+        </ProposalField>
+        <ProposalField label="Lands in" bare={open}>
+          {open ? (
+            <Input
+              aria-label="Lands in"
+              value={landing.target}
+              mono
+              onChange={(event) => moved({ target: event.target.value })}
+            />
+          ) : landing.target === "" ? (
+            "The Manifest names no base"
+          ) : (
+            landing.target
+          )}
+        </ProposalField>
+        <ProposalField label="Branches" bare={open}>
+          {open ? (
+            <Select
+              aria-label="Branches"
+              value={landing.branching}
+              onChange={(event) =>
+                moved({ branching: event.target.value as ProposalLandingValue["branching"] })
+              }
+            >
+              <option value="job">{BRANCHING.job}</option>
+              <option value="group">{BRANCHING.group}</option>
+            </Select>
+          ) : (
+            BRANCHING[landing.branching]
+          )}
+        </ProposalField>
+        <ProposalField label="Complete when" bare={open}>
+          {open ? (
+            <Select
+              aria-label="Complete when"
+              value={landing.completeWhen}
+              onChange={(event) => moved({ completeWhen: event.target.value })}
+            >
+              {completeChoices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            (chosen?.label ?? landing.completeWhen)
+          )}
+        </ProposalField>
+        <ProposalField label="Pull request" bare={open}>
+          {open ? (
+            <Select
+              aria-label="Pull request"
+              value={landing.prMode}
+              onChange={(event) =>
+                moved({ prMode: event.target.value as ProposalLandingValue["prMode"] })
+              }
+            >
+              <option value="ready">{PR_MODE.ready}</option>
+              <option value="draft">{PR_MODE.draft}</option>
+            </Select>
+          ) : (
+            PR_MODE[landing.prMode]
+          )}
+        </ProposalField>
+      </ProposalFields>
     </section>
-  );
-}
-
-function Frozen({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="armada-proposal__frozen-field">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
   );
 }

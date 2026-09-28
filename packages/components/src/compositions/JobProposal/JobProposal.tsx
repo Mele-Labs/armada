@@ -1,9 +1,14 @@
+import type { ReactNode } from "react";
+
 import { Input } from "../../primitives/Input/Input";
-import { DroneCap } from "../DispatchSettings/DroneCap";
-import { TierModels, TIERS } from "../DispatchSettings/TierModels";
+import { Select } from "../../primitives/Select/Select";
+import { GuideMark } from "../GuideMark/GuideMark";
+import { GUIDE_TIERS } from "../../guides";
+import { AUTO, TIERS } from "../DispatchSettings/TierModels";
 import type { TierChoice } from "../DispatchSettings/TierModels";
 import { ProposalDoneWhen } from "./ProposalDoneWhen";
 import type { ProposalCriterion } from "./ProposalDoneWhen";
+import { ProposalField, ProposalFieldNote, ProposalFields } from "./ProposalFields";
 import { ProposalGates } from "./ProposalGates";
 import type { GateBox, ProposalGateRow } from "./ProposalGates";
 import { ProposalLanding } from "./ProposalLanding";
@@ -13,24 +18,36 @@ export type { ProposalCriterion } from "./ProposalDoneWhen";
 export type { GateBox, ProposalGateRow } from "./ProposalGates";
 export type { CompleteChoice, ProposalLandingValue } from "./ProposalLanding";
 
+/** What the Job is being run against, and the words it was asked in. */
+export type ProposalRequest = {
+  /** The repository, by the name a person calls it. */
+  repository: string;
+  /** The ref the work is cut from. Absent is the Manifest naming no base. */
+  from?: string;
+  /** The request, in the requester's own words. */
+  said?: ReactNode;
+  /** Why there is nothing to read, where there is nothing. */
+  absent: string;
+};
+
 /**
  * A Job at its approval gate, and the same Job one press later.
  *
- * **Two of the three moments the classifying screen has** (#1541). The first —
- * Armada still reading the request — happens before a Job exists at all and is
- * drawn on the dispatch form, where the request being read still is. What is
- * here is the answer: everything the proposer chose, with nothing frozen, and
- * then the same values with the instant they froze at.
+ * **Two columns, not one.** The request and what the Job is held to read on
+ * the left; every setting reads on the right. One column of regions put the
+ * settings under a screen's worth of prose and made the laptop scroll to
+ * reach the thing being approved.
  *
- * **The difference between the two is which callbacks arrive.** A handler
- * absent is what freezes its control, rather than a `readOnly` flag beside
- * each one — a screen that can hand in an `onGate` and a `frozenAt` together
- * is a screen that can draw a frozen gate somebody can still move.
+ * **The difference between the two moments is which callbacks arrive.** A
+ * handler absent is what freezes its control, rather than a `readOnly` flag
+ * beside each one.
  */
 export type JobProposalProps = {
   /** The title the proposer answered, and yours until you approve. */
   title: string;
   onTitle?: (title: string) => void;
+  /** What the Job runs against, and what was asked. */
+  request: ProposalRequest;
   /** The workflow it chose, by the name its own file declares. */
   workflow: string;
   /** What the workflow's steps are gated by, in the order they run. */
@@ -57,15 +74,22 @@ export type JobProposalProps = {
   frozenAt?: string;
 };
 
-/** What the screen says it is, at each of the two moments. */
-const SAID = {
-  open: "Nothing here is decided yet. Change any of it, and approving is what freezes it.",
-  frozen: "Frozen when you approved it. The Job runs on these values and nothing re-reads them.",
+/** What the panel is called, at each of the two moments. */
+const PANEL = {
+  open: "Yours to change",
+  frozen: "Approved, and running",
+};
+
+/** What the request's own foot says, at each of the two moments. */
+const REQUEST_FOOT = {
+  open: "Frozen into the job on approval.",
+  frozen: "Frozen. This is what every Drone is given.",
 };
 
 export function JobProposal({
   title,
   onTitle,
+  request,
   workflow,
   steps,
   onGate,
@@ -86,70 +110,129 @@ export function JobProposal({
   const frozen = frozenAt !== undefined;
   return (
     <div className="armada-proposal">
-      <header className="armada-proposal__head">
-        {onTitle === undefined ? (
-          <h2 className="armada-proposal__title">{title}</h2>
-        ) : (
-          <Input label="Title" value={title} onChange={(event) => onTitle(event.target.value)} />
-        )}
-        <p className="armada-proposal__workflow">
-          {`${workflow} — ${steps.length} steps`}
-        </p>
-        <p className="armada-proposal__said">
-          {frozen ? `${SAID.frozen} Approved ${frozenAt}.` : SAID.open}
-        </p>
-      </header>
+      <div className="armada-proposal__request-column">
+        <section className="armada-proposal__card" aria-label="What was asked">
+          <div className="armada-proposal__against">
+            <span className="armada-proposal__eyebrow">Against</span>
+            <span className="armada-proposal__chip">{request.repository}</span>
+            {request.from === undefined ? null : (
+              <>
+                <span className="armada-proposal__against-word">from</span>
+                <span className="armada-proposal__chip">{request.from}</span>
+              </>
+            )}
+          </div>
+          <div className="armada-proposal__said" data-absent={request.said === undefined || undefined}>
+            {request.said ?? request.absent}
+          </div>
+          <p className="armada-proposal__foot">{frozen ? REQUEST_FOOT.frozen : REQUEST_FOOT.open}</p>
+        </section>
 
-      <ProposalGates
-        steps={steps}
-        {...(onGate === undefined ? {} : { onGate })}
-        {...(onOverride === undefined ? {} : { onOverride })}
-      />
+        <ProposalDoneWhen
+          criteria={criteria}
+          {...(onCriterion === undefined ? {} : { onCriterion })}
+        />
+      </div>
 
-      <section className="armada-proposal__region" aria-label="What each task runs on">
-        <h3 className="armada-proposal__heading">What each task runs on</h3>
-        {onTiers === undefined || onDroneCap === undefined ? (
-          <>
-            {/* The three tiers are read against each other, so they are one
-                list; the cap is a different question and is its own. */}
-            <dl className="armada-proposal__frozen-fields">
-              {TIERS.map(([tier, label]) => (
-                <div className="armada-proposal__frozen-field" key={tier}>
-                  <dt>{label}</dt>
-                  <dd>{tiers[tier] ?? "Auto — Armada picks it"}</dd>
-                </div>
-              ))}
-            </dl>
-            <dl className="armada-proposal__frozen-fields">
-              <div className="armada-proposal__frozen-field">
-                <dt>Drones at once</dt>
-                <dd>
-                  {droneCap === undefined
-                    ? "As many as the machine allows"
-                    : `${droneCap} of this machine's ${machineCap ?? "?"}`}
-                </dd>
-              </div>
-            </dl>
-          </>
-        ) : (
-          <>
-            <TierModels tiers={tiers} onTiers={onTiers} models={models} />
-            <DroneCap
-              {...(droneCap === undefined ? {} : { cap: droneCap })}
-              onCap={onDroneCap}
-              machineCap={machineCap}
-            />
-          </>
-        )}
+      <section className="armada-proposal__settings" aria-label="How this job runs">
+        <div className="armada-proposal__settings-head">
+          <h3 className="armada-proposal__settings-name">{frozen ? PANEL.frozen : PANEL.open}</h3>
+          <span className="armada-proposal__settings-meta">
+            {frozen ? `Frozen ${frozenAt}` : "Nothing is frozen until you approve"}
+          </span>
+        </div>
+
+        <ProposalFields>
+          <ProposalField label="Title" bare={onTitle !== undefined}>
+            {onTitle === undefined ? (
+              title
+            ) : (
+              <Input
+                aria-label="Title"
+                value={title}
+                onChange={(event) => onTitle(event.target.value)}
+              />
+            )}
+          </ProposalField>
+          <ProposalField label="Workflow">{`${workflow} — ${steps.length} steps`}</ProposalField>
+        </ProposalFields>
+
+        <div className="armada-proposal__region">
+          <div className="armada-proposal__heading-row">
+            <h3 className="armada-proposal__heading">{frozen ? "Model per tier, frozen" : "Model per tier"}</h3>
+            <GuideMark guide={GUIDE_TIERS} />
+          </div>
+          <ProposalFields>
+            {TIERS.map(([tier, label]) => (
+              <ProposalField key={tier} label={label} indent bare={onTiers !== undefined}>
+                {onTiers === undefined ? (
+                  (tiers[tier] ?? AUTO)
+                ) : (
+                  <Select
+                    aria-label={label}
+                    value={tiers[tier] ?? ""}
+                    onChange={(event) =>
+                      onTiers({
+                        ...tiers,
+                        [tier]: event.target.value === "" ? null : event.target.value,
+                      })
+                    }
+                  >
+                    <option value="">{AUTO}</option>
+                    {models.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </ProposalField>
+            ))}
+            <ProposalField label="Drones at once" bare={onDroneCap !== undefined}>
+              {onDroneCap === undefined ? (
+                droneCap === undefined ? (
+                  "As many as the machine allows"
+                ) : (
+                  String(droneCap)
+                )
+              ) : (
+                <Input
+                  aria-label="Drones at once"
+                  type="number"
+                  min={1}
+                  {...(machineCap === null ? {} : { max: machineCap })}
+                  value={droneCap === undefined ? "" : String(droneCap)}
+                  placeholder={AUTO}
+                  onChange={(event) =>
+                    onDroneCap(event.target.value === "" ? undefined : Number(event.target.value))
+                  }
+                />
+              )}
+            </ProposalField>
+          </ProposalFields>
+          {/* The machine's own cap, beside the Job's and never merged into it:
+              one is how many Drones this Job may run, the other is how many
+              run here at all. */}
+          <ProposalFieldNote>
+            {machineCap === null
+              ? "Fleet has not said how many this machine runs at once."
+              : `This machine runs ${machineCap} at once, across every Job.`}
+          </ProposalFieldNote>
+        </div>
+
+        <ProposalGates
+          frozen={frozen}
+          steps={steps}
+          {...(onGate === undefined ? {} : { onGate })}
+          {...(onOverride === undefined ? {} : { onOverride })}
+        />
+
+        <ProposalLanding
+          landing={landing}
+          {...(onLanding === undefined ? {} : { onLanding })}
+          completeChoices={completeChoices}
+        />
       </section>
-
-      <ProposalLanding
-        landing={landing}
-        {...(onLanding === undefined ? {} : { onLanding })}
-        completeChoices={completeChoices}
-      />
-
-      <ProposalDoneWhen criteria={criteria} {...(onCriterion === undefined ? {} : { onCriterion })} />
     </div>
   );
 }

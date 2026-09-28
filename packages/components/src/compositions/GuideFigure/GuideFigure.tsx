@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 
 import type { GuideFigureId } from "../../guides/guide";
 import { ADVANCE_GATE, JOB_STATUS, STEP_STATE } from "../../generated/vocabulary";
-import { JobMembers, type JobMemberRow } from "../JobMembers/JobMembers";
+import { JobMembers, type JobMemberJoin, type JobMemberRow } from "../JobMembers/JobMembers";
 import { StepBar } from "../StepBar/StepBar";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
@@ -240,8 +240,8 @@ function badge(status: string): JobMemberRow["state"] {
 }
 
 /**
- * Three members, as `JobMembers` draws them on a job: the rail carrying the
- * order, and each card saying which link it has to the one before.
+ * Three members, as `JobMembers` draws them on a job: the number carrying the
+ * order, and the line between two rows saying how they are related.
  *
  * Nothing here is a control. No member takes `onOpen`, `onDrop` or a branch,
  * so the real list renders no button and the figure holds no focus stop.
@@ -274,16 +274,25 @@ const MEMBERS: readonly JobMemberRow[] = [
 ];
 
 /**
+ * The three joins, in the words the real screen uses. They are the figure's
+ * subject: what a link *is*, rather than which one a member has.
+ */
+const JOINS: readonly JobMemberJoin[] = [
+  { link: "stacked", said: "Member 2 branches off member 1, so it keeps working." },
+  { link: "published", said: "Member 3 waits on what member 2's merge publishes." },
+];
+
+/**
  * Several pull requests landing in order, which is guide 2's whole subject.
  *
- * **One list, not three.** The rail that joins one card to the next is drawn
+ * **One list, not three.** The line joining one row to the next is drawn
  * between siblings, so three lists would be three runs of one. The stylesheet
  * stages each member by its place in that one list.
  */
 function MembersLanding() {
   return (
     <div className="armada-guide-figure__members">
-      <JobMembers members={MEMBERS} completeWhen="Done when every member has landed." />
+      <JobMembers bare members={MEMBERS} joins={JOINS} completeWhen="Every member has landed." />
     </div>
   );
 }

@@ -52,6 +52,34 @@
   gap: var(--space-2);
 }
 
+/* Down a column, each answer says what it does under it. Beside a list of
+   members there is no room for three buttons across, and what room there is
+   goes on the consequence rather than on the label alone. */
+.armada-judge-question[data-stacked] .armada-judge-question__answers {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.armada-judge-question[data-stacked] .armada-judge-question__answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-judge-question[data-stacked] .armada-judge-question__answer .armada-button {
+  justify-content: flex-start;
+}
+
+.armada-judge-question__means {
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
+}
+
 .armada-judge-question__said {
   min-width: 0;
   font-size: var(--text-xs);

@@ -23,7 +23,7 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
 async function opened(fixture: JobFixture, behaves?: Scenario["behaves"]): Promise<BridgeApi> {
   const app = mount({ ...onJob(fixture), behaves });
-  await expect.element(page.getByText(fixture.job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   return app.api;
 }
 

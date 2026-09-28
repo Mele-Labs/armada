@@ -1,5 +1,5 @@
-// One Job, read whole, at five destinations: Overview, Workflow, Plan, Record,
-// Pulse. Overview is the arrangement this screen has always had — the run as a
+// One Job, read whole, at six destinations: Overview, Workflow, Plan, Record,
+// Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
 // tree, the selected step in the inspector, its story in the order it happened
 // — and the other four are where the readings that used to compete for that one
 // panel go instead. `#1534`.
@@ -7,7 +7,8 @@
 // **This file is the screen, not a tab.** It reads the Job whole, draws the
 // header, the standing callout and the strip, and hands each tab what it needs.
 // What a tab holds is that tab's own module: `tab-overview.tsx`,
-// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-pulse.tsx`.
+// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-pulse.tsx`,
+// `tab-settings.tsx`.
 
 import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
 import { useCallback, useReducer, useState } from "react";
@@ -37,6 +38,7 @@ import { proposalEditsOf } from "./tab-proposal-read";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { RecordTab } from "./tab-record";
+import { SettingsTab } from "./tab-settings";
 import { WorkflowTab } from "./tab-workflow";
 import { WaveRegion, type WaveRegionProps } from "./tab-wave";
 import { whyNoSteps } from "./run";
@@ -180,10 +182,6 @@ function OneJob(props: JobDetailProps) {
     onRaiseTurnCap: props.onRaiseTurnCap,
     raisingTurns,
     onRaisingTurns: setRaisingTurns,
-    onOpenSettings: () => {
-      setTab("overview");
-      move({ move: "open", which: "settings" });
-    },
     onOpenPullRequest: props.onOpenPullRequest,
     onOpenJob: props.onOpenJob,
     onCopied: props.onCopied,
@@ -203,7 +201,7 @@ function OneJob(props: JobDetailProps) {
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
-      <JobTabs value={tab} onChange={setTab} counts={countsOf(whole)} />
+      <JobTabs value={tab} onChange={setTab} counts={countsOf(whole, job)} />
 
       {tab === "overview" && edits !== undefined ? (
         // A Job at or just past its approval gate: the proposal is what
@@ -216,6 +214,7 @@ function OneJob(props: JobDetailProps) {
           onEdits={setEdits}
           models={props.models?.models ?? []}
           stale={props.stale}
+          manifest={props.manifests.find((one) => one.id === job.owner_manifest_id)}
         />
       ) : tab === "overview" ? (
         <>
@@ -270,6 +269,22 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
+        />
+      ) : tab === "settings" ? (
+        <SettingsTab
+          job={job}
+          whole={whole}
+          models={props.models ?? null}
+          stale={props.stale}
+          acting={props.acting}
+          {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
+          onSetWhenBlocked={props.onSetWhenBlocked}
+          onSetWhenRefused={props.onSetWhenRefused}
+          onSetModel={props.onSetModel}
+          onSetReviewModel={props.onSetReviewModel}
+          onRemoveAllowedCommand={props.onRemoveAllowedCommand}
+          onRaiseCap={props.onRaiseCap}
+          onRaiseTurnCap={props.onRaiseTurnCap}
         />
       ) : tab === "record" ? (
         <RecordTab
