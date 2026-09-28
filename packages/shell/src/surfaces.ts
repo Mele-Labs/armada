@@ -20,7 +20,6 @@ import { useEffect, useRef } from "react";
 import {
   BookOpen,
   Briefcase,
-  ClipboardList,
   FileCog,
   HardDrive,
   LayoutDashboard,
@@ -39,10 +38,11 @@ import type { PaletteSurface } from "./Palette";
  * Kit is what he brings and Settings is what this machine is, so the machine
  * reads last.
  *
- * **Guides joined last and moved nothing** (#1602). It is the tenth row, which
- * is one past the digits the contract publishes, so it carries none — and
- * every digit above is the one it was. Where it belongs in the rail is the
- * thing here most likely to be pinned; moving it costs one line.
+ * **The Job Board left, and every digit behind it moved up one.** The owner:
+ * *"Overview now supersedes the job board. We should delete this page."* A
+ * removal is the first thing to renumber the rail rather than extend it, and
+ * leaving its digit as a hole would be a key reaching nothing. Guides gains
+ * `⌘9` by the same arithmetic, which is the first digit it has ever had.
  *
  * Two of the rest draw no row yet and they keep their place anyway. A rail
  * that renumbered as surfaces were built would move a learned key every time
@@ -54,7 +54,6 @@ import type { PaletteSurface } from "./Palette";
  */
 const RAIL = [
   "overview",
-  "board",
   "studios",
   "alerts",
   "doctor",
@@ -70,7 +69,6 @@ type SurfaceId = (typeof RAIL)[number];
 /** The ids Bridge routes on. Here, so a typo cannot be a dead row. */
 export const SURFACE = {
   overview: "overview",
-  board: "board",
   manifest: "manifest",
   worktrees: "worktrees",
   kit: "kit",
@@ -114,12 +112,6 @@ export const SURFACES: readonly PaletteSurface[] = [
     // No alias, for the same reason Manifest carries none: this is the first
     // surface built at this name, so there is no earlier word to keep.
     icon: LayoutDashboard,
-  },
-  {
-    id: SURFACE.board,
-    label: "Job Board",
-    shortcut: digitOf(SURFACE.board),
-    icon: ClipboardList,
   },
   {
     id: SURFACE.studios,
@@ -174,6 +166,31 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: BookOpen,
   },
 ];
+
+/**
+ * The rail's two panels, and which surfaces each holds — the owner, 28 Sep 2026.
+ *
+ * **Work and Machine.** Work is his own framing of the first group, *"about jobs
+ * and studios"*. Machine is the second because Kit and Settings are both
+ * `scope = "Machine"` in `crates/config/settings.toml`. *Setup* was rejected: it
+ * already names a view on the Manifest surface.
+ *
+ * **Membership is named, not derived.** `SURFACES` is every destination and the
+ * palette lists all of them; a panel holds the ones he put in it. That is what
+ * lets Manifest be reachable with no rail row — #1595 folded it into the title
+ * row's picker, which is a control rather than a row.
+ */
+export const RAIL_PANELS = [
+  { id: "work", label: "Work", surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees] },
+  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides] },
+] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
+
+/** One panel's rows, in the order it names them, skipping any surface that is not built. */
+export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurface[] {
+  return panel.surfaces
+    .map((id) => SURFACES.find((one) => one.id === id))
+    .filter((one): one is PaletteSurface => one !== undefined);
+}
 
 /**
  * `⌘1`…`⌘n`, bound to the rail in rail order.

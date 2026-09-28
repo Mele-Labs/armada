@@ -13,7 +13,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed } from "./scenario";
-import { mount, openBoard, rows, unmountAfterEach } from "./testing";
+import { mount, listed, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -23,29 +23,30 @@ unmountAfterEach();
  */
 const JOBS = scenarioNamed("every-state")!.state.jobs;
 
-/** The Board, with its collapsed Done group opened so every row is drawn. */
+/** Overview, with its folded Done panel opened so every row is drawn. */
 async function everyRowDrawn(): Promise<void> {
   await expect.poll(() => rows().length).toBeGreaterThan(0);
-  const done = page.getByRole("button", { name: /^Done/ });
+  // The panel head says Expand or Collapse, so the name is matched at its end.
+  const done = page.getByRole("button", { name: /Done$/ });
   if (done.query()?.getAttribute("aria-expanded") === "false") await done.click();
 }
 
 test("every-state lists a row per Job", async () => {
   mount("every-state");
-  await openBoard();
+  await listed();
   await everyRowDrawn();
   await expect.poll(() => rows().map((row) => row.dataset.jobId).sort()).toEqual(JOBS.map((job) => job.id).sort());
 });
 
 test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   const { scenario } = mount("every-state");
-  await openBoard();
+  await listed();
   await everyRowDrawn();
   // The fold's rows arrive with it, so wait for this Job's row rather than reading the board once.
   const row = (): HTMLElement | undefined => rows().find((one) => one.dataset.jobId === job.id);
   await expect.poll(row).toBeDefined();
   await userEvent.click(row()!);
-  // The Board is gone and the header names this Job by its handle.
+  // The list is gone and the header names this Job by its handle.
   await expect.poll(() => rows().length).toBe(0);
   await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();
   // Where the scenario holds the Job's detail, it is that detail drawn: its first step, by label.
@@ -54,7 +55,7 @@ test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   if (step !== undefined) {
     await expect.element(page.getByText(step, { exact: true }).first()).toBeVisible();
   }
-  // Escape puts the Board back, which the loop proved on every Job it went on from.
+  // Escape puts the list back, which the loop proved on every Job it went on from.
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => rows().length).toBeGreaterThan(0);
 });

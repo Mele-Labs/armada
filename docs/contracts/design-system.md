@@ -794,21 +794,41 @@ opens.
 
 ### Left column
 
-Bridge/1088 replaced the rail and the status bar with one column of three
-rounded panels — **Navigation**, **Stats** and **Fleet** — collapsible and
-resizable, and both states are designed rather than one being an afterthought.
+Bridge/1088 replaced the rail and the status bar with one column of rounded
+panels — collapsible and resizable, and both states are designed rather than
+one being an afterthought. They are **Work**, **Machine**, **Stats** and
+**Fleet**.
+
+**Navigation is two panels, not one.** The owner split it on 28 Sep 2026 —
+*"We should split this into two panels ... its about jobs and studios"*. Work
+holds where the work is read; Machine holds what this machine has and is.
+
+> **Rule.** The rail's panels and their membership are declared, not derived
+> from the surface roster. A surface is in a panel because it was put there,
+> and a surface in no panel has no rail row while staying reachable by every
+> other route.
+> Why: the roster is every destination Bridge can reach and the palette lists
+> all of them. Manifest is reached from the title row's picker rather than from
+> a row (#1595), and a rail derived from the roster could not express that
+> without deleting the destination.
+
+**Machine, because Kit and Settings are both `scope = "Machine"`** in
+`crates/config/settings.toml` — Kit is what this machine has and Settings is
+what it is. *Setup* was the runner-up and was rejected: it already names a view
+on the Manifest surface, and one word meaning two things in one window is what
+the lexicon exists to prevent.
 
 ```
 default     200px
 drag range  160-320px
-collapsed   48px icon rail — Navigation's own form; Stats and Fleet
-            collapse to one centred status dot at the same width
-control     a toggle in Navigation's head, and ⌘\, at any width above
+collapsed   48px icon rail — the two nav panels keep their glyphs; Stats
+            and Fleet collapse to one centred status dot at the same width
+control     a toggle in Work's head, and ⌘\, at any width above
             --layout-breakpoint; drawn in both states, saying which it is in
 persistence width and collapsed state survive app restart
 ```
 
-**One panel style, shared by all three.** `--radius-lg` and the card
+**One panel style, shared by every one of them.** `--radius-lg` and the card
 treatment under Depth, held apart by the column's own 16px gap (`--space-4`)
 rather than by margin on each panel. A panel's head is 40px
 (`--space-8` + `--space-2`), 12px horizontal padding (`--space-3`), and
@@ -816,16 +836,18 @@ collapses to its head only — never to nothing, so a glance still answers
 the one question the panel is for. Token treatment for Stats and Fleet's
 own content is under Component → token mapping.
 
-**One width, shared by all three.** Navigation, Stats and Fleet resize and
-collapse together, on one drag handle at the column's trailing edge — never
-one handle per panel, and never three panels each resolving their own width.
+**One width, shared by every panel.** Work, Machine, Stats and Fleet resize and
+collapse together, on one drag handle at the column's trailing edge — never one
+handle per panel, and never four panels each resolving their own width. **One
+collapse control too**, in Work's head: two toggles for one column would be two
+controls on one act.
 
-**Navigation is one level, Bridge's own.** It lists Bridge's surfaces and
-nothing else — Helm left it for the dock (#948), so there is no second tier
-beneath it any more.
+**Each nav panel is one level, Bridge's own.** They list Bridge's surfaces and
+nothing else — Helm left the rail for the dock (#948), so there is no tier
+beneath a row.
 
 **The column never disappears. It reaches the rail, and stops there.** 48px is
-cheap, and losing Navigation, Stats and Fleet entirely is worse than losing
+cheap, and losing the panels entirely is worse than losing
 48px at any width.
 
 > **Rule.** The left column collapses to its 48px rail below
@@ -866,7 +888,10 @@ correction still stands and is what the rule above says; only the second band
 it applied to has gone.
 
 **At 48px Stats and Fleet keep their one status dot each**, so a glance still
-says whether anything needs attention, and Navigation keeps its glyphs.
+says whether anything needs attention, and the nav panels keep their glyphs.
+Four panels at the rail read as four stacks held apart by the column's gap;
+photographed under `--layout-breakpoint` on 28 Sep 2026, when the split
+landed.
 
 **Fleet's liveness is also one dot in the title row, at every width.** #1438
 drew that dot only while the left column was absent, which was the right shape
@@ -1014,7 +1039,7 @@ floors at 390px, which leaves 358px between its gutters.
 
 | | ≥ 1100px | < 1100px | Touch client |
 | --- | --- | --- | --- |
-| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Navigation, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
+| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
 | Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | An edge strip; open draws it as a sheet over the content instead | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
@@ -1281,8 +1306,6 @@ b              report this job     (detail only) (confirms)
 x              kill                (confirms)
 X              kill & redispatch   (detail only) (confirms) (not built)
 n              dispatch
-/              search the current list
-1–6            state filter        (Job Board only, in tab order)
 a              approve             (dispatch card only)
 v              observe             (detail only)
 u              submit for verification  (piloted job only)
@@ -1338,8 +1361,10 @@ Three reversals against what stood before, each with a reason:
 - **`r` is review, and redirect moves to `d`.** Review is on every
   needs-you row and is the most-pressed contextual key in the app;
   redirect is reached from a job that has already gone wrong.
-- **`⌘F` is deleted.** `/` already searches the current list, and two
-  bindings for one act breaks the one-artifact rule above.
+- **`⌘F` is deleted.** It duplicated `/`, and two bindings for one act
+  breaks the one-artifact rule above. `/` is deleted too, on 28 Sep 2026:
+  the Job Board held the only field it focused, and the command palette is
+  what searches now.
 
 **`x` for kill and every safety rule below are unchanged.** Neither was
 in play, and the destructive-key rule is what kept `x` off `k`.
@@ -1353,11 +1378,18 @@ the design drew are all spoken for: `n` is dispatch and its scope is
 `anywhere`, `v` is observe and `s` is restart step, so an unshifted key
 would answer twice on one press. See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘9` follow the rail** — Overview, Job Board, Studios, Alerts,
-Doctor, Manifest, Cleanup, Kit, Settings — since Active Jobs, Reviews and the Activity
-Feed folded into the Board and Cleanup joined at the end of it.
+**`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
+Doctor, Manifest, Cleanup, Kit, Settings, Guides — since Active Jobs, Reviews and the
+Activity Feed folded into the Board and Cleanup joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the
 numbers.
+
+**The Job Board's deletion on 28 Sep 2026 is the first removal to shift
+them.** Every digit behind it moved up one, and Guides took `⌘9` — the
+first it has ever carried, since it had been the tenth row and the
+contract publishes nine. A rail row is not what a digit follows: Manifest
+keeps `⌘5` with no row at all, because it is reached from the title row's
+picker (#1595) and the order it sits in is unchanged.
 
 **Helm moved from `⌘6` to `⌘J` on 2026-09-13**, when it left the rail
 for a dock on every Bridge surface (#948). A digit is a place in the rail,
@@ -2008,7 +2040,8 @@ reading replaces the drawing rather than moving it.
 The left column's third panel — what the status bar used to read.
 
 ```
-state    --dot (6px) + --text-base --fg-default
+state    --dot (6px) in the panel's head, beside the "Fleet" label — the
+         trailing slot, so it is the same mark at every width
 rows     pid / port / protocol / up, one row each: label --text-xs
          --text-label on the left, value --font-mono --text-xs --text-body
          right-aligned to the panel's edge, where Stats puts its counts —
@@ -2030,6 +2063,23 @@ edge is what a reader of a 160 to 380px panel runs down; a destination is the
 width of the window, and there the same rows put a label and its figure a
 hand's width apart. Pulse draws its Drones, Checks, Judges, spend and turns
 that way — label over figure, `--text-base`, wrapping by whole cells. #1538.
+
+**The state is the head's dot, not a row under it.** A row saying "Running"
+sat at the top of the body with its own dot beside the words, under a head
+already naming Fleet; the owner deleted it on 28 Sep 2026 — *"Delete this row
+and just put the status dot next to the 'Fleet' title in the panel header."*
+
+> **Rule.** Fleet's state is the dot in the panel's head, carrying the state in
+> words as an accessible name and a tooltip. The body holds only what the head
+> cannot: the figures, the sentence, and Doctor's line.
+> Why: the head is where a person looks for a panel's own subject, and a second
+> mark two lines under the first said the same fact twice in one glance. The
+> words are not lost — the dot is a named graphic, as the title row's is.
+
+**A state with nothing for the body draws the head alone.** One does: the
+moment before Bridge has read the runtime file has no figure, no sentence and
+no Doctor reading. The head keeps its label and its dot and offers no chevron,
+because a chevron onto an empty box is a control that does nothing.
 
 **Fleet's state is one of three, and the panel's dot names which** — the
 same three the status bar used to carry, on the same grounds Doctor's pass,
@@ -2087,7 +2137,7 @@ What Bridge does with the version it reads.
 - **~~Window and layout model~~** **Closed.** Specified in full under
   Window and layout model above — frameless `hiddenInset` chrome insetting
   the traffic lights over the title row, a collapsible/resizable left column
-  carrying Navigation, Stats and Fleet as one unit, full-width routes with no
+  carrying Work, Machine, Stats and Fleet as one unit, full-width routes with no
   inspector but for Helm's dock, no page head and no status bar, and the
   floors and breakpoint under Responsive behaviour. Delivered as one
   responsive prototype rather than per-width comps.
@@ -2722,11 +2772,13 @@ mark is the character `?` rather than a glyph: `circle-*` is reserved to Judge
 criterion verdicts, and the owner's own word for the control is a question
 mark. An empty state saying what would be here is a fact about now and stays.
 
-**A healthy state is stated, never implied.** "Fleet running" renders in
-the Fleet panel even when nothing is wrong, because an empty panel reads
-the same whether Fleet is healthy, loading or dead, and Fleet outlives
-Bridge. An unhealthy state adds a sentence naming what to do about it; a
-healthy one does not, because there is nothing to do.
+**A healthy state is stated, never implied.** Running renders in the Fleet
+panel's head even when nothing is wrong, because a panel that said nothing
+would read the same whether Fleet is healthy, loading or dead, and Fleet
+outlives Bridge. The head's dot is where it is said, since 28 Sep 2026 — which
+is what lets the body be empty in the one state that has nothing for it. An
+unhealthy state adds a sentence naming what to do about it; a healthy one does
+not, because there is nothing to do.
 
 **Escalations interrupt, approvals queue.** Escalations cost money in
 real time. Approvals cost latency. Push inherits this, so escalations

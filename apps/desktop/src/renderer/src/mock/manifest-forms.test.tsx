@@ -15,7 +15,9 @@ unmountAfterEach();
 /** The Manifest surface by the rail, on its Edit tab. */
 async function forms(options: Manifesting = {}): Promise<void> {
   mount(manifesting(options));
-  await page.getByRole("button", { name: "Manifest", exact: true }).click();
+  // The rail row went when Navigation split in two; the control beside the
+  // title row's picker is how the surface is reached now (#1595).
+  await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
   await page.getByRole("tab", { name: "Edit" }).click();
 }
 

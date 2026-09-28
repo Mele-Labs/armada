@@ -15,7 +15,6 @@ export * from "./Decide";
 export * from "./DispatchJob";
 export * from "./JobDetail";
 export * from "./Manifest";
-export * from "./Jobs";
 export * from "./Log";
 export * from "./Overrule";
 export * from "./RaiseCap";

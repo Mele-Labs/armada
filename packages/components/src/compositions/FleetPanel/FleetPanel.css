@@ -5,16 +5,9 @@
   padding: var(--space-1);
 }
 
-.armada-fleet-panel__state {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-  font-weight: var(--weight-body);
-  color: var(--fg-default);
-}
-
+/* `__state` was the row saying "Running" under the head, with its own dot
+   beside the words. The owner deleted it on 28 Sep 2026 and the dot moved into
+   the head's trailing slot, where `Panel` already keeps a count or a mark. */
 .armada-fleet-panel__dot {
   width: var(--dot);
   height: var(--dot);

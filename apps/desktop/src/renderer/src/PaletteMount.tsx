@@ -9,7 +9,7 @@
 import { Palette, type PaletteSurface } from "@armada/shell";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
-import { BOARD_TABS, checkoutRunnablesOf, studioName, type BoardTab } from "@armada/screens";
+import { checkoutRunnablesOf, studioName } from "@armada/screens";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
 /** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */
@@ -71,7 +71,10 @@ export function PaletteMount({
           : `${on.id} — ${on.title}`
       }
       surfaces={surfaces}
-      filters={reading === null ? BOARD_TABS : []}
+      // **No filter rows.** They were the Job Board's state tabs, and that
+      // surface is gone; Overview draws its sections rather than narrowing one
+      // list, so there is nothing here for a row to set.
+      filters={[]}
       // One row per Check and Command, off the same reading the Manifest
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
@@ -92,4 +95,3 @@ export function PaletteMount({
   );
 }
 
-export type { BoardTab };

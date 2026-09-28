@@ -14,28 +14,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOARD_COLUMNS,
-  BOARD_TABS,
   columnsFor,
   DEFAULT_SORT,
-  emptiedBy,
-  FIRST_TAB,
-  inTab,
-  matches,
   ofPicked,
   sectionOf,
   sectionsOf,
   needsYou,
   sorted,
   tabOf,
-  tabSuspended,
   taskBarSegmentsOf,
   taskFigureOf,
   TASKS_COLUMN,
 } from "./board";
-import type { BoardTab } from "./board";
 
 import type { JobSummary } from "@armada/protocol";
-import type { WorkflowSummary } from "@armada/protocol";
 
 /** A row with everything the Board reads, and nothing it does not. */
 function job(over: Partial<JobSummary> = {}): JobSummary {
@@ -140,12 +132,10 @@ describe("which tab a job is in", () => {
     expect(tabOf(job({ status: "translated_into_greek" }))).toBeNull();
   });
 
-  it("counts the unplaceable under All and under no state tab", () => {
-    const stranger = job({ status: "translated_into_greek" });
-    expect(inTab(stranger, "all")).toBe(true);
-    for (const tab of ["needs-you", "running", "queued", "finished", "cleared"] as const) {
-      expect(inTab(stranger, tab), tab).toBe(false);
-    }
+  it("draws the unplaceable under Other rather than dropping it", () => {
+    // `sectionOf` is where that falls out now: a status no tab claims has no
+    // tab to be counted under, and the section is what keeps the row on screen.
+    expect(sectionOf(job({ status: "translated_into_greek" }))).toBe("other");
   });
 
   it("reads needsYou off the same rule the tab uses", () => {
@@ -155,80 +145,9 @@ describe("which tab a job is in", () => {
   });
 });
 
-describe("the tab strip", () => {
-  it("keys the tabs by their position, so a tab moving moves its key", () => {
-    expect(BOARD_TABS.map((tab) => tab.shortcut)).toEqual(["1", "2", "3", "4", "5", "6"]);
-    expect(BOARD_TABS.map((tab) => tab.id)).toEqual([
-      "all",
-      "needs-you",
-      "running",
-      "queued",
-      "finished",
-      "cleared",
-    ]);
-  });
-
-  it("opens on All, and sorts critical first", () => {
-    expect(FIRST_TAB).toBe("all");
+describe("where the list opens", () => {
+  it("sorts critical first", () => {
     expect(DEFAULT_SORT).toBe("critical_first");
-  });
-});
-
-describe("the search", () => {
-  const workflows: readonly WorkflowSummary[] = [
-    { id: "bug", name: "bug", version: 1, steps: [], manifest_id: "armada" },
-  ];
-
-  it("suspends the tab while the field holds text, and not while it holds space", () => {
-    expect(tabSuspended("")).toBe(false);
-    expect(tabSuspended("   ")).toBe(false);
-    expect(tabSuspended("auth")).toBe(true);
-  });
-
-  it("matches every job when nothing is typed", () => {
-    expect(matches(job(), "", workflows)).toBe(true);
-    expect(matches(job(), "  ", workflows)).toBe(true);
-  });
-
-  it("matches on the fields the row actually shows", () => {
-    const row = job({
-      title: "Coalesce concurrent token refreshes",
-      id: "01M130Y1380016YK5S0JXBXDQ5",
-      handle: "12-a-job",
-      branch: "armada/refresh-coalescing",
-      current_step_id: "implement",
-      workflow_id: "bug",
-    });
-    for (const needle of ["token", "01M130Y", "refresh-coalescing", "implement", "bug"]) {
-      expect(matches(row, needle, workflows), needle).toBe(true);
-    }
-  });
-
-  it("matches what the row draws now — the handle, whole or by its number", () => {
-    // The row shows `12-a-job`, not the id beside it: a person who was told
-    // "check job 12" types the number, or the whole handle, and neither is on
-    // the row's old field.
-    const row = job({ id: "01M130Y1380016YK5S0JXBXDQ5", handle: "12-a-job" });
-    expect(matches(row, "12", workflows)).toBe(true);
-    expect(matches(row, "12-a-job", workflows)).toBe(true);
-    // A value copied off the row before this change still finds it.
-    expect(matches(row, "01M130Y", workflows)).toBe(true);
-  });
-
-  it("matches the workflow by the name a person reads, not only by its id", () => {
-    const named: readonly WorkflowSummary[] = [
-      { id: "wf_01", name: "Fix a bug", version: 1, steps: [], manifest_id: "armada" },
-    ];
-    expect(matches(job({ workflow_id: "wf_01" }), "Fix a bug", named)).toBe(true);
-  });
-
-  it("ignores case and surrounding space, because a person types neither carefully", () => {
-    expect(matches(job({ title: "Coalesce" }), "  COALESCE ", workflows)).toBe(true);
-  });
-
-  it("does not match a field the row does not carry", () => {
-    expect(matches(job({ branch: undefined }), "armada/", workflows)).toBe(false);
-    expect(matches(job(), "sonnet", workflows)).toBe(false);
   });
 });
 
@@ -272,29 +191,6 @@ describe("the order", () => {
     const held = [late, early];
     sorted(held, "oldest_first");
     expect(held.map((row) => row.id)).toEqual(["b", "a"]);
-  });
-});
-
-describe("what emptied the list", () => {
-  it("names the search, not the tab, while a search is running", () => {
-    expect(emptiedBy("running", "auth")).toBe("No jobs match your search.");
-  });
-
-  it("says nothing at all when no filter is set — that is a Manifest with no jobs", () => {
-    expect(emptiedBy("all", "")).toBeNull();
-  });
-
-  it("names the tab that did it, in the words that tab already uses", () => {
-    const said: [BoardTab, string][] = [
-      ["needs-you", "Nothing needs you."],
-      ["running", "Nothing is running."],
-      ["queued", "Nothing is queued."],
-      ["finished", "Nothing has finished."],
-      ["cleared", "Nothing has been cleared."],
-    ];
-    for (const [tab, sentence] of said) {
-      expect(emptiedBy(tab, ""), tab).toBe(sentence);
-    }
   });
 });
 

@@ -37,9 +37,30 @@
   color: var(--fg-default);
 }
 
+/* A head with nothing under it is not a control, so it draws none of the
+   affordance the button head does — no pointer, no hover lift. `Panel`'s
+   `children` absent is what puts it here. */
+.armada-panel[data-bodyless] .armada-panel__head {
+  cursor: default;
+}
+
+.armada-panel[data-bodyless] .armada-panel__head:hover {
+  color: var(--fg-muted);
+}
+
 .armada-panel__head:focus-visible {
   outline: var(--focus-ring);
   outline-offset: calc(var(--border-width) * -2);
+}
+
+/* The label and the mark against it, held together on the head's leading edge
+   — the head is `space-between`, so a mark outside this group would sit at the
+   opposite end of the row from the word it is about. */
+.armada-panel__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .armada-panel__trailing {

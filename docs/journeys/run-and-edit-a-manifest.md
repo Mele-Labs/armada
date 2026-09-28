@@ -20,7 +20,7 @@ Most of this capability was already sanctioned and had no surface. The Manifest 
 
 **Running a single Check on demand is the one new capability.** Checks are specified as invoked by Fleet as part of mechanical verification, and the only ad-hoc path was Verify's live dry-run, which runs all of them. Running one is new capability, not a missing screen.
 
-Manifest is Bridge's seventh surface, in the rail beside Job Board and Doctor, carrying the `file-cog` glyph already assigned to it under Git and config.
+Manifest carries the `file-cog` glyph already assigned to it under Git and config. **It is reached from the control beside the title row's repository picker** rather than from a rail row: the owner folded it into that picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
 
 ## Flow
 

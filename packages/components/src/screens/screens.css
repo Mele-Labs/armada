@@ -318,7 +318,9 @@
    panel head it used to sit in. Right-aligned above the list's own search
    and tabs — nothing sits to its left because the screen carries no title
    any more. */
-.armada-screen__board-actions {
+/* A surface's own control row, at the top of its content — #1090 moved it off
+   the page head. The Board's while the Board existed, Overview's since. */
+.armada-screen__surface-actions {
   display: flex;
   justify-content: flex-end;
 }

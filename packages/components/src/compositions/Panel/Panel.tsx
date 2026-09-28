@@ -16,6 +16,14 @@ import type { ReactNode } from "react";
  */
 export type PanelProps = {
   label: ReactNode;
+  /**
+   * A mark against the label, on the head's leading edge — Fleet's status dot.
+   * **Not `trailing`**: that slot is the head's opposite end, beside the
+   * chevron, and a 6px dot 150px from the word it is about reads as decoration
+   * rather than as the subject's state. Photographed at the column's 200px
+   * resting width on 28 Sep 2026, which is what moved it.
+   */
+  mark?: ReactNode;
   /** Kept beside the label whether the panel is open or collapsed — a count, a dot. */
   trailing?: ReactNode;
   open: boolean;
@@ -37,11 +45,21 @@ export type PanelProps = {
    * specified for it, so it passes none. See design-system.md → Left column.
    */
   dotLabel?: string;
-  children: ReactNode;
+  /**
+   * **Absent draws no body and no chevron** — the head alone, and nothing to
+   * press. A panel whose caller has nothing to put under the head is one where
+   * a chevron would open an empty box, which is the same defect as a control
+   * that looks pressable and does nothing. Fleet passes none in the one state
+   * that has no figure, no sentence and no Doctor reading: `reading`, Bridge's
+   * first moment before the runtime file has been read. Its dot still carries
+   * the state in words.
+   */
+  children?: ReactNode;
 };
 
 export function Panel({
   label,
+  mark,
   trailing,
   open,
   onOpenChange,
@@ -66,6 +84,26 @@ export function Panel({
     );
   }
 
+  // Nothing to open, so nothing says it opens: the label and whatever sits
+  // beside it, in the same 40px head, on a `div` rather than a `button`.
+  if (children === undefined) {
+    return (
+      <section
+        className="armada-panel armada-glass"
+        data-bodyless
+        aria-label={typeof label === "string" ? label : undefined}
+      >
+        <div className="armada-panel__head">
+          <span className="armada-panel__name">
+            <span className="armada-panel__label">{label}</span>
+            {mark}
+          </span>
+          <span className="armada-panel__trailing">{trailing}</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="armada-panel armada-glass" data-open={open || undefined}>
       <button
@@ -74,7 +112,10 @@ export function Panel({
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
       >
-        <span className="armada-panel__label">{label}</span>
+        <span className="armada-panel__name">
+          <span className="armada-panel__label">{label}</span>
+          {mark}
+        </span>
         <span className="armada-panel__trailing">
           {trailing}
           {open ? (

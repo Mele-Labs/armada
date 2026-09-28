@@ -50,7 +50,20 @@
   min-width: 0;
 }
 
-/* The section label. ALL CAPS at --tracking-caps, which is what the M1 drawing
+/* The panel's head: its name on the leading edge, the column's collapse
+   control on the trailing one — the edge the drag handle is on and the edge
+   the column leaves from. 28px is the control's own height, held whether or
+   not this panel draws one, so two panels' names sit at the same height. */
+.armada-sidebar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) var(--space-1);
+  min-height: calc(var(--space-6) + var(--space-1));
+}
+
+/* The panel's name. ALL CAPS at --tracking-caps, which is what the M1 drawing
    draws — and what it draws for every eyebrow label on every screen ("What
    ran", "Evidence so far", "Log", "Check output", "Where the work is",
    "Evidence"). The contract's typography section calls a 13px table header "the
@@ -58,7 +71,7 @@
    parenthetical is what is stale. The drawing wins and the disagreement is
    reported. */
 .armada-sidebar__section {
-  padding: var(--space-4) var(--space-2) var(--space-1);
+  padding: 0 var(--space-1);
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -67,16 +80,12 @@
   color: var(--fg-subtle);
 }
 
-/* The collapse control's row — #1591. Trailing-aligned while the column is
-   open, which is the edge the drag handle is on and the edge the column
-   leaves from; centred at the rail below, where it is the only thing on the
-   row and an off-centre one reads as misplaced, the same rule __chrome takes.
-
-   No gap of its own: the nav's own --space-1 holds it off the first surface,
-   and the button's 28px matches a row's chip so the two line up vertically. */
+/* The collapse control's own row, at the rail alone — #1591. Above the width
+   it shares the panel's head row with the name (`__head`); at 48px there is no
+   name to sit against, so it is centred and alone, the rule __chrome takes. */
 .armada-sidebar__tools {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 0 var(--space-1);
 }
 

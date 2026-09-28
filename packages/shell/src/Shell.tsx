@@ -61,10 +61,11 @@
 // out of the composer, the reports and the held worktrees — sit at the top of
 // each screen's own content instead. `App.tsx` is where that moved.
 
+import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ACTION,
-  JOB_LIFECYCLE,
+  Button,
   DockQuestions,
   DropdownMenu,
   TheShell,
@@ -75,7 +76,6 @@ import {
 } from "@armada/components";
 
 import type { Connection } from "@armada/protocol";
-import type { JobSummary } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
 import { useDockWidth } from "./dock-width";
 // The rail collapses below `--layout-breakpoint`, and job detail's inspector
@@ -86,7 +86,7 @@ import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { ALL_REPOSITORIES } from "./RepositoryOptions";
 import { repositoryLabel } from "./repository-label";
-import { SURFACE, SURFACES } from "./surfaces";
+import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
 
 export type ShellProps = {
   connection: Connection;
@@ -100,8 +100,17 @@ export type ShellProps = {
   onScope: (root: string | null) => void;
   /** Opens Locate. Absent draws no control. */
   onAddRepository?: () => void;
-  /** The Board's Jobs, for the rail's count. They follow the pick. */
-  boardJobs: readonly JobSummary[];
+  /**
+   * Opens the Manifest of whatever the picker has picked — the owner, 28 Sep
+   * 2026: *"I should be able to select a manifest from the dropdown and get a
+   * button or link or icon or something to open that manifest"*. **Absent
+   * draws no control.**
+   *
+   * Drawn on All repositories too, where there is no one Manifest to open: the
+   * surface itself asks which repository, `AskRepository`'s own job, rather
+   * than this row growing a second answer to the same question.
+   */
+  onOpenManifest?: () => void;
   /**
    * The left column's Stats panel, built by the caller from the same
    * arithmetic Overview's own tiles read — `apps/desktop`'s `left-column.ts`.
@@ -150,7 +159,7 @@ export function Shell({
   scope,
   onScope,
   onAddRepository,
-  boardJobs,
+  onOpenManifest,
   stats,
   fleet,
   onCompose,
@@ -201,22 +210,19 @@ export function Shell({
           </>
         ),
       }}
-      surfaces={SURFACES.map((surface) => ({
-        id: surface.id,
-        label: surface.label,
-        icon: surface.icon,
-        shortcut: surface.shortcut,
-        // Only the Board carries one. What Fleet is holding disk for is read
-        // while that screen is open and not before, so a number here would be
-        // right for as long as somebody was looking at it and stale after —
-        // and a count nobody can trust is worse than a row with none.
-        //
-        // **Active Jobs only.** Finished and cleared ones are the Board's
-        // record rather than its work, and the owner ruled on 11 Sep 2026
-        // that the rail counts the work. Zero draws no count, as a tab's does.
-        ...(surface.id === SURFACE.board && activeOf(boardJobs) > 0
-          ? { count: activeOf(boardJobs) }
-          : {}),
+      panels={RAIL_PANELS.map((panel) => ({
+        id: panel.id,
+        label: panel.label,
+        surfaces: panelSurfaces(panel).map((surface) => ({
+          id: surface.id,
+          label: surface.label,
+          icon: surface.icon,
+          shortcut: surface.shortcut,
+          // **No row carries a count.** The Board's did — active Jobs, the
+          // owner's ruling of 11 Sep 2026 — and that row went with the page.
+          // Stats already carries every count the column shows, and a second
+          // place to read one is a second chance to disagree.
+        })),
       }))}
       activeId={showing}
       onSelect={onSurface}
@@ -228,15 +234,36 @@ export function Shell({
       leftWidth={leftWidth}
       onResizeLeft={resizeLeft}
       repositoryPicker={
-        <DropdownMenu
-          triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
-          entries={repositoryEntries(repositories, listed, onAddRepository !== undefined, scope)}
-          // Disabled only where nothing behind it is actionable — Add a
-          // repository stays reachable on an empty Fleet, which is when it
-          // matters most, so its presence keeps the trigger live.
-          disabled={repositories.length === 0 && onAddRepository === undefined}
-          onSelect={(id) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id))}
-        />
+        <>
+          <DropdownMenu
+            triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
+            entries={repositoryEntries(repositories, listed, onAddRepository !== undefined, scope)}
+            // Disabled only where nothing behind it is actionable — Add a
+            // repository stays reachable on an empty Fleet, which is when it
+            // matters most, so its presence keeps the trigger live.
+            disabled={repositories.length === 0 && onAddRepository === undefined}
+            onSelect={(id) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id))}
+          />
+          {/* Beside the pick rather than under it: the menu answers *which*,
+              and this answers *open it*, which are two acts and not one entry.
+              `.armada-title-bar__picker` is already a flex row with the row's
+              own gap, so it needs no layout here. */}
+          {onOpenManifest === undefined ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={MANIFEST_SAID}
+              title={MANIFEST_SAID}
+              // Nothing served is nothing to open, and the menu beside it is
+              // already the way to add the first repository.
+              disabled={repositories.length === 0}
+              onClick={onOpenManifest}
+            >
+              <ManifestGlyph size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          )}
+        </>
       }
       onSearch={onSearch}
       onDispatch={onCompose}
@@ -251,6 +278,15 @@ export function Shell({
 
 /** No root is ever this, so it cannot collide with one. */
 const ADD_REPOSITORY = "add-repository";
+
+/**
+ * Manifest's own glyph and word, read off the surface roster rather than
+ * retyped — the control beside the picker and the palette's row for the same
+ * destination cannot then disagree about which mark means Manifest.
+ */
+const MANIFEST_SURFACE = SURFACES.find((one) => one.id === SURFACE.manifest);
+const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
+const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
 /** The trigger's own label: the picked repository, All, or why there is nothing to pick yet. */
 function repositoryTriggerLabel(
@@ -382,10 +418,3 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
   return { open, onOpen };
 }
 
-/**
- * How many Jobs have not ended. A status the registry does not know counts,
- * since nothing says that Job is over.
- */
-function activeOf(jobs: readonly JobSummary[]): number {
-  return jobs.filter((job) => JOB_LIFECYCLE[job.status]?.terminal !== true).length;
-}

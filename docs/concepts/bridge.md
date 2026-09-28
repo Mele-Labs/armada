@@ -34,7 +34,7 @@ Bridge has no behaviour section of its own. Its behaviour is specified across th
 | --- | --- |
 | Check System Health | "Is everything okay right now?" — Doctor's module grid |
 | Monitor Active Work | "What's currently running?" — lightweight heartbeat view |
-| Dispatch a Job | "I want to start something" — Job Board approval flow |
+| Dispatch a Job | "I want to start something" — the approval flow, read on Overview |
 | Triage Queue | "What's waiting for me?" — proactive Reviews/Alerts/Activity Feed check |
 | Respond to a Push Alert | Reactive — a notification pulled you in, includes Debug/Pilot |
 | Run and edit a Manifest | Run this project's checks without dispatching a job |
@@ -47,25 +47,27 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 **Watching a healthy Drone work is [Observe](observe.md)**, opened on one Job and read-only. It is not on the Board, which stays a scanning surface.
 
-[Job Board](job-board.md) itself is a distinct concept with its own document, surfaced inside Bridge rather than a Bridge sub-page.
+[Job Board](job-board.md) is a concept with its own document rather than a page: the owner deleted the page on 28 Sep 2026, and Overview draws the list it described.
 
 ## Top-level shell
 
-Bridge's shell is a **title row** across the top — the repository picker, search, Dispatch and, once Helm's dock is closed, its own reopen button — a **left column** of three resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
+Bridge's shell is a **title row** across the top — the repository picker with a control beside it that opens the picked repository's [Manifest](manifest.md), search, Dispatch and, once Helm's dock is closed, its own reopen button — a **left column** of resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
 
-**The left column stacks Navigation, Stats and Fleet**, one panel each, resizing and collapsing as a single unit rather than three panels each settling their own width — Bridge/1088's replacement for the rail and the status bar. See `../contracts/design-system.md`, Left column, and Component → token mapping.
+**The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id. The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-Navigation carries Overview, Job Board, Studios, Alerts, Doctor, Manifest, Cleanup, Kit and Settings. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
+**The left column stacks Work, Machine, Stats and Fleet**, one panel each, resizing and collapsing as a single unit rather than each settling its own width — Bridge/1088's replacement for the rail and the status bar, with Navigation split in two by the owner on 28 Sep 2026. See `../contracts/design-system.md`, Left column, and Component → token mapping.
+
+Work carries Overview, Studios, Alerts, Doctor and Cleanup; Machine carries Kit, Settings and Guides. Manifest is in neither: it is reached from the control beside the title row's picker (#1595), which is why the rail's panels name their members rather than taking every surface the roster holds. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else. See [Studio](studio.md).
 
 **Settings is Fleet's four limits and this machine's own settings, on one screen** — Helm's action authority first. It replaced a sheet reached from the status bar (#1088 removed the bar; #1089 gave the sheet's contents a rail row instead), and it is where a limit changed still takes the same way it always has.
 
-**Cleanup was last because it was newest, and that is the rule rather than a placement.** A surface joins at the end, so `⌘1`–`⌘4` kept reaching what they reached when Cleanup, then named Held worktrees, arrived. **Overview is the one surface that broke that rule**: it is where Bridge opens (#921), so it joined first rather than last, taking `⌘1` and pushing every other surface's digit down by one — Job Board `⌘2`, Alerts `⌘3`, Doctor `⌘4`, Manifest `⌘5`, Held worktrees `⌘6`, Settings `⌘7`. Studios broke it a second time on 2026-09-17 (#1287): the owner put it third, at `⌘3`, so Alerts, Doctor, Manifest, Cleanup and Settings each moved down one and Settings read `⌘8`. Kit broke it a third time on 2026-09-18 (#1275): it joined *before* Settings rather than after it, taking `⌘8` and moving Settings to `⌘9`, because Kit is what a person brings and Settings is what this machine is. See `../contracts/design-system.md`, Two tiers, for the rail's own digit history and for Helm's move off it.
+**Cleanup was last because it was newest, and that is the rule rather than a placement.** A surface joins at the end, so `⌘1`–`⌘4` kept reaching what they reached when Cleanup, then named Held worktrees, arrived. **Overview is the one surface that broke that rule**: it is where Bridge opens (#921), so it joined first rather than last, taking `⌘1` and pushing every other surface's digit down by one — Job Board `⌘2`, Alerts `⌘3`, Doctor `⌘4`, Manifest `⌘5`, Held worktrees `⌘6`, Settings `⌘7`. Studios broke it a second time on 2026-09-17 (#1287): the owner put it third, at `⌘3`, so Alerts, Doctor, Manifest, Cleanup and Settings each moved down one and Settings read `⌘8`. Kit broke it a third time on 2026-09-18 (#1275): it joined *before* Settings rather than after it, taking `⌘8` and moving Settings to `⌘9`, because Kit is what a person brings and Settings is what this machine is. **The Job Board's deletion on 28 Sep 2026 is the first removal to renumber the rail**: every digit behind it moved up one, and Guides took `⌘9`, the first digit it has ever had. See `../contracts/design-system.md`, Two tiers, for the rail's own digit history and for Helm's move off it.
 
 What the rail draws is what is built, which is not yet the whole roster. A surface with nothing behind it would be a promise Armada does not keep, so it holds its place in the order and its digit without drawing a row.
 
-**Active Jobs, Reviews and the Activity Feed are not on it.** All three were lists of Jobs standing beside the Board, and the Board now holds every Job with state as a filter — see [Job Board](job-board.md). Each is that list under one filter: running, `awaiting_review`, and over. Four lists of Jobs gave four surfaces four chances to disagree about what a Job row looks like, and a person had to learn which one held which state.
+**Active Jobs, Reviews and the Activity Feed are not on it, and neither is the Job Board.** All three were lists of Jobs standing beside the Board; the Board held every Job with state as a filter, and Overview holds every Job in sections — see [Job Board](job-board.md). Each of the three is that list under one filter: running, `awaiting_review`, and over. Four lists of Jobs gave four surfaces four chances to disagree about what a Job row looks like, and a person had to learn which one held which state. The Board went for the same reason, one surface later.
 
 **Alerts is the one that stays.** An alert is a condition on a Job rather than a status a Job holds — thrashing, fan-out abuse and evidence-suspect are none of them Job states — so it is a different population with its own level and trigger structure, not a filter of this one.
 
@@ -80,7 +82,7 @@ Whether the panel reads the same during onboarding, before Fleet is reachable, i
 
 ## Still open
 
-Almost nothing is scoped to Bridge as a config target: settings a person adjusts *in* Bridge are tagged to the concept each one affects — Job Board default view to Job Board, landing Manifest to Manifest — rather than to Bridge as a catch-all. **Notification routing is the exception**: no dependency path carries config to Bridge, so the Electron side reads its own copy or a hardcoded default. See `../contracts/configuration.md` for the tiering rule.
+Almost nothing is scoped to Bridge as a config target: settings a person adjusts *in* Bridge are tagged to the concept each one affects — landing Manifest to Manifest — rather than to Bridge as a catch-all. **Notification routing is the exception**: no dependency path carries config to Bridge, so the Electron side reads its own copy or a hardcoded default. See `../contracts/configuration.md` for the tiering rule.
 
 **A person's Bridge preferences are a different path from that one, kept by Fleet rather than resolved from `armada.yml`.** `#927`. Fleet keeps a preferences table the way it keeps a person's admission limits — one row per name, an absent row reading as the shipped default — and serves it over `get_preferences`/`save_preferences`. Bridge's main process loads it when Fleet connects, saves on change, and publishes it in `BridgeState`; while Fleet is unreachable Bridge draws the shipped default and queues no save. `where_things_are_open` is the first preference this carries — whether Job detail's *Where things are* chapter opens collapsed or expanded — and moving the Board's own view and sort onto it is left for later.
 

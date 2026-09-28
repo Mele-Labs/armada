@@ -46,7 +46,6 @@ test("screenOf follows the precedence App.tsx draws by", () => {
     reading: false,
     clearing: false,
     manifesting: false,
-    overviewing: false,
     studying: false,
     kitting: false,
     settling: false,
@@ -55,7 +54,6 @@ test("screenOf follows the precedence App.tsx draws by", () => {
     reading: true,
     clearing: true,
     manifesting: true,
-    overviewing: true,
     studying: true,
     kitting: true,
     settling: true,
@@ -63,10 +61,11 @@ test("screenOf follows the precedence App.tsx draws by", () => {
   expect(screenOf(every)).toBe("job_detail");
   expect(screenOf({ ...every, reading: false })).toBe("cleanup");
   expect(screenOf({ ...every, reading: false, clearing: false })).toBe("manifest");
-  expect(screenOf({ ...none, overviewing: true, studying: true, kitting: true, settling: true })).toBe("overview");
   expect(screenOf({ ...none, studying: true, kitting: true, settling: true })).toBe("studio");
   expect(screenOf({ ...none, kitting: true, settling: true })).toBe("kit");
-  expect(screenOf(none)).toBe("board");
+  // Overview, not the Board: everything with nothing else open is Overview
+  // with something over it, which is what that page's deletion left behind.
+  expect(screenOf(none)).toBe("overview");
 });
 
 /**
@@ -75,12 +74,11 @@ test("screenOf follows the precedence App.tsx draws by", () => {
  * `studio` and stopped. Its own case, because the one above proves precedence
  * and this proves the value exists at all.
  */
-test("screenOf names Settings rather than falling through to the Board", () => {
+test("screenOf names Settings rather than falling through to Overview", () => {
   const none = {
     reading: false,
     clearing: false,
     manifesting: false,
-    overviewing: false,
     studying: false,
     kitting: false,
     settling: false,
@@ -88,17 +86,17 @@ test("screenOf names Settings rather than falling through to the Board", () => {
   expect(screenOf({ ...none, settling: true })).toBe("settings");
 });
 
-test("cursorRowFor sends the Board's cursor on the Board and Overview's on Overview", () => {
-  const rows = { board: "12", overview: "14" };
-  expect(cursorRowFor({ screen: "board", ...rows })).toBe("12");
-  expect(cursorRowFor({ screen: "overview", ...rows })).toBe("14");
+test("cursorRowFor sends Overview's cursor on Overview", () => {
+  expect(cursorRowFor({ screen: "overview", overview: "14" })).toBe("14");
 });
 
-test("cursorRowFor sends neither off the Board and Overview — a stale row is worse than none", () => {
-  const rows = { board: "12", overview: "14" };
+test("cursorRowFor sends none off Overview — a stale row is worse than none", () => {
+  const rows = { overview: "14" };
   expect(cursorRowFor({ screen: "manifest", ...rows })).toBeNull();
   expect(cursorRowFor({ screen: "cleanup", ...rows })).toBeNull();
   expect(cursorRowFor({ screen: "job_detail", ...rows })).toBeNull();
+  // The wire still carries `board` as a screen; nothing in Bridge reports it.
+  expect(cursorRowFor({ screen: "board", ...rows })).toBeNull();
 });
 
 test("contextOf leaves an absent field off the wire", () => {

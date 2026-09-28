@@ -10,7 +10,7 @@
 // into a screen would be a layout deciding what it contains.
 
 export * from "./Boundary";
-export * from "./BoardActions";
+export * from "./OverviewActions";
 export * from "./CopiedToast";
 export * from "./failures";
 export * from "./FailureSurface";

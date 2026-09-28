@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ComponentProps } from "react";
 import { expect } from "storybook/test";
-import { ClipboardList, HardDrive, Megaphone } from "lucide-react";
+import { ClipboardList, HardDrive, Megaphone, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { ActiveJobsList } from "../ActiveJobsList/ActiveJobsList";
 import { DockQuestions } from "../DockQuestions/DockQuestions";
@@ -36,10 +36,18 @@ const shell: ComponentProps<typeof TheShell> = {
   // The drawing's rail row carried a label and a count and no glyph, and drew
   // Active jobs — a surface retired when the Board became every Job with state
   // as a filter. This is the roster now, with the registry's own glyph for
-  // each. Only the Board carries a count.
-  surfaces: [
-    { id: "board", label: "Job Board", icon: ClipboardList, count: 6 },
-    { id: "worktrees", label: "Cleanup", icon: HardDrive },
+  // each. Only the Board carries a count. **Two panels since 28 Sep 2026**, so
+  // the roster arrives grouped and this component counts neither.
+  panels: [
+    {
+      id: "work",
+      label: "Work",
+      surfaces: [
+        { id: "board", label: "Job Board", icon: ClipboardList, count: 6 },
+        { id: "worktrees", label: "Cleanup", icon: HardDrive },
+      ],
+    },
+    { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
   ],
   activeId: "board",
   children: <div className="armada-screen__mount">The list mounts here — 1d</div>,
@@ -146,9 +154,16 @@ export const FleetDotAtEveryWidth: Story = {
 export const FleetIsNotRunning: Story = {
   args: {
     ...shell,
-    surfaces: [
-      { id: "board", label: "Job Board", icon: ClipboardList, count: 0 },
-      { id: "worktrees", label: "Cleanup", icon: HardDrive },
+    panels: [
+      {
+        id: "work",
+        label: "Work",
+        surfaces: [
+          { id: "board", label: "Job Board", icon: ClipboardList, count: 0 },
+          { id: "worktrees", label: "Cleanup", icon: HardDrive },
+        ],
+      },
+      { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
     ],
     fleet: {
       state: "not-running",
@@ -316,7 +331,10 @@ export const LeftColumnCollapsedBesideTheDock: Story = {
     const column = canvasElement.querySelector(".armada-shell__left");
     await expect(column).not.toBe(null);
     await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("navigation")).toBeInTheDocument();
+    // Both navigation panels, still named at the rail where their labels are
+    // not drawn — two unlabelled regions would be one region said twice.
+    await expect(canvas.getByRole("navigation", { name: "Work" })).toBeInTheDocument();
+    await expect(canvas.getByRole("navigation", { name: "Machine" })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Job Board/ })).toBeInTheDocument();
     await expect(canvas.getByLabelText("Helm")).toBeInTheDocument();
     await expect(canvas.getAllByRole("img", { name: `Fleet — ${shell.fleet.label}` })).toHaveLength(2);

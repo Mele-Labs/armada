@@ -1,12 +1,22 @@
 # Job Board
 
-**What it is:** Not-yet-started Jobs for one Manifest — queued, blocked, waiting on resources, or waiting on your approval.
+**What it is:** Every Job for one Manifest, at every status — the reading, wherever it is drawn. **Not a Bridge surface any more:** [Overview](bridge.md) draws it.
 
 ---
 
-**Kind:** Surface.
+**Kind:** Concept.
 
-Defines the Job Board — the engineer-facing surface for browsing and understanding not-yet-started work. Companion to the main Armada brief and the Monitoring & Review user journeys.
+Defines the Job Board — the population of Jobs a person browses, and the rules about what a row says, what scopes the list and what approval means. Companion to the main Armada brief and the Monitoring & Review user journeys.
+
+## It stopped being a page on 28 Sep 2026
+
+The owner: *"Overview now supersedes the job board. We should delete this page."* Overview already drew the same rows under the same sections from the same arithmetic; the Board was a second place holding the same Jobs behind a filter strip.
+
+**What moved with it, because nothing else had it.** The Done section — every Job that completed or was cleared — and the menu carrying Reported, Refresh, *Clear N finished jobs* and *Delete N jobs' records*, which had no other entrance in the app.
+
+**What was dropped rather than moved**, as the owner chose: the search field, the state tabs, the sort control and the card/table toggle. They are conveniences over a single list, and Overview's sections answer the question the tabs answered. They come back when he asks for one.
+
+**Everything below still binds.** Which Jobs are in scope, what a row draws, what a status means on it, origin tagging and the dispatch flow are the same rules wherever the list is drawn. Read *the Board* below as *the list of Jobs*, and Overview as where a person reads it.
 
 ## What it's for
 
@@ -52,12 +62,9 @@ Approving such a Job is refused at that moment, naming the missing Manifest — 
 
 ## Layout
 
-| View | Role |
-| --- | --- |
-| Flat list | The Board. Sorted and filtered, state among the filters |
-| DAG / graph view | Opt-in toggle, for inspecting dependencies — not the default, and not scheduled |
+Overview draws one panel per section — what needs you, what is running, what is queued, what recently ended, what is done, and what no section claims. **The sections are the reading**; the flat list with a state filter over it was the Board's own arrangement and went with that page.
 
-Default view (list vs. graph) is user-configurable, not fixed — see Configuration below. The graph view is unscheduled: the graph a person asked for is a Job's own workflow, which is drawn on job detail — see [Monitor Active Work](../journeys/monitor-active-work.md).
+The graph view was an opt-in toggle beside the flat list and is unscheduled: the graph a person asked for is a Job's own workflow, which is drawn on job detail — see [Monitor Active Work](../journeys/monitor-active-work.md). Its open question stands below.
 
 **The graph view has no case for a Job whose members are Jobs (see Open questions).** The graph view renders `dependencies`, and a parent's completion waiting on its members is not an edge on that field. Whether the parent renders as an ordinary node, is visually distinguished, or expands into its members is unstated — see [Landing](landing.md).
 
@@ -370,9 +377,9 @@ The following settings (see `../contracts/configuration.md`) directly affect thi
 
 | Setting | Scope |
 | --- | --- |
-| Job Board default view (list vs. graph) | Machine |
-| Job Board default sort/filter | Kit → Manifest |
 | Landing Manifest / last-opened project | Machine |
+
+**Two settings were retired on 28 Sep 2026** — Job Board default view (list vs. graph) and Job Board default sort/filter. Both named controls that only the Board drew, and both went with it; a setting nothing reads is a promise the app does not keep.
 
 ## Open questions
 

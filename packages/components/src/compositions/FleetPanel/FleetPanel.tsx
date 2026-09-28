@@ -74,6 +74,17 @@ export const FLEET_DOT_TONE: Record<FleetState, "success" | "escalated" | "warn"
 };
 
 export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
+  // **The state is the head's dot; the body is what the head cannot carry** —
+  // the owner, 28 Sep 2026: *"Delete this row and just put the status dot next
+  // to the 'Fleet' title in the panel header."* The row said in words what the
+  // dot beside it already said in colour, one line under a head naming the same
+  // subject.
+  const said = fleetSaid(label);
+  const figures = rows === undefined || rows.length === 0 ? null : <FigureList figures={rows} column="fit" />;
+  // A state with no figure, no sentence and no Doctor reading now has an empty
+  // body — `reading`, Bridge's first moment. `Panel` draws its head alone
+  // rather than a chevron onto an empty box.
+  const bodyless = figures === null && detail === undefined && doctor === undefined;
   return (
     <Panel
       label="Fleet"
@@ -81,26 +92,42 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
       onOpenChange={onOpenChange}
       narrow={narrow}
       dotTone={FLEET_DOT_TONE[state]}
-      dotLabel={fleetSaid(label)}
+      dotLabel={said}
+      // Against the label rather than at the head's far end — a 6px dot 150px
+      // from the word it is about reads as decoration. Photographed at the
+      // column's 200px resting width, 28 Sep 2026.
+      //
+      // **The state word alone, not `fleetSaid`.** The dot sits inside the
+      // head's own button, so its name joins the label's — the full sentence
+      // there makes the control read "Fleet Fleet — Running". `fleetSaid` is
+      // for the two places the dot stands with no label beside it, the title
+      // row and the 48px rail, and it stays on the hover here.
+      mark={
+        <span
+          className="armada-fleet-panel__dot"
+          data-tone={FLEET_DOT_TONE[state]}
+          role="img"
+          aria-label={label}
+          title={said}
+        />
+      }
     >
-      <div className="armada-fleet-panel">
-        <div className="armada-fleet-panel__state">
-          <span className="armada-fleet-panel__dot" data-tone={FLEET_DOT_TONE[state]} aria-hidden />
-          {label}
+      {bodyless ? undefined : (
+        <div className="armada-fleet-panel">
+          {figures}
+          {detail === undefined ? null : <div className="armada-fleet-panel__mono">{detail}</div>}
+          {doctor === undefined ? null : (
+            <div className="armada-fleet-panel__doctor">
+              <span className="armada-fleet-panel__dot" data-tone={DOCTOR_TONE[doctor.outcome]} aria-hidden />
+              <span>Doctor</span>
+              <b className="armada-fleet-panel__doctor-outcome" data-tone={DOCTOR_TONE[doctor.outcome]}>
+                {doctor.outcome}
+              </b>
+              <span className="armada-fleet-panel__meta">{doctor.checked}</span>
+            </div>
+          )}
         </div>
-        {rows === undefined || rows.length === 0 ? null : <FigureList figures={rows} column="fit" />}
-        {detail === undefined ? null : <div className="armada-fleet-panel__mono">{detail}</div>}
-        {doctor === undefined ? null : (
-          <div className="armada-fleet-panel__doctor">
-            <span className="armada-fleet-panel__dot" data-tone={DOCTOR_TONE[doctor.outcome]} aria-hidden />
-            <span>Doctor</span>
-            <b className="armada-fleet-panel__doctor-outcome" data-tone={DOCTOR_TONE[doctor.outcome]}>
-              {doctor.outcome}
-            </b>
-            <span className="armada-fleet-panel__meta">{doctor.checked}</span>
-          </div>
-        )}
-      </div>
+      )}
     </Panel>
   );
 }

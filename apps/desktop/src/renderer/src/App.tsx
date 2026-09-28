@@ -16,7 +16,7 @@
 // `commands.ts` for what the host is asked to do, `failing.ts` for which
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { dockCardsOf, jobNumber, ofPicked } from "@armada/screens";
 import type { Outstanding } from "@armada/screens";
 import type { HelmContext, JobSummary } from "@armada/protocol";
@@ -33,7 +33,7 @@ import { Standing } from "./Standing";
 import { CopiedToast, SaidToast, useCopied, useSaid } from "@armada/shell";
 import { FailureBlock } from "@armada/shell";
 import { jobFailure } from "@armada/shell";
-import { BoardActions } from "@armada/shell";
+import { OverviewActions } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { BridgeSettings } from "@armada/screens";
@@ -52,8 +52,6 @@ import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
 import { JobDetail, type ConfirmableAct } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
-import { Jobs } from "@armada/screens";
-import { type BoardReach, type BoardTab } from "@armada/screens";
 import { failingIn } from "./failing";
 import {
   examine,
@@ -174,11 +172,11 @@ export function App({ draft }: AppProps = {}) {
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
-  // The tab a pressed notification asked for, until the Board is on screen to
-  // take it. **Held for one render rather than set straight away**: the press
-  // may have arrived over the composer or over a Job, so the surface it wants
-  // is not mounted yet and `reach` is whatever the last one left.
-  const [landing, setLanding] = useState<BoardTab | null>(null);
+  // The section a pressed notification asked for. **A token rather than a
+  // call**: the press may have arrived over the composer or over a Job, so
+  // Overview is not mounted yet, and it opens and scrolls to the section once
+  // it is. `at` is what makes a second press of the same section land.
+  const [landing, setLanding] = useState<{ section: "needs-you"; at: number } | null>(null);
   // Whether the composer is open. It used to sit permanently above the list;
   // `New job` is what opens it now, so the surface is the list until somebody
   // asks for the form — **or until a moment being replayed hands the window a
@@ -209,10 +207,6 @@ export function App({ draft }: AppProps = {}) {
   // already holds, which is what lets a person run this project's lint with
   // the Board empty.
   const [manifesting, setManifesting] = useState(false);
-  // Whether Overview is open. **True from the first render**: Overview is
-  // where Bridge opens (#921), so the Board is what a press away from it
-  // reaches rather than the surface a fresh window starts on.
-  const [overviewing, setOverviewing] = useState(true);
   // Whether the Studios surface is open, which Studio is open on it, and the node selected there —
   // #1287. The last two are Helm's context as well as the screen's.
   const [studying, setStudying] = useState(false);
@@ -243,24 +237,17 @@ export function App({ draft }: AppProps = {}) {
   const [restartNote, setRestartNote] = useState("");
   /** The Manifest reading a person put away. A later read draws again. */
   const [readingSeen, setReadingSeen] = useState<string | null>(null);
-  // Whether the command palette is up, and where the Board's cursor is.
-  // **The cursor is mirrored, not owned** — the Board holds it and reports it,
-  // so the palette can title its context block with the job its acts would act
-  // on. Two cursors would drift.
+  // Whether the command palette is up, and where Overview's cursor is.
+  // **The cursor is mirrored, not owned** — `OverviewLists` holds it and
+  // reports it up (#1075), so the palette can title its context block with the
+  // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
   const [cursor, setCursor] = useState<string | null>(null);
-  // Overview's own cursor, mirrored the same way — `OverviewLists` holds it
-  // and reports it up. #1075.
-  const [overviewCursor, setOverviewCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
   // drops the chip, and reopening the Job restores it. `helm-context.ts` is
   // the fold, tested on its own.
   const [chip, setChip] = useState<ChipState>(NO_CHIP);
-  // What the palette can reach on the Board: the state filter, and the search
-  // field. Both belong to that surface and stay there — see `BoardReach`.
-  const reach = useRef<BoardReach | null>(null);
-
   // Every command the window can send, and what it holds while one is out.
   // Two of them end somewhere this file owns, so both are answered to rather
   // than reached for: a redispatch opens its replacement, and a re-read
@@ -404,19 +391,10 @@ export function App({ draft }: AppProps = {}) {
         setAuditing(false);
         setClearing(false);
         setOpenJob(to.jobId);
-        if (to.jobId === null) setLanding("needs-you");
+        if (to.jobId === null) setLanding({ section: "needs-you", at: Date.now() });
       }),
     [],
   );
-
-  // The Board is mounted by the time an effect runs, so this is where the tab
-  // asked for above is actually set — the handler that asked could only have
-  // reached the surface it was leaving.
-  useEffect(() => {
-    if (landing === null) return;
-    reach.current?.tab(landing);
-    setLanding(null);
-  }, [landing]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), TICK_MS);
@@ -453,7 +431,7 @@ export function App({ draft }: AppProps = {}) {
   }, [returning]);
 
   // The Job every palette act acts on: the one read whole, or the one under
-  // the Board's cursor. In that order, because a Job open on screen is
+  // Overview's cursor. In that order, because a Job open on screen is
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected";
@@ -503,7 +481,6 @@ export function App({ draft }: AppProps = {}) {
     setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
-    setOverviewing(surfaceId === SURFACE.overview);
     setSettingsShowing(surfaceId === SURFACE.settings);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
@@ -556,7 +533,6 @@ export function App({ draft }: AppProps = {}) {
     reading: reading !== null,
     clearing,
     manifesting,
-    overviewing,
     studying,
     kitting,
     settling: settingsShowing,
@@ -566,7 +542,7 @@ export function App({ draft }: AppProps = {}) {
     screen: helmScreen,
     picked: scoped?.id ?? null,
     chip: chippedJob?.id ?? null,
-    cursor: cursorRowFor({ screen: helmScreen, board: cursor, overview: overviewCursor }),
+    cursor: cursorRowFor({ screen: helmScreen, overview: cursor }),
     studio: openStudio?.id ?? null,
     node: studioNode,
   });
@@ -593,11 +569,11 @@ export function App({ draft }: AppProps = {}) {
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
-  // The Board's own menu, drawn at the top of its content now that #1090
-  // removed the page head it used to sit in — `BoardActions` unchanged, only
-  // where it mounts.
-  const boardActions = (
-    <BoardActions
+  // Overview's own menu, at the top of its content. It was the Board's, and
+  // Reported, Refresh and the two bulk sweeps had no other entrance in the
+  // app — so it came here rather than going with that page.
+  const surfaceActions = (
+    <OverviewActions
       jobs={boardJobs}
       live={live}
       refreshing={commands.refreshing}
@@ -624,9 +600,9 @@ export function App({ draft }: AppProps = {}) {
         scope={state.repository}
         onScope={pick}
         onAddRepository={locate.onOpen}
+        onOpenManifest={() => goTo(SURFACE.manifest)}
         onCompose={() => setComposing(true)}
         onSearch={palette.onOpen}
-        boardJobs={boardJobs}
         questions={questions}
         asking={asks.length}
         helm={
@@ -685,25 +661,24 @@ export function App({ draft }: AppProps = {}) {
           open: fleetOpen,
           onOpenChange: setFleetOpen,
         }}
-        // Which row the rail marks. The held worktrees are the one surface
-        // other than the Board that draws, so everything else — a Job, the
-        // composer, the reports — is the Board with something over it.
+        // Which row the rail marks. Overview is where a window with nothing
+        // else open is, so everything else — a Job, the composer, the reports
+        // — is Overview with something over it. That sentence was the Board's
+        // until the owner deleted that page.
         showing={
           clearing
             ? SURFACE.worktrees
             : manifesting
               ? SURFACE.manifest
-              : overviewing
-                ? SURFACE.overview
-                : settingsShowing
-                  ? SURFACE.settings
-                  : kitting
-                    ? SURFACE.kit
-                    : guiding
-                      ? SURFACE.guides
-                      : studying
-                        ? SURFACE.studios
-                        : SURFACE.board
+              : settingsShowing
+                ? SURFACE.settings
+                : kitting
+                  ? SURFACE.kit
+                  : guiding
+                    ? SURFACE.guides
+                    : studying
+                      ? SURFACE.studios
+                      : SURFACE.overview
         }
         onSurface={goTo}
       >
@@ -992,25 +967,6 @@ export function App({ draft }: AppProps = {}) {
               onClose={() => setComposing(false)}
               onCopied={setCopied}
             />
-          ) : overviewing ? (
-            <Overview
-              state={state}
-              now={now}
-              live={live}
-              repositories={repositories}
-              disconnected={live ? null : statement.headline}
-              selected={openJob}
-              onOpen={setOpenJob}
-              onKill={(jobId) => setConfirming({ act: "kill_job", jobId })}
-              // Recently ended's own two, reusing the same confirmation
-              // `JobDetail`'s header already goes through for both acts —
-              // `reclaim_worktree` is that header's own word for Clear.
-              onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
-              onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
-              onCompose={() => setComposing(true)}
-              onCopied={setCopied}
-              onCursor={setOverviewCursor}
-            />
           ) : studying ? (
             <StudiosSurface
               state={state}
@@ -1093,41 +1049,32 @@ export function App({ draft }: AppProps = {}) {
             </Boundary>
           ) : (
             <>
-              {/* The boundary `docs/practices/react.md` names: a Job that cannot
-                  be rendered must not blank the window, and the board's own
-                  actions above it stay usable while the list says what it
-                  could not draw. */}
-              <Boundary region="the job list" {...guarded}>
-                <Jobs
-                  onCursor={setCursor}
-                  reach={reach}
-                  jobs={boardJobs}
-                  stale={!live}
-                  now={now}
-                  workflows={state.holds.workflows}
-                  served={listed ? repositories : null}
-                  all={all}
-                  disconnected={live ? null : statement.headline}
-                  selected={openJob}
-                  onOpen={setOpenJob}
-                  // The Board asks; this confirms. It is the same dialog the
-                  // detail's own kill goes through, which is what keeps "Cancel
-                  // holds initial focus" a rule with one implementation.
-                  onKill={(jobId) => setConfirming({ act: "kill_job", jobId })}
-                  // Recently ended's own two, `Overview`'s own reason: one
-                  // shared confirmation, whichever screen a row is asked from.
-                  onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
-                  onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
-                  onCompose={() => setComposing(true)}
-                  actions={boardActions}
-                  onCopied={setCopied}
-                />
-              </Boundary>
+              <Overview
+                state={state}
+                now={now}
+                live={live}
+                repositories={repositories}
+                disconnected={live ? null : statement.headline}
+                selected={openJob}
+                onOpen={setOpenJob}
+                onKill={(jobId) => setConfirming({ act: "kill_job", jobId })}
+                // Recently ended's own two, reusing the same confirmation
+                // `JobDetail`'s header already goes through for both acts —
+                // `reclaim_worktree` is that header's own word for Clear.
+                onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
+                onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
+                onCompose={() => setComposing(true)}
+                onCopied={setCopied}
+                onCursor={setCursor}
+                actions={surfaceActions}
+                land={landing}
+                onLanded={() => setLanding(null)}
+              />
 
-              {/* Never merged into the list as a placeholder: a board that shows
-                  nine of ten Jobs and says so is honest, one that shows nine is
-                  not. One bad row is not a broken board, and hiding it is worse
-                  than drawing it broken. */}
+              {/* Never merged into the lists as a placeholder: a surface that
+                  shows nine of ten Jobs and says so is honest, one that shows
+                  nine is not. One bad row is not a broken board, and hiding it
+                  is worse than drawing it broken. */}
               {state.unreadable.map((row) => (
                 <FailureBlock
                   key={row.job_id ?? row.fault}
@@ -1177,8 +1124,6 @@ export function App({ draft }: AppProps = {}) {
             goTo(SURFACE.manifest);
             setPicked(entryId);
           },
-          filter: (tabId) => reach.current?.tab(tabId as BoardTab),
-          search: () => reach.current?.search(),
           copyDebugInfo: () => {
             if (failing !== null) copyDebugInfoFor(failing, setCopied);
           },

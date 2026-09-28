@@ -1,10 +1,15 @@
 // A row re-sorting travels; a new row, an unchanged poll and reduced motion move nothing.
-// `useTravel` in `ActiveJobsList`, driven through the Board the app draws.
+// `useTravel` in `ActiveJobsList`, driven through Overview's lists — the list the app draws, since
+// the Job Board went.
+//
+// **The re-sort is inside one section.** Each section is its own `ActiveJobsList`, so a Job that
+// changes section unmounts from one and mounts in the other: that is a new row rather than a
+// travel, and it is what the second test already says about a row arriving.
 
 import type { JobSummary } from "@armada/protocol";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { Jobs } from "./Jobs";
+import { OverviewLists } from "./OverviewLists";
 import { job, workflow } from "./fixtures/build/base";
 import { mount, rerender, unmount } from "./mounted";
 
@@ -28,11 +33,13 @@ afterEach(() => {
 
 function board(jobs: readonly JobSummary[]): React.ReactElement {
   return (
-    <Jobs
+    <OverviewLists
       jobs={jobs}
       stale={false}
       now={Date.parse("2026-09-10T21:00:00Z")}
       workflows={[workflow()]}
+      repositories={[]}
+      picked={null}
       disconnected={null}
       selected={null}
       onOpen={noop}
@@ -52,11 +59,13 @@ function drawn(): string[] {
 const older = job("running", { id: "a", title: "Older", created_at: "2026-09-10T14:00:00Z" });
 const newer = job("running", { id: "b", title: "Newer", created_at: "2026-09-10T15:00:00Z" });
 
-test("a row that re-sorts travels to its new place", async () => {
+test("a row that re-sorts inside its section travels to its new place", async () => {
   mount(board([older, newer]));
   await expect.poll(drawn).toEqual(["a", "b"]);
 
-  rerender(board([older, { ...newer, status: "awaiting_review" }]));
+  // Both stay under Running, so this is one list reordering rather than a Job
+  // changing section — `newer` becomes the older of the two.
+  rerender(board([older, { ...newer, created_at: "2026-09-10T13:00:00Z" }]));
   await expect.poll(drawn).toEqual(["b", "a"]);
   expect(travelled).toContain("b");
 });

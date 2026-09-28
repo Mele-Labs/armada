@@ -3,9 +3,11 @@
 //
 // **Nothing here is a second rule.** `sectionsOf` in `board.ts` already says which section a Job
 // is drawn under, and `foldLineages` in `lineage.ts` already says a redispatch chain is one row.
-// This only scopes the board to the pick, applies both in the order the Board itself applies them
-// — fold, then the Board's own default sort, then section — and leaves Done off: that list stays
-// the Board's.
+// This only scopes the board to the pick and applies both in the order the Board itself applied
+// them — fold, then that default sort, then section.
+//
+// Done was left off while the Job Board still drew it. That surface is gone, and every completed
+// or cleared Job would have gone with it, so every section `sectionsOf` returns is drawn here.
 //
 // **A Job the row shape cannot draw is not a row in any section.** `readingOf` in `reading.ts` is
 // the same test `Jobs.tsx` runs before a badge is drawn; a Job that fails it is named instead,
@@ -23,10 +25,12 @@ export type OverviewSection = { id: BoardSection; label: string; jobs: JobSummar
 
 export type OverviewListsRead = {
   /**
-   * Needs you, Running, Queued, Recently ended and Other — Done left off, and
-   * a section with nothing in it left off too. Recently ended joined the set
-   * in Overview 28 (#1092): `sectionsOf` already carves it out of Done, so
-   * excluding only `"done"` here is what lets it through without a second rule.
+   * Every section `sectionsOf` carries, and one with nothing in it left off.
+   *
+   * **Recently ended is still not Done.** `sectionsOf` carves the terminal
+   * statuses that owe something out of Done and leaves `completed_success` and
+   * `superseded` in it — Overview 28 (#1092)'s split, unchanged by Done
+   * arriving beside it.
    */
   sections: OverviewSection[];
   /** Which dispatch of its lineage each folded-in Job is, keyed by id — `headlineOf`'s second argument. */
@@ -47,6 +51,6 @@ export function overviewListsOf(jobs: readonly JobSummary[], picked: RepositoryS
   const shown = sorted(board.shown, DEFAULT_SORT);
   const drawn = shown.filter((job) => readingOf(job).as === "badge");
   const undrawable = shown.filter((job) => readingOf(job).as !== "badge");
-  const sections = sectionsOf(drawn).filter((section) => section.id !== "done");
+  const sections = sectionsOf(drawn);
   return { sections, dispatch: board.dispatch, undrawable };
 }

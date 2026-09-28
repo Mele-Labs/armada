@@ -20,9 +20,9 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open Job Board (scoped to a Manifest) → browse the flat list (or opt into the DAG graph view) → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
+Open Overview (scoped to a Manifest by the title row's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
 
-See Job Board for the full board mechanics — layout, status states, origin tags.
+See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; Overview is where the list is read.
 
 ## What the dispatch screen holds
 

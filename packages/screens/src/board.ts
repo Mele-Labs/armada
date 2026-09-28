@@ -78,46 +78,13 @@
 // under a search renders no count rather than a `0`.
 
 import type { JobSummary, RepositorySummary, TaskCounts } from "@armada/protocol";
-import type { WorkflowSummary } from "@armada/protocol";
 import type { TaskBarSegment } from "@armada/components";
 // The module, not the package: this file is arithmetic, tested in node, and the package draws.
 import { manifestLabel } from "@armada/shell/src/repository-label";
 import { needsYou, oldest, tabOf } from "./needs-you";
-import type { BoardTab } from "./needs-you";
 
 /** The tab names, defined beside the rule that sorts a job into one. */
 export type { BoardTab, StateTab } from "./needs-you";
-
-/**
- * The tabs, their labels, the key that selects each — `1` through `6`, in the
- * order they are drawn — and what each says when it holds nothing.
- *
- * The key is the position, which is why it is here and not typed into a
- * component: a tab moving in this list moves its key with it, and a strip whose
- * second tab answered `3` would be unlearnable.
- *
- * **Each empty line is written, not templated.** "Nothing is under running" is
- * what a template produces and nobody says; the six sentences below are what a
- * person would say, and there are only six of them.
- */
-export const BOARD_TABS: readonly {
-  id: BoardTab;
-  label: string;
-  shortcut: string;
-  empty: string;
-}[] = [
-  { id: "all", label: "All", shortcut: "1", empty: "No jobs." },
-  { id: "needs-you", label: "Needs you", shortcut: "2", empty: "Nothing needs you." },
-  { id: "running", label: "Running", shortcut: "3", empty: "Nothing is running." },
-  { id: "queued", label: "Queued", shortcut: "4", empty: "Nothing is queued." },
-  { id: "finished", label: "Finished", shortcut: "5", empty: "Nothing has finished." },
-  // Split out of `Finished` by `#570`: a reclaimed job is still terminal, and
-  // a tab that could not tell it apart is the defect the issue was filed over.
-  { id: "cleared", label: "Cleared", shortcut: "6", empty: "Nothing has been cleared." },
-];
-
-/** Where the Board opens. Everything, because nothing has been asked yet. */
-export const FIRST_TAB: BoardTab = "all";
 
 /**
  * The membership rule, and the sentence that counts it — re-exported so nothing
@@ -144,65 +111,9 @@ export function ofPicked(
   return jobs.filter((job) => job.owner_manifest_id === picked.manifest?.id);
 }
 
-/** Whether a tab admits a job. `all` admits every one, including the unplaceable. */
-export function inTab(job: JobSummary, tab: BoardTab): boolean {
-  return tab === "all" || tabOf(job) === tab;
-}
-
-/**
- * Whether the state tab is suspended — bypassed, and not changed.
- *
- * A text match is not a state, so while one is running the tab does not narrow.
- * It is not reset either: the person's choice is still there and comes back the
- * moment the field is empty.
- */
-export function tabSuspended(query: string): boolean {
-  return query.trim() !== "";
-}
-
-/**
- * Whether a job answers a text match.
- *
- * **What a person types is what they can see, plus the ids they quote.** The
- * title, the handle, the job id, the branch and the step it is on are all on
- * or under the row; the workflow's name is on the row as the workflow field,
- * and its id is what a person pastes out of a log. Nothing here searches a
- * field the row does not carry — a match a person cannot see the reason for
- * reads as a bug.
- *
- * **The handle first, and the id kept beside it.** A row shows the handle
- * now, so "7" or "7-fix" is what a person actually types back — but the id
- * still names every request, and a value copied before this change still
- * finds its row.
- */
-export function matches(
-  job: JobSummary,
-  query: string,
-  workflows: readonly WorkflowSummary[],
-): boolean {
-  const needle = query.trim().toLowerCase();
-  if (needle === "") return true;
-  const workflow = workflows.find((held) => held.id === job.workflow_id);
-  return [
-    job.title,
-    job.handle,
-    job.id,
-    job.branch,
-    job.current_step_id,
-    job.workflow_id,
-    workflow?.name,
-  ]
-    .filter((field): field is string => field !== undefined)
-    .some((field) => field.toLowerCase().includes(needle));
-}
-
-/** The orders the control offers. `Critical first` is where the Board opens. */
+/** The two orders. `Critical first` is the one Overview reads by; the control that offered
+ *  the other went with the Job Board, and `sorted` still answers both. */
 export type BoardSort = "critical_first" | "oldest_first";
-
-export const BOARD_SORTS: readonly { id: BoardSort; label: string }[] = [
-  { id: "critical_first", label: "Critical first" },
-  { id: "oldest_first", label: "Oldest first" },
-];
 
 /**
  * What the table view's columns are called, in the order the row supplies its
@@ -372,19 +283,4 @@ export function sectionsOf(
     label: section.label,
     jobs: jobs.filter((job) => sectionOf(job) === section.id),
   })).filter((section) => section.jobs.length > 0);
-}
-
-/**
- * What the empty state says when a filter emptied the list.
- *
- * **A board with nothing on it under a filter is not a Manifest with no jobs**,
- * and the two must not read alike. This names the filter that did it, so the
- * next press is obvious rather than guessed at.
- */
-export function emptiedBy(tab: BoardTab, query: string): string | null {
-  // The tab is suspended while a search runs, so it did not do this and naming
-  // it would send a person to clear the wrong control.
-  if (tabSuspended(query)) return "No jobs match your search.";
-  if (tab === "all") return null;
-  return BOARD_TABS.find((row) => row.id === tab)?.empty ?? null;
 }

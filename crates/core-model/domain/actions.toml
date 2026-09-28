@@ -325,28 +325,6 @@ destructive = false
 confirms = false
 notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons.toml` for this row."
 
-[actions.search]
-kind = "Action"
-tier = "Contextual"
-verb = "Search"
-icon = "search"
-shortcut = "/"
-scope = "list"
-destructive = false
-confirms = false
-notes = "⌘F was deleted for this one: two bindings for one act break the one-artifact rule. A text match is not a state, so it reads every job whatever the state filter is set to."
-
-[actions.state_filter]
-kind = "Action"
-tier = "Contextual"
-verb = "State filter"
-icon = "filter"
-shortcut = "1–6"
-scope = "job board"
-destructive = false
-confirms = false
-notes = "One row for the six tabs, in tab order, for the reason ⌘1–⌘5 is one row. `1`–`6` and `⌘1`–`⌘5` are different acts on one row of keys, separated by the modifier and drawn that way deliberately. Cleared joined as the sixth tab on 2026-09-09, split out of Finished so a reclaim would not read as though it did nothing."
-
 [actions.observe]
 kind = "Action"
 tier = "Contextual"

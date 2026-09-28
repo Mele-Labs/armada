@@ -522,36 +522,6 @@ Session-per-topic model — how long closed Helm sessions are kept before cleanu
 Read from `#943`: resolved once at daemon start (`HELM_SESSION_RETENTION` in `crates/armada/src/serve.rs`, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
 """
 
-[settings.job-board-default-view-list-vs-graph]
-name = "Job Board default view (list vs graph)"
-scope = "Machine"
-default = "list"
-lifetime = "Read at render"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Job Board"
-read_by = "bridge (TS)"
-notes = """
-Personal-dashboard preference, same tier as Voice/tone. Orphan risk: Bridge is TypeScript and nothing in the crate graph delivers config to it.
-"""
-
-[settings.job-board-default-sort-filter]
-name = "Job Board default sort/filter"
-scope = "Kit → Manifest"
-default = "Critical first; state filter All"
-lifetime = "Read at render"
-merge_strategy = "REPLACE"
-peer_polarity = "Unconstrained — cosmetic"
-owner = "Job Board"
-read_by = "bridge (TS)"
-notes = """
-Decided while drawing the Board, 2026-08-31, answering `[job-board-sort-order]` — which had carried no body at all since it was filed, because nobody had argued it.
-
-Needs you first because the row waiting longest is usually waiting on nothing, while the row that needs a person is the only one that stops until it is read. Oldest first stays available in the control, and inside every group the order is oldest first.
-
-The sort agrees with the state filter rather than cutting across it: the tab grouping the statuses that stop until a person reads them lifts the same set to the top, so changing tab reorders nothing a person had already learned.
-"""
-
 [settings.job-detail-where-things-are-open]
 name = "Job detail: Where things are open"
 scope = "Machine"

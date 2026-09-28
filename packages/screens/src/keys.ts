@@ -32,8 +32,8 @@
 // | `c` | copy debug info | bound here, and reaches nothing on a Job row. `copyDebugInfoFor` takes a `Failure` and a healthy Job has none. **The palette's row does better**: it copies the failure on screen where there is one, and says there is none where there is not |
 // | `x` | kill, confirms | here, through the confirmation every destructive act already takes |
 // | `n` | new job | here — the one key that acts on nothing on screen |
-// | `/` | search the current list | here |
-// | `1`–`6` | state filter, Job Board only, in tab order | here |
+// | `/` | search the current list | **gone with the Job Board.** That surface held the only field; the command palette is the search now |
+// | `1`–`6` | state filter | **gone with the Job Board.** Overview draws its sections rather than filtering one list |
 //
 // **The arrows are not in `boardPressOf` and that is deliberate.** `Active jobs
 // list` is a listbox and already roves on `↓ ↑ Home End`; a second handler on
@@ -70,7 +70,6 @@
 
 import { ACTION } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
-import { BOARD_TABS, type BoardTab } from "./board";
 
 /**
  * The verb a row's one control names. Four, and a row carries exactly one.
@@ -146,8 +145,6 @@ export function verbOf(job: JobSummary, terminal: boolean): RowVerb {
 
 /** What a press on the Board means. `null` is a key this surface does not carry. */
 export type BoardPress =
-  /** `/` — put the cursor in the search field. */
-  | { act: "search" }
   /** `j` / `k` — move the cursor. The arrows are the listbox's. */
   | { act: "move"; by: 1 | -1 }
   /** `Enter` and `o` — open whatever is under the cursor. */
@@ -165,18 +162,13 @@ export type BoardPress =
    * job-identity payload under the same key would be a different artifact.
    */
   | { act: "copy" }
-  /** `1`–`6` — set the state filter. */
-  | { act: "tab"; tab: BoardTab }
   /** `n` — the one key that acts on nothing on screen. */
   | { act: "compose" };
 
-/** Built once, from the tab list, so a tab's key is its position and stays so. */
-const BY_TAB_KEY = new Map(BOARD_TABS.map((tab) => [tab.shortcut, tab.id]));
-
 /**
- * The three conditional verb keys, built from the verb table for the reason the
- * tabs are built from theirs. `o` is not among them: the contract makes it the
- * same act as `Enter` rather than a fourth conditional one.
+ * The three conditional verb keys, built from the verb table rather than typed
+ * out. `o` is not among them: the contract makes it the same act as `Enter`
+ * rather than a fourth conditional one.
  */
 const BY_VERB_KEY = new Map<string, Exclude<RowVerb, "open">>(
   (["review", "attest", "redirect"] as const).map((verb) => [ROW_VERBS[verb].key, verb]),
@@ -241,7 +233,6 @@ export function boardPressOf(event: KeyboardEvent): BoardPress | null {
   const movement = event.key === "j" || event.key === "k";
   if (event.repeat && !movement) return null;
 
-  if (event.key === "/") return { act: "search" };
   if (event.key === "j") return { act: "move", by: 1 };
   if (event.key === "k") return { act: "move", by: -1 };
   if (event.key === "Enter") return answersEnter(event.target) ? null : { act: "open" };
@@ -250,36 +241,9 @@ export function boardPressOf(event: KeyboardEvent): BoardPress | null {
   if (event.key === "c") return { act: "copy" };
   if (event.key === "n") return { act: "compose" };
 
-  const tab = BY_TAB_KEY.get(event.key);
-  if (tab !== undefined) return { act: "tab", tab };
-
   const verb = BY_VERB_KEY.get(event.key);
   if (verb !== undefined) return { act: "verb", verb };
 
   return null;
 }
 
-/** The key that focuses the search, drawn beside the field. */
-export const SEARCH_KEY = "/";
-
-/**
- * What the command palette can reach on the Board.
- *
- * **Here because it is the same map from the other side.** `boardPressOf`
- * above says what a key means; this says what a palette row means, and the two
- * answer the same acts — `1`–`6` and `/`. Splitting them across two files
- * would be one act with two owners.
- *
- * **An imperative handle, and deliberately one.** The state filter and the
- * search field belong to the Board. Lifting either into `App` so a palette row
- * could set it would move a control out of the surface it is drawn on, and the
- * filter's own rule — that choosing a tab clears the search — would then live
- * in two places. The palette is a superset of the UI, not a second owner of
- * its state.
- */
-export type BoardReach = {
-  /** `1`–`6`, and the search clears with them, exactly as a tab press does. */
-  tab: (tab: BoardTab) => void;
-  /** `/` — put the cursor in the search field, selecting what is there. */
-  search: () => void;
-};
