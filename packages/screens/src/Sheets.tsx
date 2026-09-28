@@ -157,7 +157,7 @@ export type DetailSheetProps = {
   onRedirect: (jobId: string, instruction: string) => void;
   /**
    * The full machine reading, exactly as the panel used to draw it — every
-   * state and every argument, `Look now` included. Built by the caller, because
+   * state and every argument, `Refresh` included. Built by the caller, because
    * the arguments for how to read a `Holds` live in `resources.ts`.
    */
   holds: Omit<JobHoldsSheetProps, "open" | "floor" | "onClose">;

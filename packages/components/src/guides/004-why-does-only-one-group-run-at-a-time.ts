@@ -1,9 +1,12 @@
 import type { Guide } from "./guide";
 
 /**
- * The rule the implement board's one standing sentence is the only evidence of
- * (`#1530`). It is true of a job that has never run, which is the test that
- * makes it a guide rather than a line on the screen.
+ * The rule no screen states any more (`#1530`). The implement board carried
+ * one sentence of it at a failed boundary — *No task of group 4 starts until
+ * this boundary passes* — and the owner cut it on 28 Sep. It is true of a job
+ * that has never run, which is the test that makes it a guide rather than a
+ * line on the screen. What the boards still say is where each group got to,
+ * which is this job's own fact.
  */
 export const GUIDE_GROUP_ORDER: Guide = {
   number: 4,

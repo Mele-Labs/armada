@@ -254,6 +254,12 @@ nothing is left running or written.
 bottom-right corner switches by reloading onto another. An unknown name falls
 back to the first scenario and says so in the browser console.
 
+**The picker moves, so it never sits over the thing you are reading.** Drag it
+by its own name, or focus that and use the arrow keys; *Minimize* leaves a strip
+that still says which scenario is on. Where it was left and whether it was
+minimized both survive the reload choosing a scenario causes, and Home on the
+grip puts it back in the corner.
+
 | Scenario | What the window holds |
 |---|---|
 | `every-state` | One Job in every state, each opening onto its own detail. The page opens here |

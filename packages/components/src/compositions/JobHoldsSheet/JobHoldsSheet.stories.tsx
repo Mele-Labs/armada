@@ -89,7 +89,7 @@ const EXAMINED: JobExamined = {
 };
 
 /**
- * **The whole reading, and the act that goes and looks.** `Look now` is here
+ * **The whole reading, and the act that goes and looks.** `Refresh` is here
  * rather than on the summary because it acts on this reading — the summary's
  * one control is the one that opened this.
  */
@@ -102,7 +102,7 @@ export const TheFullReading: Story = {
    * control is the one prop the summary deliberately does not carry.
    */
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Look now/ })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Refresh/ })).toBeVisible();
     await expect(canvas.getByText(/This job is doing what it should be/)).toBeVisible();
   },
 };

@@ -23,14 +23,11 @@ const NAMES = ["typecheck", "format", "screens_test", "components_test", "bridge
 const all = (reads: GroupBoundaryCheck["reads"]): GroupBoundaryCheck[] =>
   NAMES.map((name) => ({ name, reads }));
 
-const NO_CASES = "Fleet does not serve the cases a boundary owes yet, so none is drawn here.";
-
 /** Nothing has reached it: seven segments, no verdict and no commit. */
 export const NotRun: Story = {
   args: {
     says: "7 checks will run at this boundary",
     checks: all("not run"),
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -40,7 +37,6 @@ export const OneInFlight: Story = {
     says: "7 checks are running at this boundary",
     checks: NAMES.map((name, at) => ({ name, reads: at < 3 ? "passed" : at === 3 ? "running" : "not run" })),
     verdictSays: "running now",
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -57,7 +53,6 @@ export const AllPassed: Story = {
       { id: "c-panel", spec: "packages/screens/src/Running.test.tsx", reads: "owed" },
       { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
     ],
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -77,9 +72,7 @@ export const OneFailed: Story = {
     verdictSays: "screens_test failed",
     verdictNamed: "failed",
     retrySays: "second run",
-    stopsSays: "No task of group 4 starts until this boundary passes.",
     toldNext: "every test in the screens package passes\n1 of 1384 failed: the Drones row opened the Board",
-    testsAbsent: NO_CASES,
   },
   play: async ({ canvas }) => {
     const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
@@ -87,9 +80,9 @@ export const OneFailed: Story = {
     await expect(checks).toHaveTextContent("second run");
     await expect(checks).toHaveTextContent("1 of 1384 failed");
     await expect(checks.querySelectorAll('[data-reads="passed"]')).toHaveLength(6);
-    // The tests stay their own region, so a case is never read as a Check.
-    await expect(canvas.getByRole("region", { name: "Tests at this boundary" })).toHaveTextContent(
-      "does not serve the cases",
-    );
+    // The two sentences the owner cut on 28 Sep. The ordering rule is guide
+    // 4's, and the reason there is no case named Fleet and not this Job.
+    await expect(checks).not.toHaveTextContent("No task of group");
+    await expect(canvas.queryByRole("region", { name: "Tests at this boundary" })).toBeNull();
   },
 };

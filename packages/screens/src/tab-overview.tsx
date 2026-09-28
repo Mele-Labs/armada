@@ -698,7 +698,7 @@ export function OverviewTab(props: OverviewTabProps) {
             onHold={(to) => move({ move: "hold", held: to })}
             onRedirect={onRedirect}
             // The Pulse board, derived exactly as the Pulse tab derives it —
-            // `Look now` came with it, because it acts on this reading and not
+            // `Refresh` came with it, because it acts on this reading and not
             // on the five lines that open it. Two derivations of one `Held`
             // would let the sheet and the tab disagree about the same Job.
             holds={{

@@ -565,8 +565,8 @@ describe("implement", () => {
 
       await expect.element(runGroup(3)).toHaveTextContent("joining its work");
       await expect.element(runGroup(3)).toHaveTextContent("2 tasks, at the same time");
-      // What bounds the fan out, settled at the gate — `#1550`.
-      await expect.element(runGroup(3)).toHaveTextContent("this Job runs 2 Drones at once");
+      // The Job's cap rode here until 28 Sep, and read as one number twice.
+      await expect.element(runGroup(3)).not.toHaveTextContent("Drones at once");
       await expect.element(runTask("T5")).toHaveTextContent("its own agent");
       await expect.element(runTask("T5")).toHaveTextContent("runs beside T6");
       await expect.element(runTask("T6")).toHaveTextContent("its own agent");
@@ -601,8 +601,9 @@ describe("implement", () => {
       await expect.element(boundary).toHaveTextContent("second run");
       // What the next Drone is given is the Check's own output, not a summary.
       await expect.element(boundary).toHaveTextContent("1 of 1384 failed");
-      // One group at a time, named with the group this one is holding back.
-      await expect.element(boundary).toHaveTextContent("No task of group 4 starts");
+      // The ordering rule came off this boundary on 28 Sep — guide 4's, and
+      // true of a step that never ran. Group 4's own row says it is waiting.
+      await expect.element(boundary).not.toHaveTextContent("No task of group 4 starts");
     },
   );
 
@@ -739,7 +740,7 @@ describe("Pulse", () => {
       // What stays is the reading: when, and how often it is taken again.
       await expect.element(page.getByText(/^Read .* ago\. Taken again every 10s while open\.$/)).toBeVisible();
       await expect.element(markFor(GUIDE_LOOK)).toBeVisible();
-      await expect.element(page.getByRole("button", { name: "Look now" })).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Refresh" })).toBeVisible();
     },
   );
 });

@@ -7,7 +7,7 @@ import { KIND_FIXTURES } from "./fixtures/build/kinds";
 import { taskGroupsOf } from "./draft/group";
 import { groupNodeId } from "./plan-canvas";
 import { stepNodeId, stepThatWorksTheGroups } from "./workflow-canvas";
-import { NO_CASES_SERVED, workflowReadingOf } from "./workflow-inspector";
+import { workflowReadingOf } from "./workflow-inspector";
 
 const executing = ARC_MOMENTS.find((moment) => moment.name === "executingSequential")!;
 const opened = executing.fixtures.find((one) => one.job.id === executing.opens)!;
@@ -46,9 +46,12 @@ describe("a step", () => {
     expect(reading.checks?.map((check) => check.name)).toEqual([...new Set(declared)]);
   });
 
-  it("draws the tests apart from the Checks, and says why there are none", () => {
+  // It said why there were none until 28 Sep, and the sentence named Fleet
+  // and what Fleet does not serve yet. The owner cut that sentence where the
+  // group's boundary drew it, and this drew the same one.
+  it("draws no case, and no sentence about why there is none", () => {
     expect(reading.tests).toEqual([]);
-    expect(reading.testsAbsent).toBe(NO_CASES_SERVED);
+    expect(JSON.stringify(reading)).not.toContain("does not serve the cases");
   });
 });
 

@@ -145,18 +145,11 @@ function testOf(one: CaseView): PlanBoardTest {
   };
 }
 
-/**
- * How many Drones this Job may run at once — `#1550`, settled at the approval
- * gate and frozen there.
- *
- * **Drawn beside a group whose tasks run at the same time**, because that is
- * the only place the number decides anything a person can see. Absent is "as
- * many as the machine allows", which is not this Job's claim to make.
- */
-export function dronesAtOnceSaid(cap: number | undefined): string | undefined {
-  if (cap === undefined || cap <= 0) return undefined;
-  return `this Job runs ${cap} ${cap === 1 ? "Drone" : "Drones"} at once`;
-}
+// The Job's Drone cap was drawn on a concurrent group's chip until 28 Sep,
+// joined to the shape behind a middle dot. The owner cut it: `2 tasks run at
+// the same time · this Job runs 2 Drones at once` is two facts in one
+// sentence, and the second is the Job's rather than the group's. Overview
+// carries it, frozen at the gate, as `Drones at once`.
 
 /**
  * What a task has spent. **Turns while it runs, and the cost only once its own
@@ -365,7 +358,6 @@ export function groupCardOf(
   touchedBy: Map<string, string>,
   whole: JobDetail | null,
   asks: readonly PlanBoardAsk[] = [],
-  droneCap?: number,
 ): PlanBoardGroup {
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
   const tests = atBoundary.map(testOf);
@@ -387,14 +379,7 @@ export function groupCardOf(
     ...(retry === undefined ? {} : { retrySays: retry }),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
     ...(group.concurrent
-      ? {
-          concurrentSays: [
-            `${group.tasks.length} tasks run at the same time`,
-            dronesAtOnceSaid(droneCap),
-          ]
-            .filter((one) => one !== undefined)
-            .join(" \u00b7 "),
-        }
+      ? { concurrentSays: `${group.tasks.length} tasks run at the same time` }
       : {}),
     ...(asks.length === 0 ? {} : { asks }),
   };
@@ -429,7 +414,6 @@ export function planBoardOf(
         touchedBy,
         whole,
         revisable ? asksOf(groups, at) : [],
-        draft?.proposal?.drone_cap,
       ),
     ),
     ...(clashes.length === 0 ? {} : { clashes }),

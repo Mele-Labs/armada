@@ -120,8 +120,15 @@ function TaskRow({
           )}
         </p>
       )}
+      {/* Labelled, because the reason is the Drone's own words and a bare
+          sentence under a row reads as a note somebody left (owner, 28 Sep).
+          The label is the boundary's `What the next Drone is told` pattern:
+          whose words these are, then the words. */}
       {task.failedReason === undefined ? null : (
-        <p className="armada-implement__task-failed">{task.failedReason}</p>
+        <p className="armada-implement__task-failed">
+          <span className="armada-implement__task-eyebrow">Why it stopped</span>
+          <span>{task.failedReason}</span>
+        </p>
       )}
     </li>
   );

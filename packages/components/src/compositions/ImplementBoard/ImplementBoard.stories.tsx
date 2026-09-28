@@ -19,7 +19,6 @@ export default meta;
 type Story = StoryObj<typeof ImplementBoard>;
 
 const NAMES = ["typecheck", "format", "screens_test", "components_test", "bridge_build", "storybook", "acceptance"];
-const NO_CASES = "Fleet does not serve the cases a boundary owes yet, so none is drawn here.";
 
 const passed = (ordinal: number, commit: string, tasks: ImplementGroup["tasks"]): ImplementGroup => ({
   id: `g${ordinal}`,
@@ -35,7 +34,6 @@ const passed = (ordinal: number, commit: string, tasks: ImplementGroup["tasks"])
     verdictSays: "all 7 passed",
     verdictNamed: "passed",
     commit,
-    testsAbsent: NO_CASES,
   },
 });
 
@@ -84,7 +82,6 @@ const CONCURRENT: ImplementGroup = {
   boundary: {
     says: "7 checks will run at this boundary",
     checks: NAMES.map((name) => ({ name, reads: "not run" as const })),
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -106,9 +103,7 @@ const FAILED: ImplementGroup = {
     verdictSays: "screens_test failed",
     verdictNamed: "failed",
     retrySays: "second run",
-    stopsSays: "No task of group 4 starts until this boundary passes.",
     toldNext: "1 of 1384 failed: the Drones row opened the Board",
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -125,7 +120,6 @@ const PENDING: ImplementGroup = {
   boundary: {
     says: "7 checks will run at this boundary",
     checks: NAMES.map((name) => ({ name, reads: "not run" as const })),
-    testsAbsent: NO_CASES,
   },
 };
 
@@ -140,7 +134,15 @@ export const FanOutThenJoin: Story = {
   },
 };
 
-/** A boundary that broke, with the group behind it held. */
+/**
+ * A boundary that broke, with the group behind it held.
+ *
+ * **A `play`, because three of the owner's 28 Sep cuts land here.** The
+ * failed task's reason now says whose words it is, and neither the ordering
+ * rule nor the reason there is no case is drawn at all. What the boundary
+ * came to, the retry count and the Check's own output are still on screen,
+ * which is the half that had to survive the cut.
+ */
 export const AGroupFailed: Story = {
   args: {
     stepName: "Implement",
@@ -148,6 +150,23 @@ export const AGroupFailed: Story = {
     openGroups: ["g3"],
     onOpenGroup: fn(),
     onOpenTask: fn(),
+  },
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("listitem", { name: /^T6 / });
+    await expect(row).toHaveTextContent("Why it stopped");
+    await expect(row).toHaveTextContent("The row's press opened the Board rather than the Job");
+
+    const group = canvas.getByRole("list", { name: "Group 3 tasks" }).closest("li")!;
+    await expect(group).not.toHaveTextContent("No task of group");
+    await expect(group).not.toHaveTextContent("does not serve the cases");
+    await expect(group).toHaveTextContent("screens_test failed");
+    await expect(group).toHaveTextContent("second run");
+    await expect(group).toHaveTextContent("1 of 1384 failed");
+
+    // The group's head says its shape and nothing about the Job's Drone cap.
+    const head = canvas.getByRole("button", { name: /^Group 3/ });
+    await expect(head).toHaveTextContent("2 tasks, at the same time");
+    await expect(head).not.toHaveTextContent("Drones at once");
   },
 };
 
