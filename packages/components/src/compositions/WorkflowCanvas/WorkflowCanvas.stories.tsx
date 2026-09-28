@@ -75,20 +75,54 @@ const edges: WorkflowCanvasEdge[] = [
 ];
 
 /**
+ * Where one edge runs, in the window's own coordinates — sampled along the
+ * path, because an edge is one `<path>` and its shape is the whole question.
+ */
+function pointsAlong(path: SVGPathElement, samples = 60): DOMPoint[] {
+  const ctm = path.getScreenCTM()!;
+  const length = path.getTotalLength();
+  return Array.from({ length: samples + 1 }, (_, at) =>
+    path.getPointAtLength((length * at) / samples).matrixTransform(ctm),
+  );
+}
+
+/**
  * A feature Job mid-implement: the four steps its workflow file declares, and
  * the one Plan node hanging off the step that recorded the plan.
  *
  * **A `play`, because a still cannot say which line is which.** An edge's
  * accessible name is where the graph says what it joins, and it is the only
  * place a reader who cannot see it is told at all.
+ *
+ * **And because a still cannot say which line runs *under* a card.** The
+ * owner's note of 28 Sep 2026: *the connecting line that connects this node to
+ * the planning step runs behind the node.* Every edge is drawn in one SVG
+ * below the node layer, so an edge that crosses a card is simply invisible
+ * there — no assertion on what is rendered can see it, and the geometry is the
+ * only thing that can.
  */
 export const AFeatureRun: Story = {
   args: { nodes, edges, label: "The run", running: "step:implement", onFollowing: fn() },
-  play: async ({ canvas }) => {
+  play: async ({ canvas, canvasElement }) => {
     await waitFor(() => expect(canvas.getByLabelText("Plan the change made Plan")).toBeInTheDocument());
     // One node for the plan, and nothing of what is inside it on this canvas.
     expect(canvas.getByRole("button", { name: "Plan, running" })).toHaveTextContent("4 groups");
     expect(canvas.queryByRole("button", { name: /^Group 1, / })).toBeNull();
+
+    const drop = canvasElement.querySelector<SVGPathElement>('path[id="step:plan>plan"]')!;
+    expect(drop).not.toBeNull();
+    const card = canvas.getByRole("button", { name: "Plan, running" }).getBoundingClientRect();
+    // The arrowhead lands on the card's own edge, so the box is taken in by
+    // more than a line's width before anything is asked of it.
+    const INSIDE = 6;
+    const behind = pointsAlong(drop).filter(
+      (at) =>
+        at.x > card.left + INSIDE &&
+        at.x < card.right - INSIDE &&
+        at.y > card.top + INSIDE &&
+        at.y < card.bottom - INSIDE,
+    );
+    expect(behind).toHaveLength(0);
   },
 };
 
