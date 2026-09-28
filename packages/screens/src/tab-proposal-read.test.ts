@@ -7,16 +7,21 @@ import type { CriterionView } from "./draft/criterion";
 import type { LandingRule } from "./draft/landing";
 import type { GateView, ProposalView } from "./draft/proposal";
 import { sampleDetail, sampleStep } from "./draft/sample";
+import type { WorkflowSummary } from "@armada/protocol";
 import {
   completeChoices,
+  criteriaAdded,
   criteriaRowsOf,
   criteriaWith,
+  criteriaWithout,
   frozenAtOf,
   gateRowsOf,
   gatesWith,
   landingValueOf,
   landingWith,
   proposalEditsOf,
+  proposalOnWorkflow,
+  workflowChoicesOf,
 } from "./tab-proposal-read";
 
 const GATES: GateView[] = [
@@ -166,6 +171,75 @@ describe("what the Job is held to", () => {
 
     expect(moved[0]).toBe(criteria[0]);
     expect(moved[1]?.text).toBe("Pressing it lists the Drone and its step");
+  });
+
+  // The order is the brief's and a citation names a criterion's place in it,
+  // so a line inserted above the others renumbers every citation written.
+  it("appends a new line at the foot, never above what is already there", () => {
+    const grown = criteriaAdded(criteria);
+
+    expect(grown).toHaveLength(3);
+    expect(grown[0]).toBe(criteria[0]);
+    expect(grown[2]?.text).toBe("");
+    expect(grown[2]?.origin).toEqual({ origin: "person" });
+  });
+
+  it("takes one line off and carries the rest through untouched", () => {
+    const shrunk = criteriaWithout(criteria, 0);
+
+    expect(shrunk).toHaveLength(1);
+    expect(shrunk[0]).toBe(criteria[1]);
+  });
+
+  it("leaves nothing behind when the last line goes", () => {
+    expect(criteriaWithout(criteriaWithout(criteria, 0), 0)).toEqual([]);
+  });
+});
+
+describe("picking another workflow", () => {
+  const workflow = (id: string, steps: string[]): WorkflowSummary => ({
+    id,
+    name: id,
+    version: 1,
+    manifest_id: "01M",
+    steps: steps.map((step_id) => ({
+      step_id,
+      label: step_id,
+      checks: [],
+      judge_checks: [],
+      advance_gate: "auto_if_judge_passes",
+      delivers: false,
+    })),
+  });
+  const held = [workflow("feature", ["plan", "handoff"]), workflow("bug", ["reproduce"])];
+
+  // A gate belongs to a step, so ticks moved on the old workflow name steps
+  // the new one may not have. Carrying them across by position would put a
+  // tick meant for `handoff` on whatever runs second.
+  it("rebuilds every gate from the steps the new workflow declares", () => {
+    const moved = proposalOnWorkflow(PROPOSAL, held, "bug");
+
+    expect(moved.workflow_id).toBe("bug");
+    expect(moved.gates.map((gate) => gate.step_id)).toEqual(["reproduce"]);
+  });
+
+  // There are no steps to rebuild from, and emptying the list would draw a
+  // workflow with no steps at all.
+  it("leaves the gates alone on a workflow this Fleet has no record of", () => {
+    const moved = proposalOnWorkflow(PROPOSAL, held, "carried");
+
+    expect(moved.workflow_id).toBe("carried");
+    expect(moved.gates).toBe(PROPOSAL.gates);
+  });
+
+  // A workflow belongs to a Manifest, and a Job cannot run one declared for
+  // another repository — offering them is a picker mostly of refusals.
+  it("offers this Job's repository's workflows and no others", () => {
+    const elsewhere: WorkflowSummary = { ...workflow("review", ["look"]), manifest_id: "02M" };
+    const choices = workflowChoicesOf([...held, elsewhere], "01M");
+
+    expect(choices.map((one) => one.id)).toEqual(["feature", "bug"]);
+    expect(choices[0]?.steps).toBe(2);
   });
 });
 

@@ -199,6 +199,49 @@ export function featureWorkflow(): WorkflowSummary {
   };
 }
 
+/**
+ * The other workflow this repository declares, so the proposal's picker has
+ * somewhere to go.
+ *
+ * **Its steps share no id with `feature`'s**, which is what makes the rebuild
+ * visible: picking it has to replace every gate row, because a gate belongs
+ * to a step and none of these is a step the Job had.
+ */
+export function bugWorkflow(): WorkflowSummary {
+  return {
+    id: "bug",
+    name: "bug",
+    version: 1,
+    manifest_id: MANIFEST_ID,
+    steps: [
+      {
+        step_id: "reproduce",
+        label: "Reproduce it",
+        checks: [],
+        judge_checks: [{ criteria: 1, gaming_check: false }],
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "fix",
+        label: "Fix the cause",
+        checks: [...RUST_CHECKS],
+        judge_checks: [{ criteria: 2, gaming_check: true }],
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+      },
+      {
+        step_id: "handoff",
+        label: "Review the fix",
+        checks: [],
+        judge_checks: [],
+        advance_gate: "human_always",
+        delivers: true,
+      },
+    ],
+  };
+}
+
 /** The two things the Job is held to, out of the issue it was cut from. */
 export const ARC_CRITERIA: Criterion[] = [
   {
