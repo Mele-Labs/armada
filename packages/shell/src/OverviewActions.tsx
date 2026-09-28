@@ -1,20 +1,19 @@
-// Overview's one control: `Dispatch` (`New job` until #1087 renamed the
-// registry row), with everything else on offer in its menu.
+// Overview's menu: Refresh, Reported, Held disk, Settings and the two bulk
+// sweeps, which have no other entrance in the app.
 //
-// **One control, where there were six.** The head this used to sit in carried
-// Refresh, Reported, Held disk and New job, and the Board carried Clear and
-// Delete in a row of their own beneath it. The owner ruled on 11 Sep 2026
-// that a head carries one action and a menu, the rule Job detail's header
-// already keeps, so the likely act is on the face and the rest are one click
-// away. #1090 removed the head itself and put this at the top of the Board's
-// own content; the Board went next, and this came to Overview with it —
-// Reported, Refresh and the two sweeps had no other entrance in the app.
+// **It carried Dispatch on its face until 28 Sep 2026, and the title bar
+// carries the same act two rows above it** — one `onCompose`, reached twice
+// (the owner: *"We dont need this button on the overview because its already
+// right above it in the title bar"*). `SplitButton`'s own rule is that a
+// surface carries a likely act or a disclosure and never both, so with the act
+// gone the disclosure is all that is left and it is a plain menu. The 11 Sep
+// ruling that a head carries one action and a menu still holds; the action
+// moved rather than the ruling.
 //
-// **The two bulk acts still confirm on their own.** Delete is the one act on
-// the Board that cannot be undone, and a person reaching for Clear must never
-// end up there by the same press, so each opens its own dialog.
+// **The two bulk acts still confirm on their own.** Delete cannot be undone,
+// and a person reaching for Clear must never end up there by the same press.
 
-import { Dialog, JOB_LIFECYCLE, SplitButton, type SplitButtonItem } from "@armada/components";
+import { Dialog, DropdownMenu, JOB_LIFECYCLE, type DropdownMenuEntry } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 import { useEffect, useRef, useState } from "react";
 
@@ -38,7 +37,6 @@ export function OverviewActions({
   jobs,
   live,
   refreshing,
-  onCompose,
   onRefresh,
   onReadReports,
   onReadWorktrees,
@@ -51,7 +49,6 @@ export function OverviewActions({
   jobs: readonly JobSummary[];
   live: boolean;
   refreshing: boolean;
-  onCompose: () => void;
   onRefresh: () => void;
   onReadReports: () => void;
   onReadWorktrees: () => void;
@@ -87,38 +84,51 @@ export function OverviewActions({
   const clearNoun = reclaimable.length === 1 ? "job" : "jobs";
   const forgetNoun = forgettable.length === 1 ? "job's" : "jobs'";
 
-  const items: SplitButtonItem[] = [
+  const entries: DropdownMenuEntry[] = [
     // Re-reads over the connection Bridge already holds. It does not
     // reconnect: the runtime-file path already retries on its own.
-    { label: refreshing ? "Refreshing" : "Refresh", onSelect: onRefresh },
-    { label: "Reported", onSelect: onReadReports },
-    { label: "Held disk", onSelect: onReadWorktrees },
-    { label: "Settings", onSelect: onOpenSettings },
+    { kind: "item", id: "refresh", label: refreshing ? "Refreshing" : "Refresh" },
+    { kind: "item", id: "reports", label: "Reported" },
+    { kind: "item", id: "worktrees", label: "Held disk" },
+    { kind: "item", id: "settings", label: "Settings" },
     ...(reclaimable.length === 0
       ? []
-      : [{ label: `Clear ${reclaimable.length} finished ${clearNoun}`, onSelect: () => setAsking("clear") }]),
+      : ([
+          { kind: "separator", id: "before-sweeps" },
+          { kind: "item", id: "clear", label: `Clear ${reclaimable.length} finished ${clearNoun}` },
+        ] satisfies DropdownMenuEntry[])),
     ...(forgettable.length === 0
       ? []
-      : [
+      : ([
+          ...(reclaimable.length === 0 ? [{ kind: "separator", id: "before-delete" } as const] : []),
           {
+            kind: "item",
+            id: "forget",
             label: `Delete ${forgettable.length} ${forgetNoun} records`,
             danger: true,
-            onSelect: () => setAsking("forget"),
           },
-        ]),
+        ] satisfies DropdownMenuEntry[])),
   ];
+
+  const chose: Record<string, () => void> = {
+    refresh: onRefresh,
+    reports: onReadReports,
+    worktrees: onReadWorktrees,
+    settings: onOpenSettings,
+    clear: () => setAsking("clear"),
+    forget: () => setAsking("forget"),
+  };
 
   return (
     <>
-      <SplitButton
-        variant="primary"
-        items={items}
-        onAction={onCompose}
+      {/* The same reach the caret had: off while nothing is connected to ask,
+          and off while a sweep is already out. */}
+      <DropdownMenu
+        triggerLabel="Everything else"
+        entries={entries}
         disabled={!live || sweeping !== null}
-        menuLabel="Everything else"
-      >
-        Dispatch
-      </SplitButton>
+        onSelect={(id) => chose[id]?.()}
+      />
       <Dialog
         open={asking === "clear"}
         tone="destructive"

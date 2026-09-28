@@ -12,7 +12,7 @@ import type { Finding, JobExamined, Look } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
-import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_WORKTREE_SIZE } from "../../guides";
+import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "../../guides";
 import type { Guide } from "../../guides/guide";
 import { Logs, Processes, Worktrees } from "./JobResources.lists";
 import type { PulseReading } from "./JobResources.lists";
@@ -99,12 +99,23 @@ export function JobResources({
   return (
     <section className="armada-holds">
       <div className="armada-holds__head">
-        <Headline
-          examined={examined}
-          looking={looking}
-          lookFailed={lookFailed}
-          nothingToAsk={nothingToAsk}
-        />
+        <div className="armada-holds__said-head">
+          {/* The board's own name and the `?` that says what a board is. It is
+              here rather than beside the verdict because the verdict is this
+              job's reading and the question is about the tab. Arriving on Pulse
+              used to raise the guide about disk, one fact inside it (#1602's
+              first contact, the owner on 28 Sep). */}
+          <div className="armada-holds__band-row">
+            <h3 className="armada-holds__band">{PULSE}</h3>
+            <GuideMark guide={GUIDE_PULSE} />
+          </div>
+          <Headline
+            examined={examined}
+            looking={looking}
+            lookFailed={lookFailed}
+            nothingToAsk={nothingToAsk}
+          />
+        </div>
         {/* No act where there is nothing to ask. **Absent rather than
             disabled**: a greyed control still says an act exists here and puts
             the reason on a person to work out.
@@ -155,6 +166,9 @@ export function JobResources({
     </section>
   );
 }
+
+/** The board's own name, over the sentence a person came for. */
+const PULSE = "Pulse";
 
 /**
  * When the figures above were true, and what keeps them true.

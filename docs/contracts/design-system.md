@@ -2061,8 +2061,43 @@ arrive with the connection.
 **The same rows run across in a destination, `column="strip"`.** The right
 edge is what a reader of a 160 to 380px panel runs down; a destination is the
 width of the window, and there the same rows put a label and its figure a
-hand's width apart. Pulse draws its Drones, Checks, Judges, spend and turns
-that way — label over figure, `--text-base`, wrapping by whole cells. #1538.
+hand's width apart. Pulse draws what a Job is running and what it is taking
+that way. #1538.
+
+```
+cell     label over figure, content-sized, packed from the leading edge;
+         they wrap as whole cells
+label    --text-xs --text-meta, nowrap. Dimmer than a panel row's, which
+         is --text-label
+figure   --font-mono --text-lg --text-body, one line
+cap      its own line under the figure: sans --text-2xs --fg-subtle,
+         `of $30.00` under `~$9.20`. `Figure.detail`
+gap      calc(--space-8 + --space-2) across, --space-3 down
+group    one --border-width rule in --edge-rule, a gap either side, before
+         the first figure a `Figure.apart` marks
+```
+
+**The contrast is size and hue and nothing else**, the rule this document sets
+out under *Emphasis on the dark ground*. The figure climbs two steps to
+`--text-lg` and the label drops one to `--text-meta`, so the band reads as
+numbers with words under them rather than as pairs of equal weight.
+
+**The board's own artboard drew 20px**, which is not on the type ladder, so
+the figure is the step under it. `Pulse · the destination`.
+
+**A strip carries no right edge and a panel carries no rule.** A column of
+rows is read down one edge and a rule across it would cut that edge in half; a
+strip runs along a band where nothing separates one reading from the next, so
+the rule is what says the band changed subject. Pulse's falls between what the
+Job is running and what it is taking.
+
+> **Rule.** The label on a band is dimmer than the figure and the figure is two
+> steps larger. A cap, a total or anything else the figure is measured against
+> goes under it on its own line, never beside it.
+> Why: a figure and its cap on one line double the length of the thing a person
+> is trying to land on, and the pair read as a phrase. Measured on Pulse, where
+> `~$1.80 of $3.00` at `--text-base` beside `1 running` and `none out` was the
+> band the owner could not scan (28 Sep 2026).
 
 **The state is the head's dot, not a row under it.** A row saying "Running"
 sat at the top of the body with its own dot beside the words, under a head

@@ -110,35 +110,38 @@ describe("the rows the board draws", () => {
 });
 
 describe("the figures over the board", () => {
-  it("says none running rather than 0, which reads as a gap", () => {
+  it("counts a Drone that is not up as 0, since the label carries the verb", () => {
     const figures = pulseFiguresOf(view({ held: "none", processes: [] }), null);
 
-    expect(figures.find((one) => one.label === "Drones")?.value).toBe("none running");
+    expect(figures.find((one) => one.label === "Drones running")?.value).toBe("0");
   });
 
   it("counts the one Drone Fleet recorded while it is up", () => {
-    expect(pulseFiguresOf(view(), null).find((one) => one.label === "Drones")?.value).toBe(
-      "1 running",
-    );
+    expect(pulseFiguresOf(view(), null).find((one) => one.label === "Drones running")?.value).toBe("1");
   });
 
   it("draws a recorded pid nothing holds as a fault, not as an idle Job", () => {
     const drones = pulseFiguresOf(view({ held: "gone" }), null).find(
-      (one) => one.label === "Drones",
+      (one) => one.label === "Drones running",
     );
 
-    expect(drones?.value).toBe("none running");
+    expect(drones?.value).toBe("0");
+    expect(drones?.detail).toBe("fleet recorded one");
     expect(drones?.wrong).toBe(true);
   });
 
   it("does not claim a Drone count where the probe would not run", () => {
-    expect(pulseFiguresOf(view({ held: "unreadable" }), null).find((one) => one.label === "Drones")?.value).toBe(
-      "could not be read",
+    const drones = pulseFiguresOf(view({ held: "unreadable" }), null).find(
+      (one) => one.label === "Drones running",
     );
+
+    expect(drones?.value).toBe("could not be read");
+    // Words rather than a reading, so the band draws it in sans at body size.
+    expect(drones?.words).toBe(true);
   });
 
   it("leaves the Drones row out entirely where nothing read the machine", () => {
-    expect(pulseFiguresOf(null, null).map((one) => one.label)).not.toContain("Drones");
+    expect(pulseFiguresOf(null, null).map((one) => one.label)).not.toContain("Drones running");
   });
 
   it("draws neither cap where Fleet does not count, rather than a zero", () => {
@@ -146,6 +149,15 @@ describe("the figures over the board", () => {
 
     expect(labels).not.toContain("Spend");
     expect(labels).not.toContain("Turns");
+  });
+
+  it("puts the rule on the first figure that is a cost, and on no other", () => {
+    const figures = pulseFiguresOf(view(), null);
+
+    // No spend and no turns here, so Processes is what the rule falls on.
+    expect(figures.filter((one) => one.apart === true).map((one) => one.label)).toEqual([
+      "Processes",
+    ]);
   });
 });
 

@@ -20,11 +20,12 @@ const BRANCH = "armada/01JOBHOLDS001";
  * this component holds no rule about which five they are.
  */
 const FIGURES = [
-  { label: "Drones", value: "1 running" },
-  { label: "Checks", value: "2 running" },
-  { label: "Judges", value: "none out" },
-  { label: "Spend", value: "~$2.41 of ~$5.00" },
-  { label: "Turns", value: "34 of 120" },
+  { label: "Drones running", value: "1" },
+  { label: "Checks running", value: "2" },
+  { label: "Judges running", value: "0" },
+  { label: "Spend", value: "~$2.41", detail: "of $5.00", apart: true },
+  { label: "Turns", value: "34", detail: "of 120" },
+  { label: "Processes", value: "3" },
 ];
 
 /** The board, as the caller derives it. One place, so a story cannot drift. */
