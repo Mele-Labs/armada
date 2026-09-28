@@ -3,9 +3,9 @@
 //
 // **A person opened a job Fleet had not answered about and the one control on
 // the screen asked Fleet a question.** The panel read "Nobody has asked whether
-// this job is working. Looking costs no model call." over a live `Look now`,
-// because a read that failed and a read nobody had made were the same reading.
-// #462.
+// this job is working. Looking costs no model call." over a live act, then
+// labelled `Look now`, because a read that failed and a read nobody had made
+// were the same reading. #462.
 //
 // The fix turns on the failure and not on the fact of failure, and on which of
 // two ways an attempt could not work. A Fleet that is not there is one; a Fleet
@@ -170,7 +170,7 @@ describe("what the summary says", () => {
   });
 
   // #1484. The row said `on disk` over a `Size on disk` row, and `on disk` was
-  // a constant: nothing looks at a worktree unless a person presses `Look now`,
+  // a constant: nothing looks at a worktree unless a person presses `Refresh`,
   // so it was the same word on every Job anyone ever opened. The size is the
   // row now, and it is also the evidence the checkout is there.
   it("draws the worktree as the size it takes, with or without a look", () => {

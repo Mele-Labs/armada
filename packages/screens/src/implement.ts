@@ -24,7 +24,6 @@ import {
   besideSaid,
   boundarySaid,
   caseReads,
-  dronesAtOnceSaid,
   failedChecksOf,
   groupSaid,
   markOf,
@@ -34,11 +33,6 @@ import {
   testsSaid,
   touchedByOf,
 } from "./tab-plan-read";
-
-/** Why no case is drawn at a boundary. Fleet serves none, which is not "none owed". */
-export const NO_CASES_AT_BOUNDARY =
-  "Fleet does not serve the cases a boundary owes yet, so none is drawn here. " +
-  "What runs at this boundary is the Checks above.";
 
 /** Whether a group's boundary has already run. */
 function hasRun(state: GroupState): boolean {
@@ -74,15 +68,11 @@ export function verdictSaid(group: GroupView, failed: readonly string[]): string
   return passed === 0 ? undefined : `all ${passed} passed`;
 }
 
-/**
- * What stopping this group forbids, named with the group it holds back.
- * Absent where the boundary passed, and on the last group, which holds nothing.
- */
-export function stopsSaid(group: GroupView, next: GroupView | undefined): string | undefined {
-  if (group.state !== "failed" && group.state !== "retrying") return undefined;
-  if (next === undefined) return "This is the last group, so nothing is waiting behind it.";
-  return `No task of group ${next.ordinal} starts until this boundary passes.`;
-}
+// What stopping a group forbids was a sentence here until 28 Sep, when the
+// owner cut it: `No task of group 4 starts until this boundary passes.` is the
+// ordering rule, true of a step that has never run, and guide 4 already says
+// it twice over. Group 4's own row says it is waiting, which is this Job's
+// fact and stays.
 
 /**
  * What the next Drone is told: the failed Check's own output, verbatim.
@@ -100,16 +90,16 @@ export function toldNextOf(step: StepDetail | undefined, failed: readonly string
 /**
  * `2 tasks, at the same time` — fan out — or `2 tasks, one after another`.
  *
- * **A group running at once carries the Job's Drone cap** (`#1550`), because
- * that number is what bounds the fan out and this is the only place on the
- * screen where it decides anything a person can see.
+ * **One fact, so one sentence.** The Job's Drone cap rode here behind a `·`
+ * until 28 Sep, and `2 tasks, at the same time · this Job runs 2 Drones at
+ * once` read as one number said twice. The cap is the Job's rather than this
+ * group's, and Overview carries it as `Drones at once`.
  */
-export function shapeSaid(group: GroupView, droneCap?: number): string {
+export function shapeSaid(group: GroupView): string {
   const many = `${group.tasks.length} ${group.tasks.length === 1 ? "task" : "tasks"}`;
   if (group.tasks.length === 1) return `${many}, on its own`;
   if (!group.concurrent) return `${many}, one after another`;
-  const cap = dronesAtOnceSaid(droneCap);
-  return cap === undefined ? `${many}, at the same time` : `${many}, at the same time \u00b7 ${cap}`;
+  return `${many}, at the same time`;
 }
 
 /** `difficult · opus · its own agent`. The planner's tier, and what it resolved to. */
@@ -137,7 +127,6 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): ImplementTas
 /** One group's boundary — the Checks bar, and the tests region kept apart. */
 export function boundaryOf(
   group: GroupView,
-  next: GroupView | undefined,
   cases: readonly CaseView[],
   whole: JobWhole | null,
   step: StepDetail | undefined,
@@ -149,7 +138,6 @@ export function boundaryOf(
   }));
   const verdict = verdictSaid(group, failed);
   const retry = retrySaid(group.retry_count);
-  const stops = stopsSaid(group, next);
   const told = toldNextOf(step, failed);
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
   const tests = atBoundary.map((one) => ({ id: one.id, spec: one.spec, reads: caseReads(one) }));
@@ -166,11 +154,9 @@ export function boundaryOf(
         : {}),
     ...(retry === undefined ? {} : { retrySays: retry }),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
-    ...(stops === undefined ? {} : { stopsSays: stops }),
     ...(told === undefined ? {} : { toldNext: told }),
     ...(testsSay === undefined ? {} : { testsSay }),
     ...(tests.length === 0 ? {} : { tests }),
-    testsAbsent: NO_CASES_AT_BOUNDARY,
   };
 }
 
@@ -192,7 +178,14 @@ export type ImplementBoardReading = {
   onOpenGroup: (groupId: string) => void;
   openTaskId?: string;
   onOpenTask: (taskId: string) => void;
-  /** How many Drones this Job may run at once, where the gate settled one. */
+  /**
+   * How many Drones this Job may run at once, where the gate settled one.
+   *
+   * **Read by nothing here since 28 Sep.** It rode on a concurrent group's
+   * shape line, which the owner cut; Overview draws the cap as `Drones at
+   * once`. The field is still accepted so `tab-workflow.tsx` keeps passing it
+   * without a second change, and that caller should drop it.
+   */
   droneCap?: number;
 };
 
@@ -209,19 +202,18 @@ export function implementBoardOf({
   onOpenGroup,
   openTaskId,
   onOpenTask,
-  droneCap,
 }: ImplementBoardReading): ImplementBoardProps | undefined {
   if (groups.length === 0 || step === undefined) return undefined;
   const touchedBy = touchedByOf(groups);
-  const drawn: ImplementGroup[] = groups.map((group, at) => ({
+  const drawn: ImplementGroup[] = groups.map((group) => ({
     id: group.id,
     ordinal: group.ordinal,
     state: group.state,
     says: groupSaid(group.state),
-    shapeSays: shapeSaid(group, droneCap),
+    shapeSays: shapeSaid(group),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
-    boundary: boundaryOf(group, groups[at + 1], cases, whole, step),
+    boundary: boundaryOf(group, cases, whole, step),
   }));
   return {
     stepName: step.label,

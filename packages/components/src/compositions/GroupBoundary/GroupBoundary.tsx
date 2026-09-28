@@ -12,8 +12,12 @@ import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
  * readings a person waits on are not run, one in flight, all passed, and one
  * failed with the group stopped behind it.
  *
- * **The tests are a region apart** (`#1530`, 22 Sep), carrying their own reason
- * for being empty — an empty list there would read as "none owed".
+ * **The tests are a region apart** (`#1530`, 22 Sep), and where there is no
+ * case the region is not drawn. It carried a sentence saying why until the
+ * owner cut it on 28 Sep: the sentence named Fleet and what Fleet does not
+ * serve yet, which is a fact about the build rather than about this Job.
+ * Drawing nothing claims nothing, where an empty list would read as "none
+ * owed".
  *
  * **It composes no sentence.** Every line of prose is the caller's.
  */
@@ -51,11 +55,6 @@ export type GroupBoundaryProps = {
   /** The commit the group left. Absent until it left one. */
   commit?: string;
   /**
-   * What stopping means here — `no task of group 4 starts until this passes`.
-   * One group at a time is the rule this line is the only evidence of.
-   */
-  stopsSays?: string;
-  /**
    * What the next Drone is told, verbatim: the failed Check's own output. A
    * retry given a paraphrase is a retry working from something nobody can check.
    */
@@ -63,8 +62,6 @@ export type GroupBoundaryProps = {
   /** `1 test ran at this boundary`. Absent where none does. */
   testsSay?: string;
   tests?: readonly GroupBoundaryTest[];
-  /** Why there is no case here. **Required**, for the reason above. */
-  testsAbsent: string;
 };
 
 /** A Check's reading, on the bar's own segment grammar. */
@@ -89,11 +86,9 @@ export function GroupBoundary({
   verdictNamed,
   retrySays,
   commit,
-  stopsSays,
   toldNext,
   testsSay,
   tests = [],
-  testsAbsent,
 }: GroupBoundaryProps) {
   return (
     <div className="armada-boundary">
@@ -124,11 +119,6 @@ export function GroupBoundary({
             </ul>
           </>
         )}
-        {stopsSays === undefined ? null : (
-          <p className="armada-boundary__stops" role="note">
-            {stopsSays}
-          </p>
-        )}
         {toldNext === undefined ? null : (
           <div className="armada-boundary__told">
             <span className="armada-boundary__eyebrow">What the next Drone is told</span>
@@ -137,26 +127,21 @@ export function GroupBoundary({
         )}
       </section>
 
-      {/* Apart from the Checks above, and never folded into them. */}
-      <section className="armada-boundary__region" aria-label="Tests at this boundary">
-        {tests.length === 0 ? (
-          <p className="armada-boundary__absent" role="note">
-            {testsAbsent}
-          </p>
-        ) : (
-          <>
-            {testsSay === undefined ? null : <p className="armada-boundary__says">{testsSay}</p>}
-            <ul className="armada-boundary__tests">
-              {tests.map((test) => (
-                <li key={test.id}>
-                  <span className="armada-boundary__check mono">{test.spec}</span>
-                  <FactChip named={test.named}>{test.reads}</FactChip>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+      {/* Apart from the Checks above, and never folded into them. Absent
+          where there is no case, rather than empty under a heading. */}
+      {tests.length === 0 ? null : (
+        <section className="armada-boundary__region" aria-label="Tests at this boundary">
+          {testsSay === undefined ? null : <p className="armada-boundary__says">{testsSay}</p>}
+          <ul className="armada-boundary__tests">
+            {tests.map((test) => (
+              <li key={test.id}>
+                <span className="armada-boundary__check mono">{test.spec}</span>
+                <FactChip named={test.named}>{test.reads}</FactChip>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

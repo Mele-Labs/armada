@@ -199,10 +199,13 @@ describe("one group's card", () => {
     expect(last.tests?.map((one) => one.id)).toContain("c-overview");
   });
 
-  test("a concurrent group says its tasks run at once", () => {
-    expect(groupCardOf(GROUPS[2]!, CASES, touched, null).concurrentSays).toBe(
-      "2 tasks run at the same time",
-    );
+  // The chip carried the Job's Drone cap behind a middle dot until 28 Sep,
+  // and the owner cut it: two facts in one sentence, the second the Job's
+  // rather than the group's, and Overview draws it frozen at the gate.
+  test("a concurrent group says its tasks run at once, and nothing about the Drone cap", () => {
+    const chip = groupCardOf(GROUPS[2]!, CASES, touched, null).concurrentSays;
+    expect(chip).toBe("2 tasks run at the same time");
+    expect(chip).not.toContain("Drones at once");
   });
 
   test("only the group carrying the failure names a check that failed", () => {

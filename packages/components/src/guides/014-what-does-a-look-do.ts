@@ -1,9 +1,11 @@
 import type { Guide } from "./guide";
 
 /**
- * What `Look now` is, and what a reading's age means. Pulse's headline used to
- * carry *Looking costs no model call* and its footer *a process can exit
- * between the reading and this screen*.
+ * What the `Refresh` beside it does, and what a reading's age means. Pulse's
+ * headline used to carry *Looking costs no model call* and its footer *a
+ * process can exit between the reading and this screen*. The button read
+ * `Look now` until 28 Sep, when the owner renamed it; the act is still a look
+ * and the word is still this guide's to explain.
  *
  * **No `docs/concepts/` page holds this.** The looks are `crates/ipc`'s
  * `Look`, and nothing under `docs/concepts/` writes them up; saying so here is

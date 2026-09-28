@@ -26,10 +26,9 @@ export type WorkflowReading = Omit<WorkflowInspectorProps, "redirect" | "stop"> 
   drones: { id: string; label: string }[];
 };
 
-/** Why there are no cases here — a shape the wire has no home for yet. */
-export const NO_CASES_SERVED =
-  "Fleet does not serve the cases a boundary owes yet, so none is drawn. " +
-  "What runs here is the Checks above.";
+// Why there are no cases here was a sentence until 28 Sep, and it said Fleet
+// serves none yet. The owner cut that sentence where the group's boundary drew
+// it, and this drew the same one. The band is absent instead.
 
 /** Why a step has no tasks: either no plan was recorded, or none of it lands here. */
 const NO_TASKS_RECORDED = "No plan has been recorded for this Job.";
@@ -111,7 +110,6 @@ export function workflowReadingOf({
       checks: step === undefined ? [] : checksOf(step, group.checks_selected),
       checksAbsent: "No Check runs at this group's end.",
       tests: [],
-      testsAbsent: NO_CASES_SERVED,
       drones: dronesOf(whole, group.tasks),
     };
   }
@@ -134,7 +132,6 @@ export function workflowReadingOf({
     checks: checksOf(step),
     checksAbsent: "No Check runs at this step.",
     tests: [],
-    testsAbsent: NO_CASES_SERVED,
     drones: dronesOf(whole, tasks),
   };
 }
