@@ -1,11 +1,7 @@
 // The mock's page: the app on `?scenario=<name>`, and the picker beside it.
 
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-
-import "./mock.css";
 import { mountApp } from "./mount";
-import { Picker } from "./Picker";
+import { mountPicker } from "./Picker";
 import { SCENARIOS, scenarioNamed } from "./scenario";
 
 const query = new URLSearchParams(window.location.search);
@@ -21,13 +17,7 @@ const root = document.getElementById("root");
 const picker = document.getElementById("picker");
 if (root !== null && picker !== null) {
   mountApp(scenario, root);
-  if (!framing) {
-    createRoot(picker).render(
-      <StrictMode>
-        <Picker current={scenario.name} />
-      </StrictMode>,
-    );
-  }
+  if (!framing) mountPicker(scenario.name, picker);
 }
 
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a frame.
