@@ -1,7 +1,42 @@
-/* The picker floats over Helm's column, which is empty below its composer on every scenario. */
+/* The picker rests in the trailing bottom corner and is dragged anywhere from
+   there. It used to sit over Helm's column on the assumption that column is
+   empty below its composer — it is not, on the screens being annotated. */
 .armada-mock-picker {
   position: fixed;
   right: var(--space-6);
   bottom: var(--space-6);
   z-index: var(--z-menu);
+}
+
+/* Placed by hand: the resting corner has to let go, or `right` and `left`
+   would both apply and the card would stretch between them. */
+.armada-mock-picker[data-placed] {
+  right: auto;
+  bottom: auto;
+}
+
+.armada-mock-picker__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The grip takes the width the collapse button leaves, so there is something to
+   grab. `grab` is what says it moves before it has moved, and it has to beat
+   `.armada-button`'s own `pointer`. */
+.armada-mock-picker [data-grip] {
+  flex: 1;
+  min-width: 0;
+  max-width: var(--w-menu);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab;
+}
+
+.armada-mock-picker[data-dragging] [data-grip] {
+  cursor: grabbing;
+}
+
+.armada-mock-picker__field {
+  margin-top: var(--space-2);
 }
