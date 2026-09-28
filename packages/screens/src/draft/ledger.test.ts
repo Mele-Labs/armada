@@ -129,7 +129,7 @@ describe("what a reader pages with", () => {
   });
 });
 
-describe("the eight filters", () => {
+describe("the nine filters", () => {
   it("puts a Check's run and a Judge's answer in different families", () => {
     expect(familyOf("checked")).toBe("checks");
     expect(familyOf("judged")).toBe("judges");
@@ -144,28 +144,32 @@ describe("the eight filters", () => {
     expect(familyOf("cases_rerun")).toBe("tests");
   });
 
-  it("files the Job's own machine moving under no family, because it is not a Task", () => {
-    expect(familyOf("created")).toBeNull();
-    expect(familyOf("status_completed_success")).toBeNull();
+  // The owner asked for the Job filter on 28 September 2026, standing on the
+  // line that said these rows answered to nothing.
+  it("files the Job's own machine moving under Job, whatever it moved to", () => {
+    expect(familyOf("created")).toBe("job");
+    expect(familyOf("started")).toBe("job");
+    expect(familyOf("status_completed_success")).toBe("job");
+    expect(familyOf("status_queued")).toBe("job");
   });
 
   it("gives a kind it has never heard of no family rather than guessing one", () => {
     expect(familyOf("something_the_backend_invented")).toBeNull();
   });
 
-  it("counts no row twice, which is the invariant — never that the seven sum to All", () => {
+  it("counts no row twice, which is the invariant — never that the eight sum to All", () => {
     const rows = ledgerOf({ detail: arcDetail() });
     const counts = countsOf(rows);
     const filed = LEDGER_FAMILIES.reduce((total, one) => total + counts[one], 0);
 
     expect(filed).toBe(rows.length - unfiledIn(rows).length);
-    expect(filed).toBeLessThan(rows.length);
   });
 
-  it("names the rows All holds and no filter does, so nobody subtracts", () => {
+  it("leaves nothing under All alone once the Job's own rows have a filter", () => {
     const rows = ledgerOf({ detail: arcDetail() });
 
-    expect(unfiledIn(rows).map((row) => row.kind)).toContain("created");
+    expect(rows.some((row) => row.kind === "created")).toBe(true);
+    expect(unfiledIn(rows)).toEqual([]);
   });
 });
 
@@ -203,10 +207,13 @@ describe("the Record, composed from today's reads", () => {
     expect(row?.coord).toBeNull();
   });
 
-  it("says when a finished task's files fell outside the plan", () => {
+  // **Never "outside the plan".** `docs/concepts/plan.md` forbids that name for
+  // a file scope, and the owner asked what it meant on this exact cell.
+  it("names who declared what, on a finished task's files", () => {
     const rows = ledgerOf({ detail: arcDetail() }).filter((row) => row.kind === "task_files");
 
-    expect(rows.some((row) => row.outcome.startsWith("outside the plan"))).toBe(true);
+    expect(rows.some((row) => /never said it would change/.test(row.outcome))).toBe(true);
+    expect(rows.every((row) => !/the plan/.test(row.outcome))).toBe(true);
   });
 
   it("lets the history own the moves it carries, rather than deriving them twice", () => {
