@@ -16,6 +16,14 @@ import type { ReactNode } from "react";
  */
 export type PanelProps = {
   label: ReactNode;
+  /**
+   * A mark against the label, on the head's leading edge — Fleet's status dot.
+   * **Not `trailing`**: that slot is the head's opposite end, beside the
+   * chevron, and a 6px dot 150px from the word it is about reads as decoration
+   * rather than as the subject's state. Photographed at the column's 200px
+   * resting width on 28 Sep 2026, which is what moved it.
+   */
+  mark?: ReactNode;
   /** Kept beside the label whether the panel is open or collapsed — a count, a dot. */
   trailing?: ReactNode;
   open: boolean;
@@ -51,6 +59,7 @@ export type PanelProps = {
 
 export function Panel({
   label,
+  mark,
   trailing,
   open,
   onOpenChange,
@@ -85,7 +94,10 @@ export function Panel({
         aria-label={typeof label === "string" ? label : undefined}
       >
         <div className="armada-panel__head">
-          <span className="armada-panel__label">{label}</span>
+          <span className="armada-panel__name">
+            <span className="armada-panel__label">{label}</span>
+            {mark}
+          </span>
           <span className="armada-panel__trailing">{trailing}</span>
         </div>
       </section>
@@ -100,7 +112,10 @@ export function Panel({
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
       >
-        <span className="armada-panel__label">{label}</span>
+        <span className="armada-panel__name">
+          <span className="armada-panel__label">{label}</span>
+          {mark}
+        </span>
         <span className="armada-panel__trailing">
           {trailing}
           {open ? (

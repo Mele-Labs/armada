@@ -93,12 +93,16 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
       narrow={narrow}
       dotTone={FLEET_DOT_TONE[state]}
       dotLabel={said}
+      // Against the label rather than at the head's far end — a 6px dot 150px
+      // from the word it is about reads as decoration. Photographed at the
+      // column's 200px resting width, 28 Sep 2026.
+      //
       // **The state word alone, not `fleetSaid`.** The dot sits inside the
       // head's own button, so its name joins the label's — the full sentence
       // there makes the control read "Fleet Fleet — Running". `fleetSaid` is
       // for the two places the dot stands with no label beside it, the title
       // row and the 48px rail, and it stays on the hover here.
-      trailing={
+      mark={
         <span
           className="armada-fleet-panel__dot"
           data-tone={FLEET_DOT_TONE[state]}
