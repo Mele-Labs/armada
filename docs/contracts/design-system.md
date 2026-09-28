@@ -112,6 +112,13 @@ is allowed only as that light, and never where a person reads a state.
    tokens below, its controls are `button`, and every value its own
    stylesheet would paint is set to a token. No second graph or canvas
    library, and no node drawn from React Flow's defaults.
+   **Every canvas carries one rail down its leading edge**, and the acts
+   on a selected node hover over that node rather than sitting in a panel
+   — the owner's own drawing, 28 Sep 2026. The rail is groups: what a
+   surface places, how a person looks, and whatever one canvas alone has.
+   [Iconography](iconography.md), *The canvas rail*, binds every glyph on
+   it. The rail is a column of the frame and not a layer over the graph,
+   so nothing a fit draws can end up under it.
    **The workflow canvas carries a toggle to a stacked run**, canvas by
    default, because a narrow window reads a list better than a graph and
    the graph is still what the surface is for.

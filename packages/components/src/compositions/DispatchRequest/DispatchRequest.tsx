@@ -652,6 +652,11 @@ export function DispatchRequest({
  * **Both pick over the repository's branches, and only one of them makes
  * one.** Where the work starts has to exist; where it lands may not, and
  * naming a branch that is not there is how one gets made.
+ *
+ * **The first field reads `Base branch`, and read `From` until 28 Sep 2026.**
+ * The owner's own word, and the Manifest's: `base` is the branch worktrees are
+ * cut from (`packages/screens/src/draft/landing.ts`), and the list already tags
+ * that row `base`, so the field and the row it opens on now agree.
  */
 function Where({
   repository,
@@ -675,7 +680,7 @@ function Where({
         </div>
       )}
       <BranchPicker
-        label="From"
+        label="Base branch"
         value={refs.from}
         onValue={(from) => onRefs({ ...refs, from })}
         branches={branches}

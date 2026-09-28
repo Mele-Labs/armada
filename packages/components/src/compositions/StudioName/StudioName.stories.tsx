@@ -27,9 +27,24 @@ export const Untitled: Story = {
   args: { heading: true, name: null },
 };
 
-/** A list row: the name is the way into the Studio, and the rename sits beside it. */
+/**
+ * A list row: the name is text, because the whole row opens the Studio and the
+ * rename is in the row's split button. **`onNaming` is what says so** — it is
+ * the door an outside control opens the field through, and its presence is what
+ * takes the Rename beside the name away.
+ */
 export const OnARow: Story = {
-  args: { onOpen: fn() },
+  args: { onNaming: fn() },
+};
+
+/**
+ * The same row with the split button having asked. **A `play` would be the
+ * row's**, not this one's: what a rendering can show is that the field is open
+ * with no Rename beside it, which is the whole of what `naming` does here.
+ */
+export const OnARowNaming: Story = {
+  name: "On a row, naming",
+  args: { naming: true, onNaming: fn() },
 };
 
 /** Reopened read-only. The name is drawn and there is no way to change it. */

@@ -12,10 +12,10 @@ import { Input } from "../../primitives/Input/Input";
  * owner clicked an untitled Studio's name to name it and nothing happened; a
  * rename behind a menu would answer the report and not the gesture.
  *
- * **The name and the way in are two controls on a row and one on a heading.**
- * A row's name is what opens the Studio, so the rename sits beside it rather
- * than taking that press; a heading opens nothing and is itself the control.
- * What decides is `onOpen`.
+ * **A heading carries its own Rename; a row's is in the row's split button.**
+ * The owner asked for that on 28 Sep 2026, so the whole row could open the
+ * Studio — which means the field is opened from outside on a row, and `naming`
+ * is that door. `onOpen` is gone with it: nothing inside the name is a press.
  */
 
 export type StudioNameProps = {
@@ -30,8 +30,14 @@ export type StudioNameProps = {
   editable?: boolean;
   /** Drawn as the page's own heading rather than as a row's text. */
   heading?: boolean;
-  /** Where the name is also the way into the Studio — the list row's press. */
-  onOpen?: () => void;
+  /**
+   * The field is open, asked for by a control outside this one — the list row's
+   * split button. **Absent leaves the naming to the Rename beside the name**,
+   * which is the heading's own way in.
+   */
+  naming?: boolean;
+  /** Told whenever the field opens or closes, so the outside control keeps up. */
+  onNaming?: (naming: boolean) => void;
   /** The name a person settled on. Never called with blank. */
   onRename: (name: string) => void;
   /** Out to Fleet: the field waits rather than taking a second press. */
@@ -51,15 +57,20 @@ export function StudioName({
   untitled,
   editable = false,
   heading = false,
-  onOpen,
+  naming: asked = false,
+  onNaming,
   onRename,
   saving = false,
   refused,
 }: StudioNameProps) {
-  const [draft, setDraft] = useState<string | null>(null);
+  // What is being typed. `null` is nobody having typed yet, which is not the
+  // same as the field being shut — a control outside can open it, and then the
+  // name is where the typing starts.
+  const [typed, setTyped] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const shown = name ?? untitled;
-  const naming = draft !== null;
+  const naming = typed !== null || asked;
+  const draft = typed ?? (name ?? "");
 
   // The cursor goes where the name was, with what is there selected: the first
   // thing a person does to "Untitled Studio" is replace all of it.
@@ -67,15 +78,20 @@ export function StudioName({
     if (naming) field.current?.select();
   }, [naming]);
 
+  function shut(): void {
+    setTyped(null);
+    onNaming?.(false);
+  }
+
   // The name arriving is the write having happened — Fleet answers every write
   // with the Studio whole — so nothing here holds a second copy of it open.
   useEffect(() => {
-    if (!saving && refused === undefined) setDraft(null);
+    if (!saving && refused === undefined) shut();
   }, [name]);
 
   function save(): void {
-    const name = settled(draft ?? "");
-    if (name !== null) onRename(name);
+    const settledName = settled(draft);
+    if (settledName !== null) onRename(settledName);
   }
 
   function keyed(event: KeyboardEvent<HTMLInputElement>): void {
@@ -87,7 +103,7 @@ export function StudioName({
     // Esc abandons the rename rather than closing the surface behind it.
     if (event.key === "Escape") {
       event.stopPropagation();
-      setDraft(null);
+      shut();
     }
   }
 
@@ -103,14 +119,14 @@ export function StudioName({
           disabled={saving}
           invalid={refused !== undefined}
           message={refused}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => setTyped(event.target.value)}
           onKeyDown={keyed}
         />
         <div className="armada-studio-name__acts">
           <Button size="sm" variant="primary" pending={saving} disabled={settled(draft) === null} onClick={save}>
             Save
           </Button>
-          <Button size="sm" variant="ghost" disabled={saving} onClick={() => setDraft(null)}>
+          <Button size="sm" variant="ghost" disabled={saving} onClick={shut}>
             Cancel
           </Button>
         </div>
@@ -120,9 +136,12 @@ export function StudioName({
 
   return (
     <div className="armada-studio-name">
-      {drawn({ heading, shown, untitled: name === null, onOpen })}
-      {editable ? (
-        <Button size="sm" variant="ghost" aria-label={`Rename ${shown}`} onClick={() => setDraft(name ?? "")}>
+      {drawn({ heading, shown, untitled: name === null })}
+      {/* The Rename beside the name is the heading's. A row's is in the row's
+          own split button, which opens this through `naming` — two controls for
+          one act on one row is what the owner's note took away. */}
+      {editable && onNaming === undefined ? (
+        <Button size="sm" variant="ghost" aria-label={`Rename ${shown}`} onClick={() => setTyped(name ?? "")}>
           Rename
         </Button>
       ) : null}
@@ -130,17 +149,15 @@ export function StudioName({
   );
 }
 
-/** The name itself: a heading, a press into the Studio, or plain text. */
+/** The name itself: the page's heading, or the text on a row. */
 function drawn({
   heading,
   shown,
   untitled,
-  onOpen,
 }: {
   heading: boolean;
   shown: string;
   untitled: boolean;
-  onOpen?: () => void;
 }): ReactNode {
   const unnamed = untitled || undefined;
   if (heading) {
@@ -148,13 +165,6 @@ function drawn({
       <h2 className="armada-studio-name__heading" data-untitled={unnamed}>
         {shown}
       </h2>
-    );
-  }
-  if (onOpen !== undefined) {
-    return (
-      <Button variant="ghost" size="sm" data-untitled={unnamed} onClick={onOpen}>
-        {shown}
-      </Button>
     );
   }
   return (

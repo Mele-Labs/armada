@@ -233,3 +233,33 @@ export const OpensOnWhereYouAre: Story = {
     });
   },
 };
+
+/**
+ * The follow toggle, on the rail and in a group of its own under the view
+ * group — the owner's drawing of 28 Sep 2026, which stacked the groups down
+ * the canvas's left with air between them.
+ *
+ * **A `play`, because where the control is is the claim.** It is icon-only
+ * now, so its name has to survive the glyph and say which state it is in; and
+ * it is not in the view group, because a zoom acts once and this hands the
+ * viewport over until it is pressed again.
+ */
+export const FollowsTheRun: Story = {
+  args: {
+    nodes,
+    edges,
+    label: "The run",
+    running: "step:implement",
+    following: false,
+    onFollowing: () => undefined,
+  },
+  play: async ({ canvas }) => {
+    const follows = canvas.getByRole("group", { name: "What the view follows" });
+    await waitFor(() => expect(follows).toBeVisible());
+    const stay = canvas.getByRole("button", { name: "Stay on the running step" });
+    await expect(stay).toHaveAttribute("aria-pressed", "false");
+    const view = canvas.getByRole("group", { name: "How you are looking at this" });
+    await expect(view).not.toContainElement(stay);
+    await expect(view.querySelectorAll("button")).toHaveLength(3);
+  },
+};

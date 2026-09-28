@@ -16,8 +16,10 @@ import {
 } from "@xyflow/react";
 import { useEffect, useMemo } from "react";
 
-import { Button } from "../../primitives/Button/Button";
+import { Pin } from "lucide-react";
+
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
 /**
@@ -176,6 +178,9 @@ const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${P
  * than running down the middle of the card it leaves.
  */
 const WAS_MADE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Left}` };
+
+/** What the follow toggle is called. Its name, and what its tooltip reads. */
+const STAY_ON_THE_RUN = "Stay on the running step";
 
 /** How far out a person may take the run by hand, to see its shape. */
 const FURTHEST_OUT = 0.2;
@@ -351,11 +356,24 @@ export function WorkflowCanvas({
     [],
   );
 
+  // **Its own group under the view group, and not inside it.** A zoom acts
+  // once; this hands the viewport over for as long as it is on — and it places
+  // nothing, so it is not a tool either. The rail lets one surface say that
+  // without every surface carrying the row.
   const stay =
     onFollowing === undefined || running === null ? undefined : (
-      <Button size="sm" aria-pressed={following} onClick={() => onFollowing(!following)}>
-        Stay on the running step
-      </Button>
+      <GraphCanvasRailGroup
+        label="What the view follows"
+        acts={[
+          {
+            id: "stay",
+            name: STAY_ON_THE_RUN,
+            icon: Pin,
+            pressed: following,
+            onPress: () => onFollowing(!following),
+          } satisfies GraphCanvasRailAct,
+        ]}
+      />
     );
 
   return (
@@ -366,9 +384,8 @@ export function WorkflowCanvas({
       edges={edges}
       nodeTypes={NODE_TYPES}
       edgeTypes={EDGE_TYPES}
-      controls="signs"
       minZoom={FURTHEST_OUT}
-      besideControls={stay}
+      railBelow={stay}
       fitViewOptions={fitViewOptions}
     >
       <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} />

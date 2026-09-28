@@ -62,7 +62,7 @@ function aRedispatch(): Scenario {
 
 async function openTheStudio(): Promise<void> {
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
-  await page.getByRole("button", { name: "Settings reducer", exact: true }).click();
+  await page.getByRole("cell", { name: "Settings reducer", exact: true }).click();
 }
 
 test("both jobs are on the Studio, the one that stopped and the one the work carried on as", async () => {

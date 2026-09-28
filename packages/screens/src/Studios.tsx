@@ -11,7 +11,10 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useEffect, useState } from "react";
+import { Link as LinkGlyph, Shapes, StickyNote } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
+  ACTION,
   Alert,
   Button,
   Card,
@@ -20,6 +23,10 @@ import {
   CardTitle,
   Dialog,
   DropdownMenu,
+  GraphCanvasNodeBar,
+  GraphCanvasRailGroup,
+  SplitButton,
+  STUDIO_NODE_KIND,
   StudioAddNode,
   StudioFrameSheet,
   StudioName,
@@ -33,7 +40,12 @@ import {
   TableRow,
   useStudioPlacement,
 } from "@armada/components";
-import type { StudioNodeByHand, StudioNodeByHandKind, StudioPickedAct } from "@armada/components";
+import type {
+  GraphCanvasRailAct,
+  StudioNodeByHand,
+  StudioNodeByHandKind,
+  StudioPickedAct,
+} from "@armada/components";
 import { captureOn, type OpenCaptureWindow } from "./capturing";
 import type {
   CheckoutRunSheetRead,
@@ -79,6 +91,32 @@ const PAST_THE_BOUND = "Select this Note to draw it.";
  * #1293 lands and this screen calls its operation instead.
  */
 const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+
+/**
+ * The kinds a person puts on a Studio by hand, as the rail draws them — the
+ * owner's note of 28 Sep 2026, which asked for a vertical bar of icons in place
+ * of the `+ Node` panel and its menu.
+ *
+ * **The noun is `STUDIO_NODE_KIND`'s and the key is the registry's**, so neither
+ * is written down twice; the glyphs are `packages/icons/icons.toml`, group
+ * `Canvas rail`.
+ */
+const ADD_BY_HAND: readonly { kind: StudioNodeByHandKind; icon: LucideIcon; shortcut?: string }[] = [
+  { kind: "note", icon: StickyNote, ...bindingOf("add_note") },
+  { kind: "link", icon: LinkGlyph, ...bindingOf("add_link") },
+  { kind: "sketch", icon: Shapes, ...bindingOf("add_sketch") },
+];
+
+/** One act's binding, or nothing where the registry gives it none. */
+function bindingOf(act: string): { shortcut?: string } {
+  const key = ACTION[act]?.shortcut;
+  return key === undefined ? {} : { shortcut: key };
+}
+
+/** What the rail is, and what hovers over what is picked. */
+const RAIL_LABEL = "What you can put on this Studio";
+
+const PICKED_LABEL = "What is picked";
 
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
@@ -244,11 +282,14 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
     return <p className="text-fg-muted">No Studios yet. Start one to keep what you work out before it is a Job.</p>;
   }
   return (
-    <Table>
+    <Table className="armada-studio-list">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>
           <TableHeaderCell>Last touched</TableHeaderCell>
+          {/* The acts column carries no word: a Job row's control has no header
+              either, and a heading over one split button reads as a fact. */}
+          <TableHeaderCell aria-label="Acts" />
         </TableRow>
       </TableHead>
       <TableBody>
@@ -268,8 +309,18 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
 }
 
 /**
- * One row. **The name opens the Studio and the rename sits beside it**: a row's
- * name is already the way in, so renaming cannot also take that press — #1364.
+ * One row.
+ *
+ * **The whole row opens the Studio and the rename is behind a split button at
+ * the far end** — the owner's note of 28 Sep 2026, and the Job row's own shape:
+ * `Row.tsx` presses the row and puts its one secondary control at the trailing
+ * edge with the rest behind that control's caret. The name was the only way in
+ * until now (#1364), so a press anywhere else on the row did nothing.
+ *
+ * **The pointer presses the row; the keyboard presses Open.** A `tr` is not a
+ * listbox option the way a Job row's `div` is, so the row takes no focus stop
+ * whose meaning only a reader with sight could find; `JudgeVerdicts` is the
+ * precedent for a pressable row inside a real table.
  */
 function Row({
   studio,
@@ -284,19 +335,40 @@ function Row({
   onOpen: (studioId: string) => void;
   onRename: (studioId: string, name: string) => void;
 }) {
+  const [naming, setNaming] = useState(false);
+  const shown = studio.name ?? UNTITLED_STUDIO;
   return (
-    <TableRow>
+    <TableRow
+      data-opens="true"
+      // Not while the field is open: a press meant for the text behind the
+      // cursor would leave for the board with the rename half typed.
+      onClick={naming ? undefined : () => onOpen(studio.id)}
+    >
       <TableCell>
         <StudioName
           name={studio.name ?? null}
           untitled={UNTITLED_STUDIO}
           editable={live}
+          naming={naming}
+          onNaming={setNaming}
           saving={saving}
-          onOpen={() => onOpen(studio.id)}
           onRename={(name) => onRename(studio.id, name)}
         />
       </TableCell>
       <TableCell>{absoluteOf(studio.touched_at) ?? studio.touched_at}</TableCell>
+      {/* The control stops the row's own open, so pressing Rename does not also
+          leave for the board — `JobRowStacked` guards its action cell the same
+          way. */}
+      <TableCell className="armada-studio-list__acts" onClick={(event) => event.stopPropagation()}>
+        <SplitButton
+          ground="card"
+          menuLabel={`More for ${shown}`}
+          onAction={() => onOpen(studio.id)}
+          items={live ? [{ label: "Rename", onSelect: () => setNaming(true) }] : []}
+        >
+          Open
+        </SplitButton>
+      </TableCell>
     </TableRow>
   );
 }
@@ -548,8 +620,26 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             // a cluster of four is not a place.
             onSelectNode(ids[0] ?? null);
           }}
+          rail={
+            editable ? <AddRail adding={adding} onAdding={setAdding} /> : undefined
+          }
+          nodeBar={
+            <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
+              <StudioPicked
+                picked={onBoard.map((id) => nodeNamed(studio, id, jobs, board))}
+                acts={[...(editable ? promotion.acts : []), ...own]}
+                onAct={(id) => {
+                  const mine = own.find((act) => act.id === id);
+                  return mine === undefined ? promotion.onAct(id) : mine.press();
+                }}
+              />
+            </GraphCanvasNodeBar>
+          }
         >
-          {editable ? (
+          {/* The field is drawn only while a kind is being written: the rail is
+              what asks for one now, so `StudioAddNode`'s own menu is a door
+              this screen no longer opens. */}
+          {editable && adding !== null ? (
             <Card aria-label="Add a node">
               <CardContent>
                 <AddNode
@@ -574,14 +664,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
             </Card>
           ) : null}
-          <StudioPicked
-            picked={onBoard.map((id) => nodeNamed(studio, id, jobs, board))}
-            acts={[...(editable ? promotion.acts : []), ...own]}
-            onAct={(id) => {
-              const mine = own.find((act) => act.id === id);
-              return mine === undefined ? promotion.onAct(id) : mine.press();
-            }}
-          />
           {proposed.length === 0 ? null : (
             <Card className="armada-studio__proposals">
               <CardHeader>
@@ -692,6 +774,32 @@ function StartRun(props: {
       }}
     />
   );
+}
+
+/**
+ * The rail's tool group: one icon per kind a person puts on a Studio by hand.
+ *
+ * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
+ * 2026, which asked for a vertical bar of icons on the canvas's left. The field
+ * behind a press is still drawn in the board's aside, where it has room for a
+ * paragraph.
+ */
+function AddRail({
+  adding,
+  onAdding,
+}: {
+  adding: StudioNodeByHandKind | null;
+  onAdding: (kind: StudioNodeByHandKind) => void;
+}) {
+  const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
+    id: kind,
+    name: `Add a ${STUDIO_NODE_KIND[kind]}`,
+    icon,
+    pressed: adding === kind,
+    ...(shortcut === undefined ? {} : { shortcut }),
+    onPress: () => onAdding(kind),
+  }));
+  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
 }
 
 function AddNode(props: {

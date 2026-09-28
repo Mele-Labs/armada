@@ -1,17 +1,18 @@
-import { Card, CardContent } from "../../primitives/Card/Card";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 
 /**
  * What is picked on a Studio's whiteboard, and the one control holding every act
  * on it — #1399.
  *
- * **One control, not a row of buttons.** A row in an aside one node wide ran off
- * the surface at four acts and grows with every kind that arrives; a menu is the
- * shape that does not depend on how many there are, and `+ Node` is the same
- * control on the same surface.
+ * **One control, not a row of buttons.** A row ran off the surface at four acts
+ * and grows with every kind that arrives; a menu is the shape that does not
+ * depend on how many there are.
  *
- * **Many picked says how many and names none.** Forty titles filled the window
- * and covered the zoom controls. Every rung's dialog still lists what it acts on.
+ * **Many picked says how many and names none.** Forty titles filled the window.
+ * Every rung's dialog still lists what it acts on.
+ *
+ * **No surface of its own**: it hovers over the nodes it is about, and
+ * `GraphCanvasNodeBar` is the frame. A card inside that is two frames.
  */
 
 /** One act on what is picked. `id` is the caller's own word for it. */
@@ -57,18 +58,16 @@ export function StudioPicked({ picked, acts, onAct, disabled = false }: StudioPi
   // forty titles is a panel taller than the window it is drawn in.
   const said = picked.length === 1 ? picked[0] : `${picked.length} nodes picked`;
   return (
-    <Card role="group" aria-label="What is picked">
-      <CardContent className="armada-studio-picked">
-        <p className="armada-studio-picked__said">{said}</p>
-        {acts.length === 0 ? null : (
-          <DropdownMenu
-            triggerLabel="Acts"
-            disabled={disabled}
-            entries={entriesOf(acts)}
-            onSelect={onAct}
-          />
-        )}
-      </CardContent>
-    </Card>
+    <div className="armada-studio-picked">
+      <p className="armada-studio-picked__said">{said}</p>
+      {acts.length === 0 ? null : (
+        <DropdownMenu
+          triggerLabel="Acts"
+          disabled={disabled}
+          entries={entriesOf(acts)}
+          onSelect={onAct}
+        />
+      )}
+    </div>
   );
 }
