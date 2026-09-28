@@ -482,6 +482,62 @@ group `Graph`. Nodes inside the graph reuse the badge icons at 12px — a
 graph node and a Job Board row showing the same job must show the same
 glyph.
 
+### The canvas rail
+
+**Every canvas draws one rail down its leading edge**, at 16px, each act named
+in a tooltip. The registry group is `Canvas rail` in
+`packages/icons/icons.toml`. It is one component mounted by every surface that
+takes `GraphCanvas` — the dispatch sketch pad, a Studio's whiteboard, a Job's
+workflow canvas and the Plan tab's graph — because the owner asked for it on
+each of them in one sitting, and a second rail would be the vocabulary split
+this document exists to prevent.
+
+**The rail is groups, and a group is a card with air around it.** They read in
+one order, and a surface that has nothing for a group draws no group rather
+than an empty one:
+
+```
+what you place    the surface's own, and only where it has any
+how you look      zoom out, zoom in, fit. Every canvas, drawn by the canvas
+what the view     a control only one surface has — the workflow canvas's
+follows           Stay on the running step, and nothing else today
+```
+
+**`−` and `+` stay signs rather than becoming glyphs.** They are characters in
+a square button, which rule 1 already settles, and minting a pair of magnifiers
+beside `search` would be two more silhouettes for a meaning a sign carries.
+`Fit` is `maximize`, because a word cannot sit in a square beside them.
+
+**A rail act earns a glyph; an act on a selection does not.** The rail's
+membership is fixed by the surface, so a reader learns it once and the icon is
+what buys the room back. The acts on whatever is currently selected hover over
+that selection instead, they come and go with it, and they draw their words:
+see `[node-bar-glyphs]` below for what was refused there.
+
+**This is where an act's tooltip is load-bearing rather than an addition.** An
+icon-only control has no other way to say its name, which is the sanctioned use
+under Tooltip in the parent [Design System](design-system.md) — *what pressing a
+control does, written at the control*. Where the act is off, the tooltip says
+why instead, because a dead control with no reason reads as broken.
+
+**Nothing in the group is borrowed.** Every glyph in it is either minted with
+its own row or, for `link`, a second `usage` entry on a row carrying no
+reservation. The reasoning and the refusals for each are in the registry, and
+the reservations are strict in one direction that matters on a canvas: a
+silhouette every other drawing tool uses for a tool Armada does not have —
+`shapes` for a shape picker, `pencil` for an edit, `maximize` for full
+screen — says so in its own row rather than leaving the next reader to discover
+the absence by pressing.
+
+**What was refused and where it went.** The zoom pair and Fit sat over the
+canvas's bottom-right corner until this rail; `Stay on the running step` sat
+beside them and is now its own group, because a zoom acts once and that one
+hands the viewport over until it is pressed again. It draws `pin`, which is an
+object standing for its verb — the construction `stamp` and `wrench` already
+use — and refuses `crosshair` and `locate-fixed`: both are rings, `circle-dot`
+is the running step's own mark, and the collision would land on the one canvas
+where this control exists and be about the very node it follows.
+
 ### Blast radius
 
 **`layers` means how many places a Job writes**, and nothing else. One
@@ -695,6 +751,32 @@ status vocabulary (Specified, Proposed, Retired, Banned) has no analogue to
 "Decided", so the file and the settled-as-of-2026-08-21 claim do not fully
 line up — worth a person's attention rather than something this document
 should paper over.
+
+- **[node-bar-glyphs]** Which glyphs, if any, carry the acts that hover over a
+  selected node — the sketch pad's Join and Remove, and a Studio's own acts on
+  what is picked?
+  They ship drawing their words, beside the canvas rail above that draws
+  icons. What was looked at and refused, for Join: `link` is a chain and its
+  Queued reason row means *something upstream is unfinished*, which is the
+  opposite claim to two boxes a person joined; `waypoints` is the Graph view
+  toggle and `git-branch` is a real git operation, so either would name a
+  thing Armada already has; `split` is `fanned out`'s and draws one line
+  becoming two, which is this act read backwards. For Remove: `x` is
+  reserved to system failure and its row bans a human decision outright;
+  `minus` is reserved to a record nothing checked and a dropped plan task;
+  `ban` is `rejected`'s and means a person declined a whole Job; the
+  `circle-*` and `shield-*` families are verdicts. `trash-2` is unlisted and
+  would be the first mint — and it is the same gap `AttachmentChip` already
+  flagged for its own dismiss, which draws a bare `×` character rather than
+  reaching for `x`.
+  What makes it a different question from the rail is that these acts are not
+  fixed: which ones a node offers depends on its kind, a Studio's list grows
+  with every rung of promotion, and a bar whose membership changes under the
+  pointer is one a reader cannot learn. Words survive that; icons do not.
+  What would settle it is either a mint for *remove this* that serves the
+  chip, the bar and the Studio at once — one decision, not three — or a
+  ruling that a hovering bar is label-only by construction, the way Doctor's
+  health grid settled `[doctor-warn-glyph]`.
 
 - **[kit-file-icons]** Do the three Kit-file states — in Kit, drifted, not
   in Kit — get icons, or stay label-only?

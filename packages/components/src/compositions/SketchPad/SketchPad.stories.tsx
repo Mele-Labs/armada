@@ -150,24 +150,25 @@ export const NotLive: Story = {
 };
 
 /**
- * The box acts, which no still can show.
+ * The acts on a box, which hover over the box they act on — the owner's note of
+ * 28 Sep 2026. **They are nowhere at all while nothing is picked**, which is
+ * the half a still cannot show and the half that replaced a permanent toolbar.
  *
  * **Join is the one worth asserting.** It takes exactly two boxes, so the
- * control is off until two are picked and the reason is on it — a dead control
- * with no reason reads as broken.
+ * control is off with one picked and the reason is on it — a dead control with
+ * no reason reads as broken.
  */
 export const Drawing: Story = {
   args: { ...args, boxes: [], lines: [], strokes: [], said: "" },
   render: (props) => <Held {...props} />,
   play: async ({ canvas, userEvent, step }) => {
     const add = canvas.getByRole("button", { name: "Add a box" });
-    const join = canvas.getByRole("button", { name: "Join" });
-    const remove = canvas.getByRole("button", { name: "Remove" });
+    const join = () => canvas.getByRole("button", { name: "Join" });
+    const remove = () => canvas.getByRole("button", { name: "Remove" });
 
-    await step("nothing is picked, so neither act is offered and both say why", async () => {
-      await expect(join).toBeDisabled();
-      await expect(join).toHaveAttribute("title", "Pick two boxes to join them.");
-      await expect(remove).toBeDisabled();
+    await step("nothing is picked, so the bar is not drawn at all", async () => {
+      await expect(canvas.queryByRole("button", { name: "Join" })).toBeNull();
+      await expect(canvas.queryByRole("button", { name: "Remove" })).toBeNull();
     });
 
     await step("a box added is empty, and writing in it names it", async () => {
@@ -180,10 +181,11 @@ export const Drawing: Story = {
       );
     });
 
-    await step("one box picked offers Remove but not Join", async () => {
+    await step("one box picked offers Remove, and Join says what it wants", async () => {
       await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
-      await waitFor(() => expect(remove).toBeEnabled());
-      await expect(join).toBeDisabled();
+      await waitFor(() => expect(remove()).toBeEnabled());
+      await expect(join()).toBeDisabled();
+      await expect(join()).toHaveAttribute("title", "Pick two boxes to join them.");
     });
 
     await step("two boxes picked draw a line between them", async () => {
@@ -193,15 +195,15 @@ export const Drawing: Story = {
       await userEvent.keyboard("{Meta>}");
       await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
       await userEvent.keyboard("{/Meta}");
-      await waitFor(() => expect(join).toBeEnabled());
-      await userEvent.click(join);
+      await waitFor(() => expect(join()).toBeEnabled());
+      await userEvent.click(join());
       await waitFor(() => expect(canvas.getAllByRole("group", { name: /^A line from / })).toHaveLength(1));
     });
 
     await step("a box taken off takes the line that hung on it", async () => {
       await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
-      await waitFor(() => expect(remove).toBeEnabled());
-      await userEvent.click(remove);
+      await waitFor(() => expect(remove()).toBeEnabled());
+      await userEvent.click(remove());
       await waitFor(() =>
         expect(canvas.queryByRole("group", { name: "Box: the stat" })).toBeNull(),
       );
@@ -256,7 +258,9 @@ export const ByHand: Story = {
     await step("nothing is drawn by hand, so Undo is off and says so", async () => {
       await expect(draw).toHaveAttribute("aria-pressed", "false");
       await expect(undo).toBeDisabled();
-      await expect(undo).toHaveAttribute("title", "Nothing has been drawn by hand.");
+      // The rail is icon-only, so the reason is the tooltip rather than a
+      // `title` — and the tooltip stays in the document while it is shut.
+      await expect(canvas.getByText("Nothing has been drawn by hand.")).toBeInTheDocument();
     });
 
     await step("the pen says it is down", async () => {

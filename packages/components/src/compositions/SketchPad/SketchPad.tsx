@@ -9,12 +9,15 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
+import { Pencil, SquarePlus, Undo2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
+import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
 /**
  * Sketch pad — boxes, the lines between them, and what a person draws by hand,
@@ -157,28 +160,29 @@ const JOINS_THE_SELECTION = ["Meta", "Control"];
 /** How many boxes a join takes. Two, and the control says so while it is off. */
 const A_JOIN_TAKES = 2;
 
+/** What the rail is, and what hovers over a picked box, read to somebody who cannot see them. */
+const RAIL_LABEL = "What you can draw";
+
+const BOX_ACTS_LABEL = "What you can do with the boxes you picked";
+
 /**
- * The acts on the pad, drawn over its top-right corner.
+ * The rail down the pad's leading edge — the pen, the line it takes back, and a
+ * box added. **The acts on a box are not here**: they hover over the box, which
+ * is `BoxActs` below.
  *
  * **A component rather than markup**, because where a new box lands is read off
  * the viewport React Flow holds, and that hook only resolves inside the board —
  * `useStudioPlacement`'s own finding.
  */
-function Acts({
-  picked,
+function PadRail({
   onAdd,
-  onRemove,
-  onJoin,
   pen,
   onPen,
   drawn,
   onUndo,
   disabled,
 }: {
-  picked: readonly string[];
   onAdd: (at: { x: number; y: number }) => void;
-  onRemove: (ids: readonly string[]) => void;
-  onJoin: (from: string, to: string) => void;
   pen: boolean;
   onPen: (pen: boolean) => void;
   drawn: boolean;
@@ -199,53 +203,71 @@ function Acts({
     return { x: Math.round(centre.x - half), y: Math.round(centre.y) };
   }, [flow]);
 
+  const acts: GraphCanvasRailAct[] = [
+    {
+      id: "draw",
+      name: "Draw",
+      icon: Pencil,
+      pressed: pen,
+      why: "Drag on the pad to draw. Press again to stop.",
+      onPress: () => onPen(!pen),
+    },
+    {
+      id: "undo",
+      name: "Undo",
+      icon: Undo2,
+      disabled: !drawn,
+      why: "Nothing has been drawn by hand.",
+      onPress: onUndo,
+    },
+    // The pen is a mode, so a box somebody is about to type in puts it down.
+    {
+      id: "add",
+      name: "Add a box",
+      icon: SquarePlus,
+      onPress: () => {
+        onPen(false);
+        onAdd(middle());
+      },
+    },
+  ];
+  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} disabled={disabled} />;
+}
+
+/**
+ * The acts on the boxes a person picked, hovering over them.
+ *
+ * **Words rather than glyphs**, which is `[node-bar-glyphs]` in
+ * `docs/contracts/iconography.md`: nothing in the registry means *join* or
+ * *remove this*, and this does not mint one on the spot.
+ */
+function BoxActs({
+  picked,
+  onRemove,
+  onJoin,
+  disabled,
+}: {
+  picked: readonly string[];
+  onRemove: (ids: readonly string[]) => void;
+  onJoin: (from: string, to: string) => void;
+  disabled: boolean;
+}) {
   const joinable = picked.length === A_JOIN_TAKES;
-  // The pen is a mode, so any other act puts it down. A press on Add is a box
-  // somebody is about to type in, and Join and Remove read a selection the pen
-  // cannot change — each of the three is a person having finished drawing.
-  const then = (act: () => void) => () => {
-    onPen(false);
-    act();
-  };
   return (
-    <div className="armada-sketch-pad__acts" role="group" aria-label="What you can draw">
+    <GraphCanvasNodeBar label={BOX_ACTS_LABEL} nodeIds={picked}>
       <Button
         size="sm"
-        aria-pressed={pen}
-        disabled={disabled}
-        title={pen ? "Drag on the pad to draw. Press again to stop." : "Draw on the pad by hand."}
-        onClick={() => onPen(!pen)}
-      >
-        Draw
-      </Button>
-      <Button
-        size="sm"
-        disabled={disabled || !drawn}
-        title={drawn ? "Takes the last line you drew back." : "Nothing has been drawn by hand."}
-        onClick={onUndo}
-      >
-        Undo
-      </Button>
-      <Button size="sm" disabled={disabled} onClick={then(() => onAdd(middle()))}>
-        Add a box
-      </Button>
-      <Button
-        size="sm"
+        ground="sunken"
         disabled={disabled || !joinable}
         title={joinable ? undefined : "Pick two boxes to join them."}
-        onClick={then(() => onJoin(picked[0]!, picked[1]!))}
+        onClick={() => onJoin(picked[0]!, picked[1]!)}
       >
         Join
       </Button>
-      <Button
-        size="sm"
-        disabled={disabled || picked.length === 0}
-        title={picked.length === 0 ? "Pick a box to take it off." : undefined}
-        onClick={then(() => onRemove(picked))}
-      >
+      <Button size="sm" ground="sunken" disabled={disabled} onClick={() => onRemove(picked)}>
         Remove
       </Button>
-    </div>
+    </GraphCanvasNodeBar>
   );
 }
 
@@ -342,13 +364,9 @@ export function SketchPad(props: SketchPadProps) {
           nodesDraggable={!disabled}
           multiSelectionKeyCode={JOINS_THE_SELECTION}
           fitViewOptions={FIT}
-          controls="signs"
-          aside={
-            <Acts
-              picked={picked}
+          rail={
+            <PadRail
               onAdd={onAdd}
-              onRemove={onRemove}
-              onJoin={onJoin}
               pen={drawing}
               onPen={setPen}
               drawn={strokes.length > 0}
@@ -358,6 +376,12 @@ export function SketchPad(props: SketchPadProps) {
           }
         >
           <Ink strokes={strokes} pen={drawing} onDraw={onDraw} />
+          {/* Not while the pen is down: the layer that catches a stroke covers
+              the whole canvas, so a bar drawn under it is one nothing can
+              press. Every rail act puts the pen away, which is the way back. */}
+          {drawing ? null : (
+            <BoxActs picked={picked} onRemove={onRemove} onJoin={onJoin} disabled={disabled} />
+          )}
         </GraphCanvas>
         {/* A blank canvas under the controls says nothing about what it is for,
             and this is the one moment with no picture to read instead. */}

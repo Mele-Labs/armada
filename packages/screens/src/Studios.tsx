@@ -11,7 +11,10 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useEffect, useState } from "react";
+import { Link as LinkGlyph, Shapes, StickyNote } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
+  ACTION,
   Alert,
   Button,
   Card,
@@ -20,7 +23,10 @@ import {
   CardTitle,
   Dialog,
   DropdownMenu,
+  GraphCanvasNodeBar,
+  GraphCanvasRailGroup,
   SplitButton,
+  STUDIO_NODE_KIND,
   StudioAddNode,
   StudioFrameSheet,
   StudioName,
@@ -34,7 +40,12 @@ import {
   TableRow,
   useStudioPlacement,
 } from "@armada/components";
-import type { StudioNodeByHand, StudioNodeByHandKind, StudioPickedAct } from "@armada/components";
+import type {
+  GraphCanvasRailAct,
+  StudioNodeByHand,
+  StudioNodeByHandKind,
+  StudioPickedAct,
+} from "@armada/components";
 import { captureOn, type OpenCaptureWindow } from "./capturing";
 import type {
   CheckoutRunSheetRead,
@@ -80,6 +91,32 @@ const PAST_THE_BOUND = "Select this Note to draw it.";
  * #1293 lands and this screen calls its operation instead.
  */
 const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+
+/**
+ * The kinds a person puts on a Studio by hand, as the rail draws them — the
+ * owner's note of 28 Sep 2026, which asked for a vertical bar of icons in place
+ * of the `+ Node` panel and its menu.
+ *
+ * **The noun is `STUDIO_NODE_KIND`'s and the key is the registry's**, so neither
+ * is written down twice; the glyphs are `packages/icons/icons.toml`, group
+ * `Canvas rail`.
+ */
+const ADD_BY_HAND: readonly { kind: StudioNodeByHandKind; icon: LucideIcon; shortcut?: string }[] = [
+  { kind: "note", icon: StickyNote, ...bindingOf("add_note") },
+  { kind: "link", icon: LinkGlyph, ...bindingOf("add_link") },
+  { kind: "sketch", icon: Shapes, ...bindingOf("add_sketch") },
+];
+
+/** One act's binding, or nothing where the registry gives it none. */
+function bindingOf(act: string): { shortcut?: string } {
+  const key = ACTION[act]?.shortcut;
+  return key === undefined ? {} : { shortcut: key };
+}
+
+/** What the rail is, and what hovers over what is picked. */
+const RAIL_LABEL = "What you can put on this Studio";
+
+const PICKED_LABEL = "What is picked";
 
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
@@ -583,8 +620,26 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             // a cluster of four is not a place.
             onSelectNode(ids[0] ?? null);
           }}
+          rail={
+            editable ? <AddRail adding={adding} onAdding={setAdding} /> : undefined
+          }
+          nodeBar={
+            <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
+              <StudioPicked
+                picked={onBoard.map((id) => nodeNamed(studio, id, jobs, board))}
+                acts={[...(editable ? promotion.acts : []), ...own]}
+                onAct={(id) => {
+                  const mine = own.find((act) => act.id === id);
+                  return mine === undefined ? promotion.onAct(id) : mine.press();
+                }}
+              />
+            </GraphCanvasNodeBar>
+          }
         >
-          {editable ? (
+          {/* The field is drawn only while a kind is being written: the rail is
+              what asks for one now, so `StudioAddNode`'s own menu is a door
+              this screen no longer opens. */}
+          {editable && adding !== null ? (
             <Card aria-label="Add a node">
               <CardContent>
                 <AddNode
@@ -609,14 +664,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
             </Card>
           ) : null}
-          <StudioPicked
-            picked={onBoard.map((id) => nodeNamed(studio, id, jobs, board))}
-            acts={[...(editable ? promotion.acts : []), ...own]}
-            onAct={(id) => {
-              const mine = own.find((act) => act.id === id);
-              return mine === undefined ? promotion.onAct(id) : mine.press();
-            }}
-          />
           {proposed.length === 0 ? null : (
             <Card className="armada-studio__proposals">
               <CardHeader>
@@ -727,6 +774,32 @@ function StartRun(props: {
       }}
     />
   );
+}
+
+/**
+ * The rail's tool group: one icon per kind a person puts on a Studio by hand.
+ *
+ * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
+ * 2026, which asked for a vertical bar of icons on the canvas's left. The field
+ * behind a press is still drawn in the board's aside, where it has room for a
+ * paragraph.
+ */
+function AddRail({
+  adding,
+  onAdding,
+}: {
+  adding: StudioNodeByHandKind | null;
+  onAdding: (kind: StudioNodeByHandKind) => void;
+}) {
+  const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
+    id: kind,
+    name: `Add a ${STUDIO_NODE_KIND[kind]}`,
+    icon,
+    pressed: adding === kind,
+    ...(shortcut === undefined ? {} : { shortcut }),
+    onPress: () => onAdding(kind),
+  }));
+  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
 }
 
 function AddNode(props: {

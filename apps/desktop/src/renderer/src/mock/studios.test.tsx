@@ -145,10 +145,11 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   await expect.element(page.getByRole("heading", { name: "The Board's legend" })).toBeVisible();
   await expect.poll(() => fleet.studios()[0]!.named_by).toBe("person");
 
-  // The menu, and the two keys behind it. `N` is the note and `V` the link,
-  // read off the registry by the surface that binds them.
-  await page.getByRole("button", { name: /Node/ }).click();
-  await page.getByRole("menuitem", { name: /Note/ }).click();
+  // The rail, and the two keys behind it. `N` is the note and `V` the link,
+  // read off the registry by the surface that binds them. It was a `+ Node`
+  // menu in a panel over the board until the owner asked for a rail of icons
+  // down the canvas's left on 28 Sep 2026.
+  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
   // A single key is suppressed while a field holds focus: the `V` in this note
   // stays in the note rather than opening a Link beside it.
   await userEvent.fill(page.getByLabelText("Note", { exact: true }), "The legend is unreadable in View");
@@ -271,6 +272,42 @@ test("a Studio row opens from anywhere on it, and its rename is behind the row's
   // which is the whole of what the note asked for.
   await row.getByRole("cell").nth(1).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
+});
+
+/**
+ * The owner's two notes of 28 Sep 2026 on the whiteboard: *can this be a
+ * vertical toolbar of icons on the left side of the canvas*, and *I wish the
+ * acts didn't show up in a fixed panel here and it was a toolbar that hovers
+ * over the node that I have selected*.
+ *
+ * **A mock test rather than a story, because the claim is about where things
+ * are.** A story can press the rail; what has to hold is that the acts are
+ * nowhere until a node is picked and then hang off that node's own box.
+ */
+test("the whiteboard's rail places a node, and the acts on one hover over it", async () => {
+  open(studying().scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // The rail: the tools above, then how you look at the board.
+  const rail = page.getByRole("group", { name: "What you can put on this Studio" });
+  await expect.element(rail).toBeVisible();
+  await expect.element(rail.getByRole("button", { name: "Add a Note" })).toBeVisible();
+  await expect.element(page.getByRole("group", { name: "How you are looking at this" })).toBeVisible();
+  // The panel it replaced is gone, menu and all.
+  expect(page.getByRole("button", { name: /^\+ Node/ }).query()).toBeNull();
+
+  // Nothing is picked, so nothing acts. The fixed panel used to stand here.
+  expect(offers().query()).toBeNull();
+
+  await pick(/^Note: The legend under the step bar/);
+  await expect.element(offers()).toBeVisible();
+  // Hanging off the node rather than off the board: React Flow places the bar
+  // against the node's own box, so what says it is hovering is `data-id`.
+  const bar = document.querySelector(".armada-graph-node-bar");
+  expect(bar?.getAttribute("data-id")).toMatch(/^[0-9A-Za-z-]+$/);
+  expect(bar?.getAttribute("data-id")).not.toBe("");
 });
 
 test("a scenario keeping no Studios draws the empty state, not a read failure", async () => {
