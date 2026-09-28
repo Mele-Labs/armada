@@ -57,29 +57,45 @@ type Drag = {
 
 /**
  * What the grip does, said for a keyboard: a cursor over it is not a label. The
- * scenario is on the end of it because it is the grip's visible text, and a name
- * a speech command cannot say is a control it cannot press.
+ * grip draws no text at all — it is a bar, and the scenario is the select's to
+ * say — so the name is on the end of the label, since a name a speech command
+ * cannot say is a control it cannot press.
  */
 const moveLabel = (current: string) => `Move the scenario picker — ${current}`;
 const MOVE_HINT = "Drag, or nudge with the arrow keys. Home returns it to the corner.";
 
 /**
+ * Collapsed, the whole chip is the press that reopens it — so its label says
+ * what pressing does rather than leaving a screen reader the bare scenario name
+ * the chip draws. It is still the grip, which the hint carries.
+ */
+const expandLabel = (current: string) => `Expand the scenario picker — ${current}`;
+const CHIP_HINT = `Press to expand. ${MOVE_HINT}`;
+
+/**
  * Choosing reloads on `?scenario=`, so a scenario never inherits the last one's window state.
  *
- * **The card is moved rather than parked.** It rested over Helm's column on the
- * assumption that column is empty below its composer, and on the screens being
- * annotated it is not — so the spot and the collapse are the owner's, kept
+ * **The picker is moved rather than parked.** It rested over Helm's column on
+ * the assumption that column is empty below its composer, and on the screens
+ * being annotated it is not — so the spot and the collapse are the owner's, kept
  * across that reload. The drag follows `LeftHandle` in `packages/components`:
  * pointer capture on the handle, a clamp, the same keys without a pointer. It
  * is a move, so the clamp bounds two axes and the handle is a real button —
  * there is no role for "drag me", and a keyboard has to reach it.
+ *
+ * **Expanded it is one row saying the scenario once**, and **collapsed it is a
+ * chip rather than a smaller card**: one small control tall, the name, and the
+ * whole of it presses to reopen.
  */
 export function Picker({ current }: { current: string }) {
-  const card = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<Spot | null>(() => readSpot());
   const [collapsed, setCollapsed] = useState(() => readCollapsed());
   const [dragging, setDragging] = useState(false);
   const drag = useRef<Drag | null>(null);
+  // A drag of the chip ends in a `click` on it, since the chip is both grip and
+  // press. Moved, that press is not one, or every lift would reopen the picker.
+  const shifted = useRef(false);
 
   /** Settled: held in state, and remembered for the next page. */
   function place(next: Spot): void {
@@ -87,13 +103,13 @@ export function Picker({ current }: { current: string }) {
     writeSpot(next);
   }
 
-  /** The card's box now — what a clamp needs, and where a first drag starts from. */
+  /** The picker's box now — what a clamp needs, and where a first drag starts from. */
   function box(): DOMRect | null {
-    return card.current?.getBoundingClientRect() ?? null;
+    return frame.current?.getBoundingClientRect() ?? null;
   }
 
   // A spot is read back into whatever window is open now, and collapsing
-  // changes the card's own size — one recovery, so both run through the clamp
+  // changes the picker's own size — one recovery, so both run through the clamp
   // here. `place` rather than `setSpot`: an unremembered recovery would read
   // the offscreen spot back on the next reload.
   useLayoutEffect(() => {
@@ -121,6 +137,7 @@ export function Picker({ current }: { current: string }) {
     } catch {
       // As above.
     }
+    shifted.current = false;
     drag.current = {
       pointerId: event.pointerId,
       fromX: event.clientX,
@@ -146,6 +163,7 @@ export function Picker({ current }: { current: string }) {
     );
     // State only: what gets remembered is where he left it, not every frame of getting there.
     held.moved = next;
+    shifted.current = true;
     setSpot(next);
   }
 
@@ -183,11 +201,28 @@ export function Picker({ current }: { current: string }) {
     });
   }
 
+  /** The chip pressed, which is the chip not dragged. */
+  function press(): void {
+    if (shifted.current) {
+      shifted.current = false;
+      return;
+    }
+    toggle();
+  }
+
+  const grip = {
+    onPointerDown: pointerDown,
+    onPointerMove: pointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+    onKeyDown: keyDown,
+  };
+
   return (
-    // The spot is on a frame around the card rather than on the card: `Card`
-    // takes no ref, and the box being measured is the one being moved.
+    // The spot is on a frame around the picker rather than on what it draws:
+    // `Card` takes no ref, and the box being measured is the one being moved.
     <div
-      ref={card}
+      ref={frame}
       className="armada-mock-picker"
       data-placed={spot === null ? undefined : true}
       data-collapsed={collapsed || undefined}
@@ -196,60 +231,70 @@ export function Picker({ current }: { current: string }) {
       // spelled — and none of these could be a token: the value is a pointer's.
       style={spot === null ? undefined : { left: spot.x, top: spot.y }}
     >
-      <Card>
-        <div className="armada-mock-picker__bar">
-          <Button
-            variant="ghost"
-            size="sm"
-            // A data attribute rather than a class: `Button` writes its own
-            // `className` after the spread, so one handed to it is dropped.
-            data-grip
-            aria-label={moveLabel(current)}
-            title={MOVE_HINT}
-            onPointerDown={pointerDown}
-            onPointerMove={pointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onKeyDown={keyDown}
-          >
-            {current}
-          </Button>
-          <Button variant="ghost" size="sm" aria-expanded={!collapsed} onClick={toggle}>
-            {collapsed ? "Expand" : "Minimize"}
-          </Button>
-        </div>
-        {collapsed ? null : (
-          <div className="armada-mock-picker__field">
-            <Select
-              label="Mock scenario"
-              value={current}
-              onChange={(event) => {
-                const url = new URL(window.location.href);
-                url.searchParams.set("scenario", event.target.value);
-                window.location.assign(url);
-              }}
-            >
-              {grouped().map(([group, scenarios]) =>
-                group === "" ? (
-                  scenarios.map((one) => (
-                    <option key={one.name} value={one.name} title={one.says}>
-                      {one.name}
-                    </option>
-                  ))
-                ) : (
-                  <optgroup key={group} label={group}>
-                    {scenarios.map((one) => (
+      {collapsed ? (
+        // The chip is the grip and the press at once, so it carries both.
+        <Button
+          variant="secondary"
+          size="sm"
+          data-chip
+          aria-label={expandLabel(current)}
+          aria-expanded={false}
+          title={CHIP_HINT}
+          onClick={press}
+          {...grip}
+        >
+          {current}
+        </Button>
+      ) : (
+        <Card>
+          <div className="armada-mock-picker__bar">
+            <Button
+              variant="ghost"
+              size="sm"
+              // A data attribute rather than a class: `Button` writes its own
+              // `className` after the spread, so one handed to it is dropped.
+              data-grip
+              aria-label={moveLabel(current)}
+              title={MOVE_HINT}
+              {...grip}
+            />
+            <div className="armada-mock-picker__field">
+              <Select
+                // Named for a screen reader, drawn for nobody: a label over the
+                // one control on a dev tool was the third element saying this.
+                aria-label="Mock scenario"
+                value={current}
+                onChange={(event) => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("scenario", event.target.value);
+                  window.location.assign(url);
+                }}
+              >
+                {grouped().map(([group, scenarios]) =>
+                  group === "" ? (
+                    scenarios.map((one) => (
                       <option key={one.name} value={one.name} title={one.says}>
                         {one.name}
                       </option>
-                    ))}
-                  </optgroup>
-                ),
-              )}
-            </Select>
+                    ))
+                  ) : (
+                    <optgroup key={group} label={group}>
+                      {scenarios.map((one) => (
+                        <option key={one.name} value={one.name} title={one.says}>
+                          {one.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ),
+                )}
+              </Select>
+            </div>
+            <Button variant="ghost" size="sm" aria-expanded onClick={toggle}>
+              Minimize
+            </Button>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
