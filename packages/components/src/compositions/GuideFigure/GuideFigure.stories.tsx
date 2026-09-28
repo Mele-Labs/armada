@@ -91,7 +91,7 @@ export const HeldStill: Story = {
     const figure = canvas.getByRole("img", { name: /landing in order/ });
     await expect(figure.getAnimations({ subtree: true })).toHaveLength(0);
     // The order and the links read from the drawing itself, not from the label.
-    for (const word of ["1", "2", "3", "Stacked on the one before it."]) {
+    for (const word of ["Member 1", "Member 2", "Member 3", /branches off member 1/]) {
       await expect(within(figure).getByText(word)).toBeVisible();
     }
   },

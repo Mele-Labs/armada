@@ -19,17 +19,10 @@
   overflow: hidden;
 }
 
-/* The acts on what is selected. Laid out here rather than in GraphCanvas: the
-   aside is the surface's, and a Studio's stacks where these sit in a row.
-   It wraps because the pad shares its card with the prompt: five acts do not
-   fit one row at the desktop floor, and a row that overflows puts Remove
-   outside the canvas rather than on a second line. */
-.armada-sketch-pad__acts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
+/* The acts stood in a wrapping row over the top-right corner until the owner
+   asked for a rail on 28 Sep 2026. Both halves are shared now — the pen, Undo
+   and Add a box on `GraphCanvasRail`, Join and Remove hovering over the boxes
+   they act on — so this file paints neither. GraphCanvas.css holds both. */
 
 /* The ink, in React Flow's own transformed viewport, so a stroke pans and
    zooms with the box it was drawn beside. It never takes the pointer: Undo is
@@ -70,10 +63,17 @@
 }
 
 /* Centred on the pad rather than in a corner, because on an empty pad it is
-   the only thing to read. It takes no pointer: the canvas under it pans. */
+   the only thing to read. It takes no pointer: the canvas under it pans.
+
+   It clears the rail on the leading side — the rail's own panel margin either
+   side of an icon-only `sm` button — because an empty pad is exactly when both
+   are on screen at once and the sentence ran under the icons. */
 .armada-sketch-pad__empty {
   position: absolute;
-  inset-inline: var(--space-6);
+  inset-inline-start: calc(
+    var(--space-3) + var(--space-1) * 2 + var(--h-control-sm) + var(--space-4)
+  );
+  inset-inline-end: var(--space-6);
   top: 50%;
   transform: translateY(-50%);
   margin: 0;

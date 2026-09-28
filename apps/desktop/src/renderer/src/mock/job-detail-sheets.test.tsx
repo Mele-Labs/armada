@@ -37,7 +37,7 @@ async function opened(
       : { observeRun: async (_jobId, runId) => fleet.publish({ runFollowed: runId === null ? { state: "none" } : followed }) }),
   });
   const app = mount({ ...scenario, state: { ...scenario.state, ...also }, behaves });
-  await expect.element(page.getByText(fixture.job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   return app.api;
 }
 

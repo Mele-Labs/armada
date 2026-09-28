@@ -35,7 +35,7 @@ describe("whether the region draws at all", () => {
   it("numbers the members from one, in the order they land", () => {
     const props = membersOf(view([member({ job: "a" }), member({ job: "b" })]), LANDING);
 
-    expect(props?.members.map((one) => one.ordinal)).toEqual([1, 2]);
+    expect(props?.train.members.map((one: { ordinal: number }) => one.ordinal)).toEqual([1, 2]);
   });
 });
 
@@ -49,25 +49,29 @@ describe("which branch a member's pull request targets", () => {
       LANDING,
     );
 
-    expect(props?.members[1]?.targets).toBe("armada/22-one-shape");
+    expect(props?.train.members[1]?.targets).toBe("armada/22-one-shape");
   });
 
-  it("is where the Job lands, for a member that is parked rather than stacked", () => {
+  it("is not drawn on a member that is parked rather than stacked", () => {
     const props = membersOf(
       view([member({ job: "a" }), member({ job: "b", link: "merged" })]),
       LANDING,
     );
 
-    expect(props?.members[1]?.targets).toBe("main");
+    // It targets where the Job lands, which the foot of the list already
+    // says once — a third of the row spent repeating `main` on every member
+    // is what the board leaves out.
+    expect(props?.train.members[1]?.targets).toBeUndefined();
+    expect(props?.train.joins?.[0]?.said).toContain("targets main");
   });
 
-  it("is where the Job lands for a published member, which is not stacked", () => {
+  it("is not drawn on a published member either, which is not stacked", () => {
     const props = membersOf(
       view([member({ job: "a" }), member({ job: "b", link: "published" })]),
       LANDING,
     );
 
-    expect(props?.members[1]?.targets).toBe("main");
+    expect(props?.train.members[1]?.targets).toBeUndefined();
   });
 
   it("is nothing where the member before it has no branch yet", () => {
@@ -76,13 +80,13 @@ describe("which branch a member's pull request targets", () => {
       LANDING,
     );
 
-    expect(props?.members[1]?.targets).toBeUndefined();
+    expect(props?.train.members[1]?.targets).toBeUndefined();
   });
 
   it("is nothing where the Job says nothing about where it lands", () => {
     const props = membersOf(view([member({ job: "a" })]), undefined);
 
-    expect(props?.members[0]?.targets).toBeUndefined();
+    expect(props?.train.members[0]?.targets).toBeUndefined();
   });
 });
 
@@ -103,11 +107,11 @@ describe("what finishes the parent", () => {
   });
 
   it("says every member has to land", () => {
-    expect(completeWhenSaid(three, LANDING)).toContain("Done when every member has landed.");
+    expect(completeWhenSaid(three, LANDING)).toContain("Every member has landed.");
   });
 
   it("still says so where the Job carries no landing rule at all", () => {
-    expect(completeWhenSaid(three, undefined)).toContain("Done when every member has landed.");
+    expect(completeWhenSaid(three, undefined)).toContain("Every member has landed.");
   });
 
   it("names the other three rules where one of them is set", () => {
@@ -171,16 +175,17 @@ describe("a member's own facts", () => {
       LANDING,
     );
 
-    expect(props?.members[0]?.pullRequestLabel).toBe("#1591");
+    expect(props?.train.members[0]?.pullRequestLabel).toBe("#1591");
   });
 
-  it("counts tasks without the dropped ones", () => {
+  it("draws one bar segment per task, the dropped ones left out", () => {
     const props = membersOf(
       view([member({ job: "a", tasks: { done: 2, working: 1, open: 1, dropped: 3 } })]),
       LANDING,
     );
 
-    expect(props?.members[0]?.tasks).toBe("2 of 4");
+    expect(props?.train.members[0]?.tasks).toEqual(["done", "done", "working", "open"]);
+    expect(props?.train.members[0]?.tasksSaid).toBe("4 tasks");
   });
 
   it("says nothing about a plan with no tasks left in it", () => {
@@ -189,13 +194,14 @@ describe("a member's own facts", () => {
       LANDING,
     );
 
-    expect(props?.members[0]?.tasks).toBeUndefined();
+    expect(props?.train.members[0]?.tasks).toBeUndefined();
+    expect(props?.train.members[0]?.tasksSaid).toBeUndefined();
   });
 
   it("renders a status the registry has no row for as the wire spelling", () => {
     const props = membersOf(view([member({ job: "a", status: "reconciling" })]), LANDING);
 
-    expect(props?.members[0]?.state).toEqual({
+    expect(props?.train.members[0]?.state).toEqual({
       as: "text",
       wire: "reconciling",
       missing: "No row in the registry for reconciling",
@@ -204,7 +210,7 @@ describe("a member's own facts", () => {
 
   it("takes the verb and the glyph from the registry for one it has", () => {
     const props = membersOf(view([member({ job: "a", status: "awaiting_review" })]), LANDING);
-    const state = props?.members[0]?.state;
+    const state = props?.train.members[0]?.state;
 
     expect(state?.as).toBe("badge");
     expect(state).toMatchObject({ status: "awaiting-review", label: "awaiting review" });
@@ -217,28 +223,28 @@ describe("which acts a member offers", () => {
   it("offers no drop where the caller has nothing to answer it with", () => {
     const props = membersOf(view([member({ job: "a" })]), LANDING);
 
-    expect(props?.members[0]?.onDrop).toBeUndefined();
+    expect(props?.train.members[0]?.onDrop).toBeUndefined();
   });
 
   it("offers a drop on a member still out", () => {
     const props = membersOf(view([member({ job: "a" })]), LANDING, acts);
 
-    expect(props?.members[0]?.onDrop).toBeDefined();
+    expect(props?.train.members[0]?.onDrop).toBeDefined();
   });
 
   it("offers none on one that landed, which has nothing left to close", () => {
     const props = membersOf(view([member({ job: "a", landed: true })]), LANDING, acts);
 
-    expect(props?.members[0]?.onDrop).toBeUndefined();
+    expect(props?.train.members[0]?.onDrop).toBeUndefined();
   });
 
   it("offers none on one already dropped", () => {
     const props = membersOf(view([member({ job: "a", dropped: "Folded in." })]), LANDING, acts);
 
-    expect(props?.members[0]?.onDrop).toBeUndefined();
+    expect(props?.train.members[0]?.onDrop).toBeUndefined();
   });
 
-  it("draws no question where nothing can answer it", () => {
+  it("draws the decision column on the member holding a refusal, and says so on its row", () => {
     const question = {
       step_id: "handoff",
       criterion_id: "c1",
@@ -248,11 +254,19 @@ describe("which acts a member offers", () => {
       consequence: "Unproven",
       asked_at: "2026-09-22T10:48:00Z",
     };
-    const held = view([member({ job: "a", question })]);
+    const held = view([member({ job: "a" }), member({ job: "b", question })]);
+    const props = membersOf(held, LANDING, { onAnswerJudge: () => undefined });
 
-    expect(membersOf(held, LANDING)?.members[0]?.question).toBeUndefined();
-    expect(
-      membersOf(held, LANDING, { onAnswerJudge: () => undefined })?.members[0]?.question,
-    ).toBeDefined();
+    expect(props?.decision?.who).toBe("Member 2");
+    expect(props?.decision?.criterion).toBe("c1");
+    expect(props?.train.members[1]?.asked).toContain("Does it cover the empty store?");
+    expect(props?.train.waiting).toBe(1);
+  });
+
+  it("draws no decision column where no member is asking anything", () => {
+    const props = membersOf(view([member({ job: "a" })]), LANDING);
+
+    expect(props?.decision).toBeUndefined();
+    expect(props?.lead.said).toBe("Nothing is waiting on you.");
   });
 });

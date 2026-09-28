@@ -148,27 +148,21 @@
   min-width: 0;
 }
 
-/* A member's fact table is five rows of detail, and the relation here is the
-   order. The cards keep their rail, their number, their badge and their link. */
-.armada-guide-figure__members .armada-members__facts {
-  display: none;
-}
-
 /* Each member arrives in its own turn, staged by its place in the one list.
    Spelled per child because the stagger belongs to the drawing rather than to
    `JobMembers`, which has no idea it is being drawn. */
-.armada-guide-figure__members .armada-members__member {
+.armada-guide-figure__members .armada-members__entry {
   animation: armada-guide-arriving var(--duration-travel) var(--ease) both;
 }
 
-.armada-guide-figure__members .armada-members__member:nth-child(2) {
+.armada-guide-figure__members .armada-members__entry:nth-child(2) {
   animation-delay: calc(var(--duration-travel) * 0.4);
 }
 
-.armada-guide-figure__members .armada-members__member:nth-child(3) {
+.armada-guide-figure__members .armada-members__entry:nth-child(3) {
   animation-delay: calc(var(--duration-travel) * 0.8);
 }
 
-.armada-guide-figure[data-still] .armada-members__member {
+.armada-guide-figure[data-still] .armada-members__entry {
   animation: none;
 }

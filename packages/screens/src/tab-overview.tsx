@@ -8,7 +8,7 @@
 // **The Job header and the tab strip belong to `JobDetail.tsx`.** An addition
 // to a region goes in that region's file; an addition to the screen goes there.
 
-import { JobHoldsSummary, JobMembers } from "@armada/components";
+import { JobHoldsSummary } from "@armada/components";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { InsideAJob } from "./InsideAJob";
@@ -36,6 +36,7 @@ import type { StepChapter } from "@armada/components";
 import { againOf, useShowAgain } from "./again";
 import { approvalOverviewOf } from "./approval";
 import { LandBoard } from "./LandBoard";
+import { TrainBoard } from "./TrainBoard";
 import { landedOf } from "./landed";
 import { span } from "./duration";
 import { ordered } from "./facts";
@@ -171,14 +172,6 @@ export function OverviewTab(props: OverviewTabProps) {
     onOpenRemarkLink,
     onCopied,
     onSaid,
-    models,
-    onSetWhenBlocked,
-    onSetWhenRefused,
-    onSetModel,
-    onSetReviewModel,
-    onRemoveAllowedCommand,
-    onRaiseCap,
-    onRaiseTurnCap,
     onAddTask,
     onDropTask,
     rehearsal,
@@ -717,11 +710,6 @@ export function OverviewTab(props: OverviewTabProps) {
             // The sheet draws the same board as the Pulse tab, so it holds the
             // same poll open while it is the sheet on screen. #1571.
             onNeedPulse={onNeedPulse}
-            // Every setting a person can change on this Job, and what each sends.
-            settings={{
-              models, stale, acting, actingAct, onSetWhenBlocked, onSetWhenRefused, onSetModel, onSetReviewModel,
-              onRemoveAllowedCommand, onRaiseCap, onRaiseTurnCap,
-            }}
             run={runHook.slot}
             floor={floor}
             onClose={closeSheet}
@@ -731,9 +719,6 @@ export function OverviewTab(props: OverviewTabProps) {
   const inside = (
     <InsideAJob
       run={run.map(named)}
-      // Several pull requests landing in order, above the two columns. Absent
-      // on every Job that lands one of its own, which is every Job today.
-      {...(members === undefined ? {} : { members: <JobMembers {...members} onSaid={onSaid} onCopied={onCopied} /> })}
       // The name Fleet holds, the id where it does not — a Job older than the
       // check that refuses a workflow-less proposal at creation.
       runWorkflowLabel={workflow?.name ?? job.workflow_id}
@@ -889,6 +874,18 @@ export function OverviewTab(props: OverviewTabProps) {
     />
   );
 
+
+  // A Job whose members are Jobs is read for the order and the one decision
+  // open on it — `TrainBoard`, which takes this destination the way the Land
+  // board does. The parent's own run is the Workflow tab's.
+  if (members !== undefined) {
+    return (
+      <>
+        <TrainBoard read={members} onSaid={onSaid} onCopied={onCopied} />
+        {sheetSlot}
+      </>
+    );
+  }
 
   // A Job that has finished is read for what it came to, not for the run that
   // is over: the board takes this destination and the run is the Workflow

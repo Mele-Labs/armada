@@ -151,7 +151,7 @@ test("j and k move Overview's cursor across sections, Enter opens, x asks to kil
   drawn[1]!.focus();
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => rows().length).toBe(0);
-  await expect.element(page.getByText(handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: handle })).toBeVisible();
 });
 
 test("the focused row is Overview's cursor, and Helm's footer names it", async () => {

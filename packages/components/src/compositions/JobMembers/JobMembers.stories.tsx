@@ -3,7 +3,7 @@ import { Check, CircleDot, Eye } from "lucide-react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { JobMembers } from "./JobMembers";
-import type { JobMemberRow } from "./JobMembers";
+import type { JobMemberJoin, JobMemberRow } from "./JobMembers";
 
 /**
  * A Job whose members are Jobs — several pull requests landing in a set order.
@@ -19,14 +19,19 @@ export default meta;
 
 type Story = StoryObj<typeof JobMembers>;
 
-const COMPLETE = "Done when every member has landed. One of three pull requests is in.";
+const COMPLETE = "Every member has landed. One of three pull requests is in.";
+
+/** One segment per member, filled where that pull request merged. */
+const COMPLETE_BAR = ["done", "open", "open"] as const;
+
+/** The line drawn between each pair, which is how the two are related. */
+const JOINS: readonly JobMemberJoin[] = [
+  { link: "published", said: "Member 2 waits on what member 1's merge publishes." },
+  { link: "stacked", said: "Member 3 branches off member 2, so it keeps working." },
+];
 
 const QUESTION = {
   question: "Does every selector answer for a store nothing has written to yet?",
-  expected: "A case for the empty store beside each selector",
-  produced: "Two of the six selectors are exercised only against a filled store",
-  consequence: "A first launch reads undefined through those two, before anything is saved",
-  moves: "Agreeing stops this pull request, and the one stacked on it waits where it is.",
 };
 
 /** The first member: its pull request merged, so nothing is before or behind it. */
@@ -41,7 +46,9 @@ const LANDED: JobMemberRow = {
   pullRequestLabel: "1591",
   branch: "armada/22-give-the-store-one-shape",
   scope: ["packages/settings/src/store.ts"],
-  tasks: "4 of 4",
+  tasks: ["done", "done", "done", "done"],
+  tasksSaid: "4 tasks",
+  pullRequestState: "merged",
 };
 
 const AWAITING: JobMemberRow = {
@@ -55,7 +62,9 @@ const AWAITING: JobMemberRow = {
   pullRequestLabel: "1598",
   branch: "armada/23-read-the-store-through-selectors",
   scope: ["packages/settings/src/read.ts", "apps/desktop/src/renderer/"],
-  tasks: "3 of 3",
+  tasks: ["done", "done", "done"],
+  tasksSaid: "3 tasks",
+  pullRequestState: "open",
 };
 
 const STACKED: JobMemberRow = {
@@ -67,12 +76,13 @@ const STACKED: JobMemberRow = {
   targets: "armada/23-read-the-store-through-selectors",
   branch: "armada/24-drop-the-store-singleton",
   scope: ["packages/settings/src/", "crates/config/src/"],
-  tasks: "1 of 5",
+  tasks: ["done", "working", "open", "open", "open"],
+  tasksSaid: "5 tasks",
 };
 
 /** Three pull requests: one merged, one waiting on a person, one stacked on it. */
 export const ThreeLandingInOrder: Story = {
-  args: { completeWhen: COMPLETE, members: [LANDED, AWAITING, STACKED] },
+  args: { completeWhen: COMPLETE, completeBar: COMPLETE_BAR, joins: JOINS, said: "3 members, a worktree and a pull request each", members: [LANDED, AWAITING, STACKED] },
 };
 
 /** The third parked as a draft instead: it targets main and waits for the second. */
@@ -91,14 +101,16 @@ export const TheThirdParked: Story = {
 export const AMemberAsksSomething: Story = {
   args: {
     completeWhen: COMPLETE,
-    members: [LANDED, { ...AWAITING, question: { ...QUESTION, onAnswer: fn() } }, STACKED],
+    waiting: 1,
+    joins: JOINS,
+    members: [LANDED, { ...AWAITING, asked: `The Judge refused covers_the_empty_store. ${QUESTION.question}` }, STACKED],
   },
 };
 
 /** One member dropped: its pull request is closed and its branch is kept. */
 export const OneDropped: Story = {
   args: {
-    completeWhen: "Done when every member has landed. One of two pull requests is in.",
+    completeWhen: "Every member has landed. One of two pull requests is in.",
     members: [
       LANDED,
       { ...AWAITING, dropped: "The selectors moved into the third landing.", landed: false },
@@ -110,7 +122,7 @@ export const OneDropped: Story = {
 /** Nothing has a worktree yet: every part says why rather than going blank. */
 export const NothingServedYet: Story = {
   args: {
-    completeWhen: "Done when every member has landed. No pull request is in.",
+    completeWhen: "Every member has landed. No pull request is in.",
     members: [
       { id: "a", ordinal: 1, title: "Give the store one shape", state: LANDED.state },
       {

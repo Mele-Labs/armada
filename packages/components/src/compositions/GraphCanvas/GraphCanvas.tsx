@@ -13,7 +13,9 @@ import {
 } from "@xyflow/react";
 import { useCallback, type ReactNode } from "react";
 
-import { Button } from "../../primitives/Button/Button";
+import { Maximize } from "lucide-react";
+
+import { GraphCanvasRailGroup, type GraphCanvasRailAct } from "./GraphCanvasRail";
 
 /**
  * The graph surface itself — pan, zoom, fit, selection and the controls that
@@ -29,14 +31,6 @@ import { Button } from "../../primitives/Button/Button";
  * type, the controls are `Button`, and `GraphCanvas.css` sets every variable
  * `base.css` would paint with to a token.
  */
-
-/**
- * How the zoom pair is worded. `words` on a surface a person works in, `signs`
- * on one drawn over a run — three words of chrome compete with a Job's run,
- * and the boards draw `−` `+` `Fit` there. The accessible name is the same in
- * both, so nothing a screen reader hears changes with the wording.
- */
-export type GraphCanvasControls = "words" | "signs";
 
 export type GraphCanvasProps<N extends Node, E extends Edge> = {
   /**
@@ -66,15 +60,27 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    * is fitted to a scale it cannot reach and drawn clipped at both ends.
    */
   minZoom?: number;
-  controls?: GraphCanvasControls;
   /**
-   * Drawn beside the zoom pair and Fit — the one thing a surface adds to its
-   * own controls, like the workflow canvas's *Stay on the running step*.
+   * The rail's own groups, above the view group this draws — what a person puts
+   * on the canvas. `GraphCanvasRailGroup` is what goes here, one per group, and
+   * `docs/contracts/iconography.md`, *The canvas rail*, is the rule.
+   *
+   * **Drawn inside the graph, like `children`**, so a rail act may read the
+   * viewport it places something into. Absent is a canvas with nothing to
+   * place, which still carries the view group.
    */
-  besideControls?: ReactNode;
+  rail?: ReactNode;
   /**
-   * What the surface draws over the top-right corner — the acts on what is
-   * selected, the relations waiting on a person. The canvas decides nothing.
+   * A group under the view group, for a control only one surface has — the
+   * workflow canvas's *Stay on the running step*. It is neither a tool nor a
+   * zoom, and the rail lets a surface say so rather than making every surface
+   * carry the same rows.
+   */
+  railBelow?: ReactNode;
+  /**
+   * What the surface draws over the top-right corner — the relations waiting on
+   * a person, and whatever a selection cannot hover over itself. The canvas
+   * decides nothing.
    */
   aside?: ReactNode;
   /**
@@ -126,23 +132,23 @@ const ARIA = {
 /** `−` and `+`, the signs the boards draw. Not glyphs: `iconography.md` defaults to none. */
 const SIGN = { in: "+", out: "−" } as const;
 
-function Controls({ wording, beside }: { wording: GraphCanvasControls; beside: ReactNode }) {
+/** What the view group is, read to somebody who cannot see it. */
+const VIEW_LABEL = "How you are looking at this";
+
+/**
+ * How a person looks at the canvas: out, in, and the whole of it. **Every
+ * canvas has these and the rail draws them for all four**, which is why they
+ * are here rather than handed in — the owner's note of 28 Sep 2026 took them
+ * out of the bottom-right corner and put them under the tools.
+ */
+function ViewGroup() {
   const flow = useReactFlow();
-  const signs = wording === "signs";
-  return (
-    <Panel position="bottom-right" className="armada-graph-canvas__controls">
-      {beside}
-      <Button size="sm" aria-label={signs ? "Zoom out" : undefined} onClick={() => void flow.zoomOut()}>
-        {signs ? SIGN.out : "Zoom out"}
-      </Button>
-      <Button size="sm" aria-label={signs ? "Zoom in" : undefined} onClick={() => void flow.zoomIn()}>
-        {signs ? SIGN.in : "Zoom in"}
-      </Button>
-      <Button size="sm" onClick={() => void flow.fitView()}>
-        Fit
-      </Button>
-    </Panel>
-  );
+  const acts: GraphCanvasRailAct[] = [
+    { id: "out", name: "Zoom out", sign: SIGN.out, onPress: () => void flow.zoomOut() },
+    { id: "in", name: "Zoom in", sign: SIGN.in, onPress: () => void flow.zoomIn() },
+    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void flow.fitView() },
+  ];
+  return <GraphCanvasRailGroup label={VIEW_LABEL} acts={acts} />;
 }
 
 function Surface<N extends Node, E extends Edge>({
@@ -159,8 +165,6 @@ function Surface<N extends Node, E extends Edge>({
   fitView = true,
   fitViewOptions,
   minZoom,
-  controls = "words",
-  besideControls,
   aside,
   children,
 }: GraphCanvasProps<N, E>) {
@@ -197,17 +201,35 @@ function Surface<N extends Node, E extends Edge>({
           {aside}
         </Panel>
       )}
-      <Controls wording={controls} beside={besideControls} />
       {children}
     </ReactFlow>
   );
 }
 
+/**
+ * The graph, with the rail beside it.
+ *
+ * **The rail is a column of the frame and not a layer over the pane.** Drawn as
+ * a React Flow `Panel` it covered whatever the fit put under it — the workflow
+ * run's first card, measured 28 Sep 2026 — and every surface would have owed a
+ * fit padding nobody could compute from a token. A column cannot overlap.
+ *
+ * It is still inside the provider, so a rail act reads the viewport it places
+ * something into.
+ */
 export function GraphCanvas<N extends Node, E extends Edge>(props: GraphCanvasProps<N, E>) {
+  const { rail, railBelow } = props;
   return (
     <div className="armada-graph-canvas-frame">
       <ReactFlowProvider>
-        <Surface {...props} />
+        <div className="armada-graph-rail">
+          {rail}
+          <ViewGroup />
+          {railBelow}
+        </div>
+        <div className="armada-graph-canvas-frame__pane">
+          <Surface {...props} />
+        </div>
       </ReactFlowProvider>
     </div>
   );

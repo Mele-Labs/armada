@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { phaseSaid } from "./compositions/PhaseCard/PhaseCard";
+import { Tooltip } from "./primitives/Tooltip/Tooltip";
 
 /**
  * What a word naming an Armada concept means, in one sentence, written once.
@@ -111,6 +112,46 @@ const SAID: Readonly<Record<string, string>> = {
     "How many of the panel refused. One veto is a refusal whatever its size — the count is what " +
     "tells a lone dissent from a unanimous one, which are different situations for you and the " +
     "same verdict for the Job.",
+
+  // A Job's own settings. Every one of these is a label a person hovers on
+  // Overview, and a label there answers for itself or it answers nowhere: a
+  // `?` beside a region explains the region, and nine marks down a column of
+  // nine settings would be nine cards for nine words.
+  model: "Which model a task runs on, picked by how hard the planner judged that task to be.",
+  difficult: "Tasks the planner judged hardest. Each one runs on the model named beside it.",
+  medium: "Tasks the planner judged ordinary. Each one runs on the model named beside it.",
+  easy: "Tasks the planner judged simplest. Each one runs on the model named beside it.",
+  "drones at once":
+    "How many Drones this Job may run side by side. The machine's own cap holds over it, so a " +
+    "Job never runs more than the machine allows.",
+  "cost cap":
+    "What this Job may spend before Fleet stops it. Stopping is not failing — the work is kept " +
+    "and you decide whether to raise the ceiling.",
+  "turn cap":
+    "How many turns this Job's Drones may take before Fleet stops it. A turn is one exchange " +
+    "between Fleet and a Drone.",
+  repository:
+    "The git repository this Job works in. Its Manifest is what declares the Checks, and the " +
+    "worktree is cut from it.",
+  from:
+    "The ref this Job's branch is cut from. It differs from where the work lands when you start " +
+    "from a branch nothing has merged yet.",
+  "lands in":
+    "The branch this Job's pull request is opened against. The Manifest names it unless this " +
+    "Job was given another.",
+  landing: "Where the work goes when it is done, and what has to be true before Armada says so.",
+  branches:
+    "Whether the Job takes one branch for all of its work or one per group of tasks. Every " +
+    "commit its Drones make lands on that branch and nowhere else.",
+  "complete when":
+    "What has to have happened before Armada calls the Job finished. Until it has, the Job " +
+    "stays open whatever its last step did.",
+  // **One word, two surfaces**: the header's fact names the pull request this
+  // Job opened, and this setting names how it is offered. One sentence has to
+  // be true of both, which is what keying by the word buys.
+  "pull request":
+    "The pull request this Job's work lands as. It is opened either way — offered for review, " +
+    "or parked as a draft, which asks nobody to look at it yet.",
 };
 
 /**
@@ -129,4 +170,33 @@ export function conceptSaid(word: ReactNode): string | undefined {
   if (typeof word !== "string") return undefined;
   const key = word.trim().toLowerCase().replace(/\s+/g, " ").replace(/ \d+$/, "");
   return SAID[key];
+}
+
+/**
+ * A label, and what its word means where the table above has a sentence for
+ * it. A word the table does not carry draws as itself, with no hover at all.
+ *
+ * **One of these, not one per surface.** The header, the run tree and the
+ * proposal each grew a private label doing exactly this, which is three
+ * places for one rule. It lives beside the sentences it looks up rather than
+ * in a composition of its own: the table is the thing, and this is how it
+ * reaches a screen.
+ */
+export function ConceptLabel({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  /** The caller's own class for the label. Absent draws a bare span. */
+  className?: string;
+}) {
+  const says = conceptSaid(children);
+  const label = <span className={className}>{children}</span>;
+  return says === undefined ? (
+    label
+  ) : (
+    <Tooltip asChild label={says}>
+      {label}
+    </Tooltip>
+  );
 }

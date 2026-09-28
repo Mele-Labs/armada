@@ -320,6 +320,9 @@ export * from "./compositions/WorkNarration/WorkNarration";
 // The graph surface React Flow draws — a Studio's board and a Job's workflow
 // share it, and neither holds placement. #1539.
 export * from "./compositions/GraphCanvas/GraphCanvas";
+// The rail down a canvas's leading edge, and what hovers over a picked node.
+// Every canvas mounts the same two — docs/contracts/iconography.md.
+export * from "./compositions/GraphCanvas/GraphCanvasRail";
 // A Studio's nodes, and the whiteboard React Flow draws them on. #1286.
 export * from "./compositions/StudioCapture/StudioCapture";
 export * from "./compositions/CaptureBar/CaptureBar";
@@ -359,6 +362,7 @@ export * from "./compositions/JobProposal/JobProposal";
 export * from "./compositions/SketchPad/SketchPad";
 // A Job whose members are Jobs — pull requests landing in order. #1543.
 export * from "./compositions/JobMembers/JobMembers";
+export * from "./compositions/JobMembers/MemberDecision";
 // The implement step opened — its groups, their tasks, and what ran at each
 // group's end. #1536.
 export * from "./compositions/GroupBoundary/GroupBoundary";

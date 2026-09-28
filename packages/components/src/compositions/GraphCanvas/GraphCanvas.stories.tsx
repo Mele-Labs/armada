@@ -2,8 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Handle, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import { expect, waitFor } from "storybook/test";
 
+import { SquarePlus, Undo2 } from "lucide-react";
+
 import { Card, CardContent, CardTitle } from "../../primitives/Card/Card";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "./GraphCanvas";
+import { GraphCanvasRailGroup } from "./GraphCanvasRail";
 
 /**
  * The graph surface on its own, with three plain cards on it — what is left
@@ -63,23 +66,41 @@ const args = { surface: "armada-graph-canvas-demo", label: "Three cards", nodes,
 
 type Story = StoryObj<typeof GraphCanvas<Card, Line>>;
 
-/** A surface a person works in names its controls. */
-export const NamedControls: Story = { args };
-
 /**
- * A surface drawn over a run draws the signs instead.
+ * The canvas with nothing on its rail but the view group — every canvas carries
+ * that much, and a surface with nothing to place carries only that.
  *
- * **A `play`, because the rendering is the half that changed and the half that
- * must not is what a screen reader hears.** `−` and `+` carry no accessible
- * name of their own, so without the labels below the two controls are read out
- * as punctuation.
+ * **A `play`, because what a reader hears is the half a rendering cannot
+ * show.** Every button on the rail is icon-only: `−` and `+` carry no
+ * accessible name of their own and Fit is a glyph now, so without the names
+ * below the group is read out as punctuation and a shape.
  */
-export const SignedControls: Story = {
-  args: { ...args, controls: "signs" },
+export const ViewOnly: Story = {
+  args,
   play: async ({ canvas }) => {
     await waitFor(() => expect(canvas.getByRole("button", { name: "Zoom in" })).toBeVisible());
     await expect(canvas.getByRole("button", { name: "Zoom in" })).toHaveTextContent("+");
     await expect(canvas.getByRole("button", { name: "Zoom out" })).toHaveTextContent("−");
     await expect(canvas.getByRole("button", { name: "Fit" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "How you are looking at this" })).toBeVisible();
+  },
+};
+
+/**
+ * A surface with tools of its own: its group sits above the view group, with a
+ * gap between the two — the owner's own drawing of 28 Sep 2026.
+ */
+export const WithTools: Story = {
+  args: {
+    ...args,
+    rail: (
+      <GraphCanvasRailGroup
+        label="What you can put on this"
+        acts={[
+          { id: "add", name: "Add a box", icon: SquarePlus, onPress: () => undefined },
+          { id: "undo", name: "Undo", icon: Undo2, disabled: true, why: "Nothing to take back.", onPress: () => undefined },
+        ]}
+      />
+    ),
   },
 };

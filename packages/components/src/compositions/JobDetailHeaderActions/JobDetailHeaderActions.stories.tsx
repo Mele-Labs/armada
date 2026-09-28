@@ -206,8 +206,10 @@ export const ThePullRequestOnceItLanded: Story = {
     await expect(link).not.toHaveTextContent(address);
     await expect(link).toHaveAttribute("title", address);
 
-    // One fact, not two: the fold puts the comma inside the same run.
-    await expect(link.parentElement).toHaveTextContent("Pull request #4711, merged");
+    // One fact, not two: the fold puts the comma inside the same run. Read as
+    // a pattern rather than a string, because the label carries the
+    // vocabulary's own sentence for `pull request` in a bubble of its own.
+    await expect(link.parentElement).toHaveTextContent(/Pull request[\s\S]*#4711, merged/);
 
     // The click leaves, and this window does not. `preventDefault` is what
     // keeps a forge address from loading over the app, and the host is what

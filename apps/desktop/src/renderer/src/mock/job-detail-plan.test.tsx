@@ -31,7 +31,7 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 /** App with this Job open, over a scenario whose Fleet answers these calls its own way. */
 async function opened(fixture: JobFixture, behaves?: Scenario["behaves"], whereOpen = false): Promise<BridgeApi> {
   const app = mount({ ...onJob(fixture, { whereOpen }), behaves });
-  await expect.element(page.getByText(fixture.job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   return app.api;
 }
 
@@ -182,17 +182,17 @@ test("a refused Add task says nothing was sent, and keeps the title typed", asyn
   await expect.element(dialog.getByLabelText("Title")).toHaveValue("Add a regression test");
 });
 
-test("Job settings: a choice sends this Job's id and the wire's word, and the repository-wide allow is read-only", async () => {
+test("Job settings: the sixth destination, and a choice sends this Job's id and the wire's word", async () => {
   const api = await opened(runningWithSettings());
   const setWhenBlocked = vi.spyOn(api, "setWhenBlocked");
-  await page.getByRole("button", { name: /^Job settings/ }).click();
-  const panel = page.getByRole("dialog", { name: "Job settings" });
-  await entered(panel);
-  (panel.getByRole("radio", { name: "Ask me first" }).element() as HTMLElement).click();
+  // The strip is the way in since 28 Sep 2026 — the header button is gone.
+  expect(page.getByRole("button", { name: /^Job settings/ }).query()).toBeNull();
+  await page.getByRole("tab", { name: /^Settings/ }).click();
+  (page.getByRole("radio", { name: "Ask me first" }).element() as HTMLElement).click();
   await expect.poll(() => setWhenBlocked.mock.calls.length).toBe(1);
   expect(setWhenBlocked).toHaveBeenCalledWith(JOB_ID, "ask_me");
-  await expect.element(panel.getByText("gh issue view")).toBeVisible();
-  expect(panel.getByRole("button", { name: "Remove gh issue view" }).query()).toBeNull();
+  await expect.element(page.getByText("gh issue view")).toBeVisible();
+  expect(page.getByRole("button", { name: "Remove gh issue view" }).query()).toBeNull();
 });
 
 /** Choose an answer to the waiting command. The radios are inputs under the controls they style. */

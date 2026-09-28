@@ -1,37 +1,19 @@
-import { GitBranch, GitPullRequest } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useState } from "react";
 
-import type { JudgeAnswer } from "@armada/protocol";
-import { Badge } from "../../primitives/Badge/Badge";
+import { GUIDE_MEMBER_LINK } from "../../guides";
 import { Button } from "../../primitives/Button/Button";
+import { GuideMark } from "../GuideMark/GuideMark";
 import { Input } from "../../primitives/Input/Input";
-import { JudgeQuestion } from "../JudgeQuestion/JudgeQuestion";
+import { StepBar } from "../StepBar/StepBar";
+import type { TaskBarSegment } from "../StepBar/StepBar";
 
 /**
  * How a member's work reaches the one before it.
  * `docs/concepts/landing.md` defines the three and nothing else may.
  */
 export type JobMemberLink = "stacked" | "merged" | "published";
-
-/**
- * Which link a member carries, written once.
- *
- * **Fixed copy, identical on every member that carries it** — the Voice
- * contract's rule for Armada's own strings.
- *
- * **Each says which of the three this member is and stops there.** What the
- * three *are* — that stacked keeps working and rebases, that parked does not,
- * that published waits on a release rather than on the merge — is true of a
- * member that has never run, so it is guide 2 and the `?` over the list
- * (#1602). The sentences here used to carry both.
- */
-export const MEMBER_LINK: Readonly<Record<JobMemberLink, string>> = {
-  stacked: "Stacked on the one before it.",
-  merged: "Parked until the one before it lands.",
-  published: "Waits on what the one before it publishes.",
-};
 
 /** The button, and the word it produces. `design-system.md`, the verb table. */
 export const DROP_MEMBER_LABEL = "Drop";
@@ -47,30 +29,7 @@ export type JobMemberState =
   | { as: "badge"; status: string; icon: LucideIcon; label: string }
   | { as: "text"; wire: string; missing: string };
 
-/** A Judge refusal one member is holding, answered where it is read. */
-export type JobMemberQuestion = {
-  /** Which criterion refused. */
-  question: string;
-  expected: string;
-  produced: string;
-  consequence: string;
-  /**
-   * What the answer moves besides this member — the pull requests held behind
-   * it, named. **Spelled out rather than implied**: the same verdict is
-   * written either way, and what is only true here is that others are waiting
-   * on the press.
-   */
-  moves: ReactNode;
-  onAnswer: (answer: JudgeAnswer, note?: string) => void;
-  /** An answer already in flight, or nothing live to send it over. */
-  disabled?: boolean;
-  /** Why the controls are off, where they are. */
-  disabledNote?: string;
-  /** The answer that was pressed and Fleet has not answered. */
-  pending?: boolean;
-};
-
-/** One Job landing under this one. */
+/** One Job landing under this one, as one row of the train. */
 export type JobMemberRow = {
   id: string;
   /** Where it sits in the order, counting from one. */
@@ -88,16 +47,29 @@ export type JobMemberRow = {
   targets?: string;
   /** The address of its pull request. Absent until it has opened one. */
   pullRequest?: string;
-  /** What that address is called on screen — `1591`, never the whole URL. */
+  /** What that address is called on screen — `#1591`, never the whole URL. */
   pullRequestLabel?: string;
+  /** What the pull request is — `merged`, `open`, `draft`. */
+  pullRequestState?: string;
   branch?: string;
   /** The paths it writes. */
   scope?: readonly string[];
-  /** Its plan, counted — `3 of 4`. */
-  tasks?: string;
+  /**
+   * Its plan, one segment per task not dropped. **A bar, never a count in
+   * words** — read down a column of members it says which one is near the end,
+   * where `4 of 4` has to be converted first.
+   */
+  tasks?: readonly TaskBarSegment[];
+  /** The same plan counted, ending the row — `9 tasks`. */
+  tasksSaid?: string;
   /** Why somebody dropped it. Present only on a dropped member. */
   dropped?: string;
-  question?: JobMemberQuestion;
+  /**
+   * The refusal this member is holding a person up on, in one line. **The row
+   * says a question is open; the column beside it is where it is answered** —
+   * three inline answer blocks would be three decisions on one screen.
+   */
+  asked?: ReactNode;
   /** Open this member's own Job. */
   onOpen?: () => void;
   /**
@@ -108,48 +80,87 @@ export type JobMemberRow = {
   onDrop?: (reason: string) => void;
   /**
    * Open the pull request where it lives. **Bound by the caller and taking no
-   * address**: what is sent is the member's Job id, so the string this card
+   * address**: what is sent is the member's Job id, so the string this row
    * drew never decides what opens. Nothing in Bridge navigates.
    */
   onOpenPullRequest?: () => void;
+};
+
+/** The line drawn between two members, which is how they are related. */
+export type JobMemberJoin = {
+  /** What the edge does, in one sentence naming both members. */
+  said: ReactNode;
+  /** Which of the three it is, in the wire's own word. */
+  link: JobMemberLink;
 };
 
 export type JobMembersProps = {
   /** Every member, in the order they land. */
   members: readonly JobMemberRow[];
   /**
+   * The line between one member and the next, one shorter than `members`:
+   * `joins[0]` is drawn between the first member and the second. An entry left
+   * out draws no line, which is a member whose edge nothing on the wire says.
+   */
+  joins?: readonly (JobMemberJoin | undefined)[];
+  /** What the set is, beside its name — `three members, a pull request each`. */
+  said?: ReactNode;
+  /** How many members are holding a question, where any are. */
+  waiting?: number;
+  /**
    * What has to happen before this Job is finished, and how far along that is
-   * — `Done when every member has landed. One of three pull requests is in.`
+   * — `Every member's pull request has merged. One of three is in.`
    */
   completeWhen: ReactNode;
+  /** One segment per member, filled where that member's pull request merged. */
+  completeBar?: readonly TaskBarSegment[];
   /** Why there are no members, where there are none. Said in words. */
   absent?: ReactNode;
+  /**
+   * The rows and the lines between them, with no card, no head and no foot.
+   * **For a guide's figure**, which draws the relation rather than the region
+   * — and which must hold no control, so the head's `?` is not rendered
+   * rather than hidden.
+   */
+  bare?: boolean;
   /** A sentence the surface says once, briefly — `Dropped`. */
   onSaid?: (sentence: string) => void;
   /** A clipboard write is silent, so the surface confirms it. */
   onCopied?: (value: string) => void;
 };
 
-/** Row marks are 12px at strokeWidth 2, like every mark below Job level. */
-const ROW_ICON = 12;
-const ROW_STROKE = 2;
+/** The name of the region, so the band and the label cannot drift apart. */
+export const TRAIN_LABEL = "The train";
+
+/** What the footer's own label says. */
+export const COMPLETE_WHEN_LABEL = "Complete when";
 
 /**
  * A Job whose members are Jobs — several pull requests, landing in a set order.
  *
- * **The screen says what it is and never names a shape** (#1530, 22 Sep).
- * Convoy, Train and Atomic are retired; the words here are "pull requests,
- * landing in order" and "member".
+ * **One member is one row, not a card of labelled fields.** The board puts the
+ * mark, the number, the title, the pull request, the branch, the scope, a
+ * progress bar and the state on two lines inside one box, so three members and
+ * the decision beside them fit on one screen.
  *
- * **The order is the point**, so the ordinal and the rail between cards carry
- * it rather than leaving a reader to infer it from dates, and the link sits at
- * the top of the card it belongs to.
+ * **The order is the point**, so the number leads each row and the line drawn
+ * between two rows says what the edge between them does.
  *
- * **Landed means the pull request merged**, never `completed_success`: a Job
- * handed off to a person finishes while its pull request is still open, and
- * counting those would say the change is in when none of it is.
+ * **Landed is the merge**, never `completed_success`: a Job handed off to a
+ * person finishes while its pull request is still open.
  */
-export function JobMembers({ members, completeWhen, absent, onSaid, onCopied }: JobMembersProps) {
+export function JobMembers({
+  members,
+  joins = [],
+  said,
+  waiting,
+  completeWhen,
+  completeBar,
+  absent,
+  bare,
+  onSaid,
+  onCopied,
+}: JobMembersProps) {
   if (members.length === 0) {
     return (
       <p className="armada-members__absent" role="note">
@@ -158,17 +169,63 @@ export function JobMembers({ members, completeWhen, absent, onSaid, onCopied }: 
     );
   }
   return (
-    <div className="armada-members">
-      <p className="armada-members__complete">{completeWhen}</p>
-      {/* The label is the list's, not a wrapper's: what a reader is being
-          handed is an ordered set of pull requests, and the order is the
-          fact the name has to carry. */}
+    <section className="armada-members" data-bare={bare || undefined} aria-label={TRAIN_LABEL}>
+      {bare ? null : (
+      <div className="armada-members__head">
+        <h3 className="armada-members__name">{TRAIN_LABEL}</h3>
+        {/* What the three links are is true of a member that never ran, so
+            the joins say which one they have and this says what they mean. */}
+        <GuideMark guide={GUIDE_MEMBER_LINK} />
+        {said === undefined ? null : <p className="armada-members__said">{said}</p>}
+        <span className="armada-members__head-spacer" />
+        {waiting === undefined || waiting === 0 ? null : (
+          <span className="armada-members__waiting">{`${waiting} waiting on you`}</span>
+        )}
+      </div>
+      )}
+
+      {/* The order is the fact the list's own name has to carry. */}
       <ol className="armada-members__list" aria-label="Pull requests, in the order they land">
-        {members.map((member) => (
-          <Member key={member.id} member={member} onSaid={onSaid} onCopied={onCopied} />
-        ))}
+        {members.map((member, at) => {
+          const join = at === 0 ? undefined : joins[at - 1];
+          return (
+            <li
+              className="armada-members__entry"
+              key={member.id}
+              aria-label={`${member.ordinal}. ${member.title}`}
+            >
+              {join === undefined ? null : (
+                <div className="armada-members__join">
+                  <span className="armada-members__join-rule" aria-hidden />
+                  <p className="armada-members__join-said">
+                    {join.said} <span className="armada-members__join-link">{join.link}</span>
+                  </p>
+                </div>
+              )}
+              <Member member={member} onSaid={onSaid} onCopied={onCopied} />
+            </li>
+          );
+        })}
       </ol>
-    </div>
+
+      {bare ? null : <span className="armada-members__list-spacer" />}
+
+      {/* The total closes the region rather than heading it: a reader who has
+          just counted three rows wants it, and one who has not is being asked
+          to hold a promise. */}
+      {bare ? null : (
+      <div className="armada-members__complete">
+        <span className="armada-members__complete-label">{COMPLETE_WHEN_LABEL}</span>
+        <p className="armada-members__complete-said">{completeWhen}</p>
+        {completeBar === undefined ? null : (
+          <StepBar
+            tasks={completeBar}
+            {...(typeof completeWhen === "string" ? { label: completeWhen } : {})}
+          />
+        )}
+      </div>
+      )}
+    </section>
   );
 }
 
@@ -190,171 +247,124 @@ function Member({
   );
   const address = member.pullRequest;
   const branch = member.branch;
+  const state = member.state;
+  const status = state.as === "badge" ? state.status : undefined;
+  // The trigger sits on the row and the form under it, so a row that offers a
+  // drop is the same two lines tall as one that does not.
+  const [dropping, setDropping] = useState(false);
 
   return (
-    <li
+    <div
       className="armada-members__member"
       data-dropped={member.dropped === undefined ? undefined : true}
-      aria-label={`${member.ordinal}. ${member.title}`}
+      data-asking={member.asked === undefined ? undefined : true}
     >
-      {/* The order, and the rail that joins one card to the next. Numbered
-          rather than inferred: what a reader has to hold is which lands first. */}
-      <span className="armada-members__rail" aria-hidden>
-        <span className="armada-members__ordinal">{member.ordinal}</span>
-      </span>
-
-      <div className="armada-members__body">
-        <div className="armada-members__head">
-          {member.onOpen === undefined ? (
-            <span className="armada-members__title">{member.title}</span>
-          ) : (
-            <button type="button" className="armada-members__open" onClick={member.onOpen}>
-              {member.title}
-            </button>
-          )}
-          {member.state.as === "badge" ? (
-            // The running mark pulses on every running row of a list (#1276),
-            // and `Badge` is what decides which status that is.
-            <Badge status={member.state.status} icon={member.state.icon} pulsing>
-              {member.state.label}
-            </Badge>
-          ) : (
-            <span className="armada-members__state-text" title={member.state.missing}>
-              {member.state.wire}
-            </span>
-          )}
-        </div>
-
-        {/* The link belongs to the edge above this card, so it reads before
-            the card's own facts. */}
-        {member.link === undefined ? null : (
-          <p className="armada-members__waits">{MEMBER_LINK[member.link]}</p>
+      <div className="armada-members__line">
+        {/* The state as a square of its own hue, so it reads down the left
+            edge of the list. Hue by inline token reference, `Badge`'s own
+            rule: the stem is data, so it cannot be a stylesheet's selector. */}
+        <span
+          className="armada-members__mark"
+          data-status={status}
+          aria-hidden
+          {...(status === undefined ? {} : { style: { background: `var(--status-${status})` } })}
+        />
+        <span className="armada-members__ordinal">{`Member ${member.ordinal}`}</span>
+        {member.onOpen === undefined ? (
+          <span className="armada-members__title">{member.title}</span>
+        ) : (
+          <button type="button" className="armada-members__open" onClick={member.onOpen}>
+            {member.title}
+          </button>
         )}
-        {member.landed === true ? (
-          <p className="armada-members__landed">Its pull request merged.</p>
-        ) : null}
-        {member.dropped === undefined ? null : (
-          <p className="armada-members__dropped">Dropped. {member.dropped} Its branch is kept.</p>
+        {address === undefined ? (
+          <span className="armada-members__pr" data-absent="true">
+            No pull request yet
+          </span>
+        ) : (
+          <a
+            href={address}
+            className="armada-members__pr"
+            data-status={status}
+            {...(status === undefined
+              ? {}
+              : {
+                  style: {
+                    color: `var(--status-${status})`,
+                    background: `var(--status-${status}-bg)`,
+                  },
+                })}
+            onClick={(event) => {
+              event.preventDefault();
+              member.onOpenPullRequest?.();
+            }}
+          >
+            <span className="armada-members__pr-number">{member.pullRequestLabel ?? address}</span>
+            {member.pullRequestState === undefined ? null : (
+              <span className="armada-members__pr-state">{member.pullRequestState}</span>
+            )}
+          </a>
         )}
-
-        <dl className="armada-members__facts">
-          <Fact
-            name="Pull request"
-            icon={GitPullRequest}
-            iconLabel="Pull request"
-            absent="None opened yet."
-            value={
-              address === undefined ? undefined : (
-                <a
-                  href={address}
-                  className="armada-members__address"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    member.onOpenPullRequest?.();
-                  }}
-                >
-                  {member.pullRequestLabel ?? address}
-                </a>
-              )
-            }
-          />
-          <Fact
-            name="Branch"
-            icon={GitBranch}
-            iconLabel="Branch"
-            absent="No worktree yet."
-            value={
-              branch === undefined ? undefined : (
-                <button
-                  type="button"
-                  className="armada-members__copy"
-                  title="Copy"
-                  onClick={(event) => copy(event, branch)}
-                >
-                  {branch}
-                </button>
-              )
-            }
-          />
-          <Fact
-            name="Targets"
-            absent="Nowhere yet. It has no pull request."
-            value={member.targets === undefined ? undefined : <code>{member.targets}</code>}
-          />
-          <Fact
-            name="Writes"
-            absent="Nothing declared."
-            value={
-              member.scope === undefined || member.scope.length === 0 ? undefined : (
-                <span className="armada-members__scope">
-                  {member.scope.map((path) => (
-                    <code key={path}>{path}</code>
-                  ))}
-                </span>
-              )
-            }
-          />
-          <Fact name="Tasks" absent="No plan of its own." value={member.tasks} />
-        </dl>
-
-        {member.question === undefined ? null : (
-          <div className="armada-members__question">
-            <p className="armada-members__moves">{member.question.moves}</p>
-            <JudgeQuestion
-              question={member.question.question}
-              expected={member.question.expected}
-              produced={member.question.produced}
-              consequence={member.question.consequence}
-              onAnswer={member.question.onAnswer}
-              {...(member.question.disabled === undefined
-                ? {}
-                : { disabled: member.question.disabled })}
-              {...(member.question.disabledNote === undefined
-                ? {}
-                : { disabledNote: member.question.disabledNote })}
-              {...(member.question.pending === undefined
-                ? {}
-                : { pending: member.question.pending })}
-            />
-          </div>
-        )}
-
-        {member.onDrop === undefined || member.dropped !== undefined ? null : (
-          <DropMember member={member} onSaid={onSaid} />
+        {member.onDrop === undefined || member.dropped !== undefined || dropping ? null : (
+          <button
+            type="button"
+            className="armada-members__drop-open"
+            onClick={() => setDropping(true)}
+          >
+            {`${DROP_MEMBER_LABEL}…`}
+          </button>
         )}
       </div>
-    </li>
-  );
-}
 
-/** One fact about a member. A part nothing serves keeps its row and says so. */
-function Fact({
-  name,
-  icon: Icon,
-  iconLabel,
-  value,
-  absent,
-}: {
-  name: string;
-  icon?: LucideIcon;
-  iconLabel?: string;
-  value?: ReactNode;
-  absent: ReactNode;
-}) {
-  return (
-    <div className="armada-members__fact">
-      <dt className="armada-members__fact-name">
-        {Icon === undefined ? null : (
-          <Icon size={ROW_ICON} strokeWidth={ROW_STROKE} aria-label={iconLabel} />
+      <div className="armada-members__line">
+        {branch === undefined ? (
+          <span className="armada-members__branch" data-absent="true">
+            No worktree yet
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="armada-members__branch"
+            title="Copy"
+            onClick={(event) => copy(event, branch)}
+          >
+            {branch}
+          </button>
         )}
-        {name}
-      </dt>
-      <dd
-        className="armada-members__fact-value"
-        data-absent={value === undefined ? "true" : undefined}
-      >
-        {value ?? absent}
-      </dd>
+        {member.targets === undefined ? null : (
+          <span className="armada-members__targets">{`→ ${member.targets}`}</span>
+        )}
+        {member.scope?.map((path) => (
+          <span className="armada-members__scope" key={path}>
+            {path}
+          </span>
+        ))}
+        <span className="armada-members__line-spacer" />
+        {member.tasks === undefined || member.tasks.length === 0 ? null : (
+          <StepBar tasks={member.tasks} />
+        )}
+        {member.tasksSaid === undefined ? null : (
+          <span className="armada-members__tasks">{member.tasksSaid}</span>
+        )}
+        <span
+          className="armada-members__state"
+          data-status={status}
+          {...(status === undefined ? {} : { style: { color: `var(--status-${status})` } })}
+          {...(state.as === "text" ? { title: state.missing } : {})}
+        >
+          {state.as === "badge" ? state.label : state.wire}
+        </span>
+      </div>
+
+      {member.asked === undefined ? null : (
+        <p className="armada-members__asked">{member.asked}</p>
+      )}
+      {member.dropped === undefined ? null : (
+        <p className="armada-members__dropped">{`Dropped. ${member.dropped} Its branch is kept.`}</p>
+      )}
+      {dropping ? (
+        <DropMember member={member} onSaid={onSaid} onClose={() => setDropping(false)} />
+      ) : null}
     </div>
   );
 }
@@ -369,22 +379,17 @@ function Fact({
 function DropMember({
   member,
   onSaid,
+  onClose,
 }: {
   member: JobMemberRow;
   onSaid?: (sentence: string) => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   // A pristine field is a hint, never an error: a red border on a field
   // nobody has touched reads as a mistake that already happened.
   const [attemptedEmpty, setAttemptedEmpty] = useState(false);
   const blank = reason.trim() === "";
-
-  function close(): void {
-    setOpen(false);
-    setReason("");
-    setAttemptedEmpty(false);
-  }
 
   function drop(): void {
     if (blank) {
@@ -393,17 +398,7 @@ function DropMember({
     }
     member.onDrop?.(reason.trim());
     onSaid?.("Dropped");
-    close();
-  }
-
-  if (!open) {
-    return (
-      <div className="armada-members__acts">
-        <Button variant="secondary" size="sm" ground="sunken" onClick={() => setOpen(true)}>
-          {DROP_MEMBER_LABEL}…
-        </Button>
-      </div>
-    );
+    onClose();
   }
 
   return (
@@ -418,7 +413,7 @@ function DropMember({
         invalid={attemptedEmpty && blank}
         onChange={(event) => setReason(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") close();
+          if (event.key === "Escape") onClose();
           if (event.key === "Enter") drop();
         }}
       />
@@ -428,7 +423,7 @@ function DropMember({
         </span>
       ) : null}
       <div className="armada-members__acts">
-        <Button variant="secondary" size="sm" ground="sunken" onClick={close}>
+        <Button variant="secondary" size="sm" ground="sunken" onClick={onClose}>
           Cancel
         </Button>
         <Button variant="secondary" size="sm" ground="sunken" disabled={blank} onClick={drop}>
