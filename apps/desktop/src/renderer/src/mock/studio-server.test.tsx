@@ -102,7 +102,7 @@ function serving() {
 
 async function openTheStudio(): Promise<void> {
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
-  await page.getByRole("button", { name: "The app, running", exact: true }).click();
+  await page.getByRole("cell", { name: "The app, running", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 }
 

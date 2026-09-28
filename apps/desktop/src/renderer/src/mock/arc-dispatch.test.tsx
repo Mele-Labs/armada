@@ -57,7 +57,7 @@ describe("dispatch", () => {
     async () => {
       mount("arc/dispatch-typing");
 
-      await expect.element(page.getByRole("combobox", { name: "From" })).toHaveValue("main");
+      await expect.element(page.getByRole("combobox", { name: "Base branch" })).toHaveValue("main");
       await expect.element(page.getByRole("combobox", { name: "Lands in" })).toHaveValue("main");
       // Neither field says what the other does. A parenthetical default is how
       // the pair collapses back into the one field it used to be.
@@ -95,7 +95,7 @@ describe("dispatch", () => {
       // Where the work starts makes none — you cannot begin on a branch that
       // does not exist — and the typed name still stands, because the list is
       // what Armada has met rather than the repository's own.
-      const from = page.getByRole("combobox", { name: "From" });
+      const from = page.getByRole("combobox", { name: "Base branch" });
       await from.fill("release/17");
       await expect.element(page.getByText(/No branch Armada has met matches/)).toBeVisible();
       await expect

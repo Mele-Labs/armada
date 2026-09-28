@@ -1,6 +1,11 @@
 /**
- * Overview's summary tiles — four glass cards, two by two, one per panel below.
+ * Overview's summary tiles — one glass card per panel below, in a single row.
  * `docs/contracts/design-system.md` → Overview summary tiles. #1091, #1261.
+ *
+ * **One row, and two by two only below the collapse point.** A label and a count
+ * take about a tenth of a tile's width on a 1512px laptop, so a second row of
+ * them spent window height on nothing — the owner's measurement, 28 Sep 2026.
+ * The stylesheet holds the point and names the token.
  *
  * **Each tile wears its hue at every count** — the dot, the label and a corner
  * wash — so the counts sort by colour before they are read. The hue is the

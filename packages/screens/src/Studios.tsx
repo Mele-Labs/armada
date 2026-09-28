@@ -20,6 +20,7 @@ import {
   CardTitle,
   Dialog,
   DropdownMenu,
+  SplitButton,
   StudioAddNode,
   StudioFrameSheet,
   StudioName,
@@ -244,11 +245,14 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
     return <p className="text-fg-muted">No Studios yet. Start one to keep what you work out before it is a Job.</p>;
   }
   return (
-    <Table>
+    <Table className="armada-studio-list">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>
           <TableHeaderCell>Last touched</TableHeaderCell>
+          {/* The acts column carries no word: a Job row's control has no header
+              either, and a heading over one split button reads as a fact. */}
+          <TableHeaderCell aria-label="Acts" />
         </TableRow>
       </TableHead>
       <TableBody>
@@ -268,8 +272,18 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
 }
 
 /**
- * One row. **The name opens the Studio and the rename sits beside it**: a row's
- * name is already the way in, so renaming cannot also take that press — #1364.
+ * One row.
+ *
+ * **The whole row opens the Studio and the rename is behind a split button at
+ * the far end** — the owner's note of 28 Sep 2026, and the Job row's own shape:
+ * `Row.tsx` presses the row and puts its one secondary control at the trailing
+ * edge with the rest behind that control's caret. The name was the only way in
+ * until now (#1364), so a press anywhere else on the row did nothing.
+ *
+ * **The pointer presses the row; the keyboard presses Open.** A `tr` is not a
+ * listbox option the way a Job row's `div` is, so the row takes no focus stop
+ * whose meaning only a reader with sight could find; `JudgeVerdicts` is the
+ * precedent for a pressable row inside a real table.
  */
 function Row({
   studio,
@@ -284,19 +298,40 @@ function Row({
   onOpen: (studioId: string) => void;
   onRename: (studioId: string, name: string) => void;
 }) {
+  const [naming, setNaming] = useState(false);
+  const shown = studio.name ?? UNTITLED_STUDIO;
   return (
-    <TableRow>
+    <TableRow
+      data-opens="true"
+      // Not while the field is open: a press meant for the text behind the
+      // cursor would leave for the board with the rename half typed.
+      onClick={naming ? undefined : () => onOpen(studio.id)}
+    >
       <TableCell>
         <StudioName
           name={studio.name ?? null}
           untitled={UNTITLED_STUDIO}
           editable={live}
+          naming={naming}
+          onNaming={setNaming}
           saving={saving}
-          onOpen={() => onOpen(studio.id)}
           onRename={(name) => onRename(studio.id, name)}
         />
       </TableCell>
       <TableCell>{absoluteOf(studio.touched_at) ?? studio.touched_at}</TableCell>
+      {/* The control stops the row's own open, so pressing Rename does not also
+          leave for the board — `JobRowStacked` guards its action cell the same
+          way. */}
+      <TableCell className="armada-studio-list__acts" onClick={(event) => event.stopPropagation()}>
+        <SplitButton
+          ground="card"
+          menuLabel={`More for ${shown}`}
+          onAction={() => onOpen(studio.id)}
+          items={live ? [{ label: "Rename", onSelect: () => setNaming(true) }] : []}
+        >
+          Open
+        </SplitButton>
+      </TableCell>
     </TableRow>
   );
 }

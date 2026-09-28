@@ -1445,6 +1445,21 @@
   flex-wrap: wrap;
 }
 
+/* The Studios list. Every row opens its Studio from anywhere on it, so the
+   pointer says so — the rule `JudgeVerdicts` already draws for a pressable row
+   inside a real table. */
+.armada-studio-list .armada-table-row[data-opens="true"] {
+  cursor: pointer;
+}
+
+/* The one secondary control, at the trailing edge, as a Job row puts it. The
+   track takes only what the control needs so the name keeps the slack. */
+.armada-studio-list__acts {
+  width: 1%;
+  white-space: nowrap;
+  text-align: end;
+}
+
 .armada-studio__standing {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
