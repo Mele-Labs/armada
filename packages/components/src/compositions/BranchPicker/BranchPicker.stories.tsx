@@ -151,11 +151,15 @@ export const ANameThatIsNotThereYet: Story = {
  * **The typed name still stands.** The list is what Armada has met rather than
  * the repository's own, so a branch it has never seen is not a branch that is
  * not there, and the field says which of the two this is.
+ *
+ * **`Base branch` is what the composer calls it**, since 28 Sep 2026 — the word
+ * `armada.yml` uses for the branch worktrees are cut from, and the word this
+ * list already tags that row with.
  */
 export const StartingFromSomethingUnlisted: Story = {
-  args: { label: "From", value: "release/16", offerNew: false },
+  args: { label: "Base branch", value: "release/16", offerNew: false },
   play: async ({ canvas, userEvent }) => {
-    const field = canvas.getByRole("combobox", { name: "From" });
+    const field = canvas.getByRole("combobox", { name: "Base branch" });
     await userEvent.click(field);
 
     await expect(canvas.queryByRole("option")).toBeNull();
