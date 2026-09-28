@@ -46,7 +46,9 @@ export const Running: Story = {
     open: true,
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(canvas.getByText("Running")).toBeVisible();
+    // The state is the head's dot now, so it is read as a named graphic rather
+    // than as a line of text in the body.
+    await expect(canvas.getByRole("img", { name: "Running" })).toBeVisible();
     await readsAsRows(canvasElement, [
       ["pid", "61372"],
       ["port", "40000"],
@@ -192,14 +194,19 @@ export const NarrowNotRunning: Story = {
 };
 
 /**
- * Expanded, and unchanged: the state is in words in the panel's own body, so
- * nothing here is named `Fleet — Running`. The rail's name is for the width
- * that has no room for those words, not a second reading beside them.
+ * Expanded, the state is the head's dot — the row that said it in words under
+ * the head went on 28 Sep 2026. **Named with the state word alone**, not
+ * `fleetSaid`: the dot is inside the head's own button, so the full sentence
+ * there would make the control read "Fleet Fleet — Running". The sentence stays
+ * on the hover, and stays the accessible name at the rail, where the dot has no
+ * label beside it.
  */
-export const ExpandedSaysItInWords: Story = {
+export const ExpandedSaysItWithTheDot: Story = {
   args: { state: "running", label: "Running", rows: [{ label: "pid", value: "61372" }], open: true },
-  play: async ({ canvas }) => {
+  play: async ({ args, canvas }) => {
     await expect(canvas.queryByRole("img", { name: /^Fleet — / })).not.toBeInTheDocument();
-    await expect(canvas.getByText("Running")).toBeVisible();
+    const dot = canvas.getByRole("img", { name: args.label });
+    await expect(dot).toHaveAttribute("title", fleetSaid(args.label));
+    await expect(canvas.getByRole("button", { name: `Fleet ${args.label}` })).toBeVisible();
   },
 };

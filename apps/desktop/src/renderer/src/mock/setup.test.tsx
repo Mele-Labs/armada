@@ -4,7 +4,7 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { endShownIn, pressable, scrollerOf } from "./scrolled";
 import { SCRATCH, SHEET_READ, VERIFY_ENDED, settingUp } from "./setup-fleet";
@@ -194,8 +194,8 @@ const TWO: SettingUp = { repositories: [repository(), SCRATCH], sheet: SHEET_REA
 
 test("a set-up and a not-set-up repository: both listed, the one not set up grouped as such", async () => {
   mount(settingUp(TWO));
-  await page.getByRole("button", { name: MANIFEST_ID }).click();
-  await expect.element(page.getByRole("menuitem", { name: MANIFEST_ID })).toBeInTheDocument();
+  await page.getByRole("button", { name: MANIFEST_NAME }).click();
+  await expect.element(page.getByRole("menuitem", { name: MANIFEST_NAME })).toBeInTheDocument();
   const menu = page.getByRole("menu");
   await expect.element(menu.getByText("Not set up")).toBeVisible();
   await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
@@ -206,7 +206,7 @@ test("a set-up and a not-set-up repository: both listed, the one not set up grou
 test("picking one not set up opens Setup alone; a workspace verifies before the root is set up", async () => {
   const onVerify = vi.fn();
   mount(settingUp({ ...TWO, onVerify }));
-  await page.getByRole("button", { name: MANIFEST_ID }).click();
+  await page.getByRole("button", { name: MANIFEST_NAME }).click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });
   const sheet = await open(list, "apps/web");
@@ -220,7 +220,7 @@ test("picking one not set up opens Setup alone; a workspace verifies before the 
 
 test("pick one not set up, write its root, and it reads as set up with an Edit tab", async () => {
   mount(settingUp(TWO));
-  await page.getByRole("button", { name: MANIFEST_ID }).click();
+  await page.getByRole("button", { name: MANIFEST_NAME }).click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });
   await expect.element(list).toBeVisible();

@@ -37,6 +37,17 @@
   color: var(--fg-default);
 }
 
+/* A head with nothing under it is not a control, so it draws none of the
+   affordance the button head does — no pointer, no hover lift. `Panel`'s
+   `children` absent is what puts it here. */
+.armada-panel[data-bodyless] .armada-panel__head {
+  cursor: default;
+}
+
+.armada-panel[data-bodyless] .armada-panel__head:hover {
+  color: var(--fg-muted);
+}
+
 .armada-panel__head:focus-visible {
   outline: var(--focus-ring);
   outline-offset: calc(var(--border-width) * -2);

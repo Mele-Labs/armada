@@ -624,6 +624,7 @@ export function App({ draft }: AppProps = {}) {
         scope={state.repository}
         onScope={pick}
         onAddRepository={locate.onOpen}
+        onOpenManifest={() => goTo(SURFACE.manifest)}
         onCompose={() => setComposing(true)}
         onSearch={palette.onOpen}
         boardJobs={boardJobs}

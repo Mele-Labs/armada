@@ -54,6 +54,8 @@ export const JOB_HANDLE = "77-split-the-settings-reducer";
 export const DRONE_ID = "01M1HHJ6XB001BZJZ4BE2SPLIT";
 export const WORKFLOW_ID = "bug";
 export const MANIFEST_ID = "01M1CNPKTV0018H2M1CXDNBK06";
+/** What that Manifest is *called* — the repository Fleet read it from, and what a surface draws. */
+export const MANIFEST_NAME = "armada";
 export const BRANCH = "fix/settings-split-selectors";
 export const WORKTREE = `.armada/worktrees/${JOB_HANDLE}`;
 export const TITLE = "Split the settings reducer so the selectors can be tested alone";
@@ -187,7 +189,7 @@ export function repository(): RepositorySummary {
 export function manifest(): ManifestSummary {
   return {
     id: MANIFEST_ID,
-    repository: "armada",
+    repository: MANIFEST_NAME,
     // A bare `armada.yml` has no directory component, so `repoOf` — which
     // cuts at the manifest's own last `/` — read every fixture built on this
     // one as a Job with no repository and drew *Where things are* with no

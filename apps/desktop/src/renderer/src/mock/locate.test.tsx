@@ -6,7 +6,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { CHOSEN, settingUp } from "./setup-fleet";
 import type { SettingUp } from "./setup-fleet";
@@ -18,7 +18,7 @@ const URL = "https://forge.invalid/owner/storefront.git";
 const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
 
 /** Add a repository sits inside the rail picker's menu: opening it is opening the picker first. */
-async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page, pickerLabel = MANIFEST_ID) {
+async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page, pickerLabel = MANIFEST_NAME) {
   await within.getByRole("button", { name: pickerLabel }).click();
   await page.getByRole("menuitem", { name: "Add a repository" }).click();
   await entered(dialog());
@@ -76,7 +76,7 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
   await add.getByRole("button", { name: /^Cancel/ }).click();
   await expect.poll(() => dialog().query()).toBeNull();
   await expect.element(page.getByText("storefront is ready to set up")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: MANIFEST_ID })).toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await page.getByRole("button", { name: "Open Setup" }).click();
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
@@ -94,7 +94,7 @@ test("a late clone is heard in another window on the same main, and neither wind
   await expect.element(inOther.getByText("storefront is ready to set up")).toBeInTheDocument();
   await expect.element(inAsked.getByText("storefront is ready to set up")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
-    await expect.element(window.getByRole("button", { name: MANIFEST_ID })).toBeInTheDocument();
+    await expect.element(window.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();
@@ -131,7 +131,7 @@ test("git's refusal reads in the dialog in full, and nothing moves behind it", a
   await expect.element(add.getByText(`git refused the clone: fatal: repository '${URL}' not found.`)).toBeVisible();
   expect(add.getByText("fleet.clone_refused").query()).toBeNull();
   await expect.element(add.getByRole("button", { name: /^Clone repository/ })).toBeEnabled();
-  await expect.element(page.getByRole("button", { name: MANIFEST_ID })).toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
 });
 
 test("a destination already full: Fleet's words, and where to go from them", async () => {
@@ -158,18 +158,33 @@ test("Escape closes it with nothing sent, and it opens again empty", async () =>
   await expect.poll(() => dialog().query()).toBeNull();
 });
 
-const SET_UP: RepositorySummary = { ...repository(), root: "/Users/user/code/web-app", manifest: { ...repository().manifest!, id: "storefront" } };
+/**
+ * A set-up repository, named by what Fleet read its Manifest under. **The id
+ * stays a ULID**, which is what `ManifestId` is — so a fixture that put a
+ * readable word there was testing a label that could never appear.
+ */
+const named = (name: string, root: string): RepositorySummary => ({
+  ...repository(),
+  root,
+  manifest: { ...repository().manifest!, repository: name },
+});
+
+const SET_UP = named("storefront", "/Users/user/code/web-app");
 const LOOSE: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
 const API: RepositorySummary = { root: "/Users/user/code/api", records_root: "/records/api" };
 const OLD_API: RepositorySummary = { root: "/Users/user/old/api", records_root: "/records/old-api" };
-const SET_UP_API: RepositorySummary = { ...repository(), root: "/Users/user/services/api", manifest: { ...repository().manifest!, id: "api" } };
+const SET_UP_API = named("api", "/Users/user/services/api");
 
-test("the picker's names: a Manifest id, or a folder's name with its parent only where two share it", async () => {
+test("the picker's names: the Manifest's own, or a folder's, with the parent only where two share it", async () => {
   locating({ repositories: [SET_UP, SET_UP_API, LOOSE, API, OLD_API] });
   await page.getByRole("button", { name: "storefront" }).click();
   await expect.element(page.getByRole("menuitem", { name: "storefront" })).toBeInTheDocument();
-  await expect.element(page.getByRole("menuitem", { name: "api", exact: true })).toBeInTheDocument();
-  expect(page.getByRole("menuitem", { name: "services/api" }).query()).toBeNull();
+  // Three repositories would read "api" — one set up and two not — so all three
+  // widen. The ladder is one namespace since 28 Sep 2026: a set-up repository
+  // used to be exempt because its label was its unique id, and its label is a
+  // name now, which can collide like any other.
+  await expect.element(page.getByRole("menuitem", { name: "services/api" })).toBeInTheDocument();
+  expect(page.getByRole("menuitem", { name: "api", exact: true }).query()).toBeNull();
   await expect.element(page.getByRole("menu").getByText("Not set up")).toBeVisible();
   await expect.element(page.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
   await expect.element(page.getByRole("menuitem", { name: "code/api" })).toBeInTheDocument();

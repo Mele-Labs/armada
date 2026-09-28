@@ -1971,7 +1971,8 @@ reading replaces the drawing rather than moving it.
 The left column's third panel — what the status bar used to read.
 
 ```
-state    --dot (6px) + --text-base --fg-default
+state    --dot (6px) in the panel's head, beside the "Fleet" label — the
+         trailing slot, so it is the same mark at every width
 rows     pid / port / protocol / up, one row each: label --text-xs
          --text-label on the left, value --font-mono --text-xs --text-body
          right-aligned to the panel's edge, where Stats puts its counts —
@@ -1993,6 +1994,23 @@ edge is what a reader of a 160 to 380px panel runs down; a destination is the
 width of the window, and there the same rows put a label and its figure a
 hand's width apart. Pulse draws its Drones, Checks, Judges, spend and turns
 that way — label over figure, `--text-base`, wrapping by whole cells. #1538.
+
+**The state is the head's dot, not a row under it.** A row saying "Running"
+sat at the top of the body with its own dot beside the words, under a head
+already naming Fleet; the owner deleted it on 28 Sep 2026 — *"Delete this row
+and just put the status dot next to the 'Fleet' title in the panel header."*
+
+> **Rule.** Fleet's state is the dot in the panel's head, carrying the state in
+> words as an accessible name and a tooltip. The body holds only what the head
+> cannot: the figures, the sentence, and Doctor's line.
+> Why: the head is where a person looks for a panel's own subject, and a second
+> mark two lines under the first said the same fact twice in one glance. The
+> words are not lost — the dot is a named graphic, as the title row's is.
+
+**A state with nothing for the body draws the head alone.** One does: the
+moment before Bridge has read the runtime file has no figure, no sentence and
+no Doctor reading. The head keeps its label and its dot and offers no chevron,
+because a chevron onto an empty box is a control that does nothing.
 
 **Fleet's state is one of three, and the panel's dot names which** — the
 same three the status bar used to carry, on the same grounds Doctor's pass,
@@ -2685,11 +2703,13 @@ mark is the character `?` rather than a glyph: `circle-*` is reserved to Judge
 criterion verdicts, and the owner's own word for the control is a question
 mark. An empty state saying what would be here is a fact about now and stays.
 
-**A healthy state is stated, never implied.** "Fleet running" renders in
-the Fleet panel even when nothing is wrong, because an empty panel reads
-the same whether Fleet is healthy, loading or dead, and Fleet outlives
-Bridge. An unhealthy state adds a sentence naming what to do about it; a
-healthy one does not, because there is nothing to do.
+**A healthy state is stated, never implied.** Running renders in the Fleet
+panel's head even when nothing is wrong, because a panel that said nothing
+would read the same whether Fleet is healthy, loading or dead, and Fleet
+outlives Bridge. The head's dot is where it is said, since 28 Sep 2026 — which
+is what lets the body be empty in the one state that has nothing for it. An
+unhealthy state adds a sentence naming what to do about it; a healthy one does
+not, because there is nothing to do.
 
 **Escalations interrupt, approvals queue.** Escalations cost money in
 real time. Approvals cost latency. Push inherits this, so escalations

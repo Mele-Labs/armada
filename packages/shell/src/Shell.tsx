@@ -61,10 +61,12 @@
 // out of the composer, the reports and the held worktrees — sit at the top of
 // each screen's own content instead. `App.tsx` is where that moved.
 
+import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ACTION,
   JOB_LIFECYCLE,
+  Button,
   DockQuestions,
   DropdownMenu,
   TheShell,
@@ -100,6 +102,17 @@ export type ShellProps = {
   onScope: (root: string | null) => void;
   /** Opens Locate. Absent draws no control. */
   onAddRepository?: () => void;
+  /**
+   * Opens the Manifest of whatever the picker has picked — the owner, 28 Sep
+   * 2026: *"I should be able to select a manifest from the dropdown and get a
+   * button or link or icon or something to open that manifest"*. **Absent
+   * draws no control.**
+   *
+   * Drawn on All repositories too, where there is no one Manifest to open: the
+   * surface itself asks which repository, `AskRepository`'s own job, rather
+   * than this row growing a second answer to the same question.
+   */
+  onOpenManifest?: () => void;
   /** The Board's Jobs, for the rail's count. They follow the pick. */
   boardJobs: readonly JobSummary[];
   /**
@@ -150,6 +163,7 @@ export function Shell({
   scope,
   onScope,
   onAddRepository,
+  onOpenManifest,
   boardJobs,
   stats,
   fleet,
@@ -228,15 +242,36 @@ export function Shell({
       leftWidth={leftWidth}
       onResizeLeft={resizeLeft}
       repositoryPicker={
-        <DropdownMenu
-          triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
-          entries={repositoryEntries(repositories, listed, onAddRepository !== undefined, scope)}
-          // Disabled only where nothing behind it is actionable — Add a
-          // repository stays reachable on an empty Fleet, which is when it
-          // matters most, so its presence keeps the trigger live.
-          disabled={repositories.length === 0 && onAddRepository === undefined}
-          onSelect={(id) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id))}
-        />
+        <>
+          <DropdownMenu
+            triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
+            entries={repositoryEntries(repositories, listed, onAddRepository !== undefined, scope)}
+            // Disabled only where nothing behind it is actionable — Add a
+            // repository stays reachable on an empty Fleet, which is when it
+            // matters most, so its presence keeps the trigger live.
+            disabled={repositories.length === 0 && onAddRepository === undefined}
+            onSelect={(id) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id))}
+          />
+          {/* Beside the pick rather than under it: the menu answers *which*,
+              and this answers *open it*, which are two acts and not one entry.
+              `.armada-title-bar__picker` is already a flex row with the row's
+              own gap, so it needs no layout here. */}
+          {onOpenManifest === undefined ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={MANIFEST_SAID}
+              title={MANIFEST_SAID}
+              // Nothing served is nothing to open, and the menu beside it is
+              // already the way to add the first repository.
+              disabled={repositories.length === 0}
+              onClick={onOpenManifest}
+            >
+              <ManifestGlyph size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          )}
+        </>
       }
       onSearch={onSearch}
       onDispatch={onCompose}
@@ -251,6 +286,15 @@ export function Shell({
 
 /** No root is ever this, so it cannot collide with one. */
 const ADD_REPOSITORY = "add-repository";
+
+/**
+ * Manifest's own glyph and word, read off the surface roster rather than
+ * retyped — the control beside the picker and the palette's row for the same
+ * destination cannot then disagree about which mark means Manifest.
+ */
+const MANIFEST_SURFACE = SURFACES.find((one) => one.id === SURFACE.manifest);
+const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
+const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
 /** The trigger's own label: the picked repository, All, or why there is nothing to pick yet. */
 function repositoryTriggerLabel(
