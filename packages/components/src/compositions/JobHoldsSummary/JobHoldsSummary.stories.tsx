@@ -74,7 +74,7 @@ async function everyRowSharesItsEdges(canvasElement: HTMLElement, line: HoldsLin
  *
  * **The worktree row is the size.** It said `on disk` over a `Size on disk`
  * row until #1484, and `on disk` was the same word on every Job ever opened:
- * nothing looks at a worktree unless somebody presses `Look now`.
+ * nothing looks at a worktree unless somebody presses `Refresh`.
  */
 export const HoldingALiveWorktree: Story = {
   args: {

@@ -196,11 +196,18 @@ test("the panel reads as a layer over the canvas rather than part of it", async 
   expect(getComputedStyle(layer!).zIndex).not.toBe("auto");
 });
 
-test("a step opens with its Checks and the tests at its boundary drawn apart", async () => {
+// The tests were their own band, and it said why it was empty. The sentence
+// named Fleet and what Fleet does not serve yet, which is a fact about the
+// build rather than about this Job, so the owner cut it on 28 Sep. The band
+// goes with it: no case, nothing drawn, nothing claimed.
+test("a step opens with its Checks, and no band claims anything about a case", async () => {
   await workflow();
   await card("Implement").click();
   await expect.element(page.getByRole("region", { name: "Checks at this boundary" }).last()).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Tests at this boundary" }).last()).toBeVisible();
+  await expect
+    .element(page.getByRole("region", { name: "Tests at this boundary" }))
+    .not.toBeInTheDocument();
+  await expect.element(page.getByText(/does not serve the cases/)).not.toBeInTheDocument();
   // Review and reply are one loop, so the box is in the panel and not behind a dialog.
   await expect.element(page.getByRole("region", { name: "Redirect" }).last()).toBeVisible();
 });

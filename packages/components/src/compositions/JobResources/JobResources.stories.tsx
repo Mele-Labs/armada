@@ -239,7 +239,14 @@ export const NothingHasBeenRead: Story = {
     onExamine: () => {},
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Look now/ })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Refresh/ })).toBeVisible();
+    // The owner's 28 Sep pair: the button is `Refresh`, and the headline says
+    // the look has not run without asking who did not ask for it.
+    await expect(canvas.queryByRole("button", { name: /Look now/ })).toBeNull();
+    await expect(canvas.getByText("This job has not been looked at.")).toBeVisible();
+    await expect(canvas.queryByText(/Nobody has asked/)).toBeNull();
+    // The reason there is no reading still reads, under the headline.
+    await expect(canvas.getByText(/Fleet did not answer/)).toBeVisible();
   },
 };
 
@@ -264,7 +271,7 @@ export const FleetIsNotAnswering: Story = {
     ).toBeVisible();
     await expect(canvas.getByText(/Nothing here is a reading of this job/)).toBeVisible();
     // The whole point: no control that asks Fleet, disabled or otherwise.
-    await expect(canvas.queryByRole("button", { name: /Look now/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /Refresh/ })).toBeNull();
     // The `?` goes with the act. Nothing to ask means nothing to explain.
     await expect(canvas.queryByRole("button", { name: /^Open guide/ })).toBeNull();
   },
@@ -292,7 +299,7 @@ export const BridgeCouldNotReadTheAnswer: Story = {
       canvas.getByText(/Fleet answered, and Bridge could not read the answer/),
     ).toBeVisible();
     await expect(canvas.getByText(/rebuilding both is what settles it/)).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: /Look now/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /Refresh/ })).toBeNull();
     // The two readings must not draw as one message. Neither the sentence that
     // says Fleet is silent nor the pointer at a bar reading "Fleet running".
     await expect(canvas.queryByText(/Fleet is not answering/)).toBeNull();

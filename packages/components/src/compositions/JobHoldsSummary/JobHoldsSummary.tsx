@@ -29,10 +29,10 @@ import { FigureList, type Figure } from "../FigureList/FigureList";
  *
  * **The worktree is one row and not two, since #1484.** It drew `on disk` over
  * `Size on disk 1.2 GiB` — and `on disk` was a constant, because nothing looks
- * at a worktree unless somebody presses `Look now` in the sheet. The size is
+ * at a worktree unless somebody presses `Refresh` in the sheet. The size is
  * the row now, and what a look finds wrong replaces it.
  *
- * **No `Look now` here, and no button.** Going and looking is an act on the
+ * **No `Refresh` here, and no button.** Going and looking is an act on the
  * reading, and the reading is in the sheet. The control that opens it sits on
  * the region's title line, where the run keeps its elapsed figure.
  *
