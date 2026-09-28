@@ -705,6 +705,24 @@ should paper over.
   unless a real machine's worth of files in the column proves it hard to
   scan; that cannot be judged without one.
 
+- **[record-kind-marks]** Which glyphs, if any, carry the six Record row
+  families that have none?
+  The Job ledger's Kind column became a 12px mark under the All filter on
+  2026-09-28 at the owner's instruction, and only two of its eight families had
+  a glyph the registry already sanctioned: `file-check` for Evidence, a
+  submission that landed, and `file-diff` for Files, reading what one file
+  changed. A Check row, a Judge row, a task row, a Drone row, a case run and the
+  Job's own machine moving each draw nothing, because every candidate is
+  reserved to an *outcome* rather than to a *source* — the whole shield family
+  is one Check verdict each, the whole circle family one Judge verdict each —
+  and rule 1 says ship the label rather than borrow. Nothing here is worse off
+  than before: the row's words carry the fact and the tooltip names the kind.
+  What would settle it is either six glyphs minted in a group of their own,
+  drawn in `--fg-muted` and carrying no hue, or a decision that a mark reaching
+  two families out of eight is a channel not worth keeping.
+  `packages/icons/icons.toml`, `[conventions.record_kind_mark]`, holds the
+  refusals so nobody re-derives them.
+
 - **[attested-verdict-glyph]** Which glyph, if any, carries a criterion
   verdict from source Attestation (`confirmed` / `withheld`)?
   One glyph family per verification source is the settled rule —

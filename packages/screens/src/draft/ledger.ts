@@ -5,10 +5,12 @@
 // `status`, `actor`, `at` and one of three `Movement` shapes.
 //
 // **`kind` stays an opaque string** (#1532). A new kind of row is then a minor
-// bump rather than a major one: nothing here branches on the value, a surface
-// looks it up and renders the spelling itself where it finds no word for it.
-// That is the same argument `FleetCapacity.held_by` is made on in
-// `docs/practices/protocol.md`.
+// bump rather than a major one: a surface looks it up and renders the spelling
+// itself where it finds no word for it. That is the same argument
+// `FleetCapacity.held_by` is made on in `docs/practices/protocol.md`.
+//
+// `familyOf` reads one prefix, and its own note says why that is not a branch
+// on a value the backend chose: `status_<destination>` is composed here.
 
 import type {
   EvidenceSubmitted,
@@ -73,14 +75,17 @@ export type LedgerRow = {
 };
 
 /**
- * The seven the Record's filters divide rows into, beside All.
+ * The eight the Record's filters divide rows into, beside All.
  *
- * **Each names a producer** — an evidence claim, a file, a Check, a Judge, a
- * Drone, a task, a case run. **No row is ever counted twice**, which is what
- * `#1537`'s own finding is about: a board whose All said 34 while its filters
- * summed to 35. It is not that the seven sum to All — see `familyOf`.
+ * **Seven name a producer and `job` names the Job itself** — the owner asked
+ * for a Job filter on 28 September 2026, standing on the very line that said
+ * the Job's own moves answered to nothing. **No row is ever counted twice**,
+ * which is what `#1537`'s own finding is about: a board whose All said 34 while
+ * its filters summed to 35. It is still not that the eight sum to All, because
+ * `kind` is opaque — see `familyOf`.
  */
 export type LedgerFamily =
+  | "job"
   | "evidence"
   | "files"
   | "checks"
@@ -89,8 +94,9 @@ export type LedgerFamily =
   | "tasks"
   | "tests";
 
-/** The seven, in the order the filters draw them. */
+/** The eight, in the order the filters draw them. Job first, as All's nearest. */
 export const LEDGER_FAMILIES: readonly LedgerFamily[] = [
+  "job",
   "evidence",
   "files",
   "checks",
@@ -102,9 +108,11 @@ export const LEDGER_FAMILIES: readonly LedgerFamily[] = [
 
 // The spellings each family answers to. `kind` stays opaque on the wire (the
 // header says why), so this is a lookup a surface does and never a branch the
-// type forces. **Every entry is a producer.** A kind that is not here belongs
-// to no family, which `familyOf` answers with rather than guessing.
+// type forces. A kind that is not here belongs to no family, which `familyOf`
+// answers with rather than guessing.
 const FAMILY_OF: Readonly<Record<string, LedgerFamily>> = {
+  created: "job",
+  started: "job",
   evidence_submitted: "evidence",
   handed_in: "evidence",
   deliverable_kept: "evidence",
@@ -132,23 +140,28 @@ const FAMILY_OF: Readonly<Record<string, LedgerFamily>> = {
 /**
  * Which filter a row answers to, or `null` for a row that answers to none.
  *
- * **The Job's own machine moving is not a Task.** Approving a Job and merging
- * its pull request produce no evidence, no file, no Check, no Judge, no Drone,
- * no task and no case run — so they sit outside the seven rather than being
- * filed under one of them, which would make that filter lie to keep an
- * arithmetic promise. A kind this module has never heard of is `null` too.
+ * **The Job's own machine moving is `job` and never a Task.** Creating a Job,
+ * approving it and merging its pull request produce no evidence, no file, no
+ * Check, no Judge, no Drone, no task and no case run, so they have a filter of
+ * their own rather than being folded into one that would then lie.
  *
- * **The invariant is that no row is counted twice, not that the seven sum to
- * All.** A surface that draws the counts owes a reader the difference — see
- * `unfiledIn`.
+ * **A kind this module has never heard of is still `null`.** The invariant is
+ * that no row is counted twice, not that the eight sum to All — a surface that
+ * draws the counts owes a reader the difference, see `unfiledIn`.
  */
 export function familyOf(kind: string): LedgerFamily | null {
+  // `status_<destination>` is composed above, in `kindOf` and `jobRowsOf`, out
+  // of a `Movement` the wire spells as a kind and a destination — so reading
+  // the prefix back is reading this module's own spelling, not branching on a
+  // value the backend chose.
+  if (kind.startsWith("status_")) return "job";
   return FAMILY_OF[kind] ?? null;
 }
 
 /** How many rows each filter holds. Never more than `rows.length` in total. */
 export function countsOf(rows: readonly LedgerRow[]): Record<LedgerFamily, number> {
   const counts = {
+    job: 0,
     evidence: 0,
     files: 0,
     checks: 0,
@@ -521,12 +534,19 @@ function taskRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
 // ------------------------------------------------------------------- files
 
 /**
- * What was written, and whether the plan covered it.
+ * What was written, and whether anything said it would be.
  *
  * Two sources and they say different things: the footprint is what git found on
  * the branch, and a finished task's scope is what the planner said that task
- * would touch. **A path outside the Job's declared write targets says so** on
- * either.
+ * would touch.
+ *
+ * **Neither row says "the plan".** `docs/concepts/plan.md`, *Distinct from the
+ * declared scope's "plan"*, forbids the collision outright — a Job's Plan is
+ * tasks and a step's declared scope is paths — and the owner asked what *inside
+ * the plan* meant on a file row (28 September 2026) because the collision had
+ * reached a person. So each row spells out who said what, and `outside_plan` is
+ * *a mark, not a judgement* (`packages/protocol/src/events.ts`), which is why
+ * neither takes a hue.
  */
 function fileRowsOf(
   detail: JobDetail,
@@ -543,7 +563,9 @@ function fileRowsOf(
         kind: "file_written",
         what: file.path,
         outcome:
-          file.outside_plan === true ? `${file.change}, outside the plan` : file.change,
+          file.outside_plan === true
+            ? `${file.change}, which the step never said it would change`
+            : file.change,
         cursor: mint(),
       });
     }
@@ -559,16 +581,29 @@ function fileRowsOf(
       actor: "drone",
       kind: "task_files",
       what: task.scope.join(", "),
-      outcome:
-        targets === undefined
-          ? "the Job declared no write targets"
-          : outside.length === 0
-            ? "inside the plan"
-            : `outside the plan: ${outside.join(", ")}`,
+      outcome: saidItWouldChange(targets, outside),
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/**
+ * What a finished task's files came to, against what the Job said it would
+ * change.
+ *
+ * **Every sentence names who said it and what they said**, so nothing here
+ * needs teaching before it can be read. What it costs a Job is a separate
+ * question and is guide 20's, behind the `?` on the row's own reading.
+ */
+function saidItWouldChange(
+  targets: readonly string[] | undefined,
+  outside: readonly string[],
+): string {
+  if (targets === undefined) return "this Job named no files it would change, so there is nothing to compare";
+  if (outside.length === 0) return "only files this Job said it would change";
+  const files = outside.length === 1 ? "1 file" : `${outside.length} files`;
+  return `${files} this Job never said it would change: ${outside.join(", ")}`;
 }
 
 // `write_targets` are prefixes — a directory, or a file. Absent is scope

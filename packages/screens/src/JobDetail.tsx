@@ -281,7 +281,6 @@ function OneJob(props: JobDetailProps) {
         <RecordTab
           {...recordOf(props, whole)}
           jobId={job.id}
-          narrow={narrow}
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
           onSaid={props.onSaid}
