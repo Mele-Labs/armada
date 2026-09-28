@@ -163,10 +163,14 @@ export type DispatchRequestProps = {
   sketchPad?: ReactNode;
   /**
    * The sketch, as the chip beside the prompt reads it. **Absent attaches
-   * none** — an empty pad is not an attachment — and `from` is where it was
-   * made, which a sketch drawn from nothing does not have.
+   * none** — an empty pad is not an attachment.
+   *
+   * **The name and nothing else.** Where the picture was made is the pad's own
+   * line, which names the Studio node as well; a chip saying `From a Studio`
+   * beside it put `a Studio` on the screen twice, and the owner read the two
+   * on 28 Sep 2026 and asked what the difference was.
    */
-  sketch?: { name: string; from?: string };
+  sketch?: { name: string };
   /**
    * Narrow the checkout against typed text, for the `@` mention popup —
    * `crate::files::search` on the other side of the wire. Never rejects: a
@@ -722,7 +726,7 @@ function Attached({
   onAddLink?: (address: string) => void;
   onRemoveLink?: (address: string) => void;
   node?: { name: string };
-  sketch?: { name: string; from?: string };
+  sketch?: { name: string };
   disabled: boolean;
   onPickFile: () => void;
 }) {
@@ -782,12 +786,7 @@ function Attached({
           {/* Read-only: a sketch is taken back on the pad, where the boxes
               going are visible, and not by a press on a chip saying only
               `sketch 1`. */}
-          {sketch === undefined ? null : (
-            <AttachmentChip
-              filename={sketch.name}
-              {...(sketch.from === undefined ? {} : { from: sketch.from })}
-            />
-          )}
+          {sketch === undefined ? null : <AttachmentChip filename={sketch.name} />}
           {attachments.map((attachment) => (
             <AttachmentChip
               key={attachment.path}

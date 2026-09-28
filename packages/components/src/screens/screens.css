@@ -1566,11 +1566,27 @@
 }
 
 /* Proposed relations are as many as Helm has proposed. The card gives room back
-   rather than pushing the acts above it off the board. */
+   rather than pushing the field above it off the board. */
 .armada-studio__proposals {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* **The queue says it is the queue.** It carried no title but *Proposed* and
+   sat in the same corner as the field a rail press opens, so it read as being
+   about a selection — the owner's note of 28 Sep 2026. The hue is
+   `awaiting_review`'s, *needs you, not urgent*, and it is the same one the
+   proposed edge on the board draws under its label, so the card and the
+   relation it is about are read as one thing. */
+.armada-studio__waiting {
+  color: var(--status-awaiting-review);
+}
+
+/* Who drew the relation, over it. Set back, because the relation is the fact
+   and this is where it came from. */
+.armada-studio__proposer {
+  color: var(--fg-muted);
 }
 
 .armada-studio__aside p {

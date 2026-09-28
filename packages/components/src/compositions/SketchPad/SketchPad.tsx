@@ -14,7 +14,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
 import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
@@ -102,6 +102,9 @@ const BOX_LABEL = "The words in this box";
 
 /** What a box holds, shown rather than described. A phrase, never a paragraph. */
 const BOX_PLACEHOLDER = "A panel, a read, a step";
+
+/** Where the picture was made, before the node it was made from. */
+const MADE_IN_A_STUDIO = "From a Studio";
 
 type PadNodeData = { body: string; onBody: (body: string) => void; disabled: boolean };
 type PadNode = Node<PadNodeData, "sketch">;
@@ -205,7 +208,13 @@ function PadRail({
       getComputedStyle(document.body).getPropertyValue("--w-sketch-box"),
     );
     const half = Number.isFinite(wide) ? wide / 2 : 0;
-    return { x: Math.round(centre.x - half), y: Math.round(centre.y) };
+    // And off whatever is already there, so two boxes added in a row are two
+    // boxes rather than one with another hidden under it.
+    return clearOf(
+      flow.getNodes().map((node) => node.position),
+      { x: centre.x - half, y: centre.y },
+      Number.isFinite(wide) ? wide : 0,
+    );
   }, [flow]);
 
   const acts: GraphCanvasRailAct[] = [
@@ -408,9 +417,15 @@ export function SketchPad(props: SketchPadProps) {
         disabled={disabled}
         onChange={(event) => onSaid(event.target.value)}
       />
+      {/* **`a Studio` is said once, and it is said here** — the owner, 28 Sep
+          2026, reading this line against the chip below it. Two facts, not
+          one: this says which node the picture was made from, the chip says
+          the request carries a picture. The phrase they shared moved up to the
+          one that is about provenance, and the chip keeps its name alone. */}
       {from === undefined ? null : (
         <p className="armada-sketch-pad__from">
-          Made from <span className="mono">{from}</span> in a Studio.
+          <span className="armada-sketch-pad__made">{MADE_IN_A_STUDIO}</span>{" "}
+          <span className="mono">{from}</span>
         </p>
       )}
     </div>

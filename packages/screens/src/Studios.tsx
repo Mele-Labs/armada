@@ -117,6 +117,14 @@ const RAIL_LABEL = "What you can put on this Studio";
 
 const PICKED_LABEL = "What is picked";
 
+/**
+ * What the queue in the board's corner is. **It says so on its own face** — it
+ * drew no title but *Proposed* and shared a panel with the field the rail
+ * opens, so the owner read it on 28 Sep 2026 as something about a selection he
+ * had not made. It is neither: it is what a Studio is holding for him.
+ */
+const WAITING_LABEL = "Waiting on you";
+
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
   held.length === ids.length && held.every((id, at) => id === ids[at]);
@@ -637,6 +645,51 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               />
             </GraphCanvasNodeBar>
           }
+          waiting={
+            proposed.length === 0 ? undefined : (
+              <Card className="armada-studio__proposals" role="group" aria-label={WAITING_LABEL}>
+                <CardHeader>
+                  <CardTitle className="armada-studio__waiting">{WAITING_LABEL}</CardTitle>
+                </CardHeader>
+                <CardContent className="armada-studio__aside">
+                  {proposed.map((one) => (
+                    <div key={one.id} className="armada-studio__proposed">
+                      {/* Who drew it, first. **The sentence the card was missing**: a
+                          relation with no author reads as one the Studio decided, which
+                          is why the owner asked where `same as` had come from. */}
+                      <p className="armada-studio__proposer">{one.proposer}</p>
+                      <p>
+                        {one.from} <em>{one.relation}</em> {one.to}
+                      </p>
+                      {editable ? (
+                        <div className="armada-studio__acts">
+                          <Button
+                            size="sm"
+                            pending={deciding === one.id}
+                            disabled={deciding !== null}
+                            aria-label={`Accept: ${one.from} ${one.relation} ${one.to}`}
+                            onClick={() => decide(one.id, true)}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={deciding !== null}
+                            aria-label={`Reject: ${one.from} ${one.relation} ${one.to}`}
+                            onClick={() => decide(one.id, false)}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                  {editable ? null : <p className="text-fg-muted">Continue to accept or reject.</p>}
+                </CardContent>
+              </Card>
+            )
+          }
         >
           {/* The field is drawn only while a kind is being written: the rail is
               what asks for one now, so `StudioAddNode`'s own menu is a door
@@ -666,45 +719,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
             </Card>
           ) : null}
-          {proposed.length === 0 ? null : (
-            <Card className="armada-studio__proposals">
-              <CardHeader>
-                <CardTitle>Proposed</CardTitle>
-              </CardHeader>
-              <CardContent className="armada-studio__aside">
-                {proposed.map((one) => (
-                  <div key={one.id} className="armada-studio__proposed">
-                    <p>
-                      {one.from} <em>{one.relation}</em> {one.to}
-                    </p>
-                    {editable ? (
-                      <div className="armada-studio__acts">
-                        <Button
-                          size="sm"
-                          pending={deciding === one.id}
-                          disabled={deciding !== null}
-                          aria-label={`Accept: ${one.from} ${one.relation} ${one.to}`}
-                          onClick={() => decide(one.id, true)}
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={deciding !== null}
-                          aria-label={`Reject: ${one.from} ${one.relation} ${one.to}`}
-                          onClick={() => decide(one.id, false)}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-                {editable ? null : <p className="text-fg-muted">Continue to accept or reject.</p>}
-              </CardContent>
-            </Card>
-          )}
         </StudioWhiteboard>
       </div>
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside

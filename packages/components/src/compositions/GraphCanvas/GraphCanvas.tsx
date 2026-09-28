@@ -78,11 +78,24 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    */
   railBelow?: ReactNode;
   /**
-   * What the surface draws over the top-right corner — the relations waiting on
-   * a person, and whatever a selection cannot hover over itself. The canvas
-   * decides nothing.
+   * What the surface is asking for right now, over the top-right corner — the
+   * field a rail press opened, and nothing else.
+   *
+   * **It drew two things until 28 Sep 2026 and said which it was for neither**,
+   * which is the whole of the owner's *why is this showing when I have nothing
+   * selected*. A queue that waits on a person and a field that waits on the
+   * press a person just made are not one panel; `waiting` below is the other.
    */
   aside?: ReactNode;
+  /**
+   * What is waiting on a person, under `aside` and always last in the column.
+   *
+   * **Its own slot so the two can never be confused again.** It comes and goes
+   * with what the Studio holds rather than with anything the person is doing,
+   * so it has to say so on its own face — the canvas only gives it a place
+   * that is never the other one's.
+   */
+  waiting?: ReactNode;
   /**
    * Mounted inside the graph, where React Flow's own hooks resolve. For a
    * surface that has to read or write the viewport — the workflow canvas stays
@@ -118,6 +131,35 @@ export function facingSides(source: Placed | undefined, target: Placed | undefin
   return { sourceHandle: `s-${out}`, targetHandle: `t-${into}` };
 }
 
+/** How many times a placement steps on before it gives up and stacks. */
+const MOST_NUDGES = 24;
+
+/**
+ * Where a new node lands, given the point the person is looking at: that
+ * point, or a step down and across from it while something already sits there.
+ *
+ * **Placing at the middle of the viewport and nothing else stacks.** Two nodes
+ * added in a row landed on one spot and the second hid the first — unnoticed
+ * while an empty canvas still had `fitView` armed, since that accidental fit
+ * moved the viewport between the two presses. Taking it away uncovered this.
+ */
+export function clearOf(
+  taken: readonly { x: number; y: number }[],
+  at: { x: number; y: number },
+  step: number,
+): { x: number; y: number } {
+  let { x, y } = at;
+  // On top of, rather than beside: corners closer than a step apart in both
+  // axes. The walk is bounded — a board that crowded wants a person moving a
+  // card, not a canvas hunting for room forever.
+  const under = () => taken.some((one) => Math.abs(one.x - x) < step && Math.abs(one.y - y) < step);
+  for (let tried = 0; tried < MOST_NUDGES && under(); tried += 1) {
+    x += step;
+    y += step;
+  }
+  return { x: Math.round(x), y: Math.round(y) };
+}
+
 /** The four sides a node hangs an edge from. Nothing connects by hand, so none is drawn. */
 export const GRAPH_CANVAS_SIDES = [Position.Left, Position.Right, Position.Top, Position.Bottom] as const;
 
@@ -128,6 +170,9 @@ const ARIA = {
   "edge.a11yDescription.default": "Press Enter or Space to select an edge.",
   "node.a11yDescription.ariaLiveMessage": ({ direction }: { direction: string }) => `Moved the node ${direction}.`,
 };
+
+/** Nothing to draw. A surface hands `undefined` for a slot it has nothing in. */
+const noPanel = (slot: ReactNode): boolean => slot === undefined || slot === null;
 
 /** `−` and `+`, the signs the boards draw. Not glyphs: `iconography.md` defaults to none. */
 const SIGN = { in: "+", out: "−" } as const;
@@ -166,6 +211,7 @@ function Surface<N extends Node, E extends Edge>({
   fitViewOptions,
   minZoom,
   aside,
+  waiting,
   children,
 }: GraphCanvasProps<N, E>) {
   const onPicked = useCallback(
@@ -205,9 +251,15 @@ function Surface<N extends Node, E extends Edge>({
       // The attribution is a link out of the app, and no surface may navigate.
       proOptions={{ hideAttribution: true }}
     >
-      {aside === undefined || aside === null ? null : (
+      {/* **The order is the canvas's, not the caller's.** What is waiting draws
+          under what was just asked for, always — so the queue does not jump
+          down the corner every time a rail press opens a field above it, and
+          a person who learnt where it sits finds it there next time. One
+          corner, because the other one is Helm's dock. */}
+      {noPanel(aside) && noPanel(waiting) ? null : (
         <Panel position="top-right" className="armada-graph-canvas__aside">
           {aside}
+          {waiting}
         </Panel>
       )}
       {children}

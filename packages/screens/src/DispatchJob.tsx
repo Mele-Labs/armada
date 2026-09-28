@@ -68,9 +68,6 @@ import { PROPOSAL_IS_SLOW } from "./proposal";
  */
 const SKETCH_NAME = "sketch 1";
 
-/** Where a sketch came from, on its chip. Only where a Studio node produced it. */
-const FROM_A_STUDIO = "From a Studio";
-
 /** What the pad is, read to somebody who cannot see it. */
 const PAD_LABEL = "The picture attached to this request";
 
@@ -373,10 +370,10 @@ export function DispatchJob({
       // opened, not a picture.
       {...(isDrawn(drawing)
         ? {
-            sketch: {
-              name: SKETCH_NAME,
-              ...(sketch?.produced_by === undefined ? {} : { from: FROM_A_STUDIO }),
-            },
+            // **The name alone.** Where the picture was made is the pad's line,
+            // which names the node as well — the chip carrying `From a Studio`
+            // too said `a Studio` twice on one screen (the owner, 28 Sep 2026).
+            sketch: { name: SKETCH_NAME },
           }
         : {})}
       attachments={attachments}
