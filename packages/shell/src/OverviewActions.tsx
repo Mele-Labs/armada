@@ -1,13 +1,14 @@
-// The Board's one control: `Dispatch` (`New job` until #1087 renamed the
-// registry row), with everything else the Board offers in its menu.
+// Overview's one control: `Dispatch` (`New job` until #1087 renamed the
+// registry row), with everything else on offer in its menu.
 //
 // **One control, where there were six.** The head this used to sit in carried
 // Refresh, Reported, Held disk and New job, and the Board carried Clear and
 // Delete in a row of their own beneath it. The owner ruled on 11 Sep 2026
 // that a head carries one action and a menu, the rule Job detail's header
 // already keeps, so the likely act is on the face and the rest are one click
-// away. #1090 removed the head itself; this now draws at the top of the
-// Board's own content instead, and the rule it was built under still holds.
+// away. #1090 removed the head itself and put this at the top of the Board's
+// own content; the Board went next, and this came to Overview with it —
+// Reported, Refresh and the two sweeps had no other entrance in the app.
 //
 // **The two bulk acts still confirm on their own.** Delete is the one act on
 // the Board that cannot be undone, and a person reaching for Clear must never
@@ -15,7 +16,7 @@
 
 import { Dialog, JOB_LIFECYCLE, SplitButton, type SplitButtonItem } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Which finished Jobs each bulk act would reach. */
 export function terminalOf(jobs: readonly JobSummary[]): {
@@ -33,7 +34,7 @@ export function terminalOf(jobs: readonly JobSummary[]): {
   };
 }
 
-export function BoardActions({
+export function OverviewActions({
   jobs,
   live,
   refreshing,
@@ -67,9 +68,21 @@ export function BoardActions({
   // confirm is the one control still on screen once the menu that opened it
   // has already closed, so it is what carries the wait. Closes once `sweeping`
   // answers, whichever way. #1117.
+  //
+  // **It closes on the answer, not on the absence of a sweep.** The condition
+  // was `sweeping === null`, which is true before anything is sent: opening the
+  // dialog scheduled the effect that shut it, so neither bulk act could be
+  // confirmed at all. Found on 28 Sep 2026 by pressing it, which no test did.
+  const out = useRef(false);
   useEffect(() => {
-    if (asking !== null && sweeping === null) setAsking(null);
-  }, [sweeping, asking]);
+    if (sweeping !== null) {
+      out.current = true;
+      return;
+    }
+    if (!out.current) return;
+    out.current = false;
+    setAsking(null);
+  }, [sweeping]);
   const { reclaimable, forgettable } = terminalOf(jobs);
   const clearNoun = reclaimable.length === 1 ? "job" : "jobs";
   const forgetNoun = forgettable.length === 1 ? "job's" : "jobs'";
@@ -102,7 +115,7 @@ export function BoardActions({
         items={items}
         onAction={onCompose}
         disabled={!live || sweeping !== null}
-        menuLabel="Everything else on the Board"
+        menuLabel="Everything else"
       >
         Dispatch
       </SplitButton>

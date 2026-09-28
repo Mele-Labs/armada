@@ -11,7 +11,7 @@ const manifest = (id: string) => ({ id, repository: id, path: `${id}/armada.yml`
 const SHOP: RepositorySummary = { root: "/Users/user/shop", records_root: "/records/shop", manifest: manifest("shop") };
 
 describe("overviewListsOf", () => {
-  it("draws needs-you, running, queued and recently-ended, in that order, and leaves Done off", () => {
+  it("draws every section in order, Done among them since the Job Board went", () => {
     const jobs = [
       job("completed_success", { id: "done" }),
       job("queued", { id: "q" }),
@@ -24,6 +24,9 @@ describe("overviewListsOf", () => {
       "running",
       "queued",
       "recently-ended",
+      // Done was left off while the Board still drew it. Every Job that
+      // completed or was cleared would have gone with that page.
+      "done",
     ]);
   });
 

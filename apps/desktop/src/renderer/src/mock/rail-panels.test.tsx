@@ -40,10 +40,8 @@ test("Work holds the jobs-and-studios rows, Overview first", async () => {
   mount("every-state");
   await onScreen();
 
-  // The Job Board is still one of them: its page exists until #1594 folds it
-  // into Overview, and a rail row for a page that is still reachable is not a
-  // row to drop early.
-  expect(rowsOf("Work")).toEqual(["Overview", "Job Board", "Studios", "Cleanup"]);
+  // Exactly the owner's list. The Job Board row went with the page.
+  expect(rowsOf("Work")).toEqual(["Overview", "Studios", "Cleanup"]);
 });
 
 test("Manifest has left the rail, and the control beside the picker still opens it", async () => {

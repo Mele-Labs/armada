@@ -1,9 +1,9 @@
-// A changed row decays on the Board itself: `recent.ts` wired through `Jobs` and `Row`.
+// A changed row decays on the list itself: `recent.ts` wired through `OverviewLists` and `Row`.
 
 import type { JobSummary } from "@armada/protocol";
 import { afterEach, expect, test } from "vitest";
 
-import { Jobs, type JobsProps } from "./Jobs";
+import { OverviewLists, type OverviewListsProps } from "./OverviewLists";
 import { job, workflow } from "./fixtures/build/base";
 import { mount, rerender, unmount } from "./mounted";
 
@@ -13,11 +13,13 @@ const noop = () => {};
 const AGO = /· \d+s ago$/;
 
 function board(jobs: readonly JobSummary[]): React.ReactElement {
-  const props: JobsProps = {
+  const props: OverviewListsProps = {
     jobs,
     stale: false,
     now: Date.parse("2026-09-10T21:00:00Z"),
     workflows: [workflow()],
+    repositories: [],
+    picked: null,
     disconnected: null,
     selected: null,
     onOpen: noop,
@@ -27,7 +29,7 @@ function board(jobs: readonly JobSummary[]): React.ReactElement {
     onCompose: noop,
     onCopied: noop,
   };
-  return <Jobs {...props} />;
+  return <OverviewLists {...props} />;
 }
 
 function notes(): string[] {

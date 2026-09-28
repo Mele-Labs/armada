@@ -73,12 +73,14 @@ function unreachable(scenario: Scenario): Scenario {
   };
 }
 
-test("every section draws, and a status the registry does not know is named beneath", async () => {
+test("every section draws, Done included, and a status the registry does not know is named beneath", async () => {
   await overview(onOverview(JOBS()));
   await expect.element(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "Queued" })).toBeVisible();
   await expect.element(page.getByText(/not_a_status_the_registry_has/)).toBeVisible();
-  expect(page.getByRole("heading", { name: "Done" }).query()).toBeNull();
+  // Done arrived when the Job Board went: every Job that completed or was
+  // cleared was only ever on that page. Folded, so the heading is what draws.
+  await expect.element(page.getByRole("heading", { name: "Done" })).toBeVisible();
 });
 
 test("no jobs: a card with Dispatch on it, and every summary count reads zero", async () => {

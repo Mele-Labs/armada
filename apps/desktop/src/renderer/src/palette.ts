@@ -121,6 +121,9 @@ export function dormantIn(where: {
     // focus, and opening the palette took that focus away. The row is drawn so
     // the binding is discovered, and it says what it needs.
     send_message: "type in a message box first",
+    // The Board's own field answered this and went with the Board. This
+    // palette is the search now, so a row reopening it would be circular.
+    search: "this is the search",
     // Built by #1591, and a wiring gap like Helm's above rather than a
     // missing act: the column's own toggle and `⌘\` both live in
     // `Shell.tsx`'s state, which `App` holds no handle to. It collapses to
@@ -154,8 +157,6 @@ export type PaletteHands = {
    * which is the one confirmation that surface exists to carry.
    */
   run: (entryId: string) => void;
-  filter: (tabId: string) => void;
-  search: () => void;
   copyDebugInfo: () => void;
   confirm: (act: "kill_job" | "redispatch" | "restart_step", jobId: string) => void;
   /**
@@ -192,9 +193,6 @@ export function carryOut(choice: PaletteChoice, job: string | null, hands: Palet
     case "run":
       hands.run(choice.id);
       return;
-    case "filter":
-      hands.filter(choice.id);
-      return;
     case "setting":
       hands.openSetting(choice.id);
       return;
@@ -214,9 +212,6 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
       return;
     case "new_job":
       hands.compose();
-      return;
-    case "search":
-      hands.search();
       return;
     case "close":
       hands.closeJob();

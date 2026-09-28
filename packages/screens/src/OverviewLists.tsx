@@ -4,9 +4,9 @@
 // board and applies the Board's own fold and sort ahead of it.
 //
 // **Rows are the Board's own `Row`** — same field run, same act, and on All with more than one
-// repository served the row names it, exactly as `Jobs.tsx` does.
+// repository served the row names it, as the Board's own list did.
 //
-// **Each section is its own panel** — `ActiveJobsList`'s `panel` variant, Board's flat list unchanged.
+// **Each section is its own panel** — `ActiveJobsList`'s `panel` variant.
 // Overview 27 (#1091) gave the variant its own fold; `openSections` and `onSectionOpenChange` are
 // this screen's own pass-through, and the caller is who remembers a press across a restart.
 //
@@ -14,13 +14,13 @@
 // last received, so a Needs you row from before an outage stays on screen; only a board with
 // nothing on it at all draws the disconnected message.
 //
-// **The keyboard shares `Jobs.tsx`'s mechanism rather than copying it.** `list-keyboard.ts` carries
-// the window listener and DOM-focus-as-cursor; `keys.ts`'s `boardPressOf` carries the map, unchanged.
-// `move`, `open`, `verb`, `kill` and `compose` are answered — `search`, `tab` and `copy` have no
-// target here yet, since this screen draws no search field and no state tabs.
+// **The keyboard is `list-keyboard.ts`'s mechanism and `keys.ts`'s map** — the window listener,
+// DOM-focus-as-cursor, and `boardPressOf`. `move`, `open`, `verb`, `kill` and `compose` are
+// answered; `copy` reaches nothing on a healthy Job. `search` and the state tabs went with the Job
+// Board, which held the only field and the only tab strip.
 //
-// Not routed yet — #921 mounts this beneath the summary strip Overview 27 replaced the tile band
-// with — so a story draws it directly.
+// Mounted beneath the summary strip #921 put here. Since the Job Board went, this is where every
+// Job is listed, Done included — `overview-lists.ts` says why that section arrived.
 
 import { ActiveJobsList } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
@@ -145,11 +145,10 @@ export function OverviewLists({
       case "compose":
         onCompose();
         break;
-      case "search":
-      case "tab":
       case "copy":
-        // No search field, no state tabs, nothing to copy — the map still
-        // recognizes the key; this screen has nothing to do with it.
+        // Nothing to copy on a healthy Job — `copyDebugInfoFor` takes a
+        // `Failure`. The map still claims the key so it is where the contract
+        // says it is; the press does nothing and is not swallowed.
         return;
     }
     event.preventDefault();

@@ -1299,8 +1299,6 @@ b              report this job     (detail only) (confirms)
 x              kill                (confirms)
 X              kill & redispatch   (detail only) (confirms) (not built)
 n              dispatch
-/              search the current list
-1–6            state filter        (Job Board only, in tab order)
 a              approve             (dispatch card only)
 v              observe             (detail only)
 u              submit for verification  (piloted job only)
@@ -1356,8 +1354,10 @@ Three reversals against what stood before, each with a reason:
 - **`r` is review, and redirect moves to `d`.** Review is on every
   needs-you row and is the most-pressed contextual key in the app;
   redirect is reached from a job that has already gone wrong.
-- **`⌘F` is deleted.** `/` already searches the current list, and two
-  bindings for one act breaks the one-artifact rule above.
+- **`⌘F` is deleted.** It duplicated `/`, and two bindings for one act
+  breaks the one-artifact rule above. `/` is deleted too, on 28 Sep 2026:
+  the Job Board held the only field it focused, and the command palette is
+  what searches now.
 
 **`x` for kill and every safety rule below are unchanged.** Neither was
 in play, and the destructive-key rule is what kept `x` off `k`.
@@ -1371,11 +1371,18 @@ the design drew are all spoken for: `n` is dispatch and its scope is
 `anywhere`, `v` is observe and `s` is restart step, so an unshifted key
 would answer twice on one press. See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘9` follow the rail** — Overview, Job Board, Studios, Alerts,
-Doctor, Manifest, Cleanup, Kit, Settings — since Active Jobs, Reviews and the Activity
-Feed folded into the Board and Cleanup joined at the end of it.
+**`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
+Doctor, Manifest, Cleanup, Kit, Settings, Guides — since Active Jobs, Reviews and the
+Activity Feed folded into the Board and Cleanup joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the
 numbers.
+
+**The Job Board's deletion on 28 Sep 2026 is the first removal to shift
+them.** Every digit behind it moved up one, and Guides took `⌘9` — the
+first it has ever carried, since it had been the tenth row and the
+contract publishes nine. A rail row is not what a digit follows: Manifest
+keeps `⌘5` with no row at all, because it is reached from the title row's
+picker (#1595) and the order it sits in is unchanged.
 
 **Helm moved from `⌘6` to `⌘J` on 2026-09-13**, when it left the rail
 for a dock on every Bridge surface (#948). A digit is a place in the rail,

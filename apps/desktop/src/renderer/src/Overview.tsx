@@ -6,7 +6,7 @@
 // padding and gap, so neither the strip nor a panel sits against the window's edge. `Boundary`
 // renders its children straight through when nothing has thrown.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { BoardSection } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
@@ -31,6 +31,9 @@ export function Overview({
   onCompose,
   onCopied,
   onCursor,
+  actions,
+  land,
+  onLanded,
 }: {
   state: BridgeState;
   now: number;
@@ -52,6 +55,22 @@ export function Overview({
   onCopied: (value: string) => void;
   /** Where the cursor is, reported up — `OverviewLists`' own state, mirrored. #1075. */
   onCursor?: (jobId: string | null) => void;
+  /**
+   * `OverviewActions` — Dispatch and the menu behind it, built by the caller.
+   * **Absent draws none.** It was the Board's, at the top of the Board's own
+   * content; Reported, Refresh and the two bulk sweeps had no other entrance
+   * in the app, so it came here rather than going with the page.
+   */
+  actions?: ReactNode;
+  /**
+   * A section a pressed notification asked for — `App`'s own token. **Opened
+   * and scrolled to once this is mounted**, which the press could not do: it
+   * may have arrived over the composer or over a Job. `at` is what makes a
+   * second press of the same section land.
+   */
+  land?: { section: StripSection; at: number } | null;
+  /** Taken, so the token is not acted on twice. */
+  onLanded?: () => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -62,11 +81,17 @@ export function Overview({
   const [queuedOpen, setQueuedOpen] = usePanelOpen("queued");
   const [recentlyEndedOpen, setRecentlyEndedOpen] = usePanelOpen("recently-ended");
   const [otherOpen, setOtherOpen] = usePanelOpen("other");
-  const setters: Record<StripSection | "other", (open: boolean) => void> = {
+  // **Folded until somebody asks.** What is over is read on purpose, the rule
+  // the Board's own Done fold was built under. Done is here because the Board
+  // is not, and every completed or cleared Job would otherwise have gone with
+  // it — it is the one reading that surface had and this did not.
+  const [doneOpen, setDoneOpen] = usePanelOpen("done", false);
+  const setters: Record<BoardSection, (open: boolean) => void> = {
     "needs-you": setNeedsYouOpen,
     running: setRunningOpen,
     queued: setQueuedOpen,
     "recently-ended": setRecentlyEndedOpen,
+    done: setDoneOpen,
     other: setOtherOpen,
   };
   const openSections: Partial<Record<BoardSection, boolean>> = {
@@ -74,12 +99,10 @@ export function Overview({
     running: runningOpen,
     queued: queuedOpen,
     "recently-ended": recentlyEndedOpen,
+    done: doneOpen,
     other: otherOpen,
   };
-  const onSectionOpenChange = (section: BoardSection, open: boolean) => {
-    if (section === "done") return;
-    setters[section](open);
-  };
+  const onSectionOpenChange = (section: BoardSection, open: boolean) => setters[section](open);
 
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
@@ -88,6 +111,14 @@ export function Overview({
     setters[section](true);
     setJump({ section, at: Date.now() });
   };
+  // A notification's own landing, taken once Overview is on screen.
+  useEffect(() => {
+    if (land === undefined || land === null) return;
+    onJump(land.section);
+    onLanded?.();
+    // `at` alone: the same section pressed twice is two landings.
+  }, [land?.at]);
+
   useEffect(() => {
     if (jump === null) return;
     const panel = document.getElementById(overviewPanelId(jump.section));
@@ -99,6 +130,9 @@ export function Overview({
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
+        {actions === undefined ? null : (
+          <div className="armada-screen__surface-actions">{actions}</div>
+        )}
         <OverviewSummary jobs={state.jobs} repositories={repositories} picked={state.repository} onJump={onJump} />
         <OverviewLists
           jobs={state.jobs}

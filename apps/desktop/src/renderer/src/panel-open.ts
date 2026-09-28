@@ -32,8 +32,14 @@ function write(next: Stored): void {
   }
 }
 
-/** One panel's open state, backed by the same stored bag. Absent for a name reads open. */
-export function usePanelOpen(panel: string): [boolean, (open: boolean) => void] {
+/**
+ * One panel's open state, backed by the same stored bag.
+ *
+ * **Absent for a name reads open, unless the caller says otherwise.** Done
+ * passes `false`: what is over is read on purpose, the rule the Board's own
+ * Done fold was built under.
+ */
+export function usePanelOpen(panel: string, absent = true): [boolean, (open: boolean) => void] {
   const [stored, setStored] = useState(read);
 
   function press(open: boolean): void {
@@ -42,5 +48,5 @@ export function usePanelOpen(panel: string): [boolean, (open: boolean) => void] 
     write(next);
   }
 
-  return [stored[panel] ?? true, press];
+  return [stored[panel] ?? absent, press];
 }

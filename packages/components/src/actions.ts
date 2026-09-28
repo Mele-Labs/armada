@@ -83,7 +83,6 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   anywhere: ["board", "detail", "studio"],
   list: ["board"],
   "list and detail": ["board", "detail"],
-  "job board": ["board"],
   detail: ["detail"],
   "dispatch card": ["detail"],
   "piloted job": ["detail"],

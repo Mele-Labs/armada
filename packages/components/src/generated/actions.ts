@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronRight, CornerUpRight, Eye, FileDiff, Filter, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Search, Stamp, Terminal, X } from "lucide-react";
+import { ChevronRight, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -41,7 +41,6 @@ export type ActionScope =
   | "anywhere"
   | "detail"
   | "dispatch card"
-  | "job board"
   | "list"
   | "list and detail"
   | "open studio"
@@ -371,32 +370,6 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "n",
     scope: "anywhere",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
-    id: "search",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Search",
-    icon: Search,
-    iconAbsent: null,
-    shortcut: "/",
-    scope: "list",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
-    id: "state_filter",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "State filter",
-    icon: Filter,
-    iconAbsent: null,
-    shortcut: "1–6",
-    scope: "job board",
     destructive: false,
     confirms: false,
     unbuilt: null,

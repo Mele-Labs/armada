@@ -98,8 +98,11 @@ export async function entered(layer: ReturnType<typeof page.getByRole>): Promise
 /** Every Board row drawn, in either arrangement. */
 export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>("[data-job-id]")];
 
-/** The Board, by its rail item, once it has drawn a row. `App` opens on Overview. */
-export async function openBoard(): Promise<void> {
-  await page.getByRole("button", { name: "Job Board" }).first().click();
+/**
+ * Every Job on screen, once at least one row has drawn. **No navigation**:
+ * `App` opens on Overview, which is where every Job is listed since the Job
+ * Board went. It was a press on the rail's Board row until then.
+ */
+export async function listed(): Promise<void> {
   await expect.poll(() => rows().length).toBeGreaterThan(0);
 }

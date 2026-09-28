@@ -19,7 +19,7 @@ assuming it is restated here.
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |
 | [fleet.md](fleet.md) | The Rust daemon — the only actor that writes a state transition on a Job or a Drone |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
-| [job-board.md](job-board.md) | The surface for not-yet-started Jobs on one Manifest |
+| [job-board.md](job-board.md) | Every Job on one Manifest, and what a row of them says. Read on Overview |
 | [job-proposer.md](job-proposer.md) | The model call that reads a dispatch request and proposes a Job |
 | [job.md](job.md) | The unit of work Fleet dispatches to a Drone — data, not an actor |
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |

@@ -27,7 +27,7 @@ import {
 import type { Guide } from "@armada/components";
 
 import { SCENARIOS, scenarioNamed } from "./scenario";
-import { mount, openBoard, rows, unmountAfterEach } from "./testing";
+import { mount, listed, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -112,7 +112,7 @@ describe("every arc moment loads", () => {
 
   test("the kinds Board opens every Job it holds", async () => {
     const { scenario } = mount("kinds");
-    await openBoard();
+    await listed();
     const done = page.getByRole("button", { name: /^Done/ });
     if (done.query()?.getAttribute("aria-expanded") === "false") await done.click();
     await expect
@@ -1015,7 +1015,7 @@ describe("one Job per workflow kind", () => {
 
   test("no Job on the Board runs a workflow called verify-and-ship", async () => {
     const { scenario } = mount("kinds");
-    await openBoard();
+    await listed();
     expect(scenario.state.holds.workflows.map((one) => one.id)).not.toContain("verify-and-ship");
     expect(document.body.textContent).not.toContain("verify-and-ship");
   });

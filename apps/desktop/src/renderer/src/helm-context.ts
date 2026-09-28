@@ -47,7 +47,6 @@ export function screenOf(where: {
   reading: boolean;
   clearing: boolean;
   manifesting: boolean;
-  overviewing: boolean;
   studying: boolean;
   kitting: boolean;
   settling: boolean;
@@ -55,31 +54,26 @@ export function screenOf(where: {
   if (where.reading) return "job_detail";
   if (where.clearing) return "cleanup";
   if (where.manifesting) return "manifest";
-  if (where.overviewing) return "overview";
   if (where.studying) return "studio";
   if (where.kitting) return "kit";
   // **Last, and it was missing entirely until #1275.** A person on Settings
   // was told to Helm as being on the Board, which is the gap #1287 left when
   // it added `studio` and stopped.
   if (where.settling) return "settings";
-  return "board";
+  // **Overview, because it is where a window with nothing else open is.** It
+  // read `board` until the Job Board went: everything else — the composer, a
+  // Job, the reports — is Overview with something over it, the sentence that
+  // used to be true of the Board.
+  return "overview";
 }
 
 /**
- * Which cursor `AskHelm.context` carries — the Board's or Overview's,
- * whichever screen is showing. Neither is a fact off the other: the Board's
- * `cursor` is stale once Overview is what's on screen, and Overview has its
- * own roving row (`OverviewLists`, reported the same way `Jobs.tsx` reports
- * the Board's).
+ * Which cursor `AskHelm.context` carries — Overview's, where Overview is the
+ * screen. It took the Board's too until that surface went; one roving row is
+ * left, `OverviewLists`', reported up the way the Board's was.
  */
-export function cursorRowFor(where: {
-  screen: HelmScreen;
-  board: string | null;
-  overview: string | null;
-}): string | null {
-  if (where.screen === "board") return where.board;
-  if (where.screen === "overview") return where.overview;
-  return null;
+export function cursorRowFor(where: { screen: HelmScreen; overview: string | null }): string | null {
+  return where.screen === "overview" ? where.overview : null;
 }
 
 /**

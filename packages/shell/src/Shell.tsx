@@ -65,7 +65,6 @@ import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ACTION,
-  JOB_LIFECYCLE,
   Button,
   DockQuestions,
   DropdownMenu,
@@ -77,7 +76,6 @@ import {
 } from "@armada/components";
 
 import type { Connection } from "@armada/protocol";
-import type { JobSummary } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
 import { useDockWidth } from "./dock-width";
 // The rail collapses below `--layout-breakpoint`, and job detail's inspector
@@ -113,8 +111,6 @@ export type ShellProps = {
    * than this row growing a second answer to the same question.
    */
   onOpenManifest?: () => void;
-  /** The Board's Jobs, for the rail's count. They follow the pick. */
-  boardJobs: readonly JobSummary[];
   /**
    * The left column's Stats panel, built by the caller from the same
    * arithmetic Overview's own tiles read — `apps/desktop`'s `left-column.ts`.
@@ -164,7 +160,6 @@ export function Shell({
   onScope,
   onAddRepository,
   onOpenManifest,
-  boardJobs,
   stats,
   fleet,
   onCompose,
@@ -223,17 +218,10 @@ export function Shell({
           label: surface.label,
           icon: surface.icon,
           shortcut: surface.shortcut,
-          // Only the Board carries one. What Fleet is holding disk for is read
-          // while that screen is open and not before, so a number here would be
-          // right for as long as somebody was looking at it and stale after —
-          // and a count nobody can trust is worse than a row with none.
-          //
-          // **Active Jobs only.** Finished and cleared ones are the Board's
-          // record rather than its work, and the owner ruled on 11 Sep 2026
-          // that the rail counts the work. Zero draws no count, as a tab's does.
-          ...(surface.id === SURFACE.board && activeOf(boardJobs) > 0
-            ? { count: activeOf(boardJobs) }
-            : {}),
+          // **No row carries a count.** The Board's did — active Jobs, the
+          // owner's ruling of 11 Sep 2026 — and that row went with the page.
+          // Stats already carries every count the column shows, and a second
+          // place to read one is a second chance to disagree.
         })),
       }))}
       activeId={showing}
@@ -430,10 +418,3 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
   return { open, onOpen };
 }
 
-/**
- * How many Jobs have not ended. A status the registry does not know counts,
- * since nothing says that Job is over.
- */
-function activeOf(jobs: readonly JobSummary[]): number {
-  return jobs.filter((job) => JOB_LIFECYCLE[job.status]?.terminal !== true).length;
-}
