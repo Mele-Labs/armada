@@ -1,10 +1,9 @@
 import type { Guide } from "./guide";
 
 /**
- * The three links a member can carry, off `JobMembers.MEMBER_LINK`. The card
- * still says which link this member has — that is a fact about it. What the
- * three *are*, and that they differ in what happens while the one before is
- * still open, is here.
+ * The three links a member can carry. The join between two rows says which
+ * one they have — that is a fact about them. What the three *are*, and that
+ * they differ in what happens while the one before is still open, is here.
  *
  * *Members landing in order* is one of the three relations
  * `docs/contracts/design-system.md` names as worth drawing.

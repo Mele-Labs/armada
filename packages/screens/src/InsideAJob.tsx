@@ -7,7 +7,6 @@ import { ChevronRight, ChevronUp } from "lucide-react";
 import { Fragment, useCallback, useState } from "react";
 import {
   GuideMark,
-  GUIDE_MEMBER_LINK,
   GUIDE_STEP_BAR,
   RunTree,
   RunTreeSkeleton,
@@ -38,7 +37,7 @@ export type { StepNotice, StepOverview, StepPanel, StepReading } from "./Inspect
  * Inside a Job — the Overview tab, and one arrangement at every state.
  *
  * **The header and the tab strip are above this and are not its.** `#1534` gave
- * job detail five destinations and this is the first, unchanged; `JobDetail.tsx`
+ * job detail its destinations and this is the first; `JobDetail.tsx`
  * draws the strip, and what a tab holds is that tab's own file.
  *
  * **Under `--layout-breakpoint` the inspector folds to a sheet** — `narrow`,
@@ -130,14 +129,6 @@ export type InsideAJobProps = {
    * where any of them stands. Present takes the slot over `run`/`runAbsent`.
    */
   runReading?: RunTreeSkeletonProps;
-  /**
-   * The Jobs landing under this one, in the order they land — above the two
-   * columns, because the order between them is what this Job *is* rather than
-   * context for its own run. **Absent draws nothing**, which is every Job that
-   * lands one pull request of its own. `#1543`.
-   */
-  members?: ReactNode;
-  membersLabel?: ReactNode;
   /**
    * The Job's pulse, in a few lines: the last thing anyone did on it, the process
    * count, the worktree, the disk. `JobHoldsSummary`, and the full reading is a
@@ -324,8 +315,6 @@ export function InsideAJob({
   runWorkflowLabel,
   runAbsent = "Steps unknown",
   runReading,
-  members,
-  membersLabel = "Landing in order",
   machine,
   machineLabel = "Pulse",
   machineAct,
@@ -379,25 +368,6 @@ export function InsideAJob({
 
   return (
     <>
-      {/* Several pull requests landing in order, before the run: the order
-          between the members is what a person opened this Job to read, and the
-          parent's own four steps are how it got there. */}
-      {members === undefined ? null : (
-        <div className="armada-inside__landing">
-          <div className="armada-inside__region-head">
-            {/* The band and its `?`, the same pair the run's head carries.
-                What the three links are is true of a member that never ran,
-                so the cards say which one they have and this says what the
-                three mean — `#1602`. */}
-            <span className="armada-inside__region-name">
-              <Eyebrow>{membersLabel}</Eyebrow>
-              <GuideMark guide={GUIDE_MEMBER_LINK} />
-            </span>
-          </div>
-          {members}
-        </div>
-      )}
-
       <div className="armada-inside" data-narrow={narrow || undefined}>
         {/* The run, and the pointers beneath it. Left, at every state. */}
         <div className="armada-inside__run">

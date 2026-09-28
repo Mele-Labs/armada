@@ -1,14 +1,21 @@
-// Every setting a person can change on a running Job, and the header's way in.
+// Every setting a person can change on a running Job, and the destination it
+// is read at.
 //
 // `JobSettings` in the component library draws the panel. This is what it is
 // fed from the wire, what each control sends, and when a change is said to
 // have taken — the three things the component cannot know.
 //
+// **It is the strip's sixth destination since 28 September 2026**, and was a
+// sheet behind a header button before that. The owner reversed his own 21
+// September decision: *"I hate that the job settings are button. It should be
+// part of the segment control where overview, workflow, plan, record, and
+// pulse are now."*
+//
 // **The raise dialogs are the header's own**, `RaiseCap.tsx` and
 // `RaiseTurnCap.tsx`, mounted here with their buttons off. The panel's rows are
 // another way to open them and not a second way to raise.
 
-import { JOB_LIFECYCLE, JobSettings, JobSettingsButton } from "@armada/components";
+import { JOB_LIFECYCLE, JobSettings } from "@armada/components";
 import type {
   JobDetail as JobWhole,
   JobSummary,
@@ -68,16 +75,6 @@ export function changedOf(whole: JobWhole | null): number {
   return blocked + refused + model + reviewModel + (whole.allowed_commands?.length ?? 0);
 }
 
-/** The header's way in, where the Job has settings. Nothing where it has none. */
-export function settingsButtonOf(
-  job: JobSummary,
-  whole: JobWhole | null,
-  onOpen: () => void,
-): ReactNode {
-  if (!offersSettings(job, whole)) return null;
-  return <JobSettingsButton changed={changedOf(whole)} onOpen={onOpen} />;
-}
-
 /** What the panel sends. Each is live, and none restarts anything. */
 export type SettingsCalls = {
   onSetWhenBlocked: (jobId: string, whenBlocked: WhenBlocked) => void;
@@ -89,7 +86,7 @@ export type SettingsCalls = {
   onRaiseTurnCap: (jobId: string, turnCap: number) => void;
 };
 
-export type SettingsSheetProps = SettingsCalls & {
+export type SettingsPanelProps = SettingsCalls & {
   job: JobSummary;
   whole: JobWhole | null;
   /** What `list_models` offers. `null` until it has been read. */
@@ -98,8 +95,6 @@ export type SettingsSheetProps = SettingsCalls & {
   acting: boolean;
   /** Which act, where `acting` is true — `remove_allowed_command` is this panel's own row press. #1117. */
   actingAct?: ActingAct;
-  floor: boolean;
-  onClose: () => void;
 };
 
 /** A row a change was sent from. */
@@ -128,19 +123,18 @@ type Told = { row: Row; says: ReactNode; took: (whole: JobWhole) => boolean };
  * on the press would say it over a refusal too. What is held is what was sent
  * and the test for it; the line shows once the reading passes.
  *
- * **`Esc` belongs to a raise dialog while one is up.** The sheet catches the key
- * first and stops it, so without this a person closing the dialog would lose
- * the whole panel with it.
+ * **A Job with nothing to change says so rather than drawing nothing.** The
+ * strip draws six destinations at every state, so one of them going blank
+ * would read as a surface that had failed — and the two reasons it can be
+ * blank are different enough to need different sentences.
  */
-export function SettingsSheet({
+export function SettingsPanel({
   job,
   whole,
   models,
   stale,
   acting,
   actingAct,
-  floor,
-  onClose,
   onSetWhenBlocked,
   onSetWhenRefused,
   onSetModel,
@@ -148,13 +142,16 @@ export function SettingsSheet({
   onRemoveAllowedCommand,
   onRaiseCap,
   onRaiseTurnCap,
-}: SettingsSheetProps) {
+}: SettingsPanelProps) {
   const [raising, setRaising] = useState<"cost" | "turns" | null>(null);
   const [told, setTold] = useState<Told[]>([]);
 
   const current = whole?.when_blocked;
   const currentRefused = whole?.when_refused;
-  if (whole === null || current === undefined || !offersSettings(job, whole)) return null;
+  const nothing = whyNothingToChange(job, whole);
+  if (nothing !== undefined || whole === null || current === undefined) {
+    return <p className="armada-settings-tab__note">{nothing ?? NOT_READ_YET}</p>;
+  }
 
   const tell = (row: Row, says: ReactNode, took: (next: JobWhole) => boolean) =>
     setTold((was) => [...was.filter((one) => one.row !== row), { row, says, took }]);
@@ -172,8 +169,7 @@ export function SettingsSheet({
     <>
       <JobSettings
         open
-        floor={floor}
-        jobId={job.handle}
+        frame="flat"
         costCap={
           spend === undefined
             ? undefined
@@ -254,7 +250,6 @@ export function SettingsSheet({
           tell("allowed", REMOVED, (next) => !(next.allowed_commands ?? []).some((row) => row.run === run));
           onRemoveAllowedCommand(job.id, run);
         }}
-        onClose={raising === null ? onClose : () => setRaising(null)}
       />
       {spend === undefined ? null : (
         <>
@@ -287,6 +282,32 @@ export function SettingsSheet({
     </>
   );
 }
+
+/**
+ * Why there is nothing to change, or nothing where there is something.
+ *
+ * **Two silences, told apart**, on the rule that a screen never says a thing
+ * it does not know: a Job that is over will not reach for a setting again, and
+ * a Fleet that sent no `when_blocked` is one this Bridge cannot read a setting
+ * off at all. One sentence over both would make the second read as the first.
+ */
+function whyNothingToChange(job: JobSummary, whole: JobWhole | null): string | undefined {
+  if (whole === null) return undefined;
+  if (JOB_LIFECYCLE[job.status]?.terminal !== false) return OVER;
+  if (whole.when_blocked === undefined) return FLEET_DOES_NOT_SAY;
+  return undefined;
+}
+
+/** A Job past its last step. Nothing will read a setting again. */
+const OVER = "This job has finished, so there is nothing left for a change to reach.";
+
+/** A Fleet older than 10.7, which sends no `when_blocked` to draw against. */
+const FLEET_DOES_NOT_SAY =
+  "This Fleet does not report what this job does with a command it wasn't given, so nothing " +
+  "here can be drawn without guessing at it.";
+
+/** The detail has not arrived. Not a state, just not yet. */
+const NOT_READ_YET = "Reading this job's settings…";
 
 /** Why every control is off, where the reading is not live. */
 const NOT_LIVE = "This job is not live, so nothing can be changed.";

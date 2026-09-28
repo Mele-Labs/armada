@@ -1743,6 +1743,11 @@ what the owner saw on Manifest on 17 Sep 2026. The fill is the contract's own
 for a selected row, with `--fg-default` on it because `--accent` measures
 4.06:1 there and would not clear as body text.
 
+**This is what a panel's own filters are, and not what a destination is.** Two
+filled tracks stacked — a Job's destinations over the Record panel's filters —
+carry no hierarchy between them, which the owner hit on 28 Sep 2026. The
+destinations are the strip below; the filters stay this control.
+
 **The track is `--bg-raised`, not `--bg-sunken`, and that is Button's own
 rule.** A filled control steps one surface from its ground, and the grounds a
 tab strip sits on are the canvas and a Sheet's overlay. `--bg-sunken` is 18
@@ -1777,6 +1782,31 @@ chosen one gives up its fill rather than its selection. A fill reads as *this
 is what you are looking at*, and while something else on the surface is
 narrowing the list that is not true. Nothing is disabled: pressing a tab is
 the way out of the state, so the way out has to work.
+
+### Destinations
+
+Where inside one object a person is, drawn as underline tabs: plain text on the
+surface, and a rule under the chosen one.
+
+```
+strip      no track · 1px --border-subtle under the whole strip · 4px gap
+tab        --h-control-sm · 12px horizontal padding · --text-sm · --fg-muted
+chosen     --edge-active --accent rule beneath · --fg-default · no fill
+hover      --fg-default
+figure     trailing mono --text-2xs in --fg-subtle, never a filled pill
+```
+
+**Two kinds of control at two levels is what buys the hierarchy**, and spacing
+is not. A destination is a place you go; a filter narrows what is already on
+screen. Drawn as one control they read as two of the same thing, which is what
+the owner refused on 28 Sep 2026 — `.claude/decisions/` holds the exchange.
+
+**The figure beside a name is only ever one this screen has read.** Zero draws
+nothing, and the value is not always a count: the boards draw `Workflow 1 / 5`
+and `Record 21` in the same slot.
+
+**Job detail is the one surface that draws these**, its six destinations.
+`Tabs` and `TabsWithCounts` are unchanged and are what everything else takes.
 
 ### Input
 

@@ -1,21 +1,78 @@
-/* A Job whose members are Jobs — several pull requests, landing in a set
-   order. One card per member, and the rail between them is the order. */
+/* The train — several pull requests landing in a set order, one row each.
+   The board's arrangement: a head naming the set, the rows with a line
+   between each pair, and what finishes the Job at the foot with its own bar. */
 .armada-members {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--pad-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow-y: auto;
+}
+
+/* A guide's figure draws the relation, not the region: no card, no head, no
+   foot, and no control anywhere inside it. */
+.armada-members[data-bare] {
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+
+.armada-members__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-/* What finishes the Job, above the cards: it is the claim the list is
-   evidence for, so it reads first rather than as a footnote under three
-   cards a reader has already counted for themselves. */
-.armada-members__complete {
+.armada-members__name {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
-  color: var(--fg-muted);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+  white-space: nowrap;
+}
+
+.armada-members__said {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-members__head-spacer,
+.armada-members__line-spacer {
+  flex: 1;
+}
+
+/* The count of members holding a question. `--status-awaiting-review` is the
+   one hue for "needs you, not urgent", which is what an open question is. */
+.armada-members__waiting {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--status-awaiting-review-bg);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--status-awaiting-review);
+  white-space: nowrap;
 }
 
 .armada-members__absent {
@@ -29,103 +86,126 @@
 .armada-members__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 
-/* Two tracks: the rail carrying the order, and everything about the member.
-   A floor on the rail and `minmax(0, 1fr)` on the body, so growth lands in
-   the body and a long branch name never pushes the number off. */
-.armada-members__member {
-  display: grid;
-  grid-template-columns: var(--space-6) minmax(0, 1fr);
-  column-gap: var(--space-3);
-  min-width: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-}
-
-/* A dropped member stays in the list and reads as past rather than gone:
-   the order it was part of is what is being read, and a card removed would
-   renumber the ones after it under a reader's eye. The weight drops; the
-   card does not, which is what says "not here" without saying "wrong". */
-.armada-members__member[data-dropped] .armada-members__title,
-.armada-members__member[data-dropped] .armada-members__open,
-.armada-members__member[data-dropped] .armada-members__fact-value {
-  color: var(--fg-subtle);
-}
-
-/* The rail: the ordinal, and the line that joins this card to the next.
-   The line is the rail's own, drawn below the number and stopping at the
-   card's edge, so the last card ends the run without a stub hanging off it. */
-.armada-members__rail {
-  position: relative;
+.armada-members__entry {
   display: flex;
   flex-direction: column;
-  align-items: center;
   min-width: 0;
 }
 
-.armada-members__ordinal {
+/* The edge between two members, drawn as a line and said in words. It belongs
+   to neither card, which is why it sits between them rather than at the top of
+   the later one. */
+.armada-members__join {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: var(--space-6);
-  height: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  font-family: var(--font-mono);
+  gap: var(--space-3);
+  min-width: 0;
+  padding-left: var(--space-4);
+}
+
+.armada-members__join-rule {
+  flex: none;
+  width: var(--border-width);
+  height: var(--space-8);
+  background: var(--border-default);
+}
+
+.armada-members__join-said {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-sans);
   font-size: var(--text-2xs);
-  line-height: 1;
+  line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
 
-.armada-members__rail::after {
-  content: "";
-  flex: 1;
-  width: var(--border-width);
-  margin-top: var(--space-1);
-  background: var(--border-subtle);
+/* The wire's own word for the edge, mono because it is the spelling Fleet
+   holds rather than one this screen chose. */
+.armada-members__join-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-subtle);
 }
 
-/* The last card ends the run. Nothing points at a card that is not there. */
-.armada-members__member:last-child .armada-members__rail::after {
-  display: none;
-}
-
-.armada-members__body {
+.armada-members__member {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  /* The row reads its own width rather than the window's: it is a column of a
+     two-column board at one width and the whole content area at another. */
+  container-type: inline-size;
 }
 
-.armada-members__head {
+/* The member a question is open on carries the accent edge, so the row and the
+   decision column beside it are visibly the same member. */
+.armada-members__member[data-asking] {
+  border-color: var(--accent);
+}
+
+/* A dropped member stays in the list and reads as past rather than gone: the
+   order it was part of is what is being read, and a row removed would renumber
+   the ones after it under a reader's eye. */
+.armada-members__member[data-dropped] .armada-members__title,
+.armada-members__member[data-dropped] .armada-members__open {
+  color: var(--fg-subtle);
+}
+
+.armada-members__line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
+/* The state, as a square. Hue only — no glyph, because a 16px mark beside a
+   13px eyebrow is either illegible or taller than the line it sits on. */
+.armada-members__mark {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--border-default);
+}
+
+.armada-members__ordinal {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+/* The title takes the slack and ellipsises, so a long one never pushes the
+   pull request off the end of the row. */
 .armada-members__title,
 .armada-members__open {
+  flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
   line-height: var(--leading-sm);
   color: var(--fg-default);
   text-align: left;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* The title is the control and the card is not: a pressable card would nest
-   the drop button inside it and read as one control where there are two. */
+/* The title is the control and the row is not: a pressable row would nest the
+   drop button inside it and read as one control where there are two. */
 .armada-members__open {
   padding: 0;
   border: 0;
@@ -137,130 +217,189 @@
   color: var(--accent);
 }
 
-/* A status the registry has no verb or glyph for: the wire spelling, mono and
-   never primary — recoverable, where a blank cell would hide it. */
-.armada-members__state-text {
+/* The pull request, as one chip: its number and what it is. Its hue is the
+   member's status, so a merged one reads green beside a merged mark. */
+.armada-members__pr {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
+  line-height: 1;
+  color: var(--fg-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.armada-members__pr:hover {
+  text-decoration: underline;
+}
+
+.armada-members__pr[data-absent="true"] {
+  background: none;
+  font-family: var(--font-sans);
+  color: var(--fg-subtle);
+}
+
+.armada-members__pr-state {
+  font-family: var(--font-sans);
+}
+
+/* The machine facts on the second line. They give way before the bar and the
+   state do, so a long branch or a third path ellipsises rather than pushing
+   the row's progress off the end. */
+.armada-members__branch,
+.armada-members__targets,
+.armada-members__scope {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-members__tasks {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   color: var(--fg-subtle);
   white-space: nowrap;
 }
 
-.armada-members__waits,
-.armada-members__landed,
+/* A branch is pasted into a shell, so it copies on click. */
+.armada-members__branch {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-members__branch:hover {
+  color: var(--accent);
+}
+
+.armada-members__branch[data-absent="true"] {
+  font-family: var(--font-sans);
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+/* The word for the state, ending the row where the bar left off. */
+.armada-members__state {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+/* The drop, on the row rather than under it: a row that offers one is the
+   same two lines tall as one that does not. The plan task's own reveal. */
+.armada-members__drop-open {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-members__member:hover .armada-members__drop-open,
+.armada-members__drop-open:focus-visible {
+  opacity: 1;
+}
+
+.armada-members__drop-open:hover {
+  color: var(--fg-default);
+}
+
+.armada-members__drop-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* What the member is holding a person up on, said on the row it is about.
+   Answered in the column beside it, never here. */
+.armada-members__asked {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--status-awaiting-review);
+  border-radius: var(--radius-sm);
+  background: var(--status-awaiting-review-bg);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
 .armada-members__dropped,
-.armada-members__moves,
 .armada-members__drop-said {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-xs);
-  line-height: var(--leading-sm);
+  line-height: var(--leading-xs);
   color: var(--fg-muted);
 }
 
-/* The one sentence that says the work is in. It takes the same hue the
-   badge does for a Job that finished, and never one chosen here. */
-.armada-members__landed {
-  color: var(--status-completed-success);
+.armada-members__list-spacer {
+  flex: 1;
+  min-height: 0;
 }
 
-/* Two tracks declared on the list and borrowed by each row through `subgrid`,
-   so the names line up down the card rather than per row. The value track is
-   the `minmax(0, 1fr)` that absorbs the slack. */
-.armada-members__facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  padding: 0;
-}
-
-.armada-members__fact {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.armada-members__fact-name {
+/* The foot: what finishes the Job, and one segment per member. On the well so
+   it reads as the total under the rows rather than as a fourth row. */
+.armada-members__complete {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
-  color: var(--fg-muted);
-  white-space: nowrap;
+  gap: var(--space-3);
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
 }
 
-.armada-members__fact-value {
-  margin: 0;
-  min-width: 0;
+.armada-members__complete-label {
+  flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
-  color: var(--fg-default);
-  overflow-wrap: anywhere;
-}
-
-/* A part nothing serves keeps its row and says so in words. Sans and subtle,
-   because it is a sentence about a missing value rather than a value. */
-.armada-members__fact-value[data-absent="true"] {
-  font-family: var(--font-sans);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   color: var(--fg-subtle);
 }
 
-.armada-members__scope {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
+.armada-members__complete-said {
+  flex: 1;
+  margin: 0;
   min-width: 0;
-}
-
-/* Each path is its own token. Two paths separated by a space alone read as
-   one value with a break in it, which is what a scope of two directories
-   drew before this. */
-.armada-members__scope code {
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-}
-
-.armada-members__address {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.armada-members__address:hover {
-  text-decoration: underline;
-}
-
-/* A branch is pasted into a shell, so it copies on click. */
-.armada-members__copy {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-
-.armada-members__copy:hover {
-  color: var(--accent);
-}
-
-/* The question, and what answering it moves. The card it sits in is already
-   sunken, so this steps back up rather than cutting a second hole in it. */
-.armada-members__question {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
 }
 
 .armada-members__drop {
@@ -275,7 +414,7 @@
 .armada-members__hint {
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
+  line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
 
@@ -288,4 +427,25 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+
+/* The tail gives way in the order the row draws it, and the identifier never
+   does — the Board's own rule, reused. A row squeezed to `arma…  pa…  ap…` is
+   three values none of which can be read, which is worse than two of them
+   being absent.
+
+   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
+   Measured in the mock on members/stacked — docs/contracts/design-system.md
+   At 1000px the row's content box is 367px and every mono value on the second
+   line ellipsises to nothing. */
+@container (max-width: 560px) {
+  .armada-members__scope {
+    display: none;
+  }
+}
+
+@container (max-width: 420px) {
+  .armada-members__targets {
+    display: none;
+  }
 }

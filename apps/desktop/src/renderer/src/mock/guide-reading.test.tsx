@@ -94,17 +94,17 @@ test("a guide with a relation draws it under the step that names it, from the re
   await expect.element(figure).toBeVisible();
 
   // Inside the step that names the order, not floating beside the list.
-  const carrying = drawnSteps(panel).filter((step) => step.includes("Stacked on the one before it."));
+  const carrying = drawnSteps(panel).filter((step) => step.includes("branches off member 1"));
   expect(carrying).toHaveLength(1);
 
-  // It is `JobMembers` itself. The link sentences are that component's own
-  // fixed copy, so a change to them changes this guide — which is the binding
+  // It is `JobMembers` itself, drawing the joins the real screen draws — so a
+  // change to how two members relate changes this guide, which is the binding
   // the owner took over a diagram that would have drifted in silence.
   for (const said of [
-    "Stacked on the one before it.",
-    "Waits on what the one before it publishes.",
+    "Member 2 branches off member 1, so it keeps working.",
+    "Member 3 waits on what member 2's merge publishes.",
   ]) {
-    await expect.element(figure.getByText(said, { exact: true })).toBeVisible();
+    await expect.element(figure.getByText(said, { exact: false })).toBeVisible();
   }
 
   // Nothing in a figure is a control: the drawing is hidden from the
@@ -155,10 +155,10 @@ test("under prefers-reduced-motion the figure holds still and still reads", asyn
   expect(figure.element().getAnimations({ subtree: true })).toHaveLength(0);
   // Held still it is the finished list: three members on their rail, in order,
   // each saying which link it carries. Nothing was carried by the movement.
-  for (const word of ["1", "2", "3"]) {
+  for (const word of ["Member 1", "Member 2", "Member 3"]) {
     await expect.element(figure.getByText(word, { exact: true })).toBeVisible();
   }
-  await expect.element(figure.getByText("Stacked on the one before it.")).toBeVisible();
+  await expect.element(figure.getByText(/branches off member 1/)).toBeVisible();
 });
 
 test("the card a ? opens draws the same shape, figure and all", async () => {

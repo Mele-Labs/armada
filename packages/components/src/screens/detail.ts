@@ -18,10 +18,12 @@ export type JobDetailHeading = {
   statusLabel: ReactNode;
   headline: ReactNode;
   jobId?: ReactNode;
+  /** The whole identifier, where what is drawn is short for it. Hovered and copied. */
+  jobIdWhole?: string;
   /** What the id is called. Absent draws it alone. */
   jobIdLabel?: ReactNode;
   fields: JobDetailField[];
-  /** The controls at the header's trailing edge. `Kill`, or a redispatch, and the way into a running Job's settings. */
+  /** The controls at the header's trailing edge. `Kill`, or a redispatch. */
   actions?: ReactNode;
   /**
    * A fact carrying an `href` was clicked, with the address it carries.

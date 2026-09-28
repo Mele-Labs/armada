@@ -90,7 +90,7 @@ test("the callout names the job that took over, under the header and above the r
 test("one press opens the job that replaced it", async () => {
   mount(aRedispatch());
   await page.getByRole("button", { name: `Open ${REPLACEMENT.handle}` }).click();
-  await expect.element(page.getByText(REPLACEMENT.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: REPLACEMENT.handle })).toBeVisible();
 });
 
 // The defect the owner hit: the header said `Redispatched from` and then a
@@ -110,6 +110,6 @@ test("one press on that fact opens the job it replaced", async () => {
 
 test("a job killed and left alone says nothing extra", async () => {
   mount(onJob(killed()));
-  await expect.element(page.getByText(killed().job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: killed().job.handle })).toBeVisible();
   expect(page.getByText("This job was redispatched").query()).toBeNull();
 });

@@ -32,7 +32,7 @@ import { mount, openBoard, rows, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 /**
- * A moment, with one of the Job's five destinations open. **The tab is
+ * A moment, with one of the Job's destinations open. **The tab is
  * pressed the way a person presses it** — the strip is the whole of navigation
  * inside a Job, so a test that reached a destination any other way would pass
  * over a strip that had stopped working.
@@ -141,7 +141,7 @@ describe("what Overview opens on", () => {
       await expect.element(overview).toBeVisible();
       // The one sentence only a frozen board says. A Job with a Drone out
       // cannot be asked to choose its workflow again.
-      await expect.element(overview).toHaveTextContent(/Frozen when you approved it\./);
+      await expect.element(overview).toHaveTextContent(/Frozen\. This is what every Drone is given\./);
       // And what it is held to, which is the reading the whole board is for.
       await expect
         .element(overview.getByRole("region", { name: "Done when" }))
@@ -179,7 +179,7 @@ describe("classifying", () => {
       mount("arc/proposing-review");
 
       await expect.element(page.getByText("feature — 4 steps")).toBeVisible();
-      const gates = page.getByRole("region", { name: "What each step is gated by" });
+      const gates = page.getByRole("region", { name: "The gate on each step" });
       await expect.element(gates).toBeVisible();
 
       // A Judge on the plan step and no Check, which is what `feature.json`
@@ -206,7 +206,9 @@ describe("classifying", () => {
 
       const handoff = page.getByRole("listitem", { name: "Review the change" });
       await expect.element(handoff).toHaveTextContent("The repository decides — review_gate");
-      await expect.element(handoff).toHaveTextContent("manifest_rule:review_gate");
+      // `advance_gate` is off the screen since 28 Sep 2026: it is Fleet's own
+      // spelling, in a place a person is deciding.
+      await expect.element(handoff).not.toHaveTextContent("manifest_rule:review_gate");
       // The three boxes are drawn on every step that answers for itself and on
       // no step that defers, so the fourth state is a state and not a tick.
       expect(handoff.getByRole("checkbox").all()).toHaveLength(0);
@@ -274,8 +276,10 @@ describe("classifying", () => {
 
       // The instant is written out in the reader's own locale, so what is
       // asserted is that it is there and dated — never its spelling.
-      const said = page.getByText(/Frozen when you approved it/);
-      await expect.element(said).toHaveTextContent(/Approved .*2026.*\./);
+      await expect
+        .element(page.getByText(/Frozen\. This is what every Drone is given\./))
+        .toBeVisible();
+      await expect.element(page.getByText(/^Frozen .*2026/)).toBeVisible();
       // Frozen is drawn as values rather than as fields nobody may move.
       expect(page.getByRole("checkbox").all()).toHaveLength(0);
       expect(page.getByRole("combobox", { name: "Difficult" }).query()).toBeNull();
@@ -313,7 +317,8 @@ describe("classifying", () => {
       await expect
         .element(handoff)
         .toHaveTextContent("This Job decides this step for itself, in place of the repository's review_gate.");
-      await expect.element(handoff).toHaveTextContent("human_always");
+      // `advance_gate` is off the screen; what a person reads is who looks.
+      await expect.element(handoff).not.toHaveTextContent("human_always");
       await expect.element(handoff).toHaveTextContent("You");
     },
   );
@@ -777,15 +782,13 @@ describe("landing", () => {
 
     // The first is in, the second is a person's to answer, and the third is
     // branched off the second and still working.
-    await expect.element(member(1).getByText("Its pull request merged.")).toBeVisible();
+    await expect.element(member(1).getByText("merged")).toBeVisible();
     await expect.element(member(2).getByText("awaiting review")).toBeVisible();
-    await expect.element(member(3).getByText(/^Stacked on the one before it\./)).toBeVisible();
+    await expect.element(member(3).getByText(/branches off member 2/)).toBeVisible();
     // Stacked means its pull request targets the branch before it, and not main.
     await expect
-      .element(member(3).getByText("armada/23-read-the-store-through-selectors"))
+      .element(member(3).getByText(/armada\/23-read-the-store-through-selectors/))
       .toBeVisible();
-
-    expect(document.body.textContent).not.toMatch(/convoy|train|atomic/i);
   });
 
   test(
@@ -814,11 +817,11 @@ describe("landing", () => {
       .element(page.getByRole("list", { name: "Pull requests, in the order they land" }))
       .toBeVisible();
 
-    await expect.element(member(3).getByText("Parked until the one before it lands.")).toBeVisible();
-    // Parked rather than stacked: it targets where the Job lands, and it has
-    // opened nothing for anybody to review.
-    await expect.element(member(3).getByText("main")).toBeVisible();
-    await expect.element(member(3).getByText("None opened yet.")).toBeVisible();
+    await expect.element(member(3).getByText(/waits for member 2 to merge/)).toBeVisible();
+    // Parked rather than stacked: it targets where the Job lands, which the
+    // join says once, and it has opened nothing for anybody to review.
+    await expect.element(member(3).getByText(/targets main/)).toBeVisible();
+    await expect.element(member(3).getByText("No pull request yet")).toBeVisible();
   });
 
   test("members/stacked: the parent says it is done when every member has landed, which is not the same as its own pull request merging", async () => {
@@ -828,7 +831,7 @@ describe("landing", () => {
     // one pull request is in, which is what the count says and what a count
     // of finished Jobs would not.
     await expect
-      .element(page.getByText("Done when every member has landed. 1 of 3 pull requests merged."))
+      .element(page.getByText("Every member has landed. 1 of 3 pull requests merged.").first())
       .toBeVisible();
   });
 });
@@ -952,7 +955,7 @@ describe("the wave", () => {
     mount("epic/wave");
     await waveCard("Carry the code into the journal").click();
     await expect
-      .element(page.getByText("34-carry-the-code-into-the-log", { exact: true }).first())
+      .element(page.getByRole("button", { name: "34-carry-the-code-into-the-log" }).first())
       .toBeVisible();
   });
 

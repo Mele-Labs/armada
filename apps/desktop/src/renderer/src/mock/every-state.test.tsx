@@ -47,7 +47,7 @@ test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   await userEvent.click(row()!);
   // The Board is gone and the header names this Job by its handle.
   await expect.poll(() => rows().length).toBe(0);
-  await expect.element(page.getByText(job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();
   // Where the scenario holds the Job's detail, it is that detail drawn: its first step, by label.
   const watched = scenario.reads[job.id]?.watched;
   const step = watched?.state === "read" ? watched.detail.steps[0]?.label : undefined;
@@ -67,6 +67,6 @@ test("fleet-not-running draws what Bridge draws with no Fleet", async () => {
 test("a job scenario opens its Job on start", async () => {
   const { scenario } = mount("job/review");
   const job = scenario.state.jobs[0]!;
-  await expect.element(page.getByText(job.handle, { exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();
   expect(rows()).toHaveLength(0);
 });

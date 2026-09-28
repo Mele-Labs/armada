@@ -1,0 +1,147 @@
+/* One member's refusal, in the column beside the order it belongs to. A card,
+   because it is the other half of the screen rather than a region inside the
+   train's own card. */
+.armada-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--pad-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow-y: auto;
+}
+
+.armada-decision__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-decision__criterion {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The criterion in the wire's own spelling, so it is not shouted in caps: an
+   id is read letter by letter and uppercasing it costs the reader the shape. */
+.armada-decision__criterion-name {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-decision__who,
+.armada-decision__criterion,
+.armada-decision__moves-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+/* The question leads the column: it is what the person is here to answer, so
+   nothing above it is larger than it is. */
+.armada-decision__asked {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
+.armada-decision__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.armada-decision__state {
+  display: flex;
+  align-items: center;
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--status-awaiting-review-bg);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--status-awaiting-review);
+  white-space: nowrap;
+}
+
+.armada-decision__age {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+/* What the answer moves besides this member, on the well: it is the thing the
+   press does that the question itself does not say. */
+.armada-decision__moves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-decision__moves-said {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+.armada-decision__spacer {
+  flex: 1;
+  min-height: 0;
+}
+
+.armada-decision__act {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-decision__act-said {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
+}

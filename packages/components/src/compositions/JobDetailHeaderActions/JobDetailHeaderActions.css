@@ -86,13 +86,24 @@
 }
 
 /* A machine value copies on click and says so by going to --accent on hover.
-   No `copy` glyph: the affordance token is the affordance. */
-.armada-job-head__value[data-copies] {
+   No `copy` glyph: the affordance token is the affordance.
+
+   The id is on the same rule, because what a click puts on the clipboard there
+   is the whole handle and what is drawn is `Job 3`: the affordance is the one
+   thing saying the short reading has a long value behind it. */
+.armada-job-head__value[data-copies],
+.armada-job-head__id [data-copies] {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease);
 }
 
-.armada-job-head__value[data-copies]:hover {
+.armada-job-head__value[data-copies]:hover,
+.armada-job-head__id [data-copies]:hover {
   color: var(--accent);
 }
 

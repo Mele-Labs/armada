@@ -4,10 +4,16 @@ import { Button, STILL_WAITING, useStillWaiting } from "../../primitives/Button/
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { ConceptLabel } from "../../concepts";
 
 /**
- * Every setting a person can change on a running Job, on the trailing layer the
- * log, the patch and Pulse already use.
+ * Every setting a person can change on a running Job.
+ *
+ * **A destination since 28 September 2026, and a sheet before that.** The
+ * owner: *"I hate that the job settings are button. It should be part of the
+ * segment control where overview, workflow, plan, record, and pulse are
+ * now."* `frame` is which of the two this is; the body between them is one
+ * body, so the two cannot drift.
  *
  * **One panel rather than a line per setting.** The header carried one of them
  * — how the Job meets a command it was not given — as a menu under the facts,
@@ -28,6 +34,14 @@ import { Sheet } from "../../primitives/Sheet/Sheet";
  */
 export type JobSettingsProps = {
   open: boolean;
+  /**
+   * Whether this is the trailing sheet or a destination's own content.
+   *
+   * **`flat` draws no chrome at all** — no title, no handle and no Close. The
+   * strip above already names the destination, the header above that already
+   * carries the handle, and a destination is not a thing you leave.
+   */
+  frame?: "sheet" | "flat";
   /** The Job, in mono. Absent at the floor, where the width is not there. */
   jobId?: ReactNode;
   /** The window is at `--window-floor`. */
@@ -124,6 +138,7 @@ const WORKFLOWS_CHOICE = "";
 
 export function JobSettings({
   open,
+  frame = "sheet",
   jobId,
   floor = false,
   costCap,
@@ -171,6 +186,260 @@ export function JobSettings({
     reviewModel === null || models.includes(reviewModel) ? models : [reviewModel, ...models];
   const runsAll = whenBlocked === "allow_all";
 
+  const body = (
+    <div className="armada-job-settings">
+      <div className="armada-job-settings__opening">
+        <p className="armada-job-settings__lead">
+          For this job only. Each change applies from the next thing the drone does. Nothing
+          restarts, and nothing already done is undone.
+        </p>
+        {stillWaiting ? (
+          <p className="armada-job-settings__means" role="status">
+            {STILL_WAITING}
+          </p>
+        ) : disabled && !mineAny && disabledNote !== undefined ? (
+          <p className="armada-job-settings__means">{disabledNote}</p>
+        ) : null}
+      </div>
+
+      {costCap === undefined && turnCap === undefined ? null : (
+        <section className="armada-job-settings__section" aria-labelledby={`${group}-limits`}>
+          <h3 className="armada-job-settings__heading" id={`${group}-limits`}>
+            Limits
+          </h3>
+          {costCap === undefined ? null : (
+            <Ceiling
+              label="Cost cap"
+              raiseLabel="Raise the cost cap"
+              figures={
+                <>
+                  <span className="armada-job-settings__mono">{costCap.cap}</span>
+                  {", "}
+                  <span className="armada-job-settings__mono">{costCap.used}</span> spent
+                </>
+              }
+              ceiling={costCap}
+              disabled={disabled}
+            />
+          )}
+          {turnCap === undefined ? null : (
+            <Ceiling
+              label="Turn cap"
+              raiseLabel="Raise the turn cap"
+              figures={
+                <>
+                  <span className="armada-job-settings__mono">{turnCap.cap}</span> turns,{" "}
+                  <span className="armada-job-settings__mono">{turnCap.used}</span> used
+                </>
+              }
+              ceiling={turnCap}
+              disabled={disabled}
+            />
+          )}
+        </section>
+      )}
+
+      <section className="armada-job-settings__section" aria-labelledby={`${group}-model`}>
+        <h3 className="armada-job-settings__heading" id={`${group}-model`}>
+          Model
+        </h3>
+        <div className="armada-job-settings__field">
+          <Select
+            label="Model for the next step"
+            value={model ?? WORKFLOWS_CHOICE}
+            disabled={disabled}
+            onChange={(event) =>
+              onModel(event.target.value === WORKFLOWS_CHOICE ? null : event.target.value)
+            }
+          >
+            <option value={WORKFLOWS_CHOICE}>The workflow's choice</option>
+            {offered.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+          <p className="armada-job-settings__means">
+            The step running now keeps its model. Later steps start on this one.
+          </p>
+          <Said>{modelSaid}</Said>
+        </div>
+        {reviewStep === undefined || onReviewModel === undefined ? null : (
+          <div className="armada-job-settings__field">
+            <Select
+              label="Model for the review"
+              value={reviewModel ?? WORKFLOWS_CHOICE}
+              disabled={disabled}
+              onChange={(event) =>
+                onReviewModel(event.target.value === WORKFLOWS_CHOICE ? null : event.target.value)
+              }
+            >
+              <option value={WORKFLOWS_CHOICE}>The same as the other steps</option>
+              {reviewOffered.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+            <p className="armada-job-settings__means">
+              Only {reviewStep}, the step that writes Armada's review, starts on this one.
+            </p>
+            <Said>{reviewModelSaid}</Said>
+          </div>
+        )}
+      </section>
+
+      <section className="armada-job-settings__section" aria-labelledby={`${group}-commands`}>
+        <h3 className="armada-job-settings__heading" id={`${group}-commands`}>
+          Commands
+        </h3>
+        <div className="armada-job-settings__field">
+          <RadioGroup label="When the drone needs a command it wasn't given">
+            {choices.map((choice) => (
+              <div className="armada-job-settings__option" key={choice.value}>
+                <Radio
+                  name={`${group}-when-blocked`}
+                  value={choice.value}
+                  checked={whenBlocked === choice.value}
+                  disabled={disabled}
+                  aria-describedby={`${group}-${choice.value}`}
+                  onChange={() => onWhenBlocked(choice.value)}
+                >
+                  {choice.label}
+                </Radio>
+                {/* Under the label, as a drone's question draws what each
+                    answer commits to: read after the name, before the press. */}
+                <p className="armada-job-settings__option-means" id={`${group}-${choice.value}`}>
+                  {choice.means}
+                </p>
+              </div>
+            ))}
+          </RadioGroup>
+          <Said>{whenBlockedSaid}</Said>
+        </div>
+
+        {/* **Dimmed and kept under Run it**, never emptied: switching back
+            should find the list where it was, and a list that vanished would
+            read as allows that were thrown away. Dimming is the token step,
+            not an alpha. */}
+        <div className="armada-job-settings__allowed" data-dimmed={runsAll || undefined}>
+          <span className="armada-job-settings__label" id={`${group}-allowed`}>
+            Allowed for this job
+          </span>
+          <p className="armada-job-settings__means">
+            Commands you allowed for this job alone. What you always-allowed for every job in
+            this repository is listed below.
+          </p>
+          {runsAll && allowed.length > 0 ? (
+            <p className="armada-job-settings__means">
+              Not needed while every command runs. They're kept in case you switch back.
+            </p>
+          ) : null}
+          {allowed.length === 0 ? (
+            <p className="armada-job-settings__empty">Nothing allowed for this job yet.</p>
+          ) : (
+            <ul className="armada-job-settings__commands" aria-labelledby={`${group}-allowed`}>
+              {allowed.map((row) => (
+                <li className="armada-job-settings__command" key={row.run}>
+                  <div className="armada-job-settings__command-text">
+                    <span className="armada-job-settings__mono">{row.run}</span>
+                    {/* Removing here does not reach the file. Said on the row,
+                        because that is where somebody reads what Remove will do. */}
+                    {row.reach === "repository" ? (
+                      <span className="armada-job-settings__means">
+                        Also always allowed in armada.yml. Removing it here leaves that in
+                        place.
+                      </span>
+                    ) : null}
+                  </div>
+                  {/* The name carries the command, so a list of Removes is a
+                      list of different acts to anything reading by name. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    ground="sunken"
+                    pending={pressedRun === row.run && pending}
+                    disabled={disabled}
+                    // `aria-label` wins the accessible name over the child
+                    // text, so it carries the same "…ing" swap the label
+                    // draws — otherwise a screen reader would never hear
+                    // that this exact row is the one out.
+                    aria-label={
+                      pressedRun === row.run && pending ? `Removing ${row.run}` : `Remove ${row.run}`
+                    }
+                    onClick={() => {
+                      setPressedRun(row.run);
+                      onRemove(row.run);
+                    }}
+                  >
+                    {pressedRun === row.run && pending ? "Removing…" : "Remove"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Said>{allowedSaid}</Said>
+        </div>
+
+        {/* Read-only: removing one reaches every job against this
+            repository, so it is the Manifest screen's act and not this
+            panel's — this row exists so a person can see why a drone was
+            let through without leaving the job. */}
+        <div className="armada-job-settings__allowed">
+          <span className="armada-job-settings__label" id={`${group}-repository-allowed`}>
+            Allowed for every job in this repository
+          </span>
+          <p className="armada-job-settings__means">
+            Always-allowed on the Manifest screen. Covers every job against this repository,
+            not this one alone — remove one there, not here.
+          </p>
+          {repositoryAllowed.length === 0 ? (
+            <p className="armada-job-settings__empty">Nothing always allowed for this repository yet.</p>
+          ) : (
+            <ul className="armada-job-settings__commands" aria-labelledby={`${group}-repository-allowed`}>
+              {repositoryAllowed.map((run) => (
+                <li className="armada-job-settings__command" key={run}>
+                  <span className="armada-job-settings__mono">{run}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {judgeChoices === undefined || whenRefused === undefined ? null : (
+        <section className="armada-job-settings__section" aria-labelledby={`${group}-judge`}>
+          <h3 className="armada-job-settings__heading" id={`${group}-judge`}>
+            Judge
+          </h3>
+          <div className="armada-job-settings__field">
+            <RadioGroup label="When a judge refuses">
+              {judgeChoices.map((choice) => (
+                <div className="armada-job-settings__option" key={choice.value}>
+                  <Radio
+                    name={`${group}-when-refused`}
+                    value={choice.value}
+                    checked={whenRefused === choice.value}
+                    disabled={disabled}
+                    aria-describedby={`${group}-${choice.value}`}
+                    onChange={() => onWhenRefused?.(choice.value)}
+                  >
+                    {choice.label}
+                  </Radio>
+                  <p className="armada-job-settings__option-means" id={`${group}-${choice.value}`}>
+                    {choice.means}
+                  </p>
+                </div>
+              ))}
+            </RadioGroup>
+            <Said>{whenRefusedSaid}</Said>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+
+  if (frame === "flat") return body;
   return (
     <Sheet
       open={open}
@@ -186,256 +455,7 @@ export function JobSettings({
       closeBinding="Esc"
       onClose={onClose}
     >
-      <div className="armada-job-settings">
-        <div className="armada-job-settings__opening">
-          <p className="armada-job-settings__lead">
-            For this job only. Each change applies from the next thing the drone does. Nothing
-            restarts, and nothing already done is undone.
-          </p>
-          {stillWaiting ? (
-            <p className="armada-job-settings__means" role="status">
-              {STILL_WAITING}
-            </p>
-          ) : disabled && !mineAny && disabledNote !== undefined ? (
-            <p className="armada-job-settings__means">{disabledNote}</p>
-          ) : null}
-        </div>
-
-        {costCap === undefined && turnCap === undefined ? null : (
-          <section className="armada-job-settings__section" aria-labelledby={`${group}-limits`}>
-            <h3 className="armada-job-settings__heading" id={`${group}-limits`}>
-              Limits
-            </h3>
-            {costCap === undefined ? null : (
-              <Ceiling
-                label="Cost cap"
-                raiseLabel="Raise the cost cap"
-                figures={
-                  <>
-                    <span className="armada-job-settings__mono">{costCap.cap}</span>
-                    {", "}
-                    <span className="armada-job-settings__mono">{costCap.used}</span> spent
-                  </>
-                }
-                ceiling={costCap}
-                disabled={disabled}
-              />
-            )}
-            {turnCap === undefined ? null : (
-              <Ceiling
-                label="Turn cap"
-                raiseLabel="Raise the turn cap"
-                figures={
-                  <>
-                    <span className="armada-job-settings__mono">{turnCap.cap}</span> turns,{" "}
-                    <span className="armada-job-settings__mono">{turnCap.used}</span> used
-                  </>
-                }
-                ceiling={turnCap}
-                disabled={disabled}
-              />
-            )}
-          </section>
-        )}
-
-        <section className="armada-job-settings__section" aria-labelledby={`${group}-model`}>
-          <h3 className="armada-job-settings__heading" id={`${group}-model`}>
-            Model
-          </h3>
-          <div className="armada-job-settings__field">
-            <Select
-              label="Model for the next step"
-              value={model ?? WORKFLOWS_CHOICE}
-              disabled={disabled}
-              onChange={(event) =>
-                onModel(event.target.value === WORKFLOWS_CHOICE ? null : event.target.value)
-              }
-            >
-              <option value={WORKFLOWS_CHOICE}>The workflow's choice</option>
-              {offered.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-            <p className="armada-job-settings__means">
-              The step running now keeps its model. Later steps start on this one.
-            </p>
-            <Said>{modelSaid}</Said>
-          </div>
-          {reviewStep === undefined || onReviewModel === undefined ? null : (
-            <div className="armada-job-settings__field">
-              <Select
-                label="Model for the review"
-                value={reviewModel ?? WORKFLOWS_CHOICE}
-                disabled={disabled}
-                onChange={(event) =>
-                  onReviewModel(event.target.value === WORKFLOWS_CHOICE ? null : event.target.value)
-                }
-              >
-                <option value={WORKFLOWS_CHOICE}>The same as the other steps</option>
-                {reviewOffered.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-              <p className="armada-job-settings__means">
-                Only {reviewStep}, the step that writes Armada's review, starts on this one.
-              </p>
-              <Said>{reviewModelSaid}</Said>
-            </div>
-          )}
-        </section>
-
-        <section className="armada-job-settings__section" aria-labelledby={`${group}-commands`}>
-          <h3 className="armada-job-settings__heading" id={`${group}-commands`}>
-            Commands
-          </h3>
-          <div className="armada-job-settings__field">
-            <RadioGroup label="When the drone needs a command it wasn't given">
-              {choices.map((choice) => (
-                <div className="armada-job-settings__option" key={choice.value}>
-                  <Radio
-                    name={`${group}-when-blocked`}
-                    value={choice.value}
-                    checked={whenBlocked === choice.value}
-                    disabled={disabled}
-                    aria-describedby={`${group}-${choice.value}`}
-                    onChange={() => onWhenBlocked(choice.value)}
-                  >
-                    {choice.label}
-                  </Radio>
-                  {/* Under the label, as a drone's question draws what each
-                      answer commits to: read after the name, before the press. */}
-                  <p className="armada-job-settings__option-means" id={`${group}-${choice.value}`}>
-                    {choice.means}
-                  </p>
-                </div>
-              ))}
-            </RadioGroup>
-            <Said>{whenBlockedSaid}</Said>
-          </div>
-
-          {/* **Dimmed and kept under Run it**, never emptied: switching back
-              should find the list where it was, and a list that vanished would
-              read as allows that were thrown away. Dimming is the token step,
-              not an alpha. */}
-          <div className="armada-job-settings__allowed" data-dimmed={runsAll || undefined}>
-            <span className="armada-job-settings__label" id={`${group}-allowed`}>
-              Allowed for this job
-            </span>
-            <p className="armada-job-settings__means">
-              Commands you allowed for this job alone. What you always-allowed for every job in
-              this repository is listed below.
-            </p>
-            {runsAll && allowed.length > 0 ? (
-              <p className="armada-job-settings__means">
-                Not needed while every command runs. They're kept in case you switch back.
-              </p>
-            ) : null}
-            {allowed.length === 0 ? (
-              <p className="armada-job-settings__empty">Nothing allowed for this job yet.</p>
-            ) : (
-              <ul className="armada-job-settings__commands" aria-labelledby={`${group}-allowed`}>
-                {allowed.map((row) => (
-                  <li className="armada-job-settings__command" key={row.run}>
-                    <div className="armada-job-settings__command-text">
-                      <span className="armada-job-settings__mono">{row.run}</span>
-                      {/* Removing here does not reach the file. Said on the row,
-                          because that is where somebody reads what Remove will do. */}
-                      {row.reach === "repository" ? (
-                        <span className="armada-job-settings__means">
-                          Also always allowed in armada.yml. Removing it here leaves that in
-                          place.
-                        </span>
-                      ) : null}
-                    </div>
-                    {/* The name carries the command, so a list of Removes is a
-                        list of different acts to anything reading by name. */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      ground="sunken"
-                      pending={pressedRun === row.run && pending}
-                      disabled={disabled}
-                      // `aria-label` wins the accessible name over the child
-                      // text, so it carries the same "…ing" swap the label
-                      // draws — otherwise a screen reader would never hear
-                      // that this exact row is the one out.
-                      aria-label={
-                        pressedRun === row.run && pending ? `Removing ${row.run}` : `Remove ${row.run}`
-                      }
-                      onClick={() => {
-                        setPressedRun(row.run);
-                        onRemove(row.run);
-                      }}
-                    >
-                      {pressedRun === row.run && pending ? "Removing…" : "Remove"}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Said>{allowedSaid}</Said>
-          </div>
-
-          {/* Read-only: removing one reaches every job against this
-              repository, so it is the Manifest screen's act and not this
-              panel's — this row exists so a person can see why a drone was
-              let through without leaving the job. */}
-          <div className="armada-job-settings__allowed">
-            <span className="armada-job-settings__label" id={`${group}-repository-allowed`}>
-              Allowed for every job in this repository
-            </span>
-            <p className="armada-job-settings__means">
-              Always-allowed on the Manifest screen. Covers every job against this repository,
-              not this one alone — remove one there, not here.
-            </p>
-            {repositoryAllowed.length === 0 ? (
-              <p className="armada-job-settings__empty">Nothing always allowed for this repository yet.</p>
-            ) : (
-              <ul className="armada-job-settings__commands" aria-labelledby={`${group}-repository-allowed`}>
-                {repositoryAllowed.map((run) => (
-                  <li className="armada-job-settings__command" key={run}>
-                    <span className="armada-job-settings__mono">{run}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-
-        {judgeChoices === undefined || whenRefused === undefined ? null : (
-          <section className="armada-job-settings__section" aria-labelledby={`${group}-judge`}>
-            <h3 className="armada-job-settings__heading" id={`${group}-judge`}>
-              Judge
-            </h3>
-            <div className="armada-job-settings__field">
-              <RadioGroup label="When a judge refuses">
-                {judgeChoices.map((choice) => (
-                  <div className="armada-job-settings__option" key={choice.value}>
-                    <Radio
-                      name={`${group}-when-refused`}
-                      value={choice.value}
-                      checked={whenRefused === choice.value}
-                      disabled={disabled}
-                      aria-describedby={`${group}-${choice.value}`}
-                      onChange={() => onWhenRefused?.(choice.value)}
-                    >
-                      {choice.label}
-                    </Radio>
-                    <p className="armada-job-settings__option-means" id={`${group}-${choice.value}`}>
-                      {choice.means}
-                    </p>
-                  </div>
-                ))}
-              </RadioGroup>
-              <Said>{whenRefusedSaid}</Said>
-            </div>
-          </section>
-        )}
-      </div>
+      {body}
     </Sheet>
   );
 }
@@ -462,7 +482,7 @@ function Ceiling({
     <div className="armada-job-settings__field">
       <div className="armada-job-settings__row">
         <div className="armada-job-settings__row-text">
-          <span className="armada-job-settings__label">{label}</span>
+          <ConceptLabel className="armada-job-settings__label">{label}</ConceptLabel>
           <span className="armada-job-settings__figures">{figures}</span>
           <p className="armada-job-settings__means">It can only go up while the job runs.</p>
         </div>

@@ -58,7 +58,6 @@ import {
 } from "./outputs";
 import { recourseOf } from "./recovery";
 import { drawn, WORKTREE_GIVEN_BACK } from "./review";
-import { SettingsSheet, type SettingsSheetProps } from "./settings";
 import { NOTHING_YET_ON_THIS_STEP, whyNotWatching, type LogRow } from "./story";
 
 /**
@@ -69,18 +68,18 @@ import { NOTHING_YET_ON_THIS_STEP, whyNotWatching, type LogRow } from "./story";
  * column because it was the largest thing on it and the run is what a person
  * opens a Job to read. Same layer, same two exits, same one-at-a-time rule.
  *
- * **`settings` is the fourth, and holds no reading at all** — every setting a
- * person can change on a running Job. It is here because the header's one line
- * for one of them read as the screen's main button, and a layer a person
- * already knows how to leave is where changing a Job does least to the reading.
+ * **Settings was the fourth and is a destination now.** It came here because
+ * the header's one line for one of them read as the screen's main button; the
+ * owner made the whole panel the strip's sixth entry on 28 September 2026, so
+ * there is no layer to leave and `tab-settings.tsx` holds it.
  *
- * **`run` is the fifth, Journey 9's.** It opens from `r`, from the worktree
+ * **`run` is the fourth, Journey 9's.** It opens from `r`, from the worktree
  * row's `Run…`, and from a refused Check's `Run it here` — never from a
  * chapter, so it lands nowhere on close, `holds`'s way.
  *
  * **`check` is the sixth**: one Check's output, from its row, closing onto the Checks chapter.
  */
-export type OpenSheet = "log" | "diff" | "holds" | "settings" | "run" | "check" | "task" | null;
+export type OpenSheet = "log" | "diff" | "holds" | "run" | "check" | "task" | null;
 
 /**
  * Where the log's reading was held, and how much it had then.
@@ -186,8 +185,6 @@ export type DetailSheetProps = {
    * declared file went untouched. `#1432`.
    */
   taskTouched?: PlanTaskSheetProps["touched"];
-  /** What the Job settings panel reads and sends, beyond the Job it already has. */
-  settings: Omit<SettingsSheetProps, "job" | "whole" | "floor" | "onClose">;
   /**
    * The run sheet, Journey 9 — built by the caller from `RunSheetRead`,
    * `RunFollowed` and the run-sheet's own selection state, `holds`'s reason:
@@ -223,7 +220,6 @@ export function DetailSheet({
   onRedirect,
   holds,
   onNeedPulse,
-  settings,
   run,
   floor,
   onClose,
@@ -329,9 +325,6 @@ export function DetailSheet({
   }
   if (which === "holds") {
     return <JobHoldsSheet open floor={floor} onClose={onClose} {...holds} />;
-  }
-  if (which === "settings") {
-    return <SettingsSheet job={job} whole={whole} floor={floor} onClose={onClose} {...settings} />;
   }
   if (which === "run") {
     return <RunSheet open floor={floor} onClose={onClose} {...run} />;

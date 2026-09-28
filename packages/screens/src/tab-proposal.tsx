@@ -15,7 +15,7 @@
 
 import { JobProposal } from "@armada/components";
 import type { GateBox, ProposalLandingValue } from "@armada/components";
-import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
+import type { JobDetail as JobWhole, JobSummary, ManifestSummary } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import type { TierModels } from "./draft/proposal";
@@ -42,9 +42,19 @@ export type ProposalTabProps = {
   models: readonly string[];
   /** Nothing may be moved while what is shown is not live. */
   stale: boolean;
+  /** The Manifest this Job was dispatched against, where Bridge holds it. */
+  manifest?: ManifestSummary | undefined;
 };
 
-export function ProposalTab({ job, whole, edits, onEdits, models, stale }: ProposalTabProps) {
+export function ProposalTab({
+  job,
+  whole,
+  edits,
+  onEdits,
+  models,
+  stale,
+  manifest,
+}: ProposalTabProps) {
   const { proposal, landing, criteria } = edits;
   const frozenAt = frozenAtOf(proposal);
   // Frozen is what a handler's absence means, and `stale` freezes the same
@@ -56,6 +66,15 @@ export function ProposalTab({ job, whole, edits, onEdits, models, stale }: Propo
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.overview}>
       <JobProposal
+        // What the Job runs against, and the words it was asked in. The
+        // request is `JobDetail.facts` — the requester's own text, which is
+        // the one thing on this screen nobody here wrote.
+        request={{
+          repository: manifest?.repository ?? job.owner_manifest_id,
+          ...(landing.from_ref === null ? {} : { from: landing.from_ref }),
+          ...(whole?.facts === undefined ? {} : { said: whole.facts }),
+          absent: "This job was given no context beyond its title.",
+        }}
         title={proposal.title}
         {...(open
           ? { onTitle: (title: string) => moved({ proposal: { ...proposal, title } }) }

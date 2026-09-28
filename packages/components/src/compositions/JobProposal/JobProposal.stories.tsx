@@ -85,6 +85,14 @@ const COMPLETE = [
 
 const COMMON = {
   title: "Show what is running in the Drones stat",
+  request: {
+    repository: "armada",
+    from: "main",
+    said:
+      "The Drones stat on the rail says \u201c1 of 2\u201d and I cannot tell a busy Fleet from a " +
+      "stalled one. I want to see what is actually running, and have it stay live.",
+    absent: "This job was given no context beyond its title.",
+  },
   workflow: "feature",
   steps: STEPS,
   tiers: { difficult: "opus", medium: "sonnet", easy: null },

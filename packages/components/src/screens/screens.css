@@ -836,6 +836,63 @@
   overflow-x: auto;
 }
 
+/* Job detail's destinations. Plain text with a rule under the active one, and
+   a rule under the whole strip — every Overview artboard draws them this way.
+   Two boxed segmented controls stacked have no hierarchy between them; the
+   board buys it with two kinds of control at two levels, so `Tabs` stays the
+   filled control a panel's own filters take. */
+.armada-destinations {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  gap: var(--space-1);
+  min-width: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.armada-destinations__tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-2);
+  height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-bottom: var(--edge-active) solid transparent;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.armada-destinations__tab:hover {
+  color: var(--fg-default);
+}
+
+.armada-destinations__tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--fg-default);
+}
+
+.armada-destinations__tab:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* What is behind a destination, beside its name. Mono and subtle rather than
+   a chip: a chip is a status, and this is a figure. */
+.armada-destinations__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
 /* A destination that is not Overview. It fills what is left the way the two
    columns do, and scrolls itself for the same reason: the screen's own box is
    bounded, so the layer over it stays flush to the screen. */
@@ -847,6 +904,28 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* Settings, the sixth destination. A form reads at a measure and the window
+   is not one: --w-dialog-wide is ~85 characters at --text-sm, which is the top
+   of the comfortable measure and already the width the wide dialog takes for
+   exactly that reason. It was --w-sheet's 480px while this was a layer. */
+.armada-settings-tab {
+  padding-block: var(--space-2);
+}
+
+.armada-settings-tab .armada-job-settings {
+  max-width: var(--w-dialog-wide);
+}
+
+/* Why there is nothing to change, where there is nothing. */
+.armada-settings-tab__note {
+  max-width: var(--w-dialog-wide);
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-wrap: pretty;
 }
 
 /* A region inside a destination — its band and what is under it. The run
@@ -1991,5 +2070,146 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
+}
+
+/* The train — Overview for a Job whose members are Jobs. It takes the
+   destination the way the Land board does, so the parent's own run is the
+   Workflow tab's and what is here is what the set needs from a person. #1543. */
+.armada-train {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* What leads the screen. The edge carries the tone, so a reader looking for
+   the thing outstanding finds it before reading a word. */
+.armada-train__lead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: none;
+  min-width: 0;
+  padding: var(--space-3) var(--pad-card);
+  border: var(--border-width) solid var(--border-default);
+  border-inline-start: var(--edge-active) solid var(--status-not-started);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-train__lead[data-waiting] {
+  border-inline-start-color: var(--status-awaiting-review);
+}
+
+.armada-train__lead-said {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-train__lead-headline {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
+.armada-train__lead-because {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* The order left, the decision right. The same pair of floors the run and its
+   inspector keep, so the two columns of job detail never disagree about how
+   much a column of reading needs — and they hold below --layout-breakpoint,
+   which is what the `Narrow` board draws at 1000px. */
+.armada-train__columns {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-4) - var(--w-run-column-min))), var(--w-run-column));
+  gap: var(--space-4);
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Nothing is asking, so there is no second column and the order takes the
+   whole width rather than leaving a hole where the decision would be. */
+.armada-train__columns[data-alone] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.armada-train__decision {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+
+/* The Land board — what a finished Job shows. How it was answered leads, what
+   it produced and what it cost read beside each other, and the tests it
+   carries close it. #1542. */
+.armada-land {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* The verdict, with the one act a finished Job offers beside it. Its edge is
+   the landed hue, so a reader finds it before reading a word. */
+.armada-land__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--pad-card);
+  border: var(--border-width) solid var(--border-default);
+  border-inline-start: var(--edge-active) solid var(--status-completed-success);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+/* The verdict is the lead's own body, not a well inside it: a card drawn
+   inside a card reads as two regions where there is one. */
+.armada-land__lead > .armada-outcome {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+}
+
+/* What it produced takes the slack; what it cost and what it left behind keep
+   a column of their own — the same pair of floors job detail's two columns
+   keep, so no two-column reading on this screen disagrees with another. */
+.armada-land__columns {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-4) - var(--w-run-column-min))), var(--w-run-column));
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+.armada-land__produced,
+.armada-land__cost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
 }
