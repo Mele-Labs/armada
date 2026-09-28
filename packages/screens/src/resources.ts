@@ -10,9 +10,9 @@
 //
 // A person opened a Job that stopped because Fleet itself did not answer, and
 // the one control on the screen asked Fleet a question. The panel read "Nobody
-// has asked whether this job is working. Looking costs no model call." over a
-// live `Look now`, because a read that failed and a read nobody had made drew
-// the same reading. #462.
+// has asked whether this job is working. Looking costs no model call." over an
+// act then labelled `Look now`, because a read that failed and a read nobody
+// had made drew the same reading. #462.
 //
 // The act is withdrawn on the failure and never on the fact of failure. A
 // refusal carries a code and a wait that ran out may already have been served,
@@ -85,7 +85,7 @@ export function whyNoReading(resources: Holds): string | undefined {
 }
 
 /**
- * Whether pressing `Look now` could work, and where it could not, which of the
+ * Whether pressing `Refresh` could work, and where it could not, which of the
  * two reasons it is. `undefined` leaves the act on the panel.
  *
  * **The failure decides it, never the fact that something failed.** Every
@@ -145,7 +145,7 @@ export function nothingToAsk(resources: Holds): NothingToAsk | undefined {
  *
  * **One worktree row, not two, since #1484.** It drew `Worktree on disk` over
  * `Size on disk 1.2 GiB`, and the first of those was a constant: nothing in
- * Armada looks at a worktree unless a person presses `Look now` in the sheet,
+ * Armada looks at a worktree unless a person presses `Refresh` in the sheet,
  * so every Job anyone opened said `on disk` and said it forever. Two rows, one
  * of which never varied, for a fact the other one carried with a number on it.
  */
@@ -216,7 +216,7 @@ export function turnsTaken(whole: JobWhole | null): string | undefined {
  *
  * **`healthy` is gone with it.** It was the word for a look that found nothing
  * wrong, and a look is a press almost nobody makes; the size stands in its
- * place, and a person who wants the verdict presses `Look now` and reads it on
+ * place, and a person who wants the verdict presses `Refresh` and reads it on
  * the sheet, which is where every other look's answer already is.
  *
  * **What a look finds wrong replaces the size rather than joining it.** `gone`

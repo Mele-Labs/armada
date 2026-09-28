@@ -104,7 +104,6 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
   checks?: readonly WorkflowInspectorCheck[];
   checksAbsent?: string;
   tests?: readonly WorkflowInspectorTest[];
-  testsAbsent?: string;
   /**
    * The boundary this reading sits behind, where it failed: the Check that
    * broke it, how many times it has been run again, and what the next Drone is
@@ -225,7 +224,6 @@ export function WorkflowInspector({
   checks = [],
   checksAbsent,
   tests = [],
-  testsAbsent,
   failure,
   redirect,
   stop,
@@ -307,11 +305,12 @@ export function WorkflowInspector({
         )}
       </Region>
 
-      {/* Apart from the Checks above, and never folded into them. */}
-      <Region name="Tests at this boundary">
-        {tests.length === 0 ? (
-          <Absent said={testsAbsent ?? "No case is owed here."} />
-        ) : (
+      {/* Apart from the Checks above, and never folded into them. Absent
+          where there is no case: the band said why until 28 Sep, and the
+          sentence named Fleet and what it does not serve yet, which is a fact
+          about the build rather than about this Job. */}
+      {tests.length === 0 ? null : (
+        <Region name="Tests at this boundary">
           <ul className="armada-wf-inspector__rows">
             {tests.map((test) => (
               <li className="armada-wf-inspector__row" key={test.id}>
@@ -320,8 +319,8 @@ export function WorkflowInspector({
               </li>
             ))}
           </ul>
-        )}
-      </Region>
+        </Region>
+      )}
       </>
       )}
 

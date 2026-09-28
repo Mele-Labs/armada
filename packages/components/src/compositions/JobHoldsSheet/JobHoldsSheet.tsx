@@ -11,7 +11,7 @@ import { JobResources, type JobResourcesProps } from "../JobResources/JobResourc
  * largest thing in the column and it answered a question nobody had asked yet;
  * `JobHoldsSummary` answers it in five lines, and this is what that opens.
  *
- * **The act comes with it.** `Look now` is an act on the reading, so it belongs
+ * **The act comes with it.** `Refresh` is an act on the reading, so it belongs
  * beside the reading — the summary carries no second copy of it.
  *
  * **Not `wide`.** The log and the patch take a fraction of the ground because a

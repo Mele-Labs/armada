@@ -14,6 +14,8 @@ import {
   ADVANCE_GATE,
   Button,
   ConsoleOutput,
+  GUIDE_DRIFT,
+  GuideMark,
   JobLedger,
   STEP_STATE,
   type JobLedgerRow,
@@ -32,7 +34,7 @@ import {
 import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
 import { FieldLabel } from "./regions";
 import { taskGroupsOf } from "./draft/group";
-import type { LedgerRow } from "./draft/ledger";
+import { familyOf, type LedgerRow } from "./draft/ledger";
 
 export type RecordTabProps = {
   jobId: string;
@@ -40,8 +42,6 @@ export type RecordTabProps = {
   detail: JobWhole | null;
   /** Every row of the Record, newest first. */
   rows: readonly LedgerRow[];
-  /** The window is under `--layout-breakpoint`. */
-  narrow: boolean;
   /** The window is at `--window-floor`. */
   floor: boolean;
   onReadCheckOutput: ReadCheckOutput;
@@ -53,7 +53,6 @@ export function RecordTab({
   jobId,
   detail,
   rows,
-  narrow,
   floor,
   onReadCheckOutput,
   onSaid,
@@ -91,10 +90,10 @@ export function RecordTab({
           }}
           openRow={openRow}
           onOpenRow={setOpenRow}
-          narrow={narrow}
+          kindMarks={filter === "all"}
           floor={floor}
           emptyNote={EMPTY[filter]}
-          {...(openDrawn === undefined ? {} : { inspectorTitle: plainly(openDrawn) })}
+          {...(open === undefined ? {} : { inspectorTitle: open.what })}
           {...(open === undefined || openDrawn === undefined
             ? {}
             : {
@@ -114,9 +113,10 @@ export function RecordTab({
   );
 }
 
-/** What each filter says when it holds nothing. Never one sentence for eight. */
+/** What each filter says when it holds nothing. Never one sentence for nine. */
 const EMPTY: Record<RecordFilter, string> = {
   all: "Nothing has happened on this Job yet.",
+  job: "Nothing about the Job itself has been recorded yet.",
   evidence: "No Drone has submitted evidence on this Job.",
   files: "Nothing has written a file on this Job yet.",
   checks: "No Check has run on this Job yet.",
@@ -125,11 +125,6 @@ const EMPTY: Record<RecordFilter, string> = {
   tasks: "No task on this Job has moved yet.",
   tests: "No case has been run on this Job yet.",
 };
-
-/** The sheet's own name, which is the open row's. */
-function plainly(drawn: JobLedgerRow): string {
-  return typeof drawn.what === "string" ? drawn.what : "This row";
-}
 
 type RowReadProps = {
   row: LedgerRow;
@@ -162,11 +157,18 @@ function RowRead({ row, drawn, detail, outputs, onSaid }: RowReadProps) {
       <div className="armada-ledger__facts">
         <Fact label="When">{absoluteOf(row.at) ?? row.at}</Fact>
         <Fact label="Where">{drawn.where}</Fact>
-        <Fact label="Who ran it">{drawn.whoSays}</Fact>
+        <Fact label="Who">{drawn.whoSays}</Fact>
         <Fact label="Kind">{row.kind}</Fact>
       </div>
 
-      {row.outcome === "" ? null : <p className="armada-ledger__note">{row.outcome}</p>}
+      {row.outcome === "" ? null : (
+        <p className="armada-ledger__note">
+          {row.outcome}
+          {/* What a file nobody declared costs the Job is the question the row's
+              words cannot answer without teaching. #1537, the owner, 28 Sep. */}
+          {familyOf(row.kind) === "files" ? <GuideMark guide={GUIDE_DRIFT} /> : null}
+        </p>
+      )}
 
       {run === undefined ? null : (
         <>

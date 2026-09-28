@@ -40,7 +40,7 @@ export type WorkflowStepCardProps = {
   /** Its position in the run, counted from one. Stands in for a glyph on a step nothing entered. */
   ordinal?: number;
   facts?: readonly WorkflowStepFact[];
-  /** The step the Job is on. Its mark pulses and the card takes the accent edge. */
+  /** The step the Job is on. The card takes a stronger edge; what loops is `running`. */
   current?: boolean;
   /** Open in the inspector. */
   selected?: boolean;
@@ -63,14 +63,31 @@ export function WorkflowStepCard({
   gate,
   onOpen,
 }: WorkflowStepCardProps) {
+  // **What is still working sweeps** — `design-system.md`, Motion: *what
+  // animates on a loop is what is still working*, and the running node was the
+  // one thing on these graphs a person could not tell was moving (owner, 28 Sep
+  // 2026: *the step that is running should have more animation pop to it. On
+  // the existing page the panel that is running had some nice animations*).
+  // The panel he means is `Chapter` at `data-tone="running"`, and this is the
+  // same three things, not a fourth invention: the running edge, the running
+  // wash, and one segment travelling the top edge at `--duration-pulse`.
+  const working = activity === "running";
+
   const body = (
     <>
+      {/* The bar, drawn before the head so it lands on the card's own top edge
+          rather than inside its content box. Nothing to read: the mark and the
+          word beside it already say running. */}
+      {working ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
       <span className="armada-wf-card__head">
         <StepActivityMark
           activity={activity}
           label={said}
           ordinal={ordinal}
-          pulsing={current}
+          // **No `pulsing`, and that loses nothing.** The mark only ever
+          // pulses on `running`, which is the one state that now sweeps — and
+          // one loop per card means the sweep is the loop. A card that is not
+          // working does not move at all.
           says={`${name}, ${said}`}
         />
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
@@ -94,6 +111,7 @@ export function WorkflowStepCard({
     className: "armada-wf-card",
     "data-kind": kind,
     "data-current": current || undefined,
+    "data-working": working || undefined,
   };
 
   return onOpen === undefined ? (

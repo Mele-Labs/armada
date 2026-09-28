@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "../../primitives/Table/Table";
 import { TabsWithCounts } from "../../primitives/TabsWithCounts/TabsWithCounts";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Job ledger — one table of everything that happened to a Job, newest first.
@@ -22,12 +23,18 @@ import { TabsWithCounts } from "../../primitives/TabsWithCounts/TabsWithCounts";
  * answers to no filter is under All alone, and `note` is where the surface
  * says how many and what they are.
  *
- * **Who ran it is a column**, and telling a Check, a Judge and Fleet apart is
- * most of what this table is for.
+ * **Who is a column**, and telling a Check, a Judge and Fleet apart is most of
+ * what this table is for. It read `Who ran it` until the owner cut it to one
+ * word, 28 September 2026.
+ *
+ * **The kind is a mark and not a column** (the owner, same day). A 12px mark
+ * leads the row under All alone, named by its tooltip — `kindMarks`. A specific
+ * filter has already said the family, and a spelling like `task_files` was
+ * costing a sentence's width to say what the row's words say.
  *
  * **The open row is a sheet at every width, unlike the step inspector.** That
- * one pays for a column because the run tree beside it is drawn for 240px. Six
- * columns are not: at 768, and at 1440 while Helm's dock still took 380px off
+ * one pays for a column because the run tree beside it is drawn for 240px.
+ * These are not: at 768, and at 1440 while Helm's dock still took 380px off
  * the content, the table had 250px left and broke a repository path one
  * character to a line — the v1 defect the fold exists to prevent. #1583 gave
  * 1440 back; the floor is the width the rule is really for.
@@ -42,6 +49,16 @@ export type LedgerWho = "you" | "contributor" | "fleet" | "drone" | "judge" | "c
  * what they alias.
  */
 export type LedgerTone = "passed" | "failed" | "waiting" | "running";
+
+/**
+ * The mark leading a row, and the kind it stands for.
+ *
+ * **`says` is the kind's own name**, which is what the tooltip carries and what
+ * the mark alone cannot say. A kind the icon registry has no glyph for carries
+ * no mark at all rather than a borrowed one — `packages/icons/icons.toml`,
+ * `[conventions.record_kind_mark]`.
+ */
+export type JobLedgerMark = { glyph: ReactNode; says: string };
 
 export type JobLedgerRow = {
   /** What a selection names. Stable across renders, never the row's position. */
@@ -60,10 +77,10 @@ export type JobLedgerRow = {
   /** Who, spelled. The caller's, so a Drone's row can name the Drone. */
   whoSays: ReactNode;
   /**
-   * The kind, as the record spells it. **The one column that gives way below
-   * `--layout-breakpoint`** — what it says, the `what` beside it says in words.
+   * The kind's mark. Absent where the registry assigns the kind no glyph, and
+   * drawn only while `kindMarks` is on.
    */
-  kind: ReactNode;
+  mark?: JobLedgerMark;
   /** What happened. The thing the row is about. */
   what: ReactNode;
   /** What it came to. Absent where the row states no outcome, never a placeholder. */
@@ -110,12 +127,11 @@ export type JobLedgerProps = {
    */
   bound?: number;
   /**
-   * The window is under `--layout-breakpoint`: the Kind column gives way.
-   *
-   * **It does not decide where the inspector goes**, because the inspector is
-   * a sheet at every width — see the component's own note.
+   * Lead each row with its kind's mark. **On All alone**: under a filter that
+   * names one family, a column of one repeated glyph says only what the strip
+   * above it already said.
    */
-  narrow?: boolean;
+  kindMarks?: boolean;
   /** The window is at `--window-floor`, where the folded inspector goes flush. */
   floor?: boolean;
 };
@@ -136,7 +152,7 @@ export function JobLedger({
   inspectorAbsent = "Press a row to read it whole",
   emptyNote = "Nothing under this filter yet",
   bound = BOUND,
-  narrow = false,
+  kindMarks = false,
   floor = false,
 }: JobLedgerProps) {
   const drawn = rows.slice(0, bound);
@@ -144,7 +160,7 @@ export function JobLedger({
 
   return (
     <>
-      <div className="armada-ledger" data-narrow={narrow || undefined}>
+      <div className="armada-ledger">
         <div className="armada-ledger__list">
           <TabsWithCounts
             label="What the Record holds"
@@ -167,12 +183,16 @@ export function JobLedger({
             <Table className="armada-ledger__table">
               <TableHead>
                 <TableRow>
+                  {/* The mark's heading is read and never drawn: ALL CAPS over a
+                      12px glyph would be wider than the column it labels. */}
+                  {kindMarks ? (
+                    <TableHeaderCell className="armada-ledger__mark">
+                      <span className="armada-ledger__mark-name">Kind</span>
+                    </TableHeaderCell>
+                  ) : null}
                   <TableHeaderCell className="armada-ledger__when">When</TableHeaderCell>
                   <TableHeaderCell className="armada-ledger__where">Where</TableHeaderCell>
-                  <TableHeaderCell className="armada-ledger__who">Who ran it</TableHeaderCell>
-                  {narrow ? null : (
-                    <TableHeaderCell className="armada-ledger__kind">Kind</TableHeaderCell>
-                  )}
+                  <TableHeaderCell className="armada-ledger__who">Who</TableHeaderCell>
                   <TableHeaderCell className="armada-ledger__what">What</TableHeaderCell>
                   <TableHeaderCell className="armada-ledger__outcome">Outcome</TableHeaderCell>
                 </TableRow>
@@ -188,6 +208,13 @@ export function JobLedger({
                     // refusal: a sentence is a larger thing to hit than a glyph.
                     onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
                   >
+                    {kindMarks ? (
+                      <TableCell className="armada-ledger__mark">
+                        {row.mark === undefined ? null : (
+                          <Tooltip label={row.mark.says}>{row.mark.glyph}</Tooltip>
+                        )}
+                      </TableCell>
+                    ) : null}
                     <TableCell
                       variant="metadata"
                       className="armada-ledger__when"
@@ -203,11 +230,6 @@ export function JobLedger({
                         {row.whoSays}
                       </span>
                     </TableCell>
-                    {narrow ? null : (
-                      <TableCell variant="mono" className="armada-ledger__kind">
-                        {row.kind}
-                      </TableCell>
-                    )}
                     <TableCell className="armada-ledger__what">
                       {onOpenRow === undefined ? (
                         row.what

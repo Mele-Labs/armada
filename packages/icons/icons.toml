@@ -419,6 +419,13 @@
   status = "Specified"
   notes = "Single arrow, distinct from refresh-cw. Also the proposed step-level retrying mark."
 
+  [[icons.rotate-cw.usage]]
+    means = "Refresh a reading — Pulse's own act, which asks Fleet to go and look at this job again"
+    group = "Action"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 2026-09-28 with the owner's rename of that button from `Look now` to `Refresh`. Not a new claim: docs/contracts/iconography.md's reserved list already sends every refresh and poll control here, because refresh-cw is churning's alone. It replaced `search`, which meant search and had been borrowed for a button that goes and reads. Draws at 12px rather than the 16px above, matching the small button it sits in; the silhouette is one arrow and a gap, which rule 3 keeps at that size."
+
 [icons.scroll-text]
   means = "A sheet rolled at both ends with ruled lines across it — something authored, and read from the top down"
   status = "Specified"
@@ -640,6 +647,14 @@
   paired_with = "panel-left-close"
   reserved = "The collapsed half of the pair above, on Bridge's left column alone. Never a way in to a surface, which is a rail row, and never expand-in-place on a row of data."
   notes = "Added with panel-left-close, for the same control in its other state. Two tables rather than one glyph and a tooltip: at the rail the button is the only chrome left in 48px, and a mark that reads the same collapsed as expanded makes a person press it to find out which way it goes."
+
+[conventions.record_kind_mark]
+  glyphs = ["file-check", "file-diff"]
+  means = "The kind of a Record row, as a mark leading it"
+  group = "Evidence"
+  size = "12px"
+  status = "Specified"
+  notes = "The Record's Kind column became a 12px mark under the All filter on 2026-09-28, the owner's own instruction: no kind word under a specific filter, and an icon on the left of the row with the kind's name on hover under All. The rows divide into eight families and **two of them have a glyph**. `file-check` leads an Evidence row, since a submitted claim, a hand-in and a kept deliverable are each a submission that landed, which is that glyph's own reservation; `file-diff` leads a Files row, since the row names one changed file and reading what it changed is that glyph's own reservation. Neither widens the file-* family, which means evidence throughout and is what both rows already are. **Six families carry no mark at all**, which is rule 1 — Default to no icon — rather than an omission; see [record-kind-marks] in docs/contracts/iconography.md. What was refused, and why none of it is close: a Check row cannot take a shield, because every member of that family is one Check outcome — shield-check passed, shield-x failed, shield-minus not reached, shield-off skipped — and a mark saying *a Check ran* is none of them; drawing an outcome glyph in --fg-muted is a status badge with its one channel switched off. A Judge row cannot take a circle for the same reason one level over, and circle-*'s reservation names generic reuse outright. A task row cannot take TaskMark's glyphs, whose reservation is that component and whose treatment is hued: a green tick and a red cross beside the Outcome column would be the second status channel this mark must not become. clipboard-list is the Job Board's rail glyph and would say *Board* inside a Job. Nothing in this file means a Drone, a case run, or the Job's own machine moving. The two marks draw --fg-muted and never a status hue: the kind is the whole of what they say, and the Outcome column owns what the row came to."
 
 [conventions.step_activity_borrowing]
   glyphs = ["circle-dot", "eye", "rotate-cw", "check", "x", "power"]

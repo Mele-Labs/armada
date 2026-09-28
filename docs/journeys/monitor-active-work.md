@@ -50,6 +50,12 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **A toggle chooses between the canvas and the stacked run, canvas by default, at every width.** It is remembered per viewer rather than per Job, because it is a way of reading. The stacked run draws the same cards in a column, the Plan node indented under its step: a toggle that changed what a step said about itself would be two screens rather than two arrangements.
 
+**A pan holds until the frame changes size.** Why: the owner, 28 September 2026 — *I can only temporarily pan until I release the mouse*. A fit is the one thing on this surface that throws away where a person put the viewport, so it happens when the frame is resized and when what it is fitting changes, and never because something rendered.
+
+**The running step sweeps.** Why: the owner, the same day, comparing the running node against the running phase panel. It takes the live phase's own three things — the running edge, the running wash, and one segment travelling the top edge at `--duration-pulse` — and nothing else on the card loops, because a card carries one loop.
+
+**Every edge is a smooth step.** A curve from a step's bottom edge to the Plan node's left crossed the Plan node's own corner, and React Flow draws every edge under the node layer, so the line ran behind the card it pointed at.
+
 **Legibility wins over completeness, and narrowing wins over shrinking.** A run too big to fit and still be read opens on the step a person is on with its neighbours and the Plan node where one of those steps made or works it; where that will not read either, on that step alone. What is left is panned to. Where even the narrowest will not fit, the run is anchored at its top rather than centred: a fit centres, so a run taller than its frame loses the step row off the top and what hangs under it off the bottom at once. *Stay on the running step* is a press, never the default — on by default it wins over the fit and opens every run centred on one card.
 
 **A step opens in the inspector, on a layer over the canvas**: its tasks, what it is doing now, the redirect box naming which Drone it reaches, the Checks at its boundary, the tests at that boundary drawn apart from those Checks, and hold to stop. **Nothing is open until a press opens it**, so the canvas spans the width of the destination, and it keeps that width when the panel arrives — the panel is over the run and never a column beside it. Close, in the panel's own head, is the way back to a canvas with nothing open, as it is for Helm's dock. Why: the owner, 25 September 2026, and the same decision he made about the dock three days earlier. Until then the panel landed on the running step so its column was never blank, which is a reading nobody asked for covering the run it exists to explain.
@@ -62,11 +68,13 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **The third view he asked for is not built and is not stood in for.** A diagram of the repository showing where a plan's groups and tasks fall and what overlaps is not designed, so there is no disabled tab and no placeholder — a strip that named a view nobody can open is a promise the screen cannot keep.
 
-### The implement step, opened
+### The implement step, opened — and where it is drawn
 
-**Under the run, the step the plan is worked at opens into its groups, and each group into its tasks.** The canvas above stays the map — it says which steps there are and where the plan was recorded — and the board under it says what happened inside the one that is moving: the commit it left, what its boundary came to, and what the next Drone is told. A node carries none of that, which is why the two are not the same groups drawn twice. A run that read `implement · running` for two hours named neither the task nor the Check that broke. **A group and a task open in the inspector from this board**, which is the way in to both since the canvas stopped drawing them.
+**Nothing of the plan stands on Workflow but the Plan node.** Why: the owner, 28 September 2026, reading the implement board under the run — *I dont think we need the groups/plan info on the workflow view*. The board drew the groups, their tasks, their boundary Checks and their commits on the destination the plan had been taken off three days earlier, which is the same reading twice on the screen that had just stopped holding it. **With it goes the only route into a task from Workflow**: a task is opened from Plan, where the tasks are. A step still opens into the inspector from a card.
 
-**A group opens; it is not always open.** Eight tasks and four boundaries drawn at once is the wall of rows this replaced, so the group that is moving opens itself and the rest are one line each. A folded group still says where it got to and the commit it left, so reading a run is not opening every group in turn.
+**What that board said is still owed, and has no destination.** The commit a group left, what its boundary came to, what stopping it holds back, the failed Check's own output handed on, and a task's own cost — a run that reads `implement · running` for two hours names neither the task nor the Check that broke without them, and no node on a canvas carries any of it. `ImplementBoard` and `implementBoardOf` are built and tested; the nine claims in `apps/desktop/src/renderer/src/mock/arc.test.tsx` are back to `test.todo` until they have a surface.
+
+**A group opens; it is not always open.** Eight tasks and four boundaries drawn at once is the wall of rows this replaced, so the group that is moving opens itself and the rest are one line each. A folded group still says where it got to and the commit it left, so reading a run is not opening every group in turn. Held with the rest of the board.
 
 **A task row carries the planner's tier, the model that tier resolved to, how it is run, and what it has spent.** Turns while it runs; the cost only once its own agent stopped, because cost reaches Armada on a session's last line and a live figure would be invented. A done task a later task edited keeps `done` and carries a flag naming the task that did it.
 
@@ -96,7 +104,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **An attempt is a row, not a counter.** Why: attempts beside each other show whether a Drone is trying different things or rephrasing one, and a count shows neither.
 
-**The step the plan is worked at carries how many of its tasks are through, and it counts tasks rather than Drones.** A step running eight of them read `running` and nothing else; a count of Drones says the same nothing with a smaller number. Which task is moving is the Workflow destination's board, one press away.
+**The step the plan is worked at carries how many of its tasks are through, and it counts tasks rather than Drones.** A step running eight of them read `running` and nothing else; a count of Drones says the same nothing with a smaller number. Which task is moving is the Plan destination's, one press away.
 
 **A path keeps its basename.** The directory truncates and recedes; the filename does not truncate at any width.
 

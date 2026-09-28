@@ -229,8 +229,22 @@
 .armada-implement__task-failed {
   margin: 0;
   padding-inline-start: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
   text-wrap: pretty;
+}
+
+/* Whose words the sentence beside it is. The boundary's eyebrow, at the same
+   size, so the two labels on one opened group read as one pattern. */
+.armada-implement__task-eyebrow {
+  flex: none;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  font-weight: var(--weight-medium);
+  color: var(--fg-subtle);
 }

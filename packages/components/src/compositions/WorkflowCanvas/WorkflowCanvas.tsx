@@ -4,8 +4,8 @@ import {
   Handle,
   MarkerType,
   Position,
-  getBezierPath,
   getNodesBounds,
+  getSmoothStepPath,
   useReactFlow,
   useStore,
   type Edge,
@@ -117,8 +117,30 @@ function NodeView({ data }: NodeProps<CanvasNode>) {
   );
 }
 
+/**
+ * How far an edge stands off a card before it turns. React Flow's own default
+ * is 20, which on a plan hanging 150 under its step puts the turn inside the
+ * gap rather than on top of a card.
+ */
+const CLEARS_THE_CARD = 20;
+
+/**
+ * **A bezier ran behind the Plan node** (owner, 28 Sep 2026). The plan hangs 150
+ * below its step and 16 to its right, so a curve from the step's bottom to the
+ * plan's left crossed the plan's own top-left corner — and React Flow draws
+ * every edge in one SVG under the node layer.
+ *
+ * A smooth step turns in the space between two cards and so stays outside both
+ * by construction — **React Flow's own path type, never routing written here**.
+ * One type for the whole canvas: two would be a vocabulary, and only `returns`
+ * is painted differently.
+ */
 function EdgeView(props: EdgeProps<CanvasEdge>) {
-  const [path, labelX, labelY] = getBezierPath(props);
+  const [path, labelX, labelY] = getSmoothStepPath({
+    ...props,
+    borderRadius: CLEARS_THE_CARD,
+    offset: CLEARS_THE_CARD,
+  });
   const label = props.data?.label;
   return (
     <>
@@ -173,12 +195,24 @@ const ROOM_TO_BREATHE = 0.9;
 const INSET = 16;
 
 /**
+ * What a fit depends on, said as a value. **The whole of the pan defect**: the
+ * tab rebuilds `opensOn` every render, so an effect keyed on the array re-fitted
+ * over whatever a person had panned to. `canvas-pan.test.tsx` is the claim.
+ */
+const opensOnKey = (opensOn: readonly (readonly string[])[] | undefined): string =>
+  opensOn === undefined ? "" : opensOn.map((ids) => ids.join(" ")).join("|");
+
+/**
  * Fit the run again whenever the frame changes size.
  *
  * **React Flow fits once, at the size it was first measured at.** Inside a Job
  * the inspector takes its column after that first measure, and the run was
  * left clipped at both ends at every width — `#1539`'s second screenshots.
  * The pane's own measured size is what this reads, so nothing observes the DOM.
+ *
+ * **Nothing else may re-fit.** A fit is the one thing on this surface that
+ * throws away where a person put the viewport, so its dependencies are the
+ * frame's two numbers and one string, all of them values.
  */
 function FitsTheFrame({
   options,
@@ -192,6 +226,10 @@ function FitsTheFrame({
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
   const height = useStore((state) => state.height);
+  const key = opensOnKey(opensOn);
+  // The same arrays until what they name changes, so the effect below sees one
+  // dependency per fact rather than one per render.
+  const opens = useMemo(() => opensOn, [key]);
   useEffect(() => {
     if (following || width === 0 || height === 0) return;
     const placed = new Map(flow.getNodes().map((node) => [node.id, node]));
@@ -206,11 +244,11 @@ function FitsTheFrame({
       return scale >= SMALLEST_READABLE;
     };
     const all = flow.getNodes();
-    if (opensOn === undefined || reads(all)) {
+    if (opens === undefined || reads(all)) {
       void flow.fitView(options);
       return;
     }
-    const narrower = opensOn.map((ids) => ids.map((id) => ({ id })));
+    const narrower = opens.map((ids) => ids.map((id) => ({ id })));
     const fits = narrower.find(reads);
     if (fits !== undefined) {
       void flow.fitView({ ...options, nodes: fits });
@@ -233,7 +271,7 @@ function FitsTheFrame({
       y: INSET - bounds.y * SMALLEST_READABLE,
       zoom: SMALLEST_READABLE,
     });
-  }, [flow, following, options, opensOn, width, height]);
+  }, [flow, following, options, opens, width, height]);
   return null;
 }
 

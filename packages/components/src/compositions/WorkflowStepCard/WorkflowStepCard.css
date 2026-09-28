@@ -7,6 +7,12 @@
   flex-direction: column;
   gap: var(--space-2);
   width: var(--w-workflow-node);
+  /* The running sweep hangs off the card's own top edge. Absolute, so the bar
+     never enters the card's box — a node whose box moves is what raises
+     Chromium's ResizeObserver loop notice off React Flow's per-node observer,
+     docs/spikes/019-what-raises-the-resize-loop-notice-on-a-studio.md. */
+  position: relative;
+  overflow: hidden;
   padding: var(--space-3);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
@@ -66,6 +72,71 @@ button.armada-wf-card {
 
 button.armada-wf-card:hover {
   background: var(--bg-hover);
+}
+
+/* --- Still working -------------------------------------------------------- */
+
+/* The card whose work is running, drawn the way the live phase already is:
+   the running edge, the running wash, and one segment travelling the top edge.
+   `Chapter.css`, the live phase — the panel the owner was comparing against on
+   28 Sep 2026. The three values are declared in `tokens/status.css` because
+   hue below Job level lives there.
+
+   `background-image` rather than the shorthand, so the wash rides on whatever
+   ground the card's kind and its hover already chose rather than replacing it.
+   The edge yields to `[aria-current]`, which says which card is being read and
+   outranks which card is moving. */
+.armada-wf-card[data-working]:not([aria-current]) {
+  border-color: var(--phase-live-edge);
+}
+
+.armada-wf-card[data-working] {
+  background-image: linear-gradient(var(--phase-live-bg), var(--phase-live-bg));
+}
+
+/* The bar, along the top edge. The same line a control waiting on Fleet sweeps
+   and the same line the live phase sweeps: --pending-bar tall, --status-running,
+   one segment travelling at --duration-pulse, linear rather than --ease — a
+   fast-out curve parks the segment off the end for most of the loop and a
+   screenshot shows no bar at all. The keyframes are this file's own, as
+   `Chapter.css`'s are: a component owns its stylesheet and reaches into no
+   other one. */
+.armada-wf-card__sweep {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: var(--pending-bar);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.armada-wf-card__sweep::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 40%;
+  background: var(--status-running);
+  animation: armada-wf-card-sweep var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-wf-card-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* The bar holds still at full width, and nothing is lost: the edge, the wash,
+   the mark's hue and the word beside it all say running. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-wf-card__sweep::after {
+    animation: none;
+    width: 100%;
+    transform: none;
+  }
 }
 
 .armada-wf-card__head {
