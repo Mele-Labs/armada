@@ -61,7 +61,8 @@ describe("one group at a time", () => {
   test("group four has not started, and its Checks read as not run", () => {
     const four = groupAt(executingSequential(), 4);
     expect(four.says).toBe("not started");
-    expect(four.boundary.says).toBe("7 checks will run at this boundary");
+    expect(four.boundary.clause).toBe("will run at this boundary");
+    expect(four.boundary.checks).toHaveLength(7);
     expect(new Set(four.boundary.checks.map((one) => one.reads))).toEqual(new Set(["not run"]));
     expect(four.boundary.verdictSays).toBeUndefined();
   });
@@ -70,12 +71,14 @@ describe("one group at a time", () => {
 describe("a task carries only its own agent", () => {
   test("a working task shows turns and no cost, because its agent has not stopped", () => {
     const five = taskIn(executingSequential(), 3, "T5");
-    expect(five.spentSays).toBe("14 turns");
-    expect(five.spentSays).not.toContain("$");
+    expect(five.turnsSays).toBe("14 turns");
+    expect(five.costSays).toBeUndefined();
   });
 
   test("a finished task shows what it cost, in a group that has already passed", () => {
-    expect(taskIn(executingSequential(), 1, "T1").spentSays).toBe("34 turns · ~$2.40");
+    const one = taskIn(executingSequential(), 1, "T1");
+    expect(one.turnsSays).toBe("34 turns");
+    expect(one.costSays).toBe("~$2.40");
   });
 
   // Three fields, not one line: the board joins them, and a caller that joined
@@ -90,8 +93,8 @@ describe("a task carries only its own agent", () => {
   test("a cost is on a task the moment its agent stopped, before its group is checked", () => {
     const five = taskIn(executingConcurrent(), 3, "T5");
     const six = taskIn(executingConcurrent(), 3, "T6");
-    expect(five.spentSays).toBe("27 turns · ~$1.90");
-    expect(six.spentSays).toBe("15 turns · ~$0.72");
+    expect([five.turnsSays, five.costSays]).toEqual(["27 turns", "~$1.90"]);
+    expect([six.turnsSays, six.costSays]).toEqual(["15 turns", "~$0.72"]);
     expect(groupAt(executingConcurrent(), 3).boundary.verdictSays).toBeUndefined();
   });
 });
@@ -164,7 +167,9 @@ describe("a done task a later task edited", () => {
   });
 
   test("the task that did it is still working, with turns and no cost", () => {
-    expect(taskIn(doneTouched(), 4, "T7").spentSays).toBe("6 turns");
+    const seven = taskIn(doneTouched(), 4, "T7");
+    expect(seven.turnsSays).toBe("6 turns");
+    expect(seven.costSays).toBeUndefined();
   });
 });
 

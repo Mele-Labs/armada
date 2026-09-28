@@ -42,7 +42,7 @@ function planned(): PlanBoardGroup[] {
       ordinal: 1,
       state: "pending",
       says: "not started",
-      scope: ["crates/api/src/running.rs", "crates/fleet/src/running.rs"],
+      scope: { root: "crates/**", count: 2 },
       tasks: [
         {
           id: "T1",
@@ -61,9 +61,9 @@ function planned(): PlanBoardGroup[] {
       ],
       shapeSays: "2 tasks, one after another",
       boundary: {
-        says: "4 checks will run at this boundary",
+        clause: "will run at this boundary",
         checks: notRun(RUST),
-        testsSay: "1 test runs at this boundary",
+        testsClause: "runs at this boundary",
         tests: [{ id: "c-api", spec: "crates/api/src/tests/running.rs", reads: "owed" }],
       },
     },
@@ -72,7 +72,7 @@ function planned(): PlanBoardGroup[] {
       ordinal: 2,
       state: "pending",
       says: "not started",
-      scope: ["packages/screens/src/Running.tsx", "packages/screens/src/running-rows.tsx"],
+      scope: { root: "packages/screens/src/**", count: 2 },
       shapeSays: "2 tasks, at the same time",
       tasks: [
         {
@@ -81,7 +81,7 @@ function planned(): PlanBoardGroup[] {
           mark: "open",
           tier: "difficult",
           model: "opus",
-          besideSays: "runs beside T6",
+          besideSays: "beside T6",
         },
         {
           id: "T6",
@@ -89,13 +89,13 @@ function planned(): PlanBoardGroup[] {
           mark: "open",
           tier: "medium",
           model: "sonnet",
-          besideSays: "runs beside T5",
+          besideSays: "beside T5",
         },
       ],
       boundary: {
-        says: "7 checks will run at this boundary",
+        clause: "will run at this boundary",
         checks: notRun(BRIDGE),
-        testsSay: "1 test runs at this boundary",
+        testsClause: "runs at this boundary",
         tests: [
           { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
         ],
@@ -126,16 +126,17 @@ export const GroupFailed: Story = {
         state: "retrying",
         says: "failed at its checks",
         tasks: [
-          { ...planned()[1]!.tasks[0]!, mark: "done", spentSays: "27 turns · $1.90" },
+          { ...planned()[1]!.tasks[0]!, mark: "done", turnsSays: "27 turns", costSays: "~$1.90" },
           {
             ...planned()[1]!.tasks[1]!,
             mark: "failed",
-            spentSays: "15 turns · $0.72",
+            turnsSays: "15 turns",
+            costSays: "~$0.72",
             failedReason: "The row's press opened the Board rather than the Job",
           },
         ],
         boundary: {
-          says: "7 checks ran at this boundary",
+          clause: "ran at this boundary",
           checks: BRIDGE.map((name) => ({
             name,
             reads: name === "screens_test" ? ("failed" as const) : ("passed" as const),
@@ -176,16 +177,17 @@ export const DoneTouchedLater: Story = {
         state: "passed",
         says: "passed",
         tasks: [
-          { ...planned()[1]!.tasks[0]!, mark: "done", spentSays: "27 turns · $1.90" },
+          { ...planned()[1]!.tasks[0]!, mark: "done", turnsSays: "27 turns", costSays: "~$1.90" },
           {
             ...planned()[1]!.tasks[1]!,
             mark: "done",
-            spentSays: "15 turns · $0.72",
+            turnsSays: "15 turns",
+            costSays: "~$0.72",
             touchedSays: "touched later · T7",
           },
         ],
         boundary: {
-          says: "7 checks ran at this boundary",
+          clause: "ran at this boundary",
           checks: BRIDGE.map((name) => ({ name, reads: "passed" as const })),
           verdictSays: "all 7 passed",
           verdictNamed: "passed",
@@ -205,16 +207,33 @@ export const DoneTouchedLater: Story = {
   },
 };
 
+/**
+ * Two groups claiming one file, said on the group that has the clash — the
+ * owner's call of 28 Sep 2026, against a band above the whole plan.
+ */
 export const OrderContradictsScope: Story = {
   args: {
     approach: APPROACH,
-    groups: planned(),
-    clashes: [
-      {
-        path: "packages/screens/src/running-rows.tsx",
-        says: "group 2 (T6) and group 4 (T7)",
-      },
-    ],
+    groups: planned().map((group, at) =>
+      at === 1
+        ? {
+            ...group,
+            overlaps: [
+              {
+                says: "Group 4 writes these files too",
+                paths: ["packages/screens/src/running-rows.tsx"],
+              },
+            ],
+          }
+        : group,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const card = canvas.getByRole("list", { name: "Group 2 tasks" }).closest("li")!;
+    await expect(card).toHaveTextContent("Group 4 writes these files too");
+    const first = canvas.getByRole("list", { name: "Group 1 tasks" }).closest("li")!;
+    await expect(first).not.toHaveTextContent("writes these files too");
   },
 };
 

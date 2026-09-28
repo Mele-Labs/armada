@@ -15,9 +15,9 @@
 // `plan-board.ts` over `tab-plan-read.ts`'s sentences, what an ask says is
 // `tab-plan-ask.tsx`, and what it all looks like is `PlanBoard`.
 
-import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
+import { Card, CardContent, JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
 import { Button } from "@armada/components";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 
@@ -115,33 +115,47 @@ function originSaid(criterion: CriterionView): string {
 }
 
 /**
- * What the Job is held to, with where each line came from.
+ * What the Job is held to, with where each line came from, and the gate's own
+ * acts under it.
+ *
+ * **It leads the destination.** It was the last region on the page until the
+ * owner asked why (28 Sep 2026): *"Isn't this why the plan was formed?"* The
+ * design board leads with the same card, criteria and Approve together.
  *
  * **Not the planner's expectation**, which is per task and sits in the
  * inspector. `#1274` is why the two are never one list: a Drone never chooses
  * the cases it is held to, and a task's `expects` is the planner's word.
  */
-function HeldTo({ criteria }: { criteria: readonly CriterionView[] }) {
-  if (criteria.length === 0) return null;
+function HeldTo({ criteria, gate }: { criteria: readonly CriterionView[]; gate: ReactNode }) {
+  if (criteria.length === 0 && gate === null) return null;
   return (
-    <section className="armada-detail-tab__region" aria-label="What this Job is held to">
-      <Eyebrow>What this Job is held to</Eyebrow>
-      <ul className="armada-plan-tab__criteria">
-        {criteria.map((criterion, at) => (
-          <li key={criterion.criterion_id ?? at}>
-            <span className="armada-plan-tab__criterion-text">{criterion.text}</span>
-            <span className="armada-plan-tab__criterion-origin">{originSaid(criterion)}</span>
-            {/* The Job keeps the words it froze and says the issue has moved
-                since — `#1530`, 22 Sep. It never re-reads them. */}
-            {criterion.origin_moved_at === undefined ? null : (
-              <span className="armada-plan-tab__criterion-moved">
-                The issue has been edited since these words were frozen.
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Card className="armada-plan-tab__lead">
+      <CardContent>
+        <Eyebrow>What this Job is held to</Eyebrow>
+        {criteria.length === 0 ? (
+          <p className="armada-plan-tab__criterion-origin">
+            Nothing was written down for this Job to be held to.
+          </p>
+        ) : (
+          <ul className="armada-plan-tab__criteria">
+            {criteria.map((criterion, at) => (
+              <li key={criterion.criterion_id ?? at}>
+                <span className="armada-plan-tab__criterion-text">{criterion.text}</span>
+                <span className="armada-plan-tab__criterion-origin">{originSaid(criterion)}</span>
+                {/* The Job keeps the words it froze and says the issue has
+                    moved since — `#1530`, 22 Sep. It never re-reads them. */}
+                {criterion.origin_moved_at === undefined ? null : (
+                  <span className="armada-plan-tab__criterion-moved">
+                    The issue has been edited since these words were frozen.
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {gate}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -271,8 +285,8 @@ function PlanGate({
 }) {
   if (step === undefined || step.state !== "awaiting_human") return null;
   return (
-    <section className="armada-detail-tab__region" aria-label="This plan is waiting on you">
-      <Eyebrow>This plan is waiting on you</Eyebrow>
+    <div className="armada-plan-tab__gate">
+      <p className="armada-plan-tab__waiting">This plan is waiting on you.</p>
       <div className="armada-plan-tab__acts">
         <Button
           variant="primary"
@@ -290,7 +304,7 @@ function PlanGate({
           onRedirect={onRedirect}
         />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -384,6 +398,22 @@ export function PlanTab({
        the whole argument for. */
     <>
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.plan}>
+      {/* Why the plan was formed, first — the owner's call of 28 Sep 2026.
+          Everything under it is how the work was split to meet it. */}
+      <HeldTo
+        criteria={criteriaOf(whole, draft)}
+        gate={
+          <PlanGate
+            job={job}
+            step={step}
+            stale={stale}
+            acting={acting}
+            deciding={deciding}
+            onApproveReview={onApproveReview}
+            onRedirect={onRedirect}
+          />
+        }
+      />
       {/* What the split became, above the plan that drew it: the wave is what
           a person came to this destination to read on a Job that dispatched
           one, and the task board underneath is how it was written. #1544. */}
@@ -439,16 +469,6 @@ export function PlanTab({
           the last thing a person did and the gate is the next thing they will
           do. */}
       <Revisions revisions={revisions} tasks={groups.flatMap((one) => one.tasks).length} />
-      <HeldTo criteria={criteriaOf(whole, draft)} />
-      <PlanGate
-        job={job}
-        step={step}
-        stale={stale}
-        acting={acting}
-        deciding={deciding}
-        onApproveReview={onApproveReview}
-        onRedirect={onRedirect}
-      />
     </div>
     {reading === undefined ? null : (
       <PlanTaskSheet

@@ -28,20 +28,22 @@ import type { TaskView } from "./draft/task";
 import {
   asksOf,
   besideSaid,
-  boundarySaid,
+  boundaryClause,
   caseReads,
   casesOf,
-  clashesOf,
+  costSaid,
   droppedSaid,
   failedChecksOf,
   groupSaid,
   groupsOf,
   markOf,
+  overlapsOf,
   retrySaid,
   runBySaid,
-  spentSaid,
-  testsSaid,
+  scopeRootOf,
+  testsClause,
   touchedByOf,
+  turnsSaid,
 } from "./tab-plan-read";
 
 /** Whether a group's boundary has already run. */
@@ -85,10 +87,13 @@ export function verdictSaid(group: GroupView, failed: readonly string[]): string
 // fact and stays.
 
 /**
- * What the next Drone is told: the failed Check's own output, verbatim.
+ * What the gate wrote down about the Check that failed, verbatim: what it was
+ * measured against, and what it produced.
  *
- * **Never a summary.** A retry working from a paraphrase is a retry working
- * from something nobody can check against the run that produced it.
+ * **This is the row, not the output.** `CheckRun.expected` and `produced` are
+ * the measure and the exit code; the Check's stdout and stderr are a file at
+ * `output_path`. Labelling the pair as the whole of what a Drone reads was the
+ * over-claim the owner caught on 28 Sep 2026, and `TOLD_NEXT_SAYS` is the rest.
  */
 export function toldNextOf(step: StepDetail | undefined, failed: readonly string[]): string | undefined {
   const run = (step?.check_runs ?? []).find((one) => failed.includes(one.name) && one.outcome === "failed");
@@ -96,6 +101,16 @@ export function toldNextOf(step: StepDetail | undefined, failed: readonly string
   const lines = [run.expected, run.produced].filter((one): one is string => one !== undefined);
   return lines.length === 0 ? undefined : lines.join("\n");
 }
+
+/**
+ * Where the rest of a failed Check is, for the Drone that picks the group up.
+ *
+ * Read off `crates/fleet/src/check_output.rs` and `terms.rs`: every run's
+ * stdout and stderr go to a file, and a Drone can ask for the Check again and
+ * is handed the tail of both. Nothing here is a promise the screen makes.
+ */
+const TOLD_NEXT_SAYS =
+  "The run's whole output is kept. A Drone picking this group up can ask for the Check again and is handed the last of what it printed.";
 
 /**
  * `2 tasks, at the same time` — fan out — or `2 tasks, one after another`.
@@ -121,7 +136,8 @@ export function shapeSaid(group: GroupView): string {
  */
 function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTask {
   const beside = besideSaid(task);
-  const spent = spentSaid(task);
+  const turns = turnsSaid(task);
+  const cost = costSaid(task);
   const later = touchedBy.get(task.id);
   return {
     id: task.id,
@@ -130,7 +146,8 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTas
     tier: task.tier,
     model: task.model,
     runBy: runBySaid(task),
-    ...(spent === undefined ? {} : { spentSays: spent }),
+    ...(turns === undefined ? {} : { turnsSays: turns }),
+    ...(cost === undefined ? {} : { costSays: cost }),
     ...(beside === undefined ? {} : { besideSays: beside }),
     ...(later === undefined ? {} : { touchedSays: `touched later · ${later}` }),
     ...(task.failed_reason === undefined ? {} : { failedReason: task.failed_reason }),
@@ -161,9 +178,9 @@ export function boundaryOf(
     spec: one.spec,
     reads: droppedSaid(one) ?? caseReads(one),
   }));
-  const testsSay = testsSaid(group.state, tests.length);
+  const testsSay = testsClause(group.state, tests.length);
   return {
-    says: boundarySaid(group.state, checks.length),
+    clause: boundaryClause(group.state),
     checks,
     checksAbsent: "No Check runs at this group's end.",
     ...(verdict === undefined ? {} : { verdictSays: verdict }),
@@ -174,8 +191,8 @@ export function boundaryOf(
         : {}),
     ...(retry === undefined ? {} : { retrySays: retry }),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
-    ...(told === undefined ? {} : { toldNext: told }),
-    ...(testsSay === undefined ? {} : { testsSay }),
+    ...(told === undefined ? {} : { toldNext: told, toldNextSays: TOLD_NEXT_SAYS }),
+    ...(testsSay === undefined ? {} : { testsClause: testsSay }),
     ...(tests.length === 0 ? {} : { tests }),
   };
 }
@@ -193,6 +210,7 @@ export function groupCardOf(
   whole: JobWhole | null,
   asks: readonly PlanBoardAsk[] = [],
   step?: StepDetail,
+  overlaps: readonly { says: string; paths: readonly string[] }[] = [],
 ): PlanBoardGroup {
   return {
     id: group.id,
@@ -200,9 +218,10 @@ export function groupCardOf(
     state: group.state,
     says: groupSaid(group.state),
     shapeSays: shapeSaid(group),
-    scope: group.scope,
+    scope: scopeRootOf(group.scope),
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
     boundary: boundaryOf(group, cases, whole, step),
+    ...(overlaps.length === 0 ? {} : { overlaps }),
     ...(asks.length === 0 ? {} : { asks }),
   };
 }
@@ -227,13 +246,20 @@ export function planBoardOf(
   if (groups.length === 0) return undefined;
   const cases = casesOf(whole, draft);
   const touchedBy = touchedByOf(groups);
-  const clashes = clashesOf(groups);
+  const overlaps = overlapsOf(groups);
   return {
     approach: whole?.work_plan?.approach ?? "",
     groups: groups.map((group, at) =>
-      groupCardOf(group, cases, touchedBy, whole, revisable ? asksOf(groups, at) : [], step),
+      groupCardOf(
+        group,
+        cases,
+        touchedBy,
+        whole,
+        revisable ? asksOf(groups, at) : [],
+        step,
+        overlaps.get(group.id) ?? [],
+      ),
     ),
-    ...(clashes.length === 0 ? {} : { clashes }),
     ...(revisable ? { askable: true } : {}),
     ...(openTaskId === undefined ? {} : { openTaskId }),
     onOpenTask,

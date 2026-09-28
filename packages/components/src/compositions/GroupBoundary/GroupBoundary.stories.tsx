@@ -26,7 +26,7 @@ const all = (reads: GroupBoundaryCheck["reads"]): GroupBoundaryCheck[] =>
 /** Nothing has reached it: seven segments, no verdict and no commit. */
 export const NotRun: Story = {
   args: {
-    says: "7 checks will run at this boundary",
+    clause: "will run at this boundary",
     checks: all("not run"),
   },
 };
@@ -34,7 +34,7 @@ export const NotRun: Story = {
 /** One in flight. The bar is the only thing on this surface that says so. */
 export const OneInFlight: Story = {
   args: {
-    says: "7 checks are running at this boundary",
+    clause: "running at this boundary",
     checks: NAMES.map((name, at) => ({ name, reads: at < 3 ? "passed" : at === 3 ? "running" : "not run" })),
     verdictSays: "running now",
   },
@@ -43,12 +43,12 @@ export const OneInFlight: Story = {
 /** All passed, with the commit the group left and the cases that ran beside them. */
 export const AllPassed: Story = {
   args: {
-    says: "7 checks ran at this boundary",
+    clause: "ran at this boundary",
     checks: all("passed"),
     verdictSays: "all 7 passed",
     verdictNamed: "passed",
     commit: "7a2f0c5",
-    testsSay: "2 tests ran at this boundary",
+    testsClause: "ran at this boundary",
     tests: [
       { id: "c-panel", spec: "packages/screens/src/Running.test.tsx", reads: "owed" },
       { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
@@ -67,12 +67,13 @@ export const AllPassed: Story = {
  */
 export const OneFailed: Story = {
   args: {
-    says: "7 checks ran at this boundary",
+    clause: "ran at this boundary",
     checks: NAMES.map((name) => ({ name, reads: name === "screens_test" ? "failed" : "passed" })),
     verdictSays: "screens_test failed",
     verdictNamed: "failed",
     retrySays: "second run",
     toldNext: "every test in the screens package passes\n1 of 1384 failed: the Drones row opened the Board",
+    toldNextSays: "The run's whole output is kept. A Drone picking this group up can ask for the Check again and is handed the last of what it printed.",
   },
   play: async ({ canvas }) => {
     const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
