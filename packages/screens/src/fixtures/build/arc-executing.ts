@@ -331,8 +331,6 @@ export function executingSequential(): ArcMoment {
   let groups = throughGroupTwo();
   groups = withGroup(groups, "g3", { state: "running" });
   groups = withTask(groups, "T5", { state: "working", turns: 14, drone_id: ARC_DRONES.T5 });
-  // Group three runs its two tasks at once, so both its Drones are working.
-  groups = withTask(groups, "T6", { state: "working", turns: 9, drone_id: ARC_DRONES.T6 });
   return {
     name: "executingSequential",
     says: "Implement — groups one and two passed, group three is working",
