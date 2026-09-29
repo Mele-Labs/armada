@@ -55,7 +55,7 @@ const ROWS: JobLedgerRow[] = [
     where: "Implement · group 1 · T1",
     who: "drone",
     whoSays: "Drone",
-    what: "Task T1 done · Serve one read of everything running",
+    what: "T1 marked done · Serve one read of everything running",
     outcome: "The read answers Drones, Checks and Judge calls in one call",
     tone: "passed",
     mark: { glyph: <ListTodo {...MARK} />, says: "task_done" },

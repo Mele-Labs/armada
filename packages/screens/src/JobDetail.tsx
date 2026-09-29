@@ -304,6 +304,7 @@ function OneJob(props: JobDetailProps) {
           diff={props.recorded.diff}
           onReadDiff={props.onReadDiff}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          {...(props.draft?.cases === undefined ? {} : { cases: props.draft.cases })}
           onSaid={props.onSaid}
           onOpenStep={(stepId) => {
             setOpensStep(stepId);
@@ -352,6 +353,7 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
       ...(evidence === undefined ? {} : { evidence }),
       ...(footprint === undefined ? {} : { footprint }),
       ...(handed === undefined ? {} : { handed }),
+      ...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups }),
     }),
   };
 }

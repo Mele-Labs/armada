@@ -12,7 +12,7 @@
 // finished in group three; T7 writes the same file in group four.
 
 import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
-import type { GroupView, LedgerRow, PulseView } from "../../draft";
+import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
 import {
@@ -356,6 +356,40 @@ export function executingSequential(): ArcMoment {
   };
 }
 
+/**
+ * The cases, once groups one and two have passed their boundaries: the API's
+ * case ran at group one's, and the Board's has no spec to run. The panel's and
+ * the overview's run at group four's, which nothing has reached yet.
+ */
+function casesRunThroughGroupTwo(): CaseView[] {
+  const runs: Record<string, CaseRunView> = {
+    "c-api": {
+      id: "run-g1-c-api",
+      case: "c-api",
+      coord: { step: "implement", step_attempt: 1, group: "g1", group_attempt: 1 },
+      actor: "fleet",
+      purpose: "group_boundary",
+      tree: "branch",
+      outcome: "ran",
+      frames: 0,
+      ran_at: "2026-09-22T10:14:00Z",
+    },
+    "c-board": {
+      id: "run-g2-c-board",
+      case: "c-board",
+      coord: { step: "implement", step_attempt: 1, group: "g2", group_attempt: 1 },
+      actor: "fleet",
+      purpose: "group_boundary",
+      tree: "branch",
+      outcome: "not_run",
+      not_run_reason: "no spec covers Board.tsx",
+      frames: 0,
+      ran_at: "2026-09-22T10:31:00Z",
+    },
+  };
+  return arcCases().map((one) => (runs[one.id] === undefined ? one : { ...one, last_run: runs[one.id]! }));
+}
+
 export function executingConcurrent(): ArcMoment {
   let groups = throughGroupTwo();
   groups = withTask(groups, "T5", {
@@ -385,7 +419,7 @@ export function executingConcurrent(): ArcMoment {
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.
@@ -461,7 +495,7 @@ export function groupFailed(): ArcMoment {
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.
@@ -512,7 +546,7 @@ export function doneTouched(): ArcMoment {
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.

@@ -243,8 +243,12 @@ export function statusOf(row: LedgerRow): { says: string; tone?: LedgerTone } | 
       const says = verdict.charAt(0).toUpperCase() + verdict.slice(1);
       return tone === undefined ? { says } : { says, tone };
     }
+    // A task's own action, toned as a Check's word is: marked done is its pass
+    // and marked failed its fail. Dropped and started are neither.
+    case "task_done":
+      return { says: "Marked done", tone: "passed" };
     case "task_failed":
-      return { says: "Failed", tone: "failed" };
+      return { says: "Marked failed", tone: "failed" };
     case "case_run":
       return row.outcome.startsWith("The run failed")
         ? { says: "Run failed", tone: "failed" }
@@ -270,10 +274,9 @@ const STATUS_SAYS: Readonly<Record<string, string>> = {
   plan_recorded: "Recorded",
   plan_revised: "Revised",
   task_open: "Open",
-  task_working: "Working",
-  task_done: "Done",
+  task_working: "Started",
   task_dropped: "Dropped",
-  touched_after_done: "Edited after done",
+  touched_after_done: "Changed after done",
   cases_rerun: "Run again",
   shown_again: "Shown again",
   frames_kept: "Kept",

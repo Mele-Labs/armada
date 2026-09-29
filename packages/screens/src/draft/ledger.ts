@@ -27,7 +27,8 @@ import { CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
 import { fileNameOf } from "../editing";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
-import { taskViewsOf } from "./task";
+import type { GroupView } from "./group";
+import { taskViewsOf, type TaskView } from "./task";
 
 /**
  * Who a row is about. The wire's `Actor`, plus the three the new shape needs.
@@ -324,6 +325,12 @@ export type LedgerReads = {
   footprint?: JobFilesChanged;
   /** The last `evidence.submitted` heard for this Job. */
   handed?: EvidenceSubmitted;
+  /**
+   * The plan's groups, where the draft holds them. **A task's own facts live
+   * here and not on the wire** — why it failed, the cases it owes, whether a
+   * later task edited it — so its row reads them where they exist.
+   */
+  groups?: readonly GroupView[];
 };
 
 /**
@@ -347,7 +354,7 @@ export function ledgerOf(reads: LedgerReads): LedgerRow[] {
     if (moves.length === 0) rows.push(...droneRowsOf(step, mint));
   }
   rows.push(...planRowsOf(detail, mint));
-  rows.push(...taskRowsOf(detail, mint));
+  rows.push(...taskRowsOf(detail, reads.groups, mint));
   rows.push(...fileRowsOf(detail, reads.footprint, mint));
   rows.push(...handedRowsOf(detail, reads.evidence, reads.handed, mint));
   rows.push(...testRowsOf(detail, mint));
@@ -552,31 +559,89 @@ function planRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
 }
 
 /**
- * What each task came to.
+ * What was done to each task, and why.
  *
- * **A task's own "done" is never Evidence** (`#1530`, 21 Sep) — it is one of
- * these, and `familyOf` files every one of them under Tasks.
+ * **A row is an action on the task** (the owner, 29 Sep 2026: *if the task was
+ * marked done that should be what the action was*): `T5 marked done`, `T6
+ * marked failed`, `T3 dropped`, `T6 started`. The outcome is the short reason —
+ * what it showed, why it failed, why it was dropped — and the row's sheet reads
+ * the rest off the task.
  *
- * **The instant is the step's.** No field on the wire stamps a task, so a row
- * takes the end of the run of the step the task sits in; where that run is
- * still going it takes its start.
+ * **A task's own "done" is never Evidence** (`#1530`, 21 Sep). **The draft's
+ * tasks where it holds them**: only the draft knows a task failed, or that a
+ * later task edited one that was done. **The instant is the step's run's**,
+ * since no field on the wire stamps a task.
  */
-function taskRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
+function taskRowsOf(
+  detail: JobDetail,
+  groups: readonly GroupView[] | undefined,
+  mint: () => number,
+): LedgerRow[] {
   const rows: LedgerRow[] = [];
-  for (const task of taskViewsOf(detail)) {
+  const tasks = groups === undefined ? taskViewsOf(detail) : groups.flatMap((group) => group.tasks);
+  for (const task of tasks) {
     if (task.state === "open") continue;
     const step = detail.steps.find((one) => one.step_id === task.coord.step);
+    const at = step === undefined ? detail.created_at : atOf(step, task.coord.step_attempt);
     rows.push({
-      at: step === undefined ? detail.created_at : atOf(step, task.coord.step_attempt),
+      at,
       coord: task.coord,
       actor: task.state === "dropped" ? "person" : "drone",
       kind: `task_${task.state}`,
-      what: `Task ${task.id} ${task.state} · ${task.title}`,
-      outcome: task.reason ?? task.shown ?? "",
+      what: `${task.id} ${TASK_ACTION[task.state]} · ${task.title}`,
+      outcome: reasonOf(task),
+      cursor: mint(),
+    });
+    if (!task.touched_after_done) continue;
+    const later = laterTaskOf(task, tasks);
+    rows.push({
+      at,
+      coord: task.coord,
+      actor: "drone",
+      kind: "touched_after_done",
+      what: `${task.id} changed after done · ${task.title}`,
+      outcome:
+        later === undefined
+          ? "A later task edited a file it had finished"
+          : `${later.id} edited a file it had finished`,
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/** What was done to a task, by the state it moved to. */
+const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
+  working: "started",
+  done: "marked done",
+  failed: "marked failed",
+  dropped: "dropped",
+};
+
+/** The short reason a task's row gives: what it showed, or why it stopped. */
+function reasonOf(task: TaskView): string {
+  switch (task.state) {
+    case "done":
+      return task.shown ?? "";
+    case "failed":
+      return task.failed_reason ?? "";
+    case "dropped":
+      return task.reason ?? "";
+    default:
+      return "";
+  }
+}
+
+/**
+ * The later task that edited a file this one had finished: the first after it,
+ * in plan order, claiming a path it claimed. `tab-plan-read.ts`'s `touchedByOf`
+ * reads the same join for the Plan board.
+ */
+function laterTaskOf(task: TaskView, tasks: readonly TaskView[]): TaskView | undefined {
+  const claimed = new Set(task.scope);
+  return tasks
+    .slice(tasks.indexOf(task) + 1)
+    .find((candidate) => candidate.scope.some((path) => claimed.has(path)));
 }
 
 // ------------------------------------------------------------------- files

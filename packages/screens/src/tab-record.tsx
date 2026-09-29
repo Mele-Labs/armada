@@ -17,6 +17,7 @@ import {
   ConsoleOutput,
   DropdownMenu,
   JobLedger,
+  PathChip,
   UnifiedDiff,
   WorkflowStepCard,
   type JobLedgerRow,
@@ -38,10 +39,11 @@ import {
 import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
 import { Eyebrow, FieldLabel } from "./regions";
 import { titleOf } from "./record-cells";
+import { caseViewsOf, type CaseView } from "./draft/cases";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
 import { drawn as drawnPatch, whyNoDiff } from "./review";
-import { droneOfTask, jobDroneOf } from "./tab-plan-read";
+import { droneOfTask, jobDroneOf, touchedByOf } from "./tab-plan-read";
 import { stepNodeId, workflowRunOf } from "./workflow-canvas";
 import { spentOf } from "./workflow-inspector";
 
@@ -60,6 +62,8 @@ export type RecordTabProps = {
   onReadDiff: (jobId: string | null) => void;
   /** The plan's groups, where the draft holds them. Absent reads the wire's. */
   groups?: readonly GroupView[];
+  /** The cases the plan owes, where the draft holds them. Absent reads the wire's. */
+  cases?: readonly CaseView[];
   /** Say a sentence to the person — what an act that is not built yet answers. */
   onSaid: (sentence: string) => void;
   /**
@@ -78,6 +82,7 @@ export function RecordTab({
   diff,
   onReadDiff,
   groups: given,
+  cases: givenCases,
   onSaid,
   onOpenStep,
 }: RecordTabProps) {
@@ -94,6 +99,11 @@ export function RecordTab({
   // the step node a failed Check draws. The Workflow tab's own fallback.
   const groups = useMemo(() => given ?? (detail === null ? [] : taskGroupsOf(detail)), [given, detail]);
   const tasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups]);
+  // What each case a task owes last came to — `casesOf`'s terms, the Plan tab's.
+  const cases = useMemo(
+    () => givenCases ?? (detail === null ? [] : caseViewsOf(detail)),
+    [givenCases, detail],
+  );
 
   const atStep = useMemo(() => underStep(rows, step), [rows, step]);
   const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
@@ -172,6 +182,7 @@ export function RecordTab({
                     onReadDiff={onReadDiff}
                     tasks={tasks}
                     groups={groups}
+                    cases={cases}
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
                   />
@@ -210,6 +221,7 @@ type RowReadProps = {
   onReadDiff: (jobId: string | null) => void;
   tasks: readonly GroupView["tasks"][number][];
   groups: readonly GroupView[];
+  cases: readonly CaseView[];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
 };
@@ -232,6 +244,7 @@ function RowRead({
   onReadDiff,
   tasks,
   groups,
+  cases,
   onSaid,
   onOpenStep,
 }: RowReadProps) {
@@ -247,6 +260,13 @@ function RowRead({
   const held = name === undefined ? undefined : outputs.of(name);
   const family = familyOf(row.kind);
   const status = statusOf(row);
+  // The task a task row is about, read off the plan rather than the row: the
+  // row carries the short reason, and the task carries the rest.
+  const task =
+    family === "tasks" && row.coord?.task !== undefined
+      ? tasks.find((one) => one.id === row.coord?.task)
+      : undefined;
+  const diffPaths = family === "files" ? pathsOf(row) : (task?.scope ?? []);
 
   // Opening the row is the ask: the reading is what the pane is for, and a
   // second press to see it was the step the board does not draw.
@@ -256,11 +276,13 @@ function RowRead({
 
   // A File row asks for the Job's diff when it opens, and never the Record:
   // the patch is the expensive read, and Overview lets it go on the way out.
+  // A task row asks for it too, for its own files' part.
+  const readsDiff = diffPaths.length > 0;
   useEffect(() => {
-    if (family !== "files") return;
+    if (!readsDiff) return;
     onReadDiff(jobId);
     return () => onReadDiff(null);
-  }, [family, jobId]);
+  }, [readsDiff, jobId]);
 
   const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
   // The step's node, as the Workflow canvas draws it — `workflowRunOf`'s own
@@ -275,7 +297,10 @@ function RowRead({
   // run by a Check, and `Check · Implement` over `06:46:00 · Check` said it
   // twice. A Drone writing a File is a fact the eyebrow does not carry.
   const says = rowSays(row);
-  const who = drawn.whoSays === says ? null : drawn.whoSays;
+  // A task's Drone by its own name, as the Plan and Workflow panels say it.
+  const taskDrone = task === undefined || row.actor !== "drone" ? undefined : droneOfTask(detail, task);
+  const whoSays = taskDrone?.label ?? drawn.whoSays;
+  const who = whoSays === says ? null : whoSays;
   // The step, as a way to it: the eyebrow names it, and pressing it opens the
   // step's panel in Workflow. What follows the step — its group, its task —
   // stays words, after the step's chevron, which reads as the trail's own
@@ -334,9 +359,14 @@ function RowRead({
           <>
             {/* A File row's outcome stays in the table; its sheet is for the
                 diff. Every other value is under its own label. The owner, 29 Sep. */}
-            {family === "files" ? null : <RowFields row={row} detail={detail} />}
+            {task !== undefined ? (
+              <TaskRead row={row} task={task} groups={groups} cases={cases} />
+            ) : family === "files" ? null : (
+              <RowFields row={row} detail={detail} />
+            )}
+            {task === undefined ? null : <FileDiff paths={diffPaths} diff={diff} jobId={jobId} />}
             <DroneRead row={row} detail={detail} tasks={tasks} />
-            {family === "files" ? <FileDiff row={row} diff={diff} jobId={jobId} /> : null}
+            {family === "files" ? <FileDiff paths={diffPaths} diff={diff} jobId={jobId} /> : null}
           </>
         ) : (
           <>
@@ -528,6 +558,131 @@ function splitOnce(said: string, separator: string): [string, string | undefined
 }
 
 /**
+ * A task row, read whole: **the action, why, and what supports it** (the
+ * owner, 29 Sep 2026: *if there's any supporting evidence that should be
+ * outlined*). The status line carries the action; this is the rest.
+ *
+ * **Why** is `expects` beside `shown`, or the reason it failed or was dropped.
+ * **Evidence** is its files, its cases and what each last came to, its
+ * group's Checks, and a later task editing it — each only where it exists.
+ *
+ * **The Checks are the group's, not the task's.** `GroupView` names the Checks
+ * its boundary runs and one verdict for them; nothing joins a task, or a
+ * group, to a Check run on the wire, so no Check's own result is drawn here.
+ */
+function TaskRead({
+  row,
+  task,
+  groups,
+  cases,
+}: {
+  row: LedgerRow;
+  task: GroupView["tasks"][number];
+  groups: readonly GroupView[];
+  cases: readonly CaseView[];
+}) {
+  const owed = task.cases
+    .map((id) => cases.find((one) => one.id === id))
+    .filter((one): one is CaseView => one !== undefined);
+  const group = groups.find((one) => one.id === task.group);
+  const checks = group?.checks_selected ?? [];
+  // The later task's words are the touched row's own reason; on any other
+  // row of the task they are evidence.
+  const touched =
+    task.touched_after_done && row.kind !== "touched_after_done" ? laterSaid(task, groups) : undefined;
+  const evidence = task.scope.length > 0 || owed.length > 0 || checks.length > 0 || touched !== undefined;
+  return (
+    <>
+      {row.kind === "task_done" && (task.expects !== undefined || task.shown !== undefined) ? (
+        <div className="armada-ledger__read-pair">
+          {task.expects === undefined ? null : <Field label="Expected" value={task.expects} />}
+          {task.shown === undefined ? null : <Field label="Shown" value={task.shown} />}
+        </div>
+      ) : row.kind === "task_failed" && task.failed_reason !== undefined ? (
+        <Field label="Why" value={task.failed_reason} />
+      ) : row.kind === "task_dropped" && task.reason !== undefined ? (
+        <Field label="Why" value={task.reason} />
+      ) : row.kind === "touched_after_done" ? (
+        <Field label="Why" value={row.outcome} />
+      ) : null}
+
+      {!evidence ? null : (
+        <section className="armada-ledger__read-section">
+          <Eyebrow>Evidence</Eyebrow>
+          {task.scope.length === 0 ? null : (
+            <div className="armada-ledger__read-field">
+              <FieldLabel>Files</FieldLabel>
+              <span className="armada-ledger__files">
+                {task.scope.map((path) => (
+                  <PathChip key={path} basename={basename(path)} title={path} />
+                ))}
+              </span>
+            </div>
+          )}
+          {owed.length === 0 ? null : (
+            <div className="armada-ledger__read-field">
+              <FieldLabel>Tests</FieldLabel>
+              <ul className="armada-ledger__read-said armada-ledger__read-list">
+                {owed.map((one) => {
+                  const result = caseResultOf(one);
+                  return (
+                    <li key={one.id} className="armada-ledger__read-line">
+                      <PathChip basename={basename(one.spec)} title={one.spec} />
+                      <span className="armada-ledger__read-outcome" data-tone={result.tone}>
+                        {result.says}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {group === undefined || checks.length === 0 ? null : (
+            <div className="armada-ledger__read-field">
+              <FieldLabel>{`Checks at group ${group.ordinal}`}</FieldLabel>
+              {/* One run of text, so a long list wraps under the verdict rather
+                  than pushing the list onto a line of its own. */}
+              <p className="armada-ledger__read-said">
+                <span>
+                  {group.verdict === undefined ? null : (
+                    <span
+                      className="armada-ledger__read-outcome"
+                      data-tone={group.verdict === "failed" ? "failed" : group.verdict === "passed" ? "passed" : undefined}
+                    >
+                      {sentenceCase(group.verdict)}{" "}
+                    </span>
+                  )}
+                  {checks.join(", ")}
+                </span>
+              </p>
+            </div>
+          )}
+          {touched === undefined ? null : <Field label="Changed after done" value={touched} />}
+        </section>
+      )}
+    </>
+  );
+}
+
+/** What a case last came to, in a word. A run has no verdict — see `CaseRunView`. */
+function caseResultOf(one: CaseView): { says: string; tone?: "failed" } {
+  const run = one.last_run;
+  if (run === undefined) return { says: one.has_spec ? "Not run yet" : "Not covered" };
+  if (run.outcome === "run_failed") return { says: "Run failed", tone: "failed" };
+  if (run.outcome === "not_run") return { says: one.has_spec ? "Not run" : "Not covered" };
+  return { says: run.frames > 0 ? `Ran, ${run.frames} frames` : "Ran" };
+}
+
+// The later task that edited a file this one had finished, in words — the
+// Plan board's own join, `touchedByOf`.
+function laterSaid(task: GroupView["tasks"][number], groups: readonly GroupView[]): string {
+  const later = touchedByOf(groups).get(task.id);
+  return later === undefined
+    ? "A later task edited a file it had finished"
+    : `${later} edited a file it had finished`;
+}
+
+/**
  * The part of the Job's diff a File row names.
  *
  * **The branch's change to the file, not the task's.** Fleet serves one patch
@@ -535,7 +690,7 @@ function splitOnce(said: string, separator: string): [string, string | undefined
  * diff it is. Nothing while it is being read or where it holds no section for
  * the file; a read that failed keeps `whyNoDiff`'s words.
  */
-function FileDiff({ row, diff, jobId }: { row: LedgerRow; diff: Diff; jobId: string }) {
+function FileDiff({ paths, diff, jobId }: { paths: readonly string[]; diff: Diff; jobId: string }) {
   const mine = diff.state !== "none" && diff.jobId === jobId ? diff : null;
   const work = mine?.state === "read" ? mine.work : undefined;
   const patch = useMemo(() => (work === undefined ? undefined : drawnPatch(work)), [work]);
@@ -547,8 +702,7 @@ function FileDiff({ row, diff, jobId }: { row: LedgerRow; diff: Diff; jobId: str
       </section>
     );
   }
-  if (patch === undefined) return null;
-  const paths = pathsOf(row);
+  if (patch === undefined || paths.length === 0) return null;
   const files = patch.files.filter((file) =>
     paths.some((path) => file.path === path || file.path.startsWith(path.endsWith("/") ? path : `${path}/`)),
   );
