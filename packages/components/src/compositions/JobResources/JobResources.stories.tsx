@@ -137,6 +137,9 @@ export const WorkingAndSaidSo: Story = {
     const processes = within(canvas.getByRole("region", { name: "Processes" }));
     await expect(processes.getByText("111.1%")).toHaveAccessibleDescription("CPU usage");
     await expect(processes.getByText("1.2 GiB")).toHaveAccessibleDescription("Memory usage");
+    const [worktreeDot] = canvas.getAllByText("on disk").map((said) => said.parentElement!.parentElement);
+    await expect(worktreeDot).toHaveAttribute("aria-hidden", "true");
+    await expect(canvas.getAllByText(/^1\.0 GiB/).at(-1)).toHaveAccessibleDescription("Size on disk");
   },
 };
 

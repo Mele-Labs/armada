@@ -54,6 +54,28 @@
   position: absolute;
 }
 
+/* Floating: the scrim starts under the title row, and the panel is held off
+   the scrim's edges by --space-4 with the card's radius and edge — the frame
+   Helm's dock draws (TheShell.css, `.armada-shell__dock`). */
+.armada-sheet-scrim[data-floating] {
+  top: var(--h-title-bar);
+}
+
+.armada-sheet[data-floating][data-side] {
+  margin: var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: clip;
+}
+
+.armada-sheet[data-floating][data-side="right"] {
+  margin-left: auto;
+}
+
+.armada-sheet[data-floating][data-side="left"] {
+  margin-right: auto;
+}
+
 .armada-sheet {
   display: flex;
   flex-direction: column;

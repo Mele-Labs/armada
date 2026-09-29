@@ -99,6 +99,14 @@ export type SheetProps = {
    */
   contained?: boolean;
   /**
+   * A panel over the whole work area rather than a layer inside one screen:
+   * under the title row, held off every edge by `--space-4`, rounded and
+   * bordered — Helm's dock, as a sheet. **What a screen's own reading takes
+   * where `contained` would clip it** against the content column's edge, which
+   * is what the owner saw on the Record, 29 Sep 2026. Wins over `contained`.
+   */
+  floating?: boolean;
+  /**
    * The close control's label, and the binding drawn beside it. Absent leaves
    * the close icon-only with the binding in its tooltip, which is what the
    * floor takes — `4l`, and there only.
@@ -132,6 +140,7 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
+  floating = false,
   closeLabel,
   closeBinding,
   floor = false,
@@ -173,9 +182,14 @@ export function Sheet({
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
   return (
-    <div className="armada-sheet-scrim" data-contained={contained || undefined}>
+    <div
+      className="armada-sheet-scrim"
+      data-contained={(contained && !floating) || undefined}
+      data-floating={floating || undefined}
+    >
       <div
         className="armada-sheet"
+        data-floating={floating || undefined}
         data-side={side}
         data-size={size}
         data-floor={floor || undefined}

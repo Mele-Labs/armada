@@ -32,6 +32,7 @@ import type {
   CaseRunView,
   CaseView,
   CriterionView,
+  DroneView,
   GroupView,
   JobMembersView,
   LandingRule,
@@ -111,6 +112,8 @@ export type ArcDraft = {
   runs?: CaseRunView[];
   scope_revisions?: ScopeRevisionView[];
   pulse?: PulseView;
+  /** Every Drone the Job has used, each with its transcript. */
+  drones?: DroneView[];
   members?: JobMembersView;
   /** The wave this Job dispatched, and which of its Jobs waits on which. */
   wave?: WaveView;

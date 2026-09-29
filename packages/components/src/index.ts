@@ -27,7 +27,6 @@ export * from "./primitives/SplitButton/SplitButton";
 export * from "./primitives/Switch/Switch";
 export * from "./primitives/Table/Table";
 export * from "./primitives/Tabs/Tabs";
-export * from "./primitives/TabsWithCounts/TabsWithCounts";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
@@ -58,6 +57,7 @@ export * from "./compositions/JobDetailHeaderActions/JobDetailHeaderActions";
 export * from "./compositions/JobLogReference/JobLogReference";
 export * from "./compositions/JobOutcome/JobOutcome";
 export * from "./compositions/JobLedger/JobLedger";
+export * from "./compositions/JobDrones/JobDrones";
 export * from "./compositions/JobRowStacked/JobRowStacked";
 export * from "./compositions/Panel/Panel";
 export * from "./compositions/ReviewComments/ReviewComments";
@@ -372,6 +372,7 @@ export * from "./compositions/JobMembers/MemberDecision";
 // The implement step opened — its groups, their tasks, and what ran at each
 // group's end. #1536.
 export * from "./compositions/GroupBoundary/GroupBoundary";
+export * from "./compositions/RowLink/RowLink";
 // A wave of Jobs under one plan, and which of them waits on which. #1544.
 export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is

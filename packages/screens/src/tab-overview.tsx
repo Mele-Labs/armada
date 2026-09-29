@@ -69,7 +69,6 @@ import { taskGroupsOf } from "./draft/group";
 import { entriesOf, hideUnread, whyNotWatching } from "./story";
 import {
   LOOK_FAILED,
-  PULSE_REFRESHES,
   nothingToAsk,
   pulseFiguresOf,
   pulseReadingOf,
@@ -652,7 +651,6 @@ export function OverviewTab(props: OverviewTabProps) {
               figures: pulseFiguresOf(holding === null ? null : pulseViewOf(holding), whole),
               note: whyNoReading(resources),
               age: holding === null ? undefined : (span(holding.read_at, now) ?? undefined),
-              refreshed: PULSE_REFRESHES,
               examined: examinedNow,
               looking: looked?.state === "looking",
               lookFailed: looked?.state === "failed" ? LOOK_FAILED : undefined,

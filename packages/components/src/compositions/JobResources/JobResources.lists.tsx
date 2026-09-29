@@ -283,17 +283,16 @@ export function Worktrees({
     <ul className="armada-holds__rows" data-list="worktrees">
       {worktrees.map((one) => (
         <li key={one.branch} className="armada-holds__row" data-tall>
-          {/* The state again, as the dot's name: the dot is the one mark on
-              the row a person hovers to ask what its colour means. **Named and
-              not hidden** — the tooltip gives a mark with no control a tab stop
-              of its own, and a stop on a hidden node would announce nothing. */}
-          <Tooltip label={one.state} asChild>
+          {/* The state again, on hover: the dot is the one mark on the row a
+              person hovers to ask what its colour means. **Hidden, and no
+              stop** — the row says the state in text beside it, so a name or a
+              description here would be the state read twice. */}
+          <Tooltip label={one.state} asChild decorative>
             <span
               className="armada-holds__row-dot"
               data-working={one.working || undefined}
               data-wrong={one.wrong || undefined}
-              role="img"
-              aria-label={one.state}
+              aria-hidden
             />
           </Tooltip>
           <span className="armada-holds__stack">

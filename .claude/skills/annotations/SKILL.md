@@ -93,6 +93,13 @@ turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.
 
+**A note left on a worktree's mock lives in that worktree, and removing the
+worktree deletes it.** `.armada/` is gitignored, so nothing carries it over.
+Before giving a worktree back, move its notes into the main checkout's
+`.armada/annotations/`, with the done ones marked. Confirmed 29 Sep 2026: the
+Record's review ran on a mock served from its own worktree, and 24 of the
+owner's notes were in that worktree when the cleanup commands were printed.
+
 ### 6. Report
 
 One line per note: its text, what you did, and the PR, issue or question it
