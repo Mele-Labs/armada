@@ -10,6 +10,7 @@ import type { JobSummary, StepDetail } from "@armada/protocol";
 
 import { Eyebrow } from "./InsideAJob";
 import { RedirectControl } from "./Redirect";
+import { decidedSaidOf, originLineOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 
 export type PlanLeadProps = {
@@ -25,15 +26,17 @@ export type PlanLeadProps = {
   onRedirect: (jobId: string, instruction: string) => void;
 };
 
-/** Where a criterion's words came from, as one line. */
+/**
+ * Where a criterion's words came from, and what will decide it.
+ *
+ * **Both halves are `draft/criterion.ts`'s, not spelled again here.** This
+ * file was written while the same sentence was being fixed on `main`, and
+ * carried the old spelling with it when the card moved off the foot of the
+ * tab — `answered by the check`, which the owner called useless and
+ * confusing on 28 Sep. A second copy is how it came back the first time.
+ */
 function originSaid(criterion: CriterionView): string {
-  const from =
-    criterion.origin.origin === "issue"
-      ? `from ${criterion.origin.ref}`
-      : criterion.origin.origin === "person"
-        ? "written by you"
-        : "from the prompt";
-  return `${from} · answered by the ${criterion.verified_by}`;
+  return `${originLineOf(criterion)} · ${decidedSaidOf(criterion)}`;
 }
 
 /**

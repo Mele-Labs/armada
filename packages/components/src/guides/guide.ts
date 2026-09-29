@@ -81,6 +81,12 @@ export type Guide = {
    * is the noise this whole system exists to remove. `job.what`, `job.before`,
    * `plan.what`, `run.drone` and `workflow.what` are reached from the
    * catalogue and nowhere else. Do not add marks for them.
+   *
+   * **`pulse.what` is the one *What is…?* that does carry one**, and the test
+   * is what the mark would sit beside. A destination is a place a person walks
+   * into and can point at; a job is a shape every screen in Bridge is already
+   * made of. Opening Pulse used to raise the guide about disk, which answers
+   * one fact inside the tab (the owner, 28 September 2026).
    */
   piece: string;
   /**

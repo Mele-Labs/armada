@@ -682,6 +682,26 @@
      for it. */
   --w-run-column-min: 240px;
   --w-step-panel-min: 332px;
+  /* The classifying screen's settings column — the panel a Job is approved
+     from. **Its own token rather than --w-run-column's 380**, which it
+     borrowed until 28 Sep 2026: the run column holds a step name beside an
+     elapsed, and this holds a label beside a control that carries a sentence
+     in it. The two were the same number by accident and are free to move
+     apart, which is --w-guide-list's own precedent a few entries down.
+
+     448px, from the owner asking for ten to twenty percent more on a 1512px
+     laptop with the app at full width — the panel was crammed. 380 plus a
+     sixth is 443; 448 is the next step on the 4px grid, and it is what the
+     content wants: the label column rests at 96px on `Complete when`, the
+     card's --pad-card takes --space-4 either side, and the widest option any
+     control on the panel offers is `Every Job it holds has landed` at 196px
+     in --text-xs. Under 440 that option ellipsises and `One branch for the
+     whole Job` goes with it, which is the truncation the owner was reading.
+
+     It is a rest width, not a fixed one: the track is still a minmax against
+     --w-step-panel-min, so the request column beside it keeps taking the
+     slack and this one yields first on a narrow window. */
+  --w-proposal-settings: 448px;
   /* 380px: Helm's dock, over the content on every surface at
      --layout-breakpoint and wider. Decided with the owner on 13 Sep (#948).
      The same number as --w-run-column and not borrowed from it: that one is a

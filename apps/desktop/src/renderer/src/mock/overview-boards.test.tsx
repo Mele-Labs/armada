@@ -157,11 +157,15 @@ describe("the proposal — Overview at and just past the approval gate", () => {
     expect(settings.top).toBeLessThan(request.bottom);
   });
 
+  // **Read on the frozen board, because that is where a setting is read.**
+  // Every value on an open proposal is a control now and a control brings its
+  // own box — the last value that was not one was `Workflow — 4 steps`, and
+  // it became the picker when the gates folded under it (`2b4j`, 28 Sep).
   test("a setting's value sits in a box of its own, and its label does not", async () => {
-    await drawn("arc/proposing-review", ".armada-proposal__field-value");
+    await drawn("arc/approved-frozen", ".armada-proposal__field-value");
 
     const value = document.querySelector(
-      ".armada-proposal__field:not([data-indent]) .armada-proposal__field-value:not([data-bare])",
+      ".armada-proposal__field-value:not([data-bare])",
     );
     expect(value, "no boxed setting value on screen").not.toBeNull();
     const box = getComputedStyle(value as Element);

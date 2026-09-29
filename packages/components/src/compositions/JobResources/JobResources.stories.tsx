@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 import type { JobExamined, Look } from "@armada/protocol";
+import { GUIDE_LOOK, GUIDE_PULSE } from "../../guides";
 
 import { JobResources, type PulseReading } from "./JobResources";
 
@@ -20,11 +21,12 @@ const BRANCH = "armada/01JOBHOLDS001";
  * this component holds no rule about which five they are.
  */
 const FIGURES = [
-  { label: "Drones", value: "1 running" },
-  { label: "Checks", value: "2 running" },
-  { label: "Judges", value: "none out" },
-  { label: "Spend", value: "~$2.41 of ~$5.00" },
-  { label: "Turns", value: "34 of 120" },
+  { label: "Drones running", value: "1" },
+  { label: "Checks running", value: "2" },
+  { label: "Judges running", value: "0" },
+  { label: "Spend", value: "~$2.41", detail: "of $5.00", apart: true },
+  { label: "Turns", value: "34", detail: "of 120" },
+  { label: "Processes", value: "3" },
 ];
 
 /** The board, as the caller derives it. One place, so a story cannot drift. */
@@ -272,8 +274,12 @@ export const FleetIsNotAnswering: Story = {
     await expect(canvas.getByText(/Nothing here is a reading of this job/)).toBeVisible();
     // The whole point: no control that asks Fleet, disabled or otherwise.
     await expect(canvas.queryByRole("button", { name: /Refresh/ })).toBeNull();
-    // The `?` goes with the act. Nothing to ask means nothing to explain.
-    await expect(canvas.queryByRole("button", { name: /^Open guide/ })).toBeNull();
+    // The look's `?` goes with the act. Nothing to ask means nothing to explain.
+    await expect(canvas.queryByRole("button", { name: new RegExp(GUIDE_LOOK.title) })).toBeNull();
+    // The board's own `?` stays. What Pulse is does not depend on Fleet
+    // answering, and a person who arrived here confused is the likeliest
+    // reader there is.
+    await expect(canvas.getByRole("button", { name: new RegExp(GUIDE_PULSE.title) })).toBeVisible();
   },
 };
 

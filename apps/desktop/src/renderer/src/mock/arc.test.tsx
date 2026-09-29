@@ -186,9 +186,14 @@ describe("classifying", () => {
     async () => {
       mount("arc/proposing-review");
 
-      await expect.element(page.getByText("feature — 4 steps")).toBeVisible();
-      const gates = page.getByRole("region", { name: "The gate on each step" });
-      await expect.element(gates).toBeVisible();
+      // The picker and the gate rows are one region since 28 Sep 2026: you
+      // choose the workflow, and its steps are what is under it (`2b4j`).
+      const workflow = page.getByRole("region", { name: "Workflow" });
+      await expect.element(workflow).toBeVisible();
+      await expect
+        .element(workflow.getByRole("combobox", { name: "Workflow" }))
+        .toHaveValue("feature");
+      await expect.element(workflow).toHaveTextContent("feature — 4 steps");
 
       // A Judge on the plan step and no Check, which is what `feature.json`
       // declares — and the box is a person's to move.
@@ -272,7 +277,14 @@ describe("classifying", () => {
 
       // This Job's share of the machine, beside what the machine allows.
       await expect.element(page.getByRole("spinbutton", { name: "Drones at once" })).toHaveValue(2);
-      await expect.element(page.getByText("This machine runs 4 at once")).toBeVisible();
+      // The machine's cap says what it costs this Job, rather than only
+      // stating itself (`pojb`).
+      await expect
+        .element(page.getByText(/This machine runs 4 Drones at once across every Job/))
+        .toBeVisible();
+      await expect
+        .element(page.getByText(/gives this one fewer than you ask for here/))
+        .toBeVisible();
     },
   );
 
@@ -305,7 +317,9 @@ describe("classifying", () => {
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
-      await expect.element(held).toHaveTextContent("from armada/1162");
+      // The word `issue` is on the line: a bare `owner/number` is a
+      // repository, a path and a branch as readily as an issue (`u7y9`).
+      await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
       await expect.element(held).toHaveTextContent("The Job is held to the words above.");
       // What a criterion is, and that a Judge answers per criterion, is not

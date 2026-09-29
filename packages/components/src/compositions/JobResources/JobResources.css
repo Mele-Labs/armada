@@ -21,6 +21,15 @@
   min-width: 0;
 }
 
+/* The board's name over the sentence a person came for. A column, so the `?`
+   sits beside the word it explains and not beside a reading of this job. */
+.armada-holds__said-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 /* The act and its `?`, held together so the space-between above keeps them at
    the trailing edge rather than pushing the mark into the verdict. */
 .armada-holds__act {
