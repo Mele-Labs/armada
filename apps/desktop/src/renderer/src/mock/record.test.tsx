@@ -261,15 +261,16 @@ describe("the Record, and the destinations beside it", () => {
 /**
  * Choose a filter the way a person does: the menu in the panel's head, whose
  * trigger reads the chosen filter. Since 29 Sep 2026 the filters are a counted
- * menu there and not a strip of tabs, which wrapped at laptop width.
+ * menu there and not a strip of tabs, which wrapped at laptop width — and the
+ * trigger carries no number, since the rows it would count are drawn under it.
  */
 async function filterTo(name: string): Promise<void> {
   const head = page.getByRole("region", { name: "What the Record holds" });
-  await head.getByRole("button", { name: /^All \d+$/ }).click();
+  await head.getByRole("button", { name: /^All$/ }).click();
   await page.getByRole("menuitem", { name: new RegExp(`^${name} \\d+$`) }).click();
-  // The trigger reads the filter chosen and what it holds.
+  // The trigger reads the filter chosen, and not what it holds.
   await expect
-    .element(head.getByRole("button", { name: new RegExp(`^${name} \\d+$`) }))
+    .element(head.getByRole("button", { name: new RegExp(`^${name}$`) }))
     .toHaveAttribute("aria-haspopup", "menu");
 }
 

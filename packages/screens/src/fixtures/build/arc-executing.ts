@@ -15,6 +15,7 @@ import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
 import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
+import { arcDrones, t6Retry } from "./arc-drones";
 import {
   ARC_APPROVED_AT,
   ARC_BRANCH,
@@ -351,6 +352,7 @@ export function executingSequential(): ArcMoment {
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:20:00.000Z", [droneProcess(52_118, "06:12")]),
     },
   };
@@ -426,6 +428,7 @@ export function executingConcurrent(): ArcMoment {
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:38:00.000Z", []),
     },
   };
@@ -513,6 +516,7 @@ export function groupFailed(): ArcMoment {
           cursor: 11,
         },
       ],
+      drones: [...arcDrones(groups), t6Retry(groups)],
       pulse: pulse("2026-09-22T10:46:00.000Z", [droneProcess(52_640, "01:40")]),
     },
   };
@@ -564,6 +568,7 @@ export function doneTouched(): ArcMoment {
           cursor: 12,
         },
       ],
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T11:05:00.000Z", [droneProcess(53_402, "02:55")]),
     },
   };

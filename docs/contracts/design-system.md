@@ -1644,7 +1644,7 @@ The densest thing in the app and the reason the spacing scale is tight.
 
 ```
 header row   32px · --bg-base · --text-2xs · --fg-subtle
-             uppercase, 0.04em tracking (the one legal ALL CAPS)
+             uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
              bottom rule --border-default
 body row     36px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
@@ -1771,7 +1771,6 @@ track      --bg-raised · --border-default · --radius-md · 2px inner padding
 tab        32px · 12px horizontal padding · --text-sm · --fg-muted
 chosen     --accent-muted fill · --fg-default · weight 500 · --radius-sm
 hover      --fg-default
-count      trailing mono --text-2xs in --fg-subtle, never a filled pill
 ```
 
 **The chosen tab is filled, not underlined.** The rail's own selected row is
@@ -1815,16 +1814,6 @@ from the tab it left, where an edge per tab can only swap. It travels by
 transform and width so nothing reflows, does not travel on first placement,
 and under reduced motion it simply lands.
 
-**A counted strip is the same control.** A count and the key that selects a
-tab sit either side of the label, inside the segment; a tab carrying both is
-the widest thing the strip holds, and the Job Board is where that is measured.
-
-**Suspended steps the whole strip back** — every tab to `--fg-subtle`, and the
-chosen one gives up its fill rather than its selection. A fill reads as *this
-is what you are looking at*, and while something else on the surface is
-narrowing the list that is not true. Nothing is disabled: pressing a tab is
-the way out of the state, so the way out has to work.
-
 ### Destinations
 
 Where inside one object a person is, drawn as underline tabs: plain text on the
@@ -1847,8 +1836,8 @@ the owner refused on 28 Sep 2026 — `.claude/decisions/` holds the exchange.
 nothing, and the value is not always a count: the boards draw `Workflow 1 / 5`
 and `Record 21` in the same slot.
 
-**Job detail is the one surface that draws these**, its six destinations.
-`Tabs` and `TabsWithCounts` are unchanged and are what everything else takes.
+**Job detail is the one surface that draws these**, its seven destinations.
+`Tabs` is unchanged and is what everything else takes.
 
 ### Input
 
@@ -2439,9 +2428,12 @@ read plausibly under a different job has failed.
 
 ### Prose rules
 
-- **Sentence case everywhere.** No title case, no ALL CAPS except table
-  headers at `--text-2xs` with `0.04em` tracking. Lexicon proper nouns
-  keep their capitals inside sentence case.
+- **Sentence case everywhere.** No title case, and ALL CAPS in two places
+  only: table headers, and an eyebrow — the small label that heads a
+  section or card, like a transcript card's DRONE — both at `--text-2xs`
+  with `0.04em` tracking. The owner allowed the eyebrow on 29 Sep 2026,
+  from a sketch that drew one. Lexicon proper nouns keep their capitals
+  inside sentence case.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no

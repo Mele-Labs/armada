@@ -34,7 +34,9 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * **The filters are a counted menu in the panel's head.** As a strip under the
  * destinations they read as a second level (the owner, 28 Sep 2026); as one in
- * the head, nine counted filters wrapped at laptop width (29 Sep 2026).
+ * the head, nine counted filters wrapped at laptop width (29 Sep 2026). The
+ * trigger carries no number: the rows it would count are drawn under it (the
+ * owner's standing rule on aggregate counts, same day).
  *
  * **The open row is a sheet over the table, once a row is pressed.** As a column
  * beside it, both were too narrow on a 14" laptop (the owner, 29 Sep 2026).
@@ -101,7 +103,7 @@ export type JobLedgerProps = {
   rows: readonly JobLedgerRow[];
   /**
    * The filter menu in the panel's head — All first, and the families after
-   * it. The trigger reads the chosen one and its count.
+   * it. The trigger reads the chosen one; the menu's entries carry the counts.
    */
   filters: readonly JobLedgerFilter[];
   filter: string;
@@ -173,7 +175,6 @@ export function JobLedger({
             <DropdownMenu
               align="start"
               triggerLabel={chosen?.label ?? filter}
-              {...(chosen === undefined ? {} : { triggerCount: chosen.count })}
               entries={filters.map((one) => ({
                 kind: "item",
                 id: one.id,

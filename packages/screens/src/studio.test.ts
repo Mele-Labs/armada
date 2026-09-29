@@ -13,7 +13,6 @@ import {
   framesDrawn,
   MOST_FRAMES_DRAWN,
   nodeNamed,
-  proposedRelations,
   studioName,
   UNTITLED_STUDIO,
   whiteboardEdges,
@@ -222,34 +221,23 @@ test("what a node kept wins over an instance that has exited, so a restart does 
 test("edges keep their standing, and a kind this build does not know is left off", () => {
   expect(whiteboardEdges(STUDIO)).toEqual([
     { id: "e1", source: "n1", target: "n2", kind: "produced" },
-    { id: "e2", source: "n2", target: "n5", kind: "answers", proposed: true },
+    { id: "e2", source: "n2", target: "n5", kind: "answers", proposed: true, proposer: "Helm proposes" },
     { id: "e3", source: "n1", target: "n5", kind: "blocks", proposed: false },
-  ]);
-});
-
-test("only a proposed relation waits on a person, named by its two ends and by who drew it", () => {
-  expect(proposedRelations(STUDIO, [])).toEqual([
-    {
-      id: "e2",
-      proposer: "Helm proposes",
-      from: "Finding Where do its colours come from?",
-      relation: "answers",
-      to: "Outline Legend, then width",
-    },
   ]);
   expect(nodeNamed(STUDIO, "gone", [])).toBe("gone");
 });
 
-// **An edge kept before `added_by` existed says the bare fact.** Naming nobody
-// is right where the record names nobody; inventing Helm there would put a
+// **An edge kept before `added_by` existed names nobody.** Naming nobody is
+// right where the record names nobody; inventing Helm there would put a
 // proposer on a relation the Studio cannot attribute — the owner asked where
-// `same as` had come from, and a wrong answer is worse than "Proposed".
-test("a relation the record cannot attribute says it is proposed and names nobody", () => {
+// `same as` had come from, and a wrong answer is worse than the board's bare
+// "Proposed".
+test("a relation the record cannot attribute is proposed and names nobody", () => {
   const kept: Studio = {
     ...STUDIO,
     edges: [{ id: "old", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT }],
   };
-  expect(proposedRelations(kept, []).map((one) => one.proposer)).toEqual(["Proposed"]);
+  expect(whiteboardEdges(kept)).toEqual([{ id: "old", source: "n2", target: "n5", kind: "answers", proposed: true }]);
 });
 
 test("a Studio Fleet wrote replaces its row, and the list stays last touched first", () => {

@@ -1,0 +1,120 @@
+/* Job drones — Job ledger's panel: a bordered panel, its filter menu in the
+   head, and a table. min-width: 0 so a long id wraps its cell rather than
+   scrolling the page sideways. */
+.armada-drones {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.armada-drones__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+.armada-drones__note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+/* The heading row sits on the glass, as the ledger's does. */
+.armada-drones .armada-table-header-cell {
+  background: transparent;
+  border-bottom-color: var(--border-subtle);
+  white-space: nowrap;
+}
+
+.armada-drones .armada-table-row:last-child {
+  border-bottom: 0;
+}
+
+/* The table scrolls sideways inside the panel on a narrow window, so the last
+   columns stay reachable. Inside, because the panel's own `overflow: hidden` is
+   what clips it to its rounded corners. */
+.armada-drones__scroll {
+  overflow-x: auto;
+}
+
+.armada-drones__table {
+  table-layout: auto;
+}
+
+.armada-drones__where,
+.armada-drones__state,
+.armada-drones__spent,
+.armada-drones__ran {
+  white-space: nowrap;
+}
+
+/* The Drone's name opens the row. Styled as the name, not as a control: the
+   row's hover and selected fill are the affordance. */
+.armada-drones__open {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-drones__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* The state, as a dot and a word in the status hue. Never a chip, which is a
+   Job state and nothing else. */
+.armada-drones__said {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-drones__dot {
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.armada-drones__said[data-state="running"] {
+  color: var(--status-running);
+}
+
+.armada-drones__said[data-state="done"] {
+  color: var(--status-completed-success);
+}
+
+.armada-drones__said[data-state="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-drones__said[data-state="killed"] {
+  color: var(--status-killed);
+}
+
+/* The redirect box, the sheet foot's full width: the foot lines a single
+   action up at its trailing edge, and a text field there is a slot. */
+.armada-drones__foot {
+  flex: 1;
+  min-width: 0;
+}

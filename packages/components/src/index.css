@@ -28,7 +28,6 @@
 @import "./primitives/Popover/Popover.css";
 @import "./primitives/Sheet/Sheet.css";
 @import "./primitives/Tabs/Tabs.css";
-@import "./primitives/TabsWithCounts/TabsWithCounts.css";
 @import "./primitives/Toast/Toast.css";
 @import "./primitives/Tooltip/Tooltip.css";
 @import "./primitives/Textarea/Textarea.css";
@@ -58,6 +57,7 @@
 @import "./compositions/TransitionHistory/TransitionHistory.css";
 @import "./compositions/JobOutcome/JobOutcome.css";
 @import "./compositions/JobLedger/JobLedger.css";
+@import "./compositions/JobDrones/JobDrones.css";
 @import "./compositions/UnifiedDiff/UnifiedDiff.css";
 @import "./compositions/ReviewComments/ReviewComments.css";
 @import "./compositions/ReviewDecision/ReviewDecision.css";
