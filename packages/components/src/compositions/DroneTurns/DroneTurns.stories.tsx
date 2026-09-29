@@ -1,14 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, within } from "storybook/test";
 import { DroneTurns, type DroneTurn, type TurnStep } from "./DroneTurns";
 
 /**
  * One Drone's turns, read while it is still working.
  *
- * **Every row kind renders as the wire's own word.** `Saw` is an `ipc` enum
- * with no `crates/core-model/domain/enum-verbs.toml` rows, so there is no
- * sanctioned verb, glyph or hue for `called`, `said`, `refused`,
- * `unrecognised` or `unreadable` — the spelling renders and nothing is invented
- * here. That gap is the finding; the rows below are what it looks like.
+ * **Every row names who wrote it** — Drone, Armada or Fleet, the activity
+ * log's three voices — and the body says what. A refusal says so in its body.
+ * The owner's decision, 29 Sep 2026.
+ *
+ * **A call that simply answered says nothing more.** Only an answer carrying
+ * more than that — a failure — is drawn.
  *
  * **A call and its answer are one row**, joined on the call id by whoever
  * builds these. Fleet puts both on the wire because joining them there would
@@ -39,6 +41,7 @@ function thinking(from: number, rows: number, at: string): DroneTurn[] {
   return Array.from({ length: rows }, (_, n) => ({
     id: String(from + n),
     at,
+    who: "drone",
     kind: "unrecognised",
     subject: n % 4 === 3 ? "a turn with nothing in it Armada names" : "system/thinking_tokens",
     quiet: true,
@@ -57,6 +60,7 @@ const turns: DroneTurn[] = [
   {
     id: "1",
     at: "09:14:02",
+    who: "drone",
     kind: "started",
     // The model is whatever the Job named. A vendor spelling belongs in
     // `adapters` and nowhere else, so the fixture carries a placeholder.
@@ -65,20 +69,22 @@ const turns: DroneTurn[] = [
   {
     id: "2",
     at: "09:14:03",
+    who: "drone",
     kind: "said",
     said: "Reading the settings module before I split anything, so the public signature survives.",
   },
   {
     id: "3",
     at: "09:14:04",
+    who: "drone",
     kind: "called",
     subject: "Read",
     detail: "src/settings.rs",
-    answer: "Answered.",
   },
   {
     id: "4",
     at: "09:14:09",
+    who: "drone",
     kind: "called",
     subject: "Bash",
     detail: "cargo test -p settings --lib",
@@ -87,13 +93,14 @@ const turns: DroneTurn[] = [
   {
     id: "5",
     at: "09:14:10",
+    who: "drone",
     kind: "called",
     subject: "TodoWrite · call_7f23",
-    answer: "Answered.",
   },
   {
     id: "6",
     at: "09:14:11",
+    who: "drone",
     kind: "called",
     subject: "Edit",
     detail: "src/settings.rs +42 -18",
@@ -103,6 +110,16 @@ const turns: DroneTurn[] = [
 
 export const ADroneWorking: Story = {
   args: { turns, emptyNote: NOTHING_YET },
+  // What does not happen: a call that answered and said nothing else draws no
+  // word for it, and the second column names who rather than the event.
+  play: async ({ canvas }) => {
+    const read = canvas.getByText("src/settings.rs").closest("li");
+    await expect(read).not.toBeNull();
+    const row = within(read as HTMLElement);
+    await expect(row.queryByText(/answered/i)).toBeNull();
+    await expect(row.getByText("Drone")).toBeVisible();
+    await expect(row.queryByText("called")).toBeNull();
+  },
 };
 
 /**
@@ -130,14 +147,16 @@ export const RefusedUnrecognisedAndUnreadable: Story = {
       {
         id: "1",
         at: "09:15:40",
+        who: "drone",
         kind: "refused",
         subject: "Bash · call_7f31",
-        said: "This command is not on the allowlist for this drone.",
+        said: "Refused: this command is not on the allowlist for this drone.",
       },
-      { id: "2", at: "09:15:41", kind: "unrecognised", subject: "thinking_delta", quiet: true },
+      { id: "2", at: "09:15:41", who: "drone", kind: "unrecognised", subject: "thinking_delta", quiet: true },
       {
         id: "3",
         at: "09:15:42",
+        who: "drone",
         kind: "unreadable",
         subject: '{"type":"assistant","message":{"content":[{"type":"to',
         said: "The line ended mid-object.",
@@ -162,30 +181,31 @@ export const WhatEachCallDid: Story = {
       {
         id: "1",
         at: "09:16:02",
+        who: "drone",
         kind: "called",
         subject: "Read",
         detail: "src/settings.rs",
-        answer: "Answered.",
       },
       {
         id: "2",
         at: "09:16:04",
+        who: "drone",
         kind: "called",
         subject: "Edit",
         detail: "reducer.rs +42 -18",
-        answer: "Answered.",
       },
       {
         id: "3",
         at: "09:16:09",
+        who: "drone",
         kind: "called",
         subject: "Grep",
         detail: "fn observe\\( in crates/",
-        answer: "Answered.",
       },
       {
         id: "4",
         at: "09:16:20",
+        who: "drone",
         kind: "called",
         subject: "Write",
         detail: "docs/practices/bridge.md, 412 lines starting # Bridge practices",
@@ -206,11 +226,11 @@ export const ADroneThinking: Story = {
     live: true,
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:14:02", kind: "said", said: "Starting on the settings split." },
+      { id: "1", at: "09:14:02", who: "drone", kind: "said", said: "Starting on the settings split." },
       ...thinking(10, 9, "09:14:03"),
-      { id: "20", at: "09:14:12", kind: "called", subject: "Read", detail: "src/settings.rs", answer: "Answered." },
+      { id: "20", at: "09:14:12", who: "drone", kind: "called", subject: "Read", detail: "src/settings.rs" },
       ...thinking(30, 14, "09:14:15"),
-      { id: "50", at: "09:14:31", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18", answer: "Answered." },
+      { id: "50", at: "09:14:31", who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
       ...thinking(60, 6, "09:14:40"),
     ],
   },
@@ -227,13 +247,13 @@ export const AFinishedRun: Story = {
     live: false,
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:14:02", kind: "said", said: "Starting on the settings split." },
+      { id: "1", at: "09:14:02", who: "drone", kind: "said", said: "Starting on the settings split." },
       ...thinking(10, 9, "09:14:03"),
-      { id: "20", at: "09:14:12", kind: "called", subject: "Read", detail: "src/settings.rs", answer: "Answered." },
+      { id: "20", at: "09:14:12", who: "drone", kind: "called", subject: "Read", detail: "src/settings.rs" },
       ...thinking(30, 14, "09:14:15"),
-      { id: "50", at: "09:14:31", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18", answer: "Answered." },
-      { id: "60", at: "09:14:44", kind: "said", said: "The public signature is unchanged. Submitting." },
-      { id: "61", at: "09:14:45", kind: "ended", subject: "18 turns · ~$0.42 · no calls refused" },
+      { id: "50", at: "09:14:31", who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
+      { id: "60", at: "09:14:44", who: "drone", kind: "said", said: "The public signature is unchanged. Submitting." },
+      { id: "61", at: "09:14:45", who: "drone", kind: "ended", subject: "18 turns · ~$0.42 · no calls refused" },
     ],
   },
 };
@@ -261,10 +281,10 @@ export const WhatTheRunCost: Story = {
     live: false,
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:14:02", kind: "said", said: "Starting on the settings split." },
-      { id: "2", at: "09:55:10", kind: "ended", subject: "41 turns · ~$1.53 · 6 calls refused" },
-      { id: "3", at: "10:02:11", kind: "said", said: "Retrying the step. Reading the refusal first." },
-      { id: "4", at: "10:03:40", kind: "ended", subject: "4 turns · ~$0.0018 · no calls refused" },
+      { id: "1", at: "09:14:02", who: "drone", kind: "said", said: "Starting on the settings split." },
+      { id: "2", at: "09:55:10", who: "drone", kind: "ended", subject: "41 turns · ~$1.53 · 6 calls refused" },
+      { id: "3", at: "10:02:11", who: "drone", kind: "said", said: "Retrying the step. Reading the refusal first." },
+      { id: "4", at: "10:03:40", who: "drone", kind: "ended", subject: "4 turns · ~$0.0018 · no calls refused" },
     ],
   },
 };
@@ -275,10 +295,10 @@ export const NothingButToolCalls: Story = {
     live: true,
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:20:01", kind: "called", subject: "Bash", detail: "cargo xtask verify-foundations", answer: "Answered." },
-      { id: "2", at: "09:20:31", kind: "called", subject: "Bash", detail: "cargo test -p ipc", answer: "Answered, and the tool itself failed." },
-      { id: "3", at: "09:20:48", kind: "called", subject: "Read", detail: "crates/ipc/src/turn.rs", answer: "Answered." },
-      { id: "4", at: "09:20:52", kind: "called", subject: "Grep", detail: "Saw::Called in crates/", answer: "No answer yet." },
+      { id: "1", at: "09:20:01", who: "drone", kind: "called", subject: "Bash", detail: "cargo xtask verify-foundations" },
+      { id: "2", at: "09:20:31", who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p ipc", answer: "Answered, and the tool itself failed." },
+      { id: "3", at: "09:20:48", who: "drone", kind: "called", subject: "Read", detail: "crates/ipc/src/turn.rs" },
+      { id: "4", at: "09:20:52", who: "drone", kind: "called", subject: "Grep", detail: "Saw::Called in crates/", answer: "No answer yet." },
     ],
   },
 };
@@ -312,16 +332,16 @@ export const TurnsUnderTheirSteps: Story = {
     live: true,
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:14:02", step: REPRO, kind: "started", subject: "sess_01JB4 · the job's model · 2 mcp servers" },
-      { id: "2", at: "09:14:03", step: REPRO, kind: "said", said: "Writing the failing test before I touch the reducer." },
+      { id: "1", at: "09:14:02", step: REPRO, who: "drone", kind: "started", subject: "sess_01JB4 · the job's model · 2 mcp servers" },
+      { id: "2", at: "09:14:03", step: REPRO, who: "drone", kind: "said", said: "Writing the failing test before I touch the reducer." },
       ...thinking(10, 5, "09:14:04").map((turn) => ({ ...turn, step: REPRO })),
-      { id: "20", at: "09:14:22", step: REPRO, kind: "called", subject: "Write", detail: "tests/settings_split.rs", answer: "Answered." },
-      { id: "21", at: "09:15:01", step: FIX, kind: "said", said: "The test reproduces it. Splitting the reducer now." },
-      { id: "22", at: "09:15:09", step: FIX, kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18", answer: "Answered." },
-      { id: "23", at: "09:15:40", step: FIX, kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Answered, and the tool itself failed." },
-      { id: "24", at: "09:18:02", step: REPRO, kind: "said", said: "The gate sent this back. Widening the reproduction first." },
-      { id: "25", at: "09:18:30", step: REPRO, kind: "called", subject: "Edit", detail: "tests/settings_split.rs +11 -0", answer: "Answered." },
-      { id: "26", at: "09:19:04", step: FIX, kind: "called", subject: "Edit", detail: "src/settings.rs +6 -2", answer: "No answer yet." },
+      { id: "20", at: "09:14:22", step: REPRO, who: "drone", kind: "called", subject: "Write", detail: "tests/settings_split.rs" },
+      { id: "21", at: "09:15:01", step: FIX, who: "drone", kind: "said", said: "The test reproduces it. Splitting the reducer now." },
+      { id: "22", at: "09:15:09", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
+      { id: "23", at: "09:15:40", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Answered, and the tool itself failed." },
+      { id: "24", at: "09:18:02", step: REPRO, who: "drone", kind: "said", said: "The gate sent this back. Widening the reproduction first." },
+      { id: "25", at: "09:18:30", step: REPRO, who: "drone", kind: "called", subject: "Edit", detail: "tests/settings_split.rs +11 -0" },
+      { id: "26", at: "09:19:04", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +6 -2", answer: "No answer yet." },
     ],
   },
 };
@@ -339,9 +359,9 @@ export const AStepWithNoNameOfItsOwn: Story = {
   args: {
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "09:22:01", step: { id: "implement", label: "implement", labelIsAnIdentifier: true }, kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18", answer: "Answered." },
-      { id: "2", at: "09:24:40", step: { id: "regression_verify", label: "regression_verify", labelIsAnIdentifier: true }, kind: "called", subject: "Bash", detail: "cargo nextest run --workspace", answer: "Answered." },
-      { id: "3", at: "09:26:12", step: { id: "write_up", label: "write_up", labelIsAnIdentifier: true }, kind: "said", said: "Submitting the evidence report." },
+      { id: "1", at: "09:22:01", step: { id: "implement", label: "implement", labelIsAnIdentifier: true }, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
+      { id: "2", at: "09:24:40", step: { id: "regression_verify", label: "regression_verify", labelIsAnIdentifier: true }, who: "drone", kind: "called", subject: "Bash", detail: "cargo nextest run --workspace" },
+      { id: "3", at: "09:26:12", step: { id: "write_up", label: "write_up", labelIsAnIdentifier: true }, who: "drone", kind: "said", said: "Submitting the evidence report." },
     ],
   },
 };
@@ -363,11 +383,11 @@ export const RowsWrittenBeforeTheStepWasRecorded: Story = {
   args: {
     emptyNote: NOTHING_YET,
     turns: [
-      { id: "1", at: "08:59:14", kind: "started", subject: "sess_01J9Z · the job's model · 2 mcp servers" },
-      { id: "2", at: "08:59:20", kind: "called", subject: "Read", detail: "src/settings.rs", answer: "Answered." },
-      { id: "3", at: "09:01:02", kind: "said", said: "Reading the reducer before I split it." },
-      { id: "4", at: "09:12:41", step: FIX, kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18", answer: "Answered." },
-      { id: "5", at: "09:13:10", step: FIX, kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Answered." },
+      { id: "1", at: "08:59:14", who: "drone", kind: "started", subject: "sess_01J9Z · the job's model · 2 mcp servers" },
+      { id: "2", at: "08:59:20", who: "drone", kind: "called", subject: "Read", detail: "src/settings.rs" },
+      { id: "3", at: "09:01:02", who: "drone", kind: "said", said: "Reading the reducer before I split it." },
+      { id: "4", at: "09:12:41", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
+      { id: "5", at: "09:13:10", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib" },
     ],
   },
 };

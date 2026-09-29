@@ -93,6 +93,7 @@ export function droneTurnsOf(
       id: String(row.seq),
       at: clock(row.ts),
       kind: saw.event,
+      who: row.by,
       ...(row.step === undefined ? {} : { step: stepOf(detail, row.step) }),
     };
     switch (saw.event) {
@@ -108,7 +109,7 @@ export function droneTurnsOf(
           subject: saw.tool,
           ...(saw.detail === "" ? {} : { detail: saw.detail }),
           truncated: saw.truncated,
-          ...(failed === undefined ? {} : { answer: failed ? "Failed." : "Answered." }),
+          ...(failed === true ? { answer: "Failed." } : {}),
         });
         break;
       }
@@ -119,7 +120,8 @@ export function droneTurnsOf(
         turns.push({ ...base, said: brief(entriesOf([row], undefined)[0]?.payload ?? []) });
         break;
       case "refused":
-        turns.push({ ...base, subject: saw.tool, said: saw.because });
+        // The speaker column names who, so the refusal says itself here.
+        turns.push({ ...base, subject: saw.tool, said: `Refused: ${saw.because}` });
         break;
       case "ended":
         turns.push({

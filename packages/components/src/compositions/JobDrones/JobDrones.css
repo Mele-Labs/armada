@@ -38,6 +38,13 @@
   border-bottom: 0;
 }
 
+/* The table scrolls sideways inside the panel on a narrow window, so the last
+   columns stay reachable. Inside, because the panel's own `overflow: hidden` is
+   what clips it to its rounded corners. */
+.armada-drones__scroll {
+  overflow-x: auto;
+}
+
 .armada-drones__table {
   table-layout: auto;
 }
