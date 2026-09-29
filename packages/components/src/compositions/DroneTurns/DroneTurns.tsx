@@ -1,10 +1,8 @@
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, CircleDot } from "lucide-react";
-import { Button } from "../../primitives/Button/Button";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { CircleDot } from "lucide-react";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
 import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
-import { ThoughtHead, tokensOf, tokensSaid, type Thought } from "./thought";
+import { tokensOf, tokensSaid, type Thought } from "./thought";
 
 export type { Thought } from "./thought";
 
@@ -14,8 +12,7 @@ export type { Thought } from "./thought";
  * **Read-only, and it must not read as Pilot.** Observing changes nothing about
  * the Job: no status moves, no transition is recorded, the Drone is never told.
  * So nothing in this component takes a control, and a row carries no act —
- * `docs/concepts/observe.md` is the table that separates the two. The one
- * control here reveals rows this pane already holds.
+ * `docs/concepts/observe.md` is the table that separates the two.
  *
  * **A call and its answer are one row.** They arrive as two events with the
  * tool running in the gap between them, and two rows would separate a command
@@ -40,10 +37,9 @@ export type { Thought } from "./thought";
  * folds into the block as a line of its own, so only a sentence breaks one (the
  * owner, 29 Sep 2026).
  *
- * **A thinking row says what it is, in words, with its token count** — the
- * owner, 29 Sep 2026: `Thinking ~400 tokens`, `Reasoned`, never the wire's
- * kind. Hovering a Reasoned row to read its reasoning is a draft awaiting his
- * call.
+ * **A thinking run is one row, with its token total** — `Thinking ~1,200
+ * tokens`, and it does not open (the owner, 29 Sep 2026). Hovering to read the
+ * reasoning was tried and dropped for now; `docs/scope.md` stands.
  *
  * **Times are a card's, not a row's.** The head carries the card's first
  * instant; each row keeps its own as its title.
@@ -87,14 +83,14 @@ export type DroneTurn = {
   said?: ReactNode;
   /**
    * The row is the Drone thinking rather than something it did. Consecutive
-   * quiet rows collapse to one line, expandable, keeping the count.
+   * quiet rows collapse to one line, which does not open.
    *
    * Measured on one real transcript: 106 of 149 rows. Naming them by the
    * decoder's failure to place them described the plumbing; from the reader's
    * side it is a model working, which is what the collapsed line says.
    */
   quiet?: boolean;
-  /** What a quiet row is, in words. Absent, the row draws its `subject`. */
+  /** What a quiet row is. Its tokens count toward its run's total; absent, it adds none. */
   thought?: Thought;
   /**
    * The workflow step the row ran under. Drawn as a boundary above the first
@@ -140,7 +136,6 @@ export type DroneTurnsProps = {
 };
 
 export function DroneTurns({ turns, emptyNote, live = false, steps = true }: DroneTurnsProps) {
-  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   // State rather than a ref, because every effect below needs the element and
   // the first render has no rows: the socket says whether a Drone is writing
   // after the pane is already on screen.
@@ -216,8 +211,6 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
                   // Only the last run can still be happening: a run with rows
                   // after it already ended.
                   live={live && entry === tail && at === entry.items.length - 1}
-                  open={open}
-                  onToggle={(id) => setOpen(toggled(open, id))}
                 />
               ),
             )}
@@ -252,76 +245,35 @@ function scrollerFor(from: Element | null): Element | null {
   return document.scrollingElement;
 }
 
-function toggled(open: ReadonlySet<string>, id: string): ReadonlySet<string> {
-  const next = new Set(open);
-  if (!next.delete(id)) next.add(id);
-  return next;
-}
-
 /** The mark is 12px at strokeWidth 2, the step mark's geometry one level down. */
 const MARK = 12;
 const MARK_STROKE = 2;
-const CARET = 16;
 
 type QuietRunProps = {
-  /** Non-empty, for `Entry`'s reason: the head is what the folded line reads. */
+  /** Non-empty, for `Entry`'s reason: the head's instant is the line's title. */
   turns: [DroneTurn, ...DroneTurn[]];
   working: boolean;
-  open: boolean;
-  onToggle: () => void;
 };
 
 /**
- * A run of quiet rows as one line, and the rows themselves when it is opened.
+ * A run of quiet rows as one line: `Thinking`, or `Working` while it is the
+ * live tail, and the tokens its rows added where any carries a count.
  *
- * **The rows are never dropped, only folded.** This pane already tells a viewer
- * when the backfill skipped rows and when a slow viewer lost some; hiding rows
- * with no trace would contradict both, and a pane that cannot be trusted to
- * hold everything cannot answer what the Drone did.
+ * **No count of the rows.** The rows are not drawn, so a figure beside them
+ * would count nothing the reader can see; the token total is what they cost.
  */
-function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
-  const head = turns[0];
-  // Only while they exist. `aria-controls` naming ids that are not in the
-  // document is an invalid value, not an empty one.
-  const held = open ? turns.map((turn) => rowId(turn)).join(" ") : undefined;
+function QuietRun({ turns, working }: QuietRunProps) {
+  const tokens = tokensOf(turns.map((turn) => turn.thought));
   return (
-    <Fragment>
-      <li
-        className="armada-turns__turn"
-        data-quiet
-        data-open={open || undefined}
-        title={head.at}
-      >
-        <span className="armada-turns__mark" data-working={working || undefined}>
-          <CircleDot size={MARK} strokeWidth={MARK_STROKE} aria-hidden />
-        </span>
-        <span className="armada-turns__quiet-body">
-          {/* Live only. A finished transcript is a record, and a record does
-              not narrate: once nothing is happening the count is the whole
-              fact and the still mark already says the run ended. */}
-          {working ? <span className="armada-turns__working">{"Working"}</span> : null}
-          <span className="armada-turns__count">{runSaid(turns)}</span>
-          <Tooltip label={open ? "Hide details" : "Show details"}>
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label={open ? "Hide details" : "Show details"}
-              aria-expanded={open}
-              aria-controls={held}
-              onClick={onToggle}
-            >
-              {open ? (
-                <ChevronDown size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
-              ) : (
-                <ChevronRight size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
-              )}
-            </Button>
-          </Tooltip>
-        </span>
-      </li>
-      {open ? turns.map((turn) => <Row key={turn.id} turn={turn} nested />) : null}
-    </Fragment>
+    <li className="armada-turns__turn" data-quiet title={turns[0].at}>
+      <span className="armada-turns__mark" data-working={working || undefined}>
+        <CircleDot size={MARK} strokeWidth={MARK_STROKE} aria-hidden />
+      </span>
+      <span className="armada-turns__quiet-body">
+        <span className="armada-turns__thought">{working ? "Working" : "Thinking"}</span>
+        {tokens === undefined ? null : <span className="armada-turns__figure">{tokensSaid(tokens)}</span>}
+      </span>
+    </li>
   );
 }
 
@@ -329,15 +281,13 @@ type CallsProps = {
   members: [Member, ...Member[]];
   /** The block is the transcript's last item while a Drone writes. */
   live: boolean;
-  open: ReadonlySet<string>;
-  onToggle: (id: string) => void;
 };
 
 /**
  * Calls and the thinking between them as one quiet block. Named for its calls;
  * a block of thinking alone holds none, so it is not called one.
  */
-function Calls({ members, live, open, onToggle }: CallsProps) {
+function Calls({ members, live }: CallsProps) {
   const named = members.some((member) => member.of === "call");
   return (
     <li className="armada-turns__calls">
@@ -350,8 +300,6 @@ function Calls({ members, live, open, onToggle }: CallsProps) {
               key={member.turns[0].id}
               turns={member.turns}
               working={live && at === members.length - 1}
-              open={open.has(member.turns[0].id)}
-              onToggle={() => onToggle(member.turns[0].id)}
             />
           ),
         )}
@@ -418,18 +366,11 @@ function StepBoundary({ step }: { step?: TurnStep }) {
   );
 }
 
-function Row({ turn, nested = false }: { turn: DroneTurn; nested?: boolean }) {
+function Row({ turn }: { turn: DroneTurn }) {
   return (
-    <li
-      className="armada-turns__turn"
-      id={rowId(turn)}
-      data-nested={nested || undefined}
-      title={turn.at}
-    >
+    <li className="armada-turns__turn" title={turn.at}>
       <span className="armada-turns__body">
-        {turn.thought !== undefined ? (
-          <ThoughtHead thought={turn.thought} />
-        ) : turn.subject === undefined && turn.detail === undefined ? null : (
+        {turn.subject === undefined && turn.detail === undefined ? null : (
           <span className="armada-turns__head">
             {turn.subject === undefined ? null : (
               <span className="armada-turns__subject">{turn.subject}</span>
@@ -463,15 +404,4 @@ function Cut() {
       <span className="armada-turns__cut-note">{" cut short"}</span>
     </span>
   );
-}
-
-function rowId(turn: DroneTurn): string {
-  return `armada-turn-${turn.id}`;
-}
-
-/** `70 turns`, and `1 turn`; `5 turns · ~1,800 tokens` where its rows carry a count. */
-function runSaid(turns: readonly DroneTurn[]): string {
-  const counted = turns.length === 1 ? "1 turn" : `${turns.length} turns`;
-  const tokens = tokensOf(turns.map((turn) => turn.thought));
-  return tokens === undefined ? counted : `${counted} · ${tokensSaid(tokens)}`;
 }

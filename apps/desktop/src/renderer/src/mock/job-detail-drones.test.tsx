@@ -30,6 +30,15 @@ test("the table reads how long each Drone has run, not when it started", async (
   expect(await page.getByRole("columnheader", { name: "Started" }).elements()).toHaveLength(0);
 });
 
+// The standing rule of 29 Sep: no count beside the rows it counts. The filter
+// reads its choice alone; its menu entries keep theirs, not being drawn yet.
+test("the Drones filter names its choice without a number", async () => {
+  mount("arc/executing-sequential");
+  await page.getByRole("tab", { name: /^Drones/ }).last().click();
+  const trigger = page.getByRole("region", { name: "Drones on this Job" }).last().getByRole("button").first();
+  await expect.element(trigger).toHaveTextContent(/^All$/);
+});
+
 // The owner's note of 29 Sep: *a button that lets me kill the drone from here
 // instead of on the job header* — and the header's kill becomes the Job's.
 

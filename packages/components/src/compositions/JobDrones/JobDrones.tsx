@@ -99,8 +99,8 @@ export function JobDrones({
         <div className="armada-drones__head">
           <DropdownMenu
             align="start"
+            // No count on the trigger: the rows it would count are drawn beneath it.
             triggerLabel={chosen?.label ?? filter}
-            {...(chosen === undefined ? {} : { triggerCount: chosen.count })}
             entries={filters.map((one) => ({
               kind: "item",
               id: one.id,

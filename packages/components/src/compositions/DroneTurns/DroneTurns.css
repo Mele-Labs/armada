@@ -273,24 +273,11 @@
 
 /* --- A run of the drone thinking ------------------------------------------ */
 
-/* One line standing for a run of rows, with the rows underneath it when it is
-   opened. Measured on one transcript: 106 of 149 rows were these, so the pane
+/* One line standing for a run of rows, which does not open (the owner, 29 Sep
+   2026). Measured on one transcript: 106 of 149 rows were these, so the pane
    was three parts plumbing to one part what the drone did. */
 .armada-turns__turn[data-quiet] {
   align-items: center;
-}
-
-/* Opened, the run's rows set in under its count — the mark's slot plus the
-   gap. No rule of their own: the block's already stands beside them, and a
-   second one inside it read as two lines fighting. */
-.armada-turns__turn[data-nested] {
-  padding-left: calc(var(--space-4) + var(--space-3));
-}
-
-/* The toggle is a control-height button on a line one leading tall. Let it
-   overhang rather than stretch the line, so thinking sits as tight as a call. */
-.armada-turns__calls .armada-turns__quiet-body {
-  margin-block: calc((var(--leading-2xs) - var(--h-control-sm)) / 2);
 }
 
 /* The mark leads the line. --space-4 slot around a 12px glyph, the geometry
@@ -312,26 +299,9 @@
   min-width: 0;
 }
 
-/* Sans: the one line in the transcript that is Armada's own words rather than
-   the wire's, and it is only written while something is happening. At the
-   block's size, since it sits inside one. */
-.armada-turns__working {
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
-}
-
-.armada-turns__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-  white-space: nowrap;
-}
-
-/* An opened run's row in words — Armada's, so sans, as `Working` is — with
-   the token figure trailing in the count's voice (the owner, 29 Sep 2026). */
+/* Thinking, or Working while live — Armada's words rather than the wire's, so
+   sans, at the block's size since it sits inside one — with the token total
+   trailing in mono (the owner, 29 Sep 2026). */
 .armada-turns__thought {
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
@@ -368,8 +338,8 @@
   }
 }
 
-/* The pulse stops, and Working against no word at all carries live against
-   finished alone. No hue is available to carry it: no vocabulary colours a
+/* The pulse stops, and Working against Thinking carries live against finished
+   alone. No hue is available to carry it: no vocabulary colours a
    turn kind. */
 @media (prefers-reduced-motion: reduce) {
   .armada-turns__mark[data-working] > svg > circle + circle {

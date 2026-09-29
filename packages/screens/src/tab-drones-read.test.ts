@@ -1,4 +1,4 @@
-// What an opened thinking run says, row by row: words, and what each row added.
+// What each thinking row adds toward its run's one-line total.
 import { describe, expect, it } from "vitest";
 
 import type { Turn } from "@armada/protocol";
@@ -21,12 +21,14 @@ function read(rows: Turn[], thoughts?: [number, DroneThought][]) {
   return droneTurnsOf(rows, () => null, thoughts === undefined ? undefined : new Map(thoughts));
 }
 
-describe("a thinking row reads in words", () => {
-  it("never as the wire's kind, with or without the draft", () => {
+describe("a thinking row is quiet, and never the wire's kind", () => {
+  it("with or without the draft", () => {
     const [thinking, reasoning] = read([tokens(1), reasoned(2)]);
     expect(thinking).toMatchObject({ thought: { of: "thinking" }, quiet: true });
     expect(thinking?.subject).toBeUndefined();
-    expect(reasoning).toMatchObject({ thought: { of: "reasoned" } });
+    // Folds into the same run; it carries no text and adds no tokens.
+    expect(reasoning).toMatchObject({ quiet: true });
+    expect(reasoning?.thought).toBeUndefined();
   });
 
   it("keeps the wire's kind for a row Armada cannot name", () => {
@@ -56,23 +58,19 @@ describe("each row carries what it added, not the running estimate", () => {
     expect(rows[2]?.thought).toEqual({ of: "thinking", tokens: 300 });
   });
 
+  it("starts again after the turn's reasoning row", () => {
+    const rows = read([tokens(1), reasoned(2), tokens(3)], [
+      [1, { of: "tokens", estimated: 400 }],
+      [3, { of: "tokens", estimated: 700 }],
+    ]);
+    expect(rows[2]?.thought).toEqual({ of: "thinking", tokens: 700 });
+  });
+
   it("starts again where the estimate falls, a new call with no row between", () => {
     const rows = read([tokens(1), tokens(2)], [
       [1, { of: "tokens", estimated: 900 }],
       [2, { of: "tokens", estimated: 200 }],
     ]);
     expect(rows[1]?.thought).toEqual({ of: "thinking", tokens: 200 });
-  });
-});
-
-describe("a reasoned row carries its text, or says it was withheld", () => {
-  it("carries the text", () => {
-    const [row] = read([reasoned(1)], [[1, { of: "reasoning", text: "Read it first." }]]);
-    expect(row?.thought).toEqual({ of: "reasoned", text: "Read it first." });
-  });
-
-  it("marks one the vendor withheld", () => {
-    const [row] = read([reasoned(1)], [[1, { of: "reasoning", text: null }]]);
-    expect(row?.thought).toEqual({ of: "reasoned", withheld: true });
   });
 });

@@ -34,16 +34,10 @@ let thinkingSeq = 900_000;
  * same way. Real transcripts put these between most calls — 106 of 149 rows on
  * one measured.
  *
- * `reasoning` is what the block said, `null` where the vendor withheld it, and
- * absent while the call is still running and the block has not arrived.
+ * `done` is false while the call is still running and the block has not
+ * arrived. The block carries no text: Armada does not carry the reasoning.
  */
-function thinking(
-  step: string,
-  ts: string,
-  rows: number,
-  thoughts: Map<number, DroneThought>,
-  reasoning?: string | null,
-): Turn[] {
+function thinking(step: string, ts: string, rows: number, thoughts: Map<number, DroneThought>, done = true): Turn[] {
   const row = (kind: string): Turn => ({
     ts,
     seq: (thinkingSeq += 1),
@@ -59,10 +53,7 @@ function thinking(
     thoughts.set(turn.seq, { of: "tokens", estimated });
     return turn;
   });
-  if (reasoning === undefined) return turns;
-  const reasoned = row("the Drone's reasoning, not carried");
-  thoughts.set(reasoned.seq, { of: "reasoning", text: reasoning });
-  return [...turns, reasoned];
+  return done ? [...turns, row("the Drone's reasoning, not carried")] : turns;
 }
 
 /** An instant `seconds` after `from`, in the wire's spelling. */
@@ -86,28 +77,14 @@ function transcriptOf(
   const target = task.scope[0] ?? "";
   const rows: Turn[] = [
     instructed(step, since, 2, task.expects ?? task.title, "Implement"),
-    ...thinking(
-      step,
-      next(8),
-      4,
-      thoughts,
-      `The brief is "${task.title}". ${task.scope.length === 1 ? "One file is" : `${task.scope.length} files are`} in scope, and ${target} is where the change most likely lands, so I'll read that first and the rest for how it's called.`,
-    ),
+    ...thinking(step, next(8), 4, thoughts),
     said(step, next(), `Starting on ${task.id}: ${task.title}. Reading the files it touches first.`),
   ];
   task.scope.forEach((path, n) => {
     const call = `${task.id}-read-${n}`;
     rows.push(called(step, next(), call, "Read", path));
     rows.push(answered(step, next(4), call));
-    rows.push(
-      ...thinking(
-        step,
-        next(6),
-        2 + (n % 3),
-        thoughts,
-        `${path} is read. ${n === 0 ? "The existing shape is what the change has to fit, so I'll keep its exports as they are and add beside them." : "Nothing here needs to move; it only confirms how the first file is called."}`,
-      ),
-    );
+    rows.push(...thinking(step, next(6), 2 + (n % 3), thoughts));
   });
   if (drone.state === "killed") {
     rows.push(said(step, next(), "The panel should read the Job's resources route, so I'll add a poll beside it."));
@@ -115,31 +92,13 @@ function transcriptOf(
     return rows;
   }
   rows.push(said(step, next(), `The change belongs in ${target}. Writing it now.`));
-  rows.push(
-    ...thinking(
-      step,
-      next(6),
-      3,
-      thoughts,
-      `Editing ${target} in place is smaller than a new module, and the brief asks for nothing a caller would see. I'll make the one edit and let the screens tests say whether anything else moved.`,
-    ),
-  );
+  rows.push(...thinking(step, next(6), 3, thoughts));
   rows.push(called(step, next(), `${task.id}-edit`, "Edit", target));
   rows.push(answered(step, next(6), `${task.id}-edit`));
-  rows.push(
-    ...thinking(
-      step,
-      next(6),
-      5,
-      thoughts,
-      // One withheld per Drone: a redacted block has no text at all, and the
-      // hover has to say so.
-      null,
-    ),
-  );
+  rows.push(...thinking(step, next(6), 5, thoughts));
   rows.push(called(step, next(), `${task.id}-test`, "Bash", "pnpm -C packages/screens exec vitest run"));
-  // A live Drone is mid-thought while its tests run, so its reasoning has not arrived.
-  if (drone.state === "running") return [...rows, ...thinking(step, next(10), 3, thoughts)];
+  // A live Drone is mid-thought while its tests run, so its reasoning block has not arrived.
+  if (drone.state === "running") return [...rows, ...thinking(step, next(10), 3, thoughts, false)];
   const failed = drone.state === "failed";
   rows.push(answered(step, next(40), `${task.id}-test`, failed));
   if (!failed) rows.push(said(step, next(), task.shown ?? "Done. The tests pass."));

@@ -62,17 +62,10 @@ export type DroneView = {
  * count"): a `system/thinking_tokens` line's `estimated_tokens` is read by
  * `crates/adapters/src/watching.rs` for the proposer and dropped by the
  * transcript decoder, which emits only the kind.
- *
- * **The reasoning text is a draft awaiting his call.** Carrying it reverses
- * `docs/scope.md` — reading a transcript is what Armada exists to escape — and
- * costs Fleet storing long text per turn. It is mocked so he can judge it by
- * looking.
  */
 export type DroneThought =
   /** The harness's estimate, **cumulative within one model call**, as it is sent. */
-  | { of: "tokens"; estimated: number }
-  /** The turn's reasoning. `null` where the vendor redacted it and there is no text. */
-  | { of: "reasoning"; text: string | null };
+  { of: "tokens"; estimated: number };
 
 /**
  * Today's wire: the Drone on each task that names one, with no transcript.

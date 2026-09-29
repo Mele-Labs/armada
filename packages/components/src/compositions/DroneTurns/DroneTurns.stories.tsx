@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { DroneTurns, type DroneTurn, type TurnStep } from "./DroneTurns";
 
 /**
@@ -19,8 +19,8 @@ import { DroneTurns, type DroneTurn, type TurnStep } from "./DroneTurns";
  *
  * **A run of the Drone thinking is one line.** Measured on one real transcript:
  * 106 of 149 rows were kinds the decoder could not place, so three lines in
- * four described the plumbing rather than the work. They collapse, keep their
- * count, and open.
+ * four described the plumbing rather than the work. They collapse to one row
+ * that does not open, carrying the tokens they cost.
  *
  * **The step is a boundary, not a column.** One Drone works several steps, and
  * a name repeated down every row would be the same string forty times over. The
@@ -165,8 +165,7 @@ export const ToolCallsReadAsAQuietBlock: Story = {
     await expect(reads?.getAllByRole("listitem")).toHaveLength(2);
     // Three calls and the thinking between them, which does not split the block.
     await expect(edits?.getAllByRole("listitem")).toHaveLength(4);
-    await expect(edits?.getByText("4 turns")).toBeVisible();
-    await expect(edits?.getByRole("button", { name: "Show details" })).toBeVisible();
+    await expect(edits?.getByText("Thinking")).toBeVisible();
     await expect(edits?.getByText("Failed.")).toBeVisible();
     await expect(edits?.getByText(/^Refused:/)).toBeVisible();
     // Sentences and the closing line are never inside a block.
@@ -175,12 +174,10 @@ export const ToolCallsReadAsAQuietBlock: Story = {
   },
 };
 
-const REASONING = "running.rs is read. Its exports stay as they are, and the change goes beside them.";
-
 /**
- * An opened thinking run in words, each row with what it added and the line
- * with the sum (the owner, 29 Sep 2026). Hovering or focusing a Reasoned row
- * shows its reasoning — **a draft awaiting his call** — or says it was withheld.
+ * A thinking run is one row with the tokens its rows added (the owner, 29 Sep
+ * 2026): no count of rows nobody can open, no control to open them, and never
+ * the wire's kind. While it is the live tail it reads `Working` instead.
  */
 export const ThinkingInWords: Story = {
   args: {
@@ -189,24 +186,28 @@ export const ThinkingInWords: Story = {
       { id: "1", at: "05:12:21", who: "drone", kind: "called", subject: "Read", detail: "crates/api/src/running.rs" },
       { id: "2", at: "05:12:22", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "thinking", tokens: 400 } },
       { id: "3", at: "05:12:23", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "thinking", tokens: 900 } },
-      { id: "4", at: "05:12:24", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "reasoned", text: REASONING } },
-      { id: "5", at: "05:12:25", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "reasoned", withheld: true } },
-      { id: "6", at: "05:14:10", who: "drone", kind: "called", subject: "Edit", detail: "crates/api/src/running.rs" },
+      { id: "4", at: "05:12:24", who: "drone", kind: "unrecognised", quiet: true, subject: "the Drone's reasoning, not carried" },
+      { id: "5", at: "05:14:10", who: "drone", kind: "called", subject: "Edit", detail: "crates/api/src/running.rs" },
+      { id: "6", at: "05:14:11", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "thinking", tokens: 830 } },
     ],
   },
-  play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByText("4 turns · ~1,300 tokens")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Show details" }));
-    await expect(canvas.getAllByText("Thinking")).toHaveLength(2);
-    await expect(canvas.getByText("~400 tokens")).toBeVisible();
-    await expect(canvas.queryByText(/system\/thinking_tokens/)).toBeNull();
-    // The keyboard reaches the reasoning: the next stop after the toggle.
-    await userEvent.tab();
-    await expect(document.activeElement).toHaveAccessibleDescription(REASONING);
-    await waitFor(() => expect(canvas.getByText(REASONING)).toBeVisible());
-    // And the pointer reaches the withheld one, which says so.
-    await userEvent.hover(canvas.getAllByText("Reasoned")[1]!);
-    await waitFor(() => expect(canvas.getByText("Withheld by the model's provider")).toBeVisible());
+  play: async ({ canvas }) => {
+    const block = within(canvas.getByRole("list", { name: "Tool calls" }));
+    await expect(block.getAllByRole("listitem")).toHaveLength(4); // two calls, two runs of one row each
+    await expect(block.getAllByText("Thinking")).toHaveLength(2);
+    await expect(block.getByText("~1,300 tokens")).toBeVisible();
+    await expect(canvas.queryByRole("button")).toBeNull();
+    await expect(canvas.queryByText(/turns?\b/)).toBeNull();
+    await expect(canvas.queryByText(/system\/thinking_tokens|reasoning/)).toBeNull();
+  },
+};
+
+/** The same run while a Drone writes: only its tail says `Working`. */
+export const ThinkingWhileLive: Story = {
+  args: { ...ThinkingInWords.args, live: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Thinking")).toBeVisible();
+    await expect(canvas.getByText("Working").closest("li")).toHaveTextContent(/^Working~830 tokens$/);
   },
 };
 
@@ -325,10 +326,9 @@ export const ADroneThinking: Story = {
 };
 
 /**
- * The same transcript, finished. **No mark moves and no line carries a verb** —
- * a finished transcript is a record, and a record does not narrate. The count
- * is the whole fact once nothing is happening, and a live mark on a gap in the
- * middle of a history that ended would claim work that stopped.
+ * The same transcript, finished. **No mark moves and no line says Working** —
+ * a live mark on a gap in the middle of a history that ended would claim work
+ * that stopped.
  */
 export const AFinishedRun: Story = {
   args: {
