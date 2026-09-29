@@ -342,7 +342,10 @@ test("what waits on a person says so, names who proposed it, and marks its own e
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
   // The queue says what it is, before anything is selected and without being.
-  const queue = page.getByRole("group", { name: "Waiting on you" });
+  // `exact`, because a role name matches on substring and the edge below
+  // is named "…, proposed, waiting on you" — the queue and the thing it
+  // is queueing would otherwise be one locator.
+  const queue = page.getByRole("group", { name: "Waiting on you", exact: true });
   await expect.element(queue).toBeVisible();
   expect(bar().query()).toBeNull();
   // Who drew it — the record's own `added_by`, not the Studio's own hand.
@@ -355,7 +358,9 @@ test("what waits on a person says so, names who proposed it, and marks its own e
   // Accepting takes both away, because neither was about the relation's kind.
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as/ }).click();
-  await expect.poll(() => page.getByRole("group", { name: "Waiting on you" }).query()).toBeNull();
+  await expect
+    .poll(() => page.getByRole("group", { name: "Waiting on you", exact: true }).query())
+    .toBeNull();
   await expect.poll(() => page.getByText("proposed, waiting on you").query()).toBeNull();
   // The relation itself is untouched: accepting settles the standing, not the kind.
   await expect.element(page.getByText("same as", { exact: true })).toBeVisible();
