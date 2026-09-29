@@ -8,9 +8,11 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { DropdownMenu, DroneBrief, DroneMessageBox, JobDrones } from "@armada/components";
+import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
+import type { ConfirmableAct, HeldAct } from "./Acts";
+import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf, elapsedSince } from "./duration";
 import { droneViewsOf, type DroneView } from "./draft/drone";
@@ -26,6 +28,7 @@ import {
   type DronesFilter,
   type DronesOrder,
 } from "./tab-drones-read";
+import type { ActingAct } from "./pending";
 import { droneOfTask } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 
@@ -40,7 +43,14 @@ export type DronesTabProps = {
   now: number;
   floor: boolean;
   stale: boolean;
+  /** An act on this Job is out, and which — the kill marks its own press. */
+  acting: boolean;
+  actingAct?: ActingAct | undefined;
   onRedirect: (jobId: string, instruction: string) => void;
+  /** The kill's ask, where a hold is not offered. */
+  onAct: (act: ConfirmableAct, jobId: string) => void;
+  /** The kill, held. */
+  onActHeld: (act: HeldAct, jobId: string) => void;
   /** Workflow, with this step's panel open. The strip is `JobDetail.tsx`'s. */
   onOpenStep: (stepId: string) => void;
   /** Plan, with this task's sheet open. */
@@ -55,7 +65,11 @@ export function DronesTab({
   now,
   floor,
   stale,
+  acting,
+  actingAct,
   onRedirect,
+  onAct,
+  onActHeld,
   onOpenStep,
   onOpenTask,
 }: DronesTabProps) {
@@ -184,10 +198,24 @@ export function DronesTab({
                     ? "Fleet does not serve one Drone's transcript yet."
                     : "This Drone has written nothing yet.",
                 // Mocked against this Drone, as the Plan task sheet is: Fleet
-                // redirects the Job, not one Drone (#1536).
+                // redirects the Job, not one Drone (#1536). The kill is too:
+                // Fleet ends the Job's one Drone. The header's kill ends the
+                // Job instead (owner, 29 Sep 2026).
                 ...(open.state !== "running"
                   ? {}
                   : {
+                      controls: (
+                        <HoldButton
+                          askLabel={ACT_LABEL.kill_drone}
+                          description={HOLD_SAID.kill_drone}
+                          disabled={stale || steering.act === undefined || (acting && actingAct !== "kill_drone")}
+                          pending={acting && actingAct === "kill_drone"}
+                          onAsk={() => onAct("kill_drone", job.id)}
+                          onCommit={() => onActHeld("kill_drone", job.id)}
+                        >
+                          {HOLD_LABEL.kill_drone}
+                        </HoldButton>
+                      ),
                       footer: (
                         <DroneMessageBox
                           value={instruction}

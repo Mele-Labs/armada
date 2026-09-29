@@ -39,7 +39,7 @@ type Story = StoryObj<typeof JobDetailHeaderActions>;
  * *Where things are*, one column down; Spend and Turns went to Pulse. What is
  * left is what a person reads rather than what they came to fetch.
  *
- * A Job with no assigned Drone has one act, so the split button is a button,
+ * A running Job has one act, with or without a Drone, so the split button is a button,
  * held rather than asked because it is a kill alone. Nothing to approve or
  * merge while a Job works, so no primary.
  */
@@ -220,18 +220,12 @@ export const ThePullRequestOnceItLanded: Story = {
 };
 
 /**
- * The two kills, as Bridge draws them. **They are two acts, not one control
- * with a mode** — killing the drone leaves the job open with its worktree held,
- * killing the job ends it at `killed`. Two outlined reds side by side read as
- * one control with two labels, which is the thing they are least like; one
- * split button separates them, and each menu label says what survives.
- *
- * **Drawn as `Acts.tsx` draws it:** mildest first, so `Kill drone` is the held
- * face and `Kill job` asks from behind the caret. Secondary, because a running
- * Job waits on its drone rather than a person. The drone act appears only where
- * a drone is assigned, which is why the `Drone` fact and that face go together.
+ * A running Job with a drone assigned. **The header's kill ends the Job, drone
+ * or no drone** (owner, 29 Sep 2026): killing the drone and leaving the Job
+ * open is the Drones sheet's act, beside the Drone it names, and never this
+ * header's. So the `Drone` fact and a drone kill no longer go together here.
  */
-export const BothKills: Story = {
+export const ARunningJobWithADrone: Story = {
   args: {
     ...ARunningJob.args,
     fields: [
@@ -242,54 +236,20 @@ export const BothKills: Story = {
     ],
     actions: (
       <>
-        <SplitButton
-          variant="secondary"
-          menuLabel="Everything else this job can do"
-          items={[{ label: "Kill job, it ends here", danger: true, onSelect: fn() }]}
-          onAction={fn()}
-          hold={{
-            label: "Hold to kill drone",
-            description:
-              "Kills the drone once held until it fills. Letting go sooner kills nothing. The job stays open.",
-            onCommit: fn(),
-          }}
+        <HoldButton
+          askLabel="Kill job"
+          description="Kills the job once held until it fills. Letting go sooner kills nothing."
+          onAsk={fn()}
+          onCommit={fn()}
         >
-          Kill drone
-        </SplitButton>
+          Hold to kill job
+        </HoldButton>
       </>
     ),
   },
-};
-
-/**
- * The same pair with the menu open, which is the only view where the
- * distinction can be read. **The act that ends the Job is behind the caret** —
- * the screen leads with the milder kill, which leaves the Job open with its
- * worktree held, and the face holds rather than asks. The caret never starts a
- * hold.
- */
-export const BothKillsMenuOpen: Story = {
-  args: {
-    ...BothKills.args,
-    actions: (
-      <>
-        <SplitButton
-          variant="secondary"
-          defaultOpen
-          menuLabel="Everything else this job can do"
-          items={[{ label: "Kill job, it ends here", danger: true, onSelect: fn() }]}
-          onAction={fn()}
-          hold={{
-            label: "Hold to kill drone",
-            description:
-              "Kills the drone once held until it fills. Letting go sooner kills nothing. The job stays open.",
-            onCommit: fn(),
-          }}
-        >
-          Kill drone
-        </SplitButton>
-      </>
-    ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Hold to kill job" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Hold to kill drone" })).toBeNull();
   },
 };
 
