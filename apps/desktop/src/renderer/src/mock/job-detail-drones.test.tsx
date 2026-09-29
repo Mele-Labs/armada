@@ -14,7 +14,13 @@ async function droneOnT5(): Promise<void> {
   mount("arc/executing-sequential");
   await page.getByRole("tab", { name: /^Drones/ }).last().click();
   await page.getByRole("button", { name: "Drone on T5" }).last().click();
-  await expect.element(page.getByRole("dialog", { name: "Drone on T5" }).last()).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Drone on T5" }).last();
+  await expect.element(sheet).toBeVisible();
+  // **Visible is not arrived.** The sheet travels in from the trailing edge at
+  // `--duration-sheet`, and a press aimed at its subtitle mid-travel went to
+  // where T5 was a frame earlier — off the window's edge, reaching nothing.
+  // Measured 29 Sep 2026: 2 in 12 runs. Wait the travel out.
+  await Promise.all(sheet.element().getAnimations().map((one) => one.finished));
 }
 
 test("the table reads how long each Drone has run, not when it started", async () => {
