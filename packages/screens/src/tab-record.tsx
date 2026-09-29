@@ -687,20 +687,14 @@ function splitOnce(said: string, separator: string): [string, string | undefined
  * owner, 29 Sep 2026: *if there's any supporting evidence that should be
  * outlined*). The status line carries the action; this is the rest.
  *
- * **Why** is `expects` over `shown`, or the reason it failed or was dropped.
- * The two stack, one labelled value each: a Drone writes them at any length,
- * and two columns of long text read badly (the owner, 29 Sep 2026).
- * **Evidence** is its files, its cases and what each last came to, its
- * group's Checks, and a later task editing it — each only where it exists.
+ * **Why** is `expects` over `shown`, stacked because a Drone writes either at
+ * any length, or the reason it failed or was dropped. **Evidence** is its
+ * files, its cases, its group's Checks and a later task editing it.
  *
- * **The Checks are the group's, not the task's, drawn by the Plan board's own
- * `GroupBoundary`** and read by `boundaryOf`, so the Record and the Plan say
- * the same thing about the same boundary (the owner, 29 Sep 2026). A Check's
- * own result is `boundaryOf`'s: named failed only while the group is failed or
- * running again, off the working step's latest attempt, and the group's state
- * for the rest. The task's own cases are `Tests` above, so the boundary's
- * tests strip is not drawn a second time. **Pressing a Check opens its own
- * row**, where its output and what it stopped are read.
+ * **The Checks are the group's, drawn by the Plan board's `GroupBoundary`** off
+ * `boundaryOf`, so the Record and the Plan cannot disagree about a boundary
+ * (the owner, 29 Sep 2026). Its tests strip is not drawn: the task's own cases
+ * are `Tests` above. **Pressing a Check opens its own row.**
  */
 function TaskRead({
   row,

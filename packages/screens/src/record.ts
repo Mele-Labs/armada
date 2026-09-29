@@ -197,16 +197,12 @@ export function whereOf(
  * is green or red by what the Check did; a Judge answering `met` is the same
  * green, and a Drone arriving has no outcome and takes no hue at all.
  *
- * **Drift takes no hue, and it drew red until 28 September 2026.** An outcome
- * starting `outside the plan` was in the failing arm below, so a file nobody
- * declared filled its row with `--status-completed-failed` — while `grounds.ts`
- * called the same fact `quiet` and `events.ts` calls `outside_plan` *a mark, not
- * a judgement*. The owner read the red and asked whether it hurt the Job. It
- * does not: the Judge weighs drift and no gate fails on it.
+ * **Drift takes no hue; it drew red until 28 Sep 2026**, when the owner asked
+ * whether it hurt the Job. It does not — `events.ts` calls `outside_plan` *a
+ * mark, not a judgement*, and the Judge weighs it.
  *
- * **A File row takes no hue at all, before any word is read.** Its outcome can
- * lead with a file's name — `metrics.ts was out of scope` — and a name is not
- * an outcome, however it starts.
+ * **A File row takes no hue, before any word is read.** Its outcome can lead
+ * with a file's name — `metrics.ts was out of scope` — which is no outcome.
  */
 export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (familyOf(row.kind) === "files") return undefined;

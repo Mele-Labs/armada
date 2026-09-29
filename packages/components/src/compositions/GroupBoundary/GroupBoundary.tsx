@@ -12,20 +12,15 @@ import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
  * A group's boundary — what runs once every task in the group has stopped, and
  * what it came to. `#1536`, and `docs/journeys/monitor-active-work.md`.
  *
- * **One strip per kind, segments inside it.** The bar spanned the card with
- * the Check names wrapping underneath, which read as a claim they lined up —
- * *"that is a big miss"* (owner, 28 Sep 2026). Nothing is under the bar now;
- * the names are behind the strip's own press.
+ * **One strip per kind, segments inside it.** Names wrapping under a bar read
+ * as a claim they lined up (owner, 28 Sep 2026); they sit behind its press.
  *
- * **The head sums up only what is folded.** The bar, the verdict and a count
- * say what the rows say, so they are drawn while the rows are not and go when
- * the strip opens (the owner, 29 Sep 2026: *we don't need "screens_test
- * failed" because it is shown right below it*). A Checks strip carries no
- * count at all: its bar is how many. `design-system.md`, hard rule 7.
+ * **The head sums up only what is folded.** Bar, verdict and count say what
+ * the rows say, so they go when the strip opens (owner, 29 Sep 2026). A Checks
+ * strip carries no count: its bar is how many. `design-system.md`, rule 7.
  *
- * **A failed boundary opens itself**: what failed is why anybody is here.
- *
- * **It composes no sentence.** Every line of prose is the caller's.
+ * **A failed boundary opens itself.** **It composes no sentence**: every line
+ * of prose is the caller's.
  */
 
 /** What one Check at the boundary came to. Spelled as the wire spells it. */
