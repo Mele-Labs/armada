@@ -294,8 +294,10 @@ function RowRead({
           )}
         </Eyebrow>
         {/* The sheet's title names the row; this is drawn only where the title
-            had to shorten it — a row of paths, read whole here. */}
-        {titleOf(row) === row.what ? null : (
+            had to shorten it — a row of paths, read whole here. Not on a File
+            row: each diff section below heads with its whole path. The owner,
+            29 Sep. */}
+        {family === "files" || titleOf(row) === row.what ? null : (
           <p className="armada-ledger__read-name">{row.what}</p>
         )}
         <p className="armada-ledger__read-status">

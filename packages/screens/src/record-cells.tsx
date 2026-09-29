@@ -72,7 +72,8 @@ export function whatCellOf(row: LedgerRow): ReactNode {
 /**
  * The open row's name, for the sheet's title. **A row of paths is named by
  * their filenames**, as its What cell is: a title does not wrap, and two whole
- * paths ran under the sheet's Close at 1280. The paths are read whole under it.
+ * paths ran under the sheet's Close at 1280. A File row's paths are read whole
+ * in its diff's section headers; a kept deliverable's, under the title.
  */
 export function titleOf(row: LedgerRow): string {
   if (!PATHS_IN.includes(row.kind)) return row.what;

@@ -282,7 +282,8 @@
   min-width: 0;
 }
 
-/* The paths a file row names, whole, under the sheet title's filenames. */
+/* The paths a kept deliverable names, whole, under the sheet title's filenames.
+   A File row has none: its diff's sections head with the paths. */
 .armada-ledger__read-name {
   margin: 0;
   font-family: var(--font-mono);
