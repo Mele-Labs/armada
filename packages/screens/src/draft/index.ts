@@ -29,6 +29,7 @@ export * from "./cases";
 export * from "./coord";
 export * from "./criterion";
 export * from "./dispatch";
+export * from "./drone";
 export * from "./group";
 export * from "./held";
 export * from "./landing";

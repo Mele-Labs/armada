@@ -1,5 +1,5 @@
-// One Job, read whole, at six destinations: Overview, Workflow, Plan, Record,
-// Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
+// One Job, read whole, at seven destinations: Overview, Workflow, Plan, Record,
+// Drones, Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
 // tree, the selected step in the inspector, its story in the order it happened
 // — and the other four are where the readings that used to compete for that one
 // panel go instead. `#1534`.
@@ -7,8 +7,8 @@
 // **This file is the screen, not a tab.** It reads the Job whole, draws the
 // header, the standing callout and the strip, and hands each tab what it needs.
 // What a tab holds is that tab's own module: `tab-overview.tsx`,
-// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-pulse.tsx`,
-// `tab-settings.tsx`.
+// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
+// `tab-pulse.tsx`, `tab-settings.tsx`.
 
 import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
@@ -36,9 +36,10 @@ import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { proposalEditsOf } from "./tab-proposal-read";
+import { DronesTab } from "./tab-drones";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
-import { RecordTab } from "./tab-record";
+import { RecordTab, type CheckAt } from "./tab-record";
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
@@ -85,6 +86,21 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const [tab, setTab] = useState<DetailTab>(FIRST_TAB);
+  // The step Workflow opens on, where the Record's or the Drones' reading sent
+  // a person there. Cleared by the strip, so the next visit opens on nothing.
+  const [opensStep, setOpensStep] = useState<string | undefined>(undefined);
+  // The task Plan opens on, where the Drones' reading sent a person there.
+  // Cleared by the strip, on `opensStep`'s terms.
+  const [opensTask, setOpensTask] = useState<string | undefined>(undefined);
+  // The Check whose Record row opens, where the Plan's boundary sent a person
+  // there. Cleared by the strip in the same way.
+  const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
+  const toTab = (next: DetailTab) => {
+    setOpensStep(undefined);
+    setOpensTask(undefined);
+    setOpensCheck(undefined);
+    setTab(next);
+  };
 
   // The cap a press on Pulse's Spend or Turns went to Settings for, until
   // Settings has drawn and its row is in view. **Found by `data-ceiling`**
@@ -228,7 +244,7 @@ function OneJob(props: JobDetailProps) {
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
-      <JobTabs value={tab} onChange={setTab} counts={countsOf(whole, job)} />
+      <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
       {tab === "overview" && edits !== undefined ? (
         // A Job at or just past its approval gate: the proposal is what
@@ -280,7 +296,8 @@ function OneJob(props: JobDetailProps) {
           onActHeld={props.onActHeld}
           // Where the Plan node goes. The strip is this screen's, so the run
           // asks for the destination rather than moving one itself.
-          onOpenPlan={() => setTab("plan")}
+          onOpenPlan={() => toTab("plan")}
+          {...(opensStep === undefined ? {} : { opensStep })}
         />
       ) : tab === "plan" ? (
         <PlanTab
@@ -297,6 +314,11 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
+          {...(opensTask === undefined ? {} : { opensTask })}
+          onOpenCheck={(name, stepAttempt) => {
+            setOpensCheck({ name, stepAttempt });
+            setTab("record");
+          }}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -320,7 +342,39 @@ function OneJob(props: JobDetailProps) {
           jobId={job.id}
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          {...(props.draft?.cases === undefined ? {} : { cases: props.draft.cases })}
           onSaid={props.onSaid}
+          onOpenStep={(stepId) => {
+            setOpensStep(stepId);
+            setTab("workflow");
+          }}
+          {...(opensCheck === undefined ? {} : { opensCheck })}
+        />
+      ) : tab === "drones" ? (
+        <DronesTab
+          job={job}
+          whole={whole}
+          {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
+          {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          now={props.now}
+          floor={floor}
+          stale={props.stale}
+          acting={props.acting}
+          actingAct={props.actingAct}
+          onRedirect={props.onRedirect}
+          onAct={props.onAct}
+          onActHeld={props.onActHeld}
+          onOpenStep={(stepId) => {
+            setOpensStep(stepId);
+            setTab("workflow");
+          }}
+          onOpenTask={(taskId) => {
+            setOpensTask(taskId);
+            setTab("plan");
+          }}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
@@ -364,6 +418,7 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
       ...(evidence === undefined ? {} : { evidence }),
       ...(footprint === undefined ? {} : { footprint }),
       ...(handed === undefined ? {} : { handed }),
+      ...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups }),
     }),
   };
 }

@@ -209,10 +209,11 @@ describe("the Record, composed from today's reads", () => {
 
   // **Never "outside the plan".** `docs/concepts/plan.md` forbids that name for
   // a file scope, and the owner asked what it meant on this exact cell.
-  it("names who declared what, on a finished task's files", () => {
+  it("says a finished task's files were in scope, or names the ones that were not", () => {
     const rows = ledgerOf({ detail: arcDetail() }).filter((row) => row.kind === "task_files");
 
-    expect(rows.some((row) => /never said it would change/.test(row.outcome))).toBe(true);
+    expect(rows.some((row) => row.outcome === "In scope")).toBe(true);
+    expect(rows.some((row) => /^[^/]+ (was|were) out of scope$/.test(row.outcome))).toBe(true);
     expect(rows.every((row) => !/the plan/.test(row.outcome))).toBe(true);
   });
 

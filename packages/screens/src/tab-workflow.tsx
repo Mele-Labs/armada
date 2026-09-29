@@ -26,7 +26,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { steeringOf } from "./steering";
 import { ordered } from "./facts";
-import { stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
+import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { workflowReadingOf } from "./workflow-inspector";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
@@ -64,6 +64,12 @@ export type WorkflowTabProps = {
    * itself would be a second place the strip can be driven from.
    */
   onOpenPlan: () => void;
+  /**
+   * The step to land on with its panel open — a step pressed in the Record's
+   * reading. Read once, when the tab opens; after that the panel is the
+   * person's.
+   */
+  opensStep?: string;
 };
 
 export function WorkflowTab({
@@ -79,11 +85,14 @@ export function WorkflowTab({
   onAct,
   onActHeld,
   onOpenPlan,
+  opensStep,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
   // moves under them as the Job advances, and a panel that changed subject
   // while somebody was reading it is the surface this screen exists to escape.
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(
+    opensStep === undefined ? null : stepNodeId(opensStep),
+  );
   // Whether the canvas re-centres on the running step as the Job advances.
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
@@ -129,7 +138,8 @@ export function WorkflowTab({
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
   const run = workflowRunOf({ whole, groups, selected: open, onOpen: setOpen });
-  // **Nothing is open until a press opens it** (owner, 25 Sep 2026). The panel
+  // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
+  // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was
   // never blank — there is no column now. The canvas has the tab's whole width
   // and this is a layer over it, so a reading nobody asked for would be a panel

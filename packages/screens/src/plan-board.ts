@@ -4,7 +4,7 @@
 // **One board, because there was never more than one thing drawn.** A second
 // one stood under the Workflow canvas drawing these same groups until the owner
 // took them off it (28 Sep 2026). What it said that a plan alone does not —
-// what a boundary came to, and the failed Check's own output handed on — is
+// what a boundary came to, and what the failed Check was held to and got — is
 // composed here, on the card the plan already had.
 //
 // **The sentences are `tab-plan-read.ts`'s**, which this imports and which
@@ -70,14 +70,15 @@ function checkReads(
 
 /**
  * What the boundary came to, in words. **Absent until it has run** — a
- * boundary nothing reached says nothing rather than `0 failed`.
+ * boundary nothing reached says nothing rather than `0 failed`. **`all
+ * passed`, with no number**: the bar beside it is already how many
+ * (`design-system.md`, hard rule 7).
  */
 export function verdictSaid(group: GroupView, failed: readonly string[]): string | undefined {
   if (group.state === "checking") return "running now";
   if (!hasRun(group.state)) return undefined;
   if (failed.length > 0) return `${failed.join(", ")} failed`;
-  const passed = group.checks_selected.length;
-  return passed === 0 ? undefined : `all ${passed} passed`;
+  return group.checks_selected.length === 0 ? undefined : "all passed";
 }
 
 // What stopping a group forbids was a sentence here until 28 Sep, when the
@@ -87,30 +88,52 @@ export function verdictSaid(group: GroupView, failed: readonly string[]): string
 // fact and stays.
 
 /**
- * What the gate wrote down about the Check that failed, verbatim: what it was
- * measured against, and what it produced.
- *
- * **This is the row, not the output.** `CheckRun.expected` and `produced` are
- * the measure and the exit code; the Check's stdout and stderr are a file at
- * `output_path`. Labelling the pair as the whole of what a Drone reads was the
- * over-claim the owner caught on 28 Sep 2026, and `TOLD_NEXT_SAYS` is the rest.
+ * The run a Check's row in the Record is, where the boundary has run: the
+ * latest by that name on the step the groups are worked at, **and only where
+ * it came to what the boundary reads**. A step's `check_runs` is one list for
+ * every group in it, so a group still waiting would otherwise open an earlier
+ * group's run, and a group that passed would open a later group's red.
  */
-export function toldNextOf(step: StepDetail | undefined, failed: readonly string[]): string | undefined {
-  const run = (step?.check_runs ?? []).find((one) => failed.includes(one.name) && one.outcome === "failed");
-  if (run === undefined) return undefined;
-  const lines = [run.expected, run.produced].filter((one): one is string => one !== undefined);
-  return lines.length === 0 ? undefined : lines.join("\n");
+function runOf(step: StepDetail | undefined, name: string, reads: GroupBoundaryCheck["reads"]) {
+  if (reads !== "passed" && reads !== "failed") return undefined;
+  const runs = (step?.check_runs ?? []).filter((one) => one.name === name);
+  const latest = Math.max(0, ...runs.map((one) => one.attempt));
+  const run = runs.find((one) => one.attempt === latest);
+  return run?.outcome === reads ? run : undefined;
 }
 
 /**
- * Where the rest of a failed Check is, for the Drone that picks the group up.
+ * One Check at a boundary, and what a failed one was held to and got.
  *
- * Read off `crates/fleet/src/check_output.rs` and `terms.rs`: every run's
- * stdout and stderr go to a file, and a Drone can ask for the Check again and
- * is handed the tail of both. Nothing here is a promise the screen makes.
+ * **`expected` and `produced` are the run's, each under its own label** (the
+ * owner, 29 Sep 2026: *why does this say every test passes but then says 1 of
+ * 1384 failed?*). Run together with no labels they read as one claim. The
+ * Check's output is a file, read on its own Record row, which the press opens.
  */
-const TOLD_NEXT_SAYS =
-  "The run's whole output is kept. A Drone picking this group up can ask for the Check again and is handed the last of what it printed.";
+function checkOf(
+  group: GroupView,
+  name: string,
+  failed: readonly string[],
+  step: StepDetail | undefined,
+  onOpenCheck: ((name: string, stepAttempt: number) => void) | undefined,
+): GroupBoundaryCheck {
+  const reads = checkReads(group, name, failed);
+  const run = runOf(step, name, reads);
+  const told = reads === "failed" ? run : undefined;
+  return {
+    name,
+    reads,
+    ...(told?.expected === undefined ? {} : { expected: sentenceCase(told.expected) }),
+    ...(told?.produced === undefined ? {} : { result: sentenceCase(told.produced) }),
+    ...(run === undefined || onOpenCheck === undefined
+      ? {}
+      : { onOpen: () => onOpenCheck(name, run.attempt) }),
+  };
+}
+
+function sentenceCase(said: string): string {
+  return said.charAt(0).toUpperCase() + said.slice(1);
+}
 
 /**
  * `2 tasks, at the same time` — fan out — or `2 tasks, one after another`.
@@ -154,21 +177,23 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTas
   };
 }
 
-/** One group's boundary — the Checks bar, and the tests region kept apart. */
+/**
+ * One group's boundary — the Checks bar, and the tests region kept apart.
+ *
+ * `onOpenCheck` opens a Check's own Record row, by its name and the step
+ * attempt that ran it. Absent, no Check is a button.
+ */
 export function boundaryOf(
   group: GroupView,
   cases: readonly CaseView[],
   whole: JobWhole | null,
   step: StepDetail | undefined,
+  onOpenCheck?: (name: string, stepAttempt: number) => void,
 ): GroupBoundaryProps {
   const failed = failedChecksOf(whole, group);
-  const checks = group.checks_selected.map((name) => ({
-    name,
-    reads: checkReads(group, name, failed),
-  }));
+  const checks = group.checks_selected.map((name) => checkOf(group, name, failed, step, onOpenCheck));
   const verdict = verdictSaid(group, failed);
   const retry = retrySaid(group.retry_count);
-  const told = toldNextOf(step, failed);
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
   // **What dropped a case, where one did.** `reads` is the whole of what a row
   // says here, so a case a scope revision took out has to say that in it or
@@ -191,7 +216,6 @@ export function boundaryOf(
         : {}),
     ...(retry === undefined ? {} : { retrySays: retry }),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
-    ...(told === undefined ? {} : { toldNext: told, toldNextSays: TOLD_NEXT_SAYS }),
     ...(testsSay === undefined ? {} : { testsClause: testsSay }),
     ...(tests.length === 0 ? {} : { tests }),
   };
@@ -200,8 +224,9 @@ export function boundaryOf(
 /**
  * One group's card, sentences and all.
  *
- * **`step` is only where a failed Check's output is read from.** Absent, the
- * boundary hands nothing on — which is what a plan nobody has run yet says.
+ * **`step` is where a boundary's Check runs are read from.** Absent, no Check
+ * carries what it got or opens a row — which is what a plan nobody has run
+ * yet says.
  */
 export function groupCardOf(
   group: GroupView,
@@ -211,6 +236,7 @@ export function groupCardOf(
   asks: readonly PlanBoardAsk[] = [],
   step?: StepDetail,
   overlaps: readonly { says: string; paths: readonly string[] }[] = [],
+  onOpenCheck?: (name: string, stepAttempt: number) => void,
 ): PlanBoardGroup {
   return {
     id: group.id,
@@ -220,7 +246,7 @@ export function groupCardOf(
     shapeSays: shapeSaid(group),
     scope: scopeRootOf(group.scope),
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
-    boundary: boundaryOf(group, cases, whole, step),
+    boundary: boundaryOf(group, cases, whole, step, onOpenCheck),
     ...(overlaps.length === 0 ? {} : { overlaps }),
     ...(asks.length === 0 ? {} : { asks }),
   };
@@ -241,6 +267,7 @@ export function planBoardOf(
   openTaskId?: string,
   revisable = false,
   step?: StepDetail,
+  onOpenCheck?: (name: string, stepAttempt: number) => void,
 ): PlanBoardProps | undefined {
   const groups = groupsOf(whole, draft);
   if (groups.length === 0) return undefined;
@@ -258,6 +285,7 @@ export function planBoardOf(
         revisable ? asksOf(groups, at) : [],
         step,
         overlaps.get(group.id) ?? [],
+        onOpenCheck,
       ),
     ),
     ...(revisable ? { askable: true } : {}),

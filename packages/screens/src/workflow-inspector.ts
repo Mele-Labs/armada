@@ -75,12 +75,22 @@ function checksOf(step: StepDetail, now: number, only?: readonly string[]): Work
     });
 }
 
+/**
+ * What a task's own agent has spent: its turns, and its cost once it stopped.
+ * The Record's Drone section reads the same two facts, from here.
+ */
+export function spentOf(task: Pick<GroupView["tasks"][number], "turns" | "cost_micros">): string[] {
+  const facts: string[] = [];
+  if (task.turns !== undefined) facts.push(`${task.turns} turns`);
+  if (task.cost_micros !== undefined) facts.push(`$${(task.cost_micros / 1_000_000).toFixed(2)}`);
+  return facts;
+}
+
 /** One task, with what it has spent where its own agent has stopped. */
 function taskOf(task: GroupView["tasks"][number]): WorkflowInspectorTask {
   const facts: string[] = [];
   if (task.scope.length > 0) facts.push(`${task.scope.length} ${task.scope.length === 1 ? "file" : "files"}`);
-  if (task.turns !== undefined) facts.push(`${task.turns} turns`);
-  if (task.cost_micros !== undefined) facts.push(`$${(task.cost_micros / 1_000_000).toFixed(2)}`);
+  facts.push(...spentOf(task));
   const row: WorkflowInspectorTask = { id: task.id, title: task.title, said: task.state, facts };
   if (task.touched_after_done) {
     row.flag = "A later task edited a file this one had finished. It stays done.";

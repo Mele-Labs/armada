@@ -1,0 +1,74 @@
+/* A line that opens a Record row — a boundary's Check, a task a Check held
+   back. One treatment for both, so a press reads the same wherever it is. */
+.armada-row-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--h-badge);
+  padding: 0 var(--space-1);
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.armada-row-link {
+  cursor: pointer;
+}
+
+button.armada-row-link:hover {
+  background: var(--bg-hover);
+}
+
+button.armada-row-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A fixed slot, so a line with no mark keeps its name in line with the rest. */
+.armada-row-link__mark {
+  display: inline-flex;
+  flex: none;
+  width: var(--space-3);
+  color: var(--fg-subtle);
+}
+
+.armada-row-link__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-row-link__name[data-mono="true"] {
+  font-family: var(--font-mono);
+}
+
+.armada-row-link__says {
+  flex: none;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+/* The Record's own hues for a result: failed red, passed green, the rest
+   neutral. The name of what failed steps up, since it is what a reader came
+   for. */
+.armada-row-link[data-tone="failed"] :is(.armada-row-link__mark, .armada-row-link__says) {
+  color: var(--run-failed);
+}
+
+.armada-row-link[data-tone="passed"] :is(.armada-row-link__mark, .armada-row-link__says) {
+  color: var(--run-passed);
+}
+
+.armada-row-link[data-tone="failed"] .armada-row-link__name {
+  color: var(--fg-default);
+}

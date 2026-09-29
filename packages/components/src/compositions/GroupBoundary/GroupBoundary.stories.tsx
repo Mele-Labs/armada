@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import { GroupBoundary, type GroupBoundaryCheck } from "./GroupBoundary";
 
@@ -41,6 +41,8 @@ export const NotRun: Story = {
     await expect(canvasElement.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
     await userEvent.click(strip);
     await expect(canvas.getByText("screens_test")).toBeVisible();
+    // Nothing ran, so there is no Record row to open and no Check is a button.
+    await expect(canvas.queryByRole("button", { name: "screens_test, not run" })).toBeNull();
   },
 };
 
@@ -58,7 +60,7 @@ export const AllPassed: Story = {
   args: {
     clause: "ran at this boundary",
     checks: all("passed"),
-    verdictSays: "all 7 passed",
+    verdictSays: "all passed",
     verdictNamed: "passed",
     commit: "7a2f0c5",
     testsClause: "ran at this boundary",
@@ -72,7 +74,7 @@ export const AllPassed: Story = {
     // opening itself a reading rather than the default.
     const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
     await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
-    await expect(checks).toHaveTextContent("all 7 passed");
+    await expect(checks).toHaveTextContent("all passed");
     await expect(checks).toHaveTextContent("7a2f0c5");
   },
 };
@@ -82,33 +84,57 @@ export const AllPassed: Story = {
  *
  * **A `play`, because the claim is about what is drawn beside the red.** A
  * boundary that read failed with nothing said is the state this component was
- * built to end — the six that passed are on screen, the retry count is on
- * screen, and what the next Drone is told is the Check's own output rather than
- * a summary of it.
+ * built to end — the six that passed are on screen, which attempt this is is on
+ * screen, and the failed Check carries what it was held to and what it got,
+ * each under its own label. Open, the head carries no verdict, count or bar. Drawn at `--w-step-panel-min`, which is narrower
+ * than the head's one line: it wraps, and cuts nothing.
  */
 export const OneFailed: Story = {
   args: {
     clause: "ran at this boundary",
-    checks: NAMES.map((name) => ({ name, reads: name === "screens_test" ? "failed" : "passed" })),
+    checks: NAMES.map((name) =>
+      name === "screens_test"
+        ? {
+            name,
+            reads: "failed",
+            expected: "Every test in the screens package passes",
+            result: "1 of 1384 failed: the Drones row opened the Board",
+            onOpen: fn(),
+          }
+        : { name, reads: "passed", onOpen: fn() },
+    ),
     verdictSays: "screens_test failed",
     verdictNamed: "failed",
-    retrySays: "second run",
-    toldNext: "every test in the screens package passes\n1 of 1384 failed: the Drones row opened the Board",
-    toldNextSays: "The run's whole output is kept. A Drone picking this group up can ask for the Check again and is handed the last of what it printed.",
+    retrySays: "attempt 2",
   },
-  play: async ({ canvas }) => {
+  play: async ({ canvas, args }) => {
     const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
     // **The break test.** What failed is why anybody is on the card, so the
     // strip opens itself — shut, every assertion below would read nothing and
     // the screen would be hiding the one thing it exists to show.
     await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "true");
-    await expect(checks).toHaveTextContent("screens_test");
-    await expect(checks).toHaveTextContent("second run");
-    await expect(checks).toHaveTextContent("1 of 1384 failed");
+    // The attempt is whole: the head wraps rather than ending a chip in `…`,
+    // which is how `second run` read as `second r…` (the owner, 29 Sep).
+    const attempt = within(checks).getByText("attempt 2");
+    await expect(attempt.scrollWidth).toBeLessThanOrEqual(attempt.clientWidth);
     await expect(checks.querySelectorAll('[data-reads="passed"]')).toHaveLength(6);
-    // Not the output, and the region says so rather than claiming to be it.
-    await expect(checks).toHaveTextContent("What the gate wrote down");
-    await expect(checks).toHaveTextContent("The run's whole output is kept");
+    // Open, the head sums nothing up: the rows under it say what failed and
+    // how many there are (the owner, 29 Sep 2026).
+    await expect(checks).not.toHaveTextContent("screens_test failed");
+    await expect(checks.querySelector(".armada-boundary__count")).toBeNull();
+    await expect(checks.querySelector(".armada-step-bar")).toBeNull();
+    // Each value under its label, and the heading that ran them together gone.
+    await expect(checks).toHaveTextContent("ExpectedEvery test in the screens package passes");
+    await expect(checks).toHaveTextContent("Result1 of 1384 failed");
+    await expect(checks).not.toHaveTextContent("What the gate wrote down");
+    await expect(checks).not.toHaveTextContent("The run's whole output is kept");
+    // The guide's `?` is beside the label and never leads the Checks.
+    await expect(checks.querySelector(".armada-boundary__checks > li")).toHaveTextContent("screens_test");
+    // A Check is a button to its own Record row.
+    const failed = within(checks).getByRole("button", { name: "screens_test, failed" });
+    await userEvent.click(failed);
+    const screens = args.checks!.find((check) => check.name === "screens_test")!;
+    await expect(screens.onOpen).toHaveBeenCalledOnce();
     // The two sentences the owner cut on 28 Sep. The ordering rule is guide
     // 4's, and the reason there is no case named Fleet and not this Job.
     await expect(checks).not.toHaveTextContent("No task of group");

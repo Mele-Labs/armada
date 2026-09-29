@@ -15,7 +15,7 @@ import {
   groupFailed,
 } from "./fixtures/build/arc";
 import type { ArcMoment } from "./fixtures/build/arc-base";
-import { boundaryOf, planBoardOf, shapeSaid, toldNextOf, verdictSaid } from "./plan-board";
+import { boundaryOf, planBoardOf, shapeSaid, verdictSaid } from "./plan-board";
 import { runBySaid } from "./tab-plan-read";
 import { tasksField } from "./step";
 
@@ -131,25 +131,47 @@ describe("a boundary that failed", () => {
   // The boundary said which group it holds back until 28 Sep. The owner cut
   // it: the ordering rule is true of a step that never ran, guide 4 carries
   // it, and group 4's own row says it is waiting.
-  test("it says this is its second run, and nothing about what the next group may do", () => {
+  test("it says this is its second attempt, and nothing about what the next group may do", () => {
     const three = groupAt(groupFailed(), 3).boundary;
-    expect(three.retrySays).toBe("second run");
+    expect(three.retrySays).toBe("attempt 2");
     expect(JSON.stringify(three)).not.toContain("No task of group");
   });
 
-  test("what the next Drone is told is the Check's own output, not a summary", () => {
-    const three = groupAt(groupFailed(), 3).boundary;
-    expect(three.toldNext).toContain("1 of 1384 failed");
-    expect(three.toldNext).toContain("every test in the screens package passes");
+  // Run together with no labels, the two read as one claim that contradicted
+  // itself (the owner, 29 Sep 2026). Each is its own field on the Check's row.
+  test("the Check that failed carries what it was held to and what it got, apart", () => {
+    const screens = groupAt(groupFailed(), 3).boundary.checks.find((one) => one.name === "screens_test")!;
+    expect(screens.expected).toBe("Every test in the screens package passes");
+    expect(screens.result).toBe("1 of 1384 failed: the Drones row opened the Board");
+  });
+
+  test("pressing a Check that ran opens its run, by name and step attempt", () => {
+    const read = reading(groupFailed());
+    const opened: [string, number][] = [];
+    const onOpenCheck = (name: string, at: number) => void opened.push([name, at]);
+    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheck)!;
+    drawn.groups[2]!.boundary.checks.find((one) => one.name === "screens_test")!.onOpen!();
+    expect(opened).toEqual([["screens_test", 1]]);
+  });
+
+  // The step's runs are every group's, so a group nothing reached would
+  // otherwise open another group's run, and a passed one another group's red.
+  test("a Check with no run of its own to open is not pressable", () => {
+    const read = reading(groupFailed());
+    const onOpenCheck = () => undefined;
+    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheck)!;
+    expect(drawn.groups[3]!.boundary.checks.every((one) => one.onOpen === undefined)).toBe(true);
+    const first = drawn.groups[0]!.boundary.checks;
+    expect(first.filter((one) => one.onOpen !== undefined).map((one) => one.name)).toEqual(["test"]);
   });
 
   // A step's `check_runs` is one list for every group in it, so a passed group
   // taking a later group's red is the defect this guards.
   test("a group that passed takes no red from another group's failed run", () => {
     const one = groupAt(groupFailed(), 1).boundary;
-    expect(one.verdictSays).toBe("all 4 passed");
+    expect(one.verdictSays).toBe("all passed");
     expect(one.checks.some((check) => check.reads === "failed")).toBe(false);
-    expect(one.toldNext).toBeUndefined();
+    expect(one.checks.some((check) => check.result !== undefined)).toBe(false);
   });
 
   test("a task whose own agent stopped without finishing carries its reason", () => {
@@ -178,15 +200,15 @@ describe("what the board refuses to draw", () => {
     expect(planBoardOf(null, undefined, () => undefined)).toBeUndefined();
   });
 
-  // The step is only where a failed Check's output is read from, so a plan whose
+  // The step is only where a boundary's runs are read from, so a plan whose
   // step cannot be found still draws: the groups are the plan's, and the
-  // boundary simply hands nothing on. The second board needed the step for its
+  // boundary simply carries no run. The second board needed the step for its
   // own heading, and there is no second board.
-  test("a plan whose step cannot be found still draws its groups, and hands nothing on", () => {
+  test("a plan whose step cannot be found still draws its groups, and carries no run", () => {
     const read = reading(groupFailed());
     const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined)!;
     expect(drawn.groups.map((one) => one.ordinal)).toEqual([1, 2, 3, 4]);
-    expect(drawn.groups[2]!.boundary.toldNext).toBeUndefined();
+    expect(drawn.groups[2]!.boundary.checks.some((one) => one.result !== undefined)).toBe(false);
     expect(drawn.groups[2]!.boundary.verdictSays).toBe("screens_test failed");
   });
 
@@ -210,7 +232,6 @@ describe("what the board refuses to draw", () => {
   test("a boundary nothing has reached says nothing about a verdict", () => {
     const read = reading(executingSequential());
     expect(verdictSaid(read.groups[3]!, [])).toBeUndefined();
-    expect(toldNextOf(read.step, [])).toBeUndefined();
   });
 
   test("how a task is run is read off its treatment and never invented", () => {
