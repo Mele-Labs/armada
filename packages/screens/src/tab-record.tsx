@@ -73,7 +73,33 @@ export type RecordTabProps = {
    * not this tab's** — `JobDetail.tsx` owns which destination is open.
    */
   onOpenStep: (stepId: string) => void;
+  /**
+   * The Check whose row opens with the tab — by its name and the step attempt
+   * that ran it — where another destination sent a person here. Read once.
+   */
+  opensCheck?: CheckAt;
 };
+
+/** A Check's run, as a boundary names it: its name, and the step attempt that ran it. */
+export type CheckAt = { name: string; stepAttempt: number };
+
+/**
+ * The Record row a Check's run is: `checked`, that name, on the step the groups
+ * are worked at, at that attempt. **Nothing where the Record holds no such
+ * row.**
+ */
+function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: CheckAt): string | undefined {
+  const step = detail === null ? undefined : stepThatWorksTheGroups(detail);
+  if (step === undefined) return undefined;
+  const row = rows.find(
+    (one) =>
+      one.kind === "checked" &&
+      one.what === at.name &&
+      one.coord?.step === step &&
+      one.coord?.step_attempt === at.stepAttempt,
+  );
+  return row === undefined ? undefined : String(row.cursor);
+}
 
 export function RecordTab({
   jobId,
@@ -87,6 +113,7 @@ export function RecordTab({
   cases: givenCases,
   onSaid,
   onOpenStep,
+  opensCheck,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
   // Which step the rows are narrowed to. `null` is every step, and the Job's
@@ -94,7 +121,21 @@ export function RecordTab({
   const [step, setStep] = useState<string | null>(null);
   // Which row is open. **Held here and not in the ledger**, so a live redraw of
   // the Record does not close the row somebody is reading.
-  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(() =>
+    opensCheck === undefined ? null : (checkRowOf(rows, detail, opensCheck) ?? null),
+  );
+  // A Check pressed on a task's boundary opens that Check's own row. **Every
+  // row, where the filter or the step would hide it** — an open row the table
+  // does not hold is the stale panel this screen exists to end.
+  const openCheck = (name: string, stepAttempt: number) => {
+    const id = checkRowOf(rows, detail, { name, stepAttempt });
+    if (id === undefined) return;
+    if (!underFilter(underStep(rows, step), filter).some((row) => String(row.cursor) === id)) {
+      setFilter("all");
+      setStep(null);
+    }
+    setOpenRow(id);
+  };
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
   // The plan's groups, and every task in them, for the Drone a row names and
@@ -187,6 +228,7 @@ export function RecordTab({
                     cases={cases}
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
+                    onOpenCheck={openCheck}
                   />
                 ),
               })}
@@ -226,6 +268,7 @@ type RowReadProps = {
   cases: readonly CaseView[];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
+  onOpenCheck: (name: string, stepAttempt: number) => void;
 };
 
 /**
@@ -249,6 +292,7 @@ function RowRead({
   cases,
   onSaid,
   onOpenStep,
+  onOpenCheck,
 }: RowReadProps) {
   const step = detail.steps.find((one) => one.step_id === row.coord?.step);
   const run =
@@ -362,7 +406,14 @@ function RowRead({
             {/* A File row's outcome stays in the table; its sheet is for the
                 diff. Every other value is under its own label. The owner, 29 Sep. */}
             {task !== undefined ? (
-              <TaskRead row={row} task={task} groups={groups} cases={cases} detail={detail} />
+              <TaskRead
+                row={row}
+                task={task}
+                groups={groups}
+                cases={cases}
+                detail={detail}
+                onOpenCheck={onOpenCheck}
+              />
             ) : family === "files" ? null : (
               <RowFields row={row} detail={detail} />
             )}
@@ -576,7 +627,8 @@ function splitOnce(said: string, separator: string): [string, string | undefined
  * own result is `boundaryOf`'s: named failed only while the group is failed or
  * running again, off the working step's latest attempt, and the group's state
  * for the rest. The task's own cases are `Tests` above, so the boundary's
- * tests strip is not drawn a second time.
+ * tests strip is not drawn a second time. **Pressing a Check opens its own
+ * row**, where its output and what it stopped are read.
  */
 function TaskRead({
   row,
@@ -584,12 +636,14 @@ function TaskRead({
   groups,
   cases,
   detail,
+  onOpenCheck,
 }: {
   row: LedgerRow;
   task: GroupView["tasks"][number];
   groups: readonly GroupView[];
   cases: readonly CaseView[];
   detail: JobWhole;
+  onOpenCheck: (name: string, stepAttempt: number) => void;
 }) {
   const owed = task.cases
     .map((id) => cases.find((one) => one.id === id))
@@ -657,6 +711,7 @@ function TaskRead({
                   [],
                   detail,
                   detail.steps.find((one) => one.step_id === stepThatWorksTheGroups(detail)),
+                  onOpenCheck,
                 )}
               />
             </div>

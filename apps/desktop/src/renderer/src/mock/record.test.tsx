@@ -171,6 +171,21 @@ describe("the Record, as the owner asked for it", () => {
       expect(table).not.toContain("inside the plan");
     },
   );
+
+  // The owner, 29 Sep 2026: *Should I be able to click on the check to open
+  // that record and see the check? Yes.*
+  test(
+    "arc/group-failed: pressing screens_test on T5's group boundary opens that Check's own " +
+      "row, with its output",
+    async () => {
+      await record("arc/group-failed");
+      await page.getByRole("button", { name: /^T5 marked done/ }).click();
+      await page.getByRole("button", { name: "screens_test, failed" }).click();
+
+      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+    },
+  );
 });
 
 /** App on an arc moment, with the Record open. */

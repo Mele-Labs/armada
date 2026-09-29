@@ -37,7 +37,7 @@ import { ProposalTab } from "./tab-proposal";
 import { proposalEditsOf } from "./tab-proposal-read";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
-import { RecordTab } from "./tab-record";
+import { RecordTab, type CheckAt } from "./tab-record";
 import { SettingsTab } from "./tab-settings";
 import { WorkflowTab } from "./tab-workflow";
 import { WaveRegion, type WaveRegionProps } from "./tab-wave";
@@ -86,8 +86,12 @@ function OneJob(props: JobDetailProps) {
   // The step Workflow opens on, where the Record's reading sent a person
   // there. Cleared by the strip, so the next visit opens on nothing.
   const [opensStep, setOpensStep] = useState<string | undefined>(undefined);
+  // The Check whose Record row opens, where the Plan's boundary sent a person
+  // there. Cleared by the strip in the same way.
+  const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
   const toTab = (next: DetailTab) => {
     setOpensStep(undefined);
+    setOpensCheck(undefined);
     setTab(next);
   };
 
@@ -278,6 +282,10 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
+          onOpenCheck={(name, stepAttempt) => {
+            setOpensCheck({ name, stepAttempt });
+            setTab("record");
+          }}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -310,6 +318,7 @@ function OneJob(props: JobDetailProps) {
             setOpensStep(stepId);
             setTab("workflow");
           }}
+          {...(opensCheck === undefined ? {} : { opensCheck })}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id)} jobId={job.id} onNeedPulse={props.onNeedPulse} />

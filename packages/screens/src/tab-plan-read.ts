@@ -362,12 +362,14 @@ export function failedChecksOf(whole: JobDetail | null, group: GroupView): strin
 /**
  * How many times a group has been run. **Nothing on its first run** — a count
  * of one would read as a retry that has not happened.
+ *
+ * **`attempt 2`, the app's one word for a run again** — a step's card on the
+ * Workflow canvas says `attempt 2` in the same chip. `second run` read as
+ * `second r…` once the strip cut it (the owner, 29 Sep 2026).
  */
 export function retrySaid(retries: number): string | undefined {
   if (retries <= 0) return undefined;
-  if (retries === 1) return "second run";
-  if (retries === 2) return "third run";
-  return `run ${retries + 1}`;
+  return `attempt ${retries + 1}`;
 }
 
 // The group card and the whole board are `plan-board.ts`'s: composing a card

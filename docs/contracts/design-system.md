@@ -128,6 +128,12 @@ is allowed only as that light, and never where a person reads a state.
    drawing tool and adds nothing to `GraphCanvas`, which every other
    graph draws on. A surface that wants a pen mounts its own through the
    canvas's `children`, or it does without one.
+7. **No aggregate count beside what it counts.** A number saying how many
+   rows, Checks or items a list holds, drawn next to that list, repeats what
+   the reader can already see and teaches the eye to skip numbers. Draw the
+   items and leave the count off. A count goes only where the items are not
+   drawn: a folded list, or a tab naming a backlog, on *Destinations*' rule
+   for the figure beside a name. The owner, 29 Sep 2026.
 
 ---
 
