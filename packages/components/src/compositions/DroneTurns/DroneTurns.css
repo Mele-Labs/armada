@@ -118,6 +118,51 @@
   color: var(--fg-default);
 }
 
+/* --- A block of calls ---------------------------------------------------- */
+
+/* Consecutive calls, tucked between the sentences as one quiet block: a rule
+   and an inset, no fill — the sheet and the card are the only two grounds,
+   29 Sep 2026. The rule stands under the first letter of the sentences, a
+   --space-2 left of where an opened thinking run hangs its own, and in the
+   fainter --edge-rule, so the two never read as one line or meet. */
+.armada-turns__calls {
+  margin: var(--space-1) 0 var(--space-1) var(--space-2);
+  padding-left: var(--space-3);
+  border-left: var(--border-width) solid var(--edge-rule);
+}
+
+.armada-turns__call-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Tighter than the sentences: a call is a line of a list, not a paragraph. */
+.armada-turns__calls .armada-turns__turn {
+  padding: calc(var(--space-1) / 2) 0;
+}
+
+/* Dimmer than the prose, the tool name dimmer still: the path stays the one
+   thing in the block a reader hunting for it can find. */
+.armada-turns__calls .armada-turns__detail {
+  color: var(--fg-muted);
+}
+
+.armada-turns__calls .armada-turns__head .armada-turns__subject {
+  color: var(--fg-subtle);
+}
+
+/* A failure or a refusal is what breaks the block's quiet, so it keeps the
+   brightness the rest gave up — at the block's size. */
+.armada-turns__calls .armada-turns__answer,
+.armada-turns__calls .armada-turns__said {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-default);
+}
+
 /* No rows at all. A Job that was never dispatched is an ordinary answer, so
    this is a sentence in the well rather than an error treatment. */
 .armada-turns__empty {

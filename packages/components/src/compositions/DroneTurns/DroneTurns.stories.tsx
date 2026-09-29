@@ -133,6 +133,46 @@ export const ADroneWorking: Story = {
 };
 
 /**
+ * Tool calls as a quiet block under the sentences.
+ *
+ * **Reading down the card gives what the Drone said.** Consecutive calls — a
+ * refused one and a failed one included — gather into one block, smaller and
+ * dimmer behind a rule, and a sentence between two calls splits them into two
+ * blocks. The owner, 29 Sep 2026: *"the lines all just kind of blend
+ * together."* A thinking run and the run's closing line stay out of the block:
+ * neither is a call.
+ */
+export const ToolCallsReadAsAQuietBlock: Story = {
+  args: {
+    emptyNote: NOTHING_YET,
+    turns: [
+      { id: "1", at: "05:12:20", who: "drone", kind: "said", said: "Starting on T1: Serve one read of everything running. Reading first." },
+      { id: "2", at: "05:12:21", who: "drone", kind: "called", subject: "Read", detail: "crates/api/src/running.rs" },
+      { id: "3", at: "05:12:22", who: "drone", kind: "called", subject: "Read", detail: "crates/ipc/operations.toml" },
+      { id: "4", at: "05:14:02", who: "drone", kind: "said", said: "The change belongs in running.rs. Writing it now." },
+      { id: "5", at: "05:14:10", who: "drone", kind: "called", subject: "Edit", detail: "crates/api/src/running.rs" },
+      { id: "6", at: "05:15:40", who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p api", answer: "Failed." },
+      { id: "7", at: "05:15:41", who: "drone", kind: "refused", subject: "Bash", said: "Refused: this command is not on the allowlist for this drone." },
+      ...thinking(10, 4, "05:15:42"),
+      { id: "20", at: "05:16:30", who: "drone", kind: "said", said: "The read answers Drones, Checks and Judge calls in one." },
+      { id: "21", at: "05:16:31", who: "drone", kind: "ended", subject: "34 turns · $2.40" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const blocks = canvas.getAllByRole("list", { name: "Tool calls" });
+    await expect(blocks).toHaveLength(2);
+    const [reads, edits] = blocks.map((block) => within(block));
+    await expect(reads?.getAllByRole("listitem")).toHaveLength(2);
+    await expect(edits?.getAllByRole("listitem")).toHaveLength(3);
+    await expect(edits?.getByText("Failed.")).toBeVisible();
+    await expect(edits?.getByText(/^Refused:/)).toBeVisible();
+    // Sentences and the closing line are never inside a block.
+    await expect(reads?.queryByText(/Writing it now/)).toBeNull();
+    await expect(edits?.queryByText("34 turns · $2.40")).toBeNull();
+  },
+};
+
+/**
  * A Job nobody dispatched. **Ordinary, not an error** — the socket opens, says
  * nothing is writing, sends no rows and closes. A blank pane would read as a
  * view that failed to load.

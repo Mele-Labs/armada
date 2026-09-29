@@ -28,6 +28,11 @@ import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
  * repeats pretty much the same thing on every row."* A turn with no speaker is
  * a card of its own with no head, rather than one under a guessed name.
  *
+ * **Tool calls read as a quiet block under the sentences.** Consecutive calls
+ * gather into one block — smaller, muted, set in behind a rule — so reading
+ * down a card gives what the Drone said, with its work tucked between. The
+ * owner, 29 Sep 2026: *"the lines all just kind of blend together."*
+ *
  * **Times are a card's, not a row's.** The head carries the card's first
  * instant; each row keeps its own as its title.
  *
@@ -46,7 +51,7 @@ export type DroneTurn = {
   id: string;
   /** When Fleet's line loop saw it, not when it reached the disk. */
   at: string;
-  /** The wire's kind: `called`, `said`, `refused`, `started`, and the rest. Not drawn. */
+  /** The wire's kind: `called`, `refused`, `said`, and the rest. Not drawn; it gathers calls. */
   kind: string;
   /** Who wrote the row. Names its card; absent, the row is a headless card of its own. */
   who?: ActivityActor;
@@ -183,6 +188,8 @@ export function DroneTurns({ turns, emptyNote, live = false }: DroneTurnsProps) 
             {entry.items.map((item, at) =>
               item.of === "turn" ? (
                 <Row key={item.turn.id} turn={item.turn} />
+              ) : item.of === "calls" ? (
+                <Calls key={item.turns[0].id} turns={item.turns} />
               ) : (
                 <QuietRun
                   key={item.turns[0].id}
@@ -233,7 +240,9 @@ type Item =
    * and only ever grows. Written as a non-empty tuple so the head below is a
    * turn rather than a lookup every caller has to assert.
    */
-  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] };
+  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] }
+  /** Consecutive calls, refused ones included. Non-empty for the same reason. */
+  | { of: "calls"; turns: [DroneTurn, ...DroneTurn[]] };
 
 /** One speaker's consecutive turns. Never empty, for the same reason as a run. */
 type CardEntry = { of: "card"; who?: ActivityActor; items: [Item, ...Item[]] };
@@ -276,20 +285,30 @@ function runs(turns: DroneTurn[]): Entry[] {
       opened = true;
       card = undefined;
     }
-    const item: Item = turn.quiet === true ? { of: "quiet", turns: [turn] } : { of: "turn", turn };
+    const item: Item =
+      turn.quiet === true
+        ? { of: "quiet", turns: [turn] }
+        : isCall(turn)
+          ? { of: "calls", turns: [turn] }
+          : { of: "turn", turn };
     if (card === undefined || card.who === undefined || card.who !== turn.who) {
       card = { of: "card", ...(turn.who === undefined ? {} : { who: turn.who }), items: [item] };
       entries.push(card);
       continue;
     }
     const last = card.items[card.items.length - 1];
-    if (item.of === "quiet" && last?.of === "quiet") {
+    if ((item.of === "quiet" || item.of === "calls") && last?.of === item.of) {
       last.turns.push(turn);
       continue;
     }
     card.items.push(item);
   }
   return entries;
+}
+
+/** By kind, never by shape: a session line carries a subject alone, as a bare call does. */
+function isCall(turn: DroneTurn): boolean {
+  return turn.kind === "called" || turn.kind === "refused";
 }
 
 function toggled(open: ReadonlySet<string>, id: string): ReadonlySet<string> {
@@ -366,6 +385,19 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
 function firstOf(card: CardEntry): DroneTurn {
   const head = card.items[0];
   return head.of === "turn" ? head.turn : head.turns[0];
+}
+
+/** Consecutive calls as one quiet block, a list named for what it holds. */
+function Calls({ turns }: { turns: [DroneTurn, ...DroneTurn[]] }) {
+  return (
+    <li className="armada-turns__calls">
+      <ol className="armada-turns__call-rows" aria-label="Tool calls">
+        {turns.map((turn) => (
+          <Row key={turn.id} turn={turn} />
+        ))}
+      </ol>
+    </li>
+  );
 }
 
 /**
