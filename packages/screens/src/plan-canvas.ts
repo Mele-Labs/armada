@@ -24,13 +24,15 @@ import type { TaskState, TaskView } from "./draft/task";
 /**
  * The layout, in the canvas's own coordinates.
  *
- * `TASK_ACROSS` is `--w-workflow-group-node` plus room for an arrowhead, so a
- * task column clears its group's card. `TASK_APART` is one task's pitch down
+ * `TASK_ACROSS` is `--w-workflow-group-node` (228) plus an 88 gap: room for a
+ * smooth step to turn twice, clearing each card by the canvas's 20, and still
+ * run straight between. At 28 the turns could not fit and each edge hooked
+ * back on itself (owner, 29 Sep 2026). `TASK_APART` is one task's pitch down
  * that column and `AFTER_GROUP` the gap to the group below. Numbers rather
  * than tokens because React Flow places by number and a `var()` cannot reach
  * it.
  */
-const TASK_ACROSS = 256;
+const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
 /** A group holding no task still takes a row of its own. */
