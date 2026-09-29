@@ -121,6 +121,12 @@ const api: BridgeApi = {
 
   killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
 
+  killProcess: (jobId: string, pid: number): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.killProcess, jobId, pid),
+
+  killProcesses: (jobId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.killProcesses, jobId),
+
   // The disk, never the record — every row this reaches stays on the board,
   // under `Cleared`. One entry taking every id rather than a loop of
   // `killJob`-shaped calls at the call site, because the loop belongs to

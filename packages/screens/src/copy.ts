@@ -214,6 +214,24 @@ export const CONFIRM: Record<ConfirmableAct, { title: string; body: string; tone
 };
 
 /**
+ * Pulse's two kills, confirmed in the shared dialog once their hold completes.
+ * **The title names what ends and says nothing more** — `node`, pid `41233`,
+ * as #1647 has it. Not in `CONFIRM`, because the process is part of the words
+ * and a Job act's title is a constant.
+ */
+export const KILL_PROCESS = {
+  title: (command: string, pid: number) => `Kill ${command}, pid ${pid}?`,
+  confirm: "Kill process",
+};
+
+/** Every process the Job holds, counted, so the title says how many end. */
+export const KILL_PROCESSES = {
+  title: (count: number) =>
+    count === 1 ? "Kill the one process this job holds?" : `Kill all ${count} processes this job holds?`,
+  confirm: "Kill all",
+};
+
+/**
  * The field the restart confirmation carries, and what it promises.
  *
  * **The one confirmation that collects anything, and the field is optional.**

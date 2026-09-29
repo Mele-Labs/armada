@@ -670,7 +670,8 @@ describe("Pulse", () => {
     await onPulse();
 
     const processes = page.getByRole("region", { name: "Processes" });
-    await expect.element(processes.getByText("52118")).toBeVisible();
+    // Exact: the row's kill names the pid too, in its hidden description.
+    await expect.element(processes.getByText("52118", { exact: true })).toBeVisible();
     // The branch is on the process row and on the worktree row, which is the
     // whole of "the worktree it belongs to": one occurrence is a table that
     // lists what is running and does not say where.
@@ -678,7 +679,7 @@ describe("Pulse", () => {
     await expect
       .element(page.getByRole("region", { name: "Worktrees" }).getByText(ARC_BRANCH))
       .toBeVisible();
-    await expect.element(page.getByText(/^Read .* ago\./)).toBeVisible();
+    await expect.element(page.getByText(/^Updated .* ago$/)).toBeVisible();
   });
 
   test("arc/executing-concurrent: with no agent running, Pulse says so rather than drawing an empty table", async () => {
@@ -706,8 +707,8 @@ describe("Pulse", () => {
   });
 
   test(
-    "arc/executing-sequential: Pulse says when it was read and what keeps it current, and " +
-      "nothing about what a look is — that is the mark beside the act",
+    "arc/executing-sequential: Pulse says when it was read, and nothing about how often or " +
+      "what a look is — that is the mark beside the act",
     async () => {
       mount("arc/executing-sequential");
       await onPulse();
@@ -718,8 +719,10 @@ describe("Pulse", () => {
         .element(page.getByText(/A process can exit between the reading and this screen/))
         .not.toBeInTheDocument();
       await expect.element(page.getByText(/Looking costs no model call/)).not.toBeInTheDocument();
-      // What stays is the reading: when, and how often it is taken again.
-      await expect.element(page.getByText(/^Read .* ago\. Taken again every 10s while open\.$/)).toBeVisible();
+      // What stays is the reading's age. How often it is taken again went too
+      // (owner, 29 Sep): the head says `Updated 4s ago` and nothing beside it.
+      await expect.element(page.getByText(/^Updated .* ago$/)).toBeVisible();
+      await expect.element(page.getByText(/every 10s while open/)).not.toBeInTheDocument();
       await expect.element(markFor(GUIDE_LOOK)).toBeVisible();
       await expect.element(page.getByRole("button", { name: "Refresh" })).toBeVisible();
     },

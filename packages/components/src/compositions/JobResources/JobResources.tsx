@@ -1,21 +1,34 @@
 // Pulse — what one Job is costing the machine right now: what is running, what
 // it is spending, the processes, the checkouts and the logs.
 //
-// Not a debug panel. The first thing on it is a sentence answering *is this
-// working*, and the figures come after. `docs/contracts/design-system.md` →
-// Fleet panel, for the figure rows; #1538 for the board.
+// Not a debug panel. The figures come first; a sentence only where Fleet
+// cannot be asked. `docs/contracts/design-system.md` → Fleet panel, for the
+// figure rows; #1538 for the board.
 
 import { RotateCw } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState } from "react";
 
-import type { Finding, JobExamined, Look } from "@armada/protocol";
+import type { Artifact, JobExamined, Look } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { DestinationCard } from "../DestinationCard/DestinationCard";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "../../guides";
-import type { Guide } from "../../guides/guide";
-import { Logs, Processes, Worktrees } from "./JobResources.lists";
-import type { PulseReading } from "./JobResources.lists";
+import {
+  ANY,
+  CPU_USAGE,
+  KillHold,
+  LogMember,
+  Logs,
+  MEMORY_USAGE,
+  Processes,
+  processesTotal,
+  TOTAL_SIZE_ON_DISK,
+  Worktrees,
+  worktreesTotal,
+} from "./JobResources.lists";
+import type { PulseProcessRow, PulseReading } from "./JobResources.lists";
 
 export * from "./JobResources.lists";
 
@@ -52,12 +65,6 @@ export type JobResourcesProps = {
   note?: string;
   /** How old the reading is, as a phrase — `4s`. Formatted by the caller. */
   age?: string;
-  /**
-   * What keeps the reading current, in the caller's words. **Beside the age**,
-   * because "4s ago" answers nothing alone: a figure taken again and one as
-   * fresh as it will ever get read the same.
-   */
-  refreshed?: string;
   /** What the last look found, or `null` where nobody has pressed. */
   examined: JobExamined | null;
   /** A look already out. A second press does not send a second act. */
@@ -76,6 +83,23 @@ export type JobResourcesProps = {
    */
   nothingToAsk?: NothingToAsk;
   onExamine: () => void;
+  /**
+   * Open a worktree or a log. **Absent draws no `Open` on any row**, so a
+   * surface that cannot open files does not offer to.
+   */
+  onOpen?: (what: Artifact) => void;
+  /**
+   * Kill one process, once its row's kill has been held. **The host confirms**
+   * — this only says which process was asked for. Absent draws no kill on any
+   * row.
+   */
+  onKillProcess?: (process: PulseProcessRow) => void;
+  /**
+   * Kill every process the Job holds, once the head's kill has been held. The
+   * host confirms. Absent draws no control, and so does a list with nothing in
+   * it.
+   */
+  onKillAll?: () => void;
 };
 
 /**
@@ -89,147 +113,174 @@ export function JobResources({
   figures = [],
   note,
   age,
-  refreshed,
   examined,
   looking = false,
   lookFailed,
   nothingToAsk,
   onExamine,
+  onOpen,
+  onKillProcess,
+  onKillAll,
 }: JobResourcesProps) {
+  const [member, setMember] = useState(ANY);
   return (
     <section className="armada-holds">
-      <div className="armada-holds__head">
-        <div className="armada-holds__said-head">
-          {/* The board's own name and the `?` that says what a board is. It is
-              here rather than beside the verdict because the verdict is this
-              job's reading and the question is about the tab. Arriving on Pulse
-              used to raise the guide about disk, one fact inside it (#1602's
-              first contact, the owner on 28 Sep). */}
-          <div className="armada-holds__band-row">
-            <h3 className="armada-holds__band">{PULSE}</h3>
-            <GuideMark guide={GUIDE_PULSE} />
-          </div>
-          <Headline
-            examined={examined}
-            looking={looking}
-            lookFailed={lookFailed}
-            nothingToAsk={nothingToAsk}
-          />
-        </div>
-        {/* No act where there is nothing to ask. **Absent rather than
-            disabled**: a greyed control still says an act exists here and puts
-            the reason on a person to work out.
+      <DestinationCard
+        label={STATS}
+        guide={GUIDE_PULSE}
+        trailing={
+          <>
+            <Headline lookFailed={lookFailed} nothingToAsk={nothingToAsk} />
+            {reading === null ? null : (
+              <span className="armada-holds__read-at">{readAt(reading, age)}</span>
+            )}
+            {/* No act where there is nothing to ask. **Absent rather than
+                disabled**: a greyed control still says an act exists here and
+                puts the reason on a person to work out.
 
-            **`Refresh` on `rotate-cw`**, the owner's own word for the button
-            on 28 Sep. `refresh-cw` is reserved to churning and
-            `docs/contracts/iconography.md` sends every refresh control here;
-            `search` went with the old label. */}
-        {nothingToAsk !== undefined ? null : (
-          <span className="armada-holds__act">
-            <Button size="sm" onClick={onExamine} disabled={looking}>
-              <RotateCw size={12} strokeWidth={2} aria-hidden="true" />
-              {looking ? "Refreshing" : "Refresh"}
-            </Button>
-            {/* What a look is, what it costs and what its three answers mean.
-                Beside the act rather than beside the verdict: the verdict is
-                this job's reading, and the act is the Armada word. */}
-            <GuideMark guide={GUIDE_LOOK} />
-          </span>
-        )}
-      </div>
+                **`rotate-cw` alone, `Refresh` in its tooltip** — the owner's
+                word on 28 Sep, and his call for an icon button on 29 Sep. */}
+            {nothingToAsk !== undefined ? null : (
+              <span className="armada-holds__act">
+                <Tooltip label="Refresh">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={looking ? "Refreshing" : "Refresh"}
+                    onClick={onExamine}
+                    disabled={looking}
+                  >
+                    <RotateCw size={16} strokeWidth={2} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <GuideMark guide={GUIDE_LOOK} />
+              </span>
+            )}
+          </>
+        }
+      >
+        {figures.length === 0 ? null : <FigureList figures={figures} column="strip" />}
+        {examined === null ? null : <Looks looks={examined.looks} />}
+        {reading === null ? (
+          <p className="armada-holds__note">
+            {nothingToAsk === undefined
+              ? (note ?? "Nothing has been read yet.")
+              : INSTEAD[nothingToAsk]}
+          </p>
+        ) : null}
+      </DestinationCard>
 
-      {figures.length === 0 ? null : <FigureList figures={figures} column="strip" />}
-
-      {examined === null ? null : <Looks looks={examined.looks} />}
-
-      {reading === null ? (
-        <p className="armada-holds__note">
-          {nothingToAsk === undefined
-            ? (note ?? "Nothing has been read yet.")
-            : INSTEAD[nothingToAsk]}
-        </p>
-      ) : (
+      {reading === null ? null : (
         <>
-          <Region label="Processes" guide={GUIDE_PROCESSES}>
-            <Processes reading={reading} examined={examined} />
-          </Region>
-          <Region label="Worktrees" guide={GUIDE_WORKTREE_SIZE}>
-            <Worktrees worktrees={reading.worktrees} />
-          </Region>
-          <Region label="Logs">
-            <Logs logs={reading.logs} />
-          </Region>
-          {/* Last rather than a caption, because it qualifies everything over it. */}
-          <p className="armada-holds__read-at">{readAt(reading, age, refreshed)}</p>
+          {/* **A card for every list, including an empty one.** A card that
+              disappeared when it held nothing would make "no worktree on
+              disk" and "this build does not draw worktrees" the same screen. */}
+          <div className="armada-holds__pair">
+            <DestinationCard
+              label="Processes"
+              guide={GUIDE_PROCESSES}
+              trailing={
+                <ProcessesHead
+                  processes={reading.processes}
+                  {...(onKillAll === undefined ? {} : { onKillAll })}
+                />
+              }
+            >
+              <Processes
+                reading={reading}
+                examined={examined}
+                {...(onKillProcess === undefined ? {} : { onKill: onKillProcess })}
+              />
+            </DestinationCard>
+            <DestinationCard
+              label="Worktrees"
+              guide={GUIDE_WORKTREE_SIZE}
+              trailing={
+                worktreesTotal(reading.worktrees) === "" ? null : (
+                  <Tooltip label={TOTAL_SIZE_ON_DISK} asChild>
+                    <span className="armada-holds__count">{worktreesTotal(reading.worktrees)}</span>
+                  </Tooltip>
+                )
+              }
+            >
+              <Worktrees worktrees={reading.worktrees} {...(onOpen === undefined ? {} : { onOpen })} />
+            </DestinationCard>
+          </div>
+          <DestinationCard
+            label="Job logs"
+            trailing={<LogMember logs={reading.logs} member={member} onMember={setMember} />}
+          >
+            <Logs logs={reading.logs} member={member} {...(onOpen === undefined ? {} : { onOpen })} />
+          </DestinationCard>
         </>
       )}
     </section>
   );
 }
 
-/** The board's own name, over the sentence a person came for. */
-const PULSE = "Pulse";
-
 /**
- * When the figures above were true, and what keeps them true.
+ * The Processes card's head: CPU and memory across the list, each named by its
+ * tooltip, and the kill that reaches every row.
  *
- * **The second half is the caller's sentence.** How often a reading is taken
- * again is a fact about the app around this panel, and a panel that asserted
- * one would be claiming a schedule it cannot see.
- *
- * **Both halves are readings and neither explains one.** *A process can exit
- * between the reading and this screen* used to ride here; it is true of a job
- * that never ran, so it is the look's guide (#1602).
+ * **Nothing where there are no processes** — no figures and no kill, since
+ * there is nothing to total and nothing to end. The card's sentence says why.
  */
-function readAt(reading: PulseReading, age?: string, refreshed?: string): string {
-  const said = age === undefined ? `Read at ${reading.readAt}.` : `Read ${age} ago.`;
-  return refreshed === undefined ? said : `${said} ${refreshed}`;
-}
-
-/**
- * One band of the board and what is under it.
- *
- * **A label on every list, including an empty one.** A region that disappeared
- * when it held nothing would make "no worktree on disk" and "this build does
- * not draw worktrees" the same screen.
- */
-function Region({ label, guide, children }: { label: string; guide?: Guide; children: ReactNode }) {
+function ProcessesHead({
+  processes,
+  onKillAll,
+}: {
+  processes: PulseProcessRow[];
+  onKillAll?: () => void;
+}) {
+  const total = processesTotal(processes);
+  if (total === null) return null;
   return (
-    <section className="armada-holds__region" aria-label={label}>
-      {/* The `?` on the band, where the region's own word is. Two of the three
-          bands carry one: a log is a log, and a mark on it would be the noise
-          the rule about where a mark goes exists to refuse. */}
-      <div className="armada-holds__band-row">
-        <h3 className="armada-holds__band">{label}</h3>
-        {guide === undefined ? null : <GuideMark guide={guide} />}
-      </div>
-      {children}
-    </section>
+    <>
+      <span className="armada-holds__count">
+        <Tooltip label={CPU_USAGE} asChild>
+          <span>{total.cpu}</span>
+        </Tooltip>
+        {" · "}
+        <Tooltip label={MEMORY_USAGE} asChild>
+          <span>{total.memory}</span>
+        </Tooltip>
+      </span>
+      {onKillAll === undefined ? null : (
+        <KillHold label={HOLD_TO_KILL_ALL} asks={KILL_ALL} onKill={onKillAll} />
+      )}
+    </>
   );
 }
 
+/** The head's kill, while held and where a press asks instead. */
+const HOLD_TO_KILL_ALL = "Hold to kill all";
+const KILL_ALL = "Kill all processes";
+
+/** The first card's name. The board's word for the figures under it. */
+const STATS = "Stats";
+
+/** When the figures were true — `Updated 4s ago`, and nothing beside it. */
+function readAt(reading: PulseReading, age?: string): string {
+  return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${age} ago`;
+}
+
 /**
- * The sentence a person came for.
+ * A sentence only where something failed: Fleet cannot be asked, or the look
+ * that was asked for did not come back.
  *
- * **A finding and never a status.** These three words are Fleet's answer to
- * *is this working*, and `working` here means *as it should be* rather than *a
- * processor is busy* — a job waiting for a person is working by that reading,
- * and under the other one every finished job would read as broken.
+ * **Nothing otherwise.** A line saying the job had not been looked at sat
+ * beside `Updated 4s ago` and read as a contradiction (owner, 29 Sep: "We dont
+ * need to say anything"). A look's result is the list under the head.
  */
 function Headline({
-  examined,
-  looking,
   lookFailed,
   nothingToAsk,
 }: {
-  examined: JobExamined | null;
-  looking: boolean;
   lookFailed?: string;
   nothingToAsk?: NothingToAsk;
 }) {
-  // Ahead of every other arm, including a look still in flight and a finding
-  // from before. Both of those are claims about the job; this is the reason
-  // there can be no claim, and it outranks a stale one.
+  // Ahead of a failed look: this is the reason there can be no look at all.
   if (nothingToAsk !== undefined) {
     return (
       <p className="armada-holds__verdict" data-degraded>
@@ -239,24 +290,14 @@ function Headline({
     );
   }
   if (lookFailed !== undefined) {
-    return <p className="armada-holds__verdict" data-found="not_working">{lookFailed}</p>;
+    return (
+      <p className="armada-holds__verdict" data-found="not_working">
+        <span className="armada-holds__dot" aria-hidden="true" />
+        {lookFailed}
+      </p>
+    );
   }
-  if (looking) {
-    return <p className="armada-holds__verdict">Looking at this job now.</p>;
-  }
-  // **The absence, in the job's own words.** It read *Nobody has asked
-  // whether this job is working* until 28 Sep, which sat over a panel of
-  // figures that had plainly been read and made the two look like one claim
-  // (owner: "out of place or wrong"). The figures are the poll; this line is
-  // the look, and the look has not run.
-  if (examined === null) {
-    return <p className="armada-holds__verdict">This job has not been looked at.</p>;
-  }
-  return (
-    <p className="armada-holds__verdict" data-found={examined.found}>
-      {SAID[examined.found]}
-    </p>
-  );
+  return null;
 }
 
 /**
@@ -285,19 +326,6 @@ const INSTEAD: Record<NothingToAsk, string> = {
     "Nothing here is a reading of this job. The status bar names which Fleet state this is and what to do.",
   unreadable:
     "Nothing here is a reading of this job. This build of Bridge and this Fleet do not agree about the route, so restarting Fleet changes nothing. They ship as a pair, and rebuilding both is what settles it.",
-};
-
-/**
- * The three findings, said once.
- *
- * **`cannot_tell` names itself rather than hedging.** A person who pressed this
- * because they suspect a hang needs to know the checks came back short, not to
- * read a softened pass.
- */
-const SAID: Record<Finding, string> = {
-  working: "This job is doing what it should be.",
-  not_working: "This job is not doing what it should be.",
-  cannot_tell: "Some of these checks could not tell working from not.",
 };
 
 /** What each look asked, in the order a person reads them. */

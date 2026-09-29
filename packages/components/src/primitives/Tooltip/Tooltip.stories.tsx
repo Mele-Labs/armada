@@ -249,3 +249,30 @@ export const OnATableCell: Story = {
     await waitFor(() => expect(canvas.getByText(/frozen position/)).toBeVisible());
   },
 };
+
+/**
+ * **A mark that repeats the words beside it is hovered and never announced.**
+ * Pulse's worktree dot is coloured by the state its row already says in text,
+ * so a stop or a description on it is that state read twice. `decorative`
+ * gives it neither, and a pointer on it still opens the bubble.
+ */
+export const OnADecorativeMark: Story = {
+  render: () => (
+    <div className="armada-tooltip-row">
+      <Tooltip label="1 drone working" asChild decorative>
+        <span className="armada-tooltip__mark" aria-hidden />
+      </Tooltip>
+      <span>1 drone working</span>
+    </div>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    // The bubble is the one of the two not drawn yet.
+    const bubble = canvas.getAllByText("1 drone working").find((one) => !one.checkVisibility())!;
+    const mark = bubble.parentElement!.parentElement!;
+    await expect(mark).not.toHaveAttribute("tabindex");
+    await expect(mark).not.toHaveAttribute("aria-describedby");
+
+    await userEvent.hover(mark);
+    await waitFor(() => expect(bubble).toBeVisible());
+  },
+};

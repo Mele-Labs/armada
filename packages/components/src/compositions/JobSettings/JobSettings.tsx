@@ -209,6 +209,7 @@ export function JobSettings({
           </h3>
           {costCap === undefined ? null : (
             <Ceiling
+              name="cost"
               label="Cost cap"
               raiseLabel="Raise the cost cap"
               figures={
@@ -224,6 +225,7 @@ export function JobSettings({
           )}
           {turnCap === undefined ? null : (
             <Ceiling
+              name="turns"
               label="Turn cap"
               raiseLabel="Raise the turn cap"
               figures={
@@ -466,12 +468,18 @@ export function JobSettings({
  * admitted, so there is no field here to type one into.
  */
 function Ceiling({
+  name,
   label,
   raiseLabel,
   figures,
   ceiling,
   disabled,
 }: {
+  /**
+   * `data-ceiling` on the row — how a press elsewhere finds it. Pulse's Spend
+   * and Turns open Settings on the cap they read, and bring its row into view.
+   */
+  name: "cost" | "turns";
   label: string;
   raiseLabel: string;
   figures: ReactNode;
@@ -479,7 +487,7 @@ function Ceiling({
   disabled: boolean;
 }) {
   return (
-    <div className="armada-job-settings__field">
+    <div className="armada-job-settings__field" data-ceiling={name}>
       <div className="armada-job-settings__row">
         <div className="armada-job-settings__row-text">
           <ConceptLabel className="armada-job-settings__label">{label}</ConceptLabel>

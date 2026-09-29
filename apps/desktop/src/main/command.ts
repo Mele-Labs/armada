@@ -430,8 +430,27 @@ export class JobCommands {
     return this.kill(jobId, "kill_job");
   }
 
-  /** One in flight per Job covers both kills: a second press aims at a row
-   * that has already moved. */
+  /**
+   * Kill one process the Job holds — a runaway `cargo` under the Drone, from
+   * Pulse. **The pid is a name, not a grant**: Fleet rebuilds the Job's tree at
+   * the act and refuses a pid outside it, so nothing here checks it, and it is
+   * encoded so no value can reach another route. #1647 builds the route.
+   */
+  async killProcess(jobId: string, pid: number): Promise<Outcome> {
+    return this.act(jobId, this.killing, "already_killing", (port) =>
+      ask(port, "POST", route(jobId, `processes/${encodeURIComponent(String(pid))}/kill`)),
+    );
+  }
+
+  /** Kill every process the Job holds, every member's included. #1647 builds the route. */
+  async killProcesses(jobId: string): Promise<Outcome> {
+    return this.act(jobId, this.killing, "already_killing", (port) =>
+      ask(port, "POST", route(jobId, "processes/kill")),
+    );
+  }
+
+  /** One in flight per Job covers every kill here: a second press aims at a
+   * row that has already moved. */
   private kill(jobId: string, operation: "kill_drone" | "kill_job"): Promise<Outcome> {
     return this.act(jobId, this.killing, "already_killing", (port) =>
       ask(port, "POST", route(jobId, operation)),

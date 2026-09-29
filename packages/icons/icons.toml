@@ -479,6 +479,12 @@
     size = "16px"
     notes = "Added 2026-09-28 with the hovering node bar's row of icon buttons. One meaning in two places rather than a second meaning: a person pressing this stopped the thing on purpose, which is what the row above says the silhouette is for, and `unplug` stays the accidental half in both. Refused: `pause`, which is Freeze dispatch and would promise the server comes back; `x` and `ban`, both reserved elsewhere and neither about a process; `circle-*`, the Judge's verdicts."
 
+  [[icons.power.usage]]
+    means = "Kill one process a Job holds, or every one, held and then confirmed"
+    group = "Action"
+    size = "16px"
+    notes = "Added 2026-09-29 with Pulse's Processes card (#1647): a kill on each row and one in the card's head, icon-only with `Hold to kill` as the tooltip. Kill's own glyph, for the reason the server stop above borrows it — a process ended on purpose. 16px, the button size, as is the head's `rotate-cw` Refresh beside it."
+
 [icons.presentation]
   means = "Studios — a whiteboard on its stand, which is what a Studio is drawn as"
   group = "Navigation"

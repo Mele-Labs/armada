@@ -460,6 +460,24 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Kill one process the Job holds, or every one — Pulse's two kills, once
+   * the shared dialog confirmed. `pid` absent is all of them.
+   *
+   * **Not through `acted`**, which names an act the header's controls wait on
+   * and has no word for a process. The answer still goes where every command's
+   * does, so a failure is drawn with its code and something to copy — which is
+   * the whole of what a kill Fleet does not serve yet (#1647) has to say.
+   */
+  async function killProcess(jobId: string, pid?: number): Promise<void> {
+    const answer =
+      pid === undefined
+        ? await window.armada.killProcesses(jobId)
+        : await window.armada.killProcess(jobId, pid);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+  }
+
+  /**
    * Send a redirect. **Not through `act`** — the dialog that collected the
    * instruction already was the confirmation, so there is nothing left to
    * confirm here, only to send.
@@ -825,6 +843,7 @@ export function useCommands(sending: Sending) {
     clearTerminal,
     forgetTerminal,
     act,
+    killProcess,
     redirect,
     answer,
     answerCommand,
