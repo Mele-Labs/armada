@@ -1771,7 +1771,6 @@ track      --bg-raised · --border-default · --radius-md · 2px inner padding
 tab        32px · 12px horizontal padding · --text-sm · --fg-muted
 chosen     --accent-muted fill · --fg-default · weight 500 · --radius-sm
 hover      --fg-default
-count      trailing mono --text-2xs in --fg-subtle, never a filled pill
 ```
 
 **The chosen tab is filled, not underlined.** The rail's own selected row is
@@ -1815,16 +1814,6 @@ from the tab it left, where an edge per tab can only swap. It travels by
 transform and width so nothing reflows, does not travel on first placement,
 and under reduced motion it simply lands.
 
-**A counted strip is the same control.** A count and the key that selects a
-tab sit either side of the label, inside the segment; a tab carrying both is
-the widest thing the strip holds, and the Job Board is where that is measured.
-
-**Suspended steps the whole strip back** — every tab to `--fg-subtle`, and the
-chosen one gives up its fill rather than its selection. A fill reads as *this
-is what you are looking at*, and while something else on the surface is
-narrowing the list that is not true. Nothing is disabled: pressing a tab is
-the way out of the state, so the way out has to work.
-
 ### Destinations
 
 Where inside one object a person is, drawn as underline tabs: plain text on the
@@ -1848,7 +1837,7 @@ nothing, and the value is not always a count: the boards draw `Workflow 1 / 5`
 and `Record 21` in the same slot.
 
 **Job detail is the one surface that draws these**, its six destinations.
-`Tabs` and `TabsWithCounts` are unchanged and are what everything else takes.
+`Tabs` is unchanged and is what everything else takes.
 
 ### Input
 

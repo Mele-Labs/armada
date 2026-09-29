@@ -677,7 +677,7 @@ function fileRowsOf(
         what: file.path,
         outcome:
           file.outside_plan === true
-            ? `${sentenceCase(file.change)}, which the step never said it would change`
+            ? `${sentenceCase(file.change)}, out of scope`
             : sentenceCase(file.change),
         cursor: mint(),
       });
