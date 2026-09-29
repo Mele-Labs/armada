@@ -153,14 +153,19 @@ export const GroupFailed: Story = {
         ],
         boundary: {
           clause: "ran at this boundary",
-          checks: BRIDGE.map((name) => ({
-            name,
-            reads: name === "screens_test" ? ("failed" as const) : ("passed" as const),
-          })),
+          checks: BRIDGE.map((name) =>
+            name === "screens_test"
+              ? {
+                  name,
+                  reads: "failed" as const,
+                  expected: "Every test in the screens package passes",
+                  result: "1 of 1384 failed: the Drones row opened the Board",
+                }
+              : { name, reads: "passed" as const },
+          ),
           verdictSays: "screens_test failed",
           verdictNamed: "failed",
-          retrySays: "second run",
-          toldNext: "1 of 1384 failed: the Drones row opened the Board",
+          retrySays: "attempt 2",
         },
       },
     ],
@@ -172,10 +177,14 @@ export const GroupFailed: Story = {
     await expect(row).toHaveTextContent("The row's press opened the Board rather than the Job");
 
     const card = canvas.getByRole("list", { name: "Group 2 tasks" }).closest("li")!;
-    await expect(card).toHaveTextContent("screens_test failed");
-    await expect(card).toHaveTextContent("second run");
-    await expect(card).toHaveTextContent("1 of 1384 failed");
-    await expect(card).toHaveTextContent("What the gate wrote down");
+    // The failed boundary is open, so its own row says what failed and the
+    // head does not say it again.
+    await expect(card.querySelector('li[data-reads="failed"]')).toHaveTextContent("screens_test");
+    await expect(card).not.toHaveTextContent("screens_test failed");
+    await expect(card).toHaveTextContent("attempt 2");
+    await expect(card).toHaveTextContent("Result1 of 1384 failed");
+    // Retired on 29 Sep: the heading and the pair run together unlabelled.
+    await expect(card).not.toHaveTextContent("What the gate wrote down");
     // Cut on 28 Sep, and neither comes back with the reading.
     await expect(card).not.toHaveTextContent("No task of group");
     await expect(card).not.toHaveTextContent("does not serve the cases");
@@ -206,7 +215,7 @@ export const DoneTouchedLater: Story = {
         boundary: {
           clause: "ran at this boundary",
           checks: BRIDGE.map((name) => ({ name, reads: "passed" as const })),
-          verdictSays: "all 7 passed",
+          verdictSays: "all passed",
           verdictNamed: "passed",
           commit: "b81c3e4",
         },

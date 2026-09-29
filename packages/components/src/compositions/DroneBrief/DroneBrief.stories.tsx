@@ -102,30 +102,49 @@ const meta: Meta<typeof DroneBrief> = {
   title: "Compositions/Drone brief",
   component: DroneBrief,
   decorators: [
-    (Story) => (
-      <div
-        style={{
-          width: "calc(var(--space-12) * 12)",
-          padding: "var(--space-4)",
-          borderRadius: "var(--radius-md)",
-          border: "var(--border-width) solid var(--border-default)",
-          background: "var(--bg-raised)",
-        }}
-      >
+    // `flat` lives in a transcript card on a Sheet, not in a chapter's well,
+    // so it is judged on that ground: --bg-raised with --edge-card on the
+    // sheet's --bg-overlay, and the card head's own inset.
+    (Story, { args }) =>
+      args.flat ? (
+        <div style={{ width: "calc(var(--space-12) * 12)", padding: "var(--pad-card)", background: "var(--bg-overlay)" }}>
+          <div
+            style={{
+              padding: "var(--space-3)",
+              borderRadius: "var(--radius-md)",
+              border: "var(--border-width) solid var(--edge-card)",
+              background: "var(--bg-raised)",
+              fontSize: "var(--text-xs)",
+              lineHeight: "var(--leading-xs)",
+            }}
+          >
+            <Story />
+          </div>
+        </div>
+      ) : (
         <div
           style={{
-            padding: "calc(var(--space-3) + var(--space-1) / 2)",
+            width: "calc(var(--space-12) * 12)",
+            padding: "var(--space-4)",
             borderRadius: "var(--radius-md)",
-            border: "var(--border-width) solid var(--border-subtle)",
-            background: "var(--bg-sunken)",
-            fontSize: "var(--text-xs)",
-            lineHeight: "var(--leading-xs)",
+            border: "var(--border-width) solid var(--border-default)",
+            background: "var(--bg-raised)",
           }}
         >
-          <Story />
+          <div
+            style={{
+              padding: "calc(var(--space-3) + var(--space-1) / 2)",
+              borderRadius: "var(--radius-md)",
+              border: "var(--border-width) solid var(--border-subtle)",
+              background: "var(--bg-sunken)",
+              fontSize: "var(--text-xs)",
+              lineHeight: "var(--leading-xs)",
+            }}
+          >
+            <Story />
+          </div>
         </div>
-      </div>
-    ),
+      ),
   ],
 };
 export default meta;
@@ -434,6 +453,22 @@ export const TheBriefInSections: Story = {
     await userEvent.click(stepsReveal);
     await expect(standing).not.toBeVisible();
     await expect(stepsWords).not.toBeVisible();
+  },
+};
+
+/**
+ * The same sectioned brief, **flat** — as the Drone transcript draws it inside
+ * Armada's speaker card. Each section is its heading and its text, with one
+ * rule between sections and no box of its own: the card around it is already
+ * the one layer of depth, and a box per section was the fourth surface the
+ * owner called overwhelming, 29 Sep 2026. Folding is `Chapter`'s, unchanged.
+ */
+export const FlatInsideATranscriptCard: Story = {
+  args: {
+    lines: sectioned(SECTIONED_BRIEF, SECTIONED_HEADINGS, SECTIONED_KINDS),
+    steps: THE_STEPS,
+    checks: THE_CHECKS,
+    flat: true,
   },
 };
 

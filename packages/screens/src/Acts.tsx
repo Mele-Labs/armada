@@ -107,16 +107,16 @@ function isHeldAct(act: ConfirmableAct): act is HeldAct {
  * **Seven of the eleven are drawn on Fleet's answer and not on the row.**
  * `stuck.recourse` on `GET /jobs/:job_id` is the acts Fleet will take now, and
  * `#193` moved them here from a derivation that could not read the filesystem
- * and so offered a restart onto a worktree that had been reclaimed. The two
- * kills, the reclaim and the forget are the exceptions and stay derived: none
- * of them is recourse — recourse is how a Job goes forward and these four do
- * not carry one forward — and a Drone to kill is presence on the row.
+ * and so offered a restart onto a worktree that had been reclaimed. The
+ * kill, the reclaim and the forget are the exceptions and stay derived: none
+ * of them is recourse — recourse is how a Job goes forward and these three do
+ * not carry one forward.
  *
  * | Act | Drawn on | Confirms |
  * |---|---|---|
  * | `approve` | `awaiting_approval` | no — see `onApprove` |
  * | `redispatch` | `recourse` names `redispatch_job` | yes |
- * | `kill_drone` | a Job holding an `assigned_drone` | yes |
+ * | `kill_drone` | never here — the Drones sheet's | yes |
  * | `kill_job` | every non-terminal status | yes |
  * | `reclaim_worktree` | every terminal status | yes |
  * | `forget_job` | every terminal status | yes |
@@ -286,9 +286,9 @@ export function Acts({
     // nothing to delete while a Job is still in flight — and last, because it
     // is the one act here that cannot be undone.
     ...(over ? (["forget_job"] as ConfirmableAct[]) : []),
-    // `assigned_drone` is presence rather than state: there is nothing to kill
-    // without one.
-    ...(job.assigned_drone === undefined ? [] : (["kill_drone"] as ConfirmableAct[])),
+    // **No `kill_drone`.** Ending one Drone while the Job stays open is the
+    // Drones sheet's act; the header's kill ends the whole Job (owner, 29 Sep
+    // 2026).
     ...(over ? [] : (["kill_job"] as ConfirmableAct[])),
   ];
   // The lead, on the render that has one. Redispatch where Fleet offers it,
@@ -355,7 +355,7 @@ export function Acts({
   // Job's control is quiet, because there is nobody it is waiting for.
   const variant = job.status === "awaiting_approval" || life?.whoIsActing === "Person" ? "primary" : "secondary";
   const busy = acting || stale || approving;
-  // The act this header's own press sent, where one of these seven is out —
+  // The act this header's own press sent, where one of these six is out —
   // `answer`, `set_model` and everything else `ActingAct` names belongs to a
   // control somewhere else on this screen, and only a name in `ACTING_LABEL`
   // is one this header ever opened. #1117.
@@ -541,9 +541,9 @@ export function heldForTurns(job: JobSummary): boolean {
  * — where sending it goes through `acting` — the name that marks it pending.
  * **Absent on Approve and Report**, which are not `ActingAct`s this header
  * waits on the same way: Approve already draws its own "Approving" face and
- * Report opens its own dialog that is not one of the seven `ACTING_LABEL`
- * names below. #1117. `held` is set on the two kills, which confirm by a
- * hold where one is the face.
+ * Report opens its own dialog that is not one of the six `ACTING_LABEL`
+ * names below. #1117. `held` is set on the kill, which confirms by a hold
+ * where it is the face.
  */
 type Entry = SplitButtonItem & { face: string; actName?: ActingAct; held?: HeldAct };
 
@@ -552,18 +552,18 @@ const APPROVE_LABEL = "Approve dispatch";
 
 /**
  * What each act this header can open a dialog for says on its own control
- * while it is out and Fleet has not answered. **The seven this header ever
- * sends** — `kill_drone`, `kill_job`, `redispatch`, `reclaim_worktree`,
- * `forget_job`, `raise_cost_cap`, `raise_turn_cap` — read as `ActingAct`
- * because every one of the eleven `JobAct`s that never reaches this header
- * (`redirect`, `restart_step`, `override_verdict`, `rerun_gate`,
- * `rerun_checks`) is `StepActs.tsx`'s. #1117.
+ * while it is out and Fleet has not answered. **The six this header ever
+ * sends** — `kill_job`, `redispatch`, `reclaim_worktree`, `forget_job`,
+ * `raise_cost_cap`, `raise_turn_cap` — read as `ActingAct` because every one
+ * of the eleven `JobAct`s that never reaches this header (`redirect`,
+ * `restart_step`, `override_verdict`, `rerun_gate`, `rerun_checks`) is
+ * `StepActs.tsx`'s. `kill_drone` is the Drones sheet's and the Workflow
+ * panel's, so an answer to it is not this header's to mark. #1117.
  */
 const ACTING_LABEL: Record<
-  "kill_drone" | "kill_job" | "redispatch" | "reclaim_worktree" | "forget_job" | "raise_cost_cap" | "raise_turn_cap",
+  "kill_job" | "redispatch" | "reclaim_worktree" | "forget_job" | "raise_cost_cap" | "raise_turn_cap",
   string
 > = {
-  kill_drone: "Killing drone…",
   kill_job: "Killing job…",
   redispatch: "Redispatching…",
   reclaim_worktree: "Reclaiming the worktree…",
