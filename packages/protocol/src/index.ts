@@ -43,6 +43,7 @@ export * from "./limits";
 export * from "./manifest-proposal";
 export * from "./preferences";
 export * from "./proposal";
+export * from "./pending";
 export * from "./protocol";
 export * from "./proposing";
 export * from "./reading";

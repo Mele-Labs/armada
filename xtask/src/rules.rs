@@ -267,6 +267,9 @@ const VENDOR_LITERALS: &[&str] = &[
     "git2",
 ];
 
+/// Bridge's registry of unbuilt Fleet routes. Exempt from the rule above, by name.
+const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
+
 pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
     let mut report = Report::new("no vendor literal outside adapters");
     for source_root in SOURCE_ROOTS {
@@ -274,6 +277,13 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
             // The gate names vendors in order to forbid them, and the adapters
             // are where naming them is the job.
             if path.starts_with("crates/adapters/") || path.starts_with("xtask/") {
+                continue;
+            }
+            // The one named file outside them: the routes Fleet does not serve
+            // yet, each carrying the full link to the issue that builds it. The
+            // link is Armada's own tracker, not a vendor the product talks to,
+            // and the owner chose the whole URL over a short form on 29 Sep.
+            if path == PENDING_ROUTES_FILE {
                 continue;
             }
             let Ok(text) = fs::read_to_string(root.join(&path)) else {

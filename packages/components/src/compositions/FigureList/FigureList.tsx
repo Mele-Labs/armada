@@ -1,3 +1,5 @@
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+
 /**
  * Labels on the left, their figures justified to the list's right edge where
  * the Stats panel's counts sit — the key/value rows Pulse draws under a Job's
@@ -51,6 +53,22 @@ export type Figure = {
    * cost, so what is running reads apart from what it is taking.
    */
   apart?: boolean;
+  /**
+   * What pressing the figure does, where the thing it reads is changed
+   * somewhere else — Pulse's Spend and Turns go to the caps on Settings.
+   *
+   * **The value is the button, and the label stays a `dt`.** A `dl` holds
+   * terms and their definitions, and a button round both would be neither; so
+   * the button is the definition, and on a `strip` it is drawn up behind the
+   * label to take the whole figure — label, value and cap — as one press.
+   */
+  onPress?: () => void;
+  /**
+   * What the press does, said in the figure's tooltip and nowhere on screen —
+   * the owner's rule that a bare thing names itself on hover. `Change the cost
+   * cap in Settings`.
+   */
+  pressLabel?: string;
 };
 
 /**
@@ -77,23 +95,41 @@ export type FigureListProps = {
 export function FigureList({ figures, column = "wide" }: FigureListProps) {
   return (
     <dl className="armada-figures" data-column={column}>
-      {figures.map((figure) => (
-        <div
-          key={figure.label}
-          className="armada-figures__row"
-          data-wrong={figure.wrong || undefined}
-          data-apart={figure.apart || undefined}
-        >
-          <dt className="armada-figures__label">{figure.label}</dt>
-          {/* The value is a box of its own lines rather than the text itself,
-              because a detail under it has to clip on its own terms — and a
-              block dropped into a clipping `dd` takes none of its clipping. */}
-          <dd className="armada-figures__value" data-words={figure.words || undefined}>
+      {figures.map((figure) => {
+        const lines = (
+          <>
             <span className="armada-figures__reading">{figure.value}</span>
             {figure.detail === undefined ? null : <span className="armada-figures__detail">{figure.detail}</span>}
-          </dd>
-        </div>
-      ))}
+          </>
+        );
+        const press =
+          figure.onPress === undefined ? null : (
+            <button type="button" className="armada-figures__press" onClick={figure.onPress}>
+              {lines}
+            </button>
+          );
+        return (
+          <div
+            key={figure.label}
+            className="armada-figures__row"
+            data-wrong={figure.wrong || undefined}
+            data-apart={figure.apart || undefined}
+            data-presses={press === null ? undefined : true}
+          >
+            <dt className="armada-figures__label">{figure.label}</dt>
+            {/* The value is a box of its own lines rather than the text itself,
+                because a detail under it has to clip on its own terms — and a
+                block dropped into a clipping `dd` takes none of its clipping. */}
+            <dd className="armada-figures__value" data-words={figure.words || undefined}>
+              {press === null
+                ? lines
+                : figure.pressLabel === undefined
+                  ? press
+                  : <Tooltip label={figure.pressLabel} asChild>{press}</Tooltip>}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }

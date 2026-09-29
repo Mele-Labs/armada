@@ -319,6 +319,17 @@ decide nothing about the other. A Rust code that took the prefix fails, since
 it is the one thing that would make that reading wrong. The failure's class is
 declared in the same place, for the same reason.
 
+**A control may ship ahead of its Fleet route, and pressing it says so.** The
+route is declared pending in `packages/protocol/src/pending.ts`, one line naming
+the method, the path and the issue that builds it. Where Fleet answers a command
+to it the way it answers a route it has none for, Bridge raises
+`bridge.not_implemented`, headed `Not implemented`, and the debug info names the
+issue as its full link beside the route, the act and every id the request
+carried — so the paste is a brief an agent can start from. It is a fault: an act
+did not happen. A served route never reaches it, since its answers and its
+refusals both carry a code, so the entry is deleted when the route ships and not
+before. Decided 29 Sep 2026, on #1647.
+
 **`none` is a fact, not a minted code.** No failure Bridge draws renders it; it
 is what a payload assembled outside those builders shows.
 

@@ -143,6 +143,14 @@ export type BridgeApi = {
   /** End the Job at `killed`. Terminal, and nothing resumes it. */
   killJob: (jobId: string) => Promise<Outcome>;
   /**
+   * Kill one process the Job holds, by pid. **Fleet decides whether the pid is
+   * the Job's** — it rebuilds the tree at the act — so this names, never grants.
+   * #1647 builds the route; until it does, the answer is `bridge.not_implemented`.
+   */
+  killProcess: (jobId: string, pid: number) => Promise<Outcome>;
+  /** Kill every process the Job holds. #1647, as `killProcess`. */
+  killProcesses: (jobId: string) => Promise<Outcome>;
+  /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the
    * directory and the branch, and `forgetTerminalJobs` below is the act that

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Button, type ButtonProps } from "../Button/Button";
 import { useHold } from "./useHold";
 
@@ -8,7 +8,7 @@ import { useHold } from "./useHold";
  * under Keyboard and command palette, "A hold confirms in place".
  *
  * Built on `Button`'s destructive variant, so outline, focus, disabled and
- * pending are that file's.
+ * pending are that file's — or on its ghost icon-only face, where `icon` asks.
  */
 export type HoldButtonProps = Omit<
   ButtonProps,
@@ -36,6 +36,14 @@ export type HoldButtonProps = Omit<
   onCommit: () => void;
   /** Pressed where the hold is not offered. Opens the confirmation. */
   onAsk: () => void;
+  /**
+   * Draw this glyph alone, as a ghost icon-only row act. `children` and
+   * `askLabel` become its accessible name, since the glyph is the whole face.
+   * **Ghost and not destructive**: icon-only is a ghost affordance, and a red
+   * outline on every row of a list would be the loudest thing on it. The fill
+   * still grows under the glyph, so the hold reads the same.
+   */
+  icon?: ReactNode;
 };
 
 export { holdDurationOf, useHold, usePrefersReducedMotion } from "./useHold";
@@ -49,6 +57,7 @@ export function HoldButton({
   onAsk,
   disabled,
   pending,
+  icon,
   ...rest
 }: HoldButtonProps) {
   const describedBy = useId();
@@ -58,12 +67,22 @@ export function HoldButton({
     onAsk,
   });
 
+  const face =
+    icon === undefined ? ({ variant: "destructive" } as const) : ({ variant: "ghost", iconOnly: true } as const);
+
   // Under reduced motion the fill is invisible, and it is the only thing that
   // says how long is left, so the press asks instead.
   if (!hold.offered) {
     return (
-      <Button {...rest} variant="destructive" disabled={disabled} pending={pending} onClick={onAsk}>
-        {askLabel}
+      <Button
+        {...rest}
+        {...face}
+        {...(icon === undefined ? {} : { "aria-label": askLabel })}
+        disabled={disabled}
+        pending={pending}
+        onClick={onAsk}
+      >
+        {icon ?? askLabel}
       </Button>
     );
   }
@@ -74,14 +93,15 @@ export function HoldButton({
       {...rest}
       {...hold.handlers}
       ref={hold.ref}
-      variant="destructive"
+      {...face}
+      {...(icon === undefined ? {} : { "aria-label": children })}
       disabled={disabled}
       pending={pending}
       data-hold=""
       aria-describedby={describedBy}
     >
       <span className="armada-hold__fill" data-phase={hold.phase} aria-hidden="true" />
-      <span className="armada-hold__label">{children}</span>
+      <span className="armada-hold__label">{icon ?? children}</span>
       {/* Hidden and still read: a description follows its reference into hidden content. */}
       <span id={describedBy} hidden>
         {description}

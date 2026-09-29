@@ -31,6 +31,7 @@ import type {
   HoldsFigures,
   HoldsLine,
   NothingToAsk,
+  PulseLogRow,
   PulseReading,
   PulseWorktreeRow,
 } from "@armada/components";
@@ -333,45 +334,92 @@ const SAYS: Record<LogRow["actor"], string> = {
  *
  * **The look is applied to one worktree and never to several.** Fleet's
  * `worktree` look asks about the Job's own checkout; drawn against a list it
- * would be a finding about members nothing looked at.
+ * would be a finding about members nothing looked at. So is `Open`: the host
+ * opens a worktree by the Job's id, which names one checkout.
+ *
+ * **The Judge's briefs come off the Job, not the reading.** `get_job` names
+ * each one a step's criteria were asked with, and the host opens it by that
+ * path. `whole` is optional because the job sheet draws this board from a
+ * caller that does not pass it; that board lists the Job's own log alone.
  */
-export function pulseReadingOf(view: PulseView, examined: JobExamined | null): PulseReading {
+export function pulseReadingOf(
+  view: PulseView,
+  examined: JobExamined | null,
+  whole?: JobWhole | null,
+): PulseReading {
+  const one = view.worktrees.length === 1;
   return {
     held: view.held,
     readAt: view.read_at,
-    processes: view.processes.map((one) => ({
-      pid: one.pid,
-      command: one.command,
-      owner: one.owner,
-      cpuPercent: one.cpu_percent,
-      memoryBytes: one.memory_bytes,
-      runningFor: one.running_for,
-      recorded: one.recorded,
+    processes: view.processes.map((process) => ({
+      pid: process.pid,
+      command: process.command,
+      owner: process.owner,
+      cpuPercent: process.cpu_percent,
+      memoryBytes: process.memory_bytes,
+      runningFor: process.running_for,
+      recorded: process.recorded,
     })),
-    worktrees: view.worktrees.map((one) => ({
-      branch: one.branch,
-      path: one.path,
-      ...(one.bytes === undefined ? {} : { bytes: one.bytes }),
-      ...(view.worktrees.length === 1 ? standing(examined) : { state: ON_DISK }),
+    worktrees: view.worktrees.map((worktree) => ({
+      branch: worktree.branch,
+      path: worktree.path,
+      ...(worktree.bytes === undefined ? {} : { bytes: worktree.bytes }),
+      ...(one ? { ...standing(view.held, examined), open: "worktree" as const } : { state: ON_DISK }),
     })),
-    logs: view.logs.map((one) => ({
-      kind: one.kind,
-      owner: one.owner,
-      ...(one.bytes === undefined ? {} : { bytes: one.bytes }),
-      writing: one.writing,
-    })),
+    logs: [
+      ...view.logs.map((log) => ({
+        kind: log.kind,
+        owner: log.owner,
+        ...(log.bytes === undefined ? {} : { bytes: log.bytes }),
+        writing: log.writing,
+        ...(log.kind === "job" && log.owner === null ? { open: "log" as const } : {}),
+      })),
+      ...briefsOf(whole ?? null),
+    ],
   };
 }
 
-/** A checkout nobody found anything wrong with. The ordinary answer. */
+/** A checkout nobody found anything wrong with, and no Drone is in. */
 const ON_DISK = "on disk";
 
-/** What the one look that asks about a checkout found, as the row's state. */
-function standing(examined: JobExamined | null): Pick<PulseWorktreeRow, "state" | "wrong"> {
+/**
+ * What the Job's one checkout is doing: what the look found wrong with it,
+ * or whether its Drone is in it.
+ *
+ * **One Drone per Job today**, so `held` answers for the checkout.
+ */
+function standing(held: string, examined: JobExamined | null): Pick<PulseWorktreeRow, "state" | "wrong" | "working"> {
   const look = examined?.looks.find((one) => one.asked === "worktree");
   if (look?.found === "not_working") return { state: "gone", wrong: true };
   if (look?.found === "cannot_tell") return { state: "could not be read" };
-  return { state: ON_DISK };
+  if (held === "running") return { state: "1 drone working", working: true };
+  return { state: "no drone working" };
+}
+
+/**
+ * One row per brief the Judge was asked with, across every step and run.
+ *
+ * **Unweighed, and never `being written`.** Fleet names the path once the
+ * brief is kept, so a listed brief is finished; what it weighs is not served.
+ */
+function briefsOf(whole: JobWhole | null): PulseLogRow[] {
+  const seen = new Set<string>();
+  const rows: PulseLogRow[] = [];
+  for (const step of ordered(whole)) {
+    for (const judged of step.judged) {
+      const path = judged.brief_path;
+      if (path === undefined || seen.has(path)) continue;
+      seen.add(path);
+      rows.push({
+        kind: "brief",
+        owner: null,
+        about: `${step.step_id} · ${judged.criterion_id}`,
+        writing: false,
+        open: { kept: path, what: "brief" },
+      });
+    }
+  }
+  return rows;
 }
 
 /**
@@ -386,7 +434,7 @@ function standing(examined: JobExamined | null): Pick<PulseWorktreeRow, "state" 
  * running` over `0` is a reading, and the bare `0` is no gap because the label
  * already says what is counted.
  */
-export function pulseFiguresOf(view: PulseView | null, whole: JobWhole | null): Figure[] {
+export function pulseFiguresOf(view: PulseView | null, whole: JobWhole | null, caps?: CapPresses): Figure[] {
   const steps = ordered(whole);
   const working: Figure[] = [];
   if (view !== null) working.push(dronesFigure(view.held));
@@ -394,15 +442,31 @@ export function pulseFiguresOf(view: PulseView | null, whole: JobWhole | null): 
   working.push({ label: "Judges running", value: `${judgesRunning(steps)}` });
   const taking: Figure[] = [];
   const spend = spendFigure(whole);
-  if (spend !== undefined) taking.push(spend);
+  if (spend !== undefined) {
+    taking.push(caps === undefined ? spend : { ...spend, onPress: caps.cost, pressLabel: CHANGE_COST_CAP });
+  }
   const turns = turnsFigure(whole);
-  if (turns !== undefined) taking.push(turns);
+  if (turns !== undefined) {
+    taking.push(caps === undefined ? turns : { ...turns, onPress: caps.turns, pressLabel: CHANGE_TURN_CAP });
+  }
   if (view !== null) taking.push({ label: "Processes", value: `${view.processes.length}` });
   // The rule lands on the first cost there is, whichever survives: a Fleet that
   // does not price has no spend, and it still has to fall between the groups.
   const [first, ...rest] = taking;
   return first === undefined ? working : [...working, { ...first, apart: true }, ...rest];
 }
+
+/**
+ * Where Spend and Turns go when pressed: the job's Settings, on the cap each
+ * one reads. **The caller's, and optional**, because only a destination with
+ * a Settings tab beside it has somewhere to send them — the overview sheet
+ * draws the same band and leaves them figures.
+ */
+export type CapPresses = { cost: () => void; turns: () => void };
+
+/** The tooltips on the two pressable figures. What the press does, not what the figure is. */
+const CHANGE_COST_CAP = "Change the cost cap in Settings";
+const CHANGE_TURN_CAP = "Change the turn cap in Settings";
 
 /**
  * How many Drones are up, and whether that is a fault.
@@ -452,7 +516,7 @@ export function judgesRunning(steps: readonly StepDetail[]): number {
  * prices and wears the tilde `spent` gives it; a ceiling is a setting somebody
  * chose, and `~$3.00` would make the limit read as an estimate too.
  */
-function spendFigure(whole: JobWhole | null): Figure | undefined {
+export function spendFigure(whole: JobWhole | null): Figure | undefined {
   const spend = whole?.spend;
   if (spend === undefined) return undefined;
   return {
@@ -467,7 +531,7 @@ function spendFigure(whole: JobWhole | null): Figure | undefined {
  * line and this is the band's two — the same two numbers, split where the band
  * wants the figure alone.
  */
-function turnsFigure(whole: JobWhole | null): Figure | undefined {
+export function turnsFigure(whole: JobWhole | null): Figure | undefined {
   const spend = whole?.spend;
   return spend === undefined
     ? undefined
@@ -484,4 +548,4 @@ function turnsFigure(whole: JobWhole | null): Figure | undefined {
  * Moving the interval moves the sentence, which is what stops one promising
  * what the other does not do.
  */
-export const PULSE_REFRESHES = `Taken again every ${PULSE_INTERVAL_SAID} while open.`;
+export const PULSE_REFRESHES = `every ${PULSE_INTERVAL_SAID} while open`;

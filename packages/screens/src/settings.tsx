@@ -290,8 +290,12 @@ export function SettingsPanel({
  * it does not know: a Job that is over will not reach for a setting again, and
  * a Fleet that sent no `when_blocked` is one this Bridge cannot read a setting
  * off at all. One sentence over both would make the second read as the first.
+ *
+ * **Pulse asks it too**: Spend and Turns press through to the caps here only
+ * when there are caps here to change, or the tooltip would promise a row that
+ * this note stands in for.
  */
-function whyNothingToChange(job: JobSummary, whole: JobWhole | null): string | undefined {
+export function whyNothingToChange(job: JobSummary, whole: JobWhole | null): string | undefined {
   if (whole === null) return undefined;
   if (JOB_LIFECYCLE[job.status]?.terminal !== false) return OVER;
   if (whole.when_blocked === undefined) return FLEET_DOES_NOT_SAY;

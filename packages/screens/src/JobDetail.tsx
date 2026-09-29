@@ -11,7 +11,7 @@
 // `tab-settings.tsx`.
 
 import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
 import { countsOf, FIRST_TAB, JobTabs, type DetailTab } from "./detail-tabs";
@@ -28,10 +28,12 @@ import {
   pulseFiguresOf,
   pulseReadingOf,
   whyNoReading,
+  type CapPresses,
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
 import type { JobDetail as JobWhole } from "@armada/protocol";
+import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { proposalEditsOf } from "./tab-proposal-read";
@@ -39,6 +41,7 @@ import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { RecordTab } from "./tab-record";
 import { SettingsTab } from "./tab-settings";
+import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
 import { WaveRegion, type WaveRegionProps } from "./tab-wave";
 import { whyNoSteps } from "./run";
@@ -83,6 +86,20 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const [tab, setTab] = useState<DetailTab>(FIRST_TAB);
+
+  // The cap a press on Pulse's Spend or Turns went to Settings for, until
+  // Settings has drawn and its row is in view. **Found by `data-ceiling`**
+  // after the switch commits, because the row does not exist before it.
+  const [reaching, setReaching] = useState<"cost" | "turns" | null>(null);
+  const screen = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (tab !== "settings" || reaching === null) return;
+    const row = screen.current?.querySelector<HTMLElement>(`[data-ceiling="${reaching}"]`);
+    row?.scrollIntoView({ block: "nearest" });
+    // Raise is the row's one control, and what a person came to press.
+    row?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    setReaching(null);
+  }, [tab, reaching]);
 
   // Whether the report dialog is up. Two controls open it — the Job header's
   // menu entry and `b` — and the keyboard is bound on the tab that draws the run.
@@ -195,8 +212,19 @@ function OneJob(props: JobDetailProps) {
     return <Unrenderable job={job} />;
   }
 
+  // Spend and Turns press through to their caps only where Settings draws
+  // caps to change; a Job that is over gets its note there instead.
+  const reach = (cap: "cost" | "turns") => {
+    setReaching(cap);
+    setTab("settings");
+  };
+  const caps: CapPresses | undefined =
+    whyNothingToChange(job, whole) === undefined
+      ? { cost: () => reach("cost"), turns: () => reach("turns") }
+      : undefined;
+
   return (
-    <div className="armada-screen__detail">
+    <div className="armada-screen__detail" ref={screen}>
       <JobDetailHeaderActions {...heading} onCopied={props.onCopied} />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
@@ -296,7 +324,7 @@ function OneJob(props: JobDetailProps) {
           onSaid={props.onSaid}
         />
       ) : (
-        <PulseTab holds={pulseOf(props, whole, job.id)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
+        <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
       )}
     </div>
   );
@@ -348,15 +376,20 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
  * shape (`draft/pulse.ts`), filled from what Fleet serves today — so the same
  * board draws the real Fleet and whatever `#1545` promotes onto the wire.
  */
-function pulseOf(props: JobDetailProps, whole: JobWhole | null, jobId: string): JobResourcesProps {
+function pulseOf(
+  props: JobDetailProps,
+  whole: JobWhole | null,
+  jobId: string,
+  caps: CapPresses | undefined,
+): JobResourcesProps {
   const holding = holdingOf(props.resources, jobId);
   const view = holding === null ? null : pulseViewOf(holding);
   const looked = lookOf(props.examination, jobId);
   const examined = looked?.state === "found" ? looked.examined : null;
   const nothing = nothingToAsk(props.resources);
   return {
-    reading: view === null ? null : pulseReadingOf(view, examined),
-    figures: pulseFiguresOf(view, whole),
+    reading: view === null ? null : pulseReadingOf(view, examined, whole),
+    figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),
     refreshed: PULSE_REFRESHES,
@@ -365,5 +398,15 @@ function pulseOf(props: JobDetailProps, whole: JobWhole | null, jobId: string): 
     ...(looked?.state === "failed" ? { lookFailed: LOOK_FAILED } : {}),
     ...(nothing === undefined ? {} : { nothingToAsk: nothing }),
     onExamine: () => props.onExamine(jobId),
+    ...(props.onKillProcess === undefined
+      ? {}
+      : { onKillProcess: (process) => props.onKillProcess?.(jobId, process) }),
+    ...(props.onKillProcesses === undefined || view === null
+      ? {}
+      : { onKillAll: () => props.onKillProcesses?.(jobId, view.processes.length) }),
+    onOpen: (what) =>
+      void openArtifact(props.onOpenArtifact, jobId, what).then((because) => {
+        if (because !== null) props.onSaid(because);
+      }),
   };
 }
