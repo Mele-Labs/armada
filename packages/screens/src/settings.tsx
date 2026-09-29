@@ -124,7 +124,7 @@ type Told = { row: Row; says: ReactNode; took: (whole: JobWhole) => boolean };
  * and the test for it; the line shows once the reading passes.
  *
  * **A Job with nothing to change says so rather than drawing nothing.** The
- * strip draws six destinations at every state, so one of them going blank
+ * strip draws seven destinations at every state, so one of them going blank
  * would read as a surface that had failed — and the two reasons it can be
  * blank are different enough to need different sentences.
  */

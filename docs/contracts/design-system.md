@@ -1644,7 +1644,7 @@ The densest thing in the app and the reason the spacing scale is tight.
 
 ```
 header row   32px · --bg-base · --text-2xs · --fg-subtle
-             uppercase, 0.04em tracking (the one legal ALL CAPS)
+             uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
              bottom rule --border-default
 body row     36px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
@@ -1836,7 +1836,7 @@ the owner refused on 28 Sep 2026 — `.claude/decisions/` holds the exchange.
 nothing, and the value is not always a count: the boards draw `Workflow 1 / 5`
 and `Record 21` in the same slot.
 
-**Job detail is the one surface that draws these**, its six destinations.
+**Job detail is the one surface that draws these**, its seven destinations.
 `Tabs` is unchanged and is what everything else takes.
 
 ### Input
@@ -2428,9 +2428,12 @@ read plausibly under a different job has failed.
 
 ### Prose rules
 
-- **Sentence case everywhere.** No title case, no ALL CAPS except table
-  headers at `--text-2xs` with `0.04em` tracking. Lexicon proper nouns
-  keep their capitals inside sentence case.
+- **Sentence case everywhere.** No title case, and ALL CAPS in two places
+  only: table headers, and an eyebrow — the small label that heads a
+  section or card, like a transcript card's DRONE — both at `--text-2xs`
+  with `0.04em` tracking. The owner allowed the eyebrow on 29 Sep 2026,
+  from a sketch that drew one. Lexicon proper nouns keep their capitals
+  inside sentence case.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no
