@@ -367,3 +367,28 @@
 .armada-sheet-scrim[data-beside] > .armada-sheet[data-docked] {
   animation: none;
 }
+
+/* The way back, where a press elsewhere opened this sheet: its own first line
+   of the head, with the close at its trailing end, so the title keeps the
+   whole width under it. The head wraps for it even docked, where the close
+   still holds the first line's trailing corner. The ghost's own inline padding
+   is pulled back so its label starts on the title's edge.
+   `[role]` and the `:has` are weight, not meaning: the task sheet holds its
+   own head to one line at 0,4,0, and a way back has to win over that. */
+.armada-sheet[role="dialog"]:has(> .armada-sheet__head > .armada-sheet__way) .armada-sheet__head {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
+.armada-sheet__way {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-sheet__way > .armada-button[data-variant="ghost"] {
+  margin-left: calc(-1 * var(--space-2));
+}

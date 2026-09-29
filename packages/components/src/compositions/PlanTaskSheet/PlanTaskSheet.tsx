@@ -3,7 +3,7 @@ import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
 import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
@@ -108,6 +108,8 @@ export type PlanTaskSheetProps = {
   /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
   docked?: boolean;
   onClose?: () => void;
+  /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
+  back?: SheetBack | undefined;
 };
 
 /** The message box under the Drone. */
@@ -221,6 +223,7 @@ export function PlanTaskSheet({
   floor = false,
   docked = false,
   onClose,
+  back,
 }: PlanTaskSheetProps) {
   return (
     <>
@@ -236,6 +239,7 @@ export function PlanTaskSheet({
         </Badge>
       }
       leading={<span className="armada-task-sheet__id">{id}</span>}
+      back={back}
       closeLabel="Close"
       closeBinding="Esc"
       under={file !== undefined}

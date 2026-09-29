@@ -52,6 +52,25 @@ export type SheetSide = "right" | "left";
  */
 export type SheetSize = "default" | "wide" | "widest" | "reading";
 
+/**
+ * The way back to where a person was before a press elsewhere opened this
+ * sheet — Plan's task panel sending them to its Drone, a Check on the plan
+ * board to its Record row. **One slot for every sheet**, so a jump reads the
+ * same wherever it lands.
+ *
+ * No glyph: `chevron-left` is not registered, and the registry's `history`
+ * act says neither half of back and forward has one to take. So the label
+ * says it, naming the thing returned to — `Back to T6` — and the tooltip
+ * names the destination too: `Back to Plan · T6`.
+ */
+export type SheetBack = {
+  label: string;
+  tooltip: string;
+  /** Drawn beside the label, as the close draws `Esc`. */
+  binding?: string;
+  onBack: () => void;
+};
+
 export type SheetProps = {
   open: boolean;
   /** Sentence case. Panel headings may open with a Wh- word; sentences may not. */
@@ -68,6 +87,8 @@ export type SheetProps = {
    * nothing, and the head is laid out exactly as without it.
    */
   leading?: ReactNode;
+  /** The way back, at the head's leading edge before everything else. Absent draws nothing. */
+  back?: SheetBack | undefined;
   children: ReactNode;
   side?: SheetSide;
   size?: SheetSize;
@@ -153,6 +174,7 @@ export function Sheet({
   title,
   subtitle,
   leading,
+  back,
   children,
   side = "right",
   size = "default",
@@ -207,6 +229,34 @@ export function Sheet({
   const labelled = closeLabel !== undefined && !floor;
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
+  const close = labelled ? (
+    /* A secondary on an overlay is filled one surface step from its
+       ground, which is what `ground="sunken"` spells. Docked it is
+       on the glass, where Helm's own Close takes `card`. */
+    <Button
+      ref={closeRef}
+      variant="secondary"
+      size="sm"
+      ground={docked ? "card" : "sunken"}
+      title={tooltip}
+      onClick={onClose}
+    >
+      {closeLabel}
+      {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
+    </Button>
+  ) : (
+    <button
+      ref={closeRef}
+      type="button"
+      className="armada-sheet__close"
+      aria-label="Close"
+      title={tooltip}
+      onClick={onClose}
+    >
+      <X size={16} strokeWidth={2} aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       className="armada-sheet-scrim"
@@ -227,6 +277,23 @@ export function Sheet({
         aria-label={title}
       >
         <div className="armada-sheet__head">
+          {back === undefined ? null : (
+            /* The way back and the way out share the head's first line, and
+               the title takes the whole of the line under them: beside the
+               title, a docked panel's head had room for neither. */
+            <div className="armada-sheet__way">
+              <Button
+                variant="ghost"
+                size="sm"
+                title={back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`}
+                onClick={back.onBack}
+              >
+                {back.label}
+                {back.binding === undefined ? null : <KbdBinding binding={back.binding} />}
+              </Button>
+              {close}
+            </div>
+          )}
           {leading === undefined ? null : <div className="armada-sheet__leading">{leading}</div>}
           <div className="armada-sheet__titles">
             <h2 className="armada-sheet__title" data-titled={subtitle !== undefined || undefined}>
@@ -239,33 +306,7 @@ export function Sheet({
           {controls === undefined ? null : (
             <div className="armada-sheet__controls">{controls}</div>
           )}
-          {labelled ? (
-            /* A secondary on an overlay is filled one surface step from its
-               ground, which is what `ground="sunken"` spells. Docked it is
-               on the glass, where Helm's own Close takes `card`. */
-            <Button
-              ref={closeRef}
-              variant="secondary"
-              size="sm"
-              ground={docked ? "card" : "sunken"}
-              title={tooltip}
-              onClick={onClose}
-            >
-              {closeLabel}
-              {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
-            </Button>
-          ) : (
-            <button
-              ref={closeRef}
-              type="button"
-              className="armada-sheet__close"
-              aria-label="Close"
-              title={tooltip}
-              onClick={onClose}
-            >
-              <X size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-          )}
+          {back === undefined ? close : null}
         </div>
         {bands === undefined ? null : <div className="armada-sheet__bands">{bands}</div>}
         <div ref={bodyRef} className="armada-sheet__body" data-bleed={bleed || undefined}>
