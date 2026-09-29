@@ -2,19 +2,13 @@
    of the evidence under the title in the 380px rail; this is where they go
    instead. */
 
-.armada-task-sheet__said {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-}
-
+/* The id where the mark was, on the title's first line: the title's own
+   line height, so the two share a baseline. */
 .armada-task-sheet__id {
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-base);
   color: var(--fg-subtle);
-}
-
-.armada-task-sheet__state {
-  color: var(--fg-muted);
 }
 
 .armada-task-sheet__body {
@@ -40,41 +34,19 @@
   font-weight: var(--weight-medium);
 }
 
-/* The value in a box of its own. **This is what separates one field from the
-   next** — a run of them without it is a wall of same-weight text, which is
-   the reading the owner refused four times over. `ProposalFields`' treatment,
-   stacked: 392px has no room for a label track beside it. */
+/* The value as plain text on the panel. **The label's register above it is
+   the separator** — small caps in `--fg-subtle` against `--fg-default` — and
+   no box: a sunken box read as a field to type in (owner, 29 Sep 2026). */
 .armada-task-sheet__value {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-default);
   text-wrap: pretty;
   overflow-wrap: anywhere;
-}
-
-/* A value that draws its own rows brings its own boxes. */
-.armada-task-sheet__value[data-bare="true"] {
-  padding: 0;
-  border: 0;
-  background: none;
-}
-
-/* A fact about the value, under it — how many files, which Drone runs it. */
-.armada-task-sheet__note {
-  margin: 0;
-  min-width: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-  text-wrap: pretty;
 }
 
 .armada-task-sheet__prose {
@@ -83,13 +55,36 @@
   text-wrap: pretty;
 }
 
-/* Which Drone the box below reaches. Quieter than the prose above it: it is a
-   fact about the control, not part of the reading. */
-.armada-task-sheet__reaches {
+/* A failed task's own acts, under why it stopped. */
+.armada-task-sheet__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Each task it runs beside, as the Plan graph's own card. */
+.armada-task-sheet__beside {
+  list-style: none;
   margin: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The panel's full width, not the graph's node width (owner, 29 Sep 2026).
+   The node's fixed width is for edges landing where the placement says, and
+   here there are no edges. Beside `[data-kind]` so it outweighs the card's own
+   per-kind width whichever stylesheet loads last. */
+.armada-task-sheet__beside .armada-wf-card[data-kind] {
+  width: 100%;
+}
+
+/* No React Flow observer here either, so the name keeps the lines its words
+   take rather than the graph's fixed two — at this width most take one. */
+.armada-task-sheet__beside .armada-wf-card[data-kind] .armada-wf-card__head {
+  height: auto;
 }
 
 .armada-task-sheet__files {
@@ -98,7 +93,6 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 
 /* **`overflow-wrap: anywhere` is the whole point of the list.** A path has no
@@ -109,10 +103,13 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) 0;
   overflow-wrap: anywhere;
+}
+
+/* A hairline between rows rather than a box round each. */
+.armada-task-sheet__files li + li {
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 /* Expected and shown carry one weight between them: which of the two a reader
@@ -126,16 +123,12 @@
   min-width: 0;
 }
 
-/* Each side is its own box, the field's own treatment: a `dt` and a `dd` in
-   one register is exactly the wall the boxes exist to break up. */
+/* Each side as its own small label and its value, the field's own register
+   one step down — no box, for the value's reason. */
 .armada-task-sheet__row {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
   min-width: 0;
 }
 
@@ -191,4 +184,93 @@
   display: flex;
   justify-content: flex-end;
   min-width: 0;
+}
+
+/* Close stays in the head's trailing corner at every width — the owner's note
+   on this sheet, 28 Sep 2026. A task's title is a sentence and the sheet's own
+   one-line title clipped it under the close; here it wraps instead. Docked,
+   `Sheet.css` already does this for the dock. */
+.armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__title {
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+/* A path the Job's patch changed, as a press that opens it beside the task.
+   The row's own type, so a press and a plain path read as one list; the
+   padding is taken back out of the margin so the two line up. */
+.armada-task-sheet__file {
+  min-width: 0;
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  color: var(--fg-default);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease);
+}
+
+.armada-task-sheet__file:hover {
+  background: var(--bg-hover);
+}
+
+.armada-task-sheet__file[aria-pressed="true"] {
+  background: var(--surface-row-selected);
+}
+
+/* The file diff docked beside the task: `--w-dialog-wide`, the widest
+   reading width the tokens hold, and never past the container's leading edge,
+   which the scrim's own box already bounds. */
+.armada-sheet[data-docked]:has(> .armada-sheet__body > .armada-task-diff) {
+  width: var(--w-dialog-wide);
+}
+
+/* The path is the panel's title, so it wraps rather than clips, in the mono
+   a path takes everywhere else. */
+.armada-sheet:has(> .armada-sheet__body > .armada-task-diff) .armada-sheet__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.armada-sheet:has(> .armada-sheet__body > .armada-task-diff) .armada-sheet__title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* The panel is the frame, so the diff drops its own well and runs to the
+   panel's edges. */
+.armada-task-diff {
+  min-width: 0;
+}
+
+.armada-task-diff .armada-diff {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.armada-task-diff .armada-diff__file {
+  border: 0;
+  border-radius: 0;
+}
+
+/* The head already names the file. The diff's own row stays only for what git
+   said beside the path — a new file, a rename — or a drifted mark. */
+.armada-task-diff .armada-diff__path {
+  display: none;
+}
+
+.armada-task-diff .armada-diff__head:not(:has(.armada-diff__meta)):has(.armada-diff__mark:empty) {
+  display: none;
 }

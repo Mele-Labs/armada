@@ -427,41 +427,33 @@ export function jobDroneOf(whole: JobDetail | null): { id: string; label: string
 /**
  * The inspector's own reading of one task. `undefined` where the plan holds no
  * task by that id, which is a sheet that should not be open.
+ *
+ * **`beside` stays ids here.** The sheet draws each as the graph's card, and
+ * the card's press is the caller's — `tab-plan.tsx` builds them.
  */
 export function taskSheetOf(
   taskId: string,
   groups: readonly GroupView[],
   cases: readonly CaseView[],
-  touchedBy: Map<string, string>,
-): Omit<PlanTaskSheetProps, "open"> | undefined {
+): (Omit<PlanTaskSheetProps, "open" | "beside"> & { beside: readonly string[] }) | undefined {
   const task = tasksOf(groups).find((one) => one.id === taskId);
   if (task === undefined) return undefined;
   const owed: PlanTaskTest[] = cases
     .filter((one) => one.tasks.includes(task.id) || task.cases.includes(one.id))
     .map(testOf);
-  const note = noteWithFlag(task.note, touchedBy.get(task.id));
   return {
     id: task.id,
     title: task.title,
     state: markOf(task.state),
-    doing: doingOfTask(task),
     scope: task.scope,
     tier: task.tier,
     model: task.model,
-    runBy: runBySaid(task),
     beside: task.concurrent_with,
     tests: owed,
-    ...(note === undefined ? {} : { note }),
+    ...(task.note === undefined ? {} : { note: task.note }),
     ...(task.expects === undefined ? {} : { expects: task.expects }),
     ...(task.shown === undefined ? {} : { shown: task.shown }),
     ...(task.reason === undefined ? {} : { reason: task.reason }),
     ...(task.failed_reason === undefined ? {} : { failedReason: task.failed_reason }),
   };
-}
-
-/** The flag, carried into the inspector's own brief rather than lost with the row. */
-function noteWithFlag(note: string | undefined, later: string | undefined): string | undefined {
-  if (later === undefined) return note;
-  const flag = `${later} edited a file this task had already finished.`;
-  return note === undefined ? flag : `${note} ${flag}`;
 }

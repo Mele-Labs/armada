@@ -85,6 +85,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     killProcess: async (jobId, pid) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/processes/${pid}/kill`) }),
     killProcesses: async (jobId) => refusedWith(404, "", { method: "POST", path: path(jobId, "/processes/kill") }),
+    // A failed task's acts, #250, #1656 and #1657 — answered as the kills are.
+    pilotTask: async (jobId, taskId) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/pilot`) }),
+    restartTask: async (jobId, taskId) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/restart`) }),
+    editTask: async (jobId, taskId) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`) }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));

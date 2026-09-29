@@ -52,6 +52,25 @@ export type SheetSide = "right" | "left";
  */
 export type SheetSize = "default" | "wide" | "widest" | "reading";
 
+/**
+ * The way back to where a person was before a press elsewhere opened this
+ * sheet — Plan's task panel sending them to its Drone, a Check on the plan
+ * board to its Record row. **One slot for every sheet**, so a jump reads the
+ * same wherever it lands.
+ *
+ * No glyph: `chevron-left` is not registered, and the registry's `history`
+ * act says neither half of back and forward has one to take. So the label
+ * says it, naming the thing returned to — `Back to T6` — and the tooltip
+ * names the destination too: `Back to Plan · T6`.
+ */
+export type SheetBack = {
+  label: string;
+  tooltip: string;
+  /** Drawn beside the label, as the close draws `Esc`. */
+  binding?: string;
+  onBack: () => void;
+};
+
 export type SheetProps = {
   open: boolean;
   /** Sentence case. Panel headings may open with a Wh- word; sentences may not. */
@@ -68,6 +87,8 @@ export type SheetProps = {
    * nothing, and the head is laid out exactly as without it.
    */
   leading?: ReactNode;
+  /** The way back, at the head's leading edge before everything else. Absent draws nothing. */
+  back?: SheetBack | undefined;
   children: ReactNode;
   side?: SheetSide;
   size?: SheetSize;
@@ -98,6 +119,27 @@ export type SheetProps = {
    * well, which nothing asked it to.
    */
   contained?: boolean;
+  /**
+   * Helm's dock, for a reading a person works beside rather than through —
+   * the owner's note on the task sheet, 28 Sep 2026. Held off the top,
+   * trailing and bottom edges of its container, rounded, on the card glass,
+   * and **no scrim and no `aria-modal`**: the content under it stays live, so
+   * pressing another row changes what the dock reads. Only beside the content;
+   * below `--layout-breakpoint` the caller drops it and the sheet is a sheet.
+   */
+  docked?: boolean;
+  /**
+   * Docked to the leading side of another dock rather than to the trailing
+   * edge — the file diff beside Plan's task panel (owner, 29 Sep 2026). The
+   * same dock, `--space-4` from the one it sits beside.
+   */
+  beside?: boolean;
+  /**
+   * Another layer lies over this one and takes `Esc` first. Both bind on
+   * `window` in the capture phase, where the first one opened runs first, so
+   * the one underneath has to be told to wait.
+   */
+  under?: boolean;
   /**
    * A panel over the whole work area rather than a layer inside one screen:
    * under the title row, held off every edge by `--space-4`, rounded and
@@ -132,6 +174,7 @@ export function Sheet({
   title,
   subtitle,
   leading,
+  back,
   children,
   side = "right",
   size = "default",
@@ -140,6 +183,9 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
+  docked = false,
+  beside = false,
+  under = false,
   floating = false,
   closeLabel,
   closeBinding,
@@ -150,7 +196,9 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) closeRef.current?.focus();
+    // `preventScroll`: a docked sheet sits in the screen's own scroller, and
+    // focusing its close scrolled the whole screen sideways to reach it.
+    if (open) closeRef.current?.focus({ preventScroll: true });
   }, [open]);
 
   // Esc closes an overlay, per the global tier — and stops there. Bound in the
@@ -158,7 +206,7 @@ export function Sheet({
   // to the list from a detail route", is bound on `window` too: a bubble-phase
   // listener would run second and both would answer one press.
   useEffect(() => {
-    if (!open) return;
+    if (!open || under) return;
     function onKey(event: KeyboardEvent) {
       // A popover over the sheet is the top layer. Either it took the press already, or it is still
       // open and will: listeners on one window run in no order this can rely on.
@@ -174,30 +222,78 @@ export function Sheet({
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  }, [open, under, onClose]);
 
   if (!open) return null;
 
   const labelled = closeLabel !== undefined && !floor;
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
+  const close = labelled ? (
+    /* A secondary on an overlay is filled one surface step from its
+       ground, which is what `ground="sunken"` spells. Docked it is
+       on the glass, where Helm's own Close takes `card`. */
+    <Button
+      ref={closeRef}
+      variant="secondary"
+      size="sm"
+      ground={docked ? "card" : "sunken"}
+      title={tooltip}
+      onClick={onClose}
+    >
+      {closeLabel}
+      {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
+    </Button>
+  ) : (
+    <button
+      ref={closeRef}
+      type="button"
+      className="armada-sheet__close"
+      aria-label="Close"
+      title={tooltip}
+      onClick={onClose}
+    >
+      <X size={16} strokeWidth={2} aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       className="armada-sheet-scrim"
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
+      data-docked={docked || undefined}
+      data-beside={(docked && beside) || undefined}
     >
       <div
-        className="armada-sheet"
+        className={docked ? "armada-sheet armada-glass" : "armada-sheet"}
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
-        data-floor={floor || undefined}
+        data-floor={(floor && !docked) || undefined}
+        data-docked={docked || undefined}
         role="dialog"
-        aria-modal="true"
+        aria-modal={docked ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
+          {back === undefined ? null : (
+            /* The way back and the way out share the head's first line, and
+               the title takes the whole of the line under them: beside the
+               title, a docked panel's head had room for neither. */
+            <div className="armada-sheet__way">
+              <Button
+                variant="ghost"
+                size="sm"
+                title={back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`}
+                onClick={back.onBack}
+              >
+                {back.label}
+                {back.binding === undefined ? null : <KbdBinding binding={back.binding} />}
+              </Button>
+              {close}
+            </div>
+          )}
           {leading === undefined ? null : <div className="armada-sheet__leading">{leading}</div>}
           <div className="armada-sheet__titles">
             <h2 className="armada-sheet__title" data-titled={subtitle !== undefined || undefined}>
@@ -210,32 +306,7 @@ export function Sheet({
           {controls === undefined ? null : (
             <div className="armada-sheet__controls">{controls}</div>
           )}
-          {labelled ? (
-            /* A secondary on an overlay is filled one surface step from its
-               ground, which is what `ground="sunken"` spells. */
-            <Button
-              ref={closeRef}
-              variant="secondary"
-              size="sm"
-              ground="sunken"
-              title={tooltip}
-              onClick={onClose}
-            >
-              {closeLabel}
-              {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
-            </Button>
-          ) : (
-            <button
-              ref={closeRef}
-              type="button"
-              className="armada-sheet__close"
-              aria-label="Close"
-              title={tooltip}
-              onClick={onClose}
-            >
-              <X size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-          )}
+          {back === undefined ? close : null}
         </div>
         {bands === undefined ? null : <div className="armada-sheet__bands">{bands}</div>}
         <div ref={bodyRef} className="armada-sheet__body" data-bleed={bleed || undefined}>

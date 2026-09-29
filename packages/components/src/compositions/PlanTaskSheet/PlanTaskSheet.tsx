@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
+import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
+import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
+import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 import { TaskField } from "./TaskFields";
 
 /**
@@ -26,14 +30,12 @@ export type PlanTaskSheetProps = {
   id: string;
   title: string;
   state: TaskMarkState;
-  /**
-   * Where its own agent has got to, as a sentence — turns while it runs, the
-   * cost once it stopped. Absent before anything was dispatched at it.
-   */
-  doing?: string;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
-  /** What the other fields cannot hold. Absent where the task has none. */
+  /**
+   * The planner's brief for the task — what Edit this task will change.
+   * Absent or empty draws nothing.
+   */
   note?: string;
   /** The repository-relative paths the task names, in the order it named them. */
   scope?: readonly string[];
@@ -54,14 +56,20 @@ export type PlanTaskSheetProps = {
    */
   tier?: string;
   model?: string;
-  /** How it is run — `its own agent`, `the step's Drone`, `a Job of its own`. */
-  runBy?: string;
-  /** The tasks it runs beside, by id. Empty where it runs alone. */
-  beside?: readonly string[];
+  /**
+   * The tasks it runs beside, as the Plan graph draws each one — **the same
+   * card, so it reads the same live state**. Empty draws nothing.
+   */
+  beside?: readonly WorkflowStepCardProps[];
   /** The cases it owes. A case with no spec reads `not covered`, never green. */
   tests?: readonly PlanTaskTest[];
   /** Why its own agent stopped. Present on a failed task and on nothing else. */
   failedReason?: string;
+  /**
+   * What a person can do about a failed task, beside messaging its Drone.
+   * Present on a failed task and on nothing else.
+   */
+  acts?: PlanTaskActs;
   /**
    * Asking the Drone that wrote the plan to write this task differently.
    *
@@ -70,22 +78,58 @@ export type PlanTaskSheetProps = {
    */
   rewrite?: PlanTaskRewrite;
   /**
-   * Telling this task's own Drone something while it works.
+   * Telling this task's Drone something while it works.
    *
    * **Review and reply are one loop**, so the box is in the surface the task is
-   * read in. Absent where nothing is live to reach — and it says which Drone it
-   * reaches, because a task with an agent of its own is not the Job's one Drone.
+   * read in, under the Drone it reaches. Absent where nothing is live to reach.
    */
   redirect?: PlanTaskRedirect;
+  /**
+   * The task's own Drone, peeked at over the message box. **Absent is a task
+   * no Drone has run**, which draws the box alone.
+   */
+  drone?: PlanTaskDrone;
+  /**
+   * The paths the Job's patch changed. **A file in it is a press** that opens
+   * what the Job did to it; a file outside it stays text. Absent is a Job
+   * with no patch yet, and no file is a press.
+   */
+  patched?: readonly string[];
+  /**
+   * The file open beside the task, and everything the Job's patch did to it.
+   * **The Job's, not the task's** — Fleet serves one patch, so where two tasks
+   * wrote one file both show (owner, 29 Sep 2026).
+   */
+  file?: { path: string; diff: UnifiedDiffProps };
+  /** A file pressed, or `null` for the diff closed. */
+  onFile?: (path: string | null) => void;
   /** The window is at `--window-floor`. */
   floor?: boolean;
+  /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
+  docked?: boolean;
   onClose?: () => void;
+  /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
+  back?: SheetBack | undefined;
 };
 
-/** The redirect, with the Drone it is addressed to named. */
-export type PlanTaskRedirect = Omit<DroneMessageBoxProps, "placeholder"> & {
-  /** What the box reaches — `Drone on T5`, or the Job's one Drone. */
-  reaches: string;
+/** The message box under the Drone. */
+export type PlanTaskRedirect = Omit<DroneMessageBoxProps, "placeholder">;
+
+/** The task's Drone, as the peek draws it. The box is `redirect`. */
+export type PlanTaskDrone = Omit<DronePeekProps, "message">;
+
+/**
+ * A failed task's own acts — the owner's decision of 29 Sep 2026, *a failed
+ * task offers four acts*. The fourth is the message box. **Each is on screen
+ * ahead of its Fleet route** (#250, #1656, #1657), so a press answers
+ * `Not implemented` naming the issue until the route ships.
+ */
+export type PlanTaskActs = {
+  onPilot: () => void;
+  onRestart: () => void;
+  onEdit: () => void;
+  /** Nothing is live to send it over. */
+  disabled?: boolean;
 };
 
 /**
@@ -122,23 +166,6 @@ export type PlanTaskTest = {
 };
 
 /**
- * The count over the file list. **Three figures only where the work has been
- * read**, since a Job whose turns nobody read would otherwise say every
- * declared file went untouched.
- */
-function filesSaid(
-  declared: number,
-  touched?: PlanTaskSheetProps["touched"],
-): string {
-  if (touched === undefined) return `${declared} in the plan`;
-  const reached = touched.declared.filter((file) => file.touched).length;
-  const unplanned = touched.unplanned.length;
-  const said = [`${declared} in the plan`, `${reached} written to`];
-  if (unplanned > 0) said.push(`${unplanned} the plan never named`);
-  return said.join(" · ");
-}
-
-/**
  * How many paths a task shows before it offers the rest.
  *
  * **Twelve, because the owner asked what twenty would do** (28 Sep 2026).
@@ -157,12 +184,24 @@ const STATE_SAID: Record<TaskMarkState, string> = {
   dropped: "Dropped",
 };
 
+/**
+ * The status token stem each state's tag takes. **The hue the rail's mark
+ * already draws**: `--step-advanced`, `--step-running` and `--step-failed` are
+ * aliases of these three, and a drop is a person's decision, `killed`'s own.
+ */
+const STATE_STATUS: Record<TaskMarkState, string> = {
+  open: "not-started",
+  working: "running",
+  done: "completed-success",
+  failed: "completed-failed",
+  dropped: "killed",
+};
+
 export function PlanTaskSheet({
   open,
   id,
   title,
   state,
-  doing,
   reason,
   note,
   scope = [],
@@ -171,69 +210,116 @@ export function PlanTaskSheet({
   shown,
   tier,
   model,
-  runBy,
   beside = [],
   tests = [],
   failedReason,
+  acts,
   rewrite,
   redirect,
+  drone,
+  patched,
+  file,
+  onFile,
   floor = false,
+  docked = false,
   onClose,
+  back,
 }: PlanTaskSheetProps) {
   return (
+    <>
     <Sheet
       open={open}
       contained
+      docked={docked}
       floor={floor}
       title={title}
       subtitle={
-        <span className="armada-task-sheet__said">
-          <span className="armada-task-sheet__id">{id}</span>
-          <span className="armada-task-sheet__state">{STATE_SAID[state]}</span>
-        </span>
+        <Badge status={STATE_STATUS[state]} icon={TASK_GLYPH[state]}>
+          {STATE_SAID[state]}
+        </Badge>
       }
-      leading={<TaskMark state={state} />}
+      leading={<span className="armada-task-sheet__id">{id}</span>}
+      back={back}
       closeLabel="Close"
       closeBinding="Esc"
+      under={file !== undefined}
       onClose={onClose}
     >
       <div className="armada-task-sheet__body">
-        {/* Where its agent has got to, above everything the plan decided:
-            what a person opening a task mid-run came for is what it is doing,
-            and the plan is what it was told to do. */}
-        {doing === undefined ? null : (
-          <TaskField label="Where it got to">{doing}</TaskField>
-        )}
         {reason === undefined ? null : (
           <TaskField label="Dropped because">{reason}</TaskField>
         )}
         {failedReason === undefined ? null : (
           <TaskField label="Why it stopped">{failedReason}</TaskField>
         )}
-        {/* The brief, as far as the plan decides it. Fleet composes the rest
-            from the Job, which is why this field says what the plan holds
-            rather than claiming to be the whole prompt. */}
-        <TaskField label="What the Drone is told">
-          {(note ?? "") === "" ? "Its title and the files below, and nothing else." : note}
-        </TaskField>
+        {acts === undefined ? null : (
+          <div className="armada-task-sheet__acts">
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
+              Pilot
+            </Button>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
+              Restart this task
+            </Button>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onEdit}>
+              Edit this task
+            </Button>
+          </div>
+        )}
+        {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
+        {/* **What a person reads and what they send are one place**, under
+            the head: the Drone's tail with the box at its foot. A task no
+            Drone has run has no tail, so the box stands alone. */}
+        {drone !== undefined ? (
+          <DronePeek
+            key={id}
+            {...drone}
+            {...(redirect === undefined ? {} : { message: redirect })}
+          />
+        ) : redirect === undefined ? null : (
+          <section className="armada-task-sheet__field" aria-label="Drone">
+            <h3 className="armada-task-sheet__label">Drone</h3>
+            <DroneMessageBox
+              value={redirect.value}
+              onChange={redirect.onChange}
+              onSend={redirect.onSend}
+              disabled={redirect.disabled}
+              disabledReason={redirect.disabledReason}
+              waiting={redirect.waiting}
+            />
+          </section>
+        )}
         {tier === undefined || model === undefined ? null : (
-          <TaskField label="Model" note={runBy === undefined ? undefined : `Run by ${runBy}`}>
+          <TaskField label="Model">
             {tier} · {model}
           </TaskField>
         )}
-        <TaskField label="Runs beside">
-          {beside.length === 0 ? "Nothing. It runs on its own." : beside.join(", ")}
-        </TaskField>
+        {beside.length === 0 ? null : (
+          <TaskField label="Runs beside">
+            <ul className="armada-task-sheet__beside">
+              {beside.map((card) => (
+                <li key={card.name}>
+                  <WorkflowStepCard {...card} />
+                </li>
+              ))}
+            </ul>
+          </TaskField>
+        )}
         {scope.length === 0 && (touched?.unplanned.length ?? 0) === 0 ? null : (
-          <TaskField label="Files" note={filesSaid(scope.length, touched)} bare>
-            <Files scope={scope} touched={touched} />
+          <TaskField label="Files">
+            <Files
+              scope={scope}
+              touched={touched}
+              patched={patched}
+              open={file?.path}
+              onFile={onFile}
+            />
           </TaskField>
         )}
         {(expects ?? "") === "" && (shown ?? "") === "" ? null : (
           /* **The planner's expectation, and labelled as one.** The Job's
              acceptance criteria are a different thing, and `#1274` is why: a
              Drone never chooses what it is held to. */
-          <TaskField label="How we will know it worked" bare>
+          <TaskField label="Done when">
             {/* **Two rows and never one.** The plan names an artifact before the
                 work starts and the work finds out what actually proved it; the
                 pair disagreeing is what a reader is here for. */}
@@ -251,7 +337,7 @@ export function PlanTaskSheet({
             any of this ran — `casesOf` in `tab-plan-read.ts`. Nothing a
             person types reaches this list, which is why it is read and not
             edited here. */}
-        <TaskField label="Tests for this task" bare={tests.length > 0}>
+        <TaskField label="Tests for this task">
           {tests.length === 0 ? (
             "No test covers this task yet."
           ) : (
@@ -270,27 +356,30 @@ export function PlanTaskSheet({
           )}
         </TaskField>
         {rewrite === undefined ? null : <Rewrite {...rewrite} />}
-        {/* Named, so the box says which Drone a correction reaches: a task
-            with an agent of its own is not the Job's one Drone, and a box
-            that said neither would send to either. */}
-        {redirect === undefined ? null : (
-          <section className="armada-task-sheet__field" aria-label="Redirect">
-            <h3 className="armada-task-sheet__label">Redirect</h3>
-            <p className="armada-task-sheet__reaches" role="note">
-              Reaches {redirect.reaches}
-            </p>
-            <DroneMessageBox
-              value={redirect.value}
-              onChange={redirect.onChange}
-              onSend={redirect.onSend}
-              disabled={redirect.disabled}
-              disabledReason={redirect.disabledReason}
-              waiting={redirect.waiting}
-            />
-          </section>
-        )}
       </div>
     </Sheet>
+    {file === undefined ? null : (
+      /* **Beside the task where there is room, over it where there is not.**
+         Docked, it is a second dock to the left, so the task and the file
+         read together. Below the breakpoint two panels do not fit, and it
+         is a sheet over the task sheet: closing it lands back on the task. */
+      <Sheet
+        open
+        contained
+        docked={docked}
+        beside
+        floor={floor}
+        title={file.path}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => onFile?.(null)}
+      >
+        <div className="armada-task-diff">
+          <UnifiedDiff {...file.diff} />
+        </div>
+      </Sheet>
+    )}
+    </>
   );
 }
 
@@ -342,9 +431,15 @@ function Rewrite({ lead, label, placeholder, send, pending = false, disabled = f
 function Files({
   scope,
   touched,
+  patched,
+  open,
+  onFile,
 }: {
   scope: readonly string[];
   touched?: PlanTaskSheetProps["touched"];
+  patched?: readonly string[];
+  open?: string;
+  onFile?: (path: string | null) => void;
 }) {
   const [whole, setWhole] = useState(false);
   const declared = touched?.declared ?? scope.map((path) => ({ path, touched: true }));
@@ -356,7 +451,7 @@ function Files({
       <ul className="armada-task-sheet__files">
         {declared.slice(0, cut).map((file) => (
           <li key={file.path}>
-            <span>{file.path}</span>
+            <FilePath path={file.path} patched={patched} open={open} onFile={onFile} />
             {/* **Only the unreached one is marked.** Marking both halves
                 would put a badge on every row and say nothing; the row
                 worth stopping on is the one the work never reached. */}
@@ -365,7 +460,7 @@ function Files({
         ))}
         {unplanned.map((path) => (
           <li key={path} className="armada-task-sheet__unplanned">
-            <span>{path}</span>
+            <FilePath path={path} patched={patched} open={open} onFile={onFile} />
             <span className="armada-task-sheet__unreached">not planned</span>
           </li>
         ))}
@@ -376,6 +471,41 @@ function Files({
         </Button>
       )}
     </>
+  );
+}
+
+/** A path, and a press where the Job's patch changed it. */
+function FilePath({
+  path,
+  patched,
+  open,
+  onFile,
+}: {
+  path: string;
+  patched?: readonly string[];
+  open?: string;
+  onFile?: (path: string | null) => void;
+}) {
+  const selected = open === path;
+  const ref = useRef<HTMLButtonElement>(null);
+  const was = useRef(selected);
+  // The diff closed with nothing else open: focus comes back to the row that
+  // opened it rather than falling to the page.
+  useEffect(() => {
+    if (was.current && open === undefined) ref.current?.focus();
+    was.current = selected;
+  }, [selected, open]);
+  if (onFile === undefined || patched?.includes(path) !== true) return <span>{path}</span>;
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="armada-task-sheet__file"
+      aria-pressed={selected}
+      onClick={() => onFile(selected ? null : path)}
+    >
+      {path}
+    </button>
   );
 }
 

@@ -43,7 +43,7 @@ import type {
   WorkflowSummary,
 } from "@armada/protocol";
 
-import type { ConfirmableAct, HeldAct } from "./Acts";
+import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
 import type { ShowAgainCall } from "./again";
@@ -108,6 +108,11 @@ export type JobDetailProps = {
   onActHeld: (act: HeldAct, jobId: string) => void;
   /** Send a redirect straight through — its own dialog is the confirmation. */
   onRedirect: (jobId: string, instruction: string) => void;
+  /**
+   * A failed plan task's Pilot, Restart or Edit, pressed on its panel. Each is
+   * ahead of its route, so the answer is `Not implemented` naming the issue.
+   */
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

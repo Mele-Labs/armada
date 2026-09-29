@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import {
   Table,
   TableBody,
@@ -34,7 +34,9 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * **The filters are a counted menu in the panel's head.** As a strip under the
  * destinations they read as a second level (the owner, 28 Sep 2026); as one in
- * the head, nine counted filters wrapped at laptop width (29 Sep 2026).
+ * the head, nine counted filters wrapped at laptop width (29 Sep 2026). The
+ * trigger carries no number: the rows it would count are drawn under it (the
+ * owner's standing rule on aggregate counts, same day).
  *
  * **The open row is a sheet over the table, once a row is pressed.** As a column
  * beside it, both were too narrow on a 14" laptop (the owner, 29 Sep 2026).
@@ -101,7 +103,7 @@ export type JobLedgerProps = {
   rows: readonly JobLedgerRow[];
   /**
    * The filter menu in the panel's head — All first, and the families after
-   * it. The trigger reads the chosen one and its count.
+   * it. The trigger reads the chosen one; the menu's entries carry the counts.
    */
   filters: readonly JobLedgerFilter[];
   filter: string;
@@ -139,6 +141,8 @@ export type JobLedgerProps = {
   floor?: boolean;
   /** Controls beside the filter menu — the panel's own, not filters. */
   controls?: ReactNode;
+  /** The way back, where a press elsewhere opened the sheet. `Sheet`'s slot. */
+  back?: SheetBack | undefined;
 };
 
 /** A whole Job's worth of reading, without the list becoming the cost. */
@@ -160,6 +164,7 @@ export function JobLedger({
   kindMarks = false,
   floor = false,
   controls,
+  back,
 }: JobLedgerProps) {
   const drawn = rows.slice(0, bound);
   const leftOut = rows.length - drawn.length;
@@ -173,7 +178,6 @@ export function JobLedger({
             <DropdownMenu
               align="start"
               triggerLabel={chosen?.label ?? filter}
-              {...(chosen === undefined ? {} : { triggerCount: chosen.count })}
               entries={filters.map((one) => ({
                 kind: "item",
                 id: one.id,
@@ -296,6 +300,7 @@ export function JobLedger({
         floating
         floor={floor}
         title={inspectorTitle ?? "This row"}
+        back={back}
         closeLabel="Close"
         closeBinding="Esc"
         bleed

@@ -107,6 +107,8 @@ export function arcGroups(): GroupView[] {
     ["c-panel"],
     "Pressing a Drone's row opens that Job",
   );
+  // The planner's brief, on the one task that carries one.
+  t5.note = "Keep the four lists in this order, and draw each row as the Board does.";
   t5.concurrent_with = ["T6"];
   t6.concurrent_with = ["T5"];
 

@@ -13,10 +13,11 @@
 // `plan-board.ts` over `tab-plan-read.ts`, the lead is `plan-lead.tsx`, an ask
 // is `tab-plan-ask.tsx`, and what it looks like is `PlanBoard`.
 
-import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
-import { useState } from "react";
+import { DroneBrief, JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
+import { useNarrow } from "@armada/shell";
+import { useEffect, useMemo, useState } from "react";
 
-import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
+import type { Diff, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import { Eyebrow } from "./InsideAJob";
@@ -30,19 +31,29 @@ import {
   revisionsOf,
   taskSheetOf,
   tasksOf,
-  touchedByOf,
 } from "./tab-plan-read";
 import { planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { PlanAskDialog, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
-import { planGraphOf } from "./plan-canvas";
+import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
+import { CHANGED_NOTHING, drawn } from "./review";
 import { WavePlan } from "./wave-plan";
 import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
-import type { HeldAct } from "./Acts";
+import type { HeldAct, TaskAct } from "./Acts";
 import type { JobDraft } from "./draft/held";
+import { droneViewsOf } from "./draft/drone";
+import {
+  DRONE_SAYS,
+  droneOnTask,
+  droneTurnsOf,
+  ranForOf,
+  TRANSCRIPT_EMPTY,
+  TRANSCRIPT_UNSERVED,
+} from "./tab-drones-read";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
+import type { TrailProps } from "./trail";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
 const PLAN_RECORDED = "plan_recorded";
@@ -77,16 +88,42 @@ export type PlanTabProps = {
   /** Held, never pressed. What Drop from the wave sends, on that Job. */
   onActHeld: (act: HeldAct, jobId: string) => void;
   /**
+   * A failed task's Pilot, Restart or Edit. **The buttons are drawn without
+   * it**, so the owner can read them; a press does nothing until the host
+   * hands this through.
+   */
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
+  /**
+   * The Job's patch, which a file in the task panel opens to (owner, 29 Sep
+   * 2026). **Absent draws no file as a press**, which is what a host that has
+   * not handed it through gets.
+   */
+  diff?: Diff;
+  /** Hold the patch's read open while this destination is — Overview's own call. */
+  onReadDiff?: (jobId: string | null) => void;
+  /**
    * The task to land on with its sheet open — a task pressed in the Drones
    * sheet. Read once, when the tab opens; after that the sheet is the person's.
    */
   opensTask?: string;
+  /**
+   * Open a Drone in the Drones destination, with its sheet open. **The
+   * screen's**, on `onOpenCheck`'s terms. Absent, the peek draws no Open.
+   */
+  onOpenDrone?: (droneId: string) => void;
+  /** Now, injected, so a running Drone's run time moves with the header's. */
+  now?: number;
   /**
    * Open a boundary Check's own row in the Record, by its name and the step
    * attempt that ran it. **The screen's** — `JobDetail.tsx` owns which
    * destination is open. Absent, no Check is a button.
    */
   onOpenCheck?: (name: string, stepAttempt: number) => void;
+  /**
+   * The way back, where a press in another destination's panel landed here,
+   * and where this one's open panel is reported — `trail.ts`.
+   */
+  trail?: TrailProps;
 };
 
 /**
@@ -222,8 +259,14 @@ export function PlanTab({
   onApproveReview,
   onRedirect,
   onActHeld,
+  onTaskAct,
+  diff,
+  onReadDiff,
   opensTask,
+  onOpenDrone,
+  now,
   onOpenCheck,
+  trail,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
   // — the sheet is contained by the destination, so a reader who leaves and
@@ -236,6 +279,35 @@ export function PlanTab({
   // What has been typed at the open task's Drone and not sent. This tab's own
   // state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
+  // Beside the breakpoint the inspector is Helm's dock; under it, a sheet over
+  // the content — `Narrow`'s arithmetic, 720 less 380 is under
+  // `--w-step-panel-min`. Read here rather than handed down: `JobDetail.tsx`
+  // reads the same hook for Overview and Workflow.
+  const narrow = useNarrow();
+  // The file open beside the task. It belongs to the task: another task, or
+  // none, closes it.
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  const openTaskAt = (id: string | null) => {
+    setOpenTask(id);
+    setOpenFile(null);
+  };
+
+  // The patch, read while the destination is open — Overview's own effect,
+  // since leaving Overview closes that read.
+  useEffect(() => {
+    if (onReadDiff === undefined) return;
+    onReadDiff(job.id);
+    return () => onReadDiff(null);
+  }, [job.id]);
+  // Split once per reading, not per render: a patch re-split on every tick is
+  // the freeze `Sheets.tsx`' own rail was moved off.
+  const patch = useMemo(
+    () =>
+      diff === undefined || diff.state !== "read" || diff.jobId !== job.id || diff.work === undefined
+        ? undefined
+        : drawn(diff.work),
+    [diff, job.id],
+  );
 
   const step = planStepOf(whole);
   // Whether the split above is this Job's plan. A wave's plan is the Jobs it
@@ -249,18 +321,37 @@ export function PlanTab({
 
   const groups = groupsOf(whole, draft);
   const cases = casesOf(whole, draft);
-  const touchedBy = touchedByOf(groups);
   // **The step the groups are worked at, for the failed Check's own output.**
   // The board draws what each boundary came to now that no second board does
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable, worksAt, onOpenCheck);
+  const board = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
-  const graph = planGraphOf({ groups, onOpenTask: setOpenTask, openTask });
+  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask });
   const revisions = revisionsOf(whole, draft, step);
-  const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases, touchedBy);
+  const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
+  useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
+  // What it runs beside, as the graph's own card off the same groups, so each
+  // reads the task's state now. Pressing one opens it here.
+  const beside =
+    reading === undefined
+      ? []
+      : tasksOf(groups)
+          .filter((one) => reading.beside.includes(one.id))
+          .map((one) => taskCard(one, () => openTaskAt(one.id)));
+  // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
+  // below, and these three, each ahead of its route.
+  const acts =
+    reading === undefined || reading.state !== "failed"
+      ? undefined
+      : {
+          onPilot: () => onTaskAct?.("pilot_task", job.id, reading.id),
+          onRestart: () => onTaskAct?.("restart_task", job.id, reading.id),
+          onEdit: () => onTaskAct?.("edit_task", job.id, reading.id),
+          disabled: stale,
+        };
   const rewrite =
     reading === undefined || !revisable
       ? undefined
@@ -275,13 +366,38 @@ export function PlanTab({
   // plan still waiting on a person offers the rewrite ask above instead, and two
   // boxes about one task would be two ways to say the same thing to nobody.
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
+  // **The task's own Drone, off the list the Drones destination reads**, so
+  // the peek and that sheet show one Drone the same way.
+  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? droneViewsOf(groups), open.id);
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
-  const redirect =
-    reading === undefined || drone === undefined
+  const peekTurns = useMemo(
+    () =>
+      own?.transcript === undefined
+        ? []
+        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />, own.thoughts),
+    [own],
+  );
+  const ran = own === undefined || now === undefined ? undefined : ranForOf(own, now);
+  const peek =
+    own === undefined || open === undefined
       ? undefined
       : {
-          reaches: drone.label,
+          title: droneOfTask(whole, { ...open, drone_id: own.id })?.label ?? `Drone on ${open.id}`,
+          state: own.state,
+          stateSays: DRONE_SAYS[own.state],
+          ...(ran === undefined ? {} : { ranFor: ran }),
+          turns: peekTurns,
+          live: own.state === "running",
+          emptyNote: own.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
+          ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
+        };
+  // **An open task no Drone has run has nothing to reach**: the Job's Drone is
+  // not on it, so the panel draws no box rather than one that lands elsewhere.
+  const redirect =
+    reading === undefined || drone === undefined || (own === undefined && reading.state === "open")
+      ? undefined
+      : {
           value: instruction,
           onChange: setInstruction,
           onSend: () => {
@@ -291,6 +407,24 @@ export function PlanTab({
           disabled: stale || steering.act === undefined,
           disabledReason: NO_DRONE,
           ...(steering.sent === undefined ? {} : { waiting: steering.sent }),
+        };
+
+  // Everything the Job did to the open file. **The Job's patch, not the
+  // task's** — where two tasks wrote one file, both show.
+  const patched = patch?.files.map((one) => one.path);
+  const drawnFile = openFile === null ? undefined : patch?.files.find((one) => one.path === openFile);
+  const last = patch?.files[patch.files.length - 1];
+  const file =
+    drawnFile === undefined || patch === undefined
+      ? undefined
+      : {
+          path: drawnFile.path,
+          diff: {
+            files: [drawnFile],
+            emptyNote: CHANGED_NOTHING,
+            // The bound cuts the last file drawn and no other.
+            ...(patch.cut === undefined || last !== drawnFile ? {} : { cut: patch.cut }),
+          },
         };
 
   return (
@@ -371,12 +505,20 @@ export function PlanTab({
     {reading === undefined ? null : (
       <PlanTaskSheet
         {...reading}
+        beside={beside}
+        {...(acts === undefined ? {} : { acts })}
         open
         floor={floor}
+        docked={!narrow}
         {...(rewrite === undefined ? {} : { rewrite })}
         {...(redirect === undefined ? {} : { redirect })}
+        {...(peek === undefined ? {} : { drone: peek })}
+        {...(patched === undefined ? {} : { patched })}
+        {...(file === undefined ? {} : { file })}
+        onFile={setOpenFile}
+        back={trail?.back}
         onClose={() => {
-          setOpenTask(null);
+          openTaskAt(null);
           setInstruction("");
         }}
       />
