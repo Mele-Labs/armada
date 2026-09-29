@@ -2,19 +2,13 @@
    of the evidence under the title in the 380px rail; this is where they go
    instead. */
 
-.armada-task-sheet__said {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-}
-
+/* The id where the mark was, on the title's first line: the title's own
+   line height, so the two share a baseline. */
 .armada-task-sheet__id {
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-base);
   color: var(--fg-subtle);
-}
-
-.armada-task-sheet__state {
-  color: var(--fg-muted);
 }
 
 .armada-task-sheet__body {
@@ -40,31 +34,19 @@
   font-weight: var(--weight-medium);
 }
 
-/* The value in a box of its own. **This is what separates one field from the
-   next** — a run of them without it is a wall of same-weight text, which is
-   the reading the owner refused four times over. `ProposalFields`' treatment,
-   stacked: 392px has no room for a label track beside it. */
+/* The value as plain text on the panel. **The label's register above it is
+   the separator** — small caps in `--fg-subtle` against `--fg-default` — and
+   no box: a sunken box read as a field to type in (owner, 29 Sep 2026). */
 .armada-task-sheet__value {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-default);
   text-wrap: pretty;
   overflow-wrap: anywhere;
-}
-
-/* A value that draws its own rows brings its own boxes. */
-.armada-task-sheet__value[data-bare="true"] {
-  padding: 0;
-  border: 0;
-  background: none;
 }
 
 /* A fact about the value, under it — how many files, which Drone runs it. */
@@ -83,13 +65,31 @@
   text-wrap: pretty;
 }
 
-/* Which Drone the box below reaches. Quieter than the prose above it: it is a
-   fact about the control, not part of the reading. */
-.armada-task-sheet__reaches {
+/* A failed task's own acts, under why it stopped. */
+.armada-task-sheet__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The frame a peek into the Drone will fill. Empty on purpose, and the dashed
+   edge an empty state already takes. No token names a peek's height, so it is
+   two of the largest spacing step. */
+.armada-task-sheet__peek {
+  min-height: calc(var(--space-12) * 2);
+  border: var(--border-width) dashed var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+/* Each task it runs beside, as the Plan graph's own card. */
+.armada-task-sheet__beside {
+  list-style: none;
   margin: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .armada-task-sheet__files {
@@ -98,7 +98,6 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 
 /* **`overflow-wrap: anywhere` is the whole point of the list.** A path has no
@@ -109,10 +108,13 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) 0;
   overflow-wrap: anywhere;
+}
+
+/* A hairline between rows rather than a box round each. */
+.armada-task-sheet__files li + li {
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 /* Expected and shown carry one weight between them: which of the two a reader
@@ -126,16 +128,12 @@
   min-width: 0;
 }
 
-/* Each side is its own box, the field's own treatment: a `dt` and a `dd` in
-   one register is exactly the wall the boxes exist to break up. */
+/* Each side as its own small label and its value, the field's own register
+   one step down — no box, for the value's reason. */
 .armada-task-sheet__row {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
   min-width: 0;
 }
 

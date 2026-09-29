@@ -139,7 +139,7 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
  * what there is to say before, and what it has taken is what there is to say
  * after.
  */
-function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+export function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });

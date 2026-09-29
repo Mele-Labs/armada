@@ -38,7 +38,6 @@ type Story = StoryObj<typeof PlanTaskSheet>;
 const LONG = {
   id: "T1",
   title: "Fleet: one read of every Drone, running Check and Judge call on the machine",
-  note: "New query (working name `get_activity`) answers `drones: Vec<DroneSummary>`, reused whole from `list_drones`, plus one row per Job whose gate is running Checks — from Underway's existing `gates` map, never a per-Job re-read — and one row per Job with a Judge call out, from Aloft's existing map.",
   scope: [
     "crates/ipc/operations.toml",
     "crates/ipc/src/drones.rs",
@@ -121,7 +120,16 @@ export const ItsOwnAgent: Story = {
     tier: "medium",
     model: "sonnet",
     runBy: "its own agent",
-    beside: ["T5"],
+    beside: [
+      {
+        kind: "task",
+        name: "Draw what is running, in four lists",
+        activity: "advanced",
+        said: "done",
+        facts: [{ value: "T5" }, { value: "27 turns" }],
+        onOpen: fn(),
+      },
+    ],
     failedReason: "The row's press opened the Board rather than the Job",
     tests: [
       { id: "c-panel", spec: "packages/screens/src/Running.test.tsx", reads: "owed" },

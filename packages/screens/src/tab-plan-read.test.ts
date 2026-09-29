@@ -156,12 +156,6 @@ describe("a done task a later one edited", () => {
   test("nothing is flagged where no task was touched", () => {
     expect(touchedByOf(GROUPS).size).toBe(0);
   });
-
-  test("the inspector carries the flag into the brief", () => {
-    const groups = groupsOf(wholeOf(doneTouched()), doneTouched().draft);
-    const sheet = taskSheetOf("T6", groups, CASES, touchedByOf(groups))!;
-    expect(sheet.note).toContain("T7 edited a file this task had already finished.");
-  });
 });
 
 describe("an order that contradicts the scopes", () => {
@@ -284,10 +278,8 @@ describe("the whole board", () => {
 });
 
 describe("one task's inspector", () => {
-  const touched = touchedByOf(GROUPS);
-
   test("it names what the task runs beside and what covers it", () => {
-    const sheet = taskSheetOf("T5", GROUPS, CASES, touched)!;
+    const sheet = taskSheetOf("T5", GROUPS, CASES)!;
     expect(sheet.beside).toEqual(["T6"]);
     expect(sheet.tier).toBe("difficult");
     expect(sheet.model).toBe("opus");
@@ -296,12 +288,12 @@ describe("one task's inspector", () => {
   });
 
   test("a case with no spec reads not covered in the inspector too", () => {
-    const sheet = taskSheetOf("T4", GROUPS, CASES, touched)!;
+    const sheet = taskSheetOf("T4", GROUPS, CASES)!;
     expect(sheet.tests?.map((one) => one.reads)).toEqual(["not covered"]);
   });
 
   test("a task the plan does not hold opens nothing", () => {
-    expect(taskSheetOf("T99", GROUPS, CASES, touched)).toBeUndefined();
+    expect(taskSheetOf("T99", GROUPS, CASES)).toBeUndefined();
   });
 });
 

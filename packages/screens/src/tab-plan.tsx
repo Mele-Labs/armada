@@ -31,17 +31,16 @@ import {
   revisionsOf,
   taskSheetOf,
   tasksOf,
-  touchedByOf,
 } from "./tab-plan-read";
 import { planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { PlanAskDialog, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
-import { planGraphOf } from "./plan-canvas";
+import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { WavePlan } from "./wave-plan";
 import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
-import type { HeldAct } from "./Acts";
+import type { HeldAct, TaskAct } from "./Acts";
 import type { JobDraft } from "./draft/held";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
 
@@ -77,6 +76,12 @@ export type PlanTabProps = {
   onRedirect: (jobId: string, instruction: string) => void;
   /** Held, never pressed. What Drop from the wave sends, on that Job. */
   onActHeld: (act: HeldAct, jobId: string) => void;
+  /**
+   * A failed task's Pilot, Restart or Edit. **The buttons are drawn without
+   * it**, so the owner can read them; a press does nothing until the host
+   * hands this through.
+   */
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
 };
 
 /**
@@ -212,6 +217,7 @@ export function PlanTab({
   onApproveReview,
   onRedirect,
   onActHeld,
+  onTaskAct,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
   // — the sheet is contained by the destination, so a reader who leaves and
@@ -242,7 +248,6 @@ export function PlanTab({
 
   const groups = groupsOf(whole, draft);
   const cases = casesOf(whole, draft);
-  const touchedBy = touchedByOf(groups);
   // **The step the groups are worked at, for the failed Check's own output.**
   // The board draws what each boundary came to now that no second board does
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
@@ -253,7 +258,26 @@ export function PlanTab({
   // that opened a different surface from each view would be two screens.
   const graph = planGraphOf({ groups, onOpenTask: setOpenTask, openTask });
   const revisions = revisionsOf(whole, draft, step);
-  const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases, touchedBy);
+  const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
+  // What it runs beside, as the graph's own card off the same groups, so each
+  // reads the task's state now. Pressing one opens it here.
+  const beside =
+    reading === undefined
+      ? []
+      : tasksOf(groups)
+          .filter((one) => reading.beside.includes(one.id))
+          .map((one) => taskCard(one, () => setOpenTask(one.id)));
+  // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
+  // below, and these three, each ahead of its route.
+  const acts =
+    reading === undefined || reading.state !== "failed"
+      ? undefined
+      : {
+          onPilot: () => onTaskAct?.("pilot_task", job.id, reading.id),
+          onRestart: () => onTaskAct?.("restart_task", job.id, reading.id),
+          onEdit: () => onTaskAct?.("edit_task", job.id, reading.id),
+          disabled: stale,
+        };
   const rewrite =
     reading === undefined || !revisable
       ? undefined
@@ -274,7 +298,6 @@ export function PlanTab({
     reading === undefined || drone === undefined
       ? undefined
       : {
-          reaches: drone.label,
           value: instruction,
           onChange: setInstruction,
           onSend: () => {
@@ -364,6 +387,8 @@ export function PlanTab({
     {reading === undefined ? null : (
       <PlanTaskSheet
         {...reading}
+        beside={beside}
+        {...(acts === undefined ? {} : { acts })}
         open
         floor={floor}
         docked={!narrow}
