@@ -1,3 +1,5 @@
+import { Trash2 } from "lucide-react";
+
 /**
  * A thing attached to a request before the Job exists — one name and one
  * removal control. Nothing here reads a byte or a path aloud: a person
@@ -8,15 +10,21 @@
  * a Studio node are three different things to a Drone, and a filename does not
  * always carry which one it is.
  *
- * **No icon.** The `file-*` glyph family is reserved to Evidence throughout
- * `packages/icons/icons.toml` — an attachment staged on a draft brief is not
- * evidence, so this does not reach for it. The remove control is a bare `×`
- * character rather than lucide's `x`, whose registry entry reserves it to
- * system failure and never a human decision — a chip's dismiss is exactly
- * the decision that glyph may not carry. Flagged as a gap: the registry has
- * no glyph proposed for "remove this," and this component does not invent
- * one on the spot.
+ * **No icon on the name.** The `file-*` glyph family is reserved to Evidence
+ * throughout `packages/icons/icons.toml` — an attachment staged on a draft
+ * brief is not evidence, so this does not reach for it.
+ *
+ * **The remove control draws `trash-2`**, minted 28 Sep 2026 for exactly this:
+ * a person taking off something they put there, one decision serving this
+ * chip, a Studio node deleted and a sketch box removed. It stood as a bare `×`
+ * while the registry held nothing — never lucide's `x`, reserved to system
+ * failure and banned by its own row from carrying a human decision.
  */
+
+/** The chip's glyph size. 12px, which is the row's own height class. */
+const CHIP_ICON = 12;
+const CHIP_STROKE = 2;
+
 export type AttachmentChipProps = {
   /** Shown as typed at attach time. Never the staged path. */
   filename: string;
@@ -66,7 +74,7 @@ export function AttachmentChip({ filename, from, kind = "file", onRemove }: Atta
           onClick={onRemove}
           aria-label={`Remove ${filename}`}
         >
-          ×
+          <Trash2 size={CHIP_ICON} strokeWidth={CHIP_STROKE} aria-hidden />
         </button>
       )}
     </span>

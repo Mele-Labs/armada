@@ -508,11 +508,11 @@ a square button, which rule 1 already settles, and minting a pair of magnifiers
 beside `search` would be two more silhouettes for a meaning a sign carries.
 `Fit` is `maximize`, because a word cannot sit in a square beside them.
 
-**A rail act earns a glyph; an act on a selection does not.** The rail's
+**A rail act earns a glyph, and so does an act on a selection.** The rail's
 membership is fixed by the surface, so a reader learns it once and the icon is
 what buys the room back. The acts on whatever is currently selected hover over
-that selection instead, they come and go with it, and they draw their words:
-see `[node-bar-glyphs]` below for what was refused there.
+that selection instead and come and go with it — that is *The node bar* below,
+and the owner ruled on 28 Sep 2026 that it draws icons too.
 
 **This is where an act's tooltip is load-bearing rather than an addition.** An
 icon-only control has no other way to say its name, which is the sanctioned use
@@ -537,6 +537,45 @@ object standing for its verb — the construction `stamp` and `wrench` already
 use — and refuses `crosshair` and `locate-fixed`: both are rings, `circle-dot`
 is the running step's own mark, and the collision would land on the one canvas
 where this control exists and be about the very node it follows.
+
+### The node bar
+
+**What hovers over whatever is selected is a row of presses.** One press acts;
+there is no caret, no menu and no header, and the bar carries no title for the
+node it is floating at — that is said by the selection itself. It was a menu
+for a day, and the owner's correction on 28 Sep 2026 is the whole reason this
+section exists: *I meant something like a toolbar that has icon buttons for the
+actions that I can take on this node.* The registry group is `Node bar`.
+
+**A node act earns a glyph, and the mint is open for it.** That reverses what
+this document said until then, which was that a bar whose membership changes
+under the pointer is one a reader cannot learn. The owner took the cost —
+a silhouette reserved forever against rule 1's *default to no icon* — on the
+grounds the open question it closes had itself argued: the mint pays across the
+node bar, the sketch pad and the attachment chip together rather than here
+alone.
+
+**It is still a mint and never a borrow.** A glyph that already means something
+in Armada stays where it is, whatever room it would buy here: `plus` is the
+title row's Dispatch segment by its own reservation, `send` means dispatched,
+`eye` is Review, `pencil` is the sketch pad's pen and is banned there from
+meaning edit, `clock` is the set's one time-shaped mark, `clipboard-list` is the
+Job Board, `flag` is reserved outright. Each refusal is recorded on the row of
+the glyph that took the act instead.
+
+**An act draws its word where no honest silhouette exists**, which is the rest
+of them, and that is the ordinary case rather than a gap:
+
+```
+a glyph      the act is one thing, always, whatever node is picked
+a word       the act names something the bar cannot draw — which link,
+             which of two ways a Contradiction ended, whether an edit is
+             to a draft or to a line
+```
+
+`trash-2` is the one row minted for more than one surface, and its reservation
+is what holds them together: *a person taking off something they put there*,
+never a Job ending and never a machine discarding anything.
 
 ### Blast radius
 
@@ -751,32 +790,6 @@ status vocabulary (Specified, Proposed, Retired, Banned) has no analogue to
 "Decided", so the file and the settled-as-of-2026-08-21 claim do not fully
 line up — worth a person's attention rather than something this document
 should paper over.
-
-- **[node-bar-glyphs]** Which glyphs, if any, carry the acts that hover over a
-  selected node — the sketch pad's Join and Remove, and a Studio's own acts on
-  what is picked?
-  They ship drawing their words, beside the canvas rail above that draws
-  icons. What was looked at and refused, for Join: `link` is a chain and its
-  Queued reason row means *something upstream is unfinished*, which is the
-  opposite claim to two boxes a person joined; `waypoints` is the Graph view
-  toggle and `git-branch` is a real git operation, so either would name a
-  thing Armada already has; `split` is `fanned out`'s and draws one line
-  becoming two, which is this act read backwards. For Remove: `x` is
-  reserved to system failure and its row bans a human decision outright;
-  `minus` is reserved to a record nothing checked and a dropped plan task;
-  `ban` is `rejected`'s and means a person declined a whole Job; the
-  `circle-*` and `shield-*` families are verdicts. `trash-2` is unlisted and
-  would be the first mint — and it is the same gap `AttachmentChip` already
-  flagged for its own dismiss, which draws a bare `×` character rather than
-  reaching for `x`.
-  What makes it a different question from the rail is that these acts are not
-  fixed: which ones a node offers depends on its kind, a Studio's list grows
-  with every rung of promotion, and a bar whose membership changes under the
-  pointer is one a reader cannot learn. Words survive that; icons do not.
-  What would settle it is either a mint for *remove this* that serves the
-  chip, the bar and the Studio at once — one decision, not three — or a
-  ruling that a hovering bar is label-only by construction, the way Doctor's
-  health grid settled `[doctor-warn-glyph]`.
 
 - **[kit-file-icons]** Do the three Kit-file states — in Kit, drifted, not
   in Kit — get icons, or stay label-only?

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
+import { Bookmark, ExternalLink, Trash2, Type } from "lucide-react";
 
 import { StudioPicked, type StudioPickedAct } from "./StudioPicked";
 
@@ -8,7 +9,7 @@ const meta: Meta<typeof StudioPicked> = {
   component: StudioPicked,
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--w-studio-node)" }}>
+      <div className="armada-graph-node-bar">
         <Story />
       </div>
     ),
@@ -20,34 +21,31 @@ type Story = StoryObj<typeof StudioPicked>;
 
 /** Everything a Contradiction offers, with #1406's Open and the delete beside them. */
 const EVERY_ACT: StudioPickedAct[] = [
-  { id: "open", label: "Open" },
-  { id: "write_up", label: "Write up" },
-  { id: "defer", label: "Defer" },
+  { id: "open", label: "Open", icon: ExternalLink },
+  { id: "write_up", label: "Write up", icon: Type },
+  { id: "defer", label: "Defer", icon: Bookmark },
   { id: "settled", label: "Not a problem" },
   { id: "resolved", label: "Resolved here" },
-  { id: "remove", label: "Delete node", danger: true },
+  { id: "remove", label: "Delete node", icon: Trash2, danger: true },
 ];
 
+/** The order the row draws: glyphs, then the acts that must say their names, then the delete. */
+const AS_DRAWN = ["Open", "Write up", "Defer", "Not a problem", "Resolved here", "Delete node"];
+
 /**
- * One node offering six acts. **The card is a line and a control at any number
- * of them** — a seventh is a row inside the menu, which resolves against the
- * window rather than against this 198px column.
+ * One node offering six acts. **Every one is a press**, which is the owner's
+ * correction of 28 Sep 2026 — the menu that stood here asked for two.
  */
 export const OneNode: Story = {
-  args: {
-    picked: ["Contradiction: The chip reads the Board and the row disagrees"],
-    acts: EVERY_ACT,
-    onAct: fn(),
-  },
+  args: { acts: EVERY_ACT, onAct: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
-    await step("every act is one press away, the delete last", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: "Acts" }));
-      const offered = canvas.getAllByRole("menuitem").map((item) => item.textContent);
-      await expect(offered).toEqual(EVERY_ACT.map((act) => act.label));
+    await step("every act is on the bar, the delete last", async () => {
+      const offered = canvas.getAllByRole("button").map((one) => one.getAttribute("aria-label"));
+      await expect(offered).toEqual(AS_DRAWN);
     });
 
-    await step("the act pressed is the act reported", async () => {
-      await userEvent.click(canvas.getByRole("menuitem", { name: "Resolved here" }));
+    await step("one press acts, with nothing opened first", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Resolved here" }));
       await expect(args.onAct).toHaveBeenCalledWith("resolved");
     });
   },
@@ -56,26 +54,23 @@ export const OneNode: Story = {
 /** A Studio picked over whole, to delete it or to read it as one Outline. */
 export const ManyNodes: Story = {
   args: {
-    picked: Array.from({ length: 40 }, (_, at) => `Note: What the ${at + 1}th note said`),
     acts: [
       { id: "outline", label: "Outline" },
-      { id: "remove", label: "Delete node", danger: true },
+      { id: "remove", label: "Delete 40 nodes", icon: Trash2, danger: true },
     ],
     onAct: fn(),
   },
   play: async ({ canvas, step }) => {
-    await step("how many are picked, and not which", async () => {
-      await expect(canvas.getByText("40 nodes picked")).toBeVisible();
-      await expect(canvas.queryByText(/What the 1th note said/)).toBeNull();
-      await expect(canvas.queryByText(/What the 40th note said/)).toBeNull();
+    await step("how many are going, and not which", async () => {
+      await expect(canvas.getByRole("button", { name: "Delete 40 nodes" })).toBeVisible();
     });
   },
 };
 
-/** A Studio reopened read-only offers nothing to act with, and still says what is picked. */
+/** A Studio reopened read-only offers nothing to act with, so it draws nothing. */
 export const NothingOffered: Story = {
-  args: { picked: ["Note: The legend under the step bar is unreadable"], acts: [], onAct: fn() },
+  args: { acts: [], onAct: fn() },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "Acts" })).toBeNull();
+    await expect(canvas.queryByRole("button")).toBeNull();
   },
 };

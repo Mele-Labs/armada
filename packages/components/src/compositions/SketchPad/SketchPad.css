@@ -85,11 +85,23 @@
 }
 
 /* Where the picture came from. A fact about the sketch, set back under it. */
+/* Where the picture was made, and the node it was made from. The two are set
+   the way the attachment chip sets its own provenance, so the line under the
+   pad and the chip under the prompt read as one vocabulary. */
 .armada-sketch-pad__from {
+  /* Inline, not a flex row with a gap: the space between the two is a real
+     space in the markup, so the line reads aloud as a sentence rather than as
+     one run-together word. */
   margin: 0;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
+}
+
+/* The dot is drawn rather than written, so nothing reads it out — the same
+   `/ ""` empty alternative `AttachmentChip` uses for its own. */
+.armada-sketch-pad__made::after {
+  content: " ·" / "";
 }
 
 /* One box, at one width so a pad of them reads as a picture rather than as a

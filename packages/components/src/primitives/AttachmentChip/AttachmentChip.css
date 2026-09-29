@@ -36,7 +36,6 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--fg-muted);
-  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);

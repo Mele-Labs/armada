@@ -717,7 +717,7 @@ export const AddingALink: Story = {
 export const WriteOrSketch: Story = {
   args: {
     request: REQUEST,
-    sketch: { name: "sketch 1", from: "From a Studio" },
+    sketch: { name: "sketch 1" },
   },
   render: function Switching(props) {
     const [mode, setMode] = useState<"write" | "sketch">("write");
@@ -736,9 +736,11 @@ export const WriteOrSketch: Story = {
   play: async ({ canvas, userEvent, step }) => {
     const field = () => canvas.getByRole("textbox", { name: "Request" });
 
-    await step("the picture is attached under Write, with where it was made", async () => {
+    await step("the picture is attached under Write, and the chip is its name alone", async () => {
       await expect(canvas.getByText("sketch 1")).toBeVisible();
-      await expect(canvas.getByText("From a Studio")).toBeVisible();
+      // Where it was made is the pad's line, and the pad is not open here —
+      // the chip saying it too put `a Studio` on the screen twice.
+      await expect(canvas.queryByText("From a Studio")).toBeNull();
     });
 
     await step("Sketch puts the pad where the field was", async () => {

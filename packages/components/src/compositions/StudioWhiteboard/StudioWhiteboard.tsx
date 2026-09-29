@@ -14,7 +14,7 @@ import {
 } from "@xyflow/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
-import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from "../StudioNode/StudioNode";
 
 /**
@@ -25,9 +25,13 @@ import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from
  * (`#1539`). What is left here is free placement and what a Studio draws: every
  * node is a `StudioNode` and every edge is drawn below.
  *
- * **No edge carries colour.** Produced is a bare line; Same as, Blocks and
- * Answers carry their label; a proposed relation is dashed until a person
- * accepts it. Nothing here draws or deletes a relation — that is a person's act.
+ * **No relation carries colour; one standing does.** Produced is a bare line;
+ * Same as, Blocks and Answers carry their label and nothing more, so a hue
+ * never says which kind an edge is. A relation nobody has answered is dashed
+ * *and* says so under its label, in `awaiting_review`'s amber — the one thing
+ * on the board waiting on a person, and a dash alone did not say it was
+ * waiting or that anything had proposed it. Nothing here draws or deletes a
+ * relation — that is a person's act.
  */
 
 export type StudioWhiteboardNode = {
@@ -72,11 +76,19 @@ export type StudioWhiteboardProps = {
    */
   readOnly?: boolean;
   /**
-   * What the surface draws over the board's top-right corner — the relations
-   * waiting on a person, and the field behind whatever the rail opened. The
-   * whiteboard itself decides nothing.
+   * The field behind whatever the rail opened, over the board's top-right
+   * corner. **This and nothing else** — it drew the relations waiting on a
+   * person too, and a panel doing two jobs with neither of them named is what
+   * the owner read on 28 Sep 2026 as a card showing when nothing was selected.
+   * What waits on a person is `waiting`.
    */
   children?: ReactNode;
+  /**
+   * What is waiting on a person, under the field and always under it. It comes
+   * and goes with what the Studio holds rather than with anything the person
+   * is doing, so it says so on its own face.
+   */
+  waiting?: ReactNode;
   /**
    * The bar down the board's leading edge — what a person puts on a Studio.
    * `GraphCanvasRail` is what goes here, and the sketch pad mounts the same
@@ -92,6 +104,13 @@ export type StudioWhiteboardProps = {
    */
   nodeBar?: ReactNode;
 };
+
+/**
+ * What a proposed relation says under its own label, on the board. Sentence
+ * case and lower than the label, because it is the standing rather than the
+ * relation — nothing here changes what a kind means.
+ */
+const EDGE_PROPOSED = "proposed, waiting on you";
 
 /** The relation's label, as `studio.md`, Edges, names it. Produced has none. */
 export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
@@ -142,6 +161,14 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
           >
             {label}
+            {/* **A dashed line is not a sentence.** It was the whole of what
+                said a relation had been proposed, and the owner read the label
+                beside it as a fact the Studio had decided — *where did same as
+                come from*. The second line names the two things the dash could
+                not: that somebody proposed it, and that it is his to answer. */}
+            {props.data?.proposed !== true ? null : (
+              <span className="armada-studio-edge__waiting">{EDGE_PROPOSED}</span>
+            )}
           </span>
         </EdgeLabelRenderer>
       )}
@@ -183,7 +210,7 @@ function merged(given: readonly StudioWhiteboardNode[], kept: readonly BoardNode
 
 function edgeLabel(edge: StudioWhiteboardEdge, titleOf: (id: string) => string): string {
   const said = edge.kind === "produced" ? "produced" : STUDIO_EDGE_LABEL[edge.kind];
-  const proposed = edge.kind !== "produced" && edge.proposed ? ", proposed" : "";
+  const proposed = edge.kind !== "produced" && edge.proposed ? `, ${EDGE_PROPOSED}` : "";
   return `${titleOf(edge.source)} ${said} ${titleOf(edge.target)}${proposed}`;
 }
 
@@ -208,7 +235,13 @@ export function useStudioPlacement(): () => { x: number; y: number } {
     // token the card is drawn at rather than restated here.
     const wide = Number.parseFloat(getComputedStyle(board).getPropertyValue("--w-studio-node"));
     const half = Number.isFinite(wide) ? wide / 2 : 0;
-    return { x: Math.round(middle.x - half), y: Math.round(middle.y) };
+    // And off whatever is already at that point: two added in a row would
+    // otherwise land on one spot with the second hiding the first.
+    return clearOf(
+      flow.getNodes().map((node) => node.position),
+      { x: middle.x - half, y: middle.y },
+      Number.isFinite(wide) ? wide : 0,
+    );
   }, [flow]);
 }
 
@@ -220,6 +253,7 @@ function Board({
   pick = null,
   readOnly = false,
   children,
+  waiting,
   rail,
   nodeBar,
 }: StudioWhiteboardProps) {
@@ -282,6 +316,7 @@ function Board({
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
       aside={children}
+      waiting={waiting}
     >
       {nodeBar}
     </GraphCanvas>

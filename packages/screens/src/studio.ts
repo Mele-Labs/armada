@@ -388,8 +388,28 @@ export function nodeNamed(
   return `${STUDIO_NODE_KIND[card.kind]} ${card.title}`;
 }
 
+/**
+ * Who drew a relation, as the card says it. **The record's own field, never a
+ * guess**: `added_by` is absent on an edge kept before it existed, and the row
+ * says the bare fact rather than naming somebody the Studio does not know.
+ */
+export const PROPOSED_BY: Readonly<Record<string, string>> = {
+  helm: "Helm proposes",
+  person: "You proposed",
+};
+
+/** What a row says where the record does not name who drew the relation. */
+export const PROPOSED_BY_SOMETHING = "Proposed";
+
 /** One proposed relation, waiting on a person, as it is read aloud. */
-export type ProposedRelation = { id: string; from: string; relation: string; to: string };
+export type ProposedRelation = {
+  id: string;
+  /** Who drew it, already said — `Helm proposes`, or the bare fact. */
+  proposer: string;
+  from: string;
+  relation: string;
+  to: string;
+};
 
 /** Every relation proposed and not yet accepted, oldest first — the order Fleet keeps them in. */
 export function proposedRelations(studio: Studio, jobs: readonly JobSummary[]): ProposedRelation[] {
@@ -398,6 +418,10 @@ export function proposedRelations(studio: Studio, jobs: readonly JobSummary[]): 
       ? [
           {
             id: edge.id,
+            proposer:
+              edge.added_by === undefined
+                ? PROPOSED_BY_SOMETHING
+                : (PROPOSED_BY[edge.added_by] ?? PROPOSED_BY_SOMETHING),
             from: nodeNamed(studio, edge.from, jobs),
             relation: STUDIO_EDGE_LABEL[edge.kind],
             to: nodeNamed(studio, edge.to, jobs),

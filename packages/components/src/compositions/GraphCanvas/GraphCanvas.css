@@ -161,10 +161,16 @@
 
 /* What hovers over the selected node. React Flow places it and holds it against
    pan and zoom; the surface it wears is this file's, and it matches the rail
-   because the two are one vocabulary read at two places on the canvas. */
+   because the two are one vocabulary read at two places on the canvas.
+
+   **One line, and it never wraps.** The bar is wider than the node whenever the
+   acts are, which is what a toolbar does — the owner asked for the row on
+   28 Sep 2026 — and a bar that broke onto a second line would cover the card it
+   is about. React Flow centres it over the selection, so it grows both ways. */
 .armada-graph-node-bar {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: var(--space-1);
   padding: var(--space-1);
   border: var(--border-width) solid var(--border-subtle);
@@ -172,4 +178,28 @@
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
   font-family: var(--font-sans);
+}
+
+/* A word in the bar is one word and stays on its own line, whatever the node
+   under it is doing to the layout around it. */
+.armada-graph-node-bar .armada-button {
+  white-space: nowrap;
+}
+
+/* Above the bar rather than under it. Under is the node the bar is about, so a
+   reader checking what they are going to press covers the thing they are
+   pressing it on — the horizontal twin of the rail's own finding. */
+.armada-graph-node-bar .armada-tooltip__bubble {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  inline-size: max-content;
+}
+
+@supports (anchor-name: --a) {
+  .armada-graph-node-bar .armada-tooltip__bubble {
+    position-area: block-start span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    margin-block-start: 0;
+    margin-block-end: var(--space-1);
+  }
 }

@@ -42,7 +42,7 @@ const STUDIO: Studio = {
   ],
   edges: [
     { id: "e1", from: "n1", to: "n2", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "e2", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT },
+    { id: "e2", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT, added_by: "helm" },
     { id: "e3", from: "n1", to: "n5", kind: "blocks", standing: "accepted", created_at: AT },
     { id: "e4", from: "n1", to: "n3", kind: "a_kind_from_a_newer_fleet", standing: "proposed", created_at: AT },
   ],
@@ -227,11 +227,29 @@ test("edges keep their standing, and a kind this build does not know is left off
   ]);
 });
 
-test("only a proposed relation waits on a person, named by its two ends", () => {
+test("only a proposed relation waits on a person, named by its two ends and by who drew it", () => {
   expect(proposedRelations(STUDIO, [])).toEqual([
-    { id: "e2", from: "Finding Where do its colours come from?", relation: "answers", to: "Outline Legend, then width" },
+    {
+      id: "e2",
+      proposer: "Helm proposes",
+      from: "Finding Where do its colours come from?",
+      relation: "answers",
+      to: "Outline Legend, then width",
+    },
   ]);
   expect(nodeNamed(STUDIO, "gone", [])).toBe("gone");
+});
+
+// **An edge kept before `added_by` existed says the bare fact.** Naming nobody
+// is right where the record names nobody; inventing Helm there would put a
+// proposer on a relation the Studio cannot attribute — the owner asked where
+// `same as` had come from, and a wrong answer is worse than "Proposed".
+test("a relation the record cannot attribute says it is proposed and names nobody", () => {
+  const kept: Studio = {
+    ...STUDIO,
+    edges: [{ id: "old", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT }],
+  };
+  expect(proposedRelations(kept, []).map((one) => one.proposer)).toEqual(["Proposed"]);
 });
 
 test("a Studio Fleet wrote replaces its row, and the list stays last touched first", () => {

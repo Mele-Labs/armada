@@ -143,7 +143,7 @@ function legend(): Studio {
     ],
     edges: [
       { id: "legend-e1", from: "legend-note", to: "legend-finding", kind: "produced", standing: "accepted", created_at: at },
-      { id: "legend-e2", from: "legend-width", to: "legend-note", kind: "same_as", standing: "proposed", created_at: at },
+      { id: "legend-e2", from: "legend-width", to: "legend-note", kind: "same_as", standing: "proposed", created_at: at, added_by: "helm" },
       { id: "legend-e3", from: "legend-finding", to: "legend-draft", kind: "produced", standing: "accepted", created_at: at },
     ],
   };
@@ -343,7 +343,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           position: { x: 360, y: 0 },
           created_at: now,
         };
-        const edge: StudioEdge = { id: mint("edge-"), from: finding.id, to: note.id, kind: "answers", standing: "proposed", created_at: now };
+        const edge: StudioEdge = { id: mint("edge-"), from: finding.id, to: note.id, kind: "answers", standing: "proposed", created_at: now, added_by: "helm" };
         return { ...studio, nodes: [...studio.nodes, note, finding], edges: [...studio.edges, edge] };
       }),
   };
@@ -693,7 +693,7 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     ...contradicted,
     edges: [
       ...contradicted.edges,
-      { id: mint("edge-"), from: note.id, to: contradiction.id, kind: "blocks", standing: "proposed", created_at: tick() },
+      { id: mint("edge-"), from: note.id, to: contradiction.id, kind: "blocks", standing: "proposed", created_at: tick(), added_by: "helm" },
     ],
   };
 }

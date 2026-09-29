@@ -310,7 +310,6 @@
    board. #1364. */
 @import "./compositions/StudioName/StudioName.css";
 @import "./compositions/StudioAddNode/StudioAddNode.css";
-@import "./compositions/StudioPicked/StudioPicked.css";
 /* Kit's MCP servers, on their own rail surface. Above the rule below, per
    HeldFlag's note. #1275. */
 @import "./compositions/KitServers/KitServers.css";

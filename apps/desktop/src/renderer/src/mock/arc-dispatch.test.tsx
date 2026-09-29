@@ -111,12 +111,15 @@ describe("dispatch", () => {
       mount("arc/dispatch-sketch");
 
       // Beside the prompt: the words are in the field and the picture is
-      // attached to them, with where it was made read before its name.
+      // attached to them, by name. **`a Studio` is not said here** — the pad's
+      // own line says where the picture was made and names the node it was
+      // made from, and the chip saying it too is what the owner read on
+      // 28 Sep 2026 as one fact written twice.
       await expect
         .element(page.getByRole("textbox", { name: "Request" }))
         .toHaveValue(expect.stringContaining("Drones 1 of 2"));
-      await expect.element(page.getByText("From a Studio")).toBeVisible();
       await expect.element(page.getByText("sketch 1")).toBeVisible();
+      expect(page.getByText("From a Studio").elements()).toHaveLength(0);
 
       await page.getByRole("tab", { name: "Sketch" }).click();
 
@@ -134,7 +137,9 @@ describe("dispatch", () => {
       await expect
         .element(page.getByRole("textbox", { name: "About this sketch" }))
         .toHaveValue(expect.stringContaining("The panel opens under the stat"));
-      await expect.element(page.getByText(/Made from\s+rail-stats\s+in a Studio/)).toBeVisible();
+      // Both facts, and `a Studio` said once: where the picture was made, and
+      // which node it was made from.
+      await expect.element(page.getByText(/From a Studio\s+rail-stats/)).toBeVisible();
     },
   );
 

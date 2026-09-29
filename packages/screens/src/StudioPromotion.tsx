@@ -13,6 +13,8 @@
 // anything inside its subtree. Delete node was already outside for the same reason.
 
 import { useState, type ReactNode } from "react";
+import { Bookmark, Download, Group, ListOrdered, Rocket, Type } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Dialog, Input, Select, Textarea, type StudioPickedAct } from "@armada/components";
 import type { EpicTake, Outcome, Studio, StudioNode, StudioPromotion } from "@armada/protocol";
 
@@ -152,16 +154,23 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
 
   // In the order a person climbs them: what several nodes become, then what one
   // node becomes, then how a Contradiction ends.
-  const rung = (id: Filling, label: string, offers: boolean): Rung[] => (offers ? [{ id, label }] : []);
+  //
+  // **A glyph where `packages/icons/icons.toml` holds one, the word where it
+  // does not.** Edit draft and Edit line draw words because `pencil` is
+  // reserved to the sketch pad's pen and banned there from meaning edit; the
+  // two ways a Contradiction ends draw words because the difference between
+  // them *is* the words, and a pair of silhouettes would have to encode why.
+  const rung = (id: Filling, label: string, offers: boolean, icon?: LucideIcon): Rung[] =>
+    offers ? [icon === undefined ? { id, label } : { id, label, icon }] : [];
   const offered: Rung[] = [
-    ...rung("cluster", "Cluster Notes", acts.cluster),
-    ...rung("outline", "Outline", acts.outline),
-    ...rung("write_up", "Write up", acts.writeUp),
-    ...rung("defer", "Defer", acts.defer),
+    ...rung("cluster", "Cluster Notes", acts.cluster, Group),
+    ...rung("outline", "Outline", acts.outline, ListOrdered),
+    ...rung("write_up", "Write up", acts.writeUp, Type),
+    ...rung("defer", "Defer", acts.defer, Bookmark),
     ...rung("edit", "Edit draft", acts.edit),
     ...rung("line", "Edit line", acts.editLink),
-    ...rung("dispatch", "Dispatch", acts.dispatch),
-    ...rung("read_in", "Read in", acts.readIn),
+    ...rung("dispatch", "Dispatch", acts.dispatch, Rocket),
+    ...rung("read_in", "Read in", acts.readIn, Download),
     ...rung("settled", "Not a problem", acts.settle),
     ...rung("resolved", "Resolved here", acts.settle),
   ];

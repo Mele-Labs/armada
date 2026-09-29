@@ -8,6 +8,9 @@
 
 .armada-studio-edge__label {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--surface-canvas);
@@ -16,6 +19,14 @@
   line-height: var(--leading-2xs);
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* A relation somebody proposed and nobody has answered. The hue is
+   `awaiting_review`'s — *needs you, not urgent*, which is what this is — and it
+   is the only colour on a Studio's edges, because the dash it sits over is the
+   one thing on the board that asks a person for an answer. */
+.armada-studio-edge__waiting {
+  color: var(--status-awaiting-review);
 }
 
 /* A node's width, so the aside reads as one more card on the board rather than

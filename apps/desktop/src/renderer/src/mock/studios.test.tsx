@@ -37,18 +37,16 @@ function close(): void {
 afterEach(close);
 
 const node = (name: RegExp) => page.getByRole("group", { name });
-/** The one control every act on what is picked lives behind — #1399. */
-const offers = () => page.getByRole("button", { name: "Acts", exact: true });
-/** Open it. The trigger toggles, so an open menu is left open. */
-async function openActs(): Promise<void> {
-  await expect.element(offers()).toBeVisible();
-  if (offers().element().getAttribute("aria-expanded") !== "true") await offers().click();
-}
-/** One act, as it is read in the menu. */
-const offered = (name: string) => page.getByRole("menuitem", { name, exact: true });
-/** Reach one act: open the control, then press what it offers. */
+/** The bar hovering over what is picked, and the acts on it — #1399. */
+const bar = () => page.getByRole("group", { name: "What is picked" });
+/**
+ * One act on the bar, by name. **Named and not read off the face**: most draw
+ * a glyph since the owner's note of 28 Sep 2026, so the name is the
+ * `aria-label` and the glyph is what a reader sees.
+ */
+const offered = (name: string) => bar().getByRole("button", { name, exact: true });
+/** Reach one act. **One press, never two** — there is no menu to open first. */
 async function act(name: string): Promise<void> {
-  await openActs();
   await offered(name).click();
 }
 const asked = (name: string) => page.getByRole("dialog").getByRole("button", { name, exact: true });
@@ -299,15 +297,73 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
   expect(page.getByRole("button", { name: /^\+ Node/ }).query()).toBeNull();
 
   // Nothing is picked, so nothing acts. The fixed panel used to stand here.
-  expect(offers().query()).toBeNull();
+  expect(bar().query()).toBeNull();
 
   await pick(/^Note: The legend under the step bar/);
-  await expect.element(offers()).toBeVisible();
+  await expect.element(bar()).toBeVisible();
   // Hanging off the node rather than off the board: React Flow places the bar
   // against the node's own box, so what says it is hovering is `data-id`.
-  const bar = document.querySelector(".armada-graph-node-bar");
-  expect(bar?.getAttribute("data-id")).toMatch(/^[0-9A-Za-z-]+$/);
-  expect(bar?.getAttribute("data-id")).not.toBe("");
+  const placed = document.querySelector(".armada-graph-node-bar");
+  expect(placed?.getAttribute("data-id")).toMatch(/^[0-9A-Za-z-]+$/);
+  expect(placed?.getAttribute("data-id")).not.toBe("");
+
+  // **A row of presses, and no node title** — the owner's correction of
+  // 28 Sep 2026, on the menu that stood here for an hour. Every act is one
+  // button on the bar, the delete is last, and nothing has to be opened first.
+  await expect.element(offered("Write up")).toBeVisible();
+  await expect.element(offered("Defer")).toBeVisible();
+  await expect.element(offered("Delete 1 node")).toBeVisible();
+  expect(page.getByRole("button", { name: "Acts", exact: true }).query()).toBeNull();
+  expect(bar().getByRole("menuitem").elements()).toHaveLength(0);
+  // The Note's own title is on its card and nowhere else.
+  expect(bar().getByText("The legend under the step bar is unreadable").query()).toBeNull();
+  // Last, whatever order the acts arrived in.
+  const named = [...(placed?.querySelectorAll("button") ?? [])].map((one) => one.getAttribute("aria-label"));
+  expect(named[named.length - 1]).toBe("Delete 1 node");
+});
+
+/**
+ * The owner's two notes of 28 Sep 2026, which are one defect: *why is this
+ * showing when I have nothing selected? I don't get the importance of it*, and
+ * *why is this connected with "same as". Where did same as come from?*
+ *
+ * The corner drew what a rail press had opened and what was waiting on him in
+ * one unlabelled column, so a queue read as a panel about a selection he had
+ * not made; and a dashed line was the whole of what said a relation had been
+ * proposed rather than decided.
+ *
+ * **A mock test rather than a story, because both claims are about a real
+ * Studio's own edge.** A story would supply the proposal it is meant to be
+ * reading, and what has to hold is that Fleet's `added_by` reaches the screen.
+ */
+test("what waits on a person says so, names who proposed it, and marks its own edge", async () => {
+  open(studying().scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+
+  // The queue says what it is, before anything is selected and without being.
+  // `exact`, because a role name matches on substring and the edge below
+  // is named "…, proposed, waiting on you" — the queue and the thing it
+  // is queueing would otherwise be one locator.
+  const queue = page.getByRole("group", { name: "Waiting on you", exact: true });
+  await expect.element(queue).toBeVisible();
+  expect(bar().query()).toBeNull();
+  // Who drew it — the record's own `added_by`, not the Studio's own hand.
+  await expect.element(queue.getByText("Helm proposes")).toBeVisible();
+
+  // And the edge on the board says it is proposed and whose answer it waits on,
+  // rather than leaving a dash to carry both.
+  await expect.element(page.getByText("proposed, waiting on you")).toBeVisible();
+
+  // Accepting takes both away, because neither was about the relation's kind.
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as/ }).click();
+  await expect
+    .poll(() => page.getByRole("group", { name: "Waiting on you", exact: true }).query())
+    .toBeNull();
+  await expect.poll(() => page.getByText("proposed, waiting on you").query()).toBeNull();
+  // The relation itself is untouched: accepting settles the standing, not the kind.
+  await expect.element(page.getByText("same as", { exact: true })).toBeVisible();
 });
 
 test("a scenario keeping no Studios draws the empty state, not a read failure", async () => {
@@ -353,7 +409,6 @@ test("a Note draws the frame it kept, opens it full size, and a Note without one
   await userEvent.keyboard("{Escape}");
   await page.getByRole("button", { name: "Continue" }).click();
   await pick(/^Note: It wraps at 720 wide/);
-  await openActs();
   await expect.element(offered("Write up")).toBeVisible();
   expect(offered("Open frame").query()).toBeNull();
 });
@@ -372,7 +427,6 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await userEvent.keyboard("{Meta>}");
   await node(/^Note: Overview still says three/).click();
   await userEvent.keyboard("{/Meta}");
-  await openActs();
   await expect.element(offered("Cluster Notes")).toBeVisible();
 
   await act("Cluster Notes");
@@ -430,7 +484,6 @@ test("a Contradiction is ended as Resolved here, with the answer kept on the nod
 
   await pick(/^Contradiction: The chip reads the Board/);
   // All four outcomes are offered on the node, and two of them are the rungs beside them.
-  await openActs();
   for (const one of ["Write up", "Defer", "Not a problem", "Resolved here"]) {
     await expect.element(offered(one)).toBeVisible();
   }
@@ -446,7 +499,6 @@ test("a Contradiction is ended as Resolved here, with the answer kept on the nod
     });
   // Ended once: nothing offers a second outcome on it.
   await pick(/^Contradiction: The chip reads the Board/);
-  await openActs();
   expect(offered("Not a problem").query()).toBeNull();
 });
 
@@ -648,7 +700,6 @@ test("an issue read in is dispatched, its Job opens from the node, and the node 
 
   // A Link is an address no adapter recognised: nothing filed to dispatch.
   await pick(/^Link: why the ids collide/);
-  await openActs();
   await expect.poll(() => offered("Dispatch").query()).toBeNull();
 
   await pick(/^Issue: An issue cannot be read into a Studio/);
@@ -731,7 +782,6 @@ test("a node holding an address opens in the browser, and a node without one off
   // still on the Studio, because no surface navigates.
   await page.getByRole("button", { name: "Continue" }).click();
   await pick(/^Finding: Where do the legend's colours come from/);
-  await openActs();
   expect(offered("Open").query()).toBeNull();
   await expect.element(page.getByRole("heading", { name: "The Board's legend" })).toBeVisible();
 });
@@ -776,7 +826,6 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   await expect.poll(() => everyNode().length).toBe(18);
 
   await pickEvery();
-  await openActs();
   // Counted, never named, and the single-node act is not what is offered here.
   await expect.element(offered("Delete 18 nodes")).toBeVisible();
 

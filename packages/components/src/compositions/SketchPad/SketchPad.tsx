@@ -9,14 +9,13 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { Pencil, SquarePlus, Undo2 } from "lucide-react";
+import { Pencil, SquarePlus, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
-import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
-import { GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
 import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
 /**
@@ -104,6 +103,9 @@ const BOX_LABEL = "The words in this box";
 /** What a box holds, shown rather than described. A phrase, never a paragraph. */
 const BOX_PLACEHOLDER = "A panel, a read, a step";
 
+/** Where the picture was made, before the node it was made from. */
+const MADE_IN_A_STUDIO = "From a Studio";
+
 type PadNodeData = { body: string; onBody: (body: string) => void; disabled: boolean };
 type PadNode = Node<PadNodeData, "sketch">;
 type PadEdge = Edge<Record<string, never>, "default">;
@@ -144,9 +146,15 @@ const NODE_TYPES = { sketch: BoxView };
 const EDGE_TYPES = {};
 
 /**
- * Room around a fitted picture. **A tenth rather than React Flow's default**:
- * the acts sit over the top-right corner and the zoom pair over the
- * bottom-right, so a picture fitted edge to edge has a box under each of them.
+ * Room around a fitted picture. **A tenth rather than React Flow's default**,
+ * so a picture fitted edge to edge still has air between its outermost box and
+ * the pane's own edge — and the bar hovering over a box picked there has
+ * somewhere to sit.
+ *
+ * **Only on open, and only where there is a picture.** `GraphCanvas` reads
+ * `fitView` once and refuses it on an empty canvas; a blank pad that kept the
+ * fit armed zoomed onto the first box added, which is what the owner read on
+ * 28 Sep 2026.
  */
 const FIT: FitViewOptions = { padding: 0.1 };
 
@@ -200,7 +208,13 @@ function PadRail({
       getComputedStyle(document.body).getPropertyValue("--w-sketch-box"),
     );
     const half = Number.isFinite(wide) ? wide / 2 : 0;
-    return { x: Math.round(centre.x - half), y: Math.round(centre.y) };
+    // And off whatever is already there, so two boxes added in a row are two
+    // boxes rather than one with another hidden under it.
+    return clearOf(
+      flow.getNodes().map((node) => node.position),
+      { x: centre.x - half, y: centre.y },
+      Number.isFinite(wide) ? wide : 0,
+    );
   }, [flow]);
 
   const acts: GraphCanvasRailAct[] = [
@@ -237,9 +251,11 @@ function PadRail({
 /**
  * The acts on the boxes a person picked, hovering over them.
  *
- * **Words rather than glyphs**, which is `[node-bar-glyphs]` in
- * `docs/contracts/iconography.md`: nothing in the registry means *join* or
- * *remove this*, and this does not mint one on the spot.
+ * **Remove draws `trash-2` and Join draws its word** — `docs/contracts/`
+ * `iconography.md`, *The node bar*. The mint for *remove this* serves the
+ * Studio, the pad and the attachment chip at once; nothing in the registry
+ * means *join two boxes*. The Studio's own bar draws the same control, so the
+ * two read as one vocabulary.
  */
 function BoxActs({
   picked,
@@ -255,18 +271,19 @@ function BoxActs({
   const joinable = picked.length === A_JOIN_TAKES;
   return (
     <GraphCanvasNodeBar label={BOX_ACTS_LABEL} nodeIds={picked}>
-      <Button
-        size="sm"
-        ground="sunken"
+      <GraphCanvasNodeAct
+        name="Join"
         disabled={disabled || !joinable}
-        title={joinable ? undefined : "Pick two boxes to join them."}
-        onClick={() => onJoin(picked[0]!, picked[1]!)}
-      >
-        Join
-      </Button>
-      <Button size="sm" ground="sunken" disabled={disabled} onClick={() => onRemove(picked)}>
-        Remove
-      </Button>
+        why="Pick two boxes to join them."
+        onPress={() => onJoin(picked[0]!, picked[1]!)}
+      />
+      <GraphCanvasNodeAct
+        name="Remove"
+        icon={Trash2}
+        danger
+        disabled={disabled}
+        onPress={() => onRemove(picked)}
+      />
     </GraphCanvasNodeBar>
   );
 }
@@ -400,9 +417,15 @@ export function SketchPad(props: SketchPadProps) {
         disabled={disabled}
         onChange={(event) => onSaid(event.target.value)}
       />
+      {/* **`a Studio` is said once, and it is said here** — the owner, 28 Sep
+          2026, reading this line against the chip below it. Two facts, not
+          one: this says which node the picture was made from, the chip says
+          the request carries a picture. The phrase they shared moved up to the
+          one that is about provenance, and the chip keeps its name alone. */}
       {from === undefined ? null : (
         <p className="armada-sketch-pad__from">
-          Made from <span className="mono">{from}</span> in a Studio.
+          <span className="armada-sketch-pad__made">{MADE_IN_A_STUDIO}</span>{" "}
+          <span className="mono">{from}</span>
         </p>
       )}
     </div>

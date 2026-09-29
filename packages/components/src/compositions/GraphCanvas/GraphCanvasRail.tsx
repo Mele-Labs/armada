@@ -117,6 +117,61 @@ export type GraphCanvasNodeBarProps = {
 };
 
 /**
+ * One act in the bar hovering over a node. **A press that acts, never a press
+ * that opens something** — the owner's correction of 28 Sep 2026: *a toolbar
+ * that has icon buttons for the actions that I can take on this node*.
+ *
+ * **A glyph where the registry sanctions one, the word where it does not.**
+ * `docs/contracts/iconography.md`, *The node bar*, holds what was minted and
+ * what was refused; nothing here reaches for a glyph that row does not give.
+ */
+export type GraphCanvasNodeActProps = {
+  /** Sentence case, naming what the press does. The accessible name. */
+  name: string;
+  /** From `packages/icons/icons.toml`. Absent draws the name. */
+  icon?: LucideIcon;
+  /** Deleting. Drawn in the failure colour, and the caller draws it last. */
+  danger?: boolean;
+  disabled?: boolean;
+  /** Why the act is off. A dead control with no reason reads as broken. */
+  why?: string;
+  onPress: () => void;
+};
+
+/**
+ * One button in the hovering bar.
+ *
+ * **The tooltip is the icon-only button's only name.** A button drawing its
+ * word already says what it does, and a bubble restating it is the one thing
+ * `docs/contracts/design-system.md` says a tooltip never does — so a word takes
+ * one only where the act is off and the reason is not on the face of it.
+ */
+export function GraphCanvasNodeAct({
+  name,
+  icon: Glyph,
+  danger = false,
+  disabled = false,
+  why,
+  onPress,
+}: GraphCanvasNodeActProps) {
+  const said = disabled && why !== undefined ? why : name;
+  const button = (
+    <Button
+      variant={danger ? "destructive" : "ghost"}
+      size="sm"
+      iconOnly={Glyph !== undefined}
+      aria-label={name}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      {Glyph === undefined ? name : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
+    </Button>
+  );
+  if (Glyph === undefined && said === name) return button;
+  return <Tooltip label={said}>{button}</Tooltip>;
+}
+
+/**
  * What hovers over the node a person has selected.
  *
  * **React Flow's own `NodeToolbar`, so no new layer.** It portals into the
