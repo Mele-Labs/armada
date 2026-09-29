@@ -2267,13 +2267,17 @@
   min-width: 0;
 }
 
-/* Plan's lead, shut to one line (owner, 29 Sep 2026): the band and the first
-   criterion cut to fit, the whole line the press. The band keeps its eyebrow
-   register; the criterion keeps the open list's. */
+/* Plan's lead, shut (owner, 29 Sep 2026): the band on its own line and the
+   first criterion cut to fit under it, the whole block the press. The mark
+   holds the leading column beside the band; the criterion shares the band's
+   column. The band keeps its eyebrow register; the criterion keeps the open
+   list's. */
 .armada-plan-tab__fold {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
   min-width: 0;
   width: 100%;
   padding: 0;
@@ -2292,16 +2296,16 @@
 }
 
 .armada-plan-tab__fold .armada-screen__eyebrow {
-  flex: none;
+  grid-column: 2;
 }
 
 .armada-plan-tab__fold-mark {
-  flex: none;
+  grid-column: 1;
   color: var(--fg-muted);
 }
 
 .armada-plan-tab__fold-first {
-  flex: 1 1 auto;
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;

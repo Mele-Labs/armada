@@ -126,9 +126,9 @@ const NOTHING_HELD = "Nothing was written down for this Job to be held to.";
  * What the Job is held to, with where each line came from, and the gate under
  * it.
  *
- * **Shut, it is one line: the band and the first criterion cut to fit** — the
- * owner's call of 29 Sep 2026, after scrolling past it on a failed group every
- * time. The criteria after the first are hidden until pressed; that was the
+ * **Shut, it is the band with the first criterion cut to fit on the line
+ * under it** — the owner's call of 29 Sep 2026, after scrolling past it on a
+ * failed group every time, and stacked rather than side by side the same day. The criteria after the first are hidden until pressed; that was the
  * cost he took, and no count of them is drawn.
  *
  * **The gate is never folded.** It sits outside the disclosure, so a plan
