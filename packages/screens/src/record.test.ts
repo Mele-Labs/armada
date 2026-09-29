@@ -45,7 +45,7 @@ describe("what a row came to, as a hue", () => {
   it("gives a file the step never named no hue either, on the footprint's own row", () => {
     const drift = row({
       kind: "file_written",
-      outcome: "Modified, which the step never said it would change",
+      outcome: "Modified, out of scope",
     });
 
     expect(toneOf(drift)).toBeUndefined();

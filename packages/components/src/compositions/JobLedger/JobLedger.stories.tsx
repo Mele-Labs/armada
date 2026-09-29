@@ -100,7 +100,7 @@ const ROWS: JobLedgerRow[] = [
     who: "drone",
     whoSays: "Drone",
     what: "running-rows.tsx",
-    outcome: "Modified, which the step never said it would change",
+    outcome: "Modified, out of scope",
     mark: { glyph: <FileDiff {...MARK} />, says: "file_written" },
   },
   {
