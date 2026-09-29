@@ -72,7 +72,7 @@ describe("the plan board", () => {
 
 describe("Pulse", () => {
   test(
-    "arc/executing-concurrent: the headline says the look has not run, over figures that " +
+    "arc/executing-concurrent: no headline says the look has not run, over figures that " +
       "have plainly been read",
     async () => {
       mount("arc/executing-concurrent");
@@ -80,15 +80,15 @@ describe("Pulse", () => {
       await expect.element(page.getByRole("tabpanel", { name: "Pulse" })).toBeVisible();
 
       // It read "Nobody has asked whether this job is working." over a panel
-      // of figures, which made the poll and the look read as one claim.
+      // of figures, which made the poll and the look read as one claim. Its
+      // successor sat beside `Updated 4s ago` and read as a contradiction, so
+      // the owner took the head's sentence out on 29 Sep.
       await expect.element(page.getByText(/Nobody has asked/)).not.toBeInTheDocument();
-      await expect.element(page.getByText("This job has not been looked at.")).toBeVisible();
+      await expect.element(page.getByText(/has not been looked at/)).not.toBeInTheDocument();
 
-      // The figures under it are still the reading, and still qualified. The
-      // act above them carries the owner's own word for it.
-      await expect
-        .element(page.getByText(/^Read .* ago\. Taken again every 10s while open\.$/))
-        .toBeVisible();
+      // The figures are still the reading, and still qualified — by when, and
+      // nothing more. The act beside them carries the owner's own word for it.
+      await expect.element(page.getByText(/^Updated .* ago$/)).toBeVisible();
       await expect.element(page.getByRole("button", { name: "Refresh" })).toBeVisible();
       await expect
         .element(page.getByRole("button", { name: "Look now" }))

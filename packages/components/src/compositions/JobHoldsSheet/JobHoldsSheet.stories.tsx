@@ -103,7 +103,8 @@ export const TheFullReading: Story = {
    */
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: /Refresh/ })).toBeVisible();
-    await expect(canvas.getByText(/This job is doing what it should be/)).toBeVisible();
+    // What the look found, which only the props reaching the card can draw.
+    await expect(canvas.getByText("the process Fleet recorded is running")).toBeVisible();
   },
 };
 

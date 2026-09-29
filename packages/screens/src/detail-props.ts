@@ -343,6 +343,13 @@ export type JobDetailProps = {
   examination: Examination;
   /** Ask Fleet to go and look at this Job now. It costs no model call. */
   onExamine: (jobId: string) => void;
+  /**
+   * Pulse's kill on one process row, held. **The host confirms** before it
+   * sends. Absent draws no kill on any row.
+   */
+  onKillProcess?: (jobId: string, process: { pid: number; command: string }) => void;
+  /** Pulse's kill for every process the Job holds, held. The host confirms. */
+  onKillProcesses?: (jobId: string, count: number) => void;
   /** The reads the panel's chapters draw from. */
   recorded: FoldedReads;
   onCopied: (value: string) => void;

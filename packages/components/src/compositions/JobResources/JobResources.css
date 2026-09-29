@@ -1,37 +1,30 @@
-/* What a job holds on the machine, and what came of asking whether it works.
+/* Pulse, the board the design draws: a Stats card over two cards side by side
+   — Processes and Worktrees — and the Job logs card under them.
 
-   A card and not a well: the act on it makes it something to be acted on,
-   which is the line the design system draws between the two. */
+   Cards and not wells: every one holds something to act on, a Refresh or an
+   Open, which is the line the design system draws between the two. */
 .armada-holds {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--pad-card);
-  border: var(--border-width) solid var(--edge-card);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
 }
 
-.armada-holds__head {
+/* Processes and Worktrees share a line where the window has room, and stack
+   where it does not — the job sheet draws this board too, at a third of the
+   width. Each card grows from a basis of six --space-12 steps. */
+.armada-holds__pair {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-3);
   min-width: 0;
 }
 
-/* The board's name over the sentence a person came for. A column, so the `?`
-   sits beside the word it explains and not beside a reading of this job. */
-.armada-holds__said-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
+.armada-holds__pair > .armada-destination-card {
+  flex: 1 1 calc(var(--space-12) * 6);
 }
 
-/* The act and its `?`, held together so the space-between above keeps them at
-   the trailing edge rather than pushing the mark into the verdict. */
+/* The act and its `?`, held together. */
 .armada-holds__act {
   flex: none;
   display: flex;
@@ -39,29 +32,44 @@
   gap: var(--space-1);
 }
 
-/* The sentence a person came for, read before any figure. Sans and body text:
-   it is the one line here that is not machine-derived. */
+/* A total — CPU and memory, or size on disk — at the end of a list card's name. */
+.armada-holds__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--text-body);
+  white-space: nowrap;
+}
+
+/* When the figures were true. Sans: it is a phrase, not a value. */
+.armada-holds__read-at {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--text-meta);
+  white-space: nowrap;
+}
+
+/* The sentence where something failed. Sans and body text: it is the one
+   line here that is not machine-derived. */
 .armada-holds__verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
   margin: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-body);
-  color: var(--text-body);
+  color: var(--fg-muted);
 }
 
-/* A finding that says the job is not working takes the error hue on the text
-   alone. No tint and no box: a 12% tint in a chip is what every job status is,
-   and this must not read as one. */
+/* A look that failed takes the error hue on the text alone. No tint and no
+   box: a 12% tint in a chip is what every job status is, and this must not
+   read as one. */
 .armada-holds__verdict[data-found="not_working"] {
   color: var(--error);
-}
-
-/* Could-not-tell is not a failure and must not be drawn as one, and it is not
-   a pass either. Muted, which is the register of a fact nobody can act on. */
-.armada-holds__verdict[data-found="cannot_tell"] {
-  color: var(--fg-muted);
 }
 
 /* There is nothing to ask, on either of the two readings that mean it. The
@@ -78,22 +86,25 @@
    else — the amber dot is what tells them apart at a glance, and telling them
    apart is the whole reason the contract gives degraded a dot at all. */
 .armada-holds__verdict[data-degraded] {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
   padding-inline-start: var(--space-3);
   border-inline-start: var(--degraded-edge) solid var(--degraded);
   color: var(--text-body);
 }
 
-/* On the first line's optical centre rather than the block's: a 6px dot in a
-   22px line box sits 8px down, which is one spacing step exactly. */
+/* The verdict's dot, in the hue of what failed. */
 .armada-holds__dot {
   flex: none;
   width: var(--dot);
   height: var(--dot);
-  margin-block-start: var(--space-2);
   border-radius: 50%;
+  background: var(--fg-subtle);
+}
+
+.armada-holds__verdict[data-found="not_working"] .armada-holds__dot {
+  background: var(--error);
+}
+
+.armada-holds__verdict[data-degraded] .armada-holds__dot {
   background: var(--degraded-dot);
 }
 
@@ -194,78 +205,153 @@
   color: var(--text-body);
 }
 
-.armada-holds__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-holds__table th {
-  padding: var(--space-1) var(--space-2);
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: var(--weight-medium);
-  color: var(--text-label);
-  text-align: start;
-}
-
-.armada-holds__table td {
-  padding: var(--space-1) var(--space-2);
-  color: var(--fg-muted);
-  vertical-align: baseline;
-}
-
-/* The one fleet wrote down, told from the ones descended from it. A weight
-   change and not a hue: it leads the list already, and a hue here would
-   compete with the finding edges above. */
-.armada-holds__table tr[data-recorded] td {
-  color: var(--text-body);
-}
-
-.armada-holds__table td:first-child {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+/* One list of rows — processes, worktrees, logs. A grid whose rows borrow its
+   tracks, so a column lines up down the card the way the board draws it
+   without a width written for any of them. */
+.armada-holds__rows {
+  display: grid;
+  column-gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   min-width: 0;
+}
+
+/* pid · executable · whose · CPU · memory. The executable keeps its whole name
+   and whose gives way first: `node` is a word and a branch is a long mono run
+   that still reads with its tail clipped. Whose is held to three --space-12
+   steps, so a long branch cannot push the figures off the card. */
+.armada-holds__rows[data-list="processes"] {
+  grid-template-columns: max-content minmax(max-content, 1fr) fit-content(calc(var(--space-12) * 3)) max-content max-content;
+}
+
+/* … · kill, where the host can kill one. Its own track rather than a sixth
+   always drawn, so a board with no kill spends no gap on an empty column. */
+.armada-holds__rows[data-list="processes"][data-kills] {
+  grid-template-columns: max-content minmax(max-content, 1fr) fit-content(calc(var(--space-12) * 3)) max-content max-content max-content;
+}
+
+/* dot · branch over state · size · Open */
+.armada-holds__rows[data-list="worktrees"] {
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+}
+
+/* kind · whose and what · Open or being written */
+.armada-holds__rows[data-list="logs"] {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+
+.armada-holds__row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: var(--h-row);
+  min-width: 0;
+  border-block-end: var(--border-width) solid var(--edge-rule);
+}
+
+/* A rule separates rows, so the last one has none under it. */
+.armada-holds__row:last-child {
+  border-block-end: none;
+}
+
+/* A worktree row is two lines and carries a control. */
+.armada-holds__row[data-tall] {
+  min-height: var(--h-row-action);
 }
 
 .armada-holds__pid {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  color: var(--fg-subtle);
+  line-height: var(--leading-2xs);
+  color: var(--text-meta);
 }
 
-/* **It wraps rather than shrinking every value at once.** In a 380px run
-   column the size, the path and the branch on one unwrapped line left all three
-   ellipsised past reading — `.armada/worktree…` names no worktree. Wrapping
-   spends a line the column has and keeps the figure whole. */
-.armada-holds__disk {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
+/* What names the row — an executable, a branch, whose a log is. */
+.armada-holds__name {
+  color: var(--text-body);
+}
+
+.armada-holds__rows[data-list="logs"] .armada-holds__name {
+  color: var(--text-meta);
+}
+
+.armada-holds__whose {
   min-width: 0;
-  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--text-meta);
+}
+
+/* CPU, memory, size on disk. Right-aligned, so the figures read
+   down one edge. The unit never leaves the number. */
+.armada-holds__weight {
+  justify-self: end;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
 
-/* The figure a person acts on directly. Body text against the path beside it,
-   because seventy-four worktrees once took 220 GB and nothing said so.
+.armada-holds__stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 
-   **The unit never leaves the number.** On the Job screen the row is 380px wide
-   and `1.2 GiB` broke at its space, leaving `1.2` on one line and `GiB` on the
-   next — a byte count drawn without its unit resolved, which is the one thing
-   this component says it does not do. */
-.armada-holds__size {
+.armada-holds__row-dot {
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--fg-subtle);
+}
+
+/* A value test rather than a presence test, and the same match: React writes
+   a `true` data attribute as `"true"`. The gate's arbitrary-value check reads a
+   bare `row-dot[…]` as a Tailwind utility. */
+.armada-holds__row-dot[data-working="true"] {
+  background: var(--status-running);
+}
+
+.armada-holds__row-dot[data-wrong="true"] {
+  background: var(--error);
+}
+
+/* What a checkout is doing. Sans, because it is a word somebody would say. */
+.armada-holds__state {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--text-meta);
+}
+
+.armada-holds__state[data-wrong] {
+  color: var(--error);
+}
+
+/* Which file a log row is — Job log, Judge brief. */
+.armada-holds__kind {
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--text-body);
+}
+
+/* Still being written, where Open would be. The running hue, because that is
+   what it says: something has this file open. Text and not a pill — a
+   bordered pill is a Job state. */
+.armada-holds__writing {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--status-running);
 }
 
 .armada-holds__note {
@@ -276,114 +362,7 @@
   color: var(--fg-muted);
 }
 
-/* When the figures above were true. Last rather than a caption, because it
-   qualifies everything over it. */
-.armada-holds__read-at {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-/* One band of the board — a label and the list under it. The tab's own region
-   gap, so a reading here lays out the way the run column's regions do. */
-.armada-holds__region {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* The band's name. The look rows' own label treatment, because the two are the
-   same register — what this group of readings is — and a second one would be a
-   heading competing with the verdict above. */
-/* The band and its `?`, on one line. */
-.armada-holds__band-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.armada-holds__band {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: var(--weight-medium);
-  color: var(--text-label);
-}
-
-/* The checkouts, and the logs. Each is a list of rows that wrap rather than
-   shrinking every value at once, for `.armada-holds__disk`'s own reason. */
-.armada-holds__disks,
-.armada-holds__logs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-holds__log {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-  color: var(--fg-muted);
-}
-
-/* What a checkout is doing. Sans against the mono around it, because it is a
-   word somebody would say and not a reading off the machine. */
-.armada-holds__state {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-}
-
-/* A checkout a look found wrong. The hue on the state alone, never on the size
-   beside it — a fault has no size to report. */
-.armada-holds__state[data-wrong] {
-  color: var(--error);
-}
-
-/* Still being written. The running hue, because that is what it says: a Drone
-   has this file open. Text and not a pill — a bordered pill is a Job state. */
-.armada-holds__writing {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--status-running);
-}
-
-/* Which checkout a process is in. **It wraps where the other cells clip**, and
-   that is what keeps the table inside the card: a branch is one unbreakable
-   mono run, and at 768px `armada/3-show-what-s-running-in-the-drones-stat`
-   pushed Memory and Running for off the right edge of the window. Wrapping
-   spends a line the row has — `.armada-holds__disk`'s own argument. */
-.armada-holds__owner {
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
-  overflow-wrap: anywhere;
-}
-
-/* A middot between a row's fields. Without one a checkout reads
-   `972.8 MiB armada/24-drop-the-store-singleton on disk /Users/…` as one run
-   of mono, and the app already separates facts on a line this way. In the
-   stylesheet rather than the markup, so a row's fields stay fields — and
-   trailing, so a row that wraps does not begin its second line on a dot. */
-.armada-holds__disk span:not(:last-child)::after,
-.armada-holds__log span:not(:last-child)::after {
-  content: "·";
-  margin-inline-start: var(--space-2);
-  color: var(--fg-subtle);
+/* The member filter, sized to what it says rather than to the card. */
+.armada-holds__filter {
+  flex: none;
 }

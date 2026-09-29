@@ -388,3 +388,6 @@ export * from "./compositions/GuidesSetting/GuidesSetting";
 // A guide, read: its numbered steps and the drawing under one of them.
 export * from "./compositions/GuideFigure/GuideFigure";
 export * from "./compositions/GuideSteps/GuideSteps";
+// The card a destination draws: a head strip, then what it holds. Pulse's and
+// Overview's, so the two cannot drift.
+export * from "./compositions/DestinationCard/DestinationCard";

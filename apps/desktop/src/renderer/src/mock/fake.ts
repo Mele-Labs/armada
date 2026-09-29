@@ -5,7 +5,7 @@
 // kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
 import type { JobSummary, Outcome } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -80,6 +80,11 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     redispatchJob: async () => OK,
     killDrone: async () => OK,
     killJob: async (jobId) => (move(jobId, { status: "killed" }), OK),
+    // Not served by Fleet yet (#1647), so answered as Fleet's router answers a
+    // route it has none for — a bare 404 — through the parser main's `ask` uses.
+    killProcess: async (jobId, pid) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/processes/${pid}/kill`) }),
+    killProcesses: async (jobId) => refusedWith(404, "", { method: "POST", path: path(jobId, "/processes/kill") }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));
