@@ -8,4 +8,4 @@ A proposed relation was drawn twice: dashed on the board with "proposed, waiting
 
 **Cost he took:** a proposal whose edge is panned off screen is invisible until you pan to it, and nothing else points you there. No list, count or finder compensates.
 
-**Where it landed:** note g0zl, on `studios/proposal-on-the-board`, PR #PR_NUMBER.
+**Where it landed:** note g0zl, on `studios/proposal-on-the-board`, #1660.
