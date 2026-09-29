@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, waitFor, within } from "storybook/test";
 import type { JobExamined, Look } from "@armada/protocol";
 import { GUIDE_LOOK, GUIDE_PULSE } from "../../guides";
 
@@ -132,11 +132,22 @@ export const WorkingAndSaidSo: Story = {
    * **The head carries CPU and memory across every row, and not a count** —
    * the rows are under it (owner, 29 Sep). Two figures a bare `%` and `GiB`
    * tell apart, so each is named by its tooltip rather than a label.
+   * The worktree row says its state in text, so the dot is hidden and takes no
+   * stop, and a pointer on it still reads the state.
    */
-  play: async ({ canvas }) => {
+  play: async ({ canvas, userEvent }) => {
     const processes = within(canvas.getByRole("region", { name: "Processes" }));
     await expect(processes.getByText("111.1%")).toHaveAccessibleDescription("CPU usage");
     await expect(processes.getByText("1.2 GiB")).toHaveAccessibleDescription("Memory usage");
+    const row = within(within(canvas.getByRole("region", { name: "Worktrees" })).getByRole("listitem"));
+    // The dot's tooltip is the `on disk` not yet drawn; the other is the row's.
+    const bubble = row.getAllByText("on disk").find((one) => !one.checkVisibility())!;
+    const dot = bubble.parentElement!.parentElement!;
+    await expect(dot).toHaveAttribute("aria-hidden", "true");
+    await expect(dot).not.toHaveAttribute("tabindex");
+    await userEvent.hover(dot);
+    await waitFor(() => expect(bubble).toBeVisible());
+    await expect(row.getByText(/^1\.0 GiB/)).toHaveAccessibleDescription("Size on disk");
   },
 };
 
