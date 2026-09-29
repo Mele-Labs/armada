@@ -48,8 +48,7 @@
   white-space: nowrap;
 }
 
-/* No gap between rows, so an opened run of thinking hangs off one unbroken
-   rule rather than a dash per row; each row's own padding spaces the rest. */
+/* No gap between rows; each row's own padding spaces them. */
 .armada-turns__rows {
   display: flex;
   flex-direction: column;
@@ -120,11 +119,10 @@
 
 /* --- A block of calls ---------------------------------------------------- */
 
-/* Consecutive calls, tucked between the sentences as one quiet block: a rule
-   and an inset, no fill — the sheet and the card are the only two grounds,
-   29 Sep 2026. The rule stands under the first letter of the sentences, a
-   --space-2 left of where an opened thinking run hangs its own, and in the
-   fainter --edge-rule, so the two never read as one line or meet. */
+/* Calls and the thinking between them, tucked between the sentences as one
+   quiet block: a rule and an inset, no fill — the sheet and the card are the
+   only two grounds, 29 Sep 2026. The rule stands under the first letter of the
+   sentences, in the fainter --edge-rule. */
 .armada-turns__calls {
   margin: var(--space-1) 0 var(--space-1) var(--space-2);
   padding-left: var(--space-3);
@@ -282,15 +280,17 @@
   align-items: center;
 }
 
-/* Opened, the run's rows hang off a rule dropped from the mark, rather than
-   sitting in a sunken block: a well inside the card was a third surface, and
-   the card is meant to be the only one. --space-4 puts the rule under the
-   mark's centre — the row's --space-2 pad plus half the mark's slot. */
+/* Opened, the run's rows set in under its count — the mark's slot plus the
+   gap. No rule of their own: the block's already stands beside them, and a
+   second one inside it read as two lines fighting. */
 .armada-turns__turn[data-nested] {
-  margin-left: var(--space-4);
-  padding-left: var(--space-3);
-  border-left: var(--border-width) solid var(--border-default);
-  border-radius: 0;
+  padding-left: calc(var(--space-4) + var(--space-3));
+}
+
+/* The toggle is a control-height button on a line one leading tall. Let it
+   overhang rather than stretch the line, so thinking sits as tight as a call. */
+.armada-turns__calls .armada-turns__quiet-body {
+  margin-block: calc((var(--leading-2xs) - var(--h-control-sm)) / 2);
 }
 
 /* The mark leads the line. --space-4 slot around a 12px glyph, the geometry
@@ -313,11 +313,12 @@
 }
 
 /* Sans: the one line in the transcript that is Armada's own words rather than
-   the wire's, and it is only written while something is happening. */
+   the wire's, and it is only written while something is happening. At the
+   block's size, since it sits inside one. */
 .armada-turns__working {
   font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
 

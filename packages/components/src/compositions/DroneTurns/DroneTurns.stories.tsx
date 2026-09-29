@@ -139,8 +139,8 @@ export const ADroneWorking: Story = {
  * refused one and a failed one included — gather into one block, smaller and
  * dimmer behind a rule, and a sentence between two calls splits them into two
  * blocks. The owner, 29 Sep 2026: *"the lines all just kind of blend
- * together."* A thinking run and the run's closing line stay out of the block:
- * neither is a call.
+ * together."* A thinking run between two calls folds into the block as a line
+ * of its own; the run's closing line stays out, since it is neither.
  */
 export const ToolCallsReadAsAQuietBlock: Story = {
   args: {
@@ -151,9 +151,9 @@ export const ToolCallsReadAsAQuietBlock: Story = {
       { id: "3", at: "05:12:22", who: "drone", kind: "called", subject: "Read", detail: "crates/ipc/operations.toml" },
       { id: "4", at: "05:14:02", who: "drone", kind: "said", said: "The change belongs in running.rs. Writing it now." },
       { id: "5", at: "05:14:10", who: "drone", kind: "called", subject: "Edit", detail: "crates/api/src/running.rs" },
+      ...thinking(10, 4, "05:14:11"),
       { id: "6", at: "05:15:40", who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p api", answer: "Failed." },
       { id: "7", at: "05:15:41", who: "drone", kind: "refused", subject: "Bash", said: "Refused: this command is not on the allowlist for this drone." },
-      ...thinking(10, 4, "05:15:42"),
       { id: "20", at: "05:16:30", who: "drone", kind: "said", said: "The read answers Drones, Checks and Judge calls in one." },
       { id: "21", at: "05:16:31", who: "drone", kind: "ended", subject: "34 turns · $2.40" },
     ],
@@ -163,7 +163,10 @@ export const ToolCallsReadAsAQuietBlock: Story = {
     await expect(blocks).toHaveLength(2);
     const [reads, edits] = blocks.map((block) => within(block));
     await expect(reads?.getAllByRole("listitem")).toHaveLength(2);
-    await expect(edits?.getAllByRole("listitem")).toHaveLength(3);
+    // Three calls and the thinking between them, which does not split the block.
+    await expect(edits?.getAllByRole("listitem")).toHaveLength(4);
+    await expect(edits?.getByText("4 turns")).toBeVisible();
+    await expect(edits?.getByRole("button", { name: "Show details" })).toBeVisible();
     await expect(edits?.getByText("Failed.")).toBeVisible();
     await expect(edits?.getByText(/^Refused:/)).toBeVisible();
     // Sentences and the closing line are never inside a block.

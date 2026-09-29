@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, CircleDot } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
+import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
 
 /**
  * Drone turns — one Drone's transcript, read while it is still being written.
@@ -31,7 +33,9 @@ import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
  * **Tool calls read as a quiet block under the sentences.** Consecutive calls
  * gather into one block — smaller, muted, set in behind a rule — so reading
  * down a card gives what the Drone said, with its work tucked between. The
- * owner, 29 Sep 2026: *"the lines all just kind of blend together."*
+ * owner, 29 Sep 2026: *"the lines all just kind of blend together."* Thinking
+ * folds into the block as a line of its own, so only a sentence breaks one (the
+ * owner, 29 Sep 2026).
  *
  * **Times are a card's, not a row's.** The head carries the card's first
  * instant; each row keeps its own as its title.
@@ -195,17 +199,15 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
             {entry.items.map((item, at) =>
               item.of === "turn" ? (
                 <Row key={item.turn.id} turn={item.turn} />
-              ) : item.of === "calls" ? (
-                <Calls key={item.turns[0].id} turns={item.turns} />
               ) : (
-                <QuietRun
-                  key={item.turns[0].id}
-                  turns={item.turns}
+                <Calls
+                  key={leadOf(item.members[0]).id}
+                  members={item.members}
                   // Only the last run can still be happening: a run with rows
                   // after it already ended.
-                  working={live && entry === tail && at === entry.items.length - 1}
-                  open={open.has(item.turns[0].id)}
-                  onToggle={() => setOpen(toggled(open, item.turns[0].id))}
+                  live={live && entry === tail && at === entry.items.length - 1}
+                  open={open}
+                  onToggle={(id) => setOpen(toggled(open, id))}
                 />
               ),
             )}
@@ -238,87 +240,6 @@ function scrollerFor(from: Element | null): Element | null {
     if (overflow === "auto" || overflow === "scroll") return at;
   }
   return document.scrollingElement;
-}
-
-type Item =
-  | { of: "turn"; turn: DroneTurn }
-  /**
-   * At least one row, always: a run is opened with the turn that started it
-   * and only ever grows. Written as a non-empty tuple so the head below is a
-   * turn rather than a lookup every caller has to assert.
-   */
-  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] }
-  /** Consecutive calls, refused ones included. Non-empty for the same reason. */
-  | { of: "calls"; turns: [DroneTurn, ...DroneTurn[]] };
-
-/** One speaker's consecutive turns. Never empty, for the same reason as a run. */
-type CardEntry = { of: "card"; who?: ActivityActor; items: [Item, ...Item[]] };
-
-type Entry =
-  | CardEntry
-  /** Keyed by the row it stands above, which is stable while rows only append. */
-  | { of: "step"; step?: TurnStep; above: string };
-
-/**
- * The rows, gathered into a card per run of one speaker, with consecutive quiet
- * rows gathered inside it and each change of step marked between cards.
- *
- * **A run of one is still a run.** Left alone it renders the decoder's own
- * words for a turn it could not place, which is the reading this collapse
- * exists to remove, and one line that reads like its neighbours beats one that
- * does not.
- *
- * **A boundary breaks a card and a run**, because either spanning two steps
- * would attribute the whole of it to whichever the reader guessed.
- *
- * **A turn with no speaker never shares a card**, not even with another
- * unnamed one: two rows under one head says one speaker wrote both.
- *
- * **Nothing is marked where no row anywhere carries a step.** Every row of such
- * a transcript predates the field, so "not recorded" would be the only line on
- * screen and would contrast with nothing. A transcript that gains a step
- * part-way through says so at the point it does.
- *
- * **With `steps` off nothing is marked and nothing splits on a step**: a card
- * broken at a line nobody sees would read as a random break.
- */
-function runs(turns: DroneTurn[], steps: boolean): Entry[] {
-  const attributed = steps && turns.some((turn) => turn.step !== undefined);
-  const entries: Entry[] = [];
-  let under: string | undefined;
-  let opened = false;
-  let card: CardEntry | undefined;
-  for (const turn of turns) {
-    if (attributed && (!opened || turn.step?.id !== under)) {
-      entries.push({ of: "step", step: turn.step, above: turn.id });
-      under = turn.step?.id;
-      opened = true;
-      card = undefined;
-    }
-    const item: Item =
-      turn.quiet === true
-        ? { of: "quiet", turns: [turn] }
-        : isCall(turn)
-          ? { of: "calls", turns: [turn] }
-          : { of: "turn", turn };
-    if (card === undefined || card.who === undefined || card.who !== turn.who) {
-      card = { of: "card", ...(turn.who === undefined ? {} : { who: turn.who }), items: [item] };
-      entries.push(card);
-      continue;
-    }
-    const last = card.items[card.items.length - 1];
-    if ((item.of === "quiet" || item.of === "calls") && last?.of === item.of) {
-      last.turns.push(turn);
-      continue;
-    }
-    card.items.push(item);
-  }
-  return entries;
-}
-
-/** By kind, never by shape: a session line carries a subject alone, as a bare call does. */
-function isCall(turn: DroneTurn): boolean {
-  return turn.kind === "called" || turn.kind === "refused";
 }
 
 function toggled(open: ReadonlySet<string>, id: string): ReadonlySet<string> {
@@ -370,20 +291,23 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
               fact and the still mark already says the run ended. */}
           {working ? <span className="armada-turns__working">{"Working"}</span> : null}
           <span className="armada-turns__count">{counted(turns.length)}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-expanded={open}
-            aria-controls={held}
-            onClick={onToggle}
-          >
-            {open ? (
-              <ChevronDown size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
-            ) : (
-              <ChevronRight size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
-            )}
-            {open ? "Hide details" : "Show details"}
-          </Button>
+          <Tooltip label={open ? "Hide details" : "Show details"}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={open ? "Hide details" : "Show details"}
+              aria-expanded={open}
+              aria-controls={held}
+              onClick={onToggle}
+            >
+              {open ? (
+                <ChevronDown size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
+              ) : (
+                <ChevronRight size={CARET} strokeWidth={MARK_STROKE} aria-hidden />
+              )}
+            </Button>
+          </Tooltip>
         </span>
       </li>
       {open ? turns.map((turn) => <Row key={turn.id} turn={turn} nested />) : null}
@@ -391,20 +315,36 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
   );
 }
 
-/** The turn a card opens with, whose instant its head carries. */
-function firstOf(card: CardEntry): DroneTurn {
-  const head = card.items[0];
-  return head.of === "turn" ? head.turn : head.turns[0];
-}
+type CallsProps = {
+  members: [Member, ...Member[]];
+  /** The block is the transcript's last item while a Drone writes. */
+  live: boolean;
+  open: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+};
 
-/** Consecutive calls as one quiet block, a list named for what it holds. */
-function Calls({ turns }: { turns: [DroneTurn, ...DroneTurn[]] }) {
+/**
+ * Calls and the thinking between them as one quiet block. Named for its calls;
+ * a block of thinking alone holds none, so it is not called one.
+ */
+function Calls({ members, live, open, onToggle }: CallsProps) {
+  const named = members.some((member) => member.of === "call");
   return (
     <li className="armada-turns__calls">
-      <ol className="armada-turns__call-rows" aria-label="Tool calls">
-        {turns.map((turn) => (
-          <Row key={turn.id} turn={turn} />
-        ))}
+      <ol className="armada-turns__call-rows" {...(named ? { "aria-label": "Tool calls" } : {})}>
+        {members.map((member, at) =>
+          member.of === "call" ? (
+            <Row key={member.turn.id} turn={member.turn} />
+          ) : (
+            <QuietRun
+              key={member.turns[0].id}
+              turns={member.turns}
+              working={live && at === members.length - 1}
+              open={open.has(member.turns[0].id)}
+              onToggle={() => onToggle(member.turns[0].id)}
+            />
+          ),
+        )}
       </ol>
     </li>
   );
