@@ -444,6 +444,7 @@ export function taskSheetOf(
     runBy: runBySaid(task),
     beside: task.concurrent_with,
     tests: owed,
+    ...(task.note === undefined ? {} : { note: task.note }),
     ...(task.expects === undefined ? {} : { expects: task.expects }),
     ...(task.shown === undefined ? {} : { shown: task.shown }),
     ...(task.reason === undefined ? {} : { reason: task.reason }),

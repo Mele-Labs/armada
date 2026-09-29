@@ -108,6 +108,18 @@ export type SheetProps = {
    */
   docked?: boolean;
   /**
+   * Docked to the leading side of another dock rather than to the trailing
+   * edge — the file diff beside Plan's task panel (owner, 29 Sep 2026). The
+   * same dock, `--space-4` from the one it sits beside.
+   */
+  beside?: boolean;
+  /**
+   * Another layer lies over this one and takes `Esc` first. Both bind on
+   * `window` in the capture phase, where the first one opened runs first, so
+   * the one underneath has to be told to wait.
+   */
+  under?: boolean;
+  /**
    * The close control's label, and the binding drawn beside it. Absent leaves
    * the close icon-only with the binding in its tooltip, which is what the
    * floor takes — `4l`, and there only.
@@ -142,6 +154,8 @@ export function Sheet({
   bodyRef,
   contained = false,
   docked = false,
+  beside = false,
+  under = false,
   closeLabel,
   closeBinding,
   floor = false,
@@ -159,7 +173,7 @@ export function Sheet({
   // to the list from a detail route", is bound on `window` too: a bubble-phase
   // listener would run second and both would answer one press.
   useEffect(() => {
-    if (!open) return;
+    if (!open || under) return;
     function onKey(event: KeyboardEvent) {
       // A popover over the sheet is the top layer. Either it took the press already, or it is still
       // open and will: listeners on one window run in no order this can rely on.
@@ -175,7 +189,7 @@ export function Sheet({
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  }, [open, under, onClose]);
 
   if (!open) return null;
 
@@ -183,7 +197,7 @@ export function Sheet({
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
   return (
-    <div className="armada-sheet-scrim" data-contained={contained || undefined} data-docked={docked || undefined}>
+    <div className="armada-sheet-scrim" data-contained={contained || undefined} data-docked={docked || undefined} data-beside={(docked && beside) || undefined}>
       <div
         className={docked ? "armada-sheet armada-glass" : "armada-sheet"}
         data-side={side}

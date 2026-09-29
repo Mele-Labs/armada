@@ -15,9 +15,9 @@
 
 import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
 import { useNarrow } from "@armada/shell";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
+import type { Diff, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import { Eyebrow } from "./InsideAJob";
@@ -38,6 +38,7 @@ import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { PlanAskDialog, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
 import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
+import { CHANGED_NOTHING, drawn } from "./review";
 import { WavePlan } from "./wave-plan";
 import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
 import type { HeldAct, TaskAct } from "./Acts";
@@ -82,6 +83,14 @@ export type PlanTabProps = {
    * hands this through.
    */
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
+  /**
+   * The Job's patch, which a file in the task panel opens to (owner, 29 Sep
+   * 2026). **Absent draws no file as a press**, which is what a host that has
+   * not handed it through gets.
+   */
+  diff?: Diff;
+  /** Hold the patch's read open while this destination is — Overview's own call. */
+  onReadDiff?: (jobId: string | null) => void;
 };
 
 /**
@@ -218,6 +227,8 @@ export function PlanTab({
   onRedirect,
   onActHeld,
   onTaskAct,
+  diff,
+  onReadDiff,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
   // — the sheet is contained by the destination, so a reader who leaves and
@@ -235,6 +246,30 @@ export function PlanTab({
   // `--w-step-panel-min`. Read here rather than handed down: `JobDetail.tsx`
   // reads the same hook for Overview and Workflow.
   const narrow = useNarrow();
+  // The file open beside the task. It belongs to the task: another task, or
+  // none, closes it.
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  const openTaskAt = (id: string | null) => {
+    setOpenTask(id);
+    setOpenFile(null);
+  };
+
+  // The patch, read while the destination is open — Overview's own effect,
+  // since leaving Overview closes that read.
+  useEffect(() => {
+    if (onReadDiff === undefined) return;
+    onReadDiff(job.id);
+    return () => onReadDiff(null);
+  }, [job.id]);
+  // Split once per reading, not per render: a patch re-split on every tick is
+  // the freeze `Sheets.tsx`' own rail was moved off.
+  const patch = useMemo(
+    () =>
+      diff === undefined || diff.state !== "read" || diff.jobId !== job.id || diff.work === undefined
+        ? undefined
+        : drawn(diff.work),
+    [diff, job.id],
+  );
 
   const step = planStepOf(whole);
   // Whether the split above is this Job's plan. A wave's plan is the Jobs it
@@ -253,10 +288,10 @@ export function PlanTab({
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable, worksAt);
+  const board = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt);
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
-  const graph = planGraphOf({ groups, onOpenTask: setOpenTask, openTask });
+  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask });
   const revisions = revisionsOf(whole, draft, step);
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
   // What it runs beside, as the graph's own card off the same groups, so each
@@ -266,7 +301,7 @@ export function PlanTab({
       ? []
       : tasksOf(groups)
           .filter((one) => reading.beside.includes(one.id))
-          .map((one) => taskCard(one, () => setOpenTask(one.id)));
+          .map((one) => taskCard(one, () => openTaskAt(one.id)));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
   // below, and these three, each ahead of its route.
   const acts =
@@ -307,6 +342,24 @@ export function PlanTab({
           disabled: stale || steering.act === undefined,
           disabledReason: NO_DRONE,
           ...(steering.sent === undefined ? {} : { waiting: steering.sent }),
+        };
+
+  // Everything the Job did to the open file. **The Job's patch, not the
+  // task's** — where two tasks wrote one file, both show.
+  const patched = patch?.files.map((one) => one.path);
+  const drawnFile = openFile === null ? undefined : patch?.files.find((one) => one.path === openFile);
+  const last = patch?.files[patch.files.length - 1];
+  const file =
+    drawnFile === undefined || patch === undefined
+      ? undefined
+      : {
+          path: drawnFile.path,
+          diff: {
+            files: [drawnFile],
+            emptyNote: CHANGED_NOTHING,
+            // The bound cuts the last file drawn and no other.
+            ...(patch.cut === undefined || last !== drawnFile ? {} : { cut: patch.cut }),
+          },
         };
 
   return (
@@ -394,8 +447,11 @@ export function PlanTab({
         docked={!narrow}
         {...(rewrite === undefined ? {} : { rewrite })}
         {...(redirect === undefined ? {} : { redirect })}
+        {...(patched === undefined ? {} : { patched })}
+        {...(file === undefined ? {} : { file })}
+        onFile={setOpenFile}
         onClose={() => {
-          setOpenTask(null);
+          openTaskAt(null);
           setInstruction("");
         }}
       />

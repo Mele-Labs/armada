@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { JobProcess, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
 import type { GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -91,6 +91,50 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
   };
 }
 
+/**
+ * What the Job's worktree holds so far: one small hunk for every file a task
+ * that has started names. **One file is left out** — T1 names
+ * `operations.toml` and never wrote it — so a task panel shows a file that
+ * opens beside one that does not.
+ */
+function arcDiff(groups: GroupView[]): Diff {
+  const paths = [
+    ...new Set(
+      tasksOf(groups)
+        .filter((one) => one.state !== "open")
+        .flatMap((one) => one.scope)
+        .filter((path) => path !== "crates/ipc/operations.toml"),
+    ),
+  ];
+  const patch = paths
+    .map((path) =>
+      [
+        `diff --git a/${path} b/${path}`,
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        "@@ -12,6 +12,8 @@",
+        " // What is running, read once.",
+        "-const polled = readEvery(RUNNING_POLL);",
+        "+const running = readRunning();",
+        "+const held = heldBack(running);",
+        " ",
+        " export { running };",
+      ].join("\n"),
+    )
+    .join("\n");
+  return {
+    state: "read",
+    jobId: ARC_JOB_ID,
+    work: {
+      files: paths.map((path) => ({ path, change: "modified", added: 2, removed: 1 })),
+      measured_from: "main",
+      measured_whole: true,
+      plan_declared: true,
+      ...(paths.length === 0 ? {} : { patch }),
+    },
+  };
+}
+
 /** The Job at some instant inside `implement`. */
 function executing(args: {
   says: string;
@@ -105,7 +149,8 @@ function executing(args: {
     assigned_drone: ARC_DRONES.T5,
   });
   const steps = [planAdvanced(), args.step, ...arcSteps().slice(2)];
-  const whole = arcDetail(job, steps, { work_plan: arcWorkPlan(tasksOf(args.groups)) });
+  const groups = args.groups;
+  const whole = arcDetail(job, steps, { work_plan: arcWorkPlan(tasksOf(groups)) });
   return {
     name: args.says,
     job,
@@ -123,7 +168,7 @@ function executing(args: {
       footprint: { state: "none" },
       handed: { state: "none" },
       evidence: { state: "none" },
-      diff: { state: "none" },
+      diff: arcDiff(groups),
       remarks: { state: "none" },
     },
     calls: {},

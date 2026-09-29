@@ -329,3 +329,15 @@
 .armada-sheet[data-docked] .armada-sheet__body {
   padding: var(--space-4);
 }
+
+/* Beside another dock: the file diff to the left of Plan's task panel. The
+   scrim keeps the trailing dock's width and a `--space-4` gap clear, and the
+   panel stops at the container's leading edge rather than past it. Its width
+   is the caller's, since only the caller knows what the reading needs. */
+.armada-sheet-scrim[data-beside] {
+  padding-right: calc(var(--w-dock) + var(--space-4));
+}
+
+.armada-sheet-scrim[data-beside] > .armada-sheet[data-docked] {
+  animation: none;
+}

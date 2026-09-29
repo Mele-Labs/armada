@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
+import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 import { TaskField } from "./TaskFields";
 
@@ -30,6 +31,11 @@ export type PlanTaskSheetProps = {
   state: TaskMarkState;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
+  /**
+   * The planner's brief for the task — what Edit this task will change.
+   * Absent or empty draws nothing.
+   */
+  note?: string;
   /** The repository-relative paths the task names, in the order it named them. */
   scope?: readonly string[];
   /**
@@ -79,6 +85,20 @@ export type PlanTaskSheetProps = {
    * read in, under the Drone it reaches. Absent where nothing is live to reach.
    */
   redirect?: PlanTaskRedirect;
+  /**
+   * The paths the Job's patch changed. **A file in it is a press** that opens
+   * what the Job did to it; a file outside it stays text. Absent is a Job
+   * with no patch yet, and no file is a press.
+   */
+  patched?: readonly string[];
+  /**
+   * The file open beside the task, and everything the Job's patch did to it.
+   * **The Job's, not the task's** — Fleet serves one patch, so where two tasks
+   * wrote one file both show (owner, 29 Sep 2026).
+   */
+  file?: { path: string; diff: UnifiedDiffProps };
+  /** A file pressed, or `null` for the diff closed. */
+  onFile?: (path: string | null) => void;
   /** The window is at `--window-floor`. */
   floor?: boolean;
   /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
@@ -174,6 +194,7 @@ export function PlanTaskSheet({
   title,
   state,
   reason,
+  note,
   scope = [],
   touched,
   expects,
@@ -187,11 +208,15 @@ export function PlanTaskSheet({
   acts,
   rewrite,
   redirect,
+  patched,
+  file,
+  onFile,
   floor = false,
   docked = false,
   onClose,
 }: PlanTaskSheetProps) {
   return (
+    <>
     <Sheet
       open={open}
       contained
@@ -206,6 +231,7 @@ export function PlanTaskSheet({
       leading={<span className="armada-task-sheet__id">{id}</span>}
       closeLabel="Close"
       closeBinding="Esc"
+      under={file !== undefined}
       onClose={onClose}
     >
       <div className="armada-task-sheet__body">
@@ -228,6 +254,7 @@ export function PlanTaskSheet({
             </Button>
           </div>
         )}
+        {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
         {/* **A frame for a peek into the Drone, and empty on purpose** (owner,
             29 Sep 2026): what it shows waits on the Drone work. The message
             box sits under it, so what a person reads and what they send are
@@ -264,7 +291,13 @@ export function PlanTaskSheet({
         )}
         {scope.length === 0 && (touched?.unplanned.length ?? 0) === 0 ? null : (
           <TaskField label="Files">
-            <Files scope={scope} touched={touched} />
+            <Files
+              scope={scope}
+              touched={touched}
+              patched={patched}
+              open={file?.path}
+              onFile={onFile}
+            />
           </TaskField>
         )}
         {(expects ?? "") === "" && (shown ?? "") === "" ? null : (
@@ -310,6 +343,28 @@ export function PlanTaskSheet({
         {rewrite === undefined ? null : <Rewrite {...rewrite} />}
       </div>
     </Sheet>
+    {file === undefined ? null : (
+      /* **Beside the task where there is room, over it where there is not.**
+         Docked, it is a second dock to the left, so the task and the file
+         read together. Below the breakpoint two panels do not fit, and it
+         is a sheet over the task sheet: closing it lands back on the task. */
+      <Sheet
+        open
+        contained
+        docked={docked}
+        beside
+        floor={floor}
+        title={file.path}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => onFile?.(null)}
+      >
+        <div className="armada-task-diff">
+          <UnifiedDiff {...file.diff} />
+        </div>
+      </Sheet>
+    )}
+    </>
   );
 }
 
@@ -361,9 +416,15 @@ function Rewrite({ lead, label, placeholder, send, pending = false, disabled = f
 function Files({
   scope,
   touched,
+  patched,
+  open,
+  onFile,
 }: {
   scope: readonly string[];
   touched?: PlanTaskSheetProps["touched"];
+  patched?: readonly string[];
+  open?: string;
+  onFile?: (path: string | null) => void;
 }) {
   const [whole, setWhole] = useState(false);
   const declared = touched?.declared ?? scope.map((path) => ({ path, touched: true }));
@@ -375,7 +436,7 @@ function Files({
       <ul className="armada-task-sheet__files">
         {declared.slice(0, cut).map((file) => (
           <li key={file.path}>
-            <span>{file.path}</span>
+            <FilePath path={file.path} patched={patched} open={open} onFile={onFile} />
             {/* **Only the unreached one is marked.** Marking both halves
                 would put a badge on every row and say nothing; the row
                 worth stopping on is the one the work never reached. */}
@@ -384,7 +445,7 @@ function Files({
         ))}
         {unplanned.map((path) => (
           <li key={path} className="armada-task-sheet__unplanned">
-            <span>{path}</span>
+            <FilePath path={path} patched={patched} open={open} onFile={onFile} />
             <span className="armada-task-sheet__unreached">not planned</span>
           </li>
         ))}
@@ -395,6 +456,41 @@ function Files({
         </Button>
       )}
     </>
+  );
+}
+
+/** A path, and a press where the Job's patch changed it. */
+function FilePath({
+  path,
+  patched,
+  open,
+  onFile,
+}: {
+  path: string;
+  patched?: readonly string[];
+  open?: string;
+  onFile?: (path: string | null) => void;
+}) {
+  const selected = open === path;
+  const ref = useRef<HTMLButtonElement>(null);
+  const was = useRef(selected);
+  // The diff closed with nothing else open: focus comes back to the row that
+  // opened it rather than falling to the page.
+  useEffect(() => {
+    if (was.current && open === undefined) ref.current?.focus();
+    was.current = selected;
+  }, [selected, open]);
+  if (onFile === undefined || patched?.includes(path) !== true) return <span>{path}</span>;
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="armada-task-sheet__file"
+      aria-pressed={selected}
+      onClick={() => onFile(selected ? null : path)}
+    >
+      {path}
+    </button>
   );
 }
 
