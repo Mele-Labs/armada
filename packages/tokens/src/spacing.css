@@ -269,6 +269,14 @@
      The run itself no longer uses it — a run is a spine with one Plan node
      under it (owner, 25 Sep 2026), which is what --h-workflow-canvas holds. */
   --h-workflow-run-canvas: 560px;
+  /* The same canvas on Overview's Workflow card, where it is a picture of the
+     run rather than the run itself — the owner's call of 29 Sep 2026, because
+     a workflow that loops cannot be drawn as a bar and he would not keep two
+     components for one thing. 200px is what a spine of step cards fits inside
+     at the fit React Flow computes, with the card's own eyebrow and padding
+     taken off a quarter of the shortest window. Nothing is pressed inside it,
+     so it is not held to the scale the destination's own canvas is. */
+  --h-overview-canvas: 200px;
   /* The narrowest a workflow canvas is worth drawing beside its inspector.
      Under two of these the inspector folds under the run instead — the canvas
      is the one region on that tab that cannot be read at half a column. */

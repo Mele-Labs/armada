@@ -916,6 +916,19 @@
   padding-block: var(--space-2);
 }
 
+/* What froze at approval, above the settings still open. **Only what no other
+   destination draws** — the request is the brief's, the criteria are Plan's
+   and the gates are Workflow's, so this is how it lands and the tiers alone.
+   The owner's call of 29 Sep 2026, against rendering the whole proposal here. */
+.armada-settings-tab__frozen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: var(--w-dialog-wide);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
 .armada-settings-tab .armada-job-settings {
   max-width: var(--w-dialog-wide);
 }
@@ -2138,9 +2151,93 @@
   min-height: 0;
 }
 
+/* Overview: the lead, the strip, and a card per destination. A quick view of
+   everything with a door to each of them — the owner's note of 29 Sep 2026. */
+.armada-overview-board {
+  gap: var(--space-4);
+}
+
+.armada-overview-board__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* The run takes the row. **A four-step spine cannot fit a third of a column**
+   — `GraphCanvas`'s own `minZoom` clamps the fit rather than shrinking past
+   it, so a narrow frame draws a clipped run instead of a small one. The
+   `Narrow` artboard gives it the width for the same reason. */
+.armada-overview-board__cards > :first-child {
+  grid-column: 1 / -1;
+}
+
+/* One column below the breakpoint, where two cards of summary are each half a
+   column and a run canvas at that width is a row of clipped names. */
+@media (max-width: 1099px) {
+  .armada-overview-board__cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.armada-overview-board__card {
+  min-width: 0;
+  align-self: start;
+}
+
+/* The eyebrow and the chevron are the press, so the whole head is the control
+   rather than a link under a heading somebody has to find. */
+.armada-overview-board__door {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--pad-card) var(--pad-card) 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-overview-board__door:hover {
+  color: var(--fg-default);
+}
+
+.armada-overview-board__door:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: calc(var(--focus-width) * -1);
+  border-radius: var(--radius-md);
+}
+
+/* A picture of the run, not the run: nothing inside it is pressed, so it is
+   not held to the height the Workflow destination's own canvas keeps. */
+.armada-overview-board__canvas {
+  height: var(--h-overview-canvas);
+  min-width: 0;
+  pointer-events: none;
+}
+
+/* No zoom, no fit, no pin. **Every canvas draws the rail** and this one is a
+   picture — a control on it would offer to change a view that is not a view
+   anybody is in, and the destination it opens has the same rail live. */
+.armada-overview-board__canvas .armada-graph-rail {
+  display: none;
+}
+
+.armada-overview-board__said,
+.armada-overview-board__brief {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
 /* What leads the screen. The edge carries the tone, so a reader looking for
    the thing outstanding finds it before reading a word. */
-.armada-train__lead {
+.armada-lead {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -2153,11 +2250,15 @@
   background: var(--bg-raised);
 }
 
-.armada-train__lead[data-waiting] {
+.armada-lead[data-tone="awaiting-review"] {
   border-inline-start-color: var(--status-awaiting-review);
 }
 
-.armada-train__lead-said {
+.armada-lead[data-tone="completed-failed"] {
+  border-inline-start-color: var(--status-completed-failed);
+}
+
+.armada-lead__said {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -2165,7 +2266,7 @@
   min-width: 0;
 }
 
-.armada-train__lead-headline {
+.armada-lead__headline {
   margin: 0;
   min-width: 0;
   font-size: var(--text-lg);
@@ -2175,7 +2276,7 @@
   text-wrap: pretty;
 }
 
-.armada-train__lead-because {
+.armada-lead__because {
   margin: 0;
   min-width: 0;
   font-size: var(--text-sm);

@@ -45,7 +45,7 @@ import type {
 } from "../../draft";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
-import { manifest, MANIFEST_ID } from "./base";
+import { manifest, MANIFEST_ID, spend } from "./base";
 
 /** The Job every arc moment is a moment of. */
 export const ARC_JOB_ID = "01M2D4YQK80011620DRONEST";
@@ -341,6 +341,8 @@ export function arcStep(
   ordinal: number,
   checks: DeclaredCheck[] = [],
   judgeChecks: DeclaredJudge[] = [],
+  /** What it takes to advance past it. Absent is a Fleet too old to say. */
+  advanceGate?: string,
 ): StepDetail {
   return {
     step_id: id,
@@ -348,6 +350,7 @@ export function arcStep(
     ordinal,
     state: "not_started",
     checks,
+    ...(advanceGate === undefined ? {} : { advance_gate: advanceGate }),
     check_runs: [],
     judge_checks: judgeChecks,
     judged: [],
@@ -364,14 +367,25 @@ export function arcStep(
  * The four steps, none of them entered.
  *
  * **Frozen from the workflow rather than written out beside it.** A step's
- * Checks and what its Judge reads are the workflow's declarations, copied onto
- * the Job at creation — so a fixture that typed them again would be the one
- * place the two could disagree, and a screen reading the frozen step would
- * draw a step declaring nothing.
+ * Checks, what its Judge reads and what it takes to advance past it are the
+ * workflow's declarations, copied onto the Job at creation — so a fixture that
+ * typed them again would be the one place the two could disagree, and a screen
+ * reading the frozen step would draw a step declaring nothing.
+ *
+ * **`advance_gate` was the one it dropped**, so Overview's lead could not say
+ * which later step stops for a person and fell silent — right, and silent
+ * about a fact Fleet does serve.
  */
 export function arcSteps(): StepDetail[] {
   return featureWorkflow().steps.map((step, at) =>
-    arcStep(step.step_id, step.label ?? step.step_id, at + 1, step.checks, step.judge_checks),
+    arcStep(
+      step.step_id,
+      step.label ?? step.step_id,
+      at + 1,
+      step.checks,
+      step.judge_checks,
+      step.advance_gate,
+    ),
   );
 }
 
@@ -421,6 +435,12 @@ export function arcDetail(
     write_targets: ["crates/api/src/", "crates/fleet/src/", "packages/screens/src/"],
     dependencies: [],
     when_blocked: "refuse_and_hold",
+    // **A Job a long way in, so what it is costing is legible.** The arc's
+    // Job carried none at all, so Overview's figures strip and Pulse's band
+    // both drew nothing on every arc moment. Its own numbers rather than
+    // `spend()`'s defaults: the every-state Job is a few turns old and this
+    // one is most of the way through four groups.
+    spend: spend({ cost_micros: 7_400_000, turns: 571, turn_cap: 3_000, ran_ms: 3_840_000, drones: 4 }),
     ...over,
   };
 }
