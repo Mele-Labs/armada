@@ -151,6 +151,15 @@ export type BridgeApi = {
   /** Kill every process the Job holds. #1647, as `killProcess`. */
   killProcesses: (jobId: string) => Promise<Outcome>;
   /**
+   * Take the controls of a failed plan task's Drone. #250 builds the route;
+   * until it does, the answer is `bridge.not_implemented`.
+   */
+  pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
+  /** Run a failed plan task again. #1656, as `pilotTask`. */
+  restartTask: (jobId: string, taskId: string) => Promise<Outcome>;
+  /** Change a failed plan task before it runs again. #1657, as `pilotTask`. */
+  editTask: (jobId: string, taskId: string) => Promise<Outcome>;
+  /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the
    * directory and the branch, and `forgetTerminalJobs` below is the act that

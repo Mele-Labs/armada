@@ -26,6 +26,9 @@ export type PendingRoute = {
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/processes/{pid}/kill", act: "kill_process", issue: 1647 },
   { method: "POST", path: "/jobs/{job_id}/processes/kill", act: "kill_processes", issue: 1647 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
 ];
 
 /** Where an issue number opens. The debug info carries the whole link, so a paste opens from anywhere. */

@@ -527,6 +527,16 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.killProcesses, (_event, jobId: string) =>
     connection?.commands.killProcesses(jobId),
   );
+  // A failed plan task's own acts — #250, #1656, #1657.
+  ipcMain.handle(CHANNELS.pilotTask, (_event, jobId: string, taskId: string) =>
+    connection?.commands.pilotTask(jobId, taskId),
+  );
+  ipcMain.handle(CHANNELS.restartTask, (_event, jobId: string, taskId: string) =>
+    connection?.commands.restartTask(jobId, taskId),
+  );
+  ipcMain.handle(CHANNELS.editTask, (_event, jobId: string, taskId: string) =>
+    connection?.commands.editTask(jobId, taskId),
+  );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person
   // wants the space back. Every row stays on the board afterwards, under

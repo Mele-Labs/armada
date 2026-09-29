@@ -449,6 +449,31 @@ export class JobCommands {
     );
   }
 
+  /**
+   * A failed plan task's own acts, from its panel. **Each is ahead of its
+   * route** — #250 pilots, #1656 restarts, #1657 edits — so the answer is
+   * `bridge.not_implemented` until each ships. Restart shares the step's
+   * restart lock; Pilot and Edit share the redirect's, since both change what
+   * the Job's Drone is doing. The task id is encoded, as a pid is.
+   */
+  async pilotTask(jobId: string, taskId: string): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/pilot`)),
+    );
+  }
+
+  async restartTask(jobId: string, taskId: string): Promise<Outcome> {
+    return this.act(jobId, this.restarting, "already_restarting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/restart`)),
+    );
+  }
+
+  async editTask(jobId: string, taskId: string): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/edit`)),
+    );
+  }
+
   /** One in flight per Job covers every kill here: a second press aims at a
    * row that has already moved. */
   private kill(jobId: string, operation: "kill_drone" | "kill_job"): Promise<Outcome> {

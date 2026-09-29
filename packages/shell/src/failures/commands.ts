@@ -242,7 +242,7 @@ export function transportFailure(
 const UNKNOWN_ROUTE = 404;
 
 /** The fold's words for the ids a pending route is filled with. The payload keeps the wire's. */
-const SAID: Record<string, string> = { job_id: "Job", pid: "Process" };
+const SAID: Record<string, string> = { job_id: "Job", pid: "Process", task_id: "Task" };
 
 /** A command to a route Fleet does not serve yet, and an issue names what builds it. */
 const NOT_IMPLEMENTED: BridgeCode = "bridge.not_implemented";
