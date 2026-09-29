@@ -7,7 +7,7 @@
 import { expect, test, describe } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, unmountAfterEach } from "./testing";
+import { entered, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -96,7 +96,7 @@ describe("the Record, as the owner asked for it", () => {
       await record("arc/executing-concurrent");
       const all = ledger().length;
 
-      await page.getByRole("tab", { name: /^Job/ }).click();
+      await filterTo("Job");
       await expect.poll(() => ledger().length).toBeLessThan(all);
       const under = ledger();
 
@@ -125,7 +125,7 @@ describe("the Record, as the owner asked for it", () => {
       // reads here exactly as the column it replaced spelled it.
       expect(ledger().map((row) => row["Kind"])).toContain("task_files");
 
-      await page.getByRole("tab", { name: /^Checks/ }).click();
+      await filterTo("Checks");
       await expect.poll(() => headings()).not.toContain("Kind");
     },
   );
@@ -136,7 +136,7 @@ describe("the Record, as the owner asked for it", () => {
       "pointer",
     async () => {
       await record("arc/executing-concurrent");
-      await page.getByRole("tab", { name: /^Files/ }).click();
+      await filterTo("Files");
       await expect.poll(() => chips().length).toBeGreaterThan(0);
 
       for (const chip of chips()) {
@@ -180,6 +180,7 @@ describe("the Record, as the owner asked for it", () => {
     async () => {
       await record("arc/group-failed");
       await page.getByRole("button", { name: /^screens_test$/ }).click();
+      await entered(page.getByRole("dialog", { name: "screens_test" }));
 
       await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
       await expect.element(page.getByRole("button", { name: /T5 · Draw what is running/ })).toBeVisible();
@@ -196,6 +197,7 @@ describe("the Record, as the owner asked for it", () => {
     async () => {
       await record("arc/group-failed");
       await page.getByRole("button", { name: /^T5 marked done/ }).click();
+      await entered(page.getByRole("dialog", { name: /^T5 marked done/ }));
       await page.getByRole("button", { name: "screens_test, failed" }).click();
 
       await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
@@ -203,6 +205,73 @@ describe("the Record, as the owner asked for it", () => {
     },
   );
 });
+
+// The ways out of a Record row and into one, each a press a person makes on
+// another destination's words. Owner's notes of 29 Sep 2026.
+describe("the Record, and the destinations beside it", () => {
+  test(
+    "arc/group-failed: pressing the step a Check row's eyebrow names opens Workflow with that " +
+      "step's panel open",
+    async () => {
+      await record("arc/group-failed");
+      await page.getByRole("button", { name: /^screens_test$/ }).click();
+      await entered(page.getByRole("dialog", { name: "screens_test" }));
+      await page.getByRole("button", { name: "Implement", exact: true }).click();
+
+      await expect.element(page.getByRole("tabpanel", { name: "Workflow" })).toBeVisible();
+      await expect.element(page.getByRole("heading", { name: "Implement", level: 3 })).toBeVisible();
+    },
+  );
+
+  test(
+    "arc/group-failed: pressing a failed Check on the Plan's group boundary opens the Record " +
+      "on that Check's own row",
+    async () => {
+      mount("arc/group-failed");
+      await page.getByRole("tab", { name: /^Plan/ }).click();
+      await page.getByRole("tab", { name: "List" }).click();
+      await page.getByRole("button", { name: "screens_test, failed" }).first().click();
+
+      await expect.element(page.getByRole("tabpanel", { name: "Record" })).toBeVisible();
+      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+    },
+  );
+
+  test(
+    "arc/group-failed: the step menu narrows the table to one step's rows, and Any step " +
+      "brings the Job's own back",
+    async () => {
+      await record("arc/group-failed");
+      const all = ledger().length;
+      const head = page.getByRole("region", { name: "What the Record holds" });
+
+      await head.getByRole("button", { name: "Any step" }).click();
+      await page.getByRole("menuitem", { name: "Implement" }).click();
+      await expect.poll(() => ledger().length).toBeLessThan(all);
+      expect(ledger().every((row) => row["Where"]?.startsWith("Implement"))).toBe(true);
+
+      await head.getByRole("button", { name: "Implement", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Any step" }).click();
+      await expect.poll(() => ledger().length).toBe(all);
+    },
+  );
+});
+
+/**
+ * Choose a filter the way a person does: the menu in the panel's head, whose
+ * trigger reads the chosen filter. Since 29 Sep 2026 the filters are a counted
+ * menu there and not a strip of tabs, which wrapped at laptop width.
+ */
+async function filterTo(name: string): Promise<void> {
+  const head = page.getByRole("region", { name: "What the Record holds" });
+  await head.getByRole("button", { name: /^All \d+$/ }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${name} \\d+$`) }).click();
+  // The trigger reads the filter chosen and what it holds.
+  await expect
+    .element(head.getByRole("button", { name: new RegExp(`^${name} \\d+$`) }))
+    .toHaveAttribute("aria-haspopup", "menu");
+}
 
 /** App on an arc moment, with the Record open. */
 async function record(name: string): Promise<void> {
