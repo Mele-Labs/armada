@@ -360,6 +360,19 @@ export const NothingButToolCalls: Story = {
 const REPRO: TurnStep = { id: "repro", label: "Reproduce the bug" };
 const FIX: TurnStep = { id: "fix", label: "Fix the root cause" };
 
+const UNDER_TWO_STEPS: DroneTurn[] = [
+  { id: "1", at: "09:14:02", step: REPRO, who: "drone", kind: "started", subject: "sess_01JB4 · the job's model · 2 mcp servers" },
+  { id: "2", at: "09:14:03", step: REPRO, who: "drone", kind: "said", said: "Writing the failing test before I touch the reducer." },
+  ...thinking(10, 5, "09:14:04").map((turn) => ({ ...turn, step: REPRO })),
+  { id: "20", at: "09:14:22", step: REPRO, who: "drone", kind: "called", subject: "Write", detail: "tests/settings_split.rs" },
+  { id: "21", at: "09:15:01", step: FIX, who: "drone", kind: "said", said: "The test reproduces it. Splitting the reducer now." },
+  { id: "22", at: "09:15:09", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
+  { id: "23", at: "09:15:40", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Failed." },
+  { id: "24", at: "09:18:02", step: REPRO, who: "drone", kind: "said", said: "The gate sent this back. Widening the reproduction first." },
+  { id: "25", at: "09:18:30", step: REPRO, who: "drone", kind: "called", subject: "Edit", detail: "tests/settings_split.rs +11 -0" },
+  { id: "26", at: "09:19:04", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +6 -2", answer: "No answer yet." },
+];
+
 /**
  * One Drone across three runs of two steps.
  *
@@ -378,21 +391,27 @@ const FIX: TurnStep = { id: "fix", label: "Fix the root cause" };
  * guessed at.
  */
 export const TurnsUnderTheirSteps: Story = {
-  args: {
-    live: true,
-    emptyNote: NOTHING_YET,
-    turns: [
-      { id: "1", at: "09:14:02", step: REPRO, who: "drone", kind: "started", subject: "sess_01JB4 · the job's model · 2 mcp servers" },
-      { id: "2", at: "09:14:03", step: REPRO, who: "drone", kind: "said", said: "Writing the failing test before I touch the reducer." },
-      ...thinking(10, 5, "09:14:04").map((turn) => ({ ...turn, step: REPRO })),
-      { id: "20", at: "09:14:22", step: REPRO, who: "drone", kind: "called", subject: "Write", detail: "tests/settings_split.rs" },
-      { id: "21", at: "09:15:01", step: FIX, who: "drone", kind: "said", said: "The test reproduces it. Splitting the reducer now." },
-      { id: "22", at: "09:15:09", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
-      { id: "23", at: "09:15:40", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Failed." },
-      { id: "24", at: "09:18:02", step: REPRO, who: "drone", kind: "said", said: "The gate sent this back. Widening the reproduction first." },
-      { id: "25", at: "09:18:30", step: REPRO, who: "drone", kind: "called", subject: "Edit", detail: "tests/settings_split.rs +11 -0" },
-      { id: "26", at: "09:19:04", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +6 -2", answer: "No answer yet." },
-    ],
+  args: { live: true, emptyNote: NOTHING_YET, turns: UNDER_TWO_STEPS },
+  // Four boundaries, and each one breaks the Drone's card.
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByText("step", { exact: true })).toHaveLength(4);
+    await expect(canvas.getAllByRole("group", { name: "Drone" })).toHaveLength(4);
+  },
+};
+
+/**
+ * The same transcript where the surface already names the step — a Drone's
+ * sheet, whose head does, and whose Drone works one step.
+ *
+ * **No boundary, and no card broken at one.** A line repeating the head says
+ * nothing, and a card split at a step nobody sees reads as a random break. The
+ * owner, 29 Sep 2026: *"This is already represented in the header."*
+ */
+export const StepsNamedElsewhere: Story = {
+  args: { live: true, emptyNote: NOTHING_YET, turns: UNDER_TWO_STEPS, steps: false },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText("step", { exact: true })).toBeNull();
+    await expect(canvas.getAllByRole("group", { name: "Drone" })).toHaveLength(1);
   },
 };
 

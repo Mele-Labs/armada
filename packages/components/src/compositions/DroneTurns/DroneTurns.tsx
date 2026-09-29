@@ -41,6 +41,7 @@ import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
  * competing for the width the body absorbs. The question a reader asks is where
  * the step changed, and a line drawn there, between cards, answers it for every
  * row beneath. A step changing under one speaker splits that speaker's card.
+ * They are off where the surface already names the step (the owner, 29 Sep 2026).
  *
  * **It follows the tail, and stops the moment you scroll away from it.** A
  * pane that pulls you back to the bottom while you are reading is worse than
@@ -116,9 +117,15 @@ export type DroneTurnsProps = {
    * a gap in its middle would claim work that stopped.
    */
   live?: boolean;
+  /**
+   * Whether a change of step is drawn, and splits a card. Off where the surface
+   * around the pane already names the one step every row ran under — a Drone's
+   * sheet, whose head does.
+   */
+  steps?: boolean;
 };
 
-export function DroneTurns({ turns, emptyNote, live = false }: DroneTurnsProps) {
+export function DroneTurns({ turns, emptyNote, live = false, steps = true }: DroneTurnsProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   // State rather than a ref, because every effect below needs the element and
   // the first render has no rows: the socket says whether a Drone is writing
@@ -176,7 +183,7 @@ export function DroneTurns({ turns, emptyNote, live = false }: DroneTurnsProps) 
     );
   }
 
-  const entries = runs(turns);
+  const entries = runs(turns, steps);
   const tail = entries[entries.length - 1];
   return (
     <ol className="armada-turns" ref={setList}>
@@ -271,9 +278,12 @@ type Entry =
  * a transcript predates the field, so "not recorded" would be the only line on
  * screen and would contrast with nothing. A transcript that gains a step
  * part-way through says so at the point it does.
+ *
+ * **With `steps` off nothing is marked and nothing splits on a step**: a card
+ * broken at a line nobody sees would read as a random break.
  */
-function runs(turns: DroneTurn[]): Entry[] {
-  const attributed = turns.some((turn) => turn.step !== undefined);
+function runs(turns: DroneTurn[], steps: boolean): Entry[] {
+  const attributed = steps && turns.some((turn) => turn.step !== undefined);
   const entries: Entry[] = [];
   let under: string | undefined;
   let opened = false;

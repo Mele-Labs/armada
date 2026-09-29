@@ -79,7 +79,6 @@ export function stepOf(detail: JobDetail | null, stepId: string): TurnStep {
  */
 export function droneTurnsOf(
   rows: readonly Turn[],
-  detail: JobDetail | null,
   brief: (lines: LogRow["payload"]) => ReactNode,
 ): DroneTurn[] {
   const answers = new Map<string, boolean>();
@@ -94,7 +93,6 @@ export function droneTurnsOf(
       at: clock(row.ts),
       kind: saw.event,
       who: row.by,
-      ...(row.step === undefined ? {} : { step: stepOf(detail, row.step) }),
     };
     switch (saw.event) {
       case "answered":

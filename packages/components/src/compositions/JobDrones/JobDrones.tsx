@@ -201,6 +201,7 @@ export function JobDrones({
             turns={reading.turns}
             emptyNote={reading.emptyNote}
             live={reading.live}
+            steps={false}
           />
         )}
       </Sheet>

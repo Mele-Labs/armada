@@ -55,6 +55,16 @@ test("pressing the step in a Drone's sheet lands on Workflow with that step's pa
   await expect.element(page.getByRole("region", { name: "Implement, step" }).last()).toBeVisible();
 });
 
+// The owner's note of 29 Sep: *a drone will now be running against a step and a
+// task. This is already represented in the header.* The transcript draws no line
+// naming the step again.
+test("a Drone's transcript draws no step boundary under the head that names it", async () => {
+  await droneOnT5();
+  const sheet = page.getByRole("dialog", { name: "Drone on T5" }).last();
+  await expect.element(sheet.getByRole("group", { name: "Drone" }).first()).toBeVisible();
+  expect(await sheet.getByText("step", { exact: true }).elements()).toHaveLength(0);
+});
+
 test("pressing the task in a Drone's sheet lands on Plan with that task's sheet open", async () => {
   await droneOnT5();
   await page.getByRole("dialog", { name: "Drone on T5" }).last().getByRole("button", { name: "T5", exact: true }).click();
