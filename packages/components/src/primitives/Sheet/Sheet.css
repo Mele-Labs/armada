@@ -310,6 +310,10 @@
   background: none;
   overflow: clip;
   overflow-clip-margin: var(--border-width);
+  /* No travel in, as Helm's dock has none. Starting its own width past the
+     trailing edge, the panel overflowed the screen, and the screen scrolled
+     sideways to follow it (owner, 29 Sep 2026). */
+  animation: none;
 }
 
 /* The head never wraps its close away from the trailing corner — the owner's

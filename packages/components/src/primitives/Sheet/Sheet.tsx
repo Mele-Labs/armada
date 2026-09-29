@@ -165,7 +165,9 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) closeRef.current?.focus();
+    // `preventScroll`: a docked sheet sits in the screen's own scroller, and
+    // focusing its close scrolled the whole screen sideways to reach it.
+    if (open) closeRef.current?.focus({ preventScroll: true });
   }, [open]);
 
   // Esc closes an overlay, per the global tier — and stops there. Bound in the
