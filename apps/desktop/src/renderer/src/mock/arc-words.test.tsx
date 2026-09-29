@@ -33,13 +33,12 @@ async function planList(moment: string): Promise<void> {
     .toBeVisible();
 }
 
-/** One group's card, by the heading it carries. */
+/**
+ * One group's card, by the name the card carries. **Never by its text**: a
+ * card says `Group 4 writes these files too` where it overlaps group 4.
+ */
 const groupCard = (ordinal: number) =>
-  page
-    .getByRole("list", { name: "Groups, in the order they run" })
-    .getByRole("listitem")
-    .filter({ hasText: new RegExp(`Group ${ordinal}`) })
-    .first();
+  page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });

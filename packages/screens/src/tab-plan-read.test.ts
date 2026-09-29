@@ -9,10 +9,10 @@ import { doneTouched, groupFailed, plannedMoment, planRevisionRefused } from "./
 import type { CaseView } from "./draft/cases";
 import {
   besideSaid,
-  boundarySaid,
+  boundaryClause,
   caseReads,
   casesOf,
-  clashesOf,
+  costSaid,
   droppedSaid,
   groupsOf,
   retrySaid,
@@ -21,7 +21,9 @@ import {
   spentSaid,
   taskSheetOf,
   tasksOf,
-  testsSaid,
+  overlapsOf,
+  testsClause,
+  turnsSaid,
   touchedByOf,
 } from "./tab-plan-read";
 import { groupCardOf, planBoardOf } from "./plan-board";
@@ -35,32 +37,35 @@ function wholeOf(moment: ReturnType<typeof plannedMoment>) {
   return watched?.state === "read" ? watched.detail : null;
 }
 
-describe("the boundary's own sentence", () => {
+describe("the boundary's own clause", () => {
   test("a group that has not run says what will run at it", () => {
-    expect(boundarySaid("pending", 7)).toBe("7 checks will run at this boundary");
+    expect(boundaryClause("pending")).toBe("will run at this boundary");
   });
 
   test("a group being checked says so in the present", () => {
-    expect(boundarySaid("checking", 4)).toBe("4 checks are running at this boundary");
+    expect(boundaryClause("checking")).toBe("running at this boundary");
   });
 
   test("a group that has run says what ran", () => {
-    expect(boundarySaid("passed", 4)).toBe("4 checks ran at this boundary");
-    expect(boundarySaid("retrying", 7)).toBe("7 checks ran at this boundary");
+    expect(boundaryClause("passed")).toBe("ran at this boundary");
+    expect(boundaryClause("retrying")).toBe("ran at this boundary");
   });
 
-  test("one check is not one checks", () => {
-    expect(boundarySaid("pending", 1)).toBe("1 check will run at this boundary");
+  // The strip draws the count, so the clause never carries one. A clause
+  // that said "7 checks" beside the strip's own 7 is the number twice.
+  test("the clause carries no count", () => {
+    expect(boundaryClause("pending")).not.toMatch(/\d/);
+    expect(testsClause("pending", 2)).not.toMatch(/\d/);
   });
 
   test("a boundary with no test says nothing about tests", () => {
-    expect(testsSaid("pending", 0)).toBeUndefined();
+    expect(testsClause("pending", 0)).toBeUndefined();
   });
 
   test("tests agree with their own count", () => {
-    expect(testsSaid("pending", 1)).toBe("1 test runs at this boundary");
-    expect(testsSaid("pending", 2)).toBe("2 tests run at this boundary");
-    expect(testsSaid("passed", 2)).toBe("2 tests ran at this boundary");
+    expect(testsClause("pending", 1)).toBe("runs at this boundary");
+    expect(testsClause("pending", 2)).toBe("run at this boundary");
+    expect(testsClause("passed", 2)).toBe("ran at this boundary");
   });
 });
 
@@ -119,13 +124,16 @@ describe("what a task has spent", () => {
     const moment = groupsOf(wholeOf(doneTouched()), doneTouched().draft);
     const done = tasksOf(moment).find((one) => one.id === "T1")!;
     expect(spentSaid(done)).toBe("34 turns · ~$2.40");
+    // The row splits the pair into two columns so they line up down a card.
+    expect(turnsSaid(done)).toBe("34 turns");
+    expect(costSaid(done)).toBe("~$2.40");
   });
 });
 
 describe("what runs beside what", () => {
   test("a task of a concurrent group names its neighbour", () => {
     const t5 = tasksOf(GROUPS).find((one) => one.id === "T5")!;
-    expect(besideSaid(t5)).toBe("runs beside T6");
+    expect(besideSaid(t5)).toBe("beside T6");
   });
 
   test("a task that runs alone says nothing", () => {
@@ -157,15 +165,27 @@ describe("a done task a later one edited", () => {
 });
 
 describe("an order that contradicts the scopes", () => {
-  test("a file two groups claim is named with both", () => {
-    const clashes = clashesOf(GROUPS);
-    const rows = new Map(clashes.map((one) => [one.path, one.says]));
-    expect(rows.get("packages/screens/src/running-rows.tsx")).toBe("group 3 (T6) and group 4 (T7)");
-    expect(rows.get("packages/screens/src/overview.ts")).toBe("group 2 (T3) and group 4 (T7)");
+  const overlaps = overlapsOf(GROUPS);
+
+  test("the warning is on the group that has the clash, both ways", () => {
+    const fourth = overlaps.get(GROUPS[3]!.id) ?? [];
+    expect(fourth.map((one) => one.says)).toEqual([
+      "Group 2 writes these files too",
+      "Group 3 writes these files too",
+    ]);
+    expect(fourth[1]?.paths).toEqual(["packages/screens/src/running-rows.tsx"]);
+    const third = overlaps.get(GROUPS[2]!.id) ?? [];
+    expect(third.map((one) => one.says)).toEqual(["Group 4 writes these files too"]);
+  });
+
+  // The whole of the owner's note of 28 Sep: a clash said once, above the
+  // plan, made a reader go and find the two groups it named.
+  test("a group with no clash carries no warning at all", () => {
+    expect(overlaps.has(GROUPS[0]!.id)).toBe(false);
   });
 
   test("a file one group claims twice is not a clash", () => {
-    expect(clashesOf([GROUPS[0]!]).length).toBe(0);
+    expect(overlapsOf([GROUPS[0]!]).size).toBe(0);
   });
 });
 
@@ -187,8 +207,9 @@ describe("one group's card", () => {
   test("the group writing Rust runs four checks and the ones writing Bridge run seven", () => {
     const rust = groupCardOf(GROUPS[0]!, CASES, touched, null);
     const bridge = groupCardOf(GROUPS[1]!, CASES, touched, null);
-    expect(rust.boundary.says).toBe("4 checks will run at this boundary");
-    expect(bridge.boundary.says).toBe("7 checks will run at this boundary");
+    expect(rust.boundary.checks).toHaveLength(4);
+    expect(bridge.boundary.checks).toHaveLength(7);
+    expect(rust.boundary.clause).toBe("will run at this boundary");
   });
 
   test("a case covering a file two groups touch is drawn at the last of them", () => {
