@@ -172,6 +172,22 @@ describe("the Record, as the owner asked for it", () => {
     },
   );
 
+  // The owner, 29 Sep 2026: *not just the step from completing but a task in
+  // the plan, right?*
+  test(
+    "arc/group-failed: screens_test's row names group three as held back, and pressing T6 " +
+      "there opens T6's own row",
+    async () => {
+      await record("arc/group-failed");
+      await page.getByRole("button", { name: /^screens_test$/ }).click();
+
+      await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
+      await expect.element(page.getByRole("button", { name: /T5 · Draw what is running/ })).toBeVisible();
+      await page.getByRole("button", { name: /T6 · Open a Drone's Job from its row/ }).click();
+      await expect.element(page.getByRole("heading", { name: /^T6 marked failed/ })).toBeVisible();
+    },
+  );
+
   // The owner, 29 Sep 2026: *Should I be able to click on the check to open
   // that record and see the check? Yes.*
   test(

@@ -19,6 +19,8 @@ import {
   GroupBoundary,
   JobLedger,
   PathChip,
+  RowLink,
+  TaskMark,
   UnifiedDiff,
   WorkflowStepCard,
   type JobLedgerRow,
@@ -45,7 +47,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
 import { boundaryOf } from "./plan-board";
 import { drawn as drawnPatch, whyNoDiff } from "./review";
-import { droneOfTask, jobDroneOf, touchedByOf } from "./tab-plan-read";
+import { droneOfTask, failedChecksOf, jobDroneOf, markOf, touchedByOf } from "./tab-plan-read";
 import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf } from "./workflow-inspector";
 
@@ -101,6 +103,12 @@ function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: Che
   return row === undefined ? undefined : String(row.cursor);
 }
 
+/** A task's latest row in the Record — `rows` is newest first. Nothing where it has none. */
+function taskRowOf(rows: readonly LedgerRow[], taskId: string): string | undefined {
+  const row = rows.find((one) => familyOf(one.kind) === "tasks" && one.coord?.task === taskId);
+  return row === undefined ? undefined : String(row.cursor);
+}
+
 export function RecordTab({
   jobId,
   detail,
@@ -124,11 +132,11 @@ export function RecordTab({
   const [openRow, setOpenRow] = useState<string | null>(() =>
     opensCheck === undefined ? null : (checkRowOf(rows, detail, opensCheck) ?? null),
   );
-  // A Check pressed on a task's boundary opens that Check's own row. **Every
-  // row, where the filter or the step would hide it** — an open row the table
-  // does not hold is the stale panel this screen exists to end.
-  const openCheck = (name: string, stepAttempt: number) => {
-    const id = checkRowOf(rows, detail, { name, stepAttempt });
+  // A row pressed inside a reading — a Check on a task's boundary, a task a
+  // Check held back — opens that row. **Every row, where the filter or the
+  // step would hide it**: an open row the table does not hold is the stale
+  // panel this screen exists to end.
+  const openRowOf = (id: string | undefined) => {
     if (id === undefined) return;
     if (!underFilter(underStep(rows, step), filter).some((row) => String(row.cursor) === id)) {
       setFilter("all");
@@ -136,6 +144,9 @@ export function RecordTab({
     }
     setOpenRow(id);
   };
+  const openCheck = (name: string, stepAttempt: number) =>
+    openRowOf(checkRowOf(rows, detail, { name, stepAttempt }));
+  const openTask = (taskId: string) => openRowOf(taskRowOf(rows, taskId));
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
   // The plan's groups, and every task in them, for the Drone a row names and
@@ -229,6 +240,8 @@ export function RecordTab({
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
                     onOpenCheck={openCheck}
+                    onOpenTask={openTask}
+                    taskRowOf={(taskId) => taskRowOf(rows, taskId)}
                   />
                 ),
               })}
@@ -269,7 +282,33 @@ type RowReadProps = {
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
   onOpenCheck: (name: string, stepAttempt: number) => void;
+  onOpenTask: (taskId: string) => void;
+  /** A task's Record row, where it has one — which task lines are pressable. */
+  taskRowOf: (taskId: string) => string | undefined;
 };
+
+/**
+ * The group whose boundary a failed Check's run held back.
+ *
+ * **`failedChecksOf`'s own attribution, the one the boundary card draws**, and
+ * no second rule: a run does not name its group on the wire, so it is the group
+ * carrying a failure that runs this Check, read off the working step's latest
+ * attempt. A run on any other step or attempt is not the one that attribution
+ * reads, so it names no group.
+ */
+function groupHeldBy(
+  detail: JobWhole,
+  groups: readonly GroupView[],
+  step: JobWhole["steps"][number],
+  run: JobWhole["steps"][number]["check_runs"][number],
+): GroupView | undefined {
+  if (step.step_id !== detail.job.current_step_id) return undefined;
+  const latest = Math.max(0, ...step.check_runs.map((one) => one.attempt));
+  if (run.attempt !== latest) return undefined;
+  return groups.find(
+    (group) => group.checks_selected.includes(run.name) && failedChecksOf(detail, group).includes(run.name),
+  );
+}
 
 /**
  * One row, read whole.
@@ -293,6 +332,8 @@ function RowRead({
   onSaid,
   onOpenStep,
   onOpenCheck,
+  onOpenTask,
+  taskRowOf: taskRow,
 }: RowReadProps) {
   const step = detail.steps.find((one) => one.step_id === row.coord?.step);
   const run =
@@ -331,6 +372,13 @@ function RowRead({
   }, [readsDiff, jobId]);
 
   const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
+  // The group the run held back, where the boundary card names one: a Check
+  // that stopped its step stopped that group's tasks with it (the owner, 29 Sep
+  // 2026: *not just the step from completing but a task in the plan*).
+  const heldGroup =
+    step === undefined || run === undefined || CHECK_ADVANCES[run.outcome] !== false
+      ? undefined
+      : groupHeldBy(detail, groups, step, run);
   // The step's node, as the Workflow canvas draws it — `workflowRunOf`'s own
   // card, so the two cannot say different things about one step.
   const node =
@@ -457,13 +505,37 @@ function RowRead({
             {/* Only where the run held its step: one that passed stopped
                 nothing, and the eyebrow already reaches the step. Under the
                 sentence, the step's own node off the Workflow canvas — what it
-                is doing now, and pressing it opens its panel there. */}
+                is doing now, and pressing it opens its panel there. Under that,
+                the group the boundary card names as failed and its tasks, each
+                opening its own row. */}
             {step === undefined || node === undefined ? null : (
               <section className="armada-ledger__read-section">
                 <Eyebrow>What it stopped</Eyebrow>
                 <div className="armada-ledger__read-well">
                   <p className="armada-ledger__read-said">Blocked {step.label} from completing.</p>
                   <WorkflowStepCard {...node} />
+                  {heldGroup === undefined ? null : (
+                    <>
+                      <p className="armada-ledger__read-said">Blocked group {heldGroup.ordinal} from passing.</p>
+                      <ul className="armada-ledger__read-said armada-ledger__read-list">
+                        {heldGroup.tasks
+                          .filter((task) => task.state !== "dropped")
+                          .map((task) => {
+                            const opens = taskRow(task.id);
+                            return (
+                              <li key={task.id}>
+                                <RowLink
+                                  mark={<TaskMark state={markOf(task.state)} />}
+                                  {...(opens === undefined ? {} : { onOpen: () => onOpenTask(task.id) })}
+                                >
+                                  {`${task.id} · ${task.title}`}
+                                </RowLink>
+                              </li>
+                            );
+                          })}
+                      </ul>
+                    </>
+                  )}
                   {passedLater === undefined ? null : (
                     <p className="armada-ledger__read-later">
                       <span className="armada-ledger__read-dot" aria-hidden />

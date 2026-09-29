@@ -212,79 +212,6 @@
   padding-bottom: var(--space-1);
 }
 
-.armada-boundary__line {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-width: 0;
-  min-height: var(--h-badge);
-  padding: 0 var(--space-1);
-  margin: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-}
-
-button.armada-boundary__line {
-  cursor: pointer;
-}
-
-button.armada-boundary__line:hover {
-  background: var(--bg-hover);
-}
-
-button.armada-boundary__line:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-/* A fixed slot, so a Check with no mark — one running — keeps its name in
-   line with the rest. */
-.armada-boundary__mark {
-  display: inline-flex;
-  flex: none;
-  width: var(--space-3);
-  color: var(--fg-subtle);
-}
-
-.armada-boundary__check {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-boundary__line .armada-boundary__check {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--fg-muted);
-  overflow-wrap: anywhere;
-}
-
-.armada-boundary__reads {
-  flex: none;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-/* The Record's own Check hues: failed red, passed green, the rest neutral. */
-.armada-boundary__checks > li[data-reads="failed"] :is(.armada-boundary__mark, .armada-boundary__reads) {
-  color: var(--run-failed);
-}
-
-.armada-boundary__checks > li[data-reads="passed"] :is(.armada-boundary__mark, .armada-boundary__reads) {
-  color: var(--run-passed);
-}
-
-.armada-boundary__checks > li[data-reads="failed"] .armada-boundary__check {
-  color: var(--fg-default);
-}
-
 /* What a failed Check was held to and what it got, each under its label, set
    in from the row's mark so they read as that Check's. */
 .armada-boundary__told {
@@ -302,6 +229,14 @@ button.armada-boundary__line:focus-visible {
   color: var(--fg-muted);
   overflow-wrap: anywhere;
   text-wrap: pretty;
+}
+
+/* A case's spec path, in a Tests strip. */
+.armada-boundary__check {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
 }
 
 .armada-boundary__tests {

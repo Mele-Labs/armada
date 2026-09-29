@@ -5,6 +5,7 @@ import { ConceptLabel } from "../../concepts";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_GROUP_BOUNDARY } from "../../guides";
+import { RowLink } from "../RowLink/RowLink";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
 
 /**
@@ -104,32 +105,21 @@ const MARK: Partial<Record<GroupBoundaryCheckReads, LucideIcon>> = {
  */
 function CheckRow({ check }: { check: GroupBoundaryCheck }) {
   const Mark = MARK[check.reads];
-  const line = (
-    <>
-      <span className="armada-boundary__mark" aria-hidden>
-        {Mark === undefined ? null : <Mark size={12} strokeWidth={2} />}
-      </span>
-      <span className="armada-boundary__check mono">{check.name}</span>
-      <span className="armada-boundary__reads">{check.reads}</span>
-    </>
-  );
   return (
     <li
       data-reads={check.reads}
       data-told={check.expected !== undefined || check.result !== undefined ? "true" : undefined}
     >
-      {check.onOpen === undefined ? (
-        <span className="armada-boundary__line">{line}</span>
-      ) : (
-        <button
-          type="button"
-          className="armada-boundary__line"
-          aria-label={`${check.name}, ${check.reads}`}
-          onClick={check.onOpen}
-        >
-          {line}
-        </button>
-      )}
+      <RowLink
+        mark={Mark === undefined ? undefined : <Mark size={12} strokeWidth={2} />}
+        mono
+        says={check.reads}
+        {...(check.reads === "passed" || check.reads === "failed" ? { tone: check.reads } : {})}
+        label={`${check.name}, ${check.reads}`}
+        {...(check.onOpen === undefined ? {} : { onOpen: check.onOpen })}
+      >
+        {check.name}
+      </RowLink>
       {check.expected === undefined ? null : <Told label="Expected" value={check.expected} />}
       {check.result === undefined ? null : <Told label="Result" value={check.result} />}
     </li>
