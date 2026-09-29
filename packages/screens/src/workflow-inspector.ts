@@ -59,7 +59,7 @@ function checksOf(step: StepDetail, only?: readonly string[]): WorkflowInspector
  * What a task's own agent has spent: its turns, and its cost once it stopped.
  * The Record's Drone section reads the same two facts, from here.
  */
-export function spentOf(task: GroupView["tasks"][number]): string[] {
+export function spentOf(task: Pick<GroupView["tasks"][number], "turns" | "cost_micros">): string[] {
   const facts: string[] = [];
   if (task.turns !== undefined) facts.push(`${task.turns} turns`);
   if (task.cost_micros !== undefined) facts.push(`$${(task.cost_micros / 1_000_000).toFixed(2)}`);
