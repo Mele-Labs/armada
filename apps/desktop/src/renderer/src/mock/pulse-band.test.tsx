@@ -142,3 +142,23 @@ test("arriving at Pulse raises what Pulse is, and never the guide about disk", a
     }).query(),
   ).toBeNull();
 });
+
+/**
+ * The owner, 29 Sep 2026: Spend and Turns are read against caps Settings
+ * changes, so pressing one goes there. **To the row, not the tab** — a press
+ * that left a person at the top of Settings would make them find the cap again.
+ */
+test("pressing Spend lands on Settings with the cost cap's row in view and its Raise focused", async () => {
+  mount(onJob(running()));
+  await onPulse();
+
+  const spend = page.getByRole("tabpanel", { name: "Pulse" }).getByRole("button", { name: /^~?\$/ });
+  // A bare figure names what pressing it does on hover, and nowhere on screen.
+  await expect.element(spend).toHaveAccessibleDescription("Change the cost cap in Settings");
+  await spend.click();
+
+  await expect.element(page.getByRole("tab", { name: /^Settings/ })).toHaveAttribute("aria-selected", "true");
+  const raise = page.getByRole("button", { name: "Raise the cost cap" });
+  await expect.element(raise).toBeInViewport();
+  await expect.element(raise).toHaveFocus();
+});

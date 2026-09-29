@@ -1,0 +1,116 @@
+/* A card on a destination — Pulse's cards, and Overview's.
+
+   No padding of its own: the head is a strip edge to edge, so its rule runs
+   the card's full width, and the body under it keeps the card's inset. */
+.armada-destination-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--edge-card);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+/* The card's name, then whatever the card says at its trailing edge: the
+   read time and Refresh on Stats, a figure on the lists, the filter on the
+   logs. It wraps rather than clipping, for the narrow sheet.
+
+   A strip with a rule under it, as the left column's panels draw theirs, so
+   the name reads as the card's head and not as one more label in it. One
+   height on every card — the logs' select plus the strip's padding — so the
+   rules of cards side by side meet on one line. */
+.armada-destination-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  min-height: calc(var(--h-control) + var(--space-3) * 2 + var(--border-width));
+  padding: var(--space-3) var(--pad-card);
+  border-block-end: var(--border-width) solid var(--edge-rule);
+}
+
+/* What the card holds, at the card's inset. The first row has no rule over
+   it, so the head's is the only line above the list. */
+.armada-destination-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--pad-card) var(--space-4);
+}
+
+/* A step above the --text-xs labels under it, so the head does not run into
+   the figures' own names. */
+.armada-destination-card__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-body);
+}
+
+.armada-destination-card__trail {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+/* A head that opens its destination. **The press is behind the head, not
+   around it**: a button holding the GuideMark or a trailing control would be a
+   button inside a button. So the press fills the strip from underneath, and
+   everything drawn in the strip sits over it. The name and the chevron let the
+   pointer through; each thing in the trailing slot takes its own, and the gaps
+   between them fall through to the press. `FigureList`'s strip press is the
+   same move. */
+.armada-destination-card__head[data-opens] {
+  position: relative;
+}
+
+.armada-destination-card__press {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  /* The card's corners, less its edge: the fill stops where the edge begins. */
+  border-radius: calc(var(--radius-lg) - var(--border-width)) calc(var(--radius-lg) - var(--border-width)) 0 0;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease);
+}
+
+.armada-destination-card__press:hover {
+  background: var(--bg-hover);
+}
+
+.armada-destination-card__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-destination-card__head[data-opens] > :not(.armada-destination-card__press) {
+  position: relative;
+}
+
+.armada-destination-card__head[data-opens] > .armada-destination-card__title,
+.armada-destination-card__head[data-opens] > .armada-destination-card__trail,
+.armada-destination-card__head[data-opens] > .armada-destination-card__chevron {
+  pointer-events: none;
+}
+
+.armada-destination-card__head[data-opens] > .armada-destination-card__trail > * {
+  pointer-events: auto;
+}
+
+/* `chevron-right`, *goes to*: after everything the head says, in the live
+   glyph floor. */
+.armada-destination-card__chevron {
+  flex: none;
+  color: var(--fg-muted);
+}

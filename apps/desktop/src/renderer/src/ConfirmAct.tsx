@@ -4,9 +4,24 @@
 // state and this is the dialog for it.
 
 import { Dialog, Textarea } from "@armada/components";
-import { ACT_LABEL, CONFIRM, RESTART_NOTE, type ConfirmableAct } from "@armada/screens";
+import {
+  ACT_LABEL,
+  CONFIRM,
+  KILL_PROCESS,
+  KILL_PROCESSES,
+  RESTART_NOTE,
+  type ConfirmableAct,
+} from "@armada/screens";
 
-export type Confirming = { act: ConfirmableAct; jobId: string };
+/**
+ * A Job act, or one of Pulse's two kills. **The kills carry what the title
+ * names** — the process, or how many — because unlike a Job act their words
+ * are not a constant, and #1647 has the dialog name the process.
+ */
+export type Confirming =
+  | { act: ConfirmableAct; jobId: string }
+  | { act: "kill_process"; jobId: string; pid: number; command: string }
+  | { act: "kill_processes"; jobId: string; count: number };
 
 export type ConfirmActProps = {
   /** Nothing to confirm draws nothing. */
@@ -15,7 +30,7 @@ export type ConfirmActProps = {
   restartNote: string;
   onRestartNote: (said: string) => void;
   onCancel: () => void;
-  onConfirm: (act: ConfirmableAct, jobId: string) => void;
+  onConfirm: (confirmed: Confirming) => void;
 };
 
 /**
@@ -31,22 +46,44 @@ export function ConfirmAct({
   onConfirm,
 }: ConfirmActProps) {
   if (confirming === null) return null;
+  // The kills' title is the whole of what they say: the process that ends, or
+  // how many. Nothing survives a killed process worth a sentence here.
+  if (confirming.act === "kill_process" || confirming.act === "kill_processes") {
+    const killing = confirming;
+    return (
+      <Dialog
+        open
+        tone="destructive"
+        title={
+          killing.act === "kill_process"
+            ? KILL_PROCESS.title(killing.command, killing.pid)
+            : KILL_PROCESSES.title(killing.count)
+        }
+        confirmLabel={killing.act === "kill_process" ? KILL_PROCESS.confirm : KILL_PROCESSES.confirm}
+        onCancel={onCancel}
+        onConfirm={() => onConfirm(killing)}
+      >
+        {null}
+      </Dialog>
+    );
+  }
+  const act = confirming.act;
   return (
     <Dialog
       open
-      tone={CONFIRM[confirming.act].tone ?? "destructive"}
-      title={CONFIRM[confirming.act].title}
-      confirmLabel={ACT_LABEL[confirming.act]}
+      tone={CONFIRM[act].tone ?? "destructive"}
+      title={CONFIRM[act].title}
+      confirmLabel={ACT_LABEL[act]}
       onCancel={onCancel}
-      onConfirm={() => onConfirm(confirming.act, confirming.jobId)}
+      onConfirm={() => onConfirm(confirming)}
     >
-      {CONFIRM[confirming.act].body}
+      {CONFIRM[act].body}
       {/* The one confirmation that collects anything, and what it collects is
           optional — the button is never disabled on it, because leaving the
           field alone is the restart this dialog has always been. No
           `autoFocus`: the dialog puts initial focus on Cancel, and a second
           claim on it here would only lose to it. */}
-      {confirming.act !== "restart_step" ? null : (
+      {act !== "restart_step" ? null : (
         <>
           <p>{RESTART_NOTE.says}</p>
           <Textarea

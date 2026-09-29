@@ -520,6 +520,13 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.killJob, (_event, jobId: string) =>
     connection?.commands.killJob(jobId),
   );
+  // One process of the Job, or all of them — Pulse's two kills, #1647.
+  ipcMain.handle(CHANNELS.killProcess, (_event, jobId: string, pid: number) =>
+    connection?.commands.killProcess(jobId, pid),
+  );
+  ipcMain.handle(CHANNELS.killProcesses, (_event, jobId: string) =>
+    connection?.commands.killProcesses(jobId),
+  );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person
   // wants the space back. Every row stays on the board afterwards, under

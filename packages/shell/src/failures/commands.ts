@@ -9,7 +9,7 @@
 // survives before it names what to do: a command that may or may not have been
 // carried out is the one place pressing again makes two Jobs.
 //
-// Four codes. Three are minted here, and the fourth is Fleet's own — the one
+// Five codes. Four are minted here, and the fifth is Fleet's own — the one
 // code on this surface Bridge did not mint, and does not parse.
 
 import type {
@@ -19,8 +19,9 @@ import type {
   FailureMachineValue,
 } from "@armada/components";
 
-import type { BridgeIdentity } from "@armada/protocol";
+import type { BridgeIdentity, PendingAsked } from "@armada/protocol";
 import type { Outcome, WireError } from "@armada/protocol";
+import { issueLink, pendingAt } from "@armada/protocol";
 import { elapsed } from "../fleet";
 import type { Failure } from "./notice";
 import { logField, machineLog, versions } from "./notice";
@@ -145,6 +146,15 @@ export function transportFailure(
   bridge: BridgeIdentity,
 ): Failure {
   const fault = outcome.fault;
+  // **A route an issue is still building is not a disagreement.** Fleet's
+  // router answers a path it has no route for with a bare 404, which is what
+  // `unanswerable` reads; on a route `PENDING_ROUTES` names, that is the act
+  // arriving before its route, and it says so. Once Fleet serves the route it
+  // answers or refuses with a code, and this never fires.
+  if (fault.why === "unanswerable" && fault.status === UNKNOWN_ROUTE) {
+    const pending = pendingAt(fault.method, fault.path);
+    if (pending !== null) return notImplementedFailure(outcome, pending, bridge);
+  }
   const asked = `${fault.method} ${fault.path}`;
   const base = {
     // **All three are faults**, whatever Fleet's state turns out to be: what
@@ -226,4 +236,66 @@ export function transportFailure(
         note: "A status with no refusal under it is the two sides disagreeing about the route, not a job going wrong. The protocol versions on this record are what to check first.",
       };
   }
+}
+
+/** What Fleet's router answers a path it serves no route for: axum's own 404, with no body. */
+const UNKNOWN_ROUTE = 404;
+
+/** The fold's words for the ids a pending route is filled with. The payload keeps the wire's. */
+const SAID: Record<string, string> = { job_id: "Job", pid: "Process" };
+
+/** A command to a route Fleet does not serve yet, and an issue names what builds it. */
+const NOT_IMPLEMENTED: BridgeCode = "bridge.not_implemented";
+
+/**
+ * A control on screen ahead of its Fleet route, pressed.
+ *
+ * **The debug info is the brief.** A person meeting this copies it and hands
+ * it to an agent, so the payload carries the issue as a whole link, the route
+ * as Fleet will serve it, the act and every id the request filled — enough to
+ * start on the issue without the screen it came from.
+ *
+ * **A fault**, by the contract's two questions: what failed is an act, and it
+ * did not happen. Fleet is alive and answered — nothing about the work stopped
+ * — but degraded is a claim about a reading, and nothing here was one.
+ */
+function notImplementedFailure(
+  outcome: Extract<Outcome, { ok: false; why: "transport" }>,
+  pending: PendingAsked,
+  bridge: BridgeIdentity,
+): Failure {
+  const { route, filled } = pending;
+  const link = issueLink(route.issue);
+  const named = `${route.method} ${route.path}`;
+  const { job_id: jobId, ...ids } = filled;
+  const status = outcome.fault.why === "unanswerable" ? outcome.fault.status : UNKNOWN_ROUTE;
+  return {
+    kind: "fault",
+    headline: "Not implemented",
+    next: "Nothing was done.",
+    payload: {
+      code: NOT_IMPLEMENTED,
+      message: `${named} is not served by this Fleet yet. ${link} builds it.`,
+      ...(jobId === undefined ? {} : { job_id: jobId }),
+      fields: [
+        { key: "issue", value: link },
+        { key: "route", value: named },
+        { key: "act", value: route.act },
+        ...Object.entries(ids).map(([key, value]) => ({ key, value })),
+        { key: "path", value: outcome.fault.path },
+        { key: "status", value: String(status) },
+        ...logField(bridge),
+      ],
+      ...versions(bridge),
+    },
+    detailsLabel: "What is not built",
+    details: [
+      { label: "Issue", value: link },
+      { label: "Route", value: named },
+      { label: "Act", value: route.act },
+      ...Object.entries(filled).map(([key, value]) => ({ label: SAID[key] ?? key, value })),
+    ],
+    values: machineLog(bridge),
+    note: `Fleet answered ${status}.`,
+  };
 }

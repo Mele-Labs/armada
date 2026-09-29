@@ -474,6 +474,8 @@ export const CHANNELS = {
   redispatchJob: "bridge:redispatch-job",
   killDrone: "bridge:kill-drone",
   killJob: "bridge:kill-job",
+  killProcess: "bridge:kill-process",
+  killProcesses: "bridge:kill-processes",
   clearTerminalJobs: "bridge:clear-terminal-jobs",
   forgetTerminalJobs: "bridge:forget-terminal-jobs",
   reclaimWorktree: "bridge:reclaim-worktree",
