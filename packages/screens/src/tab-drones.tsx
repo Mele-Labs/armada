@@ -3,8 +3,8 @@
 // **The owner's, 29 Sep 2026**: *"a drones tab on the job page … running
 // Drones, drones that are completed or have been killed, and I can peek into
 // the entire transcript for that drone."* One Drone per task is the redesign
-// (`.claude/decisions/2026-09-22-its-own-agent-per-task.md`), and the list is
-// read from the draft until Fleet serves it.
+// (his decision of 22 Sep 2026, its own agent per task), and the list is read
+// from the draft until Fleet serves it.
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
