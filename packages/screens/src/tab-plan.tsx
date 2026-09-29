@@ -13,7 +13,7 @@
 // `plan-board.ts` over `tab-plan-read.ts`, the lead is `plan-lead.tsx`, an ask
 // is `tab-plan-ask.tsx`, and what it looks like is `PlanBoard`.
 
-import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
+import { DroneBrief, JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
 import { useNarrow } from "@armada/shell";
 import { useEffect, useMemo, useState } from "react";
 
@@ -43,6 +43,15 @@ import { WavePlan } from "./wave-plan";
 import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
 import type { HeldAct, TaskAct } from "./Acts";
 import type { JobDraft } from "./draft/held";
+import { droneViewsOf } from "./draft/drone";
+import {
+  DRONE_SAYS,
+  droneOnTask,
+  droneTurnsOf,
+  ranForOf,
+  TRANSCRIPT_EMPTY,
+  TRANSCRIPT_UNSERVED,
+} from "./tab-drones-read";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
@@ -96,6 +105,13 @@ export type PlanTabProps = {
    * sheet. Read once, when the tab opens; after that the sheet is the person's.
    */
   opensTask?: string;
+  /**
+   * Open a Drone in the Drones destination, with its sheet open. **The
+   * screen's**, on `onOpenCheck`'s terms. Absent, the peek draws no Open.
+   */
+  onOpenDrone?: (droneId: string) => void;
+  /** Now, injected, so a running Drone's run time moves with the header's. */
+  now?: number;
   /**
    * Open a boundary Check's own row in the Record, by its name and the step
    * attempt that ran it. **The screen's** — `JobDetail.tsx` owns which
@@ -241,6 +257,8 @@ export function PlanTab({
   diff,
   onReadDiff,
   opensTask,
+  onOpenDrone,
+  now,
   onOpenCheck,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
@@ -340,10 +358,36 @@ export function PlanTab({
   // plan still waiting on a person offers the rewrite ask above instead, and two
   // boxes about one task would be two ways to say the same thing to nobody.
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
+  // **The task's own Drone, off the list the Drones destination reads**, so
+  // the peek and that sheet show one Drone the same way.
+  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? droneViewsOf(groups), open.id);
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
+  const peekTurns = useMemo(
+    () =>
+      own?.transcript === undefined
+        ? []
+        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />, own.thoughts),
+    [own],
+  );
+  const ran = own === undefined || now === undefined ? undefined : ranForOf(own, now);
+  const peek =
+    own === undefined || open === undefined
+      ? undefined
+      : {
+          title: droneOfTask(whole, { ...open, drone_id: own.id })?.label ?? `Drone on ${open.id}`,
+          state: own.state,
+          stateSays: DRONE_SAYS[own.state],
+          ...(ran === undefined ? {} : { ranFor: ran }),
+          turns: peekTurns,
+          live: own.state === "running",
+          emptyNote: own.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
+          ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
+        };
+  // **An open task no Drone has run has nothing to reach**: the Job's Drone is
+  // not on it, so the panel draws no box rather than one that lands elsewhere.
   const redirect =
-    reading === undefined || drone === undefined
+    reading === undefined || drone === undefined || (own === undefined && reading.state === "open")
       ? undefined
       : {
           value: instruction,
@@ -460,6 +504,7 @@ export function PlanTab({
         docked={!narrow}
         {...(rewrite === undefined ? {} : { rewrite })}
         {...(redirect === undefined ? {} : { redirect })}
+        {...(peek === undefined ? {} : { drone: peek })}
         {...(patched === undefined ? {} : { patched })}
         {...(file === undefined ? {} : { file })}
         onFile={setOpenFile}

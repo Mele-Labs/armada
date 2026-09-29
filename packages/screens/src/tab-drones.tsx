@@ -14,7 +14,7 @@ import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { TAB_LABEL } from "./detail-tabs";
-import { absoluteOf, elapsedSince } from "./duration";
+import { absoluteOf } from "./duration";
 import { droneViewsOf, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
@@ -24,7 +24,10 @@ import {
   dronesUnder,
   droneTurnsOf,
   ORDER_SAYS,
+  ranForOf,
   stepOf,
+  TRANSCRIPT_EMPTY,
+  TRANSCRIPT_UNSERVED,
   type DronesFilter,
   type DronesOrder,
 } from "./tab-drones-read";
@@ -55,6 +58,11 @@ export type DronesTabProps = {
   onOpenStep: (stepId: string) => void;
   /** Plan, with this task's sheet open. */
   onOpenTask: (taskId: string) => void;
+  /**
+   * The Drone to land on with its sheet open — a Drone opened from Plan's task
+   * panel. Read once, `PlanTab`'s `opensTask` in reverse.
+   */
+  opensDrone?: string;
 };
 
 export function DronesTab({
@@ -72,10 +80,11 @@ export function DronesTab({
   onActHeld,
   onOpenStep,
   onOpenTask,
+  opensDrone,
 }: DronesTabProps) {
   const [filter, setFilter] = useState<DronesFilter>("all");
   const [order, setOrder] = useState<DronesOrder>("running");
-  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(opensDrone ?? null);
   const [instruction, setInstruction] = useState("");
 
   const groups = useMemo(
@@ -93,15 +102,7 @@ export function DronesTab({
       : (droneOfTask(whole, { ...task, drone_id: drone.id })?.label ?? `Drone on ${drone.task}`);
   };
   const whereOf = (drone: DroneView): string => `${stepOf(whole, drone.step).label} · ${drone.task}`;
-  // How long it has run, on the header's own `Run time` terms: to now while it
-  // runs, to when it stopped once it has. A stopped Drone with no end draws
-  // nothing, as a Job does.
-  const ranFor = (drone: DroneView): string | undefined =>
-    drone.ended_at !== undefined
-      ? elapsedSince(drone.since, drone.ended_at)
-      : drone.state === "running"
-        ? elapsedSince(drone.since, now)
-        : undefined;
+  const ranFor = (drone: DroneView): string | undefined => ranForOf(drone, now);
   // The sheet's where, as ways to it: the step opens its panel in Workflow and
   // the task its sheet in Plan — the Record's eyebrow act, so the app has one
   // look for a jump. A step or task this Job does not hold stays words. A
@@ -193,10 +194,7 @@ export function DronesTab({
                 ),
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />, open.thoughts),
                 live: open.state === "running",
-                emptyNote:
-                  open.transcript === undefined
-                    ? "Fleet does not serve one Drone's transcript yet."
-                    : "This Drone has written nothing yet.",
+                emptyNote: open.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
                 // Mocked against this Drone, as the Plan task sheet is: Fleet
                 // redirects the Job, not one Drone (#1536). The kill is too:
                 // Fleet ends the Job's one Drone. The header's kill ends the
