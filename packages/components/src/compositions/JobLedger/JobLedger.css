@@ -364,13 +364,6 @@
   list-style: none;
 }
 
-/* A task's Expected beside its Shown: one pair, read across. */
-.armada-ledger__read-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
 /* One item of evidence on a line: a name, and what it came to. */
 .armada-ledger__read-line {
   display: flex;

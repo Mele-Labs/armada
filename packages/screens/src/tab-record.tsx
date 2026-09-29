@@ -16,6 +16,7 @@ import {
   CHECK_ADVANCES,
   ConsoleOutput,
   DropdownMenu,
+  GroupBoundary,
   JobLedger,
   PathChip,
   UnifiedDiff,
@@ -42,9 +43,10 @@ import { titleOf } from "./record-cells";
 import { caseViewsOf, type CaseView } from "./draft/cases";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
+import { boundaryOf } from "./plan-board";
 import { drawn as drawnPatch, whyNoDiff } from "./review";
 import { droneOfTask, jobDroneOf, touchedByOf } from "./tab-plan-read";
-import { stepNodeId, workflowRunOf } from "./workflow-canvas";
+import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf } from "./workflow-inspector";
 
 export type RecordTabProps = {
@@ -360,7 +362,7 @@ function RowRead({
             {/* A File row's outcome stays in the table; its sheet is for the
                 diff. Every other value is under its own label. The owner, 29 Sep. */}
             {task !== undefined ? (
-              <TaskRead row={row} task={task} groups={groups} cases={cases} />
+              <TaskRead row={row} task={task} groups={groups} cases={cases} detail={detail} />
             ) : family === "files" ? null : (
               <RowFields row={row} detail={detail} />
             )}
@@ -562,24 +564,32 @@ function splitOnce(said: string, separator: string): [string, string | undefined
  * owner, 29 Sep 2026: *if there's any supporting evidence that should be
  * outlined*). The status line carries the action; this is the rest.
  *
- * **Why** is `expects` beside `shown`, or the reason it failed or was dropped.
+ * **Why** is `expects` over `shown`, or the reason it failed or was dropped.
+ * The two stack, one labelled value each: a Drone writes them at any length,
+ * and two columns of long text read badly (the owner, 29 Sep 2026).
  * **Evidence** is its files, its cases and what each last came to, its
  * group's Checks, and a later task editing it — each only where it exists.
  *
- * **The Checks are the group's, not the task's.** `GroupView` names the Checks
- * its boundary runs and one verdict for them; nothing joins a task, or a
- * group, to a Check run on the wire, so no Check's own result is drawn here.
+ * **The Checks are the group's, not the task's, drawn by the Plan board's own
+ * `GroupBoundary`** and read by `boundaryOf`, so the Record and the Plan say
+ * the same thing about the same boundary (the owner, 29 Sep 2026). A Check's
+ * own result is `boundaryOf`'s: named failed only while the group is failed or
+ * running again, off the working step's latest attempt, and the group's state
+ * for the rest. The task's own cases are `Tests` above, so the boundary's
+ * tests strip is not drawn a second time.
  */
 function TaskRead({
   row,
   task,
   groups,
   cases,
+  detail,
 }: {
   row: LedgerRow;
   task: GroupView["tasks"][number];
   groups: readonly GroupView[];
   cases: readonly CaseView[];
+  detail: JobWhole;
 }) {
   const owed = task.cases
     .map((id) => cases.find((one) => one.id === id))
@@ -594,10 +604,10 @@ function TaskRead({
   return (
     <>
       {row.kind === "task_done" && (task.expects !== undefined || task.shown !== undefined) ? (
-        <div className="armada-ledger__read-pair">
+        <>
           {task.expects === undefined ? null : <Field label="Expected" value={task.expects} />}
           {task.shown === undefined ? null : <Field label="Shown" value={task.shown} />}
-        </div>
+        </>
       ) : row.kind === "task_failed" && task.failed_reason !== undefined ? (
         <Field label="Why" value={task.failed_reason} />
       ) : row.kind === "task_dropped" && task.reason !== undefined ? (
@@ -639,22 +649,16 @@ function TaskRead({
           )}
           {group === undefined || checks.length === 0 ? null : (
             <div className="armada-ledger__read-field">
-              <FieldLabel>{`Checks at group ${group.ordinal}`}</FieldLabel>
-              {/* One run of text, so a long list wraps under the verdict rather
-                  than pushing the list onto a line of its own. */}
-              <p className="armada-ledger__read-said">
-                <span>
-                  {group.verdict === undefined ? null : (
-                    <span
-                      className="armada-ledger__read-outcome"
-                      data-tone={group.verdict === "failed" ? "failed" : group.verdict === "passed" ? "passed" : undefined}
-                    >
-                      {sentenceCase(group.verdict)}{" "}
-                    </span>
-                  )}
-                  {checks.join(", ")}
-                </span>
-              </p>
+              <FieldLabel>{`Group ${group.ordinal}'s boundary`}</FieldLabel>
+              {/* No cases passed: the task's own are `Tests` above. */}
+              <GroupBoundary
+                {...boundaryOf(
+                  group,
+                  [],
+                  detail,
+                  detail.steps.find((one) => one.step_id === stepThatWorksTheGroups(detail)),
+                )}
+              />
             </div>
           )}
           {touched === undefined ? null : <Field label="Changed after done" value={touched} />}
