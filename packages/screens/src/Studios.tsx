@@ -147,7 +147,6 @@ export type StudiosProps = {
   selectedNode: string | null;
   onSelectNode: (nodeId: string | null) => void;
   onOpen: (studioId: string) => void;
-  onBack: () => void;
   onContinue: () => void;
   /** Start an untitled Studio in this repository. */
   onCreate: () => Promise<StudioAnswer>;
@@ -381,17 +380,12 @@ function Row({
 }
 
 function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
-  const { studio, open, onBack } = props;
+  const { studio, open } = props;
   if (studio.state === "read" && studio.studio.id === open.id) {
     return <Board {...props} graph={studio.studio} />;
   }
   return (
     <div className="armada-screen__pane">
-      <div>
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          Back to Studios
-        </Button>
-      </div>
       {studio.state === "failed" ? (
         <Alert tone="escalated" title="This Studio could not be read">
           {said(studio.outcome)}
@@ -413,7 +407,7 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
  * draws this when the read is one.
  */
 function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
-  const { graph: studio, open, jobs, live, selectedNode, onSelectNode, onBack, onContinue } = props;
+  const { graph: studio, open, jobs, live, selectedNode, onSelectNode, onContinue } = props;
   const [refused, setRefused] = useState<string | null>(null);
   /** Whether the confirmation for deleting what is picked is up — #1411. */
   const [clearing, setClearing] = useState(false);
@@ -580,9 +574,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   return (
     <div className="armada-studio">
       <div className="armada-studio__head">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          Back to Studios
-        </Button>
         <StudioName
           heading
           name={studio.name ?? null}
