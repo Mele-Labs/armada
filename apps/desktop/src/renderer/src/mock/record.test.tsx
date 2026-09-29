@@ -154,12 +154,12 @@ describe("the Record, as the owner asked for it", () => {
    * deserve one.
    */
   test(
-    "arc/group-failed: a file nobody declared says who never declared it, and its row takes " +
+    "arc/group-failed: a file nobody declared reads as out of scope, and its row takes " +
       "no failing hue",
     async () => {
       await record("arc/group-failed");
       const drifted = [...document.querySelectorAll("tbody tr")].filter((row) =>
-        /never said it would change/.test(row.textContent ?? ""),
+        /out of scope/.test(row.textContent ?? ""),
       );
 
       expect(drifted.length).toBeGreaterThan(0);

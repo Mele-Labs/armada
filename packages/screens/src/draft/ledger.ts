@@ -23,6 +23,8 @@ import type {
   Submitted,
 } from "@armada/protocol";
 
+import { CHECK_OUTCOME } from "@armada/components";
+import { fileNameOf } from "../editing";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
 import { taskViewsOf } from "./task";
@@ -398,6 +400,10 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
  * Fleet caused everything a gate does, so nothing could derive this actor from
  * an `Actor` field — it is read off which list the row came out of instead,
  * which is the only thing that separates a Check from a Judge on this seam.
+ *
+ * **The outcome is the registry's word alone** — `Passed`, `Failed` (the owner,
+ * 29 Sep 2026: *I can see details when I open the row*). What the run produced
+ * is the row's sheet, which reads it off the `CheckRun` itself.
  */
 function checkRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
   return step.check_runs.map((run) => ({
@@ -406,9 +412,13 @@ function checkRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
     actor: "check" as const,
     kind: "checked",
     what: run.name,
-    outcome: run.produced === undefined ? run.outcome : `${run.outcome} — ${run.produced}`,
+    outcome: sentenceCase(CHECK_OUTCOME[run.outcome]?.verb ?? run.outcome.replaceAll("_", " ")),
     cursor: mint(),
   }));
+}
+
+function sentenceCase(said: string): string {
+  return said.charAt(0).toUpperCase() + said.slice(1);
 }
 
 /** A criterion the Judge answered, and a pattern it flagged. `judge` ran both. */
@@ -603,20 +613,23 @@ export function pathsOf(row: LedgerRow): string[] {
 
 /**
  * What a finished task's files came to, against what the Job said it would
- * change.
+ * change: `In scope`, or the files that were not, by name.
  *
- * **Every sentence names who said it and what they said**, so nothing here
- * needs teaching before it can be read. The sentence is the table's Outcome
- * alone: the row's sheet draws the file's diff in its place (the owner, 29 Sep).
+ * **The owner's own words** (29 Sep 2026), replacing sentences that spelled out
+ * who said what and read as a riddle. A file goes by its name and never its
+ * path, as the What cell's chips do. The sentence is the table's Outcome alone:
+ * the row's sheet draws the file's diff in its place.
  */
 function saidItWouldChange(
   targets: readonly string[] | undefined,
   outside: readonly string[],
 ): string {
   if (targets === undefined) return "this Job named no files it would change, so there is nothing to compare";
-  if (outside.length === 0) return "only files this Job said it would change";
-  const files = outside.length === 1 ? "1 file" : `${outside.length} files`;
-  return `${files} this Job never said it would change: ${outside.join(", ")}`;
+  if (outside.length === 0) return "In scope";
+  const names = outside.map(fileNameOf);
+  const listed =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${listed} ${names.length === 1 ? "was" : "were"} out of scope`;
 }
 
 // `write_targets` are prefixes — a directory, or a file. Absent is scope

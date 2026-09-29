@@ -174,8 +174,13 @@ export function whereOf(
  * called the same fact `quiet` and `events.ts` calls `outside_plan` *a mark, not
  * a judgement*. The owner read the red and asked whether it hurt the Job. It
  * does not: the Judge weighs drift and no gate fails on it.
+ *
+ * **A File row takes no hue at all, before any word is read.** Its outcome can
+ * lead with a file's name — `metrics.ts was out of scope` — and a name is not
+ * an outcome, however it starts.
  */
 export function toneOf(row: LedgerRow): LedgerTone | undefined {
+  if (familyOf(row.kind) === "files") return undefined;
   const said = row.outcome.toLowerCase();
   if (said.startsWith("failed") || said.startsWith("not met")) {
     return "failed";

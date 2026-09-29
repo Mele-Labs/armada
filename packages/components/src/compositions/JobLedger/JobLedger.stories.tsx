@@ -32,7 +32,7 @@ const ROWS: JobLedgerRow[] = [
     who: "check",
     whoSays: "Check",
     what: "screens_test",
-    outcome: "failed — 1 of 1384 failed: the Drones row opened the Board",
+    outcome: "Failed",
     tone: "failed",
   },
   {
@@ -43,7 +43,7 @@ const ROWS: JobLedgerRow[] = [
     who: "check",
     whoSays: "Check",
     what: "typecheck",
-    outcome: "passed",
+    outcome: "Passed",
     tone: "passed",
   },
   {

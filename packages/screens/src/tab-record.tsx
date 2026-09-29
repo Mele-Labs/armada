@@ -12,13 +12,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import {
-  ADVANCE_GATE,
   Button,
+  CHECK_ADVANCES,
   ConsoleOutput,
   DropdownMenu,
   JobLedger,
-  STEP_STATE,
   UnifiedDiff,
+  WorkflowStepCard,
   type JobLedgerRow,
 } from "@armada/components";
 import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
@@ -41,6 +41,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
 import { drawn as drawnPatch, whyNoDiff } from "./review";
 import { droneOfTask } from "./tab-plan-read";
+import { stepNodeId, workflowRunOf } from "./workflow-canvas";
 import { spentOf } from "./workflow-inspector";
 
 export type RecordTabProps = {
@@ -88,11 +89,10 @@ export function RecordTab({
   const [openRow, setOpenRow] = useState<string | null>(null);
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
-  // Every task, for the Drone a row names. The Workflow tab's own fallback.
-  const tasks = useMemo(
-    () => (given ?? (detail === null ? [] : taskGroupsOf(detail))).flatMap((group) => group.tasks),
-    [given, detail],
-  );
+  // The plan's groups, and every task in them, for the Drone a row names and
+  // the step node a failed Check draws. The Workflow tab's own fallback.
+  const groups = useMemo(() => given ?? (detail === null ? [] : taskGroupsOf(detail)), [given, detail]);
+  const tasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups]);
 
   const atStep = useMemo(() => underStep(rows, step), [rows, step]);
   const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
@@ -170,6 +170,7 @@ export function RecordTab({
                     diff={diff}
                     onReadDiff={onReadDiff}
                     tasks={tasks}
+                    groups={groups}
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
                   />
@@ -207,6 +208,7 @@ type RowReadProps = {
   diff: Diff;
   onReadDiff: (jobId: string | null) => void;
   tasks: readonly GroupView["tasks"][number][];
+  groups: readonly GroupView[];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
 };
@@ -228,6 +230,7 @@ function RowRead({
   diff,
   onReadDiff,
   tasks,
+  groups,
   onSaid,
   onOpenStep,
 }: RowReadProps) {
@@ -258,6 +261,14 @@ function RowRead({
   }, [family, jobId]);
 
   const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
+  // The step's node, as the Workflow canvas draws it — `workflowRunOf`'s own
+  // card, so the two cannot say different things about one step.
+  const node =
+    step === undefined || run === undefined || CHECK_ADVANCES[run.outcome] !== false
+      ? undefined
+      : workflowRunOf({ whole: detail, groups, onOpen: () => onOpenStep(step.step_id) }).nodes.find(
+          (one) => one.id === stepNodeId(step.step_id),
+        )?.card;
   // Who ran it, where the eyebrow has not already said so: a Check's row is
   // run by a Check, and `Check · Implement` over `06:46:00 · Check` said it
   // twice. A Drone writing a File is a fact the eyebrow does not carry.
@@ -303,7 +314,7 @@ function RowRead({
         <p className="armada-ledger__read-status">
           {run === undefined ? null : (
             <span className="armada-ledger__read-outcome" data-tone={drawn.tone}>
-              {sentenceCase(run.outcome)}
+              {row.outcome}
             </span>
           )}
           <span className="armada-ledger__read-meta" title={absoluteOf(row.at) ?? undefined}>
@@ -357,16 +368,16 @@ function RowRead({
               )}
             </section>
 
-            {step === undefined ? null : (
+            {/* Only where the run held its step: one that passed stopped
+                nothing, and the eyebrow already reaches the step. Under the
+                sentence, the step's own node off the Workflow canvas — what it
+                is doing now, and pressing it opens its panel there. */}
+            {step === undefined || node === undefined ? null : (
               <section className="armada-ledger__read-section">
                 <Eyebrow>What it stopped</Eyebrow>
                 <div className="armada-ledger__read-well">
-                  <p className="armada-ledger__read-said">
-                    It gated {step.label}, which is now {STEP_STATE[step.state]?.verb ?? step.state}.
-                    {step.advance_gate === undefined
-                      ? ""
-                      : ` It advances when ${ADVANCE_GATE[step.advance_gate]?.verb ?? step.advance_gate}.`}
-                  </p>
+                  <p className="armada-ledger__read-said">Blocked {step.label} from completing.</p>
+                  <WorkflowStepCard {...node} />
                   {passedLater === undefined ? null : (
                     <p className="armada-ledger__read-later">
                       <span className="armada-ledger__read-dot" aria-hidden />
@@ -471,7 +482,7 @@ function laterPass(row: LedgerRow, rows: readonly LedgerRow[]): LedgerRow | unde
       one.what === row.what &&
       one.coord?.step === at.step &&
       one.coord.step_attempt > at.step_attempt &&
-      one.outcome.startsWith("passed"),
+      one.outcome.toLowerCase().startsWith("passed"),
   );
 }
 
