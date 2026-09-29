@@ -104,6 +104,33 @@ export const WithSelectedItem: Story = {
   },
 };
 
+/**
+ * A panel's filters: each item counts what it holds, and the trigger reads the
+ * chosen filter and its count. Zero draws nothing, so a filter holding nothing
+ * reads as its label alone.
+ *
+ * **The count is part of the name, with a space before it.** Drawn inline, the
+ * item's accessible name ran the two together as `Checks12`.
+ */
+export const Counted: Story = {
+  args: {
+    defaultOpen: true,
+    align: "start",
+    triggerLabel: "All",
+    triggerCount: 34,
+    entries: [
+      { kind: "item", id: "all", label: "All", count: 34, selected: true },
+      { kind: "item", id: "checks", label: "Checks", count: 12 },
+      { kind: "item", id: "judges", label: "Judges", count: 0 },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "All 34" })).toHaveAttribute("aria-haspopup", "menu");
+    await expect(canvas.getByRole("menuitem", { name: "Checks 12" })).toBeInTheDocument();
+    await expect(canvas.getByRole("menuitem", { name: "Judges" })).toBeInTheDocument();
+  },
+};
+
 /** The section label the contract specifies: --text-2xs in --fg-subtle. */
 export const WithSectionLabels: Story = {
   args: {

@@ -128,6 +128,12 @@ is allowed only as that light, and never where a person reads a state.
    drawing tool and adds nothing to `GraphCanvas`, which every other
    graph draws on. A surface that wants a pen mounts its own through the
    canvas's `children`, or it does without one.
+7. **No aggregate count beside what it counts.** A number saying how many
+   rows, Checks or items a list holds, drawn next to that list, repeats what
+   the reader can already see and teaches the eye to skip numbers. Draw the
+   items and leave the count off. A count goes only where the items are not
+   drawn: a folded list, or a tab naming a backlog, on *Destinations*' rule
+   for the figure beside a name. The owner, 29 Sep 2026.
 
 ---
 
@@ -1138,7 +1144,7 @@ measuring in JavaScript.
 
 | Layer | Opens | Preferred alignment |
 | --- | --- | --- |
-| Dropdown menu | Below the trigger | Trailing edges flush |
+| Dropdown menu | Below the trigger | Trailing edges flush, caller may set leading |
 | Popover | Below the trigger | Leading edges flush, caller may set trailing |
 | Tooltip | Below the element it wraps | Leading edges flush |
 | Split-button menu | Below the whole control, not the caret | Leading edges flush |
@@ -1171,7 +1177,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | --- | --- |
 | Dialog | Centred in the window on both axes |
 | Guide card | Centred in the window on both axes |
-| Sheet | Full height, flush to one side edge, trailing by default |
+| Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
 | Command palette | Horizontally centred, top-anchored |
 
@@ -1638,7 +1644,7 @@ The densest thing in the app and the reason the spacing scale is tight.
 
 ```
 header row   32px · --bg-base · --text-2xs · --fg-subtle
-             uppercase, 0.04em tracking (the one legal ALL CAPS)
+             uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
              bottom rule --border-default
 body row     36px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
@@ -1765,7 +1771,6 @@ track      --bg-raised · --border-default · --radius-md · 2px inner padding
 tab        32px · 12px horizontal padding · --text-sm · --fg-muted
 chosen     --accent-muted fill · --fg-default · weight 500 · --radius-sm
 hover      --fg-default
-count      trailing mono --text-2xs in --fg-subtle, never a filled pill
 ```
 
 **The chosen tab is filled, not underlined.** The rail's own selected row is
@@ -1775,10 +1780,14 @@ what the owner saw on Manifest on 17 Sep 2026. The fill is the contract's own
 for a selected row, with `--fg-default` on it because `--accent` measures
 4.06:1 there and would not clear as body text.
 
-**This is what a panel's own filters are, and not what a destination is.** Two
-filled tracks stacked — a Job's destinations over the Record panel's filters —
-carry no hierarchy between them, which the owner hit on 28 Sep 2026. The
-destinations are the strip below; the filters stay this control.
+**Neither a destination nor a panel's own filters.** Two filled tracks stacked
+— a Job's destinations over the Record panel's filters — carry no hierarchy
+between them, which the owner hit on 28 Sep 2026; the destinations are the
+strip below. **A panel's filters are a dropdown in the panel's head**: the
+trigger reads the chosen filter and its count, the menu lists every filter with
+its count on this section's rule, and the chosen one carries the check. The
+owner, 29 Sep 2026: nine segmented filters overflowed and wrapped at laptop
+width.
 
 **The track is `--bg-raised`, not `--bg-sunken`, and that is Button's own
 rule.** A filled control steps one surface from its ground, and the grounds a
@@ -1805,16 +1814,6 @@ from the tab it left, where an edge per tab can only swap. It travels by
 transform and width so nothing reflows, does not travel on first placement,
 and under reduced motion it simply lands.
 
-**A counted strip is the same control.** A count and the key that selects a
-tab sit either side of the label, inside the segment; a tab carrying both is
-the widest thing the strip holds, and the Job Board is where that is measured.
-
-**Suspended steps the whole strip back** — every tab to `--fg-subtle`, and the
-chosen one gives up its fill rather than its selection. A fill reads as *this
-is what you are looking at*, and while something else on the surface is
-narrowing the list that is not true. Nothing is disabled: pressing a tab is
-the way out of the state, so the way out has to work.
-
 ### Destinations
 
 Where inside one object a person is, drawn as underline tabs: plain text on the
@@ -1837,8 +1836,8 @@ the owner refused on 28 Sep 2026 — `.claude/decisions/` holds the exchange.
 nothing, and the value is not always a count: the boards draw `Workflow 1 / 5`
 and `Record 21` in the same slot.
 
-**Job detail is the one surface that draws these**, its six destinations.
-`Tabs` and `TabsWithCounts` are unchanged and are what everything else takes.
+**Job detail is the one surface that draws these**, its seven destinations.
+`Tabs` is unchanged and is what everything else takes.
 
 ### Input
 
@@ -2429,9 +2428,12 @@ read plausibly under a different job has failed.
 
 ### Prose rules
 
-- **Sentence case everywhere.** No title case, no ALL CAPS except table
-  headers at `--text-2xs` with `0.04em` tracking. Lexicon proper nouns
-  keep their capitals inside sentence case.
+- **Sentence case everywhere.** No title case, and ALL CAPS in two places
+  only: table headers, and an eyebrow — the small label that heads a
+  section or card, like a transcript card's DRONE — both at `--text-2xs`
+  with `0.04em` tracking. The owner allowed the eyebrow on 29 Sep 2026,
+  from a sketch that drew one. Lexicon proper nouns keep their capitals
+  inside sentence case.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no

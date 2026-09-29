@@ -36,8 +36,11 @@ import { useCallback, useState } from "react";
  */
 export type ActivityActor = "drone" | "armada" | "fleet";
 
-/** What each actor is called. One place, so two surfaces cannot disagree. */
-const NAMED: Record<ActivityActor, string> = {
+/**
+ * What each actor is called. One place, so two surfaces cannot disagree —
+ * `DroneTurns` names its speaker from here.
+ */
+export const ACTOR_NAMED: Record<ActivityActor, string> = {
   drone: "Drone",
   armada: "Armada",
   fleet: "Fleet",
@@ -173,7 +176,7 @@ export function ActivityLog({
               {/* Named on every entry, never on some of them. Three voices in
                   one column with attribution on two is worse than none. */}
               <span className="armada-activity__who" data-actor={entry.actor}>
-                {NAMED[entry.actor]}
+                {ACTOR_NAMED[entry.actor]}
               </span>
               <span className="armada-activity__summary">{entry.summary}</span>
               {entry.subject === undefined ? null : (

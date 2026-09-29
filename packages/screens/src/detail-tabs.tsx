@@ -1,4 +1,4 @@
-// Job detail's six destinations, and the strip that chooses between them.
+// Job detail's seven destinations, and the strip that chooses between them.
 //
 // **One label per tab, written once.** The design boards call the same
 // destination "Plan", "Plan the split" and "Plan 4 groups" in three places, and
@@ -24,16 +24,20 @@ import type { JobDetail, JobSummary } from "@armada/protocol";
 import { changedOf, offersSettings } from "./settings";
 
 /**
- * The six destinations, in the order the strip draws them.
+ * The seven destinations, in the order the strip draws them.
+ *
+ * **Drones after Record, and with no figure** (the owner, 29 Sep 2026): Pulse
+ * already counts the Drones running, and the same number twice is one too many.
  *
  * **Settings last, because it is the only one that is not a reading.** The
- * five before it answer what this Job is and what it did; this one changes it.
+ * six before it answer what this Job is and what it did; this one changes it.
  */
 export const DETAIL_TABS = [
   "overview",
   "workflow",
   "plan",
   "record",
+  "drones",
   "pulse",
   "settings",
 ] as const;
@@ -52,6 +56,7 @@ export const TAB_LABEL: Record<DetailTab, string> = {
   workflow: "Workflow",
   plan: "Plan",
   record: "Record",
+  drones: "Drones",
   pulse: "Pulse",
   settings: "Settings",
 };
@@ -92,7 +97,7 @@ export type JobTabsProps = {
 /**
  * The strip under the Job header. **The whole of navigation inside a Job**,
  * which is why it carries its own name: there is no heading beside it to be
- * one, and a reader who cannot see it would otherwise hear six tabs and never
+ * one, and a reader who cannot see it would otherwise hear seven tabs and never
  * what they divide.
  */
 export function JobTabs({ value, onChange, counts }: JobTabsProps) {

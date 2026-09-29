@@ -1,8 +1,10 @@
-/* Job ledger — the filter strip and one table. The open row is a sheet over
-   it at every width; the component's own note carries why. */
+/* Job ledger — one bordered panel holding its filter menu and its table. The
+   open row is read whole in a sheet over the table, at every width; the
+   component's own note carries why. */
 .armada-ledger {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -10,10 +12,49 @@
    the column demand that width and the page scrolls sideways instead of the
    cell wrapping. */
 .armada-ledger__list {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* The panel's head: its filter menu, and its own controls beside it, one row
+   of one kind of control. The rule under it is the one that separates the
+   panel's controls from what they narrow. */
+.armada-ledger__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+.armada-ledger__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A note inside the panel keeps the head's inset, so it lines up with the
+   filters rather than touching the panel's edge. */
+.armada-ledger__note--inset {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Inside the panel the heading row sits on the glass rather than on a band of
+   --bg-base, and takes the row rule's weight: the head's own rule above it is
+   the heavier division. */
+.armada-ledger__list .armada-table-header-cell {
+  background: transparent;
+  border-bottom-color: var(--border-subtle);
+}
+
+.armada-ledger__list .armada-table-row:last-child {
+  border-bottom: 0;
 }
 
 /* The open row's reading, inside the sheet. */
@@ -22,14 +63,22 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--pad-card);
 }
 
 /* The sheet already draws the surface, the border and the radius, so the panel
-   draws none of them — a card inside a card. It keeps its own padding, which
-   is why the sheet is `bleed`. */
+   draws none of them — a card inside a card. The reading carries its own
+   inset, the sheet head's, so its rules run to the sheet's edges — which is
+   why the sheet is `bleed`. */
 .armada-ledger__panel {
   flex: 1;
+}
+
+/* The sheet's title does not wrap, and a row naming several files can be
+   longer than the sheet: it ends in an ellipsis rather than running under
+   Close. The whole of it is read under the eyebrow. */
+.armada-sheet:has(.armada-ledger__panel) .armada-sheet__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* table-layout: auto, so every column is sized from its own content once for
@@ -47,6 +96,7 @@
 /* The machine columns hold one value each and never wrap: a wrapped timestamp
    is two lines of noise beside a sentence that needed the room. */
 .armada-ledger__when,
+.armada-ledger__where,
 .armada-ledger__who {
   white-space: nowrap;
 }
@@ -84,7 +134,6 @@
    is as wide as its longest unbreakable run, and a repository path has none —
    so without it the Outcome column was pushed off the right edge at 768, and
    at 1440 while Helm's dock still took 380px off the content (#1583). */
-.armada-ledger__where,
 .armada-ledger__what,
 .armada-ledger__outcome {
   text-wrap: pretty;
@@ -96,9 +145,15 @@
    Breaking a path mid-token is ugly; a column off the screen is the v1
    failure, and 768 still reaches it. Only the two columns that carry paths,
    because it breaks a heading too. */
-.armada-ledger__what,
 .armada-ledger__outcome {
   overflow-wrap: anywhere;
+}
+
+/* What keeps its words whole. Its paths are filename chips (PathChip), so a
+   Check's name is the longest run it holds, and breaking `components_test`
+   mid-word beside the pane cost more than the column it saved. */
+.armada-ledger__what {
+  overflow-wrap: break-word;
 }
 
 /* The headings never break. `Where` wrapping to `WHER / E` is what this stops. */
@@ -206,4 +261,176 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   color: var(--fg-default);
+}
+
+/* The open row, read whole, in the sheet. A head carrying what the row
+   is, where, and what it came to; a body of labelled sections under it; the
+   act last. */
+.armada-ledger__read {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.armada-ledger__read-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+/* The paths a kept deliverable names, whole, under the sheet title's filenames.
+   A File row has none: its diff's sections head with the paths. */
+.armada-ledger__read-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-ledger__read-status {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* What the run came to, in its verdict's hue as text — never a chip, which is
+   a Job state and nothing else. */
+.armada-ledger__read-outcome {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.armada-ledger__read-outcome[data-tone="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-ledger__read-outcome[data-tone="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-ledger__read-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-ledger__read-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  min-width: 0;
+}
+
+/* At the floor the sheet's head tightens, and the reading keeps its inset. */
+.armada-sheet[data-floor] .armada-ledger__read-head,
+.armada-sheet[data-floor] .armada-ledger__read-body {
+  padding: var(--space-3) var(--space-4);
+}
+
+.armada-ledger__read-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-ledger__read-said {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* The tasks a plan recorded, one a line: `read-said`'s column, as a list. */
+.armada-ledger__read-list {
+  padding: 0;
+  list-style: none;
+}
+
+/* One item of evidence on a line: a name, and what it came to. */
+.armada-ledger__read-line {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* What a Check produced: the result, so body text in --fg-default — one step
+   up from the muted sentences around it, which are context. */
+.armada-ledger__read-produced {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
+/* Which Drone produced the row, named the way the Workflow panel names it. */
+.armada-ledger__read-drone {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+/* One value under its own label: what a Check was held to, what a task showed.
+   The label-to-value gap is a section's, so fields and sections read as one
+   column of labelled things. */
+.armada-ledger__read-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The board's well: --bg-sunken, the log pane's own ground. */
+.armada-ledger__read-well {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.armada-ledger__read-later {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-ledger__read-dot {
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--run-passed);
+}
+
+/* The act is last, the full width of the sheet, under whatever it acts on. */
+.armada-ledger__read-body > .armada-button:last-child {
+  margin-top: auto;
 }

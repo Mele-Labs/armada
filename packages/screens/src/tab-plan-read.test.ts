@@ -194,10 +194,11 @@ describe("how many times a group has run", () => {
     expect(retrySaid(0)).toBeUndefined();
   });
 
-  test("one retry is the second run", () => {
-    expect(retrySaid(1)).toBe("second run");
-    expect(retrySaid(2)).toBe("third run");
-    expect(retrySaid(4)).toBe("run 5");
+  // The app's one word for a run again — a step's card says `attempt 2`.
+  test("one retry is attempt 2", () => {
+    expect(retrySaid(1)).toBe("attempt 2");
+    expect(retrySaid(2)).toBe("attempt 3");
+    expect(retrySaid(4)).toBe("attempt 5");
   });
 });
 
@@ -238,7 +239,7 @@ describe("one group's card", () => {
     expect(
       broke.boundary.checks.filter((one) => one.reads === "failed").map((one) => one.name),
     ).toEqual(["screens_test"]);
-    expect(broke.boundary.retrySays).toBe("second run");
+    expect(broke.boundary.retrySays).toBe("attempt 2");
   });
 });
 

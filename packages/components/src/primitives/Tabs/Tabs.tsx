@@ -12,7 +12,7 @@ import { useSelectedFill } from "./selected-fill";
  * primitive, painted differently.
  *
  * These carry no count: they are views of one job and there is nothing to
- * tally. The counted form is its own component and its own registry row.
+ * tally.
  */
 export type TabsItem = {
   id: string;

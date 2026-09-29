@@ -12,6 +12,7 @@
 
 import type { CaseRunView, CaseView, ScopeRevisionView } from "./cases";
 import type { CriterionView } from "./criterion";
+import type { DroneView } from "./drone";
 import type { GroupView } from "./group";
 import type { LandingRule } from "./landing";
 import type { LedgerRow } from "./ledger";
@@ -76,4 +77,10 @@ export type JobDraft = {
    * is every Job and no order between them — thinner, never broken.
    */
   wave?: WaveView;
+  /**
+   * Every Drone this Job has used, running, stopped and ended, each with its
+   * transcript. **Absent derives the Drones the plan's tasks name**
+   * (`droneViewsOf`), with no transcript.
+   */
+  drones?: readonly DroneView[];
 };

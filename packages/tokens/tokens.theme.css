@@ -145,6 +145,7 @@
   --spacing-badge: var(--h-badge);
   --spacing-kbd: var(--h-kbd);
   --spacing-menu-item: var(--h-menu-item);
+  --spacing-title-bar: var(--h-title-bar);
   --spacing-card: var(--pad-card);
   --spacing-row-stacked-pad: var(--pad-row-stacked);
   --spacing-section: var(--gap-section);
@@ -168,6 +169,7 @@
   --spacing-workflow-canvas-min: var(--w-workflow-canvas-min);
   --spacing-sketch-box: var(--w-sketch-box);
   --spacing-sketch-pad: var(--h-sketch-pad);
+  --spacing-boundary-check: var(--w-boundary-check);
   --spacing-guide-list: var(--w-guide-list);
   --spacing-guide-list-min: var(--w-guide-list-min);
   --spacing-guide-list-max: var(--w-guide-list-max);
