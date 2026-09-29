@@ -22,4 +22,4 @@ only.
 
 **Where it landed:** annotation `jyee`; `[icons.square-pen]` in
 `packages/icons/icons.toml`; `StudioName`'s heading, on `studios/rename-icon`
-(PR_URL).
+(#1658).
