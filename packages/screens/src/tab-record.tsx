@@ -10,7 +10,7 @@
 // `record.ts`, and this file holds the open state of one reading. The open
 // row's reading is `record-read.tsx`, and the modules it names.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DropdownMenu, JobLedger } from "@armada/components";
 import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
@@ -30,6 +30,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, type LedgerRow } from "./draft/ledger";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { RowRead } from "./record-read";
+import type { TrailProps } from "./trail";
 
 export type RecordTabProps = {
   jobId: string;
@@ -60,6 +61,13 @@ export type RecordTabProps = {
    * that ran it — where another destination sent a person here. Read once.
    */
   opensCheck?: CheckAt;
+  /** The row to open with the tab, by its id — where the way back returns to. Read once. */
+  opensRow?: string;
+  /**
+   * The way back, where a press in another destination's panel landed here,
+   * and where this one's open panel is reported — `trail.ts`.
+   */
+  trail?: TrailProps;
 };
 
 /** A Check's run, as a boundary names it: its name, and the step attempt that ran it. */
@@ -102,6 +110,8 @@ export function RecordTab({
   onSaid,
   onOpenStep,
   opensCheck,
+  opensRow,
+  trail,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
   // Which step the rows are narrowed to. `null` is every step, and the Job's
@@ -110,7 +120,7 @@ export function RecordTab({
   // Which row is open. **Held here and not in the ledger**, so a live redraw of
   // the Record does not close the row somebody is reading.
   const [openRow, setOpenRow] = useState<string | null>(() =>
-    opensCheck === undefined ? null : (checkRowOf(rows, detail, opensCheck) ?? null),
+    opensRow ?? (opensCheck === undefined ? null : (checkRowOf(rows, detail, opensCheck) ?? null)),
   );
   // A row pressed inside a reading — a Check on a task's boundary, a task a
   // Check held back — opens that row. **Every row, where the filter or the
@@ -146,6 +156,7 @@ export function RecordTab({
   // table, and one nobody asked for would cover the rows it reads.
   const open = shown.find((row) => String(row.cursor) === openRow);
   const openDrawn = drawn.find((row) => row.id === openRow);
+  useEffect(() => trail?.onHere(open === undefined ? null : { id: String(open.cursor), label: titleOf(open) }), [open?.cursor]);
   // The steps a row names, in the Job's own order. A step nothing happened in
   // is not a place to narrow to.
   const steps = (detail?.steps ?? []).filter((one) =>
@@ -198,6 +209,7 @@ export function RecordTab({
           onOpenRow={setOpenRow}
           kindMarks={filter === "all"}
           floor={floor}
+          back={trail?.back}
           emptyNote={EMPTY[filter]}
           {...(open === undefined ? {} : { inspectorTitle: titleOf(open) })}
           {...(open === undefined || openDrawn === undefined

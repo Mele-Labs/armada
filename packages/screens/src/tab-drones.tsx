@@ -6,7 +6,7 @@
 // (his decision of 22 Sep 2026, its own agent per task), and the list is read
 // from the draft until Fleet serves it.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
@@ -34,6 +34,7 @@ import {
 import type { ActingAct } from "./pending";
 import { droneOfTask } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
+import type { TrailProps } from "./trail";
 
 export type DronesTabProps = {
   job: JobSummary;
@@ -63,6 +64,11 @@ export type DronesTabProps = {
    * panel. Read once, `PlanTab`'s `opensTask` in reverse.
    */
   opensDrone?: string;
+  /**
+   * The way back, where a press in another destination's panel landed here,
+   * and where this one's open panel is reported — `trail.ts`.
+   */
+  trail?: TrailProps;
 };
 
 export function DronesTab({
@@ -81,6 +87,7 @@ export function DronesTab({
   onOpenStep,
   onOpenTask,
   opensDrone,
+  trail,
 }: DronesTabProps) {
   const [filter, setFilter] = useState<DronesFilter>("all");
   const [order, setOrder] = useState<DronesOrder>("running");
@@ -137,6 +144,7 @@ export function DronesTab({
   };
 
   const open = drones.find((drone) => drone.id === openRow);
+  useEffect(() => trail?.onHere(open === undefined ? null : { id: open.id, label: labelOf(open) }), [open?.id]);
   const steering = steeringOf(job, whole);
 
   return (
@@ -179,6 +187,7 @@ export function DronesTab({
         }}
         emptyNote={drones.length === 0 ? "No Drone has run on this Job yet." : "No Drone under this filter."}
         floor={floor}
+        back={trail?.back}
         {...(open === undefined
           ? {}
           : {

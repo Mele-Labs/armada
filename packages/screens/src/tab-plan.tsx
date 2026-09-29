@@ -53,6 +53,7 @@ import {
   TRANSCRIPT_UNSERVED,
 } from "./tab-drones-read";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
+import type { TrailProps } from "./trail";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
 const PLAN_RECORDED = "plan_recorded";
@@ -118,6 +119,11 @@ export type PlanTabProps = {
    * destination is open. Absent, no Check is a button.
    */
   onOpenCheck?: (name: string, stepAttempt: number) => void;
+  /**
+   * The way back, where a press in another destination's panel landed here,
+   * and where this one's open panel is reported — `trail.ts`.
+   */
+  trail?: TrailProps;
 };
 
 /**
@@ -260,6 +266,7 @@ export function PlanTab({
   onOpenDrone,
   now,
   onOpenCheck,
+  trail,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
   // — the sheet is contained by the destination, so a reader who leaves and
@@ -325,6 +332,7 @@ export function PlanTab({
   const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask });
   const revisions = revisionsOf(whole, draft, step);
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
+  useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
   // What it runs beside, as the graph's own card off the same groups, so each
   // reads the task's state now. Pressing one opens it here.
   const beside =
@@ -508,6 +516,7 @@ export function PlanTab({
         {...(patched === undefined ? {} : { patched })}
         {...(file === undefined ? {} : { file })}
         onFile={setOpenFile}
+        back={trail?.back}
         onClose={() => {
           openTaskAt(null);
           setInstruction("");
