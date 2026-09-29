@@ -15,18 +15,8 @@
 // shrinking the run. The toggle is remembered per viewer, and where it is kept
 // is the caller's: this package holds no storage.
 
-import {
-  DroneBrief,
-  DroneMessageBox,
-  HoldButton,
-  Tabs,
-  Tooltip,
-  WorkflowCanvas,
-  WorkflowDrone,
-  WorkflowInspector,
-  WorkflowStacked,
-} from "@armada/components";
-import { useLayoutEffect, useRef, useState } from "react";
+import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -35,7 +25,8 @@ import { TAB_LABEL } from "./detail-tabs";
 import { droneViewsOf, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
-import { DRONE_SAYS, droneTurnsOf, stepOf } from "./tab-drones-read";
+import { DRONE_SAYS } from "./tab-drones-read";
+import type { TrailProps } from "./trail";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { steeringOf } from "./steering";
 import { ordered } from "./facts";
@@ -78,6 +69,18 @@ export type WorkflowTabProps = {
    */
   onOpenPlan: () => void;
   /**
+   * Opens a Drone the step panel lists, in the Drones tab with its sheet open
+   * (owner, 29 Sep 2026: a jump with a way back, not a second panel beside
+   * this one). **The screen's**, as `onOpenPlan` is. Absent draws the rows as
+   * facts rather than presses.
+   */
+  onOpenDrone?: (droneId: string) => void;
+  /**
+   * The way back after a jump into this tab, and where this tab's open step
+   * is reported so a jump out of it can return — `trail.ts`.
+   */
+  trail?: TrailProps;
+  /**
    * The step to land on with its panel open — a step pressed in the Record's
    * reading. Read once, when the tab opens; after that the panel is the
    * person's.
@@ -96,9 +99,10 @@ export function WorkflowTab({
   acting,
   actingAct,
   onAct,
-  onRedirect,
   onActHeld,
   onOpenPlan,
+  onOpenDrone,
+  trail,
   opensStep,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
@@ -111,27 +115,27 @@ export function WorkflowTab({
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
-  // The Drone read beside the step panel, and what is typed to it. Cleared
-  // with the step, so a Drone from another step never sits beside this one.
-  const [drone, setDrone] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const openStep = (id: string | null) => {
-    setOpen(id);
-    setDrone(null);
-  };
+  const openStep = setOpen;
   // How much of the canvas's right side the open panel covers, so the canvas
   // can slide the step being read clear of it. Measured, because the panel's
   // width is a token and its gutter the layer's, and neither reaches here.
   const frame = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
   const [covered, setCovered] = useState(0);
-  const beside = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    // The leftmost of the panels open over it: the step's, or the Drone's beside it.
-    const over = beside.current?.getBoundingClientRect() ?? panel.current?.getBoundingClientRect();
+    // The panel is the Sheet's, drawn where the screen puts it, so it is found
+    // by its own mark rather than by a ref this tab cannot hand it.
+    const over = open === null ? undefined : document.querySelector(".armada-sheet[data-docked]")?.getBoundingClientRect();
     const under = frame.current?.getBoundingClientRect();
     setCovered(over === undefined || under === undefined ? 0 : Math.max(0, under.right - over.left));
-  }, [open, drone, view, narrow]);
+  }, [open, view, narrow]);
+  // Which step is open, told to the trail, so a jump out of it can come back
+  // here with the same step open. Its id is the step's, which is what
+  // `opensStep` lands on.
+  const openedStep = whole?.steps.find((step) => stepNodeId(step.step_id) === open);
+  useEffect(() => {
+    trail?.onHere(openedStep === undefined ? null : { id: openedStep.step_id, label: openedStep.label });
+    // `trail` is rebuilt by the screen every render; what matters is the step.
+  }, [openedStep?.step_id]);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -175,17 +179,15 @@ export function WorkflowTab({
   // **No step count** — the steps are drawn right under it.
   const on = ordered(whole).find((step) => step.step_id === whole.job.current_step_id);
 
-  // Every Drone that worked the step that is open, running or not, and the one
-  // read beside it (owner, 29 Sep 2026). Running first, then in task order.
-  // **From the plan's tasks**, as the Drones tab reads them where the draft
-  // holds none: Fleet serves which Drone is on a task, and not its transcript.
+  // Every Drone that worked the step that is open, running or not (owner, 29
+  // Sep 2026), running first, then in task order. A press opens one in the
+  // Drones tab, with a way back here. **From the plan's tasks**, as the Drones
+  // tab reads them where the draft holds none.
   const now = Date.now();
-  const drones = droneViewsOf(groups);
   const openStepId = whole.steps.find((step) => stepNodeId(step.step_id) === open)?.step_id;
-  const here = drones
+  const here = droneViewsOf(groups)
     .filter((one) => one.step === openStepId)
     .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
-  const labelOf = (one: DroneView): string => `Drone on ${one.task}`;
   const ranFor = (one: DroneView): string | undefined =>
     one.ended_at !== undefined
       ? elapsedSince(one.since, one.ended_at)
@@ -195,119 +197,44 @@ export function WorkflowTab({
   // The Drone machine's four states on the step machine's marks: a finished
   // Drone advanced its task, and a failed or killed one stopped.
   const activityOf = (one: DroneView) =>
-    one.state === "running"
-      ? ("running" as const)
-      : one.state === "done"
-        ? ("advanced" as const)
-        : ("stopped" as const);
-  const saysOf = (one: DroneView): string =>
-    [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · ");
-  const droneRead = here.find((one) => one.id === drone);
+    one.state === "running" ? ("running" as const) : one.state === "done" ? ("advanced" as const) : ("stopped" as const);
 
-  // Nothing until a press, and then **Helm's dock**: the full height of the
-  // window under the title bar, held off its edges, over whatever is beneath
-  // (owner, 29 Sep 2026: *all of our panels open to the full height of the
-  // app. This one should be no different*). `screens.css` says where.
+  // Nothing until a press, and then **the app's own panel**: the Sheet Plan's
+  // task panel is drawn in, docked beside the content as Helm's dock is, with
+  // the way back in its head after a jump here (owner, 29 Sep 2026: *all of
+  // our panels open to the full height of the app*).
   const layer =
     reading === undefined ? null : (
-      <div className="armada-workflow-tab__inspector-layer">
-        <div className="armada-workflow-tab__inspector" ref={panel}>
-          <WorkflowInspector
-            {...reading}
-            onClose={() => openStep(null)}
-            // The redirect box went (owner, 29 Sep 2026, `losq`): a person
-            // never knows which Drone to message. The running Drones take its
-            // place, and a press opens one beside this panel (`hzj4`).
-            running={{
-              rows: here.map((one) => ({
-                id: one.id,
-                label: labelOf(one),
-                activity: activityOf(one),
-                said: DRONE_SAYS[one.state].toLowerCase(),
-                says: saysOf(one),
-                ...(one.id === drone ? { open: true } : {}),
-              })),
-              onOpen: (id) => {
-                setDrone(id === drone ? null : id);
-                setMessage("");
+      <WorkflowInspector
+        {...reading}
+        sheet={{ docked: !narrow, back: trail?.back }}
+        onClose={() => openStep(null)}
+        // The redirect box went (owner, 29 Sep 2026, `losq`): a person never
+        // knows which Drone to message. The step's Drones take its place.
+        running={{
+          rows: here.map((one) => ({
+            id: one.id,
+            label: `Drone on ${one.task}`,
+            activity: activityOf(one),
+            said: DRONE_SAYS[one.state].toLowerCase(),
+            says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),
+          })),
+          ...(onOpenDrone === undefined ? {} : { onOpen: onOpenDrone }),
+        }}
+        {...(steering.act === undefined
+          ? {}
+          : {
+              stop: {
+                children: HOLD_LABEL.kill_drone,
+                askLabel: ACT_LABEL.kill_drone,
+                description: HOLD_SAID.kill_drone,
+                disabled: acting && actingAct !== "kill_drone",
+                pending: acting && actingAct === "kill_drone",
+                onAsk: () => onAct("kill_drone", job.id),
+                onCommit: () => onActHeld("kill_drone", job.id),
               },
-            }}
-            {...(steering.act === undefined
-              ? {}
-              : {
-                  stop: {
-                    children: HOLD_LABEL.kill_drone,
-                    askLabel: ACT_LABEL.kill_drone,
-                    description: HOLD_SAID.kill_drone,
-                    disabled: acting && actingAct !== "kill_drone",
-                    pending: acting && actingAct === "kill_drone",
-                    onAsk: () => onAct("kill_drone", job.id),
-                    onCommit: () => onActHeld("kill_drone", job.id),
-                  },
-                })}
-          />
-        </div>
-      </div>
-    );
-
-  // The Drone, beside the step panel: the Drones tab's own reading, in the
-  // same frame, one panel to the left — the file diff beside Plan's task
-  // panel is the arrangement (owner's experiment, 29 Sep 2026).
-  const droneLayer =
-    reading === undefined || droneRead === undefined ? null : (
-      <div className="armada-workflow-tab__drone-layer">
-        <div className="armada-workflow-tab__drone" ref={beside}>
-          <WorkflowDrone
-            title={labelOf(droneRead)}
-            subtitle={[
-              stepOf(whole, droneRead.step).label,
-              DRONE_SAYS[droneRead.state].toLowerCase(),
-              saysOf(droneRead),
-            ].join(" · ")}
-            turns={
-              droneRead.transcript === undefined
-                ? []
-                : droneTurnsOf(droneRead.transcript, (lines) => <DroneBrief lines={lines} flat />, droneRead.thoughts)
-            }
-            live={droneRead.state === "running"}
-            emptyNote={
-              droneRead.transcript === undefined
-                ? "Fleet does not serve one Drone's transcript yet."
-                : "This Drone has written nothing yet."
-            }
-            {...(droneRead.state !== "running"
-              ? {}
-              : {
-                  controls: (
-                    <HoldButton
-                      askLabel={ACT_LABEL.kill_drone}
-                      description={HOLD_SAID.kill_drone}
-                      disabled={steering.act === undefined || (acting && actingAct !== "kill_drone")}
-                      pending={acting && actingAct === "kill_drone"}
-                      onAsk={() => onAct("kill_drone", job.id)}
-                      onCommit={() => onActHeld("kill_drone", job.id)}
-                    >
-                      {HOLD_LABEL.kill_drone}
-                    </HoldButton>
-                  ),
-                  footer: (
-                    <DroneMessageBox
-                      value={message}
-                      onChange={setMessage}
-                      onSend={() => {
-                        onRedirect(job.id, message);
-                        setMessage("");
-                      }}
-                      disabled={steering.act === undefined}
-                      disabledReason="No Drone is on this Job, so there is nothing to redirect."
-                      {...(steering.sent === undefined ? {} : { waiting: steering.sent })}
-                    />
-                  ),
-                })}
-            onClose={() => setDrone(null)}
-          />
-        </div>
-      </div>
+            })}
+      />
     );
 
   return (
@@ -358,7 +285,6 @@ export function WorkflowTab({
         </div>
 
         {layer}
-        {droneLayer}
       </div>
     </div>
   );

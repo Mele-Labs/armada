@@ -4,9 +4,8 @@ import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/HoldButton";
 import { PathChip } from "../PathChip/PathChip";
 import { Select } from "../../primitives/Select/Select";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
-
-export { WorkflowDrone, type WorkflowDroneProps } from "./WorkflowDrone";
 
 /**
  * One step or group of a Job's workflow, read whole — what it is doing, the
@@ -89,8 +88,6 @@ export type WorkflowInspectorRunning = {
   said: string;
   /** Its task, how long and what it has spent: `T5 · 12m · 14 turns`. */
   says: string;
-  /** Open in the panel beside this one. */
-  open?: boolean;
 };
 
 /** A Drone a redirect could reach. */
@@ -169,11 +166,12 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
    * (owner, 29 Sep 2026: `losq`, *I will never know which drone to message*;
    * `hzj4` once the drones view landed; and *all drones that ran during that
    * step … even if its not running anymore*). Drawn where the redirect sat; a
-   * press opens that Drone in its own panel beside this one.
+   * press opens that Drone, in the Drones tab with a way back here.
    */
   running?: {
     rows: readonly WorkflowInspectorRunning[];
-    onOpen: (id: string) => void;
+    /** Opens one. Absent draws the rows as facts rather than presses. */
+    onOpen?: (id: string) => void;
   };
   /** Hold to stop what is running here. Absent where nothing is running. */
   stop?: Pick<HoldButtonProps, "children" | "askLabel" | "description" | "onCommit" | "onAsk" | "disabled" | "pending">;
@@ -184,6 +182,14 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
    * part of the flow and there is nothing to close it back to.
    */
   onClose?: () => void;
+  /**
+   * Drawn in the app's own panel rather than a frame of its own (owner, 29
+   * Sep 2026: *all of our panels open to the full height of the app. This one
+   * should be no different*). The `Sheet` draws the head: the name, its state
+   * under it, where it sits, the way back and Close. Beside the content it is
+   * docked, as Plan's task panel is; narrow, it is a sheet over it.
+   */
+  sheet?: { docked: boolean; floor?: boolean; back?: SheetBack | undefined };
 };
 
 function Region({ name, children }: { name: string; children: React.ReactNode }) {
@@ -213,6 +219,17 @@ function PlanCard({ plan }: { plan: WorkflowInspectorPlan }) {
     <button type="button" className="armada-wf-inspector__plan" aria-label="Open the plan" onClick={plan.onOpen}>
       {rows}
     </button>
+  );
+}
+
+/** One Drone's row: its mark, whose it is, and what it has done. */
+function DroneRow({ row }: { row: WorkflowInspectorRunning }) {
+  return (
+    <>
+      <StepActivityMark activity={row.activity} label={row.said} />
+      <span className="armada-wf-inspector__drone-name">{row.label}</span>
+      <span className="armada-wf-inspector__drone-says">{row.says}</span>
+    </>
   );
 }
 
@@ -318,34 +335,18 @@ export function WorkflowInspector({
   running,
   stop,
   onClose,
+  sheet,
   ...reading
 }: WorkflowInspectorProps) {
-  return (
-    <div className="armada-wf-inspector armada-glass" aria-label={`${name}, ${kind}`} role="region">
-      {/* The head holds still and the regions under it scroll — Helm's dock's
-          own arrangement (`TheShell.css`, `__dock-head` and `__dock-body`), so
-          what this panel is, and the way out of it, stay on screen however far
-          down a log somebody has read. */}
-      <header className="armada-wf-inspector__head">
-        <div className="armada-wf-inspector__titles">
-          {eyebrow === undefined ? null : <p className="armada-wf-inspector__eyebrow">{eyebrow}</p>}
-          <h3 className="armada-wf-inspector__name">{name}</h3>
-          {state === undefined ? null : (
-            <p className="armada-wf-inspector__state" data-activity={state.activity}>
-              <StepActivityMark activity={state.activity} label={state.said} />
-              <span>{state.said}</span>
-            </p>
-          )}
-          {doing === undefined ? null : <p className="armada-wf-inspector__doing">{doing}</p>}
-        </div>
-        {onClose === undefined ? null : (
-          <Button variant="secondary" size="sm" ground="card" onClick={onClose}>
-            Close
-          </Button>
-        )}
-      </header>
-
-      <div className="armada-wf-inspector__body">
+  const pill =
+    state === undefined ? null : (
+      <span className="armada-wf-inspector__state" data-activity={state.activity}>
+        <StepActivityMark activity={state.activity} label={state.said} />
+        <span>{state.said}</span>
+      </span>
+    );
+  const regions = (
+    <>
       {failure === undefined ? null : (
         <Region name="Why this boundary stopped">
           <p className="armada-wf-inspector__failed">{failure.says}</p>
@@ -396,16 +397,19 @@ export function WorkflowInspector({
           <ul className="armada-wf-inspector__drones">
             {running.rows.map((row) => (
               <li key={row.id}>
-                <button
-                  type="button"
-                  className="armada-wf-inspector__drone"
-                  aria-current={row.open ? "true" : undefined}
-                  onClick={() => running.onOpen(row.id)}
-                >
-                  <StepActivityMark activity={row.activity} label={row.said} />
-                  <span className="armada-wf-inspector__drone-name">{row.label}</span>
-                  <span className="armada-wf-inspector__drone-says">{row.says}</span>
-                </button>
+                {running.onOpen === undefined ? (
+                  <span className="armada-wf-inspector__drone">
+                    <DroneRow row={row} />
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="armada-wf-inspector__drone"
+                    onClick={() => running.onOpen?.(row.id)}
+                  >
+                    <DroneRow row={row} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -507,7 +511,53 @@ export function WorkflowInspector({
           <HoldButton {...stop} />
         </div>
       )}
-      </div>
+    </>
+  );
+
+  if (sheet !== undefined) {
+    return (
+      <Sheet
+        open
+        contained
+        docked={sheet.docked}
+        floor={sheet.floor ?? false}
+        title={name}
+        {...(pill === null ? {} : { subtitle: pill })}
+        {...(eyebrow === undefined ? {} : { leading: <span className="armada-wf-inspector__leading">{eyebrow}</span> })}
+        back={sheet.back}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={onClose ?? (() => {})}
+      >
+        <div className="armada-wf-inspector armada-wf-inspector--sheet" aria-label={`${name}, ${kind}`}>
+          {regions}
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <div className="armada-wf-inspector armada-glass" aria-label={`${name}, ${kind}`} role="region">
+      {/* The head holds still and the regions under it scroll — Helm's dock's
+          own arrangement (`TheShell.css`, `__dock-head` and `__dock-body`), so
+          what this panel is, and the way out of it, stay on screen however far
+          down a log somebody has read. */}
+      <header className="armada-wf-inspector__head">
+        <div className="armada-wf-inspector__titles">
+          {eyebrow === undefined ? null : <p className="armada-wf-inspector__eyebrow">{eyebrow}</p>}
+          <h3 className="armada-wf-inspector__name">{name}</h3>
+          {pill}
+          {doing === undefined ? null : <p className="armada-wf-inspector__doing">{doing}</p>}
+        </div>
+        {onClose === undefined ? null : (
+          <Button variant="secondary" size="sm" ground="card" onClick={onClose}>
+            Close
+          </Button>
+        )}
+      </header>
+
+      <div className="armada-wf-inspector__body">{regions}</div>
     </div>
   );
 }
+

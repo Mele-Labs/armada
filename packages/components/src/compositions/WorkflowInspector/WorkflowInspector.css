@@ -384,8 +384,8 @@ button.armada-wf-inspector__plan:hover {
 }
 
 /* The Drones running here, one row each: the mark, whose it is, and what it
-   has done. A row is a press that opens the Drone beside this panel; the one
-   open there takes the accent, as a canvas card does. */
+   has done. A row is a press that opens the Drone in the Drones tab, with a
+   way back here; where nothing can open it, it is the same row as a fact. */
 .armada-wf-inspector__drones {
   display: flex;
   flex-direction: column;
@@ -410,13 +410,12 @@ button.armada-wf-inspector__plan:hover {
   cursor: pointer;
 }
 
-.armada-wf-inspector__drone:hover {
+button.armada-wf-inspector__drone:hover {
   background: var(--bg-hover);
 }
 
-.armada-wf-inspector__drone[aria-current] {
-  border-color: var(--accent);
-  background: var(--bg-hover);
+span.armada-wf-inspector__drone {
+  cursor: default;
 }
 
 .armada-wf-inspector__drone-name {
@@ -436,25 +435,22 @@ button.armada-wf-inspector__plan:hover {
   color: var(--fg-subtle);
 }
 
-/* The Drone read beside the step panel: the same frame, its where under the
-   name, the kill beside the close, and the message box at the foot. */
-.armada-wf-drone__where {
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
+/* In the app's own panel (`sheet`): the Sheet draws the head and scrolls the
+   body, so the regions are only a column with the panel's own gap. */
+.armada-wf-inspector--sheet {
+  gap: var(--space-4);
+  min-height: 100%;
 }
 
-.armada-wf-drone__acts {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-}
-
-.armada-wf-drone__foot {
-  flex: none;
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--border-width) solid var(--border-subtle);
+/* Where the step sits, in the Sheet's leading slot: `Step 2`, in the
+   regions' caps, as Plan's panel carries its task's id there. */
+.armada-wf-inspector__leading {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-subtle);
 }
 
 /* A Check the gate is running now: its mark beside the name, and the elapsed
