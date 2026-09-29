@@ -284,7 +284,6 @@ describe("one task's inspector", () => {
     expect(sheet.beside).toEqual(["T6"]);
     expect(sheet.tier).toBe("difficult");
     expect(sheet.model).toBe("opus");
-    expect(sheet.runBy).toBe("its own agent");
     expect(sheet.tests?.map((one) => one.id)).toEqual(["c-panel"]);
   });
 

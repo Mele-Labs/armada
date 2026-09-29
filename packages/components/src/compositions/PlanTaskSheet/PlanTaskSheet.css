@@ -49,16 +49,6 @@
   overflow-wrap: anywhere;
 }
 
-/* A fact about the value, under it — how many files, which Drone runs it. */
-.armada-task-sheet__note {
-  margin: 0;
-  min-width: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-  text-wrap: pretty;
-}
-
 .armada-task-sheet__prose {
   margin: 0;
   color: var(--fg-muted);

@@ -55,8 +55,6 @@ export type PlanTaskSheetProps = {
    */
   tier?: string;
   model?: string;
-  /** How it is run — `its own agent`, `the step's Drone`, `a Job of its own`. */
-  runBy?: string;
   /**
    * The tasks it runs beside, as the Plan graph draws each one — **the same
    * card, so it reads the same live state**. Empty draws nothing.
@@ -201,7 +199,6 @@ export function PlanTaskSheet({
   shown,
   tier,
   model,
-  runBy,
   beside = [],
   tests = [],
   failedReason,
@@ -274,7 +271,7 @@ export function PlanTaskSheet({
           )}
         </section>
         {tier === undefined || model === undefined ? null : (
-          <TaskField label="Model" note={runBy === undefined ? undefined : `Run by ${runBy}`}>
+          <TaskField label="Model">
             {tier} · {model}
           </TaskField>
         )}

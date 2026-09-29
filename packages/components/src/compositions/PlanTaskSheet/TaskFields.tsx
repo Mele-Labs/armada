@@ -15,19 +15,15 @@ import type { ReactNode } from "react";
  */
 export function TaskField({
   label,
-  note,
   children,
 }: {
   label: string;
-  /** A fact about the value, under it. `Run by its own agent`. */
-  note?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="armada-task-sheet__field">
       <h3 className="armada-task-sheet__label">{label}</h3>
       <div className="armada-task-sheet__value">{children}</div>
-      {note === undefined ? null : <p className="armada-task-sheet__note">{note}</p>}
     </section>
   );
 }

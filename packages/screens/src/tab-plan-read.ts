@@ -448,7 +448,6 @@ export function taskSheetOf(
     scope: task.scope,
     tier: task.tier,
     model: task.model,
-    runBy: runBySaid(task),
     beside: task.concurrent_with,
     tests: owed,
     ...(task.note === undefined ? {} : { note: task.note }),

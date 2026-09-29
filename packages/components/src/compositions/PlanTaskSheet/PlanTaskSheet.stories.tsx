@@ -107,9 +107,9 @@ export const NothingBeyondTheTitle: Story = {
 };
 
 /**
- * Everything the split added: the tier the planner gave it, the agent it gets,
- * what it runs beside, and a case with no spec that reads **not covered**
- * rather than green. `#1535`.
+ * Everything the split added: the tier the planner gave it, what it runs
+ * beside, and a case with no spec that reads **not covered** rather than
+ * green. `#1535`.
  */
 export const ItsOwnAgent: Story = {
   args: {
@@ -119,7 +119,6 @@ export const ItsOwnAgent: Story = {
     scope: ["packages/screens/src/running-rows.tsx"],
     tier: "medium",
     model: "sonnet",
-    runBy: "its own agent",
     beside: [
       {
         kind: "task",
@@ -139,7 +138,6 @@ export const ItsOwnAgent: Story = {
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
     await expect(sheet.getByText("medium · sonnet")).toBeVisible();
-    await expect(sheet.getByText("Run by its own agent")).toBeVisible();
     await expect(sheet.getByText("T5")).toBeVisible();
     await expect(sheet.getByText("not covered")).toBeVisible();
   },
