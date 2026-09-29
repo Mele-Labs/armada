@@ -7,11 +7,12 @@
 // read from the draft until Fleet serves it.
 
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { DropdownMenu, DroneBrief, DroneMessageBox, JobDrones } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
-import { absoluteOf, clock } from "./duration";
+import { absoluteOf, elapsedSince } from "./duration";
 import { droneViewsOf, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
@@ -35,12 +36,29 @@ export type DronesTabProps = {
   drones?: readonly DroneView[];
   /** The plan's groups, where the draft holds them. Absent reads the wire's. */
   groups?: readonly GroupView[];
+  /** Now, injected, so a running Drone's run time moves with the header's. */
+  now: number;
   floor: boolean;
   stale: boolean;
   onRedirect: (jobId: string, instruction: string) => void;
+  /** Workflow, with this step's panel open. The strip is `JobDetail.tsx`'s. */
+  onOpenStep: (stepId: string) => void;
+  /** Plan, with this task's sheet open. */
+  onOpenTask: (taskId: string) => void;
 };
 
-export function DronesTab({ job, whole, drones: given, groups: givenGroups, floor, stale, onRedirect }: DronesTabProps) {
+export function DronesTab({
+  job,
+  whole,
+  drones: given,
+  groups: givenGroups,
+  now,
+  floor,
+  stale,
+  onRedirect,
+  onOpenStep,
+  onOpenTask,
+}: DronesTabProps) {
   const [filter, setFilter] = useState<DronesFilter>("all");
   const [order, setOrder] = useState<DronesOrder>("running");
   const [openRow, setOpenRow] = useState<string | null>(null);
@@ -61,6 +79,47 @@ export function DronesTab({ job, whole, drones: given, groups: givenGroups, floo
       : (droneOfTask(whole, { ...task, drone_id: drone.id })?.label ?? `Drone on ${drone.task}`);
   };
   const whereOf = (drone: DroneView): string => `${stepOf(whole, drone.step).label} · ${drone.task}`;
+  // How long it has run, on the header's own `Run time` terms: to now while it
+  // runs, to when it stopped once it has. A stopped Drone with no end draws
+  // nothing, as a Job does.
+  const ranFor = (drone: DroneView): string | undefined =>
+    drone.ended_at !== undefined
+      ? elapsedSince(drone.since, drone.ended_at)
+      : drone.state === "running"
+        ? elapsedSince(drone.since, now)
+        : undefined;
+  // The sheet's where, as ways to it: the step opens its panel in Workflow and
+  // the task its sheet in Plan — the Record's eyebrow act, so the app has one
+  // look for a jump. A step or task this Job does not hold stays words. A
+  // chevron is the trail's own separator, as on the Record, so no `·` follows
+  // one.
+  const whereLinksOf = (drone: DroneView) => {
+    const step = stepOf(whole, drone.step);
+    return (
+      <>
+        {step.labelIsAnIdentifier === true ? (
+          `${step.label} · `
+        ) : (
+          <>
+            <button type="button" className="armada-screen__eyebrow-act" onClick={() => onOpenStep(drone.step)}>
+              {step.label}
+              <ChevronRight size={12} strokeWidth={2} aria-hidden />
+            </button>{" "}
+          </>
+        )}
+        {tasks.has(drone.task) ? (
+          <>
+            <button type="button" className="armada-screen__eyebrow-act" onClick={() => onOpenTask(drone.task)}>
+              {drone.task}
+              <ChevronRight size={12} strokeWidth={2} aria-hidden />
+            </button>{" "}
+          </>
+        ) : (
+          `${drone.task} · `
+        )}
+      </>
+    );
+  };
 
   const open = drones.find((drone) => drone.id === openRow);
   const steering = steeringOf(job, whole);
@@ -77,7 +136,7 @@ export function DronesTab({ job, whole, drones: given, groups: givenGroups, floo
           spent: spentOf(drone).join(" · "),
           ...(drone.since === undefined
             ? {}
-            : { since: clock(drone.since), sinceExact: absoluteOf(drone.since) ?? drone.since }),
+            : { ranFor: ranFor(drone) ?? null, sinceExact: absoluteOf(drone.since) ?? drone.since }),
         }))}
         filters={dronesFiltersOf(drones)}
         filter={filter}
@@ -110,16 +169,14 @@ export function DronesTab({ job, whole, drones: given, groups: givenGroups, floo
           : {
               reading: {
                 title: labelOf(open),
-                subtitle: [
-                  whereOf(open),
-                  DRONE_SAYS[open.state].toLowerCase(),
-                  ...spentOf(open),
-                  ...(open.since === undefined
-                    ? []
-                    : open.ended_at === undefined
-                      ? [`since ${clock(open.since)}`]
-                      : [`${clock(open.since)} to ${clock(open.ended_at)}`]),
-                ].join(" · "),
+                subtitle: (
+                  <>
+                    {whereLinksOf(open)}
+                    {[DRONE_SAYS[open.state].toLowerCase(), ...spentOf(open), ranFor(open)]
+                      .filter((one) => one !== undefined)
+                      .join(" · ")}
+                  </>
+                ),
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, whole, (lines) => <DroneBrief lines={lines} />),
                 live: open.state === "running",
                 emptyNote:
