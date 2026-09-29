@@ -147,22 +147,23 @@ describe("implement", () => {
 
   test(
     "arc/group-failed: group three reads failed with the one Check that failed named, and " +
-      "says this is its second run",
+      "says this is its second attempt",
     async () => {
       await planList("arc/group-failed");
 
       await expect.element(groupCard(3)).toHaveTextContent("failed at its checks");
-      await expect.element(boundaryOf(3)).toHaveTextContent("screens_test failed");
-      await expect.element(boundaryOf(3)).toHaveTextContent("second run");
-      // **What the next Drone is given is the Check's own output, not a summary**
-      // — the reading the owner kept this board for, and the only place in the
-      // app it is drawn.
-      // **Labelled as the gate's record, not as the whole of what a Drone
-      // reads.** `CheckRun.expected` and `produced` are the measure and the
-      // exit code; the output is a file, and the line under says so.
-      await expect.element(boundaryOf(3)).toHaveTextContent("What the gate wrote down");
-      await expect.element(boundaryOf(3)).toHaveTextContent("The run's whole output is kept");
-      await expect.element(boundaryOf(3)).toHaveTextContent("1 of 1384 failed");
+      // Its own row says it; the head, open, does not say it again.
+      await expect.element(boundaryOf(3).getByRole("button", { name: "screens_test, failed" })).toBeVisible();
+      await expect.element(boundaryOf(3)).not.toHaveTextContent("screens_test failed");
+      await expect.element(boundaryOf(3)).toHaveTextContent("attempt 2");
+      // **What the failed Check was held to and what it got, each labelled** —
+      // run together with no labels they read as one claim that contradicted
+      // itself (the owner, 29 Sep 2026). The output is a file, read on the
+      // Check's own Record row, which the Check's press opens.
+      await expect.element(boundaryOf(3)).toHaveTextContent("ExpectedEvery test in the screens package passes");
+      await expect.element(boundaryOf(3)).toHaveTextContent("Result1 of 1384 failed");
+      await expect.element(boundaryOf(3)).not.toHaveTextContent("What the gate wrote down");
+      await expect.element(boundaryOf(3)).not.toHaveTextContent("The run's whole output is kept");
       // The ordering rule came off this boundary on 28 Sep — guide 4's now, and
       // true of a step that never ran.
       await expect.element(boundaryOf(3)).not.toHaveTextContent("No task of group 4 starts");
@@ -184,8 +185,7 @@ describe("implement", () => {
       await planList("arc/group-failed");
 
       // **A failed boundary opens itself**, so nothing is pressed to read
-      // this. By `data-reads` and not by role: the region's guide `?` is a
-      // list item too, and it is not a Check.
+      // this. By `data-reads`, which only a Check's row carries.
       const checks = () => [...boundaryOf(3).element().querySelectorAll("li[data-reads]")];
       // Every Check the boundary declares has a row, and exactly one is red.
       await expect.poll(() => checks().length).toBe(7);
@@ -194,6 +194,19 @@ describe("implement", () => {
       expect(reads().filter((one) => one === "passed")).toHaveLength(6);
       const typecheck = checks().find((one) => one.textContent?.startsWith("typecheck"));
       expect(typecheck?.textContent).toContain("passed");
+    },
+  );
+
+  test(
+    "arc/group-failed: pressing screens_test on group three's card opens that Check's own " +
+      "row on the Record, with its output",
+    async () => {
+      await planList("arc/group-failed");
+
+      await boundaryOf(3).getByRole("button", { name: "screens_test, failed" }).click();
+      await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
+      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
     },
   );
 

@@ -23,9 +23,12 @@ import type {
   Submitted,
 } from "@armada/protocol";
 
+import { CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
+import { fileNameOf } from "../editing";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
-import { taskViewsOf } from "./task";
+import type { GroupView } from "./group";
+import { taskViewsOf, type TaskView } from "./task";
 
 /**
  * Who a row is about. The wire's `Actor`, plus the three the new shape needs.
@@ -231,15 +234,39 @@ function kindOf(move: Recorded): string {
   }
 }
 
+// **Every `what` leads with its kind and what happened, then ` · ` and what it
+// happened to** (the owner, 29 Sep 2026: *I dont understand what these rows
+// are representing*). A Check's name and a file's path are the exceptions, and
+// neither is composed here.
 function whatOf(move: Recorded): string {
   switch (move.moved.kind) {
     case "status":
-      return `${move.status} to ${move.moved.to}`;
+      return jobMovedSays(move.status, move.moved.to);
     case "step":
-      return `${move.moved.step_id}: ${move.moved.from} to ${move.moved.to}`;
+      return `Step moved · ${move.moved.step_id}, ${move.moved.from} to ${move.moved.to}`;
     case "drone":
-      return `${move.moved.drone_id} on ${move.moved.step_id}`;
+      return `${DRONE_SAYS[move.moved.presence] ?? "Drone moved"} · ${move.moved.drone_id} on ${move.moved.step_id}`;
   }
+}
+
+/** A Drone arriving and leaving, as a row's lead. Sentence case. */
+const DRONE_SAYS: Readonly<Record<string, string>> = {
+  drone_spawned: "Drone started",
+  drone_exited: "Drone ended",
+};
+
+/**
+ * The Job's own status moving, as a row's `what`. **A move to a terminal status
+ * is the Job ending**, and says what it ended as; any other move names both
+ * ends, in the registry's own words.
+ */
+function jobMovedSays(from: string, to: string): string {
+  if (JOB_LIFECYCLE[to]?.terminal === true) return `Job ended · ${statusSaid(to)}`;
+  return `Job moved · ${statusSaid(from)} to ${statusSaid(to)}`;
+}
+
+function statusSaid(status: string): string {
+  return JOB_STATUS[status]?.verb ?? status.replaceAll("_", " ");
 }
 
 // The reason a row carries, where it carries one. A status move's `reason` is
@@ -298,6 +325,12 @@ export type LedgerReads = {
   footprint?: JobFilesChanged;
   /** The last `evidence.submitted` heard for this Job. */
   handed?: EvidenceSubmitted;
+  /**
+   * The plan's groups, where the draft holds them. **A task's own facts live
+   * here and not on the wire** — why it failed, the cases it owes, whether a
+   * later task edited it — so its row reads them where they exist.
+   */
+  groups?: readonly GroupView[];
 };
 
 /**
@@ -321,7 +354,7 @@ export function ledgerOf(reads: LedgerReads): LedgerRow[] {
     if (moves.length === 0) rows.push(...droneRowsOf(step, mint));
   }
   rows.push(...planRowsOf(detail, mint));
-  rows.push(...taskRowsOf(detail, mint));
+  rows.push(...taskRowsOf(detail, reads.groups, mint));
   rows.push(...fileRowsOf(detail, reads.footprint, mint));
   rows.push(...handedRowsOf(detail, reads.evidence, reads.handed, mint));
   rows.push(...testRowsOf(detail, mint));
@@ -358,7 +391,7 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: job.origin === "manual" ? "person" : "fleet",
       kind: "created",
-      what: "this Job was created",
+      what: "Job created",
       outcome: "",
       cursor: mint(),
     },
@@ -372,7 +405,7 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: "fleet",
       kind: "started",
-      what: "the Job's first Drone started",
+      what: "Job started",
       outcome: "",
       cursor: mint(),
     });
@@ -383,8 +416,8 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: "fleet",
       kind: `status_${job.status}`,
-      what: "the Job ended",
-      outcome: job.landed === undefined ? "" : `the pull request ${job.landed}`,
+      what: `Job ended · ${statusSaid(job.status)}`,
+      outcome: job.landed === undefined ? "" : `The pull request ${job.landed}`,
       cursor: mint(),
     });
   }
@@ -398,6 +431,10 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
  * Fleet caused everything a gate does, so nothing could derive this actor from
  * an `Actor` field — it is read off which list the row came out of instead,
  * which is the only thing that separates a Check from a Judge on this seam.
+ *
+ * **The outcome is the registry's word alone** — `Passed`, `Failed` (the owner,
+ * 29 Sep 2026: *I can see details when I open the row*). What the run produced
+ * is the row's sheet, which reads it off the `CheckRun` itself.
  */
 function checkRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
   return step.check_runs.map((run) => ({
@@ -406,9 +443,13 @@ function checkRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
     actor: "check" as const,
     kind: "checked",
     what: run.name,
-    outcome: run.produced === undefined ? run.outcome : `${run.outcome} — ${run.produced}`,
+    outcome: sentenceCase(CHECK_OUTCOME[run.outcome]?.verb ?? run.outcome.replaceAll("_", " ")),
     cursor: mint(),
   }));
+}
+
+function sentenceCase(said: string): string {
+  return said.charAt(0).toUpperCase() + said.slice(1);
 }
 
 /** A criterion the Judge answered, and a pattern it flagged. `judge` ran both. */
@@ -418,10 +459,10 @@ function judgeRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
     coord: { step: step.step_id, step_attempt: answer.attempt },
     actor: "judge" as const,
     kind: "judged",
-    what:
-      detail.acceptance_criteria.find((one) => one.criterion_id === answer.criterion_id)?.text ??
-      answer.criterion_id,
-    outcome: answer.produced === undefined ? said(answer.verdict) : `${said(answer.verdict)} — ${answer.produced}`,
+    what: criterionSays(detail, answer.criterion_id),
+    outcome: sentenceCase(
+      answer.produced === undefined ? said(answer.verdict) : `${said(answer.verdict)} — ${answer.produced}`,
+    ),
     cursor: mint(),
   }));
   for (const flag of step.flagged) {
@@ -430,12 +471,24 @@ function judgeRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
       coord: { step: step.step_id, step_attempt: flag.attempt },
       actor: "judge",
       kind: "flagged",
-      what: flag.pattern,
+      what: `Pattern flagged · ${flag.pattern}`,
       outcome: flag.cited,
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/**
+ * A criterion the Judge answered, by its frozen position and its words: `Criterion 2
+ * judged · …`. The verdict is the row's outcome and never repeated here.
+ */
+function criterionSays(detail: JobDetail, criterionId: string): string {
+  const at = detail.acceptance_criteria.findIndex((one) => one.criterion_id === criterionId);
+  const criterion = detail.acceptance_criteria[at];
+  return criterion === undefined
+    ? `Criterion judged · ${criterionId}`
+    : `Criterion ${at + 1} judged · ${criterion.text}`;
 }
 
 // `criterion_verdict_judge` is `met` or `not_met`, and the underscore is the
@@ -462,7 +515,7 @@ function droneRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
       coord: { step: step.step_id, step_attempt: attempt.attempt },
       actor: "drone",
       kind: "drone_spawned",
-      what: `a Drone opened ${step.label}`,
+      what: `Drone started · ${step.label}`,
       outcome: "",
       cursor: mint(),
     });
@@ -472,8 +525,10 @@ function droneRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
       coord: { step: step.step_id, step_attempt: attempt.attempt },
       actor: "drone",
       kind: "drone_exited",
-      what: `the Drone on ${step.label} stopped`,
-      outcome: attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`,
+      what: `Drone ended · ${step.label}`,
+      outcome: sentenceCase(
+        attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`,
+      ),
       cursor: mint(),
     });
   }
@@ -494,41 +549,99 @@ function planRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: by.by === "step" ? { step: by.step_id, step_attempt: by.attempt } : null,
       actor: by.by === "person" ? "person" : "fleet",
       kind: "plan_recorded",
-      what: "the plan was recorded",
       // The approach is a paragraph and belongs to the Plan tab. What this row
-      // owes a reader is how much work came out of it.
-      outcome: `${tasks} ${tasks === 1 ? "task" : "tasks"}`,
+      // owes a reader is how much work came out of it — said once, in What.
+      what: `Plan recorded · ${tasks} ${tasks === 1 ? "task" : "tasks"}`,
+      outcome: "",
       cursor: mint(),
     },
   ];
 }
 
 /**
- * What each task came to.
+ * What was done to each task, and why.
  *
- * **A task's own "done" is never Evidence** (`#1530`, 21 Sep) — it is one of
- * these, and `familyOf` files every one of them under Tasks.
+ * **A row is an action on the task** (the owner, 29 Sep 2026: *if the task was
+ * marked done that should be what the action was*): `T5 marked done`, `T6
+ * marked failed`, `T3 dropped`, `T6 started`. The outcome is the short reason —
+ * what it showed, why it failed, why it was dropped — and the row's sheet reads
+ * the rest off the task.
  *
- * **The instant is the step's.** No field on the wire stamps a task, so a row
- * takes the end of the run of the step the task sits in; where that run is
- * still going it takes its start.
+ * **A task's own "done" is never Evidence** (`#1530`, 21 Sep). **The draft's
+ * tasks where it holds them**: only the draft knows a task failed, or that a
+ * later task edited one that was done. **The instant is the step's run's**,
+ * since no field on the wire stamps a task.
  */
-function taskRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
+function taskRowsOf(
+  detail: JobDetail,
+  groups: readonly GroupView[] | undefined,
+  mint: () => number,
+): LedgerRow[] {
   const rows: LedgerRow[] = [];
-  for (const task of taskViewsOf(detail)) {
+  const tasks = groups === undefined ? taskViewsOf(detail) : groups.flatMap((group) => group.tasks);
+  for (const task of tasks) {
     if (task.state === "open") continue;
     const step = detail.steps.find((one) => one.step_id === task.coord.step);
+    const at = step === undefined ? detail.created_at : atOf(step, task.coord.step_attempt);
     rows.push({
-      at: step === undefined ? detail.created_at : atOf(step, task.coord.step_attempt),
+      at,
       coord: task.coord,
       actor: task.state === "dropped" ? "person" : "drone",
       kind: `task_${task.state}`,
-      what: `${task.id} — ${task.title}`,
-      outcome: task.reason ?? task.shown ?? "",
+      what: `${task.id} ${TASK_ACTION[task.state]} · ${task.title}`,
+      outcome: reasonOf(task),
+      cursor: mint(),
+    });
+    if (!task.touched_after_done) continue;
+    const later = laterTaskOf(task, tasks);
+    rows.push({
+      at,
+      coord: task.coord,
+      actor: "drone",
+      kind: "touched_after_done",
+      what: `${task.id} changed after done · ${task.title}`,
+      outcome:
+        later === undefined
+          ? "A later task edited a file it had finished"
+          : `${later.id} edited a file it had finished`,
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/** What was done to a task, by the state it moved to. */
+const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
+  working: "started",
+  done: "marked done",
+  failed: "marked failed",
+  dropped: "dropped",
+};
+
+/** The short reason a task's row gives: what it showed, or why it stopped. */
+function reasonOf(task: TaskView): string {
+  switch (task.state) {
+    case "done":
+      return task.shown ?? "";
+    case "failed":
+      return task.failed_reason ?? "";
+    case "dropped":
+      return task.reason ?? "";
+    default:
+      return "";
+  }
+}
+
+/**
+ * The later task that edited a file this one had finished: the first after it,
+ * in plan order, claiming a path it claimed. `tab-plan-read.ts`'s `touchedByOf`
+ * reads the same join for the Plan board.
+ */
+function laterTaskOf(task: TaskView, tasks: readonly TaskView[]): TaskView | undefined {
+  const claimed = new Set(task.scope);
+  return tasks
+    .slice(tasks.indexOf(task) + 1)
+    .find((candidate) => candidate.scope.some((path) => claimed.has(path)));
 }
 
 // ------------------------------------------------------------------- files
@@ -564,8 +677,8 @@ function fileRowsOf(
         what: file.path,
         outcome:
           file.outside_plan === true
-            ? `${file.change}, which the step never said it would change`
-            : file.change,
+            ? `${sentenceCase(file.change)}, which the step never said it would change`
+            : sentenceCase(file.change),
         cursor: mint(),
       });
     }
@@ -580,7 +693,7 @@ function fileRowsOf(
       coord: task.coord,
       actor: "drone",
       kind: "task_files",
-      what: task.scope.join(", "),
+      what: task.scope.join(PATHS_JOINED),
       outcome: saidItWouldChange(targets, outside),
       cursor: mint(),
     });
@@ -588,22 +701,38 @@ function fileRowsOf(
   return rows;
 }
 
+/** How a task's files are joined into one `what`, so `pathsOf` can part them. */
+const PATHS_JOINED = ", ";
+
+/**
+ * The paths a file row names: one for `file_written`, the task's scope for
+ * `task_files`. Empty for a row of any other kind.
+ */
+export function pathsOf(row: LedgerRow): string[] {
+  if (row.kind === "file_written") return [row.what];
+  if (row.kind === "task_files") return row.what.split(PATHS_JOINED);
+  return [];
+}
+
 /**
  * What a finished task's files came to, against what the Job said it would
- * change.
+ * change: `In scope`, or the files that were not, by name.
  *
- * **Every sentence names who said it and what they said**, so nothing here
- * needs teaching before it can be read. What it costs a Job is a separate
- * question and is guide 20's, behind the `?` on the row's own reading.
+ * **The owner's own words** (29 Sep 2026), replacing sentences that spelled out
+ * who said what and read as a riddle. A file goes by its name and never its
+ * path, as the What cell's chips do. The sentence is the table's Outcome alone:
+ * the row's sheet draws the file's diff in its place.
  */
 function saidItWouldChange(
   targets: readonly string[] | undefined,
   outside: readonly string[],
 ): string {
   if (targets === undefined) return "this Job named no files it would change, so there is nothing to compare";
-  if (outside.length === 0) return "only files this Job said it would change";
-  const files = outside.length === 1 ? "1 file" : `${outside.length} files`;
-  return `${files} this Job never said it would change: ${outside.join(", ")}`;
+  if (outside.length === 0) return "In scope";
+  const names = outside.map(fileNameOf);
+  const listed =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${listed} ${names.length === 1 ? "was" : "were"} out of scope`;
 }
 
 // `write_targets` are prefixes — a directory, or a file. Absent is scope
@@ -642,7 +771,7 @@ function handedRowsOf(
       coord: step === undefined ? null : coordOfStep(step),
       actor: "drone" as const,
       kind: "evidence_submitted",
-      what: one.claimed,
+      what: `Evidence submitted · ${one.claimed}`,
       outcome: one.shown_by,
       cursor: mint(),
     };
@@ -655,7 +784,7 @@ function handedRowsOf(
       coord: { step: handed.step_id, step_attempt: 1 },
       actor: "drone",
       kind: "handed_in",
-      what: `a Drone handed in on ${handed.step_id}`,
+      what: `Evidence handed in · ${handed.step_id}`,
       outcome: handed.evidence_type,
       cursor: mint(),
     });
@@ -678,8 +807,8 @@ function testRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
     coord: run.coord,
     actor: run.actor === "contributor" ? ("contributor" as const) : (run.actor as LedgerActor),
     kind: "case_run",
-    what: run.case,
-    outcome: `${run.outcome === "ran" ? "ran" : run.outcome === "run_failed" ? "the run failed" : "not covered"}, ${run.frames} frames`,
+    what: `Case run · ${run.case}`,
+    outcome: `${run.outcome === "ran" ? "Ran" : run.outcome === "run_failed" ? "The run failed" : "Not covered"}, ${run.frames} frames`,
     cursor: mint(),
   }));
 }

@@ -440,7 +440,7 @@ describe("the plan", () => {
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
     await planList("arc/group-failed");
     await expect.element(groupCard(3)).toHaveTextContent("failed at its checks");
-    await expect.element(groupCard(3)).toHaveTextContent("second run");
+    await expect.element(groupCard(3)).toHaveTextContent("attempt 2");
     await expect.element(groupCard(3)).toHaveTextContent("screens_test");
     await expect.element(groupCard(3)).toHaveTextContent("typecheck");
     await expect.element(taskRow("T6")).toHaveTextContent("opened the Board rather than the Job");
@@ -576,7 +576,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(whoSaid(rows, /Pressing the stat lists the Drone's Job and step/)).toBe("Judge");
-      expect(whoSaid(rows, /^the plan was recorded$/)).toBe("Fleet");
+      expect(whoSaid(rows, /^Plan recorded · /)).toBe("Fleet");
     },
   );
 
@@ -625,7 +625,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(rows.map((row) => row["Where"])).toContain("The Job itself");
-      expect(whoSaid(rows, /^this Job was created$/)).toBe("You");
+      expect(whoSaid(rows, /^Job created$/)).toBe("You");
     },
   );
 });

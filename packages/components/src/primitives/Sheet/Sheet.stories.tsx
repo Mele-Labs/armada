@@ -71,6 +71,23 @@ export const Left: Story = {
 };
 
 /**
+ * Over the whole work area, under the title row and held off every edge, with
+ * the card's radius and edge: Helm's dock, as a sheet. What the Record's open
+ * row takes, where a sheet contained in the content column read as cut off at
+ * that column's edge.
+ */
+export const Floating: Story = {
+  args: {
+    open: true,
+    floating: true,
+    title: "screens_test",
+    closeLabel: "Close",
+    closeBinding: "Esc",
+    children: "AssertionError: expected 'board' to be 'job'",
+  },
+};
+
+/**
  * The head's leading slot. Its one caller is Helm's folded dock (#1320), and
  * what it carries is that dock's own chip — the class below is `TheShell`'s,
  * not this primitive's, since the slot owns where a mark sits and never what

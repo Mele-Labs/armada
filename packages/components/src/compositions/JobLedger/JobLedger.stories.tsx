@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
-import { FileCheck, FileDiff } from "lucide-react";
+import { Box, FileCheck, FileDiff, ListTodo, Scale, Shield } from "lucide-react";
 import { useState } from "react";
 import { JobLedger, type JobLedgerRow } from "./JobLedger";
 
 /**
- * One table of everything that happened to a Job, newest first, with a strip
- * that narrows it and the open row beside it.
+ * One table of everything that happened to a Job, newest first, with a filter
+ * menu that narrows it and the open row in a sheet over it.
  *
  * The rows, their words and which filter each answers to are the caller's.
  * This decides the chrome, where the panel goes at a width, and how much of an
@@ -32,8 +32,9 @@ const ROWS: JobLedgerRow[] = [
     who: "check",
     whoSays: "Check",
     what: "screens_test",
-    outcome: "failed — 1 of 1384 failed: the Drones row opened the Board",
+    outcome: "Failed",
     tone: "failed",
+    mark: { glyph: <Shield {...MARK} />, says: "checked" },
   },
   {
     id: "r2",
@@ -43,8 +44,9 @@ const ROWS: JobLedgerRow[] = [
     who: "check",
     whoSays: "Check",
     what: "typecheck",
-    outcome: "passed",
+    outcome: "Passed",
     tone: "passed",
+    mark: { glyph: <Shield {...MARK} />, says: "checked" },
   },
   {
     id: "r3",
@@ -53,9 +55,10 @@ const ROWS: JobLedgerRow[] = [
     where: "Implement · group 1 · T1",
     who: "drone",
     whoSays: "Drone",
-    what: "T1 — Serve one read of everything running",
+    what: "T1 marked done · Serve one read of everything running",
     outcome: "The read answers Drones, Checks and Judge calls in one call",
     tone: "passed",
+    mark: { glyph: <ListTodo {...MARK} />, says: "task_done" },
   },
   {
     id: "r4",
@@ -64,8 +67,9 @@ const ROWS: JobLedgerRow[] = [
     where: "Plan the change",
     who: "judge",
     whoSays: "Judge",
-    what: "The rail's Drones stat reads one running beside the machine's most",
-    outcome: "met",
+    what: "Criterion 1 judged · The rail's Drones stat reads one running beside the machine's most",
+    outcome: "Met",
+    mark: { glyph: <Scale {...MARK} />, says: "judged" },
   },
   {
     id: "r5",
@@ -74,8 +78,8 @@ const ROWS: JobLedgerRow[] = [
     where: "Plan the change",
     who: "fleet",
     whoSays: "Fleet",
-    what: "the plan was recorded",
-    outcome: "8 tasks",
+    what: "Plan recorded · 8 tasks",
+    mark: { glyph: <ListTodo {...MARK} />, says: "plan_recorded" },
   },
   {
     id: "r6",
@@ -84,10 +88,9 @@ const ROWS: JobLedgerRow[] = [
     where: "The Job itself",
     who: "you",
     whoSays: "You",
-    what: "approved the dispatch",
-    // No mark: the icon registry assigns the Job's own moves no glyph, and a
-    // borrowed one would mean something else. `[record-kind-marks]`.
-    outcome: "the workflow and the gates are frozen",
+    what: "Job moved · needs approval to queued",
+    outcome: "The workflow and the gates are frozen",
+    mark: { glyph: <Box {...MARK} />, says: "status_queued" },
   },
   {
     id: "r7",
@@ -97,7 +100,7 @@ const ROWS: JobLedgerRow[] = [
     who: "drone",
     whoSays: "Drone",
     what: "running-rows.tsx",
-    outcome: "modified, which the step never said it would change",
+    outcome: "Modified, which the step never said it would change",
     mark: { glyph: <FileDiff {...MARK} />, says: "file_written" },
   },
   {
@@ -107,7 +110,7 @@ const ROWS: JobLedgerRow[] = [
     where: "Plan the change",
     who: "drone",
     whoSays: "Drone",
-    what: "The plan reads back as eight tasks in three groups",
+    what: "Evidence submitted · The plan reads back as eight tasks in three groups",
     outcome: "plan.md",
     mark: { glyph: <FileCheck {...MARK} />, says: "evidence_submitted" },
   },
@@ -175,7 +178,7 @@ export const ARowNoFilterNames: Story = {
   },
 };
 
-/** A row open, with the inspector beside the table. */
+/** A row open, read in the sheet over the table. */
 export const ARowOpen: Story = {
   args: {
     rows: ROWS,
@@ -190,11 +193,10 @@ export const ARowOpen: Story = {
 /**
  * All, with each row led by its kind's mark.
  *
- * **Two families have a glyph and the rest have none.** `file-check` is a
- * submission that landed and `file-diff` is reading what one file changed, both
- * by their own reservations; nothing in `packages/icons/icons.toml` means *a
- * Check ran* or *a Drone arrived*, and a borrowed glyph would say something
- * else. `[record-kind-marks]` is where that gap is filed.
+ * **Every family has a glyph.** Each is reserved to its family's rows in
+ * `packages/icons/icons.toml`, group `Record kind`, and none is an outcome. A
+ * Check's is the bare `shield`, under a rule-4 waiver the owner gave for this
+ * column alone.
  */
 export const KindMarkedOnAll: Story = {
   args: {
@@ -208,6 +210,7 @@ export const KindMarkedOnAll: Story = {
     await expect(canvas.getByRole("columnheader", { name: "Kind" })).toBeInTheDocument();
     await expect(canvas.getByText("file_written")).toBeInTheDocument();
     await expect(canvas.getByText("evidence_submitted")).toBeInTheDocument();
+    await expect(canvas.getByText("judged")).toBeInTheDocument();
   },
 };
 
@@ -230,7 +233,7 @@ export const OneFamilyNoMarks: Story = {
   },
 };
 
-/** A filter that holds nothing. Never a bare strip over an empty frame. */
+/** A filter that holds nothing. Never a bare menu over an empty frame. */
 export const NothingUnderThisFilter: Story = {
   args: {
     rows: [],
