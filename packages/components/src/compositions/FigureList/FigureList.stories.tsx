@@ -78,9 +78,9 @@ export const Fit: Story = {
 };
 
 /**
- * Pulse's band: the label over its figure, the figures packed from the leading
- * edge, and one rule where what the Job is running stops and what it is taking
- * begins.
+ * Pulse's band: the label over its figure, and one rule where what the Job is
+ * running stops and what it is taking begins. The figures before the rule pack
+ * from the leading edge; the ones after it share the rest of the row equally.
  *
  * **The figure is the only thing here a person lands on**, so it is the only
  * thing drawn large. `play` measures that rather than reading it: a value set
@@ -110,6 +110,14 @@ export const Strip: Story = {
         label.getBoundingClientRect().bottom,
       );
     }
+    // **The band reaches the right edge, and the figures after the rule share
+    // the way there** (owner, 29 Sep). Packed, `Turns` over `of 3000` and a
+    // bare `5` are two different widths and the row stops short of the edge.
+    const rows = canvas.getAllByRole("term").map((term) => term.parentElement!.getBoundingClientRect());
+    const edge = canvasElement.querySelector("dl")!.getBoundingClientRect().right;
+    const [turns, processes] = rows.slice(-2);
+    await expect(Math.abs(turns!.width - processes!.width)).toBeLessThanOrEqual(1);
+    await expect(Math.abs(processes!.right - edge)).toBeLessThanOrEqual(1);
   },
 };
 

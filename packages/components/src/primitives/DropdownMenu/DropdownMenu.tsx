@@ -15,12 +15,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
  * No glyphs otherwise: icons stay on ghost/icon-only row actions, confirmation
  * dialogs and toolbars, per iconography; one drawing in the sheet disagrees,
  * see the report.
- *
- * **A filter menu counts what each item holds** — `count` on an item and
- * `triggerCount` on the trigger, a trailing mono `--text-2xs` in `--fg-subtle`,
- * which is Tabs' own count rule. Zero draws nothing. This is what a panel's
- * filters are (the owner, 29 Sep 2026): a segmented strip of nine counted
- * filters overflowed and wrapped at laptop width.
  */
 export type DropdownMenuEntry =
   | {
@@ -30,7 +24,10 @@ export type DropdownMenuEntry =
       shortcut?: string;
       danger?: boolean;
       selected?: boolean;
-      /** How many rows the item holds, where it is a filter. Zero draws nothing. */
+      /**
+       * How many rows the item holds, where the menu is a panel's filters (the
+       * owner, 29 Sep 2026). Tabs' count rule: trailing mono. Zero draws nothing.
+       */
       count?: number;
     }
   | { kind: "separator"; id: string }

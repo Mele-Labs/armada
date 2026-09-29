@@ -40,7 +40,7 @@ import { BridgeSettings } from "@armada/screens";
 import { Kit } from "@armada/screens";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { ConfirmAct } from "./ConfirmAct";
+import { ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { Overview } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -50,7 +50,7 @@ import { Worktrees } from "@armada/screens";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
 import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
-import { JobDetail, type ConfirmableAct } from "@armada/screens";
+import { JobDetail } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
 import { failingIn } from "./failing";
 import {
@@ -227,9 +227,7 @@ export function App({ draft }: AppProps = {}) {
   // Which act is waiting to be confirmed. **Nothing destructive happens on one
   // press** — every one of them ends something, so each states what happens and
   // what survives first.
-  const [confirming, setConfirming] = useState<{ act: ConfirmableAct; jobId: string } | null>(
-    null,
-  );
+  const [confirming, setConfirming] = useState<Confirming | null>(null);
   // What a person typed into the restart confirmation, which is the one
   // confirmation that collects anything. **Held beside `confirming` rather than
   // inside it**: the act being confirmed is what the palette and the step
@@ -460,11 +458,14 @@ export function App({ draft }: AppProps = {}) {
    * typed nothing gets the restart they pressed for rather than the 422 a blank
    * note earns.
    */
-  function confirmed(what: ConfirmableAct, jobId: string): void {
-    const note = what === "restart_step" ? restartNote : undefined;
+  function confirmed(what: Confirming): void {
     setConfirming(null);
     setRestartNote("");
-    void commands.act(what, jobId, note);
+    // Pulse's two kills are commands of their own, not Job acts — `ConfirmAct`.
+    if (what.act === "kill_process") return void commands.killProcess(what.jobId, what.pid);
+    if (what.act === "kill_processes") return void commands.killProcess(what.jobId);
+    const note = what.act === "restart_step" ? restartNote : undefined;
+    void commands.act(what.act, what.jobId, note);
   }
 
   /**
@@ -770,6 +771,11 @@ export function App({ draft }: AppProps = {}) {
                 // than coming back — so a window reloaded mid-look still draws
                 // what Fleet found.
                 onExamine={examine}
+                // Held on the row, then confirmed here: the owner asked for both.
+                onKillProcess={(jobId, { pid, command }) =>
+                  setConfirming({ act: "kill_process", jobId, pid, command })
+                }
+                onKillProcesses={(jobId, count) => setConfirming({ act: "kill_processes", jobId, count })}
                 recorded={{
                   footprint: state.footprint,
                   handed: state.handed,

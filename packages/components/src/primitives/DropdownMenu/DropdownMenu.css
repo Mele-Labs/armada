@@ -124,6 +124,9 @@
  * filled pill, and --weight-body so a medium trigger does not lift the number
  * into the label. */
 .armada-dropdown-menu__count {
+  /* Its own box, so the item's name reads `Checks 12` and never `Checks12`:
+   * an accessible name joins inline runs without a space. */
+  display: inline-block;
   margin-left: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);

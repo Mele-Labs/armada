@@ -68,6 +68,16 @@ export type TooltipProps = {
    * be a second answer to a question `PhaseCard` settles.
    */
   card?: boolean;
+  /**
+   * The child is a mark that repeats words already on screen, and is hidden
+   * from assistive technology. **Pointer only**: no tab stop and no
+   * description, because both would announce the words a second time.
+   *
+   * A Pulse worktree row's dot is the one case: its colour is the row's state,
+   * which the row also says in text, and a person hovers the dot to ask what
+   * the colour means. The caller sets `aria-hidden` on the child.
+   */
+  decorative?: boolean;
 };
 
 /**
@@ -109,6 +119,7 @@ export function Tooltip({
   defaultOpen = false,
   asChild = false,
   card = false,
+  decorative = false,
 }: TooltipProps) {
   const [open, setOpen] = useState(defaultOpen);
   const timer = useRef<number | undefined>(undefined);
@@ -135,7 +146,7 @@ export function Tooltip({
   // this effect re-ran.
   useEffect(() => {
     const held = frame.current;
-    if (held === null) return;
+    if (held === null || decorative) return;
     const on = held.matches(FOCUSABLE) ? held : held.querySelector<HTMLElement>(FOCUSABLE);
     const target = on ?? held;
     target.setAttribute("aria-describedby", describedBy(target, bubbleId));
@@ -145,7 +156,7 @@ export function Tooltip({
     // concept annotated on part of a control is read by hovering it — the
     // control's own description is what a keyboard gets.
     if (held.closest(FOCUSABLE) === null) held.tabIndex = 0;
-  }, [bubbleId, children]);
+  }, [bubbleId, children, decorative]);
 
   const show = useCallback(() => {
     window.clearTimeout(timer.current);

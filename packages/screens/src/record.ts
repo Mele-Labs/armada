@@ -5,7 +5,13 @@
 // person reads on the Record is decided here, once, so the table and the
 // inspector cannot disagree about a row.
 
-import type { JobLedgerFilter, JobLedgerRow, LedgerTone, LedgerWho } from "@armada/components";
+import {
+  JOB_LIFECYCLE,
+  type JobLedgerFilter,
+  type JobLedgerRow,
+  type LedgerTone,
+  type LedgerWho,
+} from "@armada/components";
 import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "./duration";
@@ -90,6 +96,29 @@ export const FAMILY_SAYS: Record<LedgerFamily, string> = {
   tests: "Test",
 };
 
+/**
+ * What the open row is, for its eyebrow: its family's word, or the kind's own
+ * where the family names something the row is not. A plan is filed under
+ * Tasks and is not a task; a flagged pattern is a Judge's row and is not an
+ * answer; a kept deliverable is evidence Fleet kept rather than a claim.
+ */
+export function rowSays(row: LedgerRow): string | undefined {
+  const family = familyOf(row.kind);
+  return KIND_SAYS[row.kind] ?? (family === null ? undefined : FAMILY_SAYS[family]);
+}
+
+const KIND_SAYS: Readonly<Record<string, string>> = {
+  plan_recorded: "Plan",
+  plan_revised: "Plan",
+  flagged: "Flag",
+  deliverable_kept: "Deliverable",
+  task_files: "Files",
+  case_run: "Case",
+  shown_again: "Case",
+  cases_rerun: "Cases",
+  frames_kept: "Frames",
+};
+
 /** The rows one step holds, or every row where no step is chosen. */
 export function underStep(rows: readonly LedgerRow[], step: string | null): readonly LedgerRow[] {
   return step === null ? rows : rows.filter((row) => row.coord?.step === step);
@@ -168,16 +197,12 @@ export function whereOf(
  * is green or red by what the Check did; a Judge answering `met` is the same
  * green, and a Drone arriving has no outcome and takes no hue at all.
  *
- * **Drift takes no hue, and it drew red until 28 September 2026.** An outcome
- * starting `outside the plan` was in the failing arm below, so a file nobody
- * declared filled its row with `--status-completed-failed` — while `grounds.ts`
- * called the same fact `quiet` and `events.ts` calls `outside_plan` *a mark, not
- * a judgement*. The owner read the red and asked whether it hurt the Job. It
- * does not: the Judge weighs drift and no gate fails on it.
+ * **Drift takes no hue; it drew red until 28 Sep 2026**, when the owner asked
+ * whether it hurt the Job. It does not — `events.ts` calls `outside_plan` *a
+ * mark, not a judgement*, and the Judge weighs it.
  *
- * **A File row takes no hue at all, before any word is read.** Its outcome can
- * lead with a file's name — `metrics.ts was out of scope` — and a name is not
- * an outcome, however it starts.
+ * **A File row takes no hue, before any word is read.** Its outcome can lead
+ * with a file's name — `metrics.ts was out of scope` — which is no outcome.
  */
 export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (familyOf(row.kind) === "files") return undefined;
@@ -192,6 +217,66 @@ export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (row.kind === "flagged" || row.kind === "touched_after_done") return "waiting";
   return undefined;
 }
+
+/**
+ * What happened, in a word: the open row's status line leads with it (the
+ * owner, 29 Sep 2026 — *nothing in there shows what the kind is or what was
+ * done*). A Check already led with `Failed`; every row does now.
+ *
+ * **Hued only where it is a pass or a fail**, as the Check word is. `Done` and
+ * `Started` are events rather than verdicts and stay in the sheet's own ink.
+ * `undefined` for a kind this Bridge has no word for, which then draws none.
+ */
+export function statusOf(row: LedgerRow): { says: string; tone?: LedgerTone } | undefined {
+  if (row.kind.startsWith("status_")) {
+    return { says: JOB_LIFECYCLE[row.kind.slice("status_".length)]?.terminal ? "Ended" : "Moved" };
+  }
+  switch (row.kind) {
+    case "checked":
+    case "judged": {
+      const verdict = row.outcome.split(" — ")[0] ?? row.outcome;
+      const tone = toneOf(row);
+      const says = verdict.charAt(0).toUpperCase() + verdict.slice(1);
+      return tone === undefined ? { says } : { says, tone };
+    }
+    // A task's own action, toned as a Check's word is: marked done is its pass
+    // and marked failed its fail. Dropped and started are neither.
+    case "task_done":
+      return { says: "Marked done", tone: "passed" };
+    case "task_failed":
+      return { says: "Marked failed", tone: "failed" };
+    case "case_run":
+      return row.outcome.startsWith("The run failed")
+        ? { says: "Run failed", tone: "failed" }
+        : { says: row.outcome.startsWith("Ran") ? "Ran" : "Not covered" };
+  }
+  const says = STATUS_SAYS[row.kind];
+  return says === undefined ? undefined : { says };
+}
+
+/** The status word for every kind whose word does not hang on its outcome. */
+const STATUS_SAYS: Readonly<Record<string, string>> = {
+  created: "Created",
+  started: "Started",
+  step: "Moved",
+  evidence_submitted: "Submitted",
+  handed_in: "Handed in",
+  deliverable_kept: "Kept",
+  file_written: "Changed",
+  task_files: "Changed",
+  flagged: "Flagged",
+  drone_spawned: "Started",
+  drone_exited: "Ended",
+  plan_recorded: "Recorded",
+  plan_revised: "Revised",
+  task_open: "Open",
+  task_working: "Started",
+  task_dropped: "Dropped",
+  touched_after_done: "Changed after done",
+  cases_rerun: "Run again",
+  shown_again: "Shown again",
+  frames_kept: "Kept",
+};
 
 /**
  * What All holds that no filter does, in one line — or nothing, where every

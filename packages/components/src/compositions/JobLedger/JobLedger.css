@@ -358,6 +358,21 @@
   text-wrap: pretty;
 }
 
+/* The tasks a plan recorded, one a line: `read-said`'s column, as a list. */
+.armada-ledger__read-list {
+  padding: 0;
+  list-style: none;
+}
+
+/* One item of evidence on a line: a name, and what it came to. */
+.armada-ledger__read-line {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
 /* What a Check produced: the result, so body text in --fg-default — one step
    up from the muted sentences around it, which are context. */
 .armada-ledger__read-produced {
@@ -376,12 +391,13 @@
   color: var(--fg-default);
 }
 
-/* What it was held to, as a labelled field: the label over the value, so the
-   bar reads as a different thing from the result above it. */
+/* One value under its own label: what a Check was held to, what a task showed.
+   The label-to-value gap is a section's, so fields and sections read as one
+   column of labelled things. */
 .armada-ledger__read-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
 }
 

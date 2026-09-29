@@ -45,7 +45,7 @@ describe("what a row came to, as a hue", () => {
   it("gives a file the step never named no hue either, on the footprint's own row", () => {
     const drift = row({
       kind: "file_written",
-      outcome: "modified, which the step never said it would change",
+      outcome: "Modified, out of scope",
     });
 
     expect(toneOf(drift)).toBeUndefined();
@@ -53,14 +53,14 @@ describe("what a row came to, as a hue", () => {
 
   it("still draws a failed Check and a refused criterion red, which do fail a step", () => {
     expect(toneOf(row({ outcome: "Failed" }))).toBe("failed");
-    expect(toneOf(row({ kind: "judged", outcome: "not met" }))).toBe("failed");
+    expect(toneOf(row({ kind: "judged", outcome: "Not met" }))).toBe("failed");
   });
 });
 
 describe("the Job filter", () => {
   const ROWS = [
-    row({ kind: "created", what: "this Job was created", outcome: "", cursor: 1 }),
-    row({ kind: "status_completed_success", what: "the Job ended", outcome: "", cursor: 2 }),
+    row({ kind: "created", what: "Job created", outcome: "", cursor: 1 }),
+    row({ kind: "status_completed_success", what: "Job ended · done", outcome: "", cursor: 2 }),
     row({ kind: "checked", cursor: 3 }),
     row({ kind: "unheard_of", cursor: 4 }),
   ];

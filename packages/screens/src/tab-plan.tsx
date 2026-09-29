@@ -81,6 +81,12 @@ export type PlanTabProps = {
    * sheet. Read once, when the tab opens; after that the sheet is the person's.
    */
   opensTask?: string;
+  /**
+   * Open a boundary Check's own row in the Record, by its name and the step
+   * attempt that ran it. **The screen's** — `JobDetail.tsx` owns which
+   * destination is open. Absent, no Check is a button.
+   */
+  onOpenCheck?: (name: string, stepAttempt: number) => void;
 };
 
 /**
@@ -217,6 +223,7 @@ export function PlanTab({
   onRedirect,
   onActHeld,
   opensTask,
+  onOpenCheck,
 }: PlanTabProps) {
   // Which task the inspector is on. **This tab's own state, not the screen's**
   // — the sheet is contained by the destination, so a reader who leaves and
@@ -248,7 +255,7 @@ export function PlanTab({
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable, worksAt);
+  const board = planBoardOf(whole, draft, setOpenTask, openTask ?? undefined, revisable, worksAt, onOpenCheck);
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
   const graph = planGraphOf({ groups, onOpenTask: setOpenTask, openTask });

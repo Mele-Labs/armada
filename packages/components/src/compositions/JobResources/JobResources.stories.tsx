@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import type { JobExamined, Look } from "@armada/protocol";
 import { GUIDE_LOOK, GUIDE_PULSE } from "../../guides";
 
@@ -92,8 +92,9 @@ function examined(found: JobExamined["found"], looks: Look[]): JobExamined {
  * **Nobody has pressed yet.** The figures are drawn and the question is not
  * answered, because looking walks a process table and a directory and an answer
  * that appeared unasked would be the automatic bound rather than the person's
- * half of it. **The line says only that nobody has asked** — that a look is
- * free, and what its three answers mean, is the `?` beside the act (#1602).
+ * half of it. **No line says nobody has asked** — beside `Updated 3s ago` it
+ * read as a contradiction (owner, 29 Sep). That a look is free, and what its
+ * three answers mean, is the `?` beside the act (#1602).
  */
 export const NobodyHasAsked: Story = {
   args: {
@@ -101,7 +102,6 @@ export const NobodyHasAsked: Story = {
     figures: FIGURES,
     examined: null,
     age: "3s",
-    refreshed: "Taken again every 10s while open.",
     onExamine: () => {},
   },
 };
@@ -128,6 +128,19 @@ export const WorkingAndSaidSo: Story = {
     ]),
     onExamine: () => {},
   },
+  /**
+   * **The head carries CPU and memory across every row, and not a count** —
+   * the rows are under it (owner, 29 Sep). Two figures a bare `%` and `GiB`
+   * tell apart, so each is named by its tooltip rather than a label.
+   */
+  play: async ({ canvas }) => {
+    const processes = within(canvas.getByRole("region", { name: "Processes" }));
+    await expect(processes.getByText("111.1%")).toHaveAccessibleDescription("CPU usage");
+    await expect(processes.getByText("1.2 GiB")).toHaveAccessibleDescription("Memory usage");
+    const [worktreeDot] = canvas.getAllByText("on disk").map((said) => said.parentElement!.parentElement);
+    await expect(worktreeDot).toHaveAttribute("aria-hidden", "true");
+    await expect(canvas.getAllByText(/^1\.0 GiB/).at(-1)).toHaveAccessibleDescription("Size on disk");
+  },
 };
 
 /**
@@ -135,10 +148,15 @@ export const WorkingAndSaidSo: Story = {
  * fleet holds no process for it — which as an empty table under a heading is
  * exactly how it went unnoticed, so it is a sentence in the error treatment
  * instead. This is the 4 Sep 2026 job, drawn.
+ *
+ * **The look's own words say it, and no verdict over them** — the owner took
+ * the sentence out of the head on 29 Sep. The Processes head has nothing to
+ * total and nothing to kill, so it draws neither.
  */
 export const NothingIsRunning: Story = {
   args: {
     reading: reading({ held: "none", processes: [] }),
+    onKillAll: fn(),
     age: "1s",
     examined: examined("not_working", [
       look({
@@ -157,8 +175,13 @@ export const NothingIsRunning: Story = {
     onExamine: () => {},
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/is not doing what it should be/)).toBeVisible();
-    await expect(canvas.getByText(/Fleet holds no process for this job/)).toBeVisible();
+    await expect(canvas.getByText(/Fleet recorded no process for it/)).toBeVisible();
+    await expect(canvas.queryByText(/doing what it should be/)).toBeNull();
+    const processes = within(canvas.getByRole("region", { name: "Processes" }));
+    await expect(processes.getByText(/Fleet holds no process for this job/)).toBeVisible();
+    // No `0.0% · 0 B` over an empty list, and no kill with nothing to end.
+    await expect(processes.queryByText(/%/)).toBeNull();
+    await expect(processes.queryByRole("button", { name: /kill/i })).toBeNull();
   },
 };
 
@@ -168,6 +191,9 @@ export const NothingIsRunning: Story = {
  * and a quiet drone is what a long command looks like — so an examination that
  * finds nothing wrong says which checks came back short rather than reporting
  * that everything looks fine.
+ *
+ * **Each look says it in its own words**, since the sentence over them went on
+ * 29 Sep: the ones that came back short are listed by what they asked.
  */
 export const SomeChecksCouldNotTell: Story = {
   args: {
@@ -193,7 +219,11 @@ export const SomeChecksCouldNotTell: Story = {
     onExamine: () => {},
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/could not tell working from not/)).toBeVisible();
+    await expect(canvas.getByText("The liveness watch")).toBeVisible();
+    await expect(canvas.getByText("no Drone is in the slot")).toBeVisible();
+    await expect(canvas.getByText("What was written")).toBeVisible();
+    // Short is not fine, and nothing over the list rounds it into one.
+    await expect(canvas.queryByText(/doing what it should be/)).toBeNull();
   },
 };
 
@@ -242,12 +272,14 @@ export const NothingHasBeenRead: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: /Refresh/ })).toBeVisible();
-    // The owner's 28 Sep pair: the button is `Refresh`, and the headline says
-    // the look has not run without asking who did not ask for it.
+    // The owner's 28 Sep word: the button is `Refresh`, drawn as its glyph
+    // since 29 Sep with the word as its name.
     await expect(canvas.queryByRole("button", { name: /Look now/ })).toBeNull();
-    await expect(canvas.getByText("This job has not been looked at.")).toBeVisible();
+    // No headline at all since 29 Sep: a look not run is not a failure, and
+    // the owner took the sentence that said so out of the head.
+    await expect(canvas.queryByText(/has not been looked at/)).toBeNull();
     await expect(canvas.queryByText(/Nobody has asked/)).toBeNull();
-    // The reason there is no reading still reads, under the headline.
+    // The reason there is no reading still reads, in the card.
     await expect(canvas.getByText(/Fleet did not answer/)).toBeVisible();
   },
 };
@@ -383,7 +415,6 @@ export const SeveralMembers: Story = {
       { label: "Judges", value: "1 out" },
     ],
     age: "4s",
-    refreshed: "Taken again every 10s while open.",
     examined: null,
     onExamine: () => {},
   },
@@ -399,7 +430,17 @@ export const SeveralMembers: Story = {
     // as correct.
     expect(canvas.getAllByText("armada/22-give-the-store-one-shape")).toHaveLength(2);
     await expect(canvas.getByText("not placed")).toBeVisible();
-    await expect(canvas.getByText("still being written")).toBeVisible();
+    await expect(canvas.getByText("being written", { exact: true })).toBeVisible();
+    // Whose logs, over every sub job by default and each one that owns a row.
+    const logs = within(canvas.getByRole("region", { name: "Job logs" }));
+    const whose = logs.getByRole("combobox", { name: "Which sub job" });
+    await expect(whose).toHaveValue("All sub jobs");
+    await expect(
+      within(whose).getAllByRole("option").map((one) => one.textContent),
+    ).toEqual(["All sub jobs", "armada/24-drop-the-store-singleton"]);
+    // Both rows here carry `bytes`, and the list draws no size for either:
+    // Fleet does not send it yet, so the column went (owner, 29 Sep).
+    await expect(logs.queryAllByText(/\d (B|KiB|MiB|GiB)$/)).toHaveLength(0);
   },
 };
 
@@ -415,5 +456,45 @@ export const NothingHasBeenWritten: Story = {
     age: "1s",
     examined: null,
     onExamine: () => {},
+  },
+};
+
+/**
+ * **Where the host can act on a row.** A held kill on each process and one for
+ * all of them in the head, and `Open` on the checkout and the Job's own log.
+ * Each is drawn only where its callback is, so every story above is the
+ * surface that offers none.
+ */
+export const WithItsActs: Story = {
+  args: {
+    reading: reading({
+      worktrees: [
+        {
+          path: "/Users/user/armada/.armada/worktrees/01JOBHOLDS001",
+          branch: BRANCH,
+          state: "1 drone working",
+          working: true,
+          bytes: 1_073_741_824,
+          open: "worktree",
+        },
+      ],
+      logs: [
+        { kind: "job", owner: null, writing: false, open: "log" },
+        {
+          kind: "brief",
+          owner: null,
+          about: "implement · no_drift",
+          writing: false,
+          open: { kept: "steps/implement/briefs/no_drift-1.md", what: "brief" },
+        },
+      ],
+    }),
+    figures: FIGURES,
+    age: "3s",
+    examined: null,
+    onExamine: () => {},
+    onOpen: fn(),
+    onKillProcess: fn(),
+    onKillAll: fn(),
   },
 };

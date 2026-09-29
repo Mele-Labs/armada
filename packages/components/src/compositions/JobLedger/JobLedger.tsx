@@ -32,16 +32,12 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * filter has already said the family, and a spelling like `task_files` was
  * costing a sentence's width to say what the row's words say.
  *
- * **The filters are a menu in the panel's head**, beside the panel's own
- * controls. Stacked under the destinations as a second strip, the two read as
- * one level (the owner, 28 September 2026); drawn in the head as a segmented
- * strip, nine counted filters overflowed and wrapped at laptop width (the
- * owner, 29 September 2026). The menu reads the chosen filter and its count.
+ * **The filters are a counted menu in the panel's head.** As a strip under the
+ * destinations they read as a second level (the owner, 28 Sep 2026); as one in
+ * the head, nine counted filters wrapped at laptop width (29 Sep 2026).
  *
- * **The open row is a sheet over the table, at every width, and only once a
- * row is pressed.** It was a column beside the table above
- * `--layout-breakpoint` for a day, and at a 14" laptop's full width that left
- * both the table and the reading too narrow (the owner, 29 September 2026).
+ * **The open row is a sheet over the table, once a row is pressed.** As a column
+ * beside it, both were too narrow on a 14" laptop (the owner, 29 Sep 2026).
  */
 
 /** Who ran a row, as the column reads it. */

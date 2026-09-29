@@ -284,6 +284,12 @@
      prompt, the refs and the settings block. #1547. */
   --w-sketch-box: 240px;
   --h-sketch-pad: 300px;
+  /* One Check's row at a group's boundary, and the floor of its column. 200px
+     holds `components_test` and `passed` with the shield mark before them on
+     one line at --text-2xs, so a boundary is two columns in any card wider
+     than two of these and one below — the Record's sheet as well as the Plan's
+     card. The owner, 29 Sep 2026. */
+  --w-boundary-check: 200px;
   /* The guide catalogue's list, beside the guide it opens. Its own name rather
      than --w-run-column's 380 or --w-menu's 240: the run column holds a step
      name beside an elapsed on one line, and a menu holds a command; this holds

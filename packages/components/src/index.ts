@@ -27,7 +27,6 @@ export * from "./primitives/SplitButton/SplitButton";
 export * from "./primitives/Switch/Switch";
 export * from "./primitives/Table/Table";
 export * from "./primitives/Tabs/Tabs";
-export * from "./primitives/TabsWithCounts/TabsWithCounts";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
@@ -367,6 +366,7 @@ export * from "./compositions/JobMembers/MemberDecision";
 // The implement step opened — its groups, their tasks, and what ran at each
 // group's end. #1536.
 export * from "./compositions/GroupBoundary/GroupBoundary";
+export * from "./compositions/RowLink/RowLink";
 // A wave of Jobs under one plan, and which of them waits on which. #1544.
 export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is
@@ -384,3 +384,6 @@ export * from "./compositions/GuidesSetting/GuidesSetting";
 // A guide, read: its numbered steps and the drawing under one of them.
 export * from "./compositions/GuideFigure/GuideFigure";
 export * from "./compositions/GuideSteps/GuideSteps";
+// The card a destination draws: a head strip, then what it holds. Pulse's and
+// Overview's, so the two cannot drift.
+export * from "./compositions/DestinationCard/DestinationCard";

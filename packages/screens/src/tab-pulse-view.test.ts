@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import type { JobExamined, Look, StepDetail } from "@armada/protocol";
 import type { PulseView } from "./draft/pulse";
+import { detail, job, spend } from "./fixtures/build/base";
 import { checksRunning, judgesRunning, pulseFiguresOf, pulseReadingOf } from "./resources";
 
 const BRANCH = "armada/1538-pulse";
@@ -102,6 +103,45 @@ describe("the rows the board draws", () => {
     ]);
   });
 
+  it("says whether the Job's one checkout has its Drone in it, and offers to open it", () => {
+    const [working] = pulseReadingOf(view(), null).worktrees;
+    const [idle] = pulseReadingOf(view({ held: "none" }), null).worktrees;
+
+    expect([working?.state, working?.working, working?.open]).toEqual(["1 drone working", true, "worktree"]);
+    expect(idle?.state).toBe("no drone working");
+  });
+
+  it("offers Open on the Job's own log, and on no member's", () => {
+    const logs = pulseReadingOf(
+      view({
+        logs: [
+          { kind: "job", owner: null, writing: false },
+          { kind: "transcript", owner: BRANCH, writing: false },
+        ],
+      }),
+      null,
+    ).logs;
+
+    expect(logs.map((one) => one.open)).toEqual(["log", undefined]);
+  });
+
+  it("lists each brief the Judge was asked with once, off the Job rather than the reading", () => {
+    const judged = { attempt: 1, criterion_id: "no_drift", verdict: "met", brief_path: "briefs/no_drift-1.md" };
+    const whole = detail(job("running"), [step({ judged: [judged, { ...judged, member: 2 }] })]);
+
+    const briefs = pulseReadingOf(view(), null, whole).logs.filter((one) => one.kind === "brief");
+
+    expect(briefs).toEqual([
+      {
+        kind: "brief",
+        owner: null,
+        about: "implement · no_drift",
+        writing: false,
+        open: { kept: "briefs/no_drift-1.md", what: "brief" },
+      },
+    ]);
+  });
+
   it("marks a log that is still being written", () => {
     const one = view({ logs: [{ kind: "job", owner: null, writing: true }] });
 
@@ -149,6 +189,19 @@ describe("the figures over the board", () => {
 
     expect(labels).not.toContain("Spend");
     expect(labels).not.toContain("Turns");
+  });
+
+  it("presses Spend and Turns through to their caps only where the caller has somewhere to send them", () => {
+    const whole = detail(job("running"), [], { spend: spend() });
+    const cost = () => undefined;
+    const turns = () => undefined;
+
+    const pressed = pulseFiguresOf(view(), whole, { cost, turns });
+    expect(pressed.find((one) => one.label === "Spend")?.onPress).toBe(cost);
+    expect(pressed.find((one) => one.label === "Turns")?.onPress).toBe(turns);
+    expect(pressed.find((one) => one.label === "Spend")?.pressLabel).toBe("Change the cost cap in Settings");
+
+    expect(pulseFiguresOf(view(), whole).some((one) => one.onPress !== undefined)).toBe(false);
   });
 
   it("puts the rule on the first figure that is a cost, and on no other", () => {

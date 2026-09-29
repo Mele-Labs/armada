@@ -37,6 +37,20 @@ what happened stays; a sentence that teaches the reader what a thing is moves
 behind the mark. If you cannot tell which one you have written, ask whether it
 would still be true on a Job that had never run.
 
+> **A bare figure or an icon names itself in a tooltip.**
+> `2026-09-29-a-tooltip-names-a-figure.md`: *"we should have tooltips as labels
+> wherever it makes sense to explain something a bit more that doesn't need a
+> guide."*
+
+This is the middle step between the two rules either side of it. A label the
+screen doesn't draw and a guide that's more than a sentence are both behind
+something a person chooses: a hover for the first, a `?` for the second.
+
+> **A control can ship ahead of its route, and names the issue that builds it.**
+> `2026-09-29-unbuilt-acts-name-their-issue.md`: pressed before Fleet serves
+> it, it raises `Not implemented`, and the debug info carries the issue's link
+> so the paste is a brief an agent can start from.
+
 > **Teach the way a game teaches, and never gamify.**
 > `2026-09-23-teach-like-a-game-never-gamify.md` — a card the first time you
 > meet a piece, once, with the first one offering to turn them all off; motion
@@ -45,6 +59,16 @@ would still be true on a Job that had never run.
 The two rules above and this one are one position: the screen reports, the
 teaching is offered once and then waits to be asked. What he rejects is not
 being taught — it is being told things he did not ask for, twice.
+
+> **Never put a count beside the things it counts.**
+> `2026-09-29-no-aggregate-counts.md`: *"Please make a standing rule so that
+> agents stop putting aggregate counts like this. They seem to love doing
+> that."* `Checks 7` over seven Check rows went, and so did a verdict repeating
+> the failed row under it.
+
+If the reader can see the items, the number is noise. A count appears only
+where the items don't. Agents add these by reflex, so check every head, strip and
+label you draw for one before showing him.
 
 > **Humanize the app's own words, not only the words you send him.**
 > `2026-09-25-a-guide-is-steps-over-the-real-app-moving.md` — shown a list of
