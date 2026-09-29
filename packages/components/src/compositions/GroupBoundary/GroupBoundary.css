@@ -1,57 +1,150 @@
-/* A group's boundary — the Checks bar, and the tests region kept apart from it.
+/* A group's boundary — one strip per kind, and what is behind each.
 
    Divided from the tasks above by a rule: the boundary is a different actor,
    not one more task. #1536. */
 .armada-boundary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--border-subtle);
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .armada-boundary__region {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
 }
 
-/* The tests region sits under the Checks with its own rule above it, so the
-   two are never read as one list. */
-.armada-boundary__region + .armada-boundary__region {
-  padding-top: var(--space-2);
-  border-top: var(--border-width) dashed var(--border-subtle);
+/* The strip. A sunken bar inside the card, so it reads as a shelf under the
+   tasks rather than as one more of them. */
+.armada-boundary__strip {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  min-width: 0;
 }
 
 .armada-boundary__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  width: 100%;
   min-width: 0;
+  min-height: var(--h-row-header);
+  padding: 0 var(--space-2);
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
 }
 
-.armada-boundary__says {
+button.armada-boundary__head {
+  cursor: pointer;
+}
+
+button.armada-boundary__head:hover {
+  background: var(--bg-hover);
+}
+
+.armada-boundary__kind {
+  flex: none;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
 
+.armada-boundary__count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-default);
+}
+
+/* The run, inline and sized by how many Checks there are. `StepBar` draws a
+   72px track for a list row; here the segment count is the reading, so each
+   segment takes a floor and the bar is as wide as the boundary is long. */
+.armada-boundary__bar {
+  display: flex;
+  flex: none;
+  min-width: 0;
+}
+
+.armada-boundary__bar .armada-step-bar {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.armada-boundary__bar .armada-step-bar__segment {
+  flex: none;
+  width: var(--space-3);
+}
+
+/* The slack, in one deliberate place — `bridge.md`'s filler rule on a flex
+   line. What follows it is pinned to the trailing edge. */
+.armada-boundary__gap {
+  flex: 1 1 auto;
+  min-width: var(--space-2);
+}
+
+.armada-boundary__trailing {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the boundary came to. Only the two that are a verdict take a hue. */
+.armada-boundary__verdict[data-named="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-boundary__verdict[data-named="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-boundary__chevron {
+  flex: none;
+  color: var(--fg-subtle);
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.armada-boundary__strip[data-open="true"] .armada-boundary__chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-boundary__chevron {
+    transition: none;
+  }
+}
+
 .armada-boundary__absent {
-  margin: 0;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
   text-wrap: pretty;
 }
 
-/* The bar takes the region's width here rather than StepBar's drawn 72px: a
-   segment per Check is a reading, not a field in a row's fixed track. */
-.armada-boundary .armada-step-bar {
-  max-width: none;
+/* Behind the strip's press. Its own rule above it, so an open strip reads as
+   a shelf that has been pulled out rather than as two stacked strips. */
+.armada-boundary__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
 }
 
 .armada-boundary__checks,
@@ -61,6 +154,7 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--space-1) var(--space-3);
   min-width: 0;
 }
@@ -100,13 +194,14 @@
   color: var(--fg-muted);
 }
 
-/* The Check's own output, verbatim. It wraps rather than scrolling sideways:
-   what the next Drone is told is read, not scrubbed. */
+/* The gate's own words, verbatim. They wrap rather than scrolling sideways:
+   what was written down is read, not scrubbed. */
 .armada-boundary__output {
   margin: 0;
   padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+  background: var(--bg-base);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -114,4 +209,14 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+/* Where the rest of it is. The gate's note is a summary of the run, not the
+   run's output, and a reader who is not told that reads it as the whole. */
+.armada-boundary__reaches {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
 }

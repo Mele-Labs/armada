@@ -577,7 +577,6 @@ export function App({ draft }: AppProps = {}) {
       jobs={boardJobs}
       live={live}
       refreshing={commands.refreshing}
-      onCompose={() => setComposing(true)}
       onRefresh={() => void commands.refresh()}
       onReadReports={() => setAuditing(true)}
       onReadWorktrees={() => setClearing(true)}

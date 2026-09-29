@@ -96,24 +96,37 @@
   color: var(--error);
 }
 
-/* Across rather than down: the label over its figure, the figures wrapping as
-   the width allows. The floor is the label column `wide` draws, so a cell is
-   never narrower than a label needs and the wrap happens at whole cells.
+/* Across rather than down: the label over its figure, the figures running
+   along the band and wrapping as the width allows. #1538.
 
    **Not the right edge, for the reason the right edge exists.** Values sit
    where the Stats panel's counts sit so that a reader runs down one edge — in
    a 160 to 380px panel. A destination is the width of the window, and the same
-   rows there put a label and its figure a hand's width apart. #1538. */
+   rows there put a label and its figure a hand's width apart.
+
+   **Content-sized cells, not equal tracks.** `auto-fit` tracks spread six
+   figures across 1400px and put a hand's width of nothing between a label and
+   the next label, which is the same scanning problem at a larger scale. The
+   figures pack from the leading edge instead, at one gap, so the eye travels
+   along a cluster rather than across a table. The design board's own strip,
+   `Pulse · the destination`. */
 .armada-figures[data-column="strip"] {
-  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
-  column-gap: var(--space-6);
+  /* The board's 40px, which the spacing scale steps over: --space-8 is 32 and
+     --space-12 is 48. Named once because the rule below is spaced by it. */
+  --figure-apart: calc(var(--space-8) + var(--space-2));
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--figure-apart);
   row-gap: var(--space-3);
 }
 
 .armada-figures[data-column="strip"] .armada-figures__row {
   display: flex;
+  flex: none;
   flex-direction: column;
-  gap: var(--space-1);
+  /* Half a step. The pair is one reading, and a full step let the label float
+     between the figure above it and its own. */
+  gap: calc(var(--space-1) / 2);
   grid-column: auto;
   align-items: stretch;
 }
@@ -124,18 +137,61 @@
   text-align: left;
 }
 
-/* A destination's figure is the thing on the band, not a row in a panel. One
-   step up, which is the step the worktree size already takes for the same
-   reason: it is the number a person acts on.
+/* The label on a band is the dimmer of the two, which is the opposite of a
+   panel row. **Two steps of grey and not one.** A destination spends contrast
+   on the figure: the reading is --fg-default and the word naming it drops past
+   --fg-muted to --fg-subtle, so a person scanning the band lands on numbers
+   and reads the labels only where one stops them. The design contract buys
+   emphasis with size, tracking and hue and never with weight, so this is one
+   of the two levers the board spends. */
+.armada-figures[data-column="strip"] .armada-figures__label {
+  color: var(--text-meta);
+  white-space: nowrap;
+}
 
-   **It wraps rather than clipping.** A pair — `~$1.80 of $3.00` — is longer
-   than a cell's floor at five figures across, and clipped it read `~$1.80 of
-   ~…`: a spend with its cap cut off, which is the one figure on this board a
-   person acts on directly. It breaks at the space, so neither number is split. */
+/* A destination's figure is the thing on the band, not a row in a panel. Two
+   steps up rather than the one the worktree size takes: it is the number a
+   person acts on, and it is the only thing on the band that is a number.
+
+   The board drew 20px. 20 is not on Armada's ladder — 13/14/15/16/18/23/28 —
+   so this is --text-lg, the step under it, and the hue above makes up the
+   contrast the missing 2px would have bought.
+
+   **It clips rather than wrapping.** The cap left this line on 28 Sep and took
+   the wrap with it: a figure is now one short run — `~$1.80`, `18`, `1.2 GiB` —
+   and a reading that broke across two lines was only ever the cap breaking. */
 .armada-figures[data-column="strip"] .armada-figures__reading {
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  white-space: nowrap;
+}
+
+/* Words are not a reading, and 18px of mono prose on a band is a figure that
+   happens to be a sentence. Body size and sans, the register the rest of the
+   panel says things in. Only the machine's own two arms reach this: a Drone
+   Fleet could not read, and a checkout nobody could measure. */
+.armada-figures[data-column="strip"] .armada-figures__value[data-words] .armada-figures__reading {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* The cap, under the figure it caps rather than beside it. Sans, because `of
+   $30.00` is a qualifier a person would say and not a second reading — the one
+   place a detail is not mono. */
+.armada-figures[data-column="strip"] .armada-figures__detail {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* Where the band changes subject. One rule, spaced a gap either side, so what
+   this job is running reads apart from what it is taking — six figures in a
+   row are six equals otherwise, and the pair a person compares (spend against
+   its cap, turns against theirs) is on one side of it.
+
+   A border on the figure that follows rather than an item of its own: a `dl`
+   holds its pairs, and a bare divider inside one is a term with no definition. */
+.armada-figures[data-column="strip"] .armada-figures__row[data-apart] {
+  padding-inline-start: var(--figure-apart);
+  border-inline-start: var(--border-width) solid var(--edge-rule);
 }

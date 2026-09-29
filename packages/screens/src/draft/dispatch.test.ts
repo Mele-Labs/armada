@@ -27,6 +27,7 @@ function proposal(over: Partial<ProposalView> = {}): ProposalView {
   return {
     status: "classifying",
     title: "Show what is running in the Drones stat",
+    workflow_id: "feature",
     gates: [],
     fleet_always_looks: true,
     tiers: { difficult: "opus", medium: "sonnet", easy: null },

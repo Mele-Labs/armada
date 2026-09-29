@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#
+# The owner's review mock: one checkout, one port, whatever branch is being
+# looked at right now.
+#
+# **This exists because landing is the slow part, not building.** An agent has
+# a change on screen within minutes and then spends an hour on the suites, a
+# pull request, a verification and the merge line before the owner sees it. He
+# asked for the look to come first: *"the loop right now feels long because I
+# have to wait for the agent to land their interpretation of my feedback."*
+#
+# So an agent stops when its change is visible, says so, and this points the
+# review mock at its branch. He looks, and only then does it finish.
+#
+# **What he is looking at has not been verified**, and that is deliberate. He
+# is judging how a screen reads, not whether it passes. The gates still run
+# before anything lands.
+#
+# **Port 41001, and never 41000.** 41000 is his own mock on `main`, and a
+# review that stopped it would take away the thing he compares against.
+#
+#   scripts/review <branch>   point it at a branch and start it
+#   scripts/review --status   which branch it is on, and whether it answers
+#   scripts/review --stop     stop it, keep the checkout
+
+set -euo pipefail
+
+port=41001
+root="$(git rev-parse --show-toplevel)"
+tree="$root/.claude/worktrees/review"
+log="/tmp/armada-review-$port.log"
+
+stop() {
+  # Kill what is listening on this port, never `pkill -f` on a config string:
+  # that pattern matches every mock on the machine, and it took the owner's own
+  # down once.
+  local pid
+  pid="$(lsof -ti "tcp:$port" 2>/dev/null | head -1 || true)"
+  if [ -n "$pid" ]; then
+    kill "$pid" 2>/dev/null || true
+    echo "stopped pid $pid"
+  fi
+}
+
+case "${1:-}" in
+  --stop)
+    stop
+    exit 0
+    ;;
+  --status)
+    if [ -d "$tree" ]; then
+      echo "commit: $(git -C "$tree" log --oneline -1 2>/dev/null || echo none)"
+    else
+      echo "no review checkout yet"
+    fi
+    if curl -sf -o /dev/null "http://localhost:$port"; then
+      echo "serving: http://localhost:$port"
+    else
+      echo "serving: no"
+    fi
+    exit 0
+    ;;
+  "")
+    echo "usage: scripts/review <branch> | --status | --stop" >&2
+    exit 2
+    ;;
+esac
+
+branch="$1"
+
+git -C "$root" fetch --quiet origin "$branch" || {
+  echo "no branch '$branch' on origin. Push it first." >&2
+  exit 1
+}
+
+# One checkout, reused and detached. A worktree per branch would leave a
+# directory behind for every branch ever looked at.
+if [ -d "$tree" ]; then
+  git -C "$tree" checkout --quiet --detach "origin/$branch"
+else
+  git -C "$root" worktree add --quiet --detach "$tree" "origin/$branch"
+fi
+
+stop
+cd "$tree"
+nohup pnpm -C apps/desktop exec vite --config vite.mock.config.ts \
+  --port "$port" --strictPort >"$log" 2>&1 &
+
+for _ in $(seq 1 40); do
+  curl -sf -o /dev/null "http://localhost:$port" && break
+  sleep 1
+done
+
+if curl -sf -o /dev/null "http://localhost:$port"; then
+  echo "reviewing $branch  $(git -C "$tree" log --oneline -1)"
+  echo "http://localhost:$port"
+else
+  echo "did not come up. log: $log" >&2
+  exit 1
+fi

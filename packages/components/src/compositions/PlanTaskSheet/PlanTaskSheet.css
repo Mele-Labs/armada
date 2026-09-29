@@ -27,6 +27,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .armada-task-sheet__label {
@@ -37,6 +38,43 @@
   text-transform: uppercase;
   color: var(--fg-subtle);
   font-weight: var(--weight-medium);
+}
+
+/* The value in a box of its own. **This is what separates one field from the
+   next** — a run of them without it is a wall of same-weight text, which is
+   the reading the owner refused four times over. `ProposalFields`' treatment,
+   stacked: 392px has no room for a label track beside it. */
+.armada-task-sheet__value {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+/* A value that draws its own rows brings its own boxes. */
+.armada-task-sheet__value[data-bare="true"] {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* A fact about the value, under it — how many files, which Drone runs it. */
+.armada-task-sheet__note {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
 }
 
 .armada-task-sheet__prose {
@@ -84,25 +122,34 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
 }
 
+/* Each side is its own box, the field's own treatment: a `dt` and a `dd` in
+   one register is exactly the wall the boxes exist to break up. */
 .armada-task-sheet__row {
-  display: grid;
-  grid-template-columns: var(--space-12) 1fr;
-  gap: var(--space-3);
-  align-items: baseline;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  min-width: 0;
 }
 
 .armada-task-sheet__row dt {
   font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
+  line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
 
 .armada-task-sheet__row dd {
   margin: 0;
-  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
   text-wrap: pretty;
 }
 

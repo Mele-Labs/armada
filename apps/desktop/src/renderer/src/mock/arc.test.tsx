@@ -45,19 +45,27 @@ async function at(moment: string, tab: string) {
 }
 
 /**
- * One group's card, by the heading it carries. **Scoped to the groups list and
- * matched case-sensitively**: the warning above the cards names the same
- * groups in lower case, and a substring match reached it first.
+ * One group's card, by the name the card carries.
+ *
+ * **By its name and never by its text.** A card now says `Group 4 writes these
+ * files too` where it overlaps group 4, so a text match for group 4 reaches
+ * whichever card mentions it first.
  */
 const groupCard = (ordinal: number) =>
-  page
-    .getByRole("list", { name: "Groups, in the order they run" })
-    .getByRole("listitem")
-    .filter({ hasText: new RegExp(`Group ${ordinal}`) })
-    .first();
+  page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
+
+/**
+ * Pull one of a group's boundary strips open. **A press, because what is
+ * behind one is a list** — the strip carries the kind, how many and what it
+ * came to, and the names wrapping under a bar was the miss the owner named on
+ * 28 Sep 2026.
+ */
+async function openStrip(ordinal: number, kind: "Checks" | "Tests") {
+  await groupCard(ordinal).getByRole("button", { name: new RegExp(`^${kind}`) }).click();
+}
 
 /** One guide's `?`, by the name `GuideMark` gives it. */
 const markFor = (guide: Guide) =>
@@ -178,9 +186,14 @@ describe("classifying", () => {
     async () => {
       mount("arc/proposing-review");
 
-      await expect.element(page.getByText("feature — 4 steps")).toBeVisible();
-      const gates = page.getByRole("region", { name: "The gate on each step" });
-      await expect.element(gates).toBeVisible();
+      // The picker and the gate rows are one region since 28 Sep 2026: you
+      // choose the workflow, and its steps are what is under it (`2b4j`).
+      const workflow = page.getByRole("region", { name: "Workflow" });
+      await expect.element(workflow).toBeVisible();
+      await expect
+        .element(workflow.getByRole("combobox", { name: "Workflow" }))
+        .toHaveValue("feature");
+      await expect.element(workflow).toHaveTextContent("feature — 4 steps");
 
       // A Judge on the plan step and no Check, which is what `feature.json`
       // declares — and the box is a person's to move.
@@ -264,7 +277,14 @@ describe("classifying", () => {
 
       // This Job's share of the machine, beside what the machine allows.
       await expect.element(page.getByRole("spinbutton", { name: "Drones at once" })).toHaveValue(2);
-      await expect.element(page.getByText("This machine runs 4 at once")).toBeVisible();
+      // The machine's cap says what it costs this Job, rather than only
+      // stating itself (`pojb`).
+      await expect
+        .element(page.getByText(/This machine runs 4 Drones at once across every Job/))
+        .toBeVisible();
+      await expect
+        .element(page.getByText(/gives this one fewer than you ask for here/))
+        .toBeVisible();
     },
   );
 
@@ -297,7 +317,9 @@ describe("classifying", () => {
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
-      await expect.element(held).toHaveTextContent("from armada/1162");
+      // The word `issue` is on the line: a bare `owner/number` is a
+      // repository, a path and a branch as readily as an issue (`u7y9`).
+      await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
       await expect.element(held).toHaveTextContent("The Job is held to the words above.");
       // What a criterion is, and that a Judge answers per criterion, is not
@@ -352,23 +374,30 @@ describe("the plan", () => {
 
   test("arc/planned: each task names the files it will touch, the tier the planner gave it, and the model that tier resolved to", async () => {
     await planList("arc/planned");
-    await expect.element(taskRow("T1")).toHaveTextContent("difficult · opus");
-    await expect.element(taskRow("T3")).toHaveTextContent("easy · haiku");
-    await expect
-      .element(page.getByRole("list", { name: "Group 1 scope" }))
-      .toHaveTextContent("running.rs");
+    await expect.element(taskRow("T1")).toHaveTextContent("opus");
+    await expect.element(taskRow("T3")).toHaveTextContent("haiku");
+    // **Where the group writes, not every file it writes** — the owner, 28 Sep
+    // 2026. The root is the boundary the gate measures a diff against; the
+    // paths themselves are in the task's own inspector.
+    await expect.element(groupCard(1)).toHaveTextContent("crates/**");
+    await expect.element(groupCard(1)).not.toHaveTextContent("crates/api/src/running.rs");
   });
 
   test("arc/planned: each group says which Checks run at its end — four where it writes Rust, seven where it writes Bridge", async () => {
     await planList("arc/planned");
-    await expect.element(groupCard(1)).toHaveTextContent("4 checks will run at this boundary");
+    await expect.element(groupCard(1)).toHaveTextContent("will run at this boundary");
+    await expect.element(groupCard(2)).toHaveTextContent("will run at this boundary");
+    // The count is on the strip and the names are behind its press.
+    await openStrip(1, "Checks");
     await expect.element(groupCard(1)).toHaveTextContent("acceptance");
-    await expect.element(groupCard(2)).toHaveTextContent("7 checks will run at this boundary");
+    await openStrip(2, "Checks");
     await expect.element(groupCard(2)).toHaveTextContent("components_test");
   });
 
   test("arc/planned: the case that covers a file two groups touch is drawn at the last of them, and the case with no spec reads as not covered rather than as passing", async () => {
     await planList("arc/planned");
+    await openStrip(4, "Tests");
+    await openStrip(2, "Tests");
     await expect.element(groupCard(4)).toHaveTextContent("overview.test.ts");
     await expect.element(groupCard(2)).not.toHaveTextContent("overview.test.ts");
     await expect.element(groupCard(2)).toHaveTextContent("Board.test.tsx");
@@ -379,18 +408,33 @@ describe("the plan", () => {
     await planList("arc/planned");
     await taskRow("T5").getByRole("button").first().click();
     const sheet = page.getByRole("dialog").first();
-    await expect.element(sheet).toHaveTextContent("What its Drone will be told");
-    await expect.element(sheet).toHaveTextContent("difficult · opus · its own agent");
+    // The panel's words, rewritten on 28 Sep 2026 — *everything on this task
+    // panel sounds like an AI bot phrased it*.
+    await expect.element(sheet).toHaveTextContent("What the Drone is told");
+    await expect.element(sheet).toHaveTextContent("difficult · opus");
+    await expect.element(sheet).toHaveTextContent("Run by its own agent");
     await expect.element(sheet).toHaveTextContent("T6");
+    await expect.element(sheet).toHaveTextContent("Tests for this task");
     await expect.element(sheet).toHaveTextContent("Running.test.tsx");
-    await expect.element(sheet).toHaveTextContent("What the planner holds it to");
+    await expect.element(sheet).toHaveTextContent("How we will know it worked");
+    await expect.element(sheet).not.toHaveTextContent("What the planner holds it to");
   });
 
-  test("arc/planned: a file two groups claim is named as a warning, with both groups and both tasks", async () => {
+  /**
+   * **A break test on where.** The same sentence sat in a band above the plan
+   * naming two groups, and the owner asked for it inside the group instead
+   * (28 Sep 2026) — *in Group 4 it should have a warning callout*. Every word
+   * was on the page before; only the card it sits on changed.
+   */
+  test("arc/planned: a file two groups claim is a warning inside each of them, and nowhere else", async () => {
     await planList("arc/planned");
-    const warning = page.getByRole("region", { name: "Two groups claim the same file" });
-    await expect.element(warning).toHaveTextContent("running-rows.tsx");
-    await expect.element(warning).toHaveTextContent("group 3 (T6) and group 4 (T7)");
+    expect(
+      await page.getByRole("region", { name: "Two groups claim the same file" }).elements(),
+    ).toHaveLength(0);
+    await expect.element(groupCard(4)).toHaveTextContent("Group 3 writes these files too");
+    await expect.element(groupCard(4)).toHaveTextContent("running-rows.tsx");
+    await expect.element(groupCard(3)).toHaveTextContent("Group 4 writes these files too");
+    await expect.element(groupCard(1)).not.toHaveTextContent("writes these files too");
   });
 
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
@@ -412,7 +456,8 @@ describe("the plan", () => {
 
   test("arc/done-touched: a finished task shows what its own agent cost and a working one does not", async () => {
     await planList("arc/done-touched");
-    await expect.element(taskRow("T1")).toHaveTextContent("34 turns · ~$2.40");
+    await expect.element(taskRow("T1")).toHaveTextContent("34 turns");
+    await expect.element(taskRow("T1")).toHaveTextContent("~$2.40");
     await expect.element(taskRow("T7")).not.toHaveTextContent("$");
   });
 
@@ -442,6 +487,7 @@ describe("the plan", () => {
 
   test("arc/plan-revision-refused: the case that fell out of the revised scope reads dropped, with the revision that dropped it", async () => {
     await planList("arc/plan-revision-refused");
+    await openStrip(4, "Tests");
     await expect.element(groupCard(4)).toHaveTextContent("Running.test.tsx");
     await expect.element(groupCard(4)).toHaveTextContent("dropped by a scope revision");
     await expect

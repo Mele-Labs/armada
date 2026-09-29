@@ -10,8 +10,13 @@ import { ProposalField, ProposalFields } from "./ProposalFields";
  * offered or parked. Nothing here names Atomic, Complex or Convoy: a screen
  * says what a Job does, never what kind it is.
  *
- * **From and Lands in are both here and they are not the same field.** They
- * differ when you start from an unmerged branch or land in a long-lived one.
+ * **Base branch and Lands in are both here and they are not the same field.**
+ * They differ when you start from an unmerged branch or land in a long-lived
+ * one.
+ *
+ * **It read `From` until 28 Sep 2026** (`1hz0`). The composer's own picker
+ * became `Base branch` the same day (#1627) and job detail kept the old word,
+ * so the one field a person sets in two places had two names.
  */
 export type ProposalLandingValue = {
   /** Where the work lands. Empty is the Manifest naming no base. */
@@ -65,10 +70,10 @@ export function ProposalLanding({ landing, onLanding, completeChoices }: Proposa
     <section className="armada-proposal__region" aria-label="How it lands">
       <h3 className="armada-proposal__heading">How it lands</h3>
       <ProposalFields>
-        <ProposalField label="From" bare={open}>
+        <ProposalField label="Base branch" bare={open}>
           {open ? (
             <Input
-              aria-label="From"
+              aria-label="Base branch"
               value={landing.from}
               mono
               onChange={(event) => moved({ from: event.target.value })}

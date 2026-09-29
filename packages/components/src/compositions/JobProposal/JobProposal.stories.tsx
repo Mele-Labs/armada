@@ -63,19 +63,37 @@ const STEPS: ProposalGateRow[] = [
   },
 ];
 
+/**
+ * The address that makes a reference a link. **A forge is never named here**
+ * — which one a repository uses is `armada.yml`'s business and the adapter's,
+ * and a story is neither.
+ */
+const ISSUE_ADDRESS = "https://forge.example/armada/issues/1162";
+
 const CRITERIA = [
   {
     id: "a1",
     text: "The rail's Drones stat reads one running beside the machine's most",
-    origin: "from armada/1162",
-    verifiedBy: "check",
+    origin: "From issue",
+    // The address is what makes the reference a link. Nothing on the wire
+    // carries one, so the frozen story below draws the same reference as text.
+    issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
+    decidedBy: "A Check will decide it",
   },
   {
     id: "a2",
     text: "Pressing the stat lists the Drone's Job and step",
-    origin: "from armada/1162",
-    verifiedBy: "judge",
+    origin: "From issue",
+    issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
+    decidedBy: "The Judge will decide it",
   },
+];
+
+/** Every workflow this repository declares, as the picker offers them. */
+const WORKFLOWS = [
+  { id: "feature", name: "feature", steps: 4 },
+  // Seven, as `workflow-samples/bug.json` declares — the reference sample.
+  { id: "bug", name: "bug", steps: 7 },
 ];
 
 const COMPLETE = [
@@ -87,13 +105,13 @@ const COMMON = {
   title: "Show what is running in the Drones stat",
   request: {
     repository: "armada",
-    from: "main",
     said:
       "The Drones stat on the rail says \u201c1 of 2\u201d and I cannot tell a busy Fleet from a " +
       "stalled one. I want to see what is actually running, and have it stay live.",
     absent: "This job was given no context beyond its title.",
   },
   workflow: "feature",
+  workflowChoices: WORKFLOWS,
   steps: STEPS,
   tiers: { difficult: "opus", medium: "sonnet", easy: null },
   models: ["haiku", "sonnet", "opus"],
@@ -115,12 +133,17 @@ export const YoursToChange: Story = {
   args: {
     ...COMMON,
     onTitle: () => {},
+    onRequest: () => {},
+    onWorkflow: () => {},
     onGate: () => {},
     onOverride: () => {},
     onTiers: () => {},
     onDroneCap: () => {},
     onLanding: () => {},
     onCriterion: () => {},
+    onAddCriterion: () => {},
+    onRemoveCriterion: () => {},
+    onOpenIssue: () => {},
   },
 };
 

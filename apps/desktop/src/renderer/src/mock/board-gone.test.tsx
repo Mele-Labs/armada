@@ -14,10 +14,30 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-/** Overview's own menu, beside Dispatch. */
+/** Overview's own menu, which is the whole of the control since 28 Sep. */
 async function everythingElse(): Promise<void> {
   await page.getByRole("button", { name: "Everything else" }).click();
 }
+
+/**
+ * The owner, 28 Sep 2026: *"We dont need this button on the overview because
+ * its already right above it in the title bar."* The menu's face and the title
+ * row's button called one `onCompose`, so the face went and the menu stayed.
+ */
+test("Overview carries the menu and no Dispatch of its own, since the title row has one", async () => {
+  mount("every-state");
+  await onScreen();
+
+  const dispatch = page.getByRole("button", { name: "Dispatch", exact: true });
+  await expect.element(dispatch).toBeVisible();
+  // One, and it is the title row's: a second on the surface below it is the
+  // duplicate that was cut.
+  expect(dispatch.all()).toHaveLength(1);
+  expect(
+    page.getByRole("region", { name: "Overview" }).getByRole("button", { name: "Dispatch", exact: true }).query(),
+  ).toBeNull();
+  await expect.element(page.getByRole("button", { name: "Everything else" })).toBeVisible();
+});
 
 test("the Job Board is gone from the rail", async () => {
   mount("every-state");

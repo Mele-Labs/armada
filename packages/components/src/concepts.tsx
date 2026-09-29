@@ -133,7 +133,10 @@ const SAID: Readonly<Record<string, string>> = {
   repository:
     "The git repository this Job works in. Its Manifest is what declares the Checks, and the " +
     "worktree is cut from it.",
-  from:
+  // `Base branch` since 28 Sep 2026, matching the composer's own picker
+  // (#1627). It was keyed `from`, and job detail's label with it, which left
+  // one field with two names on two screens a minute apart.
+  "base branch":
     "The ref this Job's branch is cut from. It differs from where the work lands when you start " +
     "from a branch nothing has merged yet.",
   "lands in":

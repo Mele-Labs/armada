@@ -100,20 +100,23 @@ function hasRun(state: GroupState): boolean {
   return state === "passed" || state === "failed" || state === "retrying" || state === "landed";
 }
 
-/** `7 checks will run at this boundary`, in the tense the group's state earns. */
-export function boundarySaid(state: GroupState, checks: number): string {
-  const many = `${checks} ${checks === 1 ? "check" : "checks"}`;
-  if (state === "checking") return `${many} are running at this boundary`;
-  if (hasRun(state)) return `${many} ran at this boundary`;
-  return `${many} will run at this boundary`;
+/**
+ * `will run at this boundary`, in the tense the group's state earns.
+ *
+ * **The clause, not the sentence.** The strip draws the count beside it, and
+ * `7` next to `7 checks will run` is one number said twice.
+ */
+export function boundaryClause(state: GroupState): string {
+  if (state === "checking") return "running at this boundary";
+  if (hasRun(state)) return "ran at this boundary";
+  return "will run at this boundary";
 }
 
-/** `1 test runs at this boundary`. Nothing where none does. */
-export function testsSaid(state: GroupState, tests: number): string | undefined {
+/** `run at this boundary`. Nothing where no case does. */
+export function testsClause(state: GroupState, tests: number): string | undefined {
   if (tests === 0) return undefined;
-  const many = `${tests} ${tests === 1 ? "test" : "tests"}`;
-  if (hasRun(state)) return `${many} ran at this boundary`;
-  return `${many} ${tests === 1 ? "runs" : "run"} at this boundary`;
+  if (hasRun(state)) return "ran at this boundary";
+  return `${tests === 1 ? "runs" : "run"} at this boundary`;
 }
 
 /**
@@ -163,6 +166,16 @@ export function spentSaid(task: TaskView): string | undefined {
   return parts.length === 0 ? undefined : parts.join(" · ");
 }
 
+/** `34 turns`, for the row's own column. Nothing before its agent started. */
+export function turnsSaid(task: TaskView): string | undefined {
+  return task.turns === undefined ? undefined : `${task.turns} turns`;
+}
+
+/** `~$2.40`, for the row's own column. Nothing until its agent stopped. */
+export function costSaid(task: TaskView): string | undefined {
+  return task.cost_micros === undefined ? undefined : money(task.cost_micros);
+}
+
 /** How a task is run, in words a person reads rather than the wire's enum. */
 export function runBySaid(task: TaskView): string {
   switch (task.treatment) {
@@ -175,11 +188,11 @@ export function runBySaid(task: TaskView): string {
   }
 }
 
-/** `runs beside T5`. Nothing where the task runs alone. */
+/** `beside T5`. Nothing where the task runs alone. */
 export function besideSaid(task: TaskView): string | undefined {
   return task.concurrent_with.length === 0
     ? undefined
-    : `runs beside ${task.concurrent_with.join(", ")}`;
+    : `beside ${task.concurrent_with.join(", ")}`;
 }
 
 /**
@@ -204,32 +217,55 @@ export function touchedByOf(groups: readonly GroupView[]): Map<string, string> {
 }
 
 /**
- * Files two groups both claim. **A warning line and not a refusal** — the plan
- * is legal, and what it costs is a task finished once and edited again, which
- * is what `touched_after_done` then flags.
+ * Where a group writes, as one value: the deepest directory every path it
+ * claims sits under, and how many paths that is.
+ *
+ * **A root rather than the list.** The list said neither where the gate
+ * measures the diff nor where the next group collides (owner, 28 Sep 2026);
+ * the root says the first exactly, and `overlapsOf` says the second.
  */
-export function clashesOf(groups: readonly GroupView[]): { path: string; says: string }[] {
-  const claims = new Map<string, { group: number; task: string }[]>();
+export function scopeRootOf(paths: readonly string[]): { root: string; count: number } {
+  if (paths.length === 0) return { root: "the whole repository", count: 0 };
+  const [first, ...rest] = paths;
+  let common = (first ?? "").split("/").slice(0, -1);
+  for (const path of rest) {
+    const parts = path.split("/").slice(0, -1);
+    let at = 0;
+    while (at < common.length && at < parts.length && common[at] === parts[at]) at += 1;
+    common = common.slice(0, at);
+  }
+  const root = common.length === 0 ? "**" : `${common.join("/")}/**`;
+  return { root, count: paths.length };
+}
+
+/**
+ * Which files each group shares with another, keyed by group id.
+ *
+ * **On the group's own card**, the owner's call of 28 Sep 2026: a warning
+ * that group 4 overlaps group 3 belongs on group 4, not in a band above the
+ * plan where it names two groups a reader then has to go and find.
+ */
+export function overlapsOf(
+  groups: readonly GroupView[],
+): Map<string, { says: string; paths: string[] }[]> {
+  const claimed = new Map<string, Set<string>>();
   for (const group of groups) {
-    for (const task of group.tasks) {
-      for (const path of task.scope) {
-        const held = claims.get(path) ?? [];
-        if (!held.some((one) => one.group === group.ordinal)) {
-          held.push({ group: group.ordinal, task: task.id });
-        }
-        claims.set(path, held);
-      }
+    claimed.set(group.id, new Set(group.tasks.flatMap((task) => task.scope)));
+  }
+  const found = new Map<string, { says: string; paths: string[] }[]>();
+  for (const group of groups) {
+    const mine = claimed.get(group.id) ?? new Set<string>();
+    const shared: { says: string; paths: string[] }[] = [];
+    for (const other of groups) {
+      if (other.id === group.id) continue;
+      const theirs = claimed.get(other.id) ?? new Set<string>();
+      const both = [...mine].filter((path) => theirs.has(path));
+      if (both.length === 0) continue;
+      shared.push({ says: `Group ${other.ordinal} writes these files too`, paths: both });
     }
+    if (shared.length > 0) found.set(group.id, shared);
   }
-  const clashes: { path: string; says: string }[] = [];
-  for (const [path, held] of claims) {
-    if (held.length < 2) continue;
-    clashes.push({
-      path,
-      says: held.map((one) => `group ${one.group} (${one.task})`).join(" and "),
-    });
-  }
-  return clashes;
+  return found;
 }
 
 /**
@@ -278,7 +314,7 @@ export function asksOf(groups: readonly GroupView[], at: number): PlanBoardAsk[]
  * Everything else about a split — why these tasks, why this size — is the
  * Drone's to answer, which is what the ask is for.
  *
- * **A warning and not a refusal**, on `clashesOf`'s terms: the reorder is
+ * **A warning and not a refusal**, on `overlapsOf`'s terms: the reorder is
  * legal and what it costs is a file written in the other order.
  */
 export function reorderWarning(

@@ -1,5 +1,6 @@
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Button } from "../../primitives/Button/Button";
+import { Select } from "../../primitives/Select/Select";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_ALWAYS_LOOKS } from "../../guides";
 
@@ -18,6 +19,17 @@ export type ProposalGateRow = {
   id: string;
   /** What the step is called. */
   label: string;
+  /**
+   * Whether that name is the `step_id`, so it renders in mono.
+   *
+   * **Mono is for a value a person copies, and a step's name is not one**
+   * (`0bgt`, 28 Sep) — every step here was mono, including `Plan the change`.
+   * A workflow that declares no label gets its id substituted by Fleet
+   * (`WorkflowSummary.steps`), and *that* is an identifier; `bug` is the
+   * reference sample and every one of its seven steps reads that way. The
+   * spelling is `Inspector.tsx`'s, which is where this rule already lives.
+   */
+  labelIsAnIdentifier?: boolean;
   checks: boolean;
   judge: boolean;
   you: boolean;
@@ -50,7 +62,16 @@ export type ProposalGateRow = {
 /** Which of the three boxes moved. */
 export type GateBox = "checks" | "judge" | "you";
 
+/** One workflow this Job could run, as the picker offers it. */
+export type WorkflowChoice = { id: string; name: string; steps: number };
+
 export type ProposalGatesProps = {
+  /** The workflow this Job runs, by the id its own file declares. */
+  workflow: string;
+  /** Every workflow the picker offers. Empty draws the name and no control. */
+  workflowChoices: readonly WorkflowChoice[];
+  /** Another workflow picked. Absent draws the name frozen. */
+  onWorkflow?: (workflowId: string) => void;
   steps: readonly ProposalGateRow[];
   /** Approved, so the heading says the gate cannot move any more. */
   frozen?: boolean;
@@ -60,23 +81,68 @@ export type ProposalGatesProps = {
   onOverride?: (stepId: string, overridden: boolean) => void;
 };
 
-export function ProposalGates({ steps, frozen, onGate, onOverride }: ProposalGatesProps) {
+/**
+ * The workflow, and what gates each of its steps.
+ *
+ * **One section since 28 Sep 2026** (`2b4j`). The picker was a field in the
+ * run of settings at the top and the gates were a region at the bottom, with
+ * the tier map between them — so the thing being chosen and the steps it
+ * brings with it were two blocks a screen apart. They are one region now: pick
+ * the workflow, then customise each step it declares.
+ */
+export function ProposalGates({
+  workflow,
+  workflowChoices,
+  onWorkflow,
+  steps,
+  frozen,
+  onGate,
+  onOverride,
+}: ProposalGatesProps) {
+  const named = workflowChoices.find((one) => one.id === workflow);
   return (
-    <section className="armada-proposal__region" aria-label="The gate on each step">
+    <section className="armada-proposal__region" aria-label="Workflow">
       {/* The `?` on the heading, not on a row: what the ticks cannot turn off
           is the same about every step, and a mark per row would read as a
           property of that row. The sentence that used to stand here is guide
           9 — it was true of a Job nobody had approved (#1602). */}
       <div className="armada-proposal__heading-row">
-        <h3 className="armada-proposal__heading">
-          {frozen ? "The gate on each step, frozen" : "The gate on each step"}
-        </h3>
+        <h3 className="armada-proposal__heading">{frozen ? "Workflow, frozen" : "Workflow"}</h3>
         <GuideMark guide={GUIDE_ALWAYS_LOOKS} />
       </div>
+      {/* The picker carries no label of its own: the heading above it is the
+          label, and `Workflow — Workflow` is what a field under it would
+          read. The steps beneath are what it brings with it. */}
+      {onWorkflow === undefined || workflowChoices.length === 0 ? (
+        <p className="armada-proposal__workflow-said">
+          {stepsSaid(named?.name ?? workflow, steps.length)}
+        </p>
+      ) : (
+        <Select
+          aria-label="Workflow"
+          value={workflow}
+          onChange={(event) => onWorkflow(event.target.value)}
+        >
+          {/* A Job naming a workflow this Fleet has no record of still reads
+              as itself: dropping it would make the picker answer a different
+              question from the one the Job is on. */}
+          {named === undefined ? <option value={workflow}>{workflow}</option> : null}
+          {workflowChoices.map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {stepsSaid(choice.name, choice.steps)}
+            </option>
+          ))}
+        </Select>
+      )}
       <ul className="armada-proposal__gates">
         {steps.map((step) => (
           <li className="armada-proposal__gate" key={step.id} aria-label={step.label}>
-            <span className="armada-proposal__gate-step">{step.label}</span>
+            <span
+              className="armada-proposal__gate-step"
+              data-identifier={step.labelIsAnIdentifier === true ? "true" : undefined}
+            >
+              {step.label}
+            </span>
             {step.repositoryDecides !== undefined && step.overridden !== true ? (
               <Deferred
                 step={step}
@@ -110,6 +176,15 @@ export function ProposalGates({ steps, frozen, onGate, onOverride }: ProposalGat
       </ul>
     </section>
   );
+}
+
+/**
+ * A workflow with how many steps it runs. **One spelling**, so the picker's
+ * options and the frozen reading cannot drift apart. A workflow of one step
+ * says `step`, because `1 steps` is how a screen reads as generated.
+ */
+function stepsSaid(name: string, steps: number): string {
+  return `${name} — ${steps} ${steps === 1 ? "step" : "steps"}`;
 }
 
 /** The three boxes, ticked or read. */
