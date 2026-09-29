@@ -24,7 +24,6 @@ import { span } from "./duration";
 import {
   LOOK_FAILED,
   nothingToAsk,
-  PULSE_REFRESHES,
   pulseFiguresOf,
   pulseReadingOf,
   whyNoReading,
@@ -392,7 +391,6 @@ function pulseOf(
     figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),
-    refreshed: PULSE_REFRESHES,
     examined,
     looking: looked?.state === "looking",
     ...(looked?.state === "failed" ? { lookFailed: LOOK_FAILED } : {}),

@@ -217,3 +217,13 @@
   display: flex;
   gap: var(--space-3);
 }
+
+/* A status dot, for the story whose trigger is a mark with no words of its
+ * own. Story furniture; Pulse's worktree dot is the real one. */
+.armada-tooltip__mark {
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--status-running);
+  align-self: center;
+}
