@@ -83,6 +83,13 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const [tab, setTab] = useState<DetailTab>(FIRST_TAB);
+  // The step Workflow opens on, where the Record's reading sent a person
+  // there. Cleared by the strip, so the next visit opens on nothing.
+  const [opensStep, setOpensStep] = useState<string | undefined>(undefined);
+  const toTab = (next: DetailTab) => {
+    setOpensStep(undefined);
+    setTab(next);
+  };
 
   // Whether the report dialog is up. Two controls open it — the Job header's
   // menu entry and `b` — and the keyboard is bound on the tab that draws the run.
@@ -201,7 +208,7 @@ function OneJob(props: JobDetailProps) {
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
-      <JobTabs value={tab} onChange={setTab} counts={countsOf(whole, job)} />
+      <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
       {tab === "overview" && edits !== undefined ? (
         // A Job at or just past its approval gate: the proposal is what
@@ -253,7 +260,8 @@ function OneJob(props: JobDetailProps) {
           onActHeld={props.onActHeld}
           // Where the Plan node goes. The strip is this screen's, so the run
           // asks for the destination rather than moving one itself.
-          onOpenPlan={() => setTab("plan")}
+          onOpenPlan={() => toTab("plan")}
+          {...(opensStep === undefined ? {} : { opensStep })}
         />
       ) : tab === "plan" ? (
         <PlanTab
@@ -294,6 +302,10 @@ function OneJob(props: JobDetailProps) {
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
           onSaid={props.onSaid}
+          onOpenStep={(stepId) => {
+            setOpensStep(stepId);
+            setTab("workflow");
+          }}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id)} jobId={job.id} onNeedPulse={props.onNeedPulse} />

@@ -21,7 +21,7 @@ import {
   type LedgerRow,
 } from "./draft/ledger";
 
-/** All, and the eight families after it. The strip draws them in this order. */
+/** All, and the eight families after it. The filter menu lists them in this order. */
 export const RECORD_FILTERS = ["all", ...LEDGER_FAMILIES] as const;
 
 export type RecordFilter = (typeof RECORD_FILTERS)[number];

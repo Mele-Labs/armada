@@ -10,19 +10,19 @@
 // `record.ts`, and this file holds the open state of one reading.
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import {
   ADVANCE_GATE,
   Button,
   ConsoleOutput,
+  DropdownMenu,
   GUIDE_DRIFT,
   GuideMark,
   JobLedger,
-  Select,
   STEP_STATE,
   type JobLedgerRow,
 } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
-import { useNarrow } from "@armada/shell";
 
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf, clock } from "./duration";
@@ -36,7 +36,8 @@ import {
   type RecordFilter,
 } from "./record";
 import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
-import { Eyebrow } from "./regions";
+import { Eyebrow, FieldLabel } from "./regions";
+import { titleOf } from "./record-cells";
 import { taskGroupsOf } from "./draft/group";
 import { familyOf, type LedgerRow } from "./draft/ledger";
 
@@ -51,6 +52,11 @@ export type RecordTabProps = {
   onReadCheckOutput: ReadCheckOutput;
   /** Say a sentence to the person — what an act that is not built yet answers. */
   onSaid: (sentence: string) => void;
+  /**
+   * Open a step in the Workflow destination, its panel open. **The screen's,
+   * not this tab's** — `JobDetail.tsx` owns which destination is open.
+   */
+  onOpenStep: (stepId: string) => void;
 };
 
 export function RecordTab({
@@ -60,6 +66,7 @@ export function RecordTab({
   floor,
   onReadCheckOutput,
   onSaid,
+  onOpenStep,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
   // Which step the rows are narrowed to. `null` is every step, and the Job's
@@ -68,19 +75,16 @@ export function RecordTab({
   // Which row is open. **Held here and not in the ledger**, so a live redraw of
   // the Record does not close the row somebody is reading.
   const [openRow, setOpenRow] = useState<string | null>(null);
-  const narrow = useNarrow();
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
 
   const atStep = useMemo(() => underStep(rows, step), [rows, step]);
   const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
   const drawn = useMemo(() => ledgerRowsFor(shown, detail), [shown, detail]);
-  // Beside the table the pane always reads a row, the newest until somebody
-  // presses another: a column saying nothing is open is an empty frame. Folded
-  // into a sheet, nothing opens until it is pressed.
-  const reading = openRow ?? (narrow ? null : (drawn[0]?.id ?? null));
-  const open = shown.find((row) => String(row.cursor) === reading);
-  const openDrawn = drawn.find((row) => row.id === reading);
+  // Nothing is open until a row is pressed: the reading is a sheet over the
+  // table, and one nobody asked for would cover the rows it reads.
+  const open = shown.find((row) => String(row.cursor) === openRow);
+  const openDrawn = drawn.find((row) => row.id === openRow);
   // The steps a row names, in the Job's own order. A step nothing happened in
   // is not a place to narrow to.
   const steps = (detail?.steps ?? []).filter((one) =>
@@ -108,30 +112,33 @@ export function RecordTab({
           }}
           controls={
             steps.length < 2 ? undefined : (
-              <Select
-                aria-label="Step"
-                value={step ?? ""}
-                onChange={(event) => {
-                  setStep(event.target.value === "" ? null : event.target.value);
+              // A menu like the filter's beside it, so the head is one row of
+              // one kind of control.
+              <DropdownMenu
+                align="start"
+                triggerLabel={steps.find((one) => one.step_id === step)?.label ?? ANY_STEP}
+                entries={[
+                  { kind: "item", id: "", label: ANY_STEP, selected: step === null },
+                  ...steps.map((one) => ({
+                    kind: "item" as const,
+                    id: one.step_id,
+                    label: one.label,
+                    selected: one.step_id === step,
+                  })),
+                ]}
+                onSelect={(id) => {
+                  setStep(id === "" ? null : id);
                   setOpenRow(null);
                 }}
-              >
-                <option value="">Any step</option>
-                {steps.map((one) => (
-                  <option key={one.step_id} value={one.step_id}>
-                    {one.label}
-                  </option>
-                ))}
-              </Select>
+              />
             )
           }
-          openRow={reading}
+          openRow={openRow}
           onOpenRow={setOpenRow}
           kindMarks={filter === "all"}
           floor={floor}
-          narrow={narrow}
           emptyNote={EMPTY[filter]}
-          {...(open === undefined ? {} : { inspectorTitle: open.what })}
+          {...(open === undefined ? {} : { inspectorTitle: titleOf(open) })}
           {...(open === undefined || openDrawn === undefined
             ? {}
             : {
@@ -144,6 +151,7 @@ export function RecordTab({
                     detail={detail}
                     outputs={outputs}
                     onSaid={onSaid}
+                    onOpenStep={onOpenStep}
                   />
                 ),
               })}
@@ -152,6 +160,8 @@ export function RecordTab({
     </div>
   );
 }
+
+const ANY_STEP = "Any step";
 
 /** What each filter says when it holds nothing. Never one sentence for nine. */
 const EMPTY: Record<RecordFilter, string> = {
@@ -174,6 +184,7 @@ type RowReadProps = {
   detail: JobWhole;
   outputs: ReturnType<typeof useCheckOutputs>;
   onSaid: (sentence: string) => void;
+  onOpenStep: (stepId: string) => void;
 };
 
 /**
@@ -183,7 +194,7 @@ type RowReadProps = {
  * four views could not put side by side: the run, the lines it printed, and
  * the step the run decided.
  */
-function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
+function RowRead({ row, rows, drawn, detail, outputs, onSaid, onOpenStep }: RowReadProps) {
   const step = detail.steps.find((one) => one.step_id === row.coord?.step);
   const run =
     row.kind !== "checked"
@@ -195,7 +206,6 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
   const name = kept === undefined ? undefined : basename(kept);
   const held = name === undefined ? undefined : outputs.of(name);
   const family = familyOf(row.kind);
-  const machine = family === "checks" || family === "files";
 
   // Opening the row is the ask: the reading is what the pane is for, and a
   // second press to see it was the step the board does not draw.
@@ -204,16 +214,46 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
   }, [name, outputs]);
 
   const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
+  // Who ran it, where the eyebrow has not already said so: a Check's row is
+  // run by a Check, and `Check · Implement` over `06:46:00 · Check` said it
+  // twice. A Drone writing a File is a fact the eyebrow does not carry.
+  const who = family !== null && drawn.whoSays === FAMILY_SAYS[family] ? null : drawn.whoSays;
+  // The step, as a way to it: the eyebrow names it, and pressing it opens the
+  // step's panel in Workflow. What follows the step — its group, its task —
+  // stays words, after the step's chevron, which reads as the trail's own
+  // separator rather than a `›` and a `·` side by side.
+  const where = typeof drawn.where === "string" ? drawn.where : undefined;
+  const after =
+    step === undefined || where === undefined || !where.startsWith(step.label)
+      ? undefined
+      : where.slice(step.label.length).replace(/^ · /, " ");
 
   return (
     <div className="armada-ledger__read">
       <header className="armada-ledger__read-head">
         <Eyebrow>
-          {family == null ? drawn.where : `${FAMILY_SAYS[family]} · ${drawn.where}`}
+          {family == null ? null : `${FAMILY_SAYS[family]} · `}
+          {step === undefined || after === undefined ? (
+            drawn.where
+          ) : (
+            <>
+              <button
+                type="button"
+                className="armada-screen__eyebrow-act"
+                onClick={() => onOpenStep(step.step_id)}
+              >
+                {step.label}
+                <ChevronRight size={12} strokeWidth={2} aria-hidden />
+              </button>
+              {after}
+            </>
+          )}
         </Eyebrow>
-        <p className="armada-ledger__read-name" data-machine={machine || undefined}>
-          {row.what}
-        </p>
+        {/* The sheet's title names the row; this is drawn only where the title
+            had to shorten it — a row of paths, read whole here. */}
+        {titleOf(row) === row.what ? null : (
+          <p className="armada-ledger__read-name">{row.what}</p>
+        )}
         <p className="armada-ledger__read-status">
           {run === undefined ? null : (
             <span className="armada-ledger__read-outcome" data-tone={drawn.tone}>
@@ -221,7 +261,8 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
             </span>
           )}
           <span className="armada-ledger__read-meta" title={absoluteOf(row.at) ?? undefined}>
-            {clock(row.at)} · {drawn.whoSays}
+            {clock(row.at)}
+            {who === null ? null : <> · {who}</>}
           </span>
         </p>
       </header>
@@ -239,13 +280,17 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
           )
         ) : (
           <>
-            {run.produced === undefined && run.expected === undefined ? null : (
-              <p className="armada-ledger__read-said">
-                {run.produced === undefined ? null : sentenceCase(run.produced)}
-                {run.expected === undefined ? null : (
-                  <span className="armada-ledger__read-expected">Expected {run.expected}</span>
-                )}
-              </p>
+            {/* What it produced, and what it was held to: two things, so two
+                treatments — the result as body text, the bar as a labelled
+                field under it. Run together they read as one sentence. */}
+            {run.produced === undefined ? null : (
+              <p className="armada-ledger__read-produced">{sentenceCase(run.produced)}</p>
+            )}
+            {run.expected === undefined ? null : (
+              <div className="armada-ledger__read-field">
+                <FieldLabel>Expected</FieldLabel>
+                <p className="armada-ledger__read-said">{sentenceCase(run.expected)}</p>
+              </div>
             )}
 
             <section className="armada-ledger__read-section">
@@ -288,7 +333,11 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
           </>
         )}
 
-        <RunAgain row={row} detail={detail} onSaid={onSaid} />
+        {/* Only where a gate on a group failed: running again is the answer
+            to a failure, and a group nothing failed in has nothing to retry. */}
+        {(family === "checks" || family === "judges") && drawn.tone === "failed" ? (
+          <RunAgain row={row} detail={detail} onSaid={onSaid} />
+        ) : null}
       </div>
     </div>
   );

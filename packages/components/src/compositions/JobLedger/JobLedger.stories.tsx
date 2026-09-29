@@ -5,8 +5,8 @@ import { useState } from "react";
 import { JobLedger, type JobLedgerRow } from "./JobLedger";
 
 /**
- * One table of everything that happened to a Job, newest first, with a strip
- * that narrows it and the open row beside it.
+ * One table of everything that happened to a Job, newest first, with a filter
+ * menu that narrows it and the open row in a sheet over it.
  *
  * The rows, their words and which filter each answers to are the caller's.
  * This decides the chrome, where the panel goes at a width, and how much of an
@@ -175,7 +175,7 @@ export const ARowNoFilterNames: Story = {
   },
 };
 
-/** A row open, with the inspector beside the table. */
+/** A row open, read in the sheet over the table. */
 export const ARowOpen: Story = {
   args: {
     rows: ROWS,
@@ -230,7 +230,7 @@ export const OneFamilyNoMarks: Story = {
   },
 };
 
-/** A filter that holds nothing. Never a bare strip over an empty frame. */
+/** A filter that holds nothing. Never a bare menu over an empty frame. */
 export const NothingUnderThisFilter: Story = {
   args: {
     rows: [],

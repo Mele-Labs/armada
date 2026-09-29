@@ -69,6 +69,17 @@ export function whatCellOf(row: LedgerRow): ReactNode {
   );
 }
 
+/**
+ * The open row's name, for the sheet's title. **A row of paths is named by
+ * their filenames**, as its What cell is: a title does not wrap, and two whole
+ * paths ran under the sheet's Close at 1280. The paths are read whole under it.
+ */
+export function titleOf(row: LedgerRow): string {
+  if (!PATHS_IN.includes(row.kind)) return row.what;
+  const paths = row.what.split(", ").filter((one) => one !== "");
+  return paths.length === 0 ? row.what : paths.map(basenameOf).join(", ");
+}
+
 // A path at the repository root has no separator, and `lastIndexOf` returning
 // -1 makes the slice the whole string, which is the right answer for one.
 function basenameOf(path: string): string {

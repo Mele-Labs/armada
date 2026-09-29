@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import {
   Table,
@@ -8,7 +9,6 @@ import {
   TableHeaderCell,
   TableRow,
 } from "../../primitives/Table/Table";
-import { TabsWithCounts } from "../../primitives/TabsWithCounts/TabsWithCounts";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -32,15 +32,16 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * filter has already said the family, and a spelling like `task_files` was
  * costing a sentence's width to say what the row's words say.
  *
- * **The filters sit inside the panel they narrow**, on its head row beside the
- * panel's own controls. Stacked under the destinations as a second strip, the
- * two read as one level (the owner, 28 September 2026).
+ * **The filters are a menu in the panel's head**, beside the panel's own
+ * controls. Stacked under the destinations as a second strip, the two read as
+ * one level (the owner, 28 September 2026); drawn in the head as a segmented
+ * strip, nine counted filters overflowed and wrapped at laptop width (the
+ * owner, 29 September 2026). The menu reads the chosen filter and its count.
  *
- * **The open row is a column beside the table, and a sheet below
- * `--layout-breakpoint`.** It was a sheet at every width while Helm's dock took
- * 380px off the content and left the table 250px; the dock is a layer now
- * (#1583), and the board draws the two side by side. The floor is still the
- * width a column cannot pay for.
+ * **The open row is a sheet over the table, at every width, and only once a
+ * row is pressed.** It was a column beside the table above
+ * `--layout-breakpoint` for a day, and at a 14" laptop's full width that left
+ * both the table and the reading too narrow (the owner, 29 September 2026).
  */
 
 /** Who ran a row, as the column reads it. */
@@ -102,12 +103,15 @@ export type JobLedgerFilter = {
 export type JobLedgerProps = {
   /** The rows the chosen filter holds, newest first. */
   rows: readonly JobLedgerRow[];
-  /** The strip above the table — All first, and the families after it. */
+  /**
+   * The filter menu in the panel's head — All first, and the families after
+   * it. The trigger reads the chosen one and its count.
+   */
   filters: readonly JobLedgerFilter[];
   filter: string;
   onFilter: (id: string) => void;
   /**
-   * One line under the strip, for what the counts cannot say — the rows All
+   * One line under the panel's head, for what the counts cannot say — the rows All
    * holds that no filter does. **Absent draws nothing**, which is the ordinary
    * case: it appears only where the arithmetic would otherwise be a reader's
    * to do.
@@ -131,18 +135,13 @@ export type JobLedgerProps = {
   bound?: number;
   /**
    * Lead each row with its kind's mark. **On All alone**: under a filter that
-   * names one family, a column of one repeated glyph says only what the strip
-   * above it already said.
+   * names one family, a column of one repeated glyph says only what the filter
+   * menu above it already said.
    */
   kindMarks?: boolean;
   /** The window is at `--window-floor`, where the folded inspector goes flush. */
   floor?: boolean;
-  /**
-   * The window is at or below `--layout-breakpoint`. The open row folds into a
-   * sheet over the table rather than taking a column beside it.
-   */
-  narrow?: boolean;
-  /** Controls at the trailing end of the filter row — the panel's own, not filters. */
+  /** Controls beside the filter menu — the panel's own, not filters. */
   controls?: ReactNode;
 };
 
@@ -164,22 +163,29 @@ export function JobLedger({
   bound = BOUND,
   kindMarks = false,
   floor = false,
-  narrow = false,
   controls,
 }: JobLedgerProps) {
   const drawn = rows.slice(0, bound);
   const leftOut = rows.length - drawn.length;
+  const chosen = filters.find((one) => one.id === filter);
 
   return (
     <>
-      <div className="armada-ledger" data-narrow={narrow || undefined}>
+      <div className="armada-ledger">
         <section className="armada-ledger__list armada-glass" aria-label="What the Record holds">
           <div className="armada-ledger__head">
-            <TabsWithCounts
-              label="What the Record holds"
-              value={filter}
-              onChange={onFilter}
-              items={filters.map((one) => ({ id: one.id, label: one.label, count: one.count }))}
+            <DropdownMenu
+              align="start"
+              triggerLabel={chosen?.label ?? filter}
+              {...(chosen === undefined ? {} : { triggerCount: chosen.count })}
+              entries={filters.map((one) => ({
+                kind: "item",
+                id: one.id,
+                label: one.label,
+                count: one.count,
+                selected: one.id === filter,
+              }))}
+              onSelect={onFilter}
             />
             {controls === undefined ? null : (
               <div className="armada-ledger__controls">{controls}</div>
@@ -284,23 +290,11 @@ export function JobLedger({
           ) : null}
         </section>
 
-        {narrow ? null : (
-          <aside
-            className="armada-ledger__pane armada-glass"
-            aria-label={inspectorTitle ?? "This row"}
-          >
-            {inspector ?? (
-              <p className="armada-ledger__note armada-ledger__note--inset" role="note">
-                {inspectorAbsent}
-              </p>
-            )}
-          </aside>
-        )}
       </div>
 
       {/* Contained, so the shell's rail stays out from under the layer. */}
       <Sheet
-        open={narrow && openRow !== null}
+        open={openRow !== null}
         contained
         floor={floor}
         title={inspectorTitle ?? "This row"}
@@ -311,7 +305,7 @@ export function JobLedger({
       >
         <div className="armada-ledger__panel">
           {inspector ?? (
-            <p className="armada-ledger__note" role="note">
+            <p className="armada-ledger__note armada-ledger__note--inset" role="note">
               {inspectorAbsent}
             </p>
           )}

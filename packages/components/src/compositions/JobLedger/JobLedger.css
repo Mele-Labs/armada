@@ -1,6 +1,6 @@
-/* Job ledger — one bordered panel holding its filters and its table, and the
-   open row read whole beside it. Below --layout-breakpoint the reading folds
-   into a sheet over the table; the component's own note carries why. */
+/* Job ledger — one bordered panel holding its filter menu and its table. The
+   open row is read whole in a sheet over the table, at every width; the
+   component's own note carries why. */
 .armada-ledger {
   display: flex;
   align-items: flex-start;
@@ -20,9 +20,9 @@
   overflow: hidden;
 }
 
-/* The panel's head: its filters leading, its own controls trailing. The rule
-   under it is the one that separates the panel's controls from what they
-   narrow. */
+/* The panel's head: its filter menu, and its own controls beside it, one row
+   of one kind of control. The rule under it is the one that separates the
+   panel's controls from what they narrow. */
 .armada-ledger__head {
   display: flex;
   flex-wrap: wrap;
@@ -37,28 +37,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
 }
 
 /* A note inside the panel keeps the head's inset, so it lines up with the
    filters rather than touching the panel's edge. */
 .armada-ledger__note--inset {
   padding: var(--space-3) var(--space-4);
-}
-
-/* The open row, read whole, beside the table. --w-run-column is the step
-   inspector's width: the board draws 392px, which is not on the ladder, and
-   380 is the nearest column the app already pays for. Sticky, so a long
-   Record scrolls under a reading that stays put. */
-.armada-ledger__pane {
-  position: sticky;
-  top: 0;
-  flex: none;
-  width: var(--w-run-column);
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border-radius: var(--radius-lg);
 }
 
 /* Inside the panel the heading row sits on the glass rather than on a band of
@@ -79,14 +63,22 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--pad-card);
 }
 
 /* The sheet already draws the surface, the border and the radius, so the panel
-   draws none of them — a card inside a card. It keeps its own padding, which
-   is why the sheet is `bleed`. */
+   draws none of them — a card inside a card. The reading carries its own
+   inset, the sheet head's, so its rules run to the sheet's edges — which is
+   why the sheet is `bleed`. */
 .armada-ledger__panel {
   flex: 1;
+}
+
+/* The sheet's title does not wrap, and a row naming several files can be
+   longer than the sheet: it ends in an ellipsis rather than running under
+   Close. The whole of it is read under the eyebrow. */
+.armada-sheet:has(.armada-ledger__panel) .armada-sheet__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* table-layout: auto, so every column is sized from its own content once for
@@ -271,7 +263,7 @@
   color: var(--fg-default);
 }
 
-/* The open row, read whole — the board's pane. A head carrying what the row
+/* The open row, read whole, in the sheet. A head carrying what the row
    is, where, and what it came to; a body of labelled sections under it; the
    act last. */
 .armada-ledger__read {
@@ -285,22 +277,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-6);
   border-bottom: var(--border-width) solid var(--border-subtle);
   min-width: 0;
 }
 
+/* The paths a file row names, whole, under the sheet title's filenames. */
 .armada-ledger__read-name {
   margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-default);
   overflow-wrap: anywhere;
-}
-
-/* A Check's command and a file's path are machine strings, and read as one. */
-.armada-ledger__read-name[data-machine] {
-  font-family: var(--font-mono);
 }
 
 .armada-ledger__read-status {
@@ -340,8 +329,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-6);
   min-width: 0;
+}
+
+/* At the floor the sheet's head tightens, and the reading keeps its inset. */
+.armada-sheet[data-floor] .armada-ledger__read-head,
+.armada-sheet[data-floor] .armada-ledger__read-body {
+  padding: var(--space-3) var(--space-4);
 }
 
 .armada-ledger__read-section {
@@ -367,8 +362,23 @@
   display: block;
 }
 
-.armada-ledger__read-expected {
-  color: var(--fg-subtle);
+/* What a Check produced: the result, so body text in --fg-default — one step
+   up from the muted sentences around it, which are context. */
+.armada-ledger__read-produced {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
+/* What it was held to, as a labelled field: the label over the value, so the
+   bar reads as a different thing from the result above it. */
+.armada-ledger__read-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 /* The board's well: --bg-sunken, the log pane's own ground. */
@@ -400,7 +410,7 @@
   background: var(--run-passed);
 }
 
-/* The act is last, the full width of the pane, under whatever it acts on. */
+/* The act is last, the full width of the sheet, under whatever it acts on. */
 .armada-ledger__read-body > .armada-button:last-child {
   margin-top: auto;
 }
