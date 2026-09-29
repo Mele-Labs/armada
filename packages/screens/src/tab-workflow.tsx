@@ -111,6 +111,12 @@ export function WorkflowTab({
   const [open, setOpen] = useState<string | null>(
     opensStep === undefined ? null : stepNodeId(opensStep),
   );
+  // **And again whenever it changes**, not only at mount: Back after a jump
+  // out of this tab lands on the step it left, and the screen hands that step
+  // in here (`trail.ts`). Plan answers its own `opensTask` the same way.
+  useEffect(() => {
+    if (opensStep !== undefined) setOpen(stepNodeId(opensStep));
+  }, [opensStep]);
   // Whether the canvas re-centres on the running step as the Job advances.
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
