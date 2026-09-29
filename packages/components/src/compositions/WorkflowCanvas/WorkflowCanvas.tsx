@@ -107,6 +107,20 @@ export type WorkflowCanvasProps = {
    * plan is a column and centres the way a fit does.
    */
   hangsFromTop?: boolean;
+  /**
+   * Whether the spine runs top to bottom rather than left to right (owner,
+   * 29 Sep 2026). A loop then returns along the column's right side instead
+   * of arcing above the row, for the same reason: beside the spine, never on it.
+   */
+  runsDown?: boolean;
+  /**
+   * The node a panel is open on, and how many pixels of the frame's right side
+   * that panel covers. **The canvas slides left just far enough that the node
+   * sits clear of it** (owner, 29 Sep 2026: *pan the canvas a bit so the
+   * selected node stays visible when the panel opens*), and not at all when it
+   * already is, or when the panel leaves no room beside it.
+   */
+  keepsClear?: { id: string; right: number } | null;
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps }, "workflow">;
@@ -178,6 +192,9 @@ const EDGE_TYPES = { workflow: EdgeView };
 
 /** A returning edge leaves and arrives on the top edge, which is what puts its arc above the spine. */
 const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Top}` };
+
+/** The same, on a spine that runs down: out of the right edge and back into it. */
+const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
 
 /**
  * The plan drops out of the step that recorded it: down off the step's own
@@ -304,6 +321,50 @@ function FitsTheFrame({
   return null;
 }
 
+/** A duration token in milliseconds, read off the page. Zero where motion is reduced. */
+function msOf(token: string): number {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return 0;
+  return raw.endsWith("ms") ? value : value * 1000;
+}
+
+/**
+ * Slide the run clear of the panel open over it.
+ *
+ * An effect, like `Follows`, because what it writes is React Flow's viewport.
+ * It runs when the open node or the panel's width changes, so a person who
+ * pans after opening keeps what they chose.
+ */
+function KeepsClear({ clear }: { clear: { id: string; right: number } | null }) {
+  const flow = useReactFlow();
+  const width = useStore((state) => state.width);
+  const domNode = useStore((state) => state.domNode);
+  const id = clear?.id;
+  const right = clear?.right ?? 0;
+  useEffect(() => {
+    if (id === undefined || right === 0 || width === 0) return;
+    const node = flow.getNode(id);
+    // The card's own width, off the page: a node this canvas is handed afresh
+    // each render carries no measured size to read, and `offsetWidth` is the
+    // unscaled box whatever the zoom.
+    const card = domNode?.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(id)}"]`);
+    if (node === undefined || card === null || card === undefined) return;
+    const { x, y, zoom } = flow.getViewport();
+    const left = node.position.x * zoom + x;
+    const across = card.offsetWidth * zoom;
+    const room = width - right - INSET;
+    // Nothing to do where it is already clear, and nothing that helps where
+    // the panel leaves no room for the node beside it — a narrow window.
+    if (left + across <= room || across > room - INSET) return;
+    const shift = Math.min(left + across - room, left - INSET);
+    if (shift <= 0) return;
+    void flow.setViewport({ x: x - shift, y, zoom }, { duration: msOf("--duration-sheet") });
+  }, [flow, domNode, id, right, width]);
+  return null;
+}
+
 /**
  * Keep the running step in view as the run moves.
  *
@@ -330,6 +391,8 @@ export function WorkflowCanvas({
   onFollowing,
   opensOn,
   hangsFromTop = false,
+  runsDown = false,
+  keepsClear = null,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -359,7 +422,9 @@ export function WorkflowCanvas({
       const to = named.get(edge.target) ?? edge.target;
       const sides =
         edge.kind === "returns"
-          ? OVER_THE_SPINE
+          ? runsDown
+            ? BESIDE_THE_SPINE
+            : OVER_THE_SPINE
           : edge.kind === "made"
             ? WAS_MADE
             : facingSides(placed.get(edge.source), placed.get(edge.target));
@@ -374,7 +439,7 @@ export function WorkflowCanvas({
         data: { returning, ...(edge.label === undefined ? {} : { label: edge.label }) },
       };
     });
-  }, [given, givenEdges, nodes]);
+  }, [given, givenEdges, nodes, runsDown]);
 
   const fitViewOptions = useMemo(
     () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),
@@ -415,6 +480,7 @@ export function WorkflowCanvas({
     >
       <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} />
       <Follows running={running} following={following} />
+      <KeepsClear clear={keepsClear} />
     </GraphCanvas>
   );
 }

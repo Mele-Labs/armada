@@ -28,13 +28,15 @@ import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
 
 /**
- * The layout, in the canvas's own coordinates.
+ * The layout, in the canvas's own coordinates. **The spine runs down** (owner,
+ * 29 Sep 2026): one step under the last, so the run reads top to bottom beside
+ * the panel that opens over its right.
  *
- * `STEP_APART` is `--w-workflow-node` plus `--space-12` plus a little, which
- * leaves room for an arrowhead. A number rather than a token because React
- * Flow places by number and a `var()` cannot reach it.
+ * `STEP_APART` is a step card's height plus `--space-12`, which leaves room
+ * for an arrowhead. A number rather than a token because React Flow places by
+ * number and a `var()` cannot reach it.
  */
-const STEP_APART = 320;
+const STEP_APART = 112;
 
 /** `step:`, so a node id is never mistaken for another kind in a join. */
 export const stepNodeId = (stepId: string): string => `step:${stepId}`;
@@ -166,7 +168,7 @@ export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now(
     // board's `55m · 4 groups`.
     const counts = step.step_id === worksAt ? mine.length : 0;
     const card = read(id, stepCard(whole, step, counts, now, opener(id)));
-    nodes.push({ id, position: { x: at * STEP_APART, y: 0 }, card });
+    nodes.push({ id, position: { x: 0, y: at * STEP_APART }, card });
 
     const loop =
       step.verdict_routing_target === undefined || step.pass === undefined

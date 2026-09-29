@@ -16,7 +16,7 @@
 // is the caller's: this package holds no storage.
 
 import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -88,6 +88,17 @@ export function WorkflowTab({
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
+  // How much of the canvas's right side the open panel covers, so the canvas
+  // can slide the step being read clear of it. Measured, because the panel's
+  // width is a token and its gutter the layer's, and neither reaches here.
+  const frame = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [covered, setCovered] = useState(0);
+  useLayoutEffect(() => {
+    const over = panel.current?.getBoundingClientRect();
+    const under = frame.current?.getBoundingClientRect();
+    setCovered(over === undefined || under === undefined ? 0 : Math.max(0, under.right - over.left));
+  }, [open, view, narrow]);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -137,7 +148,7 @@ export function WorkflowTab({
   const layer =
     reading === undefined ? null : (
       <div className="armada-workflow-tab__inspector-layer">
-        <div className="armada-workflow-tab__inspector">
+        <div className="armada-workflow-tab__inspector" ref={panel}>
           <WorkflowInspector
             {...reading}
             onClose={() => setOpen(null)}
@@ -179,7 +190,7 @@ export function WorkflowTab({
           <div className="armada-workflow-tab__modes">{toggle}</div>
           {view === "canvas" ? (
             <div className="armada-workflow-tab__stage">
-              <div className="armada-workflow-tab__canvas">
+              <div className="armada-workflow-tab__canvas" ref={frame}>
                 <div className="armada-workflow-tab__where">
                   <Tooltip label="The workflow this Job froze">
                     <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
@@ -200,6 +211,8 @@ export function WorkflowTab({
                   onFollowing={setFollowing}
                   opensOn={run.opensOn}
                   hangsFromTop
+                  runsDown
+                  keepsClear={open === null ? null : { id: open, right: covered }}
                 />
               </div>
               {layer}
