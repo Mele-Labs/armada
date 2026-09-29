@@ -787,13 +787,53 @@
   reserved = "The collapsed half of the pair above, on Bridge's left column alone. Never a way in to a surface, which is a rail row, and never expand-in-place on a row of data."
   notes = "Added with panel-left-close, for the same control in its other state. Two tables rather than one glyph and a tooltip: at the rail the button is the only chrome left in 48px, and a mark that reads the same collapsed as expanded makes a person press it to find out which way it goes."
 
-[conventions.record_kind_mark]
-  glyphs = ["file-check", "file-diff"]
-  means = "The kind of a Record row, as a mark leading it"
-  group = "Evidence"
+[icons.box]
+  means = "A cube seen from above one corner \u2014 one closed thing"
+  group = "Record kind"
   size = "12px"
   status = "Specified"
-  notes = "The Record's Kind column became a 12px mark under the All filter on 2026-09-28, the owner's own instruction: no kind word under a specific filter, and an icon on the left of the row with the kind's name on hover under All. The rows divide into eight families and **two of them have a glyph**. `file-check` leads an Evidence row, since a submitted claim, a hand-in and a kept deliverable are each a submission that landed, which is that glyph's own reservation; `file-diff` leads a Files row, since the row names one changed file and reading what it changed is that glyph's own reservation. Neither widens the file-* family, which means evidence throughout and is what both rows already are. **Six families carry no mark at all**, which is rule 1 — Default to no icon — rather than an omission; see [record-kind-marks] in docs/contracts/iconography.md. What was refused, and why none of it is close: a Check row cannot take a shield, because every member of that family is one Check outcome — shield-check passed, shield-x failed, shield-minus not reached, shield-off skipped — and a mark saying *a Check ran* is none of them; drawing an outcome glyph in --fg-muted is a status badge with its one channel switched off. A Judge row cannot take a circle for the same reason one level over, and circle-*'s reservation names generic reuse outright. A task row cannot take TaskMark's glyphs, whose reservation is that component and whose treatment is hued: a green tick and a red cross beside the Outcome column would be the second status channel this mark must not become. clipboard-list is the Job Board's rail glyph and would say *Board* inside a Job. Nothing in this file means a Drone, a case run, or the Job's own machine moving. The two marks draw --fg-muted and never a status hue: the kind is the whole of what they say, and the Outcome column owns what the row came to."
+  reserved = "A Record row about the Job itself: created, started, moved, ended. Never a Job's status, which the Job state group owns; never a package, an export or storage; never Kit, which is `briefcase`."
+  notes = "Minted 2026-09-29 when the owner asked for the six Record marks that were owed ([record-kind-marks]). The Job is the one thing every other row happens inside, and a closed solid is that thing rather than any state of it. Against the grey set it sits beside, `archive` is a lidded box drawn face-on, a rectangle with a band; this is a hexagon whose outline is cut by its two top faces, and the difference is silhouette rather than interior detail. Refused: `briefcase`, reserved to Kit and by its own row never a Job; `package`, this cube with a band across it, which `briefcase`'s row already refused as a lidded box; `clipboard-list`, the Job Board's; `scroll-text`, the workflow a Job runs; `activity`, free again, but its own row says the outline does not survive 12px."
+
+[icons.scale]
+  means = "A balance \u2014 a beam on a post, a pan hanging from each end"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row the Judge produced: a criterion answered, a pattern flagged. Never a verdict, which is circle-check, circle-x and circle-minus; never a comparison or a diff; never a person deciding."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A Judge weighs work against criteria, and a balance is that act. It carries no verdict: circle-* says what the Judge concluded and stays the only family that does, so the mark says who produced the row and the Outcome column says what it came to. Refused: a bare `circle`, a ring that at 12px is circle-dot and circle-dashed with their one distinguishing element gone; `gavel`, which `signpost`'s row already refused as reading judgement, and which says a ruling was struck rather than weighed."
+
+[icons.bot]
+  means = "A robot's head \u2014 a rounded box with an antenna and a stub either side"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer, and never Helm, which is `message-square`."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A Drone is an agent process, and this is the literal drawing lucide has of one. The antenna and the side stubs break the outline, which is what separates it at 12px from `file` and `archive`, the rectangles already in the grey set. The contract's *Where the answer is no icon* keeps the Who column in words, and this does not reach it: the Who cell still says Drone, and this mark names the row's family under All alone. Refused: `cpu`, a queued reason's; `terminal`, Pilot's alone; `user-check`, the human figure."
+
+[icons.list-todo]
+  means = "Three lines, the top one led by an empty box and the bottom one by a tick"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about the plan's work: the plan recorded or revised, a task working, done, failed or dropped. Never a task's state, which TaskMark draws; never a step list; never the Board, which is `clipboard-list`."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A plan is a list of tasks, some open and some done, and this is that list. **The objection to expect is the tick**, since bare `check` is `advanced` in the Job state group: it is one stroke inside a larger outline rather than the outline, drawn --fg-muted and never hued, and the row's Outcome column is what says the task came to anything. Against `list-ordered` in the Node bar, numerals lead those lines and it draws at 16px in another group, so rule 4 does not reach it. Refused: TaskMark's check, x, minus and circle-dashed, each one task state and hued; `list-checks`, a column of ticks that reads as several things passed; `list`, whose bullets are 1px dots at 12px and leave three bare lines."
+
+[icons.flask-conical]
+  means = "A conical flask \u2014 a narrow neck over a triangular body, a line of liquid across it"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about a case: run, run again, shown again, its frames kept. Never a Check, never a test count or coverage figure, and never a hazard."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A case is run to see what the app does, and a flask is the drawing test runners use for exactly that. **The objection to expect is triangle-alert**, whose outline is also a triangle: it passes rule 4 because triangle-alert is Doctor's and a toast's, drawn amber, and this draws --fg-muted, and the neck breaking the apex is outline rather than interior. Refused: `test-tube`, a thin capsule that reads as a bar at 12px; `camera` and `film`, which name the frames a run keeps rather than the run; `play`, a triangle `rocket`'s row already refused."
+
+[conventions.record_kind_mark]
+  glyphs = ["box", "file-check", "file-diff", "scale", "bot", "list-todo", "flask-conical"]
+  means = "The kind of a Record row, as a mark leading it"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  notes = "The Record's Kind column became a 12px mark under the All filter on 2026-09-28, the owner's own instruction: no kind word under a specific filter, and an icon on the left of the row with the kind's name on hover under All. The rows divide into eight families. Two had a glyph the registry already sanctioned: `file-check` leads an Evidence row, since a submitted claim, a hand-in and a kept deliverable are each a submission that landed, and `file-diff` leads a Files row, since reading what one file changed is that glyph's own reservation. On 2026-09-29 the owner asked for the six that were owed, and five were minted in a group of their own, one per family, each reserved to its family's rows and none of them an outcome: `box` the Job, `scale` a Judge, `bot` a Drone, `list-todo` a task, `flask-conical` a case run. Each row carries its refusals. **A Check row carries no mark**, and that is rule 4 rather than an omission. The shield is the Check's silhouette throughout, and every member of the family is one Check outcome: shield-check passed, shield-x failed, shield-minus never ran, shield-off not run. A bare `shield` is the one member that is not, and at 12px in --fg-muted it is shield-minus and shield-off with their one stroke gone, both drawn grey in --status-not-started, so the outline would be shared inside one hue. A glyph from outside the family would say *a Check* with a second silhouette. Either answer is the owner's to give, [record-kind-marks] in docs/contracts/iconography.md. Every mark draws --fg-muted and never a status hue: the kind is the whole of what it says, and the Outcome column owns what the row came to."
 
 [conventions.step_activity_borrowing]
   glyphs = ["circle-dot", "eye", "rotate-cw", "check", "x", "power"]

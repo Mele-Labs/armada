@@ -576,7 +576,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(whoSaid(rows, /Pressing the stat lists the Drone's Job and step/)).toBe("Judge");
-      expect(whoSaid(rows, /^the plan was recorded$/)).toBe("Fleet");
+      expect(whoSaid(rows, /^Plan recorded · /)).toBe("Fleet");
     },
   );
 
@@ -625,7 +625,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(rows.map((row) => row["Where"])).toContain("The Job itself");
-      expect(whoSaid(rows, /^this Job was created$/)).toBe("You");
+      expect(whoSaid(rows, /^Job created$/)).toBe("You");
     },
   );
 });

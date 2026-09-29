@@ -23,7 +23,7 @@ import type {
   Submitted,
 } from "@armada/protocol";
 
-import { CHECK_OUTCOME } from "@armada/components";
+import { CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
 import { fileNameOf } from "../editing";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
@@ -233,15 +233,39 @@ function kindOf(move: Recorded): string {
   }
 }
 
+// **Every `what` leads with its kind and what happened, then ` · ` and what it
+// happened to** (the owner, 29 Sep 2026: *I dont understand what these rows
+// are representing*). A Check's name and a file's path are the exceptions, and
+// neither is composed here.
 function whatOf(move: Recorded): string {
   switch (move.moved.kind) {
     case "status":
-      return `${move.status} to ${move.moved.to}`;
+      return jobMovedSays(move.status, move.moved.to);
     case "step":
-      return `${move.moved.step_id}: ${move.moved.from} to ${move.moved.to}`;
+      return `Step moved · ${move.moved.step_id}, ${move.moved.from} to ${move.moved.to}`;
     case "drone":
-      return `${move.moved.drone_id} on ${move.moved.step_id}`;
+      return `${DRONE_SAYS[move.moved.presence] ?? "Drone moved"} · ${move.moved.drone_id} on ${move.moved.step_id}`;
   }
+}
+
+/** A Drone arriving and leaving, as a row's lead. Sentence case. */
+const DRONE_SAYS: Readonly<Record<string, string>> = {
+  drone_spawned: "Drone started",
+  drone_exited: "Drone ended",
+};
+
+/**
+ * The Job's own status moving, as a row's `what`. **A move to a terminal status
+ * is the Job ending**, and says what it ended as; any other move names both
+ * ends, in the registry's own words.
+ */
+function jobMovedSays(from: string, to: string): string {
+  if (JOB_LIFECYCLE[to]?.terminal === true) return `Job ended · ${statusSaid(to)}`;
+  return `Job moved · ${statusSaid(from)} to ${statusSaid(to)}`;
+}
+
+function statusSaid(status: string): string {
+  return JOB_STATUS[status]?.verb ?? status.replaceAll("_", " ");
 }
 
 // The reason a row carries, where it carries one. A status move's `reason` is
@@ -360,7 +384,7 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: job.origin === "manual" ? "person" : "fleet",
       kind: "created",
-      what: "this Job was created",
+      what: "Job created",
       outcome: "",
       cursor: mint(),
     },
@@ -374,7 +398,7 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: "fleet",
       kind: "started",
-      what: "the Job's first Drone started",
+      what: "Job started",
       outcome: "",
       cursor: mint(),
     });
@@ -385,8 +409,8 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: null,
       actor: "fleet",
       kind: `status_${job.status}`,
-      what: "the Job ended",
-      outcome: job.landed === undefined ? "" : `the pull request ${job.landed}`,
+      what: `Job ended · ${statusSaid(job.status)}`,
+      outcome: job.landed === undefined ? "" : `The pull request ${job.landed}`,
       cursor: mint(),
     });
   }
@@ -428,10 +452,10 @@ function judgeRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
     coord: { step: step.step_id, step_attempt: answer.attempt },
     actor: "judge" as const,
     kind: "judged",
-    what:
-      detail.acceptance_criteria.find((one) => one.criterion_id === answer.criterion_id)?.text ??
-      answer.criterion_id,
-    outcome: answer.produced === undefined ? said(answer.verdict) : `${said(answer.verdict)} — ${answer.produced}`,
+    what: criterionSays(detail, answer.criterion_id),
+    outcome: sentenceCase(
+      answer.produced === undefined ? said(answer.verdict) : `${said(answer.verdict)} — ${answer.produced}`,
+    ),
     cursor: mint(),
   }));
   for (const flag of step.flagged) {
@@ -440,12 +464,24 @@ function judgeRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
       coord: { step: step.step_id, step_attempt: flag.attempt },
       actor: "judge",
       kind: "flagged",
-      what: flag.pattern,
+      what: `Pattern flagged · ${flag.pattern}`,
       outcome: flag.cited,
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/**
+ * A criterion the Judge answered, by its frozen position and its words: `Criterion 2
+ * judged · …`. The verdict is the row's outcome and never repeated here.
+ */
+function criterionSays(detail: JobDetail, criterionId: string): string {
+  const at = detail.acceptance_criteria.findIndex((one) => one.criterion_id === criterionId);
+  const criterion = detail.acceptance_criteria[at];
+  return criterion === undefined
+    ? `Criterion judged · ${criterionId}`
+    : `Criterion ${at + 1} judged · ${criterion.text}`;
 }
 
 // `criterion_verdict_judge` is `met` or `not_met`, and the underscore is the
@@ -472,7 +508,7 @@ function droneRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
       coord: { step: step.step_id, step_attempt: attempt.attempt },
       actor: "drone",
       kind: "drone_spawned",
-      what: `a Drone opened ${step.label}`,
+      what: `Drone started · ${step.label}`,
       outcome: "",
       cursor: mint(),
     });
@@ -482,8 +518,10 @@ function droneRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
       coord: { step: step.step_id, step_attempt: attempt.attempt },
       actor: "drone",
       kind: "drone_exited",
-      what: `the Drone on ${step.label} stopped`,
-      outcome: attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`,
+      what: `Drone ended · ${step.label}`,
+      outcome: sentenceCase(
+        attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`,
+      ),
       cursor: mint(),
     });
   }
@@ -504,10 +542,10 @@ function planRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: by.by === "step" ? { step: by.step_id, step_attempt: by.attempt } : null,
       actor: by.by === "person" ? "person" : "fleet",
       kind: "plan_recorded",
-      what: "the plan was recorded",
       // The approach is a paragraph and belongs to the Plan tab. What this row
-      // owes a reader is how much work came out of it.
-      outcome: `${tasks} ${tasks === 1 ? "task" : "tasks"}`,
+      // owes a reader is how much work came out of it — said once, in What.
+      what: `Plan recorded · ${tasks} ${tasks === 1 ? "task" : "tasks"}`,
+      outcome: "",
       cursor: mint(),
     },
   ];
@@ -533,7 +571,7 @@ function taskRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       coord: task.coord,
       actor: task.state === "dropped" ? "person" : "drone",
       kind: `task_${task.state}`,
-      what: `${task.id} — ${task.title}`,
+      what: `Task ${task.id} ${task.state} · ${task.title}`,
       outcome: task.reason ?? task.shown ?? "",
       cursor: mint(),
     });
@@ -574,8 +612,8 @@ function fileRowsOf(
         what: file.path,
         outcome:
           file.outside_plan === true
-            ? `${file.change}, which the step never said it would change`
-            : file.change,
+            ? `${sentenceCase(file.change)}, which the step never said it would change`
+            : sentenceCase(file.change),
         cursor: mint(),
       });
     }
@@ -668,7 +706,7 @@ function handedRowsOf(
       coord: step === undefined ? null : coordOfStep(step),
       actor: "drone" as const,
       kind: "evidence_submitted",
-      what: one.claimed,
+      what: `Evidence submitted · ${one.claimed}`,
       outcome: one.shown_by,
       cursor: mint(),
     };
@@ -681,7 +719,7 @@ function handedRowsOf(
       coord: { step: handed.step_id, step_attempt: 1 },
       actor: "drone",
       kind: "handed_in",
-      what: `a Drone handed in on ${handed.step_id}`,
+      what: `Evidence handed in · ${handed.step_id}`,
       outcome: handed.evidence_type,
       cursor: mint(),
     });
@@ -704,8 +742,8 @@ function testRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
     coord: run.coord,
     actor: run.actor === "contributor" ? ("contributor" as const) : (run.actor as LedgerActor),
     kind: "case_run",
-    what: run.case,
-    outcome: `${run.outcome === "ran" ? "ran" : run.outcome === "run_failed" ? "the run failed" : "not covered"}, ${run.frames} frames`,
+    what: `Case run · ${run.case}`,
+    outcome: `${run.outcome === "ran" ? "Ran" : run.outcome === "run_failed" ? "The run failed" : "Not covered"}, ${run.frames} frames`,
     cursor: mint(),
   }));
 }

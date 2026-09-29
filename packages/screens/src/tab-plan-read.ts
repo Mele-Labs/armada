@@ -413,6 +413,11 @@ export function droneOfTask(
   task: TaskView,
 ): { id: string; label: string } | undefined {
   if (task.drone_id !== undefined) return { id: task.drone_id, label: `Drone on ${task.id}` };
+  return jobDroneOf(whole);
+}
+
+/** The Job's one Drone, where Fleet names one — what a row naming no task reaches. */
+export function jobDroneOf(whole: JobDetail | null): { id: string; label: string } | undefined {
   const job = whole?.job.assigned_drone;
   return job === undefined ? undefined : { id: job, label: "This Job's Drone" };
 }

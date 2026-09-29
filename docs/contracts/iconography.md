@@ -577,6 +577,26 @@ a word       the act names something the bar cannot draw — which link,
 is what holds them together: *a person taking off something they put there*,
 never a Job ending and never a machine discarding anything.
 
+### The Record's kind marks
+
+**A Record row leads with its family's mark under All**, at 12px in
+`--fg-muted` and never a status hue: the kind is the whole of what it says, and
+the Outcome column owns what the row came to. Two marks were already sanctioned
+— `file-check` for Evidence, `file-diff` for Files — and five were minted for
+the rest in a group of their own, `Record kind` in `packages/icons/icons.toml`:
+
+```
+job      box            the Job itself — created, started, moved, ended
+judges   scale          a criterion answered, a pattern flagged
+drones   bot            a Drone arriving at a step, or leaving it
+tasks    list-todo      the plan recorded, a task done, failed or dropped
+tests    flask-conical  a case run, run again, shown again
+checks   —              [record-kind-marks], below
+```
+
+**None of them is an outcome and none is borrowed.** Each one's reservation
+names its family's rows and nothing else, and its refusals are on its row.
+
 ### Blast radius
 
 **`layers` means how many places a Job writes**, and nothing else. One
@@ -800,23 +820,20 @@ should paper over.
   unless a real machine's worth of files in the column proves it hard to
   scan; that cannot be judged without one.
 
-- **[record-kind-marks]** Which glyphs, if any, carry the six Record row
-  families that have none?
-  The Job ledger's Kind column became a 12px mark under the All filter on
-  2026-09-28 at the owner's instruction, and only two of its eight families had
-  a glyph the registry already sanctioned: `file-check` for Evidence, a
-  submission that landed, and `file-diff` for Files, reading what one file
-  changed. A Check row, a Judge row, a task row, a Drone row, a case run and the
-  Job's own machine moving each draw nothing, because every candidate is
-  reserved to an *outcome* rather than to a *source* — the whole shield family
-  is one Check verdict each, the whole circle family one Judge verdict each —
-  and rule 1 says ship the label rather than borrow. Nothing here is worse off
-  than before: the row's words carry the fact and the tooltip names the kind.
-  What would settle it is either six glyphs minted in a group of their own,
-  drawn in `--fg-muted` and carrying no hue, or a decision that a mark reaching
-  two families out of eight is a channel not worth keeping.
+- **[record-kind-marks]** Which glyph, if any, carries a Check's row on the
+  Record? Seven of the eight families have a mark since 2026-09-29, when the
+  owner asked for the six that were owed and five were minted — see *The
+  Record's kind marks* above. The Check is the one left. Its silhouette is the
+  shield throughout, and every member of that family is one Check outcome;
+  the bare `shield` that is not an outcome is, at 12px in `--fg-muted`,
+  `shield-minus` and `shield-off` with their one stroke gone, and both of those
+  draw grey — rule 4 inside one hue. What would settle it is either an
+  exception to rule 4 for a mark that only ever draws in the Record's kind
+  column, or a Check mark from outside the shield family, which would be a
+  second silhouette for one source. Until then a Check row draws no mark, and
+  its Who cell already says Check.
   `packages/icons/icons.toml`, `[conventions.record_kind_mark]`, holds the
-  refusals so nobody re-derives them.
+  refusals.
 
 - **[attested-verdict-glyph]** Which glyph, if any, carries a criterion
   verdict from source Attestation (`confirmed` / `withheld`)?

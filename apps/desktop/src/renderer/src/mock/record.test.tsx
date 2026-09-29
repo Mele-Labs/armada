@@ -20,7 +20,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(whoSaid(rows, /Pressing the stat lists the Drone's Job and step/)).toBe("Judge");
-      expect(whoSaid(rows, /^the plan was recorded$/)).toBe("Fleet");
+      expect(whoSaid(rows, /^Plan recorded · /)).toBe("Fleet");
     },
   );
 
@@ -69,7 +69,7 @@ describe("the Record", () => {
       const rows = ledger();
 
       expect(rows.map((row) => row["Where"])).toContain("The Job itself");
-      expect(whoSaid(rows, /^this Job was created$/)).toBe("You");
+      expect(whoSaid(rows, /^Job created$/)).toBe("You");
     },
   );
 });
@@ -101,8 +101,8 @@ describe("the Record, as the owner asked for it", () => {
       const under = ledger();
 
       expect(under.every((row) => row["Where"] === "The Job itself")).toBe(true);
-      expect(under.map((row) => row["What"])).toContain("this Job was created");
-      expect(under.map((row) => row["What"])).toContain("the Job's first Drone started");
+      expect(under.map((row) => row["What"])).toContain("Job created");
+      expect(under.map((row) => row["What"])).toContain("Job started");
       // Every row All holds now answers to a filter, so the line that said
       // otherwise is gone rather than reworded.
       expect(page.getByRole("note").elements()).toHaveLength(0);

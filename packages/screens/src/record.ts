@@ -5,7 +5,13 @@
 // person reads on the Record is decided here, once, so the table and the
 // inspector cannot disagree about a row.
 
-import type { JobLedgerFilter, JobLedgerRow, LedgerTone, LedgerWho } from "@armada/components";
+import {
+  JOB_LIFECYCLE,
+  type JobLedgerFilter,
+  type JobLedgerRow,
+  type LedgerTone,
+  type LedgerWho,
+} from "@armada/components";
 import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "./duration";
@@ -192,6 +198,63 @@ export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (row.kind === "flagged" || row.kind === "touched_after_done") return "waiting";
   return undefined;
 }
+
+/**
+ * What happened, in a word: the open row's status line leads with it (the
+ * owner, 29 Sep 2026 — *nothing in there shows what the kind is or what was
+ * done*). A Check already led with `Failed`; every row does now.
+ *
+ * **Hued only where it is a pass or a fail**, as the Check word is. `Done` and
+ * `Started` are events rather than verdicts and stay in the sheet's own ink.
+ * `undefined` for a kind this Bridge has no word for, which then draws none.
+ */
+export function statusOf(row: LedgerRow): { says: string; tone?: LedgerTone } | undefined {
+  if (row.kind.startsWith("status_")) {
+    return { says: JOB_LIFECYCLE[row.kind.slice("status_".length)]?.terminal ? "Ended" : "Moved" };
+  }
+  switch (row.kind) {
+    case "checked":
+    case "judged": {
+      const verdict = row.outcome.split(" — ")[0] ?? row.outcome;
+      const tone = toneOf(row);
+      const says = verdict.charAt(0).toUpperCase() + verdict.slice(1);
+      return tone === undefined ? { says } : { says, tone };
+    }
+    case "task_failed":
+      return { says: "Failed", tone: "failed" };
+    case "case_run":
+      return row.outcome.startsWith("The run failed")
+        ? { says: "Run failed", tone: "failed" }
+        : { says: row.outcome.startsWith("Ran") ? "Ran" : "Not covered" };
+  }
+  const says = STATUS_SAYS[row.kind];
+  return says === undefined ? undefined : { says };
+}
+
+/** The status word for every kind whose word does not hang on its outcome. */
+const STATUS_SAYS: Readonly<Record<string, string>> = {
+  created: "Created",
+  started: "Started",
+  step: "Moved",
+  evidence_submitted: "Submitted",
+  handed_in: "Handed in",
+  deliverable_kept: "Kept",
+  file_written: "Changed",
+  task_files: "Changed",
+  flagged: "Flagged",
+  drone_spawned: "Started",
+  drone_exited: "Ended",
+  plan_recorded: "Recorded",
+  plan_revised: "Revised",
+  task_open: "Open",
+  task_working: "Working",
+  task_done: "Done",
+  task_dropped: "Dropped",
+  touched_after_done: "Edited after done",
+  cases_rerun: "Run again",
+  shown_again: "Shown again",
+  frames_kept: "Kept",
+};
 
 /**
  * What All holds that no filter does, in one line — or nothing, where every

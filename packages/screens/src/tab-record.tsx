@@ -29,6 +29,7 @@ import {
   filtersOf,
   FAMILY_SAYS,
   ledgerRowsFor,
+  statusOf,
   underFilter,
   underStep,
   unfiledSays,
@@ -40,7 +41,7 @@ import { titleOf } from "./record-cells";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
 import { drawn as drawnPatch, whyNoDiff } from "./review";
-import { droneOfTask } from "./tab-plan-read";
+import { droneOfTask, jobDroneOf } from "./tab-plan-read";
 import { stepNodeId, workflowRunOf } from "./workflow-canvas";
 import { spentOf } from "./workflow-inspector";
 
@@ -245,6 +246,7 @@ function RowRead({
   const name = kept === undefined ? undefined : basename(kept);
   const held = name === undefined ? undefined : outputs.of(name);
   const family = familyOf(row.kind);
+  const status = statusOf(row);
 
   // Opening the row is the ask: the reading is what the pane is for, and a
   // second press to see it was the step the board does not draw.
@@ -311,10 +313,12 @@ function RowRead({
         {family === "files" || titleOf(row) === row.what ? null : (
           <p className="armada-ledger__read-name">{row.what}</p>
         )}
+        {/* What happened leads, as a Check's `Failed` did before every row
+            had a word. The owner, 29 Sep. */}
         <p className="armada-ledger__read-status">
-          {run === undefined ? null : (
-            <span className="armada-ledger__read-outcome" data-tone={drawn.tone}>
-              {row.outcome}
+          {status === undefined ? null : (
+            <span className="armada-ledger__read-outcome" data-tone={status.tone}>
+              {status.says}
             </span>
           )}
           <span className="armada-ledger__read-meta" title={absoluteOf(row.at) ?? undefined}>
@@ -328,10 +332,8 @@ function RowRead({
         {run === undefined ? (
           <>
             {/* A File row's outcome stays in the table; its sheet is for the
-                diff. The owner, 29 Sep. */}
-            {family === "files" || row.outcome === "" ? null : (
-              <p className="armada-ledger__read-said">{row.outcome}</p>
-            )}
+                diff. Every other value is under its own label. The owner, 29 Sep. */}
+            {family === "files" ? null : <RowFields row={row} detail={detail} />}
             <DroneRead row={row} detail={detail} tasks={tasks} />
             {family === "files" ? <FileDiff row={row} diff={diff} jobId={jobId} /> : null}
           </>
@@ -415,6 +417,7 @@ function DroneRead({
   detail: JobWhole;
   tasks: RowReadProps["tasks"];
 }) {
+  if (familyOf(row.kind) === "drones") return <StepDroneRead row={row} detail={detail} />;
   const taskId = row.coord?.task;
   if (row.actor !== "drone" || taskId === undefined) return null;
   const task = tasks.find((one) => one.id === taskId);
@@ -430,6 +433,95 @@ function DroneRead({
       {spent.length === 0 ? null : <p className="armada-ledger__read-said">{spent.join(" · ")}</p>}
     </section>
   );
+}
+
+/**
+ * The Drone a Drone row is about. **The Job's one Drone**, because today's wire
+ * holds one per step attempt and names none on the attempt itself — the same
+ * fallback `droneOfTask` takes. Its state is the attempt's; no turns or cost,
+ * which the wire keeps per task and never per attempt.
+ */
+function StepDroneRead({ row, detail }: { row: LedgerRow; detail: JobWhole }) {
+  const drone = jobDroneOf(detail);
+  if (drone === undefined) return null;
+  const attempt = detail.steps
+    .find((one) => one.step_id === row.coord?.step)
+    ?.attempts.find((one) => one.attempt === row.coord?.step_attempt);
+  return (
+    <section className="armada-ledger__read-section">
+      <Eyebrow>Drone</Eyebrow>
+      <p className="armada-ledger__read-drone">
+        {drone.label}
+        {/* A Drone ending says what it came to under Outcome, above. */}
+        {attempt === undefined || row.kind === "drone_exited" ? null : <> · {attempt.outcome}</>}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Every value a row carries past its title, each under its own label (the owner,
+ * 29 Sep 2026: *there is just some text with no labels*). The Check sheet's
+ * `Expected` is the pattern. A label the concepts table knows carries its
+ * sentence on hover, which is where an explanation goes — never the body.
+ *
+ * Nothing at all where the row carries nothing more, so a Job created or a
+ * Drone started is its status line and no placeholder.
+ */
+function RowFields({ row, detail }: { row: LedgerRow; detail: JobWhole }) {
+  if (row.kind === "plan_recorded") {
+    const planned = detail.work_plan?.tasks ?? [];
+    if (planned.length === 0) return null;
+    return (
+      <div className="armada-ledger__read-field">
+        <FieldLabel>Tasks</FieldLabel>
+        <ol className="armada-ledger__read-said armada-ledger__read-list">
+          {planned.map((task) => (
+            <li key={task.id}>
+              {task.id} — {task.title}
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+  if (row.kind === "judged") {
+    const [, found] = splitOnce(row.outcome, " — ");
+    return (
+      <>
+        <Field label="Criterion" value={splitOnce(row.what, " · ")[1] ?? row.what} />
+        {found === undefined ? null : <Field label="What it found" value={found} />}
+      </>
+    );
+  }
+  const label = FIELD_OF[row.kind] ?? "Outcome";
+  return row.outcome === "" ? null : <Field label={label} value={row.outcome} />;
+}
+
+/** The label over a row's outcome, by kind. Anything unlisted reads `Outcome`. */
+const FIELD_OF: Readonly<Record<string, string>> = {
+  task_done: "What it showed",
+  task_working: "What it showed",
+  task_failed: "Why",
+  task_dropped: "Why",
+  flagged: "Cited",
+  evidence_submitted: "Shown by",
+  handed_in: "Evidence type",
+};
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="armada-ledger__read-field">
+      <FieldLabel>{label}</FieldLabel>
+      <p className="armada-ledger__read-said">{sentenceCase(value)}</p>
+    </div>
+  );
+}
+
+// The part before the first `separator` and the rest, or the whole and nothing.
+function splitOnce(said: string, separator: string): [string, string | undefined] {
+  const at = said.indexOf(separator);
+  return at < 0 ? [said, undefined] : [said.slice(0, at), said.slice(at + separator.length)];
 }
 
 /**

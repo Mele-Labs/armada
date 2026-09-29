@@ -5,11 +5,11 @@
 // English and holds no JSX; these are chrome.
 
 import type { ReactNode } from "react";
-import { FileCheck, FileDiff } from "lucide-react";
+import { Bot, Box, FileCheck, FileDiff, FlaskConical, ListTodo, Scale } from "lucide-react";
 
 import { PathChip, type JobLedgerMark } from "@armada/components";
 
-import { familyOf, type LedgerRow } from "./draft/ledger";
+import { familyOf, type LedgerFamily, type LedgerRow } from "./draft/ledger";
 
 /** 12px at strokeWidth 2 — `docs/contracts/iconography.md`'s only badge size. */
 const MARK_ICON = 12;
@@ -19,26 +19,33 @@ const MARK_STROKE = 2;
  * The mark a row leads with under All, or nothing where the registry assigns
  * its family no glyph.
  *
- * **Two families have one and six do not.** `file-check` is reserved to a
- * submission that landed and `file-diff` to reading what one file changed.
- * Nothing in `packages/icons/icons.toml` means *a Check ran*, *a Judge
- * answered*, *a Drone arrived*, *a task moved*, *a case was run* or *the Job
- * itself moved* — the shield and circle families are outcomes rather than
- * sources, and the contract's first rule for anything unlisted is no icon.
- * `[record-kind-marks]` is where the six are owed.
+ * **Seven families have one and Checks do not** (the owner asked for the six
+ * that were owed, 29 Sep 2026). `file-check` and `file-diff` keep their own
+ * reservations; `box`, `scale`, `bot`, `list-todo` and `flask-conical` were
+ * minted for the Job, a Judge, a Drone, a task and a case run. A Check's only
+ * honest silhouette is a bare shield, and at 12px in grey that is
+ * `shield-minus` and `shield-off` with their one stroke gone — rule 4 of
+ * `docs/contracts/iconography.md`. `[conventions.record_kind_mark]` in
+ * `packages/icons/icons.toml` holds the reasoning for each.
  */
 export function markFor(kind: string): JobLedgerMark | undefined {
   const family = familyOf(kind);
+  const Glyph = family === null ? undefined : MARKS[family];
   // `says` is the kind as the record spells it, which is what the column this
   // replaced drew and what the tooltip now carries.
-  if (family === "evidence") {
-    return { glyph: <FileCheck size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />, says: kind };
-  }
-  if (family === "files") {
-    return { glyph: <FileDiff size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />, says: kind };
-  }
-  return undefined;
+  if (Glyph === undefined) return undefined;
+  return { glyph: <Glyph size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />, says: kind };
 }
+
+const MARKS: Partial<Record<LedgerFamily, typeof FileCheck>> = {
+  job: Box,
+  evidence: FileCheck,
+  files: FileDiff,
+  judges: Scale,
+  drones: Bot,
+  tasks: ListTodo,
+  tests: FlaskConical,
+};
 
 /**
  * The kinds whose `what` is a path, or a list of them.

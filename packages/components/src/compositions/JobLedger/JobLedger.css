@@ -358,6 +358,12 @@
   text-wrap: pretty;
 }
 
+/* The tasks a plan recorded, one a line: `read-said`'s column, as a list. */
+.armada-ledger__read-list {
+  padding: 0;
+  list-style: none;
+}
+
 /* What a Check produced: the result, so body text in --fg-default — one step
    up from the muted sentences around it, which are context. */
 .armada-ledger__read-produced {
