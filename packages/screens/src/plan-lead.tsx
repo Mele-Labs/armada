@@ -4,6 +4,9 @@
 // **It leads because the owner asked why it did not** (28 Sep 2026): *Isn't
 // this why the plan was formed?* The design board leads with the same card.
 
+import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+
 import { Button, Card, CardContent } from "@armada/components";
 
 import type { JobSummary, StepDetail } from "@armada/protocol";
@@ -82,23 +85,91 @@ function PlanGate({
   );
 }
 
+const OPEN_KEY = "armada.bridge.plan-lead-open";
+
+/** The chrome disclosure pair, `chevron-right` shut and `chevron-down` open. */
+const CHEVRON = 16;
+const MARK_STROKE = 2;
+
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(OPEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the lead was left open, remembered across a restart. `localStorage`
+ * for `left-collapsed.ts`' reason: one window's way of looking, not a fact
+ * about the fleet. Shut where nothing is stored.
+ */
+function useLeadOpen(): [boolean, () => void] {
+  const [open, setOpen] = useState(readOpen);
+
+  function toggle(): void {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(OPEN_KEY, String(next));
+    } catch {
+      // A failed write leaves the choice unremembered, the honest answer for a preference.
+    }
+  }
+
+  return [open, toggle];
+}
+
+const NOTHING_HELD = "Nothing was written down for this Job to be held to.";
+
 /**
  * What the Job is held to, with where each line came from, and the gate under
  * it.
+ *
+ * **Shut, it is one line: the band and the first criterion cut to fit** — the
+ * owner's call of 29 Sep 2026, after scrolling past it on a failed group every
+ * time. The criteria after the first are hidden until pressed; that was the
+ * cost he took, and no count of them is drawn.
+ *
+ * **The gate is never folded.** It sits outside the disclosure, so a plan
+ * waiting on a person shows its two acts under the shut line as well as under
+ * the open list.
  *
  * **Not the planner's expectation**, which is per task and sits in the
  * inspector. `#1274` is why the two are never one list: a Drone never chooses
  * the cases it is held to, and a task's `expects` is the planner's word.
  */
 export function PlanLead({ criteria, ...gate }: PlanLeadProps) {
+  const [open, toggle] = useLeadOpen();
+  const Mark = open ? ChevronDown : ChevronRight;
+  const first = criteria[0]?.text ?? NOTHING_HELD;
   return (
     <Card className="armada-plan-tab__lead">
       <CardContent>
-        <Eyebrow>What this Job is held to</Eyebrow>
-        {criteria.length === 0 ? (
-          <p className="armada-plan-tab__criterion-origin">
-            Nothing was written down for this Job to be held to.
-          </p>
+        <button
+          type="button"
+          className="armada-plan-tab__fold"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          <Mark
+            className="armada-plan-tab__fold-mark"
+            size={CHEVRON}
+            strokeWidth={MARK_STROKE}
+            aria-hidden
+          />
+          <Eyebrow>What this Job is held to</Eyebrow>
+          {open ? null : (
+            <span
+              className="armada-plan-tab__fold-first"
+              data-empty={criteria.length === 0 || undefined}
+            >
+              {first}
+            </span>
+          )}
+        </button>
+        {!open ? null : criteria.length === 0 ? (
+          <p className="armada-plan-tab__criterion-origin">{NOTHING_HELD}</p>
         ) : (
           <ul className="armada-plan-tab__criteria">
             {criteria.map((criterion, at) => (
