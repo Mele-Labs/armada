@@ -845,3 +845,21 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   expect(fleet.studios()[0]!.edges).toEqual([]);
   await expect.element(page.getByText("Nothing on this Studio yet.", { exact: false })).toBeVisible();
 });
+
+/**
+ * The owner's note of 29 Sep: an open Studio draws no way back of its own. The
+ * rail's Studios link sits beside it, and pressing it is the way back to the list.
+ */
+test("an open Studio draws no Back button, and the rail's Studios link returns to the list", async () => {
+  const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
+  open(fleet.scenario);
+  const rail = page.getByRole("button", { name: "Studios", exact: true }).first();
+  await rail.click();
+  await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
+  await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
+  expect(page.getByRole("button", { name: "Back to Studios" }).query()).toBeNull();
+
+  await rail.click();
+  await expect.element(page.getByRole("cell", { name: "Every kind of node and edge", exact: true })).toBeVisible();
+  expect(node(/^Note: The legend under the step bar is unreadable/).query()).toBeNull();
+});
