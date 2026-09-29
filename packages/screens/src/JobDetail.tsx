@@ -84,11 +84,15 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const [tab, setTab] = useState<DetailTab>(FIRST_TAB);
-  // The step Workflow opens on, where the Record's reading sent a person
-  // there. Cleared by the strip, so the next visit opens on nothing.
+  // The step Workflow opens on, where the Record's or the Drones' reading sent
+  // a person there. Cleared by the strip, so the next visit opens on nothing.
   const [opensStep, setOpensStep] = useState<string | undefined>(undefined);
+  // The task Plan opens on, where the Drones' reading sent a person there.
+  // Cleared by the strip, on `opensStep`'s terms.
+  const [opensTask, setOpensTask] = useState<string | undefined>(undefined);
   const toTab = (next: DetailTab) => {
     setOpensStep(undefined);
+    setOpensTask(undefined);
     setTab(next);
   };
 
@@ -279,6 +283,7 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
+          {...(opensTask === undefined ? {} : { opensTask })}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -317,9 +322,18 @@ function OneJob(props: JobDetailProps) {
           whole={whole}
           {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          now={props.now}
           floor={floor}
           stale={props.stale}
           onRedirect={props.onRedirect}
+          onOpenStep={(stepId) => {
+            setOpensStep(stepId);
+            setTab("workflow");
+          }}
+          onOpenTask={(taskId) => {
+            setOpensTask(taskId);
+            setTab("plan");
+          }}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id)} jobId={job.id} onNeedPulse={props.onNeedPulse} />

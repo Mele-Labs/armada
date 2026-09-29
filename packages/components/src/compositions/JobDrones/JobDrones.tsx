@@ -40,9 +40,9 @@ export type JobDronesRow = {
   stateSays: string;
   /** Turns, and cost once it stopped. Absent draws nothing. */
   spent?: ReactNode;
-  /** When it was spawned, written for a reader. */
-  since?: ReactNode;
-  /** The full instant, for the pointer. */
+  /** How long it has run — to now while it runs, to its end once stopped. */
+  ranFor?: ReactNode;
+  /** When it was spawned, the full instant, for the pointer. */
   sinceExact?: string;
 };
 
@@ -123,7 +123,7 @@ export function JobDrones({
                 <TableHeaderCell>Where</TableHeaderCell>
                 <TableHeaderCell>State</TableHeaderCell>
                 <TableHeaderCell>Spent</TableHeaderCell>
-                <TableHeaderCell>Started</TableHeaderCell>
+                <TableHeaderCell>Run time</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -165,8 +165,8 @@ export function JobDrones({
                   <TableCell variant="metadata" className="armada-drones__spent">
                     {row.spent}
                   </TableCell>
-                  <TableCell variant="metadata" className="armada-drones__since" title={row.sinceExact}>
-                    {row.since}
+                  <TableCell variant="metadata" className="armada-drones__ran" title={row.sinceExact}>
+                    {row.ranFor}
                   </TableCell>
                 </TableRow>
               ))}
