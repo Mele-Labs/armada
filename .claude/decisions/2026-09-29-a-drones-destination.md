@@ -23,7 +23,9 @@ that drone."*
 | A note to one Drone from its sheet? | **Mocked, as the Plan task sheet does** | One more place drawn ahead of Fleet, which redirects the Job and not one Drone (#1536) |
 | Running first, or task order? | **Both, and the reader toggles** — his words: *"Build both and let the user toggle."* | A second control in the panel's head, beside the filter |
 
-The last one is [[2026-09-22-the-rail-is-a-choice]] again: offered two orders
+| Where a Drone is killed, once there is one per task? | **In its sheet, and the Job header becomes *Kill job*** — his words: *"Sheet + Header just becomes 'Kill Job' which kills the entire job."* | The header no longer ends a Drone and leaves the Job open; that is only reachable from the Drones tab. Fleet ends the Job's one Drone, so the sheet's kill is mocked against the Drone it names |
+
+The order answer is [[2026-09-22-the-rail-is-a-choice]] again: offered two orders
 to pick between, he gave the person the control instead.
 
 **Where it landed:** `packages/screens/src/tab-drones.tsx`, the composition
