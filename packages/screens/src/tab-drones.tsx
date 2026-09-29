@@ -191,7 +191,7 @@ export function DronesTab({
                       .join(" · ")}
                   </>
                 ),
-                turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),
+                turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />, open.thoughts),
                 live: open.state === "running",
                 emptyNote:
                   open.transcript === undefined

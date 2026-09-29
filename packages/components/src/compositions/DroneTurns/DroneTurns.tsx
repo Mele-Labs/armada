@@ -4,6 +4,9 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
 import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
+import { ThoughtHead, tokensOf, tokensSaid, type Thought } from "./thought";
+
+export type { Thought } from "./thought";
 
 /**
  * Drone turns — one Drone's transcript, read while it is still being written.
@@ -36,6 +39,11 @@ import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
  * owner, 29 Sep 2026: *"the lines all just kind of blend together."* Thinking
  * folds into the block as a line of its own, so only a sentence breaks one (the
  * owner, 29 Sep 2026).
+ *
+ * **A thinking row says what it is, in words, with its token count** — the
+ * owner, 29 Sep 2026: `Thinking ~400 tokens`, `Reasoned`, never the wire's
+ * kind. Hovering a Reasoned row to read its reasoning is a draft awaiting his
+ * call.
  *
  * **Times are a card's, not a row's.** The head carries the card's first
  * instant; each row keeps its own as its title.
@@ -86,6 +94,8 @@ export type DroneTurn = {
    * side it is a model working, which is what the collapsed line says.
    */
   quiet?: boolean;
+  /** What a quiet row is, in words. Absent, the row draws its `subject`. */
+  thought?: Thought;
   /**
    * The workflow step the row ran under. Drawn as a boundary above the first
    * row of each run of it, never on the row itself.
@@ -290,7 +300,7 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
               not narrate: once nothing is happening the count is the whole
               fact and the still mark already says the run ended. */}
           {working ? <span className="armada-turns__working">{"Working"}</span> : null}
-          <span className="armada-turns__count">{counted(turns.length)}</span>
+          <span className="armada-turns__count">{runSaid(turns)}</span>
           <Tooltip label={open ? "Hide details" : "Show details"}>
             <Button
               variant="ghost"
@@ -417,7 +427,9 @@ function Row({ turn, nested = false }: { turn: DroneTurn; nested?: boolean }) {
       title={turn.at}
     >
       <span className="armada-turns__body">
-        {turn.subject === undefined && turn.detail === undefined ? null : (
+        {turn.thought !== undefined ? (
+          <ThoughtHead thought={turn.thought} />
+        ) : turn.subject === undefined && turn.detail === undefined ? null : (
           <span className="armada-turns__head">
             {turn.subject === undefined ? null : (
               <span className="armada-turns__subject">{turn.subject}</span>
@@ -457,7 +469,9 @@ function rowId(turn: DroneTurn): string {
   return `armada-turn-${turn.id}`;
 }
 
-/** `70 turns`, and `1 turn`. */
-function counted(rows: number): string {
-  return rows === 1 ? "1 turn" : `${rows} turns`;
+/** `70 turns`, and `1 turn`; `5 turns · ~1,800 tokens` where its rows carry a count. */
+function runSaid(turns: readonly DroneTurn[]): string {
+  const counted = turns.length === 1 ? "1 turn" : `${turns.length} turns`;
+  const tokens = tokensOf(turns.map((turn) => turn.thought));
+  return tokens === undefined ? counted : `${counted} · ${tokensSaid(tokens)}`;
 }

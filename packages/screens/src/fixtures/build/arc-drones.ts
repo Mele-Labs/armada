@@ -6,7 +6,7 @@
 // Drones and not a list of tasks.
 
 import type { Turn } from "@armada/protocol";
-import { droneViewsOf, type DroneView, type GroupView, type TaskView } from "../../draft";
+import { droneViewsOf, type DroneThought, type DroneView, type GroupView, type TaskView } from "../../draft";
 import { answered, called, droneEnded, instructed, said } from "./base";
 
 /** When each task's Drone was spawned and, once it stopped, when that was. */
@@ -28,17 +28,41 @@ const T2_FIRST = "01M2D5HKQP001DRONE000T2A";
 let thinkingSeq = 900_000;
 
 /**
- * The Drone thinking: rows the decoder has no name for. Real transcripts put
- * them between most calls — 106 of 149 rows on one measured.
+ * One model call's thinking, as a real transcript carries it: the harness's
+ * progress lines, each with a cumulative estimate, then the turn's reasoning
+ * block as one row — `recorded/done-worktree-given-back` mixes the two the
+ * same way. Real transcripts put these between most calls — 106 of 149 rows on
+ * one measured.
+ *
+ * `reasoning` is what the block said, `null` where the vendor withheld it, and
+ * absent while the call is still running and the block has not arrived.
  */
-function thinking(step: string, ts: string, rows: number): Turn[] {
-  return Array.from({ length: rows }, () => ({
+function thinking(
+  step: string,
+  ts: string,
+  rows: number,
+  thoughts: Map<number, DroneThought>,
+  reasoning?: string | null,
+): Turn[] {
+  const row = (kind: string): Turn => ({
     ts,
     seq: (thinkingSeq += 1),
     step,
     by: "drone" as const,
-    saw: { event: "unrecognised" as const, kind: "system/thinking_tokens" },
-  }));
+    saw: { event: "unrecognised" as const, kind },
+  });
+  let estimated = 0;
+  const turns = Array.from({ length: rows }, () => {
+    const turn = row("system/thinking_tokens");
+    // Uneven steps, fixed by the row, so the figures read as measured.
+    estimated += 90 + ((turn.seq * 37) % 11) * 40;
+    thoughts.set(turn.seq, { of: "tokens", estimated });
+    return turn;
+  });
+  if (reasoning === undefined) return turns;
+  const reasoned = row("the Drone's reasoning, not carried");
+  thoughts.set(reasoned.seq, { of: "reasoning", text: reasoning });
+  return [...turns, reasoned];
 }
 
 /** An instant `seconds` after `from`, in the wire's spelling. */
@@ -50,36 +74,72 @@ function after(from: string, seconds: number): string {
  * What a Drone on `task` wrote: the brief, a read of every file in its scope,
  * the edit, the tests, and — where it finished — its closing line.
  */
-function transcriptOf(task: TaskView, drone: Pick<DroneView, "state" | "since" | "turns" | "cost_micros">): Turn[] {
+function transcriptOf(
+  task: TaskView,
+  drone: Pick<DroneView, "state" | "since" | "turns" | "cost_micros">,
+  thoughts: Map<number, DroneThought>,
+): Turn[] {
   const step = task.coord.step;
   const since = drone.since ?? TIMES[task.id]!.since;
   let at = 0;
   const next = (gap = 20) => after(since, (at += gap));
+  const target = task.scope[0] ?? "";
   const rows: Turn[] = [
     instructed(step, since, 2, task.expects ?? task.title, "Implement"),
-    ...thinking(step, next(8), 4),
+    ...thinking(
+      step,
+      next(8),
+      4,
+      thoughts,
+      `The brief is "${task.title}". ${task.scope.length === 1 ? "One file is" : `${task.scope.length} files are`} in scope, and ${target} is where the change most likely lands, so I'll read that first and the rest for how it's called.`,
+    ),
     said(step, next(), `Starting on ${task.id}: ${task.title}. Reading the files it touches first.`),
   ];
   task.scope.forEach((path, n) => {
     const call = `${task.id}-read-${n}`;
     rows.push(called(step, next(), call, "Read", path));
     rows.push(answered(step, next(4), call));
-    rows.push(...thinking(step, next(6), 2 + (n % 3)));
+    rows.push(
+      ...thinking(
+        step,
+        next(6),
+        2 + (n % 3),
+        thoughts,
+        `${path} is read. ${n === 0 ? "The existing shape is what the change has to fit, so I'll keep its exports as they are and add beside them." : "Nothing here needs to move; it only confirms how the first file is called."}`,
+      ),
+    );
   });
   if (drone.state === "killed") {
     rows.push(said(step, next(), "The panel should read the Job's resources route, so I'll add a poll beside it."));
     rows.push(called(step, next(), `${task.id}-edit-0`, "Edit", "crates/ipc/operations.toml"));
     return rows;
   }
-  const target = task.scope[0] ?? "";
   rows.push(said(step, next(), `The change belongs in ${target}. Writing it now.`));
-  rows.push(...thinking(step, next(6), 3));
+  rows.push(
+    ...thinking(
+      step,
+      next(6),
+      3,
+      thoughts,
+      `Editing ${target} in place is smaller than a new module, and the brief asks for nothing a caller would see. I'll make the one edit and let the screens tests say whether anything else moved.`,
+    ),
+  );
   rows.push(called(step, next(), `${task.id}-edit`, "Edit", target));
   rows.push(answered(step, next(6), `${task.id}-edit`));
-  rows.push(...thinking(step, next(6), 5));
+  rows.push(
+    ...thinking(
+      step,
+      next(6),
+      5,
+      thoughts,
+      // One withheld per Drone: a redacted block has no text at all, and the
+      // hover has to say so.
+      null,
+    ),
+  );
   rows.push(called(step, next(), `${task.id}-test`, "Bash", "pnpm -C packages/screens exec vitest run"));
-  // A live Drone is mid-thought while its tests run.
-  if (drone.state === "running") return [...rows, ...thinking(step, next(10), 3)];
+  // A live Drone is mid-thought while its tests run, so its reasoning has not arrived.
+  if (drone.state === "running") return [...rows, ...thinking(step, next(10), 3, thoughts)];
   const failed = drone.state === "failed";
   rows.push(answered(step, next(40), `${task.id}-test`, failed));
   if (!failed) rows.push(said(step, next(), task.shown ?? "Done. The tests pass."));
@@ -98,7 +158,9 @@ export function arcDrones(groups: readonly GroupView[]): DroneView[] {
     const time = TIMES[drone.task]!;
     const view: DroneView = { ...drone, since: time.since };
     if (drone.state !== "running" && time.ended !== undefined) view.ended_at = time.ended;
-    view.transcript = transcriptOf(task, view);
+    const thoughts = new Map<number, DroneThought>();
+    view.transcript = transcriptOf(task, view, thoughts);
+    view.thoughts = thoughts;
     return view;
   });
   const t2 = tasks.get("T2");
@@ -112,7 +174,9 @@ export function arcDrones(groups: readonly GroupView[]): DroneView[] {
     ended_at: "2026-09-22T09:20:00Z",
     turns: 7,
   };
-  first.transcript = transcriptOf(t2, first);
+  const firstThoughts = new Map<number, DroneThought>();
+  first.transcript = transcriptOf(t2, first, firstThoughts);
+  first.thoughts = firstThoughts;
   return [...drones, first];
 }
 
@@ -130,6 +194,8 @@ export function t6Retry(groups: readonly GroupView[]): DroneView {
     since: "2026-09-22T10:44:20Z",
     turns: 3,
   };
-  retry.transcript = transcriptOf(t6, retry);
+  const retryThoughts = new Map<number, DroneThought>();
+  retry.transcript = transcriptOf(t6, retry, retryThoughts);
+  retry.thoughts = retryThoughts;
   return retry;
 }

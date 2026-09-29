@@ -45,7 +45,34 @@ export type DroneView = {
    * Drone wrote a row.
    */
   transcript?: readonly Turn[];
+  /**
+   * What a thinking row in `transcript` carries beyond its kind, by the row's
+   * `seq`. **A sidecar rather than a row type wrapping `Turn`**, so the
+   * transcript stays the wire's own rows and this is the one field deleted
+   * when Fleet serves what it holds. Absent, a thinking row reads in words and
+   * nothing more.
+   */
+  thoughts?: ReadonlyMap<number, DroneThought>;
 };
+
+/**
+ * One thinking row's payload, which the wire drops today.
+ *
+ * **Fleet owes the count** (the owner, 29 Sep 2026: "words and a token
+ * count"): a `system/thinking_tokens` line's `estimated_tokens` is read by
+ * `crates/adapters/src/watching.rs` for the proposer and dropped by the
+ * transcript decoder, which emits only the kind.
+ *
+ * **The reasoning text is a draft awaiting his call.** Carrying it reverses
+ * `docs/scope.md` — reading a transcript is what Armada exists to escape — and
+ * costs Fleet storing long text per turn. It is mocked so he can judge it by
+ * looking.
+ */
+export type DroneThought =
+  /** The harness's estimate, **cumulative within one model call**, as it is sent. */
+  | { of: "tokens"; estimated: number }
+  /** The turn's reasoning. `null` where the vendor redacted it and there is no text. */
+  | { of: "reasoning"; text: string | null };
 
 /**
  * Today's wire: the Drone on each task that names one, with no transcript.

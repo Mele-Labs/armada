@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import { DroneTurns, type DroneTurn, type TurnStep } from "./DroneTurns";
 
 /**
@@ -172,6 +172,41 @@ export const ToolCallsReadAsAQuietBlock: Story = {
     // Sentences and the closing line are never inside a block.
     await expect(reads?.queryByText(/Writing it now/)).toBeNull();
     await expect(edits?.queryByText("34 turns · $2.40")).toBeNull();
+  },
+};
+
+const REASONING = "running.rs is read. Its exports stay as they are, and the change goes beside them.";
+
+/**
+ * An opened thinking run in words, each row with what it added and the line
+ * with the sum (the owner, 29 Sep 2026). Hovering or focusing a Reasoned row
+ * shows its reasoning — **a draft awaiting his call** — or says it was withheld.
+ */
+export const ThinkingInWords: Story = {
+  args: {
+    emptyNote: NOTHING_YET,
+    turns: [
+      { id: "1", at: "05:12:21", who: "drone", kind: "called", subject: "Read", detail: "crates/api/src/running.rs" },
+      { id: "2", at: "05:12:22", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "thinking", tokens: 400 } },
+      { id: "3", at: "05:12:23", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "thinking", tokens: 900 } },
+      { id: "4", at: "05:12:24", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "reasoned", text: REASONING } },
+      { id: "5", at: "05:12:25", who: "drone", kind: "unrecognised", quiet: true, thought: { of: "reasoned", withheld: true } },
+      { id: "6", at: "05:14:10", who: "drone", kind: "called", subject: "Edit", detail: "crates/api/src/running.rs" },
+    ],
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByText("4 turns · ~1,300 tokens")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Show details" }));
+    await expect(canvas.getAllByText("Thinking")).toHaveLength(2);
+    await expect(canvas.getByText("~400 tokens")).toBeVisible();
+    await expect(canvas.queryByText(/system\/thinking_tokens/)).toBeNull();
+    // The keyboard reaches the reasoning: the next stop after the toggle.
+    await userEvent.tab();
+    await expect(document.activeElement).toHaveAccessibleDescription(REASONING);
+    await waitFor(() => expect(canvas.getByText(REASONING)).toBeVisible());
+    // And the pointer reaches the withheld one, which says so.
+    await userEvent.hover(canvas.getAllByText("Reasoned")[1]!);
+    await waitFor(() => expect(canvas.getByText("Withheld by the model's provider")).toBeVisible());
   },
 };
 

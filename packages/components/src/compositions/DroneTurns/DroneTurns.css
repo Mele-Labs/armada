@@ -330,6 +330,23 @@
   white-space: nowrap;
 }
 
+/* An opened run's row in words — Armada's, so sans, as `Working` is — with
+   the token figure trailing in the count's voice (the owner, 29 Sep 2026). */
+.armada-turns__thought {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-turns__figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
 /* The inner dot of circle-dot, opacity and scale only, at --duration-pulse —
    the step mark's carve-out, and the same reason: only motion says still
    working. The ring holds still, so no row shifts and nothing reflows. */

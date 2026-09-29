@@ -1,11 +1,11 @@
 // What the Drones destination reads: which Drones a filter holds, in which
 // order, and one Drone's transcript as `DroneTurns` draws it.
 
-import type { DroneTurn, JobDroneState, JobDronesFilter, TurnStep } from "@armada/components";
+import type { DroneTurn, JobDroneState, JobDronesFilter, Thought, TurnStep } from "@armada/components";
 import type { ReactNode } from "react";
 import type { JobDetail, Turn } from "@armada/protocol";
 
-import type { DroneView } from "./draft/drone";
+import type { DroneThought, DroneView } from "./draft/drone";
 import { clock } from "./duration";
 import { entriesOf, type LogRow } from "./story";
 
@@ -76,18 +76,27 @@ export function stepOf(detail: JobDetail | null, stepId: string): TurnStep {
  * One Drone's rows as `DroneTurns` draws them: a call and its answer on one
  * row, the answer that said only that it answered folded into its call. What
  * Armada told it is drawn by `brief`, from the lines Overview's brief reads.
+ * A thinking row reads in words, with what `thoughts` carries for it.
  */
 export function droneTurnsOf(
   rows: readonly Turn[],
   brief: (lines: LogRow["payload"]) => ReactNode,
+  thoughts?: DroneView["thoughts"],
 ): DroneTurn[] {
   const answers = new Map<string, boolean>();
   for (const row of rows) {
     if (row.saw.event === "answered") answers.set(row.saw.call, row.saw.failed);
   }
   const turns: DroneTurn[] = [];
+  // The estimate the last row left. Only a thinking row carries one forward:
+  // any other row ends the model call its estimates were counting.
+  let estimated = 0;
   for (const row of rows) {
     const saw = row.saw;
+    const payload = thoughts?.get(row.seq);
+    const before = estimated;
+    estimated =
+      saw.event === "unrecognised" && saw.kind === THINKING && payload?.of === "tokens" ? payload.estimated : 0;
     const base = {
       id: String(row.seq),
       at: clock(row.ts),
@@ -127,12 +136,40 @@ export function droneTurnsOf(
           subject: `${saw.turns} turns · $${(saw.cost_micros / 1_000_000).toFixed(2)}`,
         });
         break;
-      case "unrecognised":
-        turns.push({ ...base, subject: saw.kind, quiet: true });
+      case "unrecognised": {
+        const thought = thoughtOf(saw.kind, payload, before);
+        turns.push({ ...base, ...(thought === undefined ? { subject: saw.kind } : { thought }), quiet: true });
         break;
+      }
       default:
         turns.push(base);
     }
   }
   return turns;
+}
+
+/** The harness saying the model is thinking. Carries `estimated_tokens` on its own line. */
+const THINKING = "system/thinking_tokens";
+/** A turn's reasoning block, as `crates/adapters/src/transcript.rs` spells it (`REASONED`). */
+const REASONED = "the Drone's reasoning, not carried";
+
+/**
+ * A thinking row in words, with what the draft carries for it.
+ *
+ * **A row's count is what it added, not the running estimate.** The harness
+ * sends a cumulative figure within one model call, so drawn raw the opened rows
+ * climb and never sum to the run's line; the delta sums to it. `before` is the
+ * estimate the previous row left, zero at a call's start — and a figure lower
+ * than it is a new call begun without a row between.
+ */
+function thoughtOf(kind: string, payload: DroneThought | undefined, before: number): Thought | undefined {
+  if (kind === THINKING) {
+    if (payload?.of !== "tokens") return { of: "thinking" };
+    return { of: "thinking", tokens: payload.estimated - (payload.estimated < before ? 0 : before) };
+  }
+  if (kind === REASONED) {
+    if (payload?.of !== "reasoning") return { of: "reasoned" };
+    return payload.text === null ? { of: "reasoned", withheld: true } : { of: "reasoned", text: payload.text };
+  }
+  return undefined;
 }
