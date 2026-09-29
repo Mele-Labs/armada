@@ -24,6 +24,23 @@ const TIMES: Record<string, { since: string; ended?: string }> = {
 /** T2's first Drone, which a person ended before it finished. */
 const T2_FIRST = "01M2D5HKQP001DRONE000T2A";
 
+// Thinking rows take their own `seq` range, clear of `base.ts`'s counter.
+let thinkingSeq = 900_000;
+
+/**
+ * The Drone thinking: rows the decoder has no name for. Real transcripts put
+ * them between most calls — 106 of 149 rows on one measured.
+ */
+function thinking(step: string, ts: string, rows: number): Turn[] {
+  return Array.from({ length: rows }, () => ({
+    ts,
+    seq: (thinkingSeq += 1),
+    step,
+    by: "drone" as const,
+    saw: { event: "unrecognised" as const, kind: "system/thinking_tokens" },
+  }));
+}
+
 /** An instant `seconds` after `from`, in the wire's spelling. */
 function after(from: string, seconds: number): string {
   return new Date(Date.parse(from) + seconds * 1000).toISOString().replace(".000Z", "Z");
@@ -40,12 +57,14 @@ function transcriptOf(task: TaskView, drone: Pick<DroneView, "state" | "since" |
   const next = (gap = 20) => after(since, (at += gap));
   const rows: Turn[] = [
     instructed(step, since, 2, task.expects ?? task.title, "Implement"),
+    ...thinking(step, next(8), 4),
     said(step, next(), `Starting on ${task.id}: ${task.title}. Reading the files it touches first.`),
   ];
   task.scope.forEach((path, n) => {
     const call = `${task.id}-read-${n}`;
     rows.push(called(step, next(), call, "Read", path));
     rows.push(answered(step, next(4), call));
+    rows.push(...thinking(step, next(6), 2 + (n % 3)));
   });
   if (drone.state === "killed") {
     rows.push(said(step, next(), "The panel should read the Job's resources route, so I'll add a poll beside it."));
@@ -54,10 +73,13 @@ function transcriptOf(task: TaskView, drone: Pick<DroneView, "state" | "since" |
   }
   const target = task.scope[0] ?? "";
   rows.push(said(step, next(), `The change belongs in ${target}. Writing it now.`));
+  rows.push(...thinking(step, next(6), 3));
   rows.push(called(step, next(), `${task.id}-edit`, "Edit", target));
   rows.push(answered(step, next(6), `${task.id}-edit`));
+  rows.push(...thinking(step, next(6), 5));
   rows.push(called(step, next(), `${task.id}-test`, "Bash", "pnpm -C packages/screens exec vitest run"));
-  if (drone.state === "running") return rows;
+  // A live Drone is mid-thought while its tests run.
+  if (drone.state === "running") return [...rows, ...thinking(step, next(10), 3)];
   const failed = drone.state === "failed";
   rows.push(answered(step, next(40), `${task.id}-test`, failed));
   if (!failed) rows.push(said(step, next(), task.shown ?? "Done. The tests pass."));
