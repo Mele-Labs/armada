@@ -63,7 +63,6 @@ import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNod
 import { absoluteOf } from "./duration";
 import {
   framesDrawn,
-  proposedRelations,
   UNTITLED_STUDIO,
   whiteboardEdges,
   whiteboardNodes,
@@ -116,14 +115,6 @@ function bindingOf(act: string): { shortcut?: string } {
 const RAIL_LABEL = "What you can put on this Studio";
 
 const PICKED_LABEL = "What is picked";
-
-/**
- * What the queue in the board's corner is. **It says so on its own face** — it
- * drew no title but *Proposed* and shared a panel with the field the rail
- * opens, so the owner read it on 28 Sep 2026 as something about a selection he
- * had not made. It is neither: it is what a Studio is holding for him.
- */
-const WAITING_LABEL = "Waiting on you";
 
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
@@ -433,7 +424,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     drawn.has(nodeId) ? (frames.of(nodeId) ?? {}) : { why: PAST_THE_BOUND };
   const openedNote = studio.nodes.find((node) => node.id === opened && node.kind === "note");
   const editable = open.editable && live;
-  const proposed = proposedRelations(studio, jobs);
   const onBoard = picked.filter((id) => studio.nodes.some((node) => node.id === id));
   const selected = onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
   const board = { servers: props.servers, now: props.now };
@@ -606,6 +596,11 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           // so every pick after it is the person's.
           pick={selectedNode}
           readOnly={!editable}
+          // A proposed relation is answered on its own label, where it is drawn
+          // — the owner, 29 Sep 2026: a queue in the corner was disconnected
+          // from the edge it was about.
+          onDecide={decide}
+          deciding={deciding}
           onNodeMoved={(nodeId, position) => {
             // The whiteboard refuses a move while read-only already. This is the second lock.
             if (!editable) return;
@@ -635,51 +630,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
                 }}
               />
             </GraphCanvasNodeBar>
-          }
-          waiting={
-            proposed.length === 0 ? undefined : (
-              <Card className="armada-studio__proposals" role="group" aria-label={WAITING_LABEL}>
-                <CardHeader>
-                  <CardTitle className="armada-studio__waiting">{WAITING_LABEL}</CardTitle>
-                </CardHeader>
-                <CardContent className="armada-studio__aside">
-                  {proposed.map((one) => (
-                    <div key={one.id} className="armada-studio__proposed">
-                      {/* Who drew it, first. **The sentence the card was missing**: a
-                          relation with no author reads as one the Studio decided, which
-                          is why the owner asked where `same as` had come from. */}
-                      <p className="armada-studio__proposer">{one.proposer}</p>
-                      <p>
-                        {one.from} <em>{one.relation}</em> {one.to}
-                      </p>
-                      {editable ? (
-                        <div className="armada-studio__acts">
-                          <Button
-                            size="sm"
-                            pending={deciding === one.id}
-                            disabled={deciding !== null}
-                            aria-label={`Accept: ${one.from} ${one.relation} ${one.to}`}
-                            onClick={() => decide(one.id, true)}
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={deciding !== null}
-                            aria-label={`Reject: ${one.from} ${one.relation} ${one.to}`}
-                            onClick={() => decide(one.id, false)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                  {editable ? null : <p className="text-fg-muted">Continue to accept or reject.</p>}
-                </CardContent>
-              </Card>
-            )
           }
         >
           {/* The field is drawn only while a kind is being written: the rail is

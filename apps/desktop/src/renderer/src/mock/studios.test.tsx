@@ -231,8 +231,8 @@ test("every-state keeps Studios, so the surface opens on a list and not a read f
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
   // A Job node reads its state off the Board row this window already holds.
   await expect.element(node(/^Job: /)).toBeVisible();
-  // Reopened read-only, so its proposed relations are listed and nothing acts on them.
-  await expect.element(page.getByText("Continue to accept or reject.")).toBeVisible();
+  // Reopened read-only, so its proposed relations say how to answer and nothing acts on them.
+  await expect.element(page.getByText("Continue to accept or reject.").first()).toBeVisible();
 });
 
 /**
@@ -323,46 +323,47 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
 });
 
 /**
- * The owner's two notes of 28 Sep 2026, which are one defect: *why is this
- * showing when I have nothing selected? I don't get the importance of it*, and
- * *why is this connected with "same as". Where did same as come from?*
+ * The owner's note of 29 Sep 2026 (g0zl): *This approval box is so disconnected
+ * from the node … I could see exactly where this note is going to be added on
+ * the board, and I can approve or reject it right there.*
  *
- * The corner drew what a rail press had opened and what was waiting on him in
- * one unlabelled column, so a queue read as a panel about a selection he had
- * not made; and a dashed line was the whole of what said a relation had been
- * proposed rather than decided.
+ * It follows the two of 28 Sep 2026: *why is this showing when I have nothing
+ * selected*, and *where did same as come from* — so the answer still names
+ * who proposed the relation, now on the relation's own label.
  *
- * **A mock test rather than a story, because both claims are about a real
+ * **A mock test rather than a story, because the claim is about a real
  * Studio's own edge.** A story would supply the proposal it is meant to be
- * reading, and what has to hold is that Fleet's `added_by` reaches the screen.
+ * reading, and what has to hold is that Fleet's `added_by` reaches the board,
+ * and that a press there reaches Fleet.
  */
-test("what waits on a person says so, names who proposed it, and marks its own edge", async () => {
-  open(studying().scenario);
+test("a proposed relation is answered on its own edge, and no queue sits in the corner", async () => {
+  const fleet = studying();
+  open(fleet.scenario);
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
-  // The queue says what it is, before anything is selected and without being.
-  // `exact`, because a role name matches on substring and the edge below
-  // is named "…, proposed, waiting on you" — the queue and the thing it
-  // is queueing would otherwise be one locator.
-  const queue = page.getByRole("group", { name: "Waiting on you", exact: true });
-  await expect.element(queue).toBeVisible();
+  // The relation's own label, named by who proposed it and what it says.
+  const proposal = page.getByRole("group", { name: /^Helm proposes: Note It wraps at 720 wide same as / });
+  await expect.element(proposal).toBeVisible();
+  expect(page.getByRole("group", { name: "Waiting on you", exact: true }).query()).toBeNull();
   expect(bar().query()).toBeNull();
-  // Who drew it — the record's own `added_by`, not the Studio's own hand.
-  await expect.element(queue.getByText("Helm proposes")).toBeVisible();
+  // **Drawn where the edge is drawn**: inside React Flow's layer of edge
+  // labels, which is placed at the edge's midpoint and nowhere else.
+  expect(proposal.element().closest(".react-flow__edgelabel-renderer")).not.toBeNull();
 
-  // And the edge on the board says it is proposed and whose answer it waits on,
-  // rather than leaving a dash to carry both.
-  await expect.element(page.getByText("proposed, waiting on you")).toBeVisible();
+  // Read-only, so the footer says how to answer rather than answering.
+  await expect.element(proposal.getByText("Continue to accept or reject.")).toBeVisible();
+  expect(proposal.getByRole("button", { name: /^Accept: / }).query()).toBeNull();
 
-  // Accepting takes both away, because neither was about the relation's kind.
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as/ }).click();
+  await expect.element(proposal.getByRole("button", { name: /^Reject: Note It wraps at 720 wide same as / })).toBeVisible();
+  await proposal.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as / }).click();
+
+  await expect.poll(() => proposal.query()).toBeNull();
   await expect
-    .poll(() => page.getByRole("group", { name: "Waiting on you", exact: true }).query())
-    .toBeNull();
-  await expect.poll(() => page.getByText("proposed, waiting on you").query()).toBeNull();
-  // The relation itself is untouched: accepting settles the standing, not the kind.
+    .poll(() => fleet.studios().flatMap((one) => one.edges).filter((edge) => edge.kind === "same_as").map((edge) => edge.standing))
+    .toEqual(["accepted"]);
+  // The relation itself stays: accepting settles the standing, not the kind.
   await expect.element(page.getByText("same as", { exact: true })).toBeVisible();
 });
 

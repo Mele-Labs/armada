@@ -84,18 +84,10 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    * **It drew two things until 28 Sep 2026 and said which it was for neither**,
    * which is the whole of the owner's *why is this showing when I have nothing
    * selected*. A queue that waits on a person and a field that waits on the
-   * press a person just made are not one panel; `waiting` below is the other.
+   * press a person just made are not one panel. Since 29 Sep 2026 what waits on
+   * a person is answered on the board, where it is drawn.
    */
   aside?: ReactNode;
-  /**
-   * What is waiting on a person, under `aside` and always last in the column.
-   *
-   * **Its own slot so the two can never be confused again.** It comes and goes
-   * with what the Studio holds rather than with anything the person is doing,
-   * so it has to say so on its own face — the canvas only gives it a place
-   * that is never the other one's.
-   */
-  waiting?: ReactNode;
   /**
    * Mounted inside the graph, where React Flow's own hooks resolve. For a
    * surface that has to read or write the viewport — the workflow canvas stays
@@ -211,7 +203,6 @@ function Surface<N extends Node, E extends Edge>({
   fitViewOptions,
   minZoom,
   aside,
-  waiting,
   children,
 }: GraphCanvasProps<N, E>) {
   const onPicked = useCallback(
@@ -251,15 +242,10 @@ function Surface<N extends Node, E extends Edge>({
       // The attribution is a link out of the app, and no surface may navigate.
       proOptions={{ hideAttribution: true }}
     >
-      {/* **The order is the canvas's, not the caller's.** What is waiting draws
-          under what was just asked for, always — so the queue does not jump
-          down the corner every time a rail press opens a field above it, and
-          a person who learnt where it sits finds it there next time. One
-          corner, because the other one is Helm's dock. */}
-      {noPanel(aside) && noPanel(waiting) ? null : (
+      {/* One corner, because the other one is Helm's dock. */}
+      {noPanel(aside) ? null : (
         <Panel position="top-right" className="armada-graph-canvas__aside">
           {aside}
-          {waiting}
         </Panel>
       )}
       {children}
