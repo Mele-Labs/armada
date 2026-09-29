@@ -6,6 +6,8 @@ import { PathChip } from "../PathChip/PathChip";
 import { Select } from "../../primitives/Select/Select";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 
+export { WorkflowDrone, type WorkflowDroneProps } from "./WorkflowDrone";
+
 /**
  * One step or group of a Job's workflow, read whole — what it is doing, the
  * tasks under it, the Checks at its boundary, the tests at that same boundary,
@@ -74,6 +76,21 @@ export type WorkflowInspectorTest = {
   /** What the run came to, or why there is nothing to run. */
   outcome?: string;
   named?: FactChipNamed;
+};
+
+/** One Drone that worked this step, as a row that opens it. */
+export type WorkflowInspectorRunning = {
+  id: string;
+  /** `Drone on T5`. */
+  label: string;
+  /** Where it has got to, on the step machine's marks: running, advanced, stopped. */
+  activity: StepActivity;
+  /** The same, in words, for somebody who cannot see the mark. */
+  said: string;
+  /** Its task, how long and what it has spent: `T5 · 12m · 14 turns`. */
+  says: string;
+  /** Open in the panel beside this one. */
+  open?: boolean;
 };
 
 /** A Drone a redirect could reach. */
@@ -148,12 +165,16 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
   failure?: { says: string; retrySays?: string; toldNext?: string };
   redirect?: WorkflowInspectorRedirect;
   /**
-   * The Drones running here, each one a press away (owner, 29 Sep 2026,
-   * `losq`: *I will never know which drone to message*). Drawn where the
-   * redirect sat. `null` draws the region with an empty well, held for the
-   * drones view being built beside this.
+   * Every Drone that worked this step, running or not, each one a press away
+   * (owner, 29 Sep 2026: `losq`, *I will never know which drone to message*;
+   * `hzj4` once the drones view landed; and *all drones that ran during that
+   * step … even if its not running anymore*). Drawn where the redirect sat; a
+   * press opens that Drone in its own panel beside this one.
    */
-  running?: React.ReactNode;
+  running?: {
+    rows: readonly WorkflowInspectorRunning[];
+    onOpen: (id: string) => void;
+  };
   /** Hold to stop what is running here. Absent where nothing is running. */
   stop?: Pick<HoldButtonProps, "children" | "askLabel" | "description" | "onCommit" | "onAsk" | "disabled" | "pending">;
   /**
@@ -370,9 +391,24 @@ export function WorkflowInspector({
         </Region>
       )}
 
-      {running === undefined ? null : (
-        <Region name="Running Drones">
-          {running === null ? <div className="armada-wf-inspector__held" aria-hidden="true" /> : running}
+      {running === undefined || running.rows.length === 0 ? null : (
+        <Region name="Drones">
+          <ul className="armada-wf-inspector__drones">
+            {running.rows.map((row) => (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  className="armada-wf-inspector__drone"
+                  aria-current={row.open ? "true" : undefined}
+                  onClick={() => running.onOpen(row.id)}
+                >
+                  <StepActivityMark activity={row.activity} label={row.said} />
+                  <span className="armada-wf-inspector__drone-name">{row.label}</span>
+                  <span className="armada-wf-inspector__drone-says">{row.says}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </Region>
       )}
 

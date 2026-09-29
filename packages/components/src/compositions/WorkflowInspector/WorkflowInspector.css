@@ -383,13 +383,78 @@ button.armada-wf-inspector__plan:hover {
   font-family: var(--font-mono);
 }
 
-/* Where the running Drones will be listed, held empty until the drones view
-   lands (`losq`). The tests note's dashed well, with nothing in it. */
-.armada-wf-inspector__held {
-  min-height: var(--space-12);
-  border: var(--border-width) dashed var(--border-default);
+/* The Drones running here, one row each: the mark, whose it is, and what it
+   has done. A row is a press that opens the Drone beside this panel; the one
+   open there takes the accent, as a canvas card does. */
+.armada-wf-inspector__drones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-wf-inspector__drone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
+  font: inherit;
+  color: var(--fg-default);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-wf-inspector__drone:hover {
+  background: var(--bg-hover);
+}
+
+.armada-wf-inspector__drone[aria-current] {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.armada-wf-inspector__drone-name {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  white-space: nowrap;
+}
+
+.armada-wf-inspector__drone-says {
+  margin-inline-start: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
+
+/* The Drone read beside the step panel: the same frame, its where under the
+   name, the kill beside the close, and the message box at the foot. */
+.armada-wf-drone__where {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-wf-drone__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.armada-wf-drone__foot {
+  flex: none;
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 /* A Check the gate is running now: its mark beside the name, and the elapsed

@@ -15,19 +15,32 @@
 // shrinking the run. The toggle is remembered per viewer, and where it is kept
 // is the caller's: this package holds no storage.
 
-import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
+import {
+  DroneBrief,
+  DroneMessageBox,
+  HoldButton,
+  Tabs,
+  Tooltip,
+  WorkflowCanvas,
+  WorkflowDrone,
+  WorkflowInspector,
+  WorkflowStacked,
+} from "@armada/components";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import type { ActingAct } from "./pending";
 import { TAB_LABEL } from "./detail-tabs";
+import { droneViewsOf, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
+import { elapsedSince } from "./duration";
+import { DRONE_SAYS, droneTurnsOf, stepOf } from "./tab-drones-read";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { steeringOf } from "./steering";
 import { ordered } from "./facts";
 import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
-import { workflowReadingOf } from "./workflow-inspector";
+import { spentOf, workflowReadingOf } from "./workflow-inspector";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
 export type WorkflowTabProps = {
@@ -83,6 +96,7 @@ export function WorkflowTab({
   acting,
   actingAct,
   onAct,
+  onRedirect,
   onActHeld,
   onOpenPlan,
   opensStep,
@@ -97,17 +111,27 @@ export function WorkflowTab({
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
+  // The Drone read beside the step panel, and what is typed to it. Cleared
+  // with the step, so a Drone from another step never sits beside this one.
+  const [drone, setDrone] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const openStep = (id: string | null) => {
+    setOpen(id);
+    setDrone(null);
+  };
   // How much of the canvas's right side the open panel covers, so the canvas
   // can slide the step being read clear of it. Measured, because the panel's
   // width is a token and its gutter the layer's, and neither reaches here.
   const frame = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [covered, setCovered] = useState(0);
+  const beside = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const over = panel.current?.getBoundingClientRect();
+    // The leftmost of the panels open over it: the step's, or the Drone's beside it.
+    const over = beside.current?.getBoundingClientRect() ?? panel.current?.getBoundingClientRect();
     const under = frame.current?.getBoundingClientRect();
     setCovered(over === undefined || under === undefined ? 0 : Math.max(0, under.right - over.left));
-  }, [open, view, narrow]);
+  }, [open, drone, view, narrow]);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -137,7 +161,7 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({ whole, groups, selected: open, onOpen: setOpen });
+  const run = workflowRunOf({ whole, groups, selected: open, onOpen: openStep });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was
@@ -151,21 +175,63 @@ export function WorkflowTab({
   // **No step count** — the steps are drawn right under it.
   const on = ordered(whole).find((step) => step.step_id === whole.job.current_step_id);
 
-  // Nothing until a press, and then a layer over the run rather than a
-  // column beside it — the dock's own arrangement, `screens.css`. **Over the
-  // canvas's own frame in the canvas view**, as the board draws it, so the
-  // panel starts where the run does and never covers the toggle above it.
+  // Every Drone that worked the step that is open, running or not, and the one
+  // read beside it (owner, 29 Sep 2026). Running first, then in task order.
+  // **From the plan's tasks**, as the Drones tab reads them where the draft
+  // holds none: Fleet serves which Drone is on a task, and not its transcript.
+  const now = Date.now();
+  const drones = droneViewsOf(groups);
+  const openStepId = whole.steps.find((step) => stepNodeId(step.step_id) === open)?.step_id;
+  const here = drones
+    .filter((one) => one.step === openStepId)
+    .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
+  const labelOf = (one: DroneView): string => `Drone on ${one.task}`;
+  const ranFor = (one: DroneView): string | undefined =>
+    one.ended_at !== undefined
+      ? elapsedSince(one.since, one.ended_at)
+      : one.state === "running"
+        ? elapsedSince(one.since, now)
+        : undefined;
+  // The Drone machine's four states on the step machine's marks: a finished
+  // Drone advanced its task, and a failed or killed one stopped.
+  const activityOf = (one: DroneView) =>
+    one.state === "running"
+      ? ("running" as const)
+      : one.state === "done"
+        ? ("advanced" as const)
+        : ("stopped" as const);
+  const saysOf = (one: DroneView): string =>
+    [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · ");
+  const droneRead = here.find((one) => one.id === drone);
+
+  // Nothing until a press, and then **Helm's dock**: the full height of the
+  // window under the title bar, held off its edges, over whatever is beneath
+  // (owner, 29 Sep 2026: *all of our panels open to the full height of the
+  // app. This one should be no different*). `screens.css` says where.
   const layer =
     reading === undefined ? null : (
       <div className="armada-workflow-tab__inspector-layer">
         <div className="armada-workflow-tab__inspector" ref={panel}>
           <WorkflowInspector
             {...reading}
-            onClose={() => setOpen(null)}
+            onClose={() => openStep(null)}
             // The redirect box went (owner, 29 Sep 2026, `losq`): a person
             // never knows which Drone to message. The running Drones take its
-            // place, empty until the drones view lands.
-            running={null}
+            // place, and a press opens one beside this panel (`hzj4`).
+            running={{
+              rows: here.map((one) => ({
+                id: one.id,
+                label: labelOf(one),
+                activity: activityOf(one),
+                said: DRONE_SAYS[one.state].toLowerCase(),
+                says: saysOf(one),
+                ...(one.id === drone ? { open: true } : {}),
+              })),
+              onOpen: (id) => {
+                setDrone(id === drone ? null : id);
+                setMessage("");
+              },
+            }}
             {...(steering.act === undefined
               ? {}
               : {
@@ -179,6 +245,66 @@ export function WorkflowTab({
                     onCommit: () => onActHeld("kill_drone", job.id),
                   },
                 })}
+          />
+        </div>
+      </div>
+    );
+
+  // The Drone, beside the step panel: the Drones tab's own reading, in the
+  // same frame, one panel to the left — the file diff beside Plan's task
+  // panel is the arrangement (owner's experiment, 29 Sep 2026).
+  const droneLayer =
+    reading === undefined || droneRead === undefined ? null : (
+      <div className="armada-workflow-tab__drone-layer">
+        <div className="armada-workflow-tab__drone" ref={beside}>
+          <WorkflowDrone
+            title={labelOf(droneRead)}
+            subtitle={[
+              stepOf(whole, droneRead.step).label,
+              DRONE_SAYS[droneRead.state].toLowerCase(),
+              saysOf(droneRead),
+            ].join(" · ")}
+            turns={
+              droneRead.transcript === undefined
+                ? []
+                : droneTurnsOf(droneRead.transcript, (lines) => <DroneBrief lines={lines} flat />, droneRead.thoughts)
+            }
+            live={droneRead.state === "running"}
+            emptyNote={
+              droneRead.transcript === undefined
+                ? "Fleet does not serve one Drone's transcript yet."
+                : "This Drone has written nothing yet."
+            }
+            {...(droneRead.state !== "running"
+              ? {}
+              : {
+                  controls: (
+                    <HoldButton
+                      askLabel={ACT_LABEL.kill_drone}
+                      description={HOLD_SAID.kill_drone}
+                      disabled={steering.act === undefined || (acting && actingAct !== "kill_drone")}
+                      pending={acting && actingAct === "kill_drone"}
+                      onAsk={() => onAct("kill_drone", job.id)}
+                      onCommit={() => onActHeld("kill_drone", job.id)}
+                    >
+                      {HOLD_LABEL.kill_drone}
+                    </HoldButton>
+                  ),
+                  footer: (
+                    <DroneMessageBox
+                      value={message}
+                      onChange={setMessage}
+                      onSend={() => {
+                        onRedirect(job.id, message);
+                        setMessage("");
+                      }}
+                      disabled={steering.act === undefined}
+                      disabledReason="No Drone is on this Job, so there is nothing to redirect."
+                      {...(steering.sent === undefined ? {} : { waiting: steering.sent })}
+                    />
+                  ),
+                })}
+            onClose={() => setDrone(null)}
           />
         </div>
       </div>
@@ -225,14 +351,14 @@ export function WorkflowTab({
                   keepsClear={open === null ? null : { id: open, right: covered }}
                 />
               </div>
-              {layer}
             </div>
           ) : (
             <WorkflowStacked label={label} rows={run.rows} />
           )}
         </div>
 
-        {view === "canvas" ? null : layer}
+        {layer}
+        {droneLayer}
       </div>
     </div>
   );

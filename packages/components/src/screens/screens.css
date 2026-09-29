@@ -2293,16 +2293,6 @@
   flex: 1 0 auto;
 }
 
-/* In the canvas view the layer is the stage's, not the tab's: the panel starts
-   where the run's frame does, as the board draws it, and never covers the
-   toggle above. It is held inside the frame's height and scrolls its own
-   regions from there — the head holds still (`WorkflowInspector.css`). */
-.armada-workflow-tab__stage .armada-workflow-tab__inspector {
-  position: static;
-  max-height: calc(100% - var(--space-4) * 2);
-  margin: var(--space-4);
-}
-
 /* The board's frame: an edge, a corner and the page's own glow at its top
    left, so the run reads as one surface rather than cards on the page. The
    glow's ellipse is `TheShell.css`'s, at the frame's scale. */
@@ -2364,13 +2354,63 @@
   color: var(--fg-muted);
 }
 
-/* The panel at the board's width: --w-dock, the nearest step on the ladder to
-   the board's 392. Narrow still takes the whole width. */
-.armada-workflow-tab:not([data-narrow]) .armada-workflow-tab__inspector {
-  width: var(--w-dock);
+/* The inspector is Helm's dock (owner, 29 Sep 2026: *all of our panels open
+   to the full height of the app*). Fixed to the window rather than to this
+   tab, from under the title row to the window's foot, held --space-4 off the
+   edges and --w-dock wide: `TheShell.css`'s `__dock-layer` and `__dock`, so the
+   two line up. Still no scrim, and the layer takes no press, so the canvas
+   beside it stays live. Below the breakpoint it keeps --w-dock unless the
+   window is narrower, as Helm's does. */
+.armada-workflow-tab__inspector-layer {
+  position: fixed;
+  top: var(--h-title-bar);
+  bottom: 0;
+  right: 0;
 }
 
-/* Narrow's whole width, less the gutter it is held off the frame by. */
-.armada-workflow-tab[data-narrow] .armada-workflow-tab__stage .armada-workflow-tab__inspector {
-  width: calc(100% - var(--space-4) * 2);
+.armada-workflow-tab__inspector,
+.armada-workflow-tab[data-narrow] .armada-workflow-tab__inspector {
+  position: static;
+  align-self: stretch;
+  width: var(--w-dock);
+  max-width: calc(100vw - var(--space-4) * 2);
+  max-height: none;
+  margin: var(--space-4);
+}
+
+.armada-workflow-tab__inspector > .armada-wf-inspector {
+  flex: 1;
+}
+
+/* A Drone read beside the step panel (owner's experiment, 29 Sep 2026): the
+   same dock frame, one panel to the left, --space-4 between the two. Wider
+   than the step panel because a transcript is the reading, at --w-sheet.
+   Narrow, there is no room beside, so it lies over the step panel instead and
+   its Close is the way back. */
+.armada-workflow-tab__drone-layer {
+  position: fixed;
+  top: var(--h-title-bar);
+  bottom: 0;
+  right: calc(var(--w-dock) + var(--space-4));
+  z-index: var(--z-dock);
+  display: flex;
+  pointer-events: none;
+}
+
+.armada-workflow-tab[data-narrow] .armada-workflow-tab__drone-layer {
+  right: 0;
+}
+
+.armada-workflow-tab__drone {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--w-sheet);
+  max-width: calc(100vw - var(--space-4) * 2);
+  min-height: 0;
+  margin: var(--space-4);
+}
+
+.armada-workflow-tab__drone > .armada-wf-drone {
+  flex: 1;
 }
