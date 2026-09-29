@@ -120,7 +120,7 @@ export function droneTurnsOf(
         turns.push({ ...base, said: brief(entriesOf([row], undefined)[0]?.payload ?? []) });
         break;
       case "refused":
-        // The speaker column names who, so the refusal says itself here.
+        // The card names who, so the refusal says itself here.
         turns.push({ ...base, subject: saw.tool, said: `Refused: ${saw.because}` });
         break;
       case "ended":

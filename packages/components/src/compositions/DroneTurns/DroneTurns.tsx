@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, CircleDot } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
@@ -19,16 +19,23 @@ import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
  * to wait for its result would be unbounded buffering in the loop that advances
  * the Job.
  *
- * **The second column names who, not what** — Drone, Armada or Fleet, in the
- * words and the sans `ActivityLog` names them with. The body already says what:
- * a call leads with its tool. So a refusal says so in its body, since the
- * column no longer does. The owner's decision, 29 Sep 2026. A row with no
- * speaker falls back to the wire's kind, in mono.
+ * **A card per speaker.** Consecutive turns from one speaker — Drone, Armada or
+ * Fleet — are one card, headed with the speaker's name in the words
+ * `ActivityLog` names them with, and a change of speaker starts the next card.
+ * The rows inside carry only what happened: a call leads with its tool, prose
+ * is plain, and a refusal says so in its body. The owner drew it on 29 Sep
+ * 2026, replacing the column that named the speaker on every row: *"it just
+ * repeats pretty much the same thing on every row."* A turn with no speaker is
+ * a card of its own with no head, rather than one under a guessed name.
+ *
+ * **Times are a card's, not a row's.** The head carries the card's first
+ * instant; each row keeps its own as its title.
  *
  * **The step is a boundary, not a column.** One step's turns run to dozens, so
  * a name repeated down every row would be the same string forty times over
  * competing for the width the body absorbs. The question a reader asks is where
- * the step changed, and a line drawn there answers it for every row beneath.
+ * the step changed, and a line drawn there, between cards, answers it for every
+ * row beneath. A step changing under one speaker splits that speaker's card.
  *
  * **It follows the tail, and stops the moment you scroll away from it.** A
  * pane that pulls you back to the bottom while you are reading is worse than
@@ -39,9 +46,9 @@ export type DroneTurn = {
   id: string;
   /** When Fleet's line loop saw it, not when it reached the disk. */
   at: string;
-  /** The wire's kind: `called`, `said`, `refused`, `started`, and the rest. */
+  /** The wire's kind: `called`, `said`, `refused`, `started`, and the rest. Not drawn. */
   kind: string;
-  /** Who wrote the row. Drawn in the second column; `kind` is drawn where absent. */
+  /** Who wrote the row. Names its card; absent, the row is a headless card of its own. */
   who?: ActivityActor;
   /** The machine value the row is about — a tool, a session, an unread line. */
   subject?: string;
@@ -165,23 +172,30 @@ export function DroneTurns({ turns, emptyNote, live = false }: DroneTurnsProps) 
   }
 
   const entries = runs(turns);
+  const tail = entries[entries.length - 1];
   return (
     <ol className="armada-turns" ref={setList}>
-      {entries.map((entry, at) =>
+      {entries.map((entry) =>
         entry.of === "step" ? (
           <StepBoundary key={`step-${entry.above}`} step={entry.step} />
-        ) : entry.of === "turn" ? (
-          <Row key={entry.turn.id} turn={entry.turn} />
         ) : (
-          <QuietRun
-            key={entry.turns[0].id}
-            turns={entry.turns}
-            // Only the last run can still be happening: a run with rows after
-            // it already ended.
-            working={live && at === entries.length - 1}
-            open={open.has(entry.turns[0].id)}
-            onToggle={() => setOpen(toggled(open, entry.turns[0].id))}
-          />
+          <Card key={firstOf(entry).id} card={entry}>
+            {entry.items.map((item, at) =>
+              item.of === "turn" ? (
+                <Row key={item.turn.id} turn={item.turn} />
+              ) : (
+                <QuietRun
+                  key={item.turns[0].id}
+                  turns={item.turns}
+                  // Only the last run can still be happening: a run with rows
+                  // after it already ended.
+                  working={live && entry === tail && at === entry.items.length - 1}
+                  open={open.has(item.turns[0].id)}
+                  onToggle={() => setOpen(toggled(open, item.turns[0].id))}
+                />
+              ),
+            )}
+          </Card>
         ),
       )}
     </ol>
@@ -212,27 +226,37 @@ function scrollerFor(from: Element | null): Element | null {
   return document.scrollingElement;
 }
 
-type Entry =
+type Item =
   | { of: "turn"; turn: DroneTurn }
   /**
    * At least one row, always: a run is opened with the turn that started it
    * and only ever grows. Written as a non-empty tuple so the head below is a
    * turn rather than a lookup every caller has to assert.
    */
-  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] }
+  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] };
+
+/** One speaker's consecutive turns. Never empty, for the same reason as a run. */
+type CardEntry = { of: "card"; who?: ActivityActor; items: [Item, ...Item[]] };
+
+type Entry =
+  | CardEntry
   /** Keyed by the row it stands above, which is stable while rows only append. */
   | { of: "step"; step?: TurnStep; above: string };
 
 /**
- * The rows, with consecutive quiet ones gathered and each change of step marked.
+ * The rows, gathered into a card per run of one speaker, with consecutive quiet
+ * rows gathered inside it and each change of step marked between cards.
  *
  * **A run of one is still a run.** Left alone it renders the decoder's own
  * words for a turn it could not place, which is the reading this collapse
  * exists to remove, and one line that reads like its neighbours beats one that
  * does not.
  *
- * **A boundary breaks a run**, because a collapsed line spanning two steps
+ * **A boundary breaks a card and a run**, because either spanning two steps
  * would attribute the whole of it to whichever the reader guessed.
+ *
+ * **A turn with no speaker never shares a card**, not even with another
+ * unnamed one: two rows under one head says one speaker wrote both.
  *
  * **Nothing is marked where no row anywhere carries a step.** Every row of such
  * a transcript predates the field, so "not recorded" would be the only line on
@@ -244,22 +268,26 @@ function runs(turns: DroneTurn[]): Entry[] {
   const entries: Entry[] = [];
   let under: string | undefined;
   let opened = false;
+  let card: CardEntry | undefined;
   for (const turn of turns) {
     if (attributed && (!opened || turn.step?.id !== under)) {
       entries.push({ of: "step", step: turn.step, above: turn.id });
       under = turn.step?.id;
       opened = true;
+      card = undefined;
     }
-    const last = entries[entries.length - 1];
-    if (turn.quiet !== true) {
-      entries.push({ of: "turn", turn });
+    const item: Item = turn.quiet === true ? { of: "quiet", turns: [turn] } : { of: "turn", turn };
+    if (card === undefined || card.who === undefined || card.who !== turn.who) {
+      card = { of: "card", ...(turn.who === undefined ? {} : { who: turn.who }), items: [item] };
+      entries.push(card);
       continue;
     }
-    if (last !== undefined && last.of === "quiet") {
+    const last = card.items[card.items.length - 1];
+    if (item.of === "quiet" && last?.of === "quiet") {
       last.turns.push(turn);
       continue;
     }
-    entries.push({ of: "quiet", turns: [turn] });
+    card.items.push(item);
   }
   return entries;
 }
@@ -298,8 +326,12 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
   const held = open ? turns.map((turn) => rowId(turn)).join(" ") : undefined;
   return (
     <Fragment>
-      <li className="armada-turns__turn" data-quiet data-open={open || undefined}>
-        <span className="armada-turns__at">{head.at}</span>
+      <li
+        className="armada-turns__turn"
+        data-quiet
+        data-open={open || undefined}
+        title={head.at}
+      >
         <span className="armada-turns__mark" data-working={working || undefined}>
           <CircleDot size={MARK} strokeWidth={MARK_STROKE} aria-hidden />
         </span>
@@ -330,6 +362,38 @@ function QuietRun({ turns, working, open, onToggle }: QuietRunProps) {
   );
 }
 
+/** The turn a card opens with, whose instant its head carries. */
+function firstOf(card: CardEntry): DroneTurn {
+  const head = card.items[0];
+  return head.of === "turn" ? head.turn : head.turns[0];
+}
+
+/**
+ * One speaker's run of turns: the name over a rule, then the rows.
+ *
+ * **A group named by its speaker**, so a card is found by who wrote it rather
+ * than by its head's styling. A card with no speaker has no head and no name —
+ * nothing is guessed for it.
+ */
+function Card({ card, children }: { card: CardEntry; children: ReactNode }) {
+  const named = useId();
+  return (
+    <li className="armada-turns__card">
+      <div role="group" {...(card.who === undefined ? {} : { "aria-labelledby": named })}>
+        {card.who === undefined ? null : (
+          <div className="armada-turns__card-head">
+            <span className="armada-turns__who" id={named}>
+              {ACTOR_NAMED[card.who]}
+            </span>
+            <span className="armada-turns__at">{firstOf(card).at}</span>
+          </div>
+        )}
+        <ol className="armada-turns__rows">{children}</ol>
+      </div>
+    </li>
+  );
+}
+
 /**
  * What rows written before Fleet recorded a step say for themselves.
  *
@@ -346,9 +410,8 @@ const UNRECORDED = "Fleet recorded no step for the turns below";
  * `file*` to evidence, and a boundary is none of those — the rule and the name
  * carry it, and a mark spent here would be a mark meaning something else.
  *
- * The word `step` sits in the kind column, where every other row's machine word
- * sits: it keeps the boundary's shape identical to a row's and gives it an
- * accessible name that says what it is without hidden text.
+ * The word `step` leads it in mono, which gives it an accessible name that says
+ * what it is without hidden text.
  */
 function StepBoundary({ step }: { step?: TurnStep }) {
   return (
@@ -365,13 +428,12 @@ function StepBoundary({ step }: { step?: TurnStep }) {
 
 function Row({ turn, nested = false }: { turn: DroneTurn; nested?: boolean }) {
   return (
-    <li className="armada-turns__turn" id={rowId(turn)} data-nested={nested || undefined}>
-      <span className="armada-turns__at">{turn.at}</span>
-      {turn.who === undefined ? (
-        <span className="armada-turns__kind">{turn.kind}</span>
-      ) : (
-        <span className="armada-turns__who">{ACTOR_NAMED[turn.who]}</span>
-      )}
+    <li
+      className="armada-turns__turn"
+      id={rowId(turn)}
+      data-nested={nested || undefined}
+      title={turn.at}
+    >
       <span className="armada-turns__body">
         {turn.subject === undefined && turn.detail === undefined ? null : (
           <span className="armada-turns__head">

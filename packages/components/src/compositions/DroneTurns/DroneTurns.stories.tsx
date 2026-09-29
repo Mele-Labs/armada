@@ -5,9 +5,10 @@ import { DroneTurns, type DroneTurn, type TurnStep } from "./DroneTurns";
 /**
  * One Drone's turns, read while it is still working.
  *
- * **Every row names who wrote it** — Drone, Armada or Fleet, the activity
- * log's three voices — and the body says what. A refusal says so in its body.
- * The owner's decision, 29 Sep 2026.
+ * **A card per speaker.** Consecutive rows from one of the activity log's three
+ * voices — Drone, Armada or Fleet — are one card headed with its name, and the
+ * rows say what. A refusal says so in its body. The owner drew it, 29 Sep 2026,
+ * replacing a column that named the speaker on every row.
  *
  * **A call that simply answered says nothing more.** Only an answer carrying
  * more than that — a failure — is drawn.
@@ -49,7 +50,8 @@ function thinking(from: number, rows: number, at: string): DroneTurn[] {
 }
 
 /**
- * The ordinary transcript: a session, some prose, and calls with their answers.
+ * The ordinary transcript: Armada's opening turn, then the Drone's session, some
+ * prose, and calls with their answers — two speakers, so two cards.
  *
  * The third call carries no detail, which is the wire saying it had no name for
  * that tool's arguments rather than a field that failed to arrive — so the row
@@ -57,6 +59,13 @@ function thinking(from: number, rows: number, at: string): DroneTurn[] {
  * next `Bash`.
  */
 const turns: DroneTurn[] = [
+  {
+    id: "0",
+    at: "09:14:01",
+    who: "armada",
+    kind: "instructed",
+    said: "Split the settings reducer so the selectors can be tested alone.",
+  },
   {
     id: "1",
     at: "09:14:02",
@@ -88,7 +97,7 @@ const turns: DroneTurn[] = [
     kind: "called",
     subject: "Bash",
     detail: "cargo test -p settings --lib",
-    answer: "Answered, and the tool itself failed.",
+    answer: "Failed.",
   },
   {
     id: "5",
@@ -110,15 +119,16 @@ const turns: DroneTurn[] = [
 
 export const ADroneWorking: Story = {
   args: { turns, emptyNote: NOTHING_YET },
-  // What does not happen: a call that answered and said nothing else draws no
-  // word for it, and the second column names who rather than the event.
+  // A change of speaker starts a card, each card is named by its speaker, and
+  // what does not happen: a call that answered and said nothing else draws no
+  // word for it, and no row carries the wire's event word.
   play: async ({ canvas }) => {
-    const read = canvas.getByText("src/settings.rs").closest("li");
-    await expect(read).not.toBeNull();
-    const row = within(read as HTMLElement);
-    await expect(row.queryByText(/answered/i)).toBeNull();
-    await expect(row.getByText("Drone")).toBeVisible();
-    await expect(row.queryByText("called")).toBeNull();
+    await expect(canvas.getAllByRole("group")).toHaveLength(2);
+    await expect(canvas.getByRole("group", { name: "Armada" })).toBeVisible();
+    const drone = within(canvas.getByRole("group", { name: "Drone" }));
+    await expect(drone.getByText("src/settings.rs")).toBeVisible();
+    await expect(drone.queryByText(/answered/i)).toBeNull();
+    await expect(drone.queryByText("called")).toBeNull();
   },
 };
 
@@ -296,7 +306,7 @@ export const NothingButToolCalls: Story = {
     emptyNote: NOTHING_YET,
     turns: [
       { id: "1", at: "09:20:01", who: "drone", kind: "called", subject: "Bash", detail: "cargo xtask verify-foundations" },
-      { id: "2", at: "09:20:31", who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p ipc", answer: "Answered, and the tool itself failed." },
+      { id: "2", at: "09:20:31", who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p ipc", answer: "Failed." },
       { id: "3", at: "09:20:48", who: "drone", kind: "called", subject: "Read", detail: "crates/ipc/src/turn.rs" },
       { id: "4", at: "09:20:52", who: "drone", kind: "called", subject: "Grep", detail: "Saw::Called in crates/", answer: "No answer yet." },
     ],
@@ -338,7 +348,7 @@ export const TurnsUnderTheirSteps: Story = {
       { id: "20", at: "09:14:22", step: REPRO, who: "drone", kind: "called", subject: "Write", detail: "tests/settings_split.rs" },
       { id: "21", at: "09:15:01", step: FIX, who: "drone", kind: "said", said: "The test reproduces it. Splitting the reducer now." },
       { id: "22", at: "09:15:09", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +42 -18" },
-      { id: "23", at: "09:15:40", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Answered, and the tool itself failed." },
+      { id: "23", at: "09:15:40", step: FIX, who: "drone", kind: "called", subject: "Bash", detail: "cargo test -p settings --lib", answer: "Failed." },
       { id: "24", at: "09:18:02", step: REPRO, who: "drone", kind: "said", said: "The gate sent this back. Widening the reproduction first." },
       { id: "25", at: "09:18:30", step: REPRO, who: "drone", kind: "called", subject: "Edit", detail: "tests/settings_split.rs +11 -0" },
       { id: "26", at: "09:19:04", step: FIX, who: "drone", kind: "called", subject: "Edit", detail: "src/settings.rs +6 -2", answer: "No answer yet." },
