@@ -268,6 +268,7 @@ const VOCABULARIES: &[&str] = &[
     "escalation_reason",
     "step_verdict",
     "step_state",
+    "group_state",
     "advance_gate",
     "auto_merge",
     "check_outcome",

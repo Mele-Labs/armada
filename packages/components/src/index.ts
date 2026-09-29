@@ -357,6 +357,7 @@ export * from "./compositions/DispatchSettings/TierModels";
 export * from "./compositions/DispatchSettings/DroneCap";
 // The proposal itself: gates, tiers, how it lands and what it is held to,
 // editable until approval and frozen at it. #1541, #1548, #1551.
+export * from "./compositions/GroupShape/GroupShape";
 export * from "./compositions/JobProposal/JobProposal";
 // Settings draws two of the proposal's regions on their own, frozen: what no
 // other destination holds once a Job is approved.

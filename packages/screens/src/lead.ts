@@ -4,14 +4,17 @@
 // **A thing you can act on outranks a thing you can only watch**, because
 // acting may resolve the watching — waiting on you, then stopped, then
 // running. The owner's reasoning and its costs are
-// `.claude/decisions/2026-09-29-overview-leads-with-what-releases-the-most.md`.
+// *Overview leads with what releases the most*, 29 Sep 2026, in the decisions
+// register, has his reasoning and the costs he took.
 //
 // Every design board already leads this way, and only the train and the landed
 // Job build it. `members.ts` is this shape for a Job whose members are Jobs,
 // and `JobLead.tsx` draws both.
 
-import { CHECK_ADVANCES, JOB_LIFECYCLE } from "@armada/components";
-import type { CheckRun, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
+import { CHECK_ADVANCES, ESCALATION_REASON, JOB_LIFECYCLE } from "@armada/components";
+import type { CheckRun, Criterion, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
+
+import { panelsOf } from "./gates";
 
 import { elapsedSince } from "./duration";
 
@@ -58,6 +61,29 @@ function holdsUp(whole: JobWhole | null, step: StepDetail | undefined): string {
     : `${next.label} and ${after.length - 1} more do not start until you answer.`;
 }
 
+/** `its criterion`, `both`, `all 6` — a bare `all 2` reads as a fragment. */
+function met(n: number): string {
+  return n === 1 ? "its criterion" : n === 2 ? "both criteria" : `all ${n} criteria`;
+}
+
+/**
+ * What the gate found, on a step waiting to be approved. **The positive is
+ * what makes a sign-off a sign-off** — without it the line says a step is
+ * waiting and nothing about whether the work is any good.
+ */
+function metSaid(step: StepDetail | undefined, whole: JobWhole | null): string {
+  if (step === undefined) return "";
+  const panels = panelsOf(step, whole?.acceptance_criteria ?? []);
+  const checks = (step.check_runs ?? []).filter((run) => CHECK_ADVANCES[run.outcome] !== false).length;
+  const said = [
+    checks === 0 ? "" : `${checks === 1 ? "Its Check" : `All ${checks} Checks`} passed`,
+    panels.length === 0
+      ? ""
+      : `the Judge met ${met(panels.length)}`,
+  ].filter((part) => part !== "");
+  return said.length === 0 ? "" : `${said.join(" and ")}.`;
+}
+
 /** How far the plan is through, where there is one to be through. */
 function tasksSaid(whole: JobWhole | null): string {
   const tasks = whole?.work_plan?.tasks.filter((task) => task.state !== "dropped") ?? [];
@@ -101,6 +127,34 @@ function checkThatFailed(step: StepDetail | undefined): CheckRun | undefined {
 }
 
 /**
+ * The criteria a Judge refused on this step, with the first one's words.
+ *
+ * **The refusal is the thing that needs answering, not the step it happened
+ * on.** Until 29 Sep 2026 the lead said `<step> is waiting on you` here, which
+ * is what a clean sign-off says too — a Judge disputing the evidence and a Job
+ * ready to approve read identically, and only the header badge told them apart.
+ */
+function refusals(step: StepDetail | undefined, criteria: readonly Criterion[]) {
+  if (step === undefined) return undefined;
+  const panels = panelsOf(step, criteria);
+  const refused = panels.filter((panel) => panel.verdict === "not_met");
+  const first = refused[0];
+  if (first === undefined) return undefined;
+  return { count: refused.length, of: panels.length, said: first.criterion?.text ?? first.criterionId };
+}
+
+/**
+ * Why Fleet stopped the Job, in the registry's own verb. **Generated from the
+ * Rust registry**, so a trigger Fleet learns to raise reads correctly without
+ * this file being touched.
+ */
+function stoppedBecause(job: JobSummary): string | undefined {
+  const named = job.reason?.named;
+  return named == null ? undefined : (ESCALATION_REASON[named]?.verb ?? undefined);
+}
+
+
+/**
  * Two clauses at most, each ended. **Fleet's own words end nothing** —
  * `CheckRun.produced` is a log line, so a clause taken from the wire runs
  * straight into the next one without this.
@@ -126,24 +180,63 @@ function because(...parts: string[]): string {
 export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): JobLead {
   const step = currentStep(whole);
   const label = step?.label ?? "this Job";
-  const held = () => because(holdsUp(whole, step), tasksSaid(whole));
 
-  // Waiting on you. The Drone's own question first: it is the one thing on the
-  // wire saying a Drone has stopped and is holding its turn open.
+  // Waiting on you, **named by the thing itself and not by the step it is on**
+  // — the owner's call of 29 Sep 2026, after three different situations drew
+  // one sentence between them.
+  //
+  // The Drone's own question first: it is the one thing on the wire saying a
+  // Drone has stopped and is holding its turn open.
   if (whole?.asking !== undefined) {
-    return { said: "The Drone asked you something.", because: held(), tone: "awaiting-review", act: "Answer it" };
-  }
-  if (whole?.command_waiting !== undefined) {
     return {
-      said: "The Drone wants to run a command it was not given.",
-      because: held(),
+      said: "The Drone asked you something.",
+      because: because(whole.asking.question, holdsUp(whole, step)),
+      tone: "awaiting-review",
+      act: "Answer it",
+    };
+  }
+  // The command, because the command is the decision. A tool with no argument
+  // has an empty `detail`, so the tool's own name carries the line instead.
+  const command = whole?.command_waiting;
+  if (command !== undefined) {
+    return {
+      said: "A Drone wants to run a command it was not given.",
+      because: because(
+        command.detail === "" ? command.tool : `${command.detail}${command.truncated ? " …" : ""}`,
+        holdsUp(whole, step),
+      ),
       tone: "awaiting-review",
       act: "Decide it",
     };
   }
+  const refused = refusals(step, whole?.acceptance_criteria ?? []);
+  if (refused !== undefined) {
+    return {
+      said: `A Judge refused ${refused.count} of ${refused.of} ${refused.of === 1 ? "criterion" : "criteria"}.`,
+      because: because(refused.said, holdsUp(whole, step)),
+      tone: "awaiting-review",
+      act: "Answer it",
+    };
+  }
   const lifecycle = JOB_LIFECYCLE[job.status];
   if (lifecycle?.whoIsActing === "Person" && lifecycle.mode === "Waited on") {
-    return { said: `${label} is waiting on you.`, because: held(), tone: "awaiting-review", act: "Open it" };
+    // **Escalated is not the same as waiting to be approved.** Fleet stopped
+    // the one and named why; the other is work that passed and wants a press.
+    const stopped = stoppedBecause(job);
+    if (stopped !== undefined) {
+      return {
+        said: `This Job ${stopped}, at ${label}.`,
+        because: because(tasksSaid(whole), "Nothing else on it is running."),
+        tone: "completed-failed",
+        act: "Read what stopped it",
+      };
+    }
+    return {
+      said: `${label} is waiting on you to approve it.`,
+      because: because(metSaid(step, whole), holdsUp(whole, step)),
+      tone: "awaiting-review",
+      act: "Review it",
+    };
   }
 
   // Stopped, second — answering something that was waiting may already have

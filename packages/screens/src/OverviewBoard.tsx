@@ -9,16 +9,23 @@
 //
 // What it replaced was `InsideAJob` — the run tree, the plan well, the
 // pointers and the step inspector, which is the Job's detail rather than its
-// state. `.claude/decisions/2026-09-29-overview-leads-with-what-releases-the-most.md`.
+// state. The decision is *Overview leads with what releases the most*, 29 Sep
+// 2026, in the decisions register.
 
-import { ChevronRight } from "lucide-react";
-import type { ReactNode } from "react";
-
-import { Card, CardContent, FigureList, StepBar, WorkflowCanvas } from "@armada/components";
-import type { Figure, TaskBarSegment, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import {
+  Badge,
+  DestinationCard,
+  FigureList,
+  GroupShape,
+  GUIDE_PLAN,
+  GUIDE_PULSE,
+  GUIDE_WORKFLOW,
+  WorkflowCanvas,
+} from "@armada/components";
+import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { LucideIcon } from "lucide-react";
 
 import type { DetailTab } from "./detail-tabs";
-import { Eyebrow } from "./InsideAJob";
 import { JobLead, type JobLeadProps } from "./JobLead";
 
 /** The run, as the Workflow destination's own canvas draws it. */
@@ -30,16 +37,33 @@ export type OverviewWorkflow = {
 };
 
 export type OverviewPlan = {
-  /** One segment per task not dropped, in plan order. */
-  segments: readonly TaskBarSegment[];
-  /** `6 of 8 tasks done · 4 groups` — the caller's sentence, never composed here. */
-  said: string;
+  /** The tasks a Drone is on this second, in plan order. Empty between groups. */
+  working: readonly { id: string; title: string }[];
+  /** One line per group: how it runs, and where it stands. */
+  /**
+   * One line per group: how it runs, where it stands, and the hue that state
+   * carries. **`token` is the state machine's own** — `GROUP_STATE_WORDS` —
+   * so `retrying` reads amber and `failed` red without this file knowing which
+   * states are bad.
+   */
+  groups: readonly {
+    ordinal: number;
+    /** `2 tasks` — the count alone. How they run is drawn, not named. */
+    tasks: string;
+    /** How many, and whether together: what `GroupShape` draws. */
+    count: number;
+    concurrent: boolean;
+    /** What the drawing says to somebody who cannot see it. */
+    shapeLabel: string;
+    /** The state's word, its status stem and its glyph, all `GROUP_STATE`'s. */
+    said: string;
+    status: string;
+    icon: LucideIcon;
+  }[];
 };
 
 export type OverviewBoardProps = {
   lead: JobLeadProps;
-  /** Turns, spend and files — the Pulse band's own strip, not a second one. */
-  figures: Figure[];
   workflow?: OverviewWorkflow;
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
@@ -49,46 +73,13 @@ export type OverviewBoardProps = {
   pulseAbsent?: string;
   brief?: string;
   briefAbsent?: string;
+  /** What froze and what somebody has changed since, in one line. */
+  settings: string;
   onOpenTab: (tab: DetailTab) => void;
 };
 
-/**
- * One card, and the destination it opens.
- *
- * **The whole card is the control**, because the card is a summary of one
- * destination and there is nothing else on it to press. A chevron says so
- * without a second word.
- */
-function DestinationCard({
-  tab,
-  label,
-  onOpenTab,
-  children,
-}: {
-  tab: DetailTab;
-  label: string;
-  onOpenTab: (tab: DetailTab) => void;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="armada-overview-board__card">
-      <button
-        type="button"
-        className="armada-overview-board__door"
-        onClick={() => onOpenTab(tab)}
-        aria-label={`Open ${label}`}
-      >
-        <Eyebrow>{label}</Eyebrow>
-        <ChevronRight size={14} strokeWidth={2} aria-hidden />
-      </button>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
 export function OverviewBoard({
   lead,
-  figures,
   workflow,
   workflowAbsent,
   plan,
@@ -97,15 +88,23 @@ export function OverviewBoard({
   pulseAbsent,
   brief,
   briefAbsent,
+  settings,
   onOpenTab,
 }: OverviewBoardProps) {
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
       <JobLead {...lead} />
-      {figures.length === 0 ? null : <FigureList figures={figures} column="strip" />}
 
       <div className="armada-overview-board__cards">
-        <DestinationCard tab="workflow" label="Workflow" onOpenTab={onOpenTab}>
+        {/* **What the Job is for, before what it is doing.** It took the
+            figures strip's place at the owner's word, 29 Sep 2026: *"maybe
+            the brief should replace where the figures list is right now."*
+            The one card with no destination behind it. */}
+        <DestinationCard label="Brief">
+          <p className="armada-overview-board__brief">{brief ?? briefAbsent ?? "No brief was written."}</p>
+        </DestinationCard>
+
+        <DestinationCard label="Workflow" guide={GUIDE_WORKFLOW} onOpen={() => onOpenTab("workflow")}>
           {/* **The Workflow destination's own canvas, opened small** — the
               owner's call of 29 Sep: *"some workflows are not linear so the
               canvas is the best way to show it without managing two different
@@ -127,20 +126,64 @@ export function OverviewBoard({
           )}
         </DestinationCard>
 
-        <DestinationCard tab="plan" label="Plan" onOpenTab={onOpenTab}>
+        {/* **No count in the head.** The bar draws every task and the list
+            draws every group, so `5 of 8 done · 4 groups` was the number
+            beside the things it counts — hard rule 7, `design-system.md`.
+            `said` stays as the bar's own label, where the items are not. */}
+        <DestinationCard label="Plan" guide={GUIDE_PLAN} onOpen={() => onOpenTab("plan")}>
           {plan === undefined ? (
             <p className="armada-inside__absent" role="note">
               {planAbsent ?? "No plan has been recorded."}
             </p>
           ) : (
             <>
-              <StepBar tasks={plan.segments} label={plan.said} />
-              <p className="armada-overview-board__said">{plan.said}</p>
+              {/* **What is being worked, then the plan's shape** — the owner
+                  asked for both on 29 Sep 2026, against a card that drew a
+                  bar and nothing else.
+
+                  **No task bar over them.** Eight grey marks said nothing the
+                  group rows do not say better, and unlabelled they read as
+                  decoration — he asked what they were. */}
+              {plan.working.length === 0 ? null : (
+                <dl className="armada-overview-board__working">
+                  <dt>Working now</dt>
+                  {plan.working.map((task) => (
+                    <dd key={task.id}>
+                      <span className="armada-overview-board__task-id">{task.id}</span>
+                      {task.title}
+                    </dd>
+                  ))}
+                </dl>
+              )}
+              <ul className="armada-overview-board__groups">
+                {plan.groups.map((group) => (
+                  // **A row per group, the owner's sketch of 29 Sep 2026.**
+                  // Its name, how much work it holds, a drawing of how that
+                  // work runs, and where it stands — with a rule between, so
+                  // four groups read as four things rather than a list.
+                  //
+                  // The shape is drawn rather than named. Three passes tried
+                  // words for it and each was a label for something a reader
+                  // pictures anyway.
+                  <li key={group.ordinal}>
+                    <p className="armada-overview-board__group-name">Group {group.ordinal}</p>
+                    <p className="armada-overview-board__tasks">{group.tasks}</p>
+                    <GroupShape
+                      tasks={group.count}
+                      concurrent={group.concurrent}
+                      label={group.shapeLabel}
+                    />
+                    <Badge status={group.status} icon={group.icon}>
+                      {group.said}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
             </>
           )}
         </DestinationCard>
 
-        <DestinationCard tab="pulse" label="Pulse" onOpenTab={onOpenTab}>
+        <DestinationCard label="Pulse" guide={GUIDE_PULSE} onOpen={() => onOpenTab("pulse")}>
           {pulse.length === 0 ? (
             <p className="armada-inside__absent" role="note">
               {pulseAbsent ?? "Nothing has been read from this machine yet."}
@@ -150,14 +193,9 @@ export function OverviewBoard({
           )}
         </DestinationCard>
 
-        {/* **The one card that is not a door.** Nothing else says what the Job
-            is for, and there is no destination to send a reader to. */}
-        <Card className="armada-overview-board__card">
-          <CardContent>
-            <Eyebrow>Brief</Eyebrow>
-            <p className="armada-overview-board__brief">{brief ?? briefAbsent ?? "No brief was written."}</p>
-          </CardContent>
-        </Card>
+        <DestinationCard label="Settings" onOpen={() => onOpenTab("settings")}>
+          <p className="armada-overview-board__brief">{settings}</p>
+        </DestinationCard>
       </div>
     </div>
   );

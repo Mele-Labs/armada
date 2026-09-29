@@ -2,6 +2,7 @@
 
 import {
   ADVANCE_GATE,
+  GROUP_STATE,
   JOB_STATUS,
   STEP_STATE,
 } from "@armada/components/src/generated/vocabulary";
@@ -12,7 +13,6 @@ import {
   CLASSIFYING_WORD,
   CRITERION_NO_VERDICT_WORD,
   DRAFT_VOCABULARIES,
-  GROUP_STATE_WORDS,
   TASK_STATE_WORDS,
 } from "./words";
 
@@ -76,23 +76,38 @@ describe("what the registry already answers is not restated here", () => {
 });
 
 describe("the values that have no registry row at all", () => {
-  // `running` and `retrying` are spelled the same in `step-states.toml`, and
-  // that is a word in common rather than a meaning: a group running is not the
-  // step running, and a group can be `running` inside a step that is
-  // `awaiting_human`. The other six have no row anywhere.
-  it("covers the six group states no registry spells at all", () => {
-    const unknown = Object.keys(GROUP_STATE_WORDS).filter(
-      (state) => STEP_STATE[state] === undefined,
-    );
+  // **Group state is no longer one of them.** It was promoted on 29 Sep 2026
+  // so it could carry a glyph, which a draft word cannot: `GROUP_STATE` in the
+  // generated vocabulary now holds all eight, and `enum-verbs.toml` holds the
+  // rows. This claim replaces one that counted six group states no registry
+  // spelled — true until the rows were written, and the reason they were.
+  it("has promoted group state out, glyphs and all", () => {
+    expect(DRAFT_VOCABULARIES.map((one) => one.vocabulary)).not.toContain("group_state");
 
-    expect(unknown).toEqual([
-      "pending",
-      "joining",
-      "checking",
-      "passed",
-      "failed",
-      "landed",
-    ]);
+    const states = ["pending", "running", "joining", "checking", "passed", "failed", "retrying", "landed"];
+    for (const state of states) {
+      expect(GROUP_STATE[state], state).toBeDefined();
+      expect(GROUP_STATE[state]?.icon, state).not.toBeNull();
+    }
+  });
+
+  // The glyphs are the step's one level down, which is what
+  // `[conventions.step_activity_borrowing]` sanctions — never a mark minted
+  // for a group alone.
+  it("borrows every group glyph from a step or a Job, never a new one", () => {
+    const borrowed = new Set(
+      ["not_started", "running", "advanced", "retrying"].flatMap((state) => {
+        const icon = STEP_STATE[state]?.icon;
+        return icon === undefined || icon === null ? [] : [icon];
+      }),
+    );
+    // `x` is the roster's and is `job_status.completed_failed`'s one level up.
+    const failed = JOB_STATUS["completed_failed"]?.icon;
+    if (failed !== undefined && failed !== null) borrowed.add(failed);
+
+    for (const state of ["pending", "running", "passed", "failed", "retrying", "landed"]) {
+      expect(borrowed, state).toContain(GROUP_STATE[state]?.icon);
+    }
   });
 
   it("gives failed a word, which is the one task state the wire cannot send", () => {

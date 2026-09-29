@@ -34,6 +34,14 @@
 #                                Keys match step-states.toml, and it is the
 #                                inner half of the two-level machine
 #                                `job_status` is the outer half of
+#   group_state                - where one group of a Job's plan is. No
+#                                registry file of its own and no enum to pair
+#                                against: Fleet has no group yet, so the set is
+#                                `packages/screens/src/draft/group.ts`'s until
+#                                `#1545` settles the schema. Its glyphs are the
+#                                step's borrowed one level further down, which
+#                                `[conventions.step_activity_borrowing]` in
+#                                `packages/icons/icons.toml` sanctions
 #   advance_gate               - what it takes to advance past one step. No
 #                                registry file of its own: the set is the
 #                                WorkflowDef schema's four forms, of which
@@ -285,6 +293,70 @@ status_token = ""
 vocabulary = "Step state"
 in_code = ""
 notes = "Retries spent, and neither retrying nor waiting on a person — folding it into either would make a designed human gate and a dead stop render alike, which is `step-states.toml`'s own `why`. The verb stays `stopped` rather than becoming `retries spent`: the count of attempts is on the row beside it, and a verb that stated a cause would say twice what the badge above already says once. `flag` is reserved to this state alone and to nothing else in Armada. No token, and this row is the one place that is a real loss: the state's whole treatment is a surface, `--step-stopped-bg`, rather than a glyph hue, and a `--status-` stem cannot carry it."
+
+[verbs.group_state.pending]
+verb = "not started"
+icon = "circle-dashed"
+status_token = "--status-not-started"
+vocabulary = "Group state"
+in_code = ""
+notes = "A group's states are the step's one level further down, and they take their glyphs the way a step takes the Job's — `[conventions.step_activity_borrowing]` in `packages/icons/icons.toml`, which already lends `circle-dashed` to a plan task's open state on exactly this argument. The convention's own words: a second silhouette for one meaning is the collision the page exists to prevent. **No registry file of its own**, for the reason the header gives: Fleet has no group, so there is no enum and no `*.toml` to pair against, and the set is `packages/screens/src/draft/group.ts`'s until `#1545` settles the schema. `--status-not-started` rather than the step row's empty token: a group's state is drawn as a tinted chip and the tint is `--status-not-started-bg`, which a step's rail row has no use for."
+
+[verbs.group_state.running]
+verb = "running"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Group state"
+in_code = ""
+notes = "`circle-dot` is `job_status.running`'s own glyph, borrowed two levels down rather than one. It is shared with `joining` and `checking` below, which is deliberate: all three are the group live, and the word beside the mark is what tells the phase. A glyph each would claim three kinds of activity where there is one."
+
+[verbs.group_state.joining]
+verb = "joining"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Group state"
+in_code = ""
+notes = "A concurrent group's tasks converging at its boundary. Still the group live, so `running`'s mark and hue with its own word — see that row."
+
+[verbs.group_state.checking]
+verb = "checking"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Group state"
+in_code = ""
+notes = "The boundary's Checks are running. `shield-*` was refused: that family is a Check's own outcome, and this is the group being live while they run rather than a result. Still `running`'s mark and hue — see that row."
+
+[verbs.group_state.passed]
+verb = "passed"
+icon = "check"
+status_token = "--status-completed-success"
+vocabulary = "Group state"
+in_code = ""
+notes = "`check`, the bare checkmark, which `circle-check`'s reservation sends every completed thing to and which `step_state.advanced` already borrows on the same grounds. Shared with `landed` below, for `running`'s reason: both are the group through, and the word carries which."
+
+[verbs.group_state.failed]
+verb = "failed"
+icon = "x"
+status_token = "--status-completed-failed"
+vocabulary = "Group state"
+in_code = ""
+notes = "`x`, on the roster `[conventions.step_activity_borrowing]` names, and hued `--status-completed-failed` rather than the badge's own — the same treatment-not-glyph difference that convention records for `x` at step level. A failed group is a system failure, not a human decision, which is what keeps it inside `x`'s reservation rather than widening it."
+
+[verbs.group_state.retrying]
+verb = "retrying"
+icon = "rotate-cw"
+status_token = "--status-awaiting-review"
+vocabulary = "Group state"
+in_code = ""
+notes = "`rotate-cw`, whose own row in `packages/icons/icons.toml` already names it \"the proposed step-level retrying mark\" and carries no reservation against this. `--status-awaiting-review` is the draft's own assignment, kept: a group between attempts is amber rather than red because nothing has failed for good."
+
+[verbs.group_state.landed]
+verb = "landed"
+icon = "check"
+status_token = "--status-completed-success"
+vocabulary = "Group state"
+in_code = ""
+notes = "The group's work reached the branch. `check` and the success hue, shared with `passed` — see that row."
 
 [verbs.queued_reason.frozen]
 verb = "frozen"

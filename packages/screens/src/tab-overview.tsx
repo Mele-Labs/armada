@@ -8,7 +8,14 @@
 // **The Job header and the tab strip belong to `JobDetail.tsx`.** An addition
 // to a region goes in that region's file; an addition to the screen goes there.
 
-import { Button } from "@armada/components";
+import {
+  Button,
+  CPU_USAGE,
+  GROUP_STATE,
+  MEMORY_USAGE,
+  processesTotal,
+  worktreesTotal,
+} from "@armada/components";
 import { useEffect, useMemo, useState } from "react";
 
 import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
@@ -34,8 +41,16 @@ import { againOf, useShowAgain } from "./again";
 import { leadOf } from "./lead";
 import { OverviewBoard } from "./OverviewBoard";
 import type { DetailTab } from "./detail-tabs";
+import { CircleDashed } from "lucide-react";
+
+import { shapeSaid } from "./plan-board";
+
 import { workflowRunOf } from "./workflow-canvas";
-import type { Figure, TaskBarSegment } from "@armada/components";
+import type { Figure } from "@armada/components";
+import type { JobExamined } from "@armada/protocol";
+import type { PulseView } from "./draft/pulse";
+import type { LandingRule } from "./draft/landing";
+import { changedOf } from "./settings";
 import { LandBoard } from "./LandBoard";
 import { TrainBoard } from "./TrainBoard";
 import { landedOf } from "./landed";
@@ -58,8 +73,6 @@ import {
   nothingToAsk,
   pulseFiguresOf,
   pulseReadingOf,
-  spentOn,
-  turnsTaken,
   whyNoReading,
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
@@ -103,20 +116,52 @@ export type OverviewTabProps = JobDetailProps & {
 };
 
 /**
- * One figure for the strip, or nothing where the value is absent.
+ * The Settings card's one line: where the work lands, and whether anybody has
+ * moved a setting on this Job since it was approved.
  *
- * **A figure with no value is not a row** — `FigureList`'s own rule, and the
- * caller's job to apply. Tooltips come with the Pulse branch: the owner asked
- * on 29 Sep 2026 for one on every bare figure, and `Figure` does not take one
- * yet.
+ * **`changedOf` is the count the tab strip already carries**, so the card and
+ * the tab cannot say different numbers.
  */
-function figureOf(label: string, value: string | undefined, apart = false): Figure[] {
-  return value === undefined ? [] : [{ label, value, ...(apart ? { apart } : {}) }];
+function settingsSaid(landing: LandingRule | undefined, changed: number): string {
+  const lands = landing?.target == null ? "Lands where the Manifest says" : `Lands in ${landing.target}`;
+  const moved =
+    changed === 0 ? "nothing changed since" : `${changed} ${changed === 1 ? "change" : "changes"} since`;
+  return `${lands} · ${moved}`;
 }
 
-/** A task's wire state as the bar's own four. Anything else is `open`. */
-function planSegment(state: string): TaskBarSegment {
-  return state === "done" || state === "working" || state === "failed" ? state : "open";
+/**
+ * What Overview's Pulse card holds: what is alive on this Job, then what it is
+ * taking from the machine. The owner's call of 29 Sep 2026, against the card
+ * that read one worktree size and nothing else.
+ *
+ * **The destination's own first three, then totals rather than counts.** The
+ * cost group is cut, because Spend and Turns are the lead's own and a card
+ * repeating them is the same figure twice on one screen; `pulseFiguresOf`
+ * marks that group's first figure `apart`, which is where the cut falls — the
+ * boundary is the band's own, not a list of labels typed here.
+ *
+ * `processesTotal` is `null` while nothing is running and `worktreesTotal` is
+ * `""` where any worktree went unmeasured; neither draws a row.
+ */
+function pulseCard(view: PulseView | null, examined: JobExamined | null, whole: JobWhole | null): Figure[] {
+  const band = pulseFiguresOf(view, whole);
+  const cost = band.findIndex((figure) => figure.apart === true);
+  const alive = cost === -1 ? band : band.slice(0, cost);
+  if (view === null) return alive;
+  const reading = pulseReadingOf(view, examined);
+  const running = processesTotal(reading.processes);
+  const disk = worktreesTotal(reading.worktrees);
+  const taking: Figure[] = [
+    ...(running === null
+      ? []
+      : [
+          { label: CPU_USAGE, value: running.cpu },
+          { label: MEMORY_USAGE, value: running.memory },
+        ]),
+    ...(disk === "" ? [] : [{ label: "Worktree", value: disk }]),
+  ];
+  const [first, ...rest] = taking;
+  return first === undefined ? alive : [...alive, { ...first, apart: true }, ...rest];
 }
 
 export function OverviewTab(props: OverviewTabProps) {
@@ -647,22 +692,10 @@ export function OverviewTab(props: OverviewTabProps) {
   const groups = props.draft?.groups ?? (whole === null ? [] : taskGroupsOf(whole));
   const canvas = whole === null || whole.steps.length === 0 ? undefined : workflowRunOf({ whole, groups });
   const tasks = (whole?.work_plan?.tasks ?? []).filter((task) => task.state !== "dropped");
-  const done = tasks.filter((task) => task.state === "done").length;
-  // The record on a Job that stopped, the live reading on one still going.
-  const live =
-    props.recorded.footprint.state === "read" && props.recorded.footprint.jobId === job.id
-      ? props.recorded.footprint.reading.files.length
-      : undefined;
-  const files = whole?.footprint?.files.length ?? live;
 
   const inside = (
     <OverviewBoard
       lead={{ ...lead, act: leadAct }}
-      figures={[
-        ...figureOf("Turns", turnsTaken(whole)),
-        ...figureOf("Spend", spentOn(whole), true),
-        ...figureOf("Files", files === undefined ? undefined : `${files}`),
-      ]}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
         : {
@@ -677,23 +710,40 @@ export function OverviewTab(props: OverviewTabProps) {
         ? { planAbsent: plan?.recorded === false ? `${plan.stepLabel} has not recorded one yet.` : undefined }
         : {
             plan: {
-              segments: tasks.map((task) => planSegment(task.state)),
-              said: `${done} of ${tasks.length} done · ${groups.length} ${groups.length === 1 ? "group" : "groups"}`,
+              working: tasks
+                .filter((task) => task.state === "working")
+                .map((task) => ({ id: task.id, title: task.title })),
+              groups: groups.map((group) => ({
+                ordinal: group.ordinal,
+                tasks: `${group.tasks.length} ${group.tasks.length === 1 ? "task" : "tasks"}`,
+                // **How it runs is drawn, not named** — the owner's sketch of
+                // 29 Sep 2026, after `2 tasks, one after another` and then a
+                // `sequential` chip both said in words what a reader pictures
+                // anyway. `shapeSaid` is Plan's own sentence, and it is what
+                // the drawing says to a reader who cannot see it.
+                count: group.tasks.length,
+                concurrent: group.concurrent,
+                shapeLabel: shapeSaid(group),
+                said: GROUP_STATE[group.state]?.verb ?? group.state,
+                status: GROUP_STATE[group.state]?.badgeStatus ?? "not-started",
+                icon: GROUP_STATE[group.state]?.icon ?? CircleDashed,
+              })),
             },
           })}
-      // **What Pulse reads, less what the strip above already says.** Spend
-      // and Turns lead the destination's own band; a card under a strip
-      // carrying both is the same figure twice on one screen.
+      // **What this machine is carrying, not what the Job has spent.** Spend
+      // and Turns are the strip's, two regions up; a card repeating them is
+      // the same figure twice on one screen.
       //
-      // The Pulse session is replacing the process count with CPU and memory
-      // totals — the owner overruled the count on 29 Sep 2026 — and those
-      // builders land with that branch.
-      pulse={pulseFiguresOf(holding === null ? null : pulseViewOf(holding), whole).filter(
-        (figure) => figure.label !== "Spend" && figure.label !== "Turns",
-      )}
+      // Totals rather than counts: the owner replaced Pulse's process count
+      // with CPU and memory on 29 Sep 2026 — *"I would prefer to use this
+      // space for total CPU/memory instead of a number of processes."*
+      pulse={pulseCard(holding === null ? null : pulseViewOf(holding), examinedNow, whole)}
       pulseAbsent={whyNoReading(resources)}
       {...(whole === null ? {} : { brief: whole.facts })}
       briefAbsent={whyNoBrief(watched, job.id)}
+      // What froze, and whether anybody has moved a setting since. `changedOf`
+      // is the same count the strip's own Settings tab carries.
+      settings={settingsSaid(props.draft?.landing, changedOf(whole))}
       onOpenTab={props.onOpenTab}
     />
   );

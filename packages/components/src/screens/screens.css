@@ -2154,33 +2154,48 @@
 /* Overview: the lead, the strip, and a card per destination. A quick view of
    everything with a door to each of them — the owner's note of 29 Sep 2026. */
 .armada-overview-board {
+  container: overview-board / inline-size;
   gap: var(--space-4);
 }
 
 .armada-overview-board__cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* **Two up, not three.** At 1440 less the rail a third of the row is about
+     350px, and a group's row — an ordinal, a count and two chips — wraps every
+     line there (the owner, 29 Sep 2026). A fourth collapse point at 1600 would
+     have fixed it and `packages/tokens/src/spacing.css` refuses one: the three
+     it declares are the only ones, and another is a proposal against that file
+     rather than a media query here. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   align-items: start;
 }
 
-/* The run takes the row. **A four-step spine cannot fit a third of a column**
-   — `GraphCanvas`'s own `minZoom` clamps the fit rather than shrinking past
-   it, so a narrow frame draws a clipped run instead of a small one. The
-   `Narrow` artboard gives it the width for the same reason. */
-.armada-overview-board__cards > :first-child {
+/* The brief and the run each take the row: the brief because it is prose and
+   a third of a column is four words a line, the run because **a four-step
+   spine cannot fit a third of a column** — `GraphCanvas`'s own `minZoom`
+   clamps the fit rather than shrinking past it, so a narrow frame draws a
+   clipped run instead of a small one. The `Narrow` artboard gives the run its
+   width for the same reason. */
+.armada-overview-board__cards > :nth-child(-n + 2) {
   grid-column: 1 / -1;
 }
 
-/* One column below the breakpoint, where two cards of summary are each half a
-   column and a run canvas at that width is a row of clipped names. */
-@media (max-width: 1099px) {
+/* One column where two of these do not fit, which is a fact about the row's
+   own width rather than the window's — so a container query, the form every
+   other composition here uses. `packages/tokens/src/spacing.css` declares the
+   three collapse points and refuses a fourth, and those are a window's; an
+   `@media` of my own would have been both a new point and the wrong axis.
+
+   armada-allow-off-contract: a container condition cannot read a custom property — the same escape BranchPicker.css takes, for the same reason
+   760px is where two cards stop both fitting a group's row on one line — `1  2 tasks  sequential  passed` — read at 1100, 1280, 1440 and 1920 — docs/contracts/design-system.md */
+@container overview-board (max-width: 760px) {
   .armada-overview-board__cards {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.armada-overview-board__card {
+.armada-overview-board__cards > .armada-destination-card {
   min-width: 0;
   align-self: start;
 }
@@ -2218,11 +2233,146 @@
   pointer-events: none;
 }
 
+/* **The nodes blended into the card** (owner, 29 Sep 2026). A step card is
+   `--bg-raised` and the card under it is `--surface-card`, which on the
+   Workflow destination is not a problem because the canvas sits on the page
+   ground. Here it needs its own darker surface to sit the cards on. */
+.armada-overview-board__canvas {
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
 /* No zoom, no fit, no pin. **Every canvas draws the rail** and this one is a
    picture — a control on it would offer to change a view that is not a view
    anybody is in, and the destination it opens has the same rail live. */
 .armada-overview-board__canvas .armada-graph-rail {
   display: none;
+}
+
+/* What a Drone is on this second, then the plan's shape. The owner asked for
+   both on the Plan card, 29 Sep 2026. */
+.armada-overview-board__working,
+.armada-overview-board__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-overview-board__working dt {
+  /* **13px is the one legal ALL CAPS**, `packages/tokens/src/typography.css`.
+     This read `--text-label`, which is a colour rather than a size, so the
+     declaration was invalid and the label inherited the body's — the owner saw
+     the hierarchy missing before the cause was found. */
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  font-weight: var(--weight-body);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+/* **A grid, not a flex row.** A group that failed says `failed at its checks,
+   running again`, which clipped the shape to `2 tasks, at…` beside it — and
+   the half that got cut is the half that tells the groups apart. Wrapping it
+   as a flex row put the second line back at the card's edge; three columns
+   keep each part in its own, and a long state wraps inside the last one. */
+.armada-overview-board__working dd,
+.armada-overview-board__groups li {
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-default);
+}
+
+/* A group's row, the owner's sketch of 29 Sep 2026: its name over how much
+   work it holds, a drawing of how that work runs, and the state at the
+   trailing edge. A rule between them, so four groups read as four things. */
+.armada-overview-board__groups li {
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  grid-template-areas:
+    "name  shape state"
+    "tasks shape state";
+  column-gap: var(--space-6);
+  row-gap: 0;
+  align-items: center;
+  padding-block: var(--space-3);
+  border-block-start: var(--border-width) solid var(--edge-rule);
+}
+
+.armada-overview-board__groups li:first-child {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+
+.armada-overview-board__groups li:last-child {
+  padding-block-end: 0;
+}
+
+.armada-overview-board__group-name {
+  grid-area: name;
+  margin: 0;
+  /* **13px is the one legal ALL CAPS**, `packages/tokens/src/typography.css`.
+     This read `--text-label`, which is a colour rather than a size, so the
+     declaration was invalid and the label inherited the body's — the owner saw
+     the hierarchy missing before the cause was found. */
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  font-weight: var(--weight-body);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.armada-overview-board__tasks {
+  grid-area: tasks;
+  margin: 0;
+  /* **The count is what the row is**, and the group's name is how to refer to
+     it — so 18 against 13, and the weight goes with the size. The owner's
+     sketch of 29 Sep 2026 draws exactly that gap. */
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+  white-space: nowrap;
+}
+
+.armada-overview-board__groups li > .armada-group-shape {
+  grid-area: shape;
+}
+
+.armada-overview-board__groups li > .armada-badge {
+  grid-area: state;
+  justify-self: end;
+}
+
+
+/* A task's id and a group's ordinal, in the column the plan's own list keeps
+   them in, so the two lists read down one edge. */
+.armada-overview-board__task-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}
+
+.armada-overview-board__shape {
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* Working now has no dot, so its two columns start where the groups' do. */
+.armada-overview-board__working dd {
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
 }
 
 .armada-overview-board__said,
@@ -2234,6 +2384,8 @@
   color: var(--fg-muted);
   text-wrap: pretty;
 }
+
+
 
 /* What leads the screen. The edge carries the tone, so a reader looking for
    the thing outstanding finds it before reading a word. */
