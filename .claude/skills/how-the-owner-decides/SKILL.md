@@ -60,6 +60,16 @@ The two rules above and this one are one position: the screen reports, the
 teaching is offered once and then waits to be asked. What he rejects is not
 being taught — it is being told things he did not ask for, twice.
 
+> **Never put a count beside the things it counts.**
+> `2026-09-29-no-aggregate-counts.md`: *"Please make a standing rule so that
+> agents stop putting aggregate counts like this. They seem to love doing
+> that."* `Checks 7` over seven Check rows went, and so did a verdict repeating
+> the failed row under it.
+
+If the reader can see the items, the number is noise. A count appears only
+where the items don't. Agents add these by reflex, so check every head, strip and
+label you draw for one before showing him.
+
 > **Humanize the app's own words, not only the words you send him.**
 > `2026-09-25-a-guide-is-steps-over-the-real-app-moving.md` — shown a list of
 > guide titles he had asked for, he refused it: *"Your titles are still full of

@@ -7,34 +7,29 @@
 // whole of `#1537`.
 //
 // The rows are composed from today's reads in `draft/ledger.ts`, the words are
-// `record.ts`, and this file holds the open state of one reading.
+// `record.ts`, and this file holds the open state of one reading. The open
+// row's reading is `record-read.tsx`, and the modules it names.
 
 import { useMemo, useState } from "react";
-import {
-  ADVANCE_GATE,
-  Button,
-  ConsoleOutput,
-  GUIDE_DRIFT,
-  GuideMark,
-  JobLedger,
-  STEP_STATE,
-  type JobLedgerRow,
-} from "@armada/components";
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import { DropdownMenu, JobLedger } from "@armada/components";
+import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
-import { absoluteOf } from "./duration";
 import {
   filtersOf,
   ledgerRowsFor,
   underFilter,
+  underStep,
   unfiledSays,
   type RecordFilter,
 } from "./record";
-import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
-import { FieldLabel } from "./regions";
-import { taskGroupsOf } from "./draft/group";
+import { useCheckOutputs, type ReadCheckOutput } from "./outputs";
+import { titleOf } from "./record-cells";
+import { caseViewsOf, type CaseView } from "./draft/cases";
+import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, type LedgerRow } from "./draft/ledger";
+import { stepThatWorksTheGroups } from "./workflow-canvas";
+import { RowRead } from "./record-read";
 
 export type RecordTabProps = {
   jobId: string;
@@ -45,9 +40,54 @@ export type RecordTabProps = {
   /** The window is at `--window-floor`. */
   floor: boolean;
   onReadCheckOutput: ReadCheckOutput;
+  /** The Job's diff, as the screen holds it. A File row draws its own files' part. */
+  diff: Diff;
+  /** Ask for the Job's diff, or `null` to let it go. Asked when a File row opens. */
+  onReadDiff: (jobId: string | null) => void;
+  /** The plan's groups, where the draft holds them. Absent reads the wire's. */
+  groups?: readonly GroupView[];
+  /** The cases the plan owes, where the draft holds them. Absent reads the wire's. */
+  cases?: readonly CaseView[];
   /** Say a sentence to the person — what an act that is not built yet answers. */
   onSaid: (sentence: string) => void;
+  /**
+   * Open a step in the Workflow destination, its panel open. **The screen's,
+   * not this tab's** — `JobDetail.tsx` owns which destination is open.
+   */
+  onOpenStep: (stepId: string) => void;
+  /**
+   * The Check whose row opens with the tab — by its name and the step attempt
+   * that ran it — where another destination sent a person here. Read once.
+   */
+  opensCheck?: CheckAt;
 };
+
+/** A Check's run, as a boundary names it: its name, and the step attempt that ran it. */
+export type CheckAt = { name: string; stepAttempt: number };
+
+/**
+ * The Record row a Check's run is: `checked`, that name, on the step the groups
+ * are worked at, at that attempt. **Nothing where the Record holds no such
+ * row.**
+ */
+function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: CheckAt): string | undefined {
+  const step = detail === null ? undefined : stepThatWorksTheGroups(detail);
+  if (step === undefined) return undefined;
+  const row = rows.find(
+    (one) =>
+      one.kind === "checked" &&
+      one.what === at.name &&
+      one.coord?.step === step &&
+      one.coord?.step_attempt === at.stepAttempt,
+  );
+  return row === undefined ? undefined : String(row.cursor);
+}
+
+/** A task's latest row in the Record — `rows` is newest first. Nothing where it has none. */
+function taskRowOf(rows: readonly LedgerRow[], taskId: string): string | undefined {
+  const row = rows.find((one) => familyOf(one.kind) === "tasks" && one.coord?.task === taskId);
+  return row === undefined ? undefined : String(row.cursor);
+}
 
 export function RecordTab({
   jobId,
@@ -55,19 +95,62 @@ export function RecordTab({
   rows,
   floor,
   onReadCheckOutput,
+  diff,
+  onReadDiff,
+  groups: given,
+  cases: givenCases,
   onSaid,
+  onOpenStep,
+  opensCheck,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
+  // Which step the rows are narrowed to. `null` is every step, and the Job's
+  // own rows with them.
+  const [step, setStep] = useState<string | null>(null);
   // Which row is open. **Held here and not in the ledger**, so a live redraw of
   // the Record does not close the row somebody is reading.
-  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(() =>
+    opensCheck === undefined ? null : (checkRowOf(rows, detail, opensCheck) ?? null),
+  );
+  // A row pressed inside a reading — a Check on a task's boundary, a task a
+  // Check held back — opens that row. **Every row, where the filter or the
+  // step would hide it**: an open row the table does not hold is the stale
+  // panel this screen exists to end.
+  const openRowOf = (id: string | undefined) => {
+    if (id === undefined) return;
+    if (!underFilter(underStep(rows, step), filter).some((row) => String(row.cursor) === id)) {
+      setFilter("all");
+      setStep(null);
+    }
+    setOpenRow(id);
+  };
+  const openCheck = (name: string, stepAttempt: number) =>
+    openRowOf(checkRowOf(rows, detail, { name, stepAttempt }));
+  const openTask = (taskId: string) => openRowOf(taskRowOf(rows, taskId));
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
+  // The plan's groups, and every task in them, for the Drone a row names and
+  // the step node a failed Check draws. The Workflow tab's own fallback.
+  const groups = useMemo(() => given ?? (detail === null ? [] : taskGroupsOf(detail)), [given, detail]);
+  const tasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups]);
+  // What each case a task owes last came to — `casesOf`'s terms, the Plan tab's.
+  const cases = useMemo(
+    () => givenCases ?? (detail === null ? [] : caseViewsOf(detail)),
+    [givenCases, detail],
+  );
 
-  const shown = useMemo(() => underFilter(rows, filter), [rows, filter]);
+  const atStep = useMemo(() => underStep(rows, step), [rows, step]);
+  const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
   const drawn = useMemo(() => ledgerRowsFor(shown, detail), [shown, detail]);
+  // Nothing is open until a row is pressed: the reading is a sheet over the
+  // table, and one nobody asked for would cover the rows it reads.
   const open = shown.find((row) => String(row.cursor) === openRow);
   const openDrawn = drawn.find((row) => row.id === openRow);
+  // The steps a row names, in the Job's own order. A step nothing happened in
+  // is not a place to narrow to.
+  const steps = (detail?.steps ?? []).filter((one) =>
+    rows.some((row) => row.coord?.step === one.step_id),
+  );
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.record}>
@@ -78,9 +161,9 @@ export function RecordTab({
       ) : (
         <JobLedger
           rows={drawn}
-          filters={filtersOf(rows)}
+          filters={filtersOf(atStep)}
           filter={filter}
-          {...(unfiledSays(rows) === undefined ? {} : { note: unfiledSays(rows) })}
+          {...(unfiledSays(atStep) === undefined ? {} : { note: unfiledSays(atStep) })}
           onFilter={(id) => {
             setFilter(id as RecordFilter);
             // The open row may not answer the new filter, and an inspector
@@ -88,22 +171,57 @@ export function RecordTab({
             // screen exists to end.
             setOpenRow(null);
           }}
+          controls={
+            steps.length < 2 ? undefined : (
+              // A menu like the filter's beside it, so the head is one row of
+              // one kind of control.
+              <DropdownMenu
+                align="start"
+                triggerLabel={steps.find((one) => one.step_id === step)?.label ?? ANY_STEP}
+                entries={[
+                  { kind: "item", id: "", label: ANY_STEP, selected: step === null },
+                  ...steps.map((one) => ({
+                    kind: "item" as const,
+                    id: one.step_id,
+                    label: one.label,
+                    selected: one.step_id === step,
+                  })),
+                ]}
+                onSelect={(id) => {
+                  setStep(id === "" ? null : id);
+                  setOpenRow(null);
+                }}
+              />
+            )
+          }
           openRow={openRow}
           onOpenRow={setOpenRow}
           kindMarks={filter === "all"}
           floor={floor}
           emptyNote={EMPTY[filter]}
-          {...(open === undefined ? {} : { inspectorTitle: open.what })}
+          {...(open === undefined ? {} : { inspectorTitle: titleOf(open) })}
           {...(open === undefined || openDrawn === undefined
             ? {}
             : {
                 inspector: (
                   <RowRead
+                    key={openDrawn.id}
                     row={open}
+                    rows={rows}
                     drawn={openDrawn}
                     detail={detail}
                     outputs={outputs}
+                    jobId={jobId}
+                    diff={diff}
+                    onReadDiff={onReadDiff}
+                    tasks={tasks}
+                    groups={groups}
+                    cases={cases}
                     onSaid={onSaid}
+                    onOpenStep={onOpenStep}
+                    onOpenCheck={openCheck}
+                    onOpenTask={openTask}
+                    taskRowOf={(taskId) => taskRowOf(rows, taskId)}
                   />
                 ),
               })}
@@ -112,6 +230,8 @@ export function RecordTab({
     </div>
   );
 }
+
+const ANY_STEP = "Any step";
 
 /** What each filter says when it holds nothing. Never one sentence for nine. */
 const EMPTY: Record<RecordFilter, string> = {
@@ -125,134 +245,3 @@ const EMPTY: Record<RecordFilter, string> = {
   tasks: "No task on this Job has moved yet.",
   tests: "No case has been run on this Job yet.",
 };
-
-type RowReadProps = {
-  row: LedgerRow;
-  drawn: JobLedgerRow;
-  detail: JobWhole;
-  outputs: ReturnType<typeof useCheckOutputs>;
-  onSaid: (sentence: string) => void;
-};
-
-/**
- * One row, read whole.
- *
- * **A Check shows its output and what it gated**, which is the reading the four
- * views could not put side by side: the run, the lines it printed, and the step
- * the run decided.
- */
-function RowRead({ row, drawn, detail, outputs, onSaid }: RowReadProps) {
-  const step = detail.steps.find((one) => one.step_id === row.coord?.step);
-  const run =
-    row.kind !== "checked"
-      ? undefined
-      : step?.check_runs.find(
-          (one) => one.name === row.what && one.attempt === row.coord?.step_attempt,
-        );
-  const kept = run?.output_path;
-  const held = kept === undefined ? undefined : outputs.of(basename(kept));
-
-  return (
-    <>
-      <div className="armada-ledger__facts">
-        <Fact label="When">{absoluteOf(row.at) ?? row.at}</Fact>
-        <Fact label="Where">{drawn.where}</Fact>
-        <Fact label="Who">{drawn.whoSays}</Fact>
-        <Fact label="Kind">{row.kind}</Fact>
-      </div>
-
-      {row.outcome === "" ? null : (
-        <p className="armada-ledger__note">
-          {row.outcome}
-          {/* What a file nobody declared costs the Job is the question the row's
-              words cannot answer without teaching. #1537, the owner, 28 Sep. */}
-          {familyOf(row.kind) === "files" ? <GuideMark guide={GUIDE_DRIFT} /> : null}
-        </p>
-      )}
-
-      {run === undefined ? null : (
-        <>
-          {run.expected === undefined ? null : (
-            <p className="armada-ledger__note">Expected {run.expected}</p>
-          )}
-          {/* What the Check gated: the step it ruled on, where that step now
-              stands, and what the workflow said would decide it. */}
-          {step === undefined ? null : (
-            <p className="armada-ledger__note">
-              Gated {step.label}, now {STEP_STATE[step.state]?.verb ?? step.state}.
-              {step.advance_gate === undefined
-                ? ""
-                : ` It advances when ${ADVANCE_GATE[step.advance_gate]?.verb ?? step.advance_gate}.`}
-            </p>
-          )}
-          {/* The output is fetched by whoever opened the row and never with it
-              — a test runner's whole output is what the split keeps off the
-              published state. So the control comes first and the reading
-              replaces it. */}
-          {kept === undefined ? (
-            <p className="armada-ledger__note">This Check kept no output.</p>
-          ) : held === undefined ? (
-            <Button variant="secondary" onClick={() => outputs.fetch(basename(kept))}>
-              Read what it printed
-            </Button>
-          ) : (
-            <ConsoleOutput
-              rows={held.state === "got" ? rowsOf(held.output) : []}
-              {...(held.state === "got" ? { region: regionOf(held.output) } : {})}
-              emptyNote={noteFor(held)}
-            />
-          )}
-        </>
-      )}
-
-      <RunAgain row={row} detail={detail} onSaid={onSaid} />
-    </>
-  );
-}
-
-/**
- * Run this group again.
- *
- * **Mocked, and it says so when pressed.** No Fleet operation runs a group —
- * groups are not on the wire at all — so the control exists to be felt on the
- * mock and answers with what it would do rather than pretending to do it.
- */
-function RunAgain({
-  row,
-  detail,
-  onSaid,
-}: {
-  row: LedgerRow;
-  detail: JobWhole;
-  onSaid: (sentence: string) => void;
-}) {
-  const id = row.coord?.group;
-  if (id === undefined) return null;
-  const ordinal = taskGroupsOf(detail).find((group) => group.id === id)?.ordinal;
-  if (ordinal === undefined) return null;
-  const says = `Run group ${ordinal} again`;
-  return (
-    <Button
-      variant="secondary"
-      onClick={() => onSaid(`${says} — not built yet. Fleet has no operation for it.`)}
-    >
-      {says}
-    </Button>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <span className="armada-ledger__fact">
-      <FieldLabel>{label}</FieldLabel>
-      <span className="armada-ledger__fact-value">{children}</span>
-    </span>
-  );
-}
-
-// `outputs.fetch` is keyed by the file's own name and never the whole path —
-// `fleet` builds that name out of the run's key, so a fixture or a record
-// keyed on the path would never be found.
-function basename(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
-}

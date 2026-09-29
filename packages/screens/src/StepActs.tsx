@@ -49,7 +49,7 @@ import { steeringOf } from "./steering";
  * **On a Job that is working, one of the five is still offered, and by a second
  * reading.** `stuck` is absent on a Job that has not stopped — it is the record
  * of a stop — so `steering.ts` answers for that Job instead, off the pointer
- * this header already draws `kill_drone` from. A redirect is legal on a healthy
+ * the Workflow panel draws `kill_drone` from. A redirect is legal on a healthy
  * Drone since #145 and reached no control anywhere in Bridge, which is #383.
  * The two readings never both apply: a Job has stopped or it has not.
  *

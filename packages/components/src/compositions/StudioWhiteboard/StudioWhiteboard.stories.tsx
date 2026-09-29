@@ -82,7 +82,7 @@ export const EveryKind: Story = {
       for (const label of ["same as", "blocks", "answers"]) {
         await expect(canvas.getAllByText(label)).toHaveLength(2);
       }
-      await expect(canvas.getAllByRole("group", { name: /, proposed$/ })).toHaveLength(3);
+      await expect(canvas.getAllByRole("group", { name: /, proposed, waiting on you$/ })).toHaveLength(3);
       await expect(canvas.getAllByRole("group", { name: / produced / })).toHaveLength(11);
     });
 

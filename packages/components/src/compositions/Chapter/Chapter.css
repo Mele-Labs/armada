@@ -284,6 +284,46 @@ button.armada-chapter__head:focus-visible {
   display: none;
 }
 
+/* --- Flat ----------------------------------------------------------------- */
+
+/* Inside a card that is already the depth: no well, no edge, no lid, and no
+   rule under the head. The owner, 29 Sep 2026, on the Drone transcript — a
+   sheet, a well, a card and a box per section read as four layers. */
+.armada-chapter[data-flat] {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.armada-chapter[data-flat] .armada-chapter__line,
+.armada-chapter[data-flat] .armada-chapter__line:has(button.armada-chapter__head:hover) {
+  padding-right: 0;
+  background: none;
+  border-bottom: 0;
+}
+
+.armada-chapter[data-flat] .armada-chapter__head {
+  padding: var(--space-1) 0;
+}
+
+/* The body sits under the name rather than the fold, so the chevron hangs in
+   the margin the way a list marker does: the fold slot plus the head's gap. */
+.armada-chapter[data-flat] .armada-chapter__body {
+  padding: 0 0 var(--space-1) calc(var(--space-3) + var(--space-2) + var(--space-1) / 2);
+}
+
+/* One rule between flat chapters, in place of the edge each one gave up. */
+.armada-chapter[data-flat] + .armada-chapter[data-flat] {
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--edge-rule);
+}
+
+/* Hover moves to the name, since there is no lid left to light. */
+.armada-chapter[data-flat] button.armada-chapter__head:hover .armada-chapter__name {
+  color: var(--accent-hover);
+}
+
 /* The one thing in a chapter that leads somewhere. The accent, at the start of
    its line rather than filling it — a full-width control at the foot of every
    chapter would read as three buttons stacked. */

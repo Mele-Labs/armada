@@ -2,7 +2,7 @@
   // The renderer. DOM, JSX, and the shared types the preload's shape is written in.
   //
   // `noUncheckedIndexedAccess` was off here while `@armada/components` did not
-  // compile under it — Tabs and TabsWithCounts index a list by a computed
+  // compile under it — Tabs indexes a list by a computed
   // position. The primitives now say why that position is in range, so the
   // renderer is checked the same way main and preload already were. Bridge's
   // own code needed no change for it: the generated vocabulary already spells

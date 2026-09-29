@@ -8,6 +8,12 @@
 // **The roster is walked, never listed twice.** `arc.test.tsx` and the mock's
 // scenario list both read `ARC_MOMENTS`, so a moment added here is a scenario
 // and a claim without a second edit.
+//
+// **A moment is every board's, so one board never reshapes it.** 29 Sep 2026:
+// the Drones board wanted two running Drones and set T6 working in
+// `executingSequential`; Plan then drew "2 working" on a moment that says one,
+// and only Plan's own test noticed. Give one board more through its own draft
+// field, or add a moment.
 
 import type { ArcMoment } from "./arc-base";
 import { dispatchSketch, dispatchTyping } from "./arc-dispatch";

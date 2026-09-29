@@ -11,10 +11,11 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { JobProcess, StepDetail } from "@armada/protocol";
-import type { GroupView, LedgerRow, PulseView } from "../../draft";
+import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
+import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
+import { arcDrones, t6Retry } from "./arc-drones";
 import {
   ARC_APPROVED_AT,
   ARC_BRANCH,
@@ -91,6 +92,122 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
   };
 }
 
+/**
+ * The Job's diff once group three's agents stopped — every file its tasks
+ * wrote, and the one T1 wrote that the Job never named. A written file with no
+ * section here would read on the Record as a file the branch never changed.
+ */
+const ARC_PATCH = [
+  "diff --git a/packages/screens/src/Running.tsx b/packages/screens/src/Running.tsx",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/packages/screens/src/Running.tsx",
+  "@@ -0,0 +1,14 @@",
+  '+import { RunningList } from "@armada/components";',
+  '+import type { Running } from "@armada/protocol";',
+  "+",
+  "+/** What is running, in four lists: Drones, Checks, Judge calls, proposer calls. */",
+  "+export function RunningPanel({ running }: { running: Running }) {",
+  "+  return (",
+  '+    <div className="armada-running">',
+  '+      <RunningList title="Drones" rows={running.drones} />',
+  '+      <RunningList title="Checks" rows={running.checks} />',
+  '+      <RunningList title="Judge calls" rows={running.judges} />',
+  '+      <RunningList title="Proposer calls" rows={running.proposers} />',
+  "+    </div>",
+  "+  );",
+  "+}",
+  "diff --git a/crates/api/src/running.rs b/crates/api/src/running.rs",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/crates/api/src/running.rs",
+  "@@ -0,0 +1,6 @@",
+  "+//! `GET /running` — everything running, in one read.",
+  "+",
+  "+pub async fn get_running(State(fleet): State<Fleet>) -> Json<Running> {",
+  "+    Json(fleet.running().await)",
+  "+}",
+  "+",
+  "diff --git a/crates/fleet/src/running.rs b/crates/fleet/src/running.rs",
+  "--- a/crates/fleet/src/running.rs",
+  "+++ b/crates/fleet/src/running.rs",
+  "@@ -41,6 +41,9 @@ impl Fleet {",
+  "     pub fn spawn_drone(&self, job: &JobId) -> DroneHandle {",
+  "         let handle = self.drones.spawn(job);",
+  "+        self.events.send(Event::RunningChanged);",
+  "         handle",
+  "     }",
+  "+",
+  "diff --git a/packages/screens/src/overview.ts b/packages/screens/src/overview.ts",
+  "--- a/packages/screens/src/overview.ts",
+  "+++ b/packages/screens/src/overview.ts",
+  "@@ -88,7 +88,7 @@ export function dronesStat(capacity: FleetCapacity): Stat {",
+  "   return {",
+  '     label: "Drones",',
+  "-    value: `${capacity.reported}`,",
+  "+    value: `${capacity.running} running of ${capacity.max}`,",
+  "   };",
+  " }",
+  "diff --git a/packages/screens/src/Board.tsx b/packages/screens/src/Board.tsx",
+  "--- a/packages/screens/src/Board.tsx",
+  "+++ b/packages/screens/src/Board.tsx",
+  "@@ -140,4 +140,4 @@ function Stats({ stats }: StatsProps) {",
+  "-      <Stat label=\"Drones\" value={stats.drones} hint=\"reported\" />",
+  "+      <Stat label=\"Drones\" value={stats.drones} />",
+  "diff --git a/packages/screens/src/SettingsSurface.tsx b/packages/screens/src/SettingsSurface.tsx",
+  "--- a/packages/screens/src/SettingsSurface.tsx",
+  "+++ b/packages/screens/src/SettingsSurface.tsx",
+  "@@ -212,3 +212,3 @@ function DroneCap({ cap }: DroneCapProps) {",
+  "-      <p>At most {cap} drones report at once.</p>",
+  "+      <p>At most {cap} running at once.</p>",
+  "diff --git a/packages/screens/src/running-rows.tsx b/packages/screens/src/running-rows.tsx",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/packages/screens/src/running-rows.tsx",
+  "@@ -0,0 +1,5 @@",
+  "+/** A Drone's row, pressable: it opens the Job the Drone is working. */",
+  "+export function droneRowOpens(row: RunningDrone): string {",
+  "+  return row.job_id;",
+  "+}",
+  "+",
+  "diff --git a/crates/ipc/operations.toml b/crates/ipc/operations.toml",
+  "--- a/crates/ipc/operations.toml",
+  "+++ b/crates/ipc/operations.toml",
+  "@@ -212,5 +212,11 @@ path = \"/jobs/:job_id/resources\"",
+  ' method = "GET"',
+  ' answers = "JobResources"',
+  " ",
+  "+[[operation]]",
+  '+name = "get_running"',
+  '+path = "/running"',
+  '+method = "GET"',
+  '+answers = "Running"',
+  "+",
+  " [[operation]]",
+  ' name = "get_worktrees"',
+].join("\n");
+
+const ARC_DIFF: Diff = {
+  state: "read",
+  jobId: ARC_JOB_ID,
+  work: {
+    files: [
+      { path: "packages/screens/src/Running.tsx", change: "added" },
+      { path: "crates/api/src/running.rs", change: "added" },
+      { path: "crates/fleet/src/running.rs", change: "modified" },
+      { path: "packages/screens/src/overview.ts", change: "modified" },
+      { path: "packages/screens/src/Board.tsx", change: "modified" },
+      { path: "packages/screens/src/SettingsSurface.tsx", change: "modified" },
+      { path: "packages/screens/src/running-rows.tsx", change: "added" },
+      { path: "crates/ipc/operations.toml", change: "modified", outside_plan: true },
+    ],
+    measured_from: "main",
+    measured_whole: true,
+    plan_declared: true,
+    patch: ARC_PATCH,
+  },
+};
+
 /** The Job at some instant inside `implement`. */
 function executing(args: {
   says: string;
@@ -98,6 +215,8 @@ function executing(args: {
   step: StepDetail;
   processes: JobProcess[];
   status?: string;
+  /** The Job's diff, where this moment serves one. */
+  diff?: Diff;
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -123,7 +242,7 @@ function executing(args: {
       footprint: { state: "none" },
       handed: { state: "none" },
       evidence: { state: "none" },
-      diff: { state: "none" },
+      diff: args.diff ?? { state: "none" },
       remarks: { state: "none" },
     },
     calls: {},
@@ -233,9 +352,44 @@ export function executingSequential(): ArcMoment {
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:20:00.000Z", [droneProcess(52_118, "06:12")]),
     },
   };
+}
+
+/**
+ * The cases, once groups one and two have passed their boundaries: the API's
+ * case ran at group one's, and the Board's has no spec to run. The panel's and
+ * the overview's run at group four's, which nothing has reached yet.
+ */
+function casesRunThroughGroupTwo(): CaseView[] {
+  const runs: Record<string, CaseRunView> = {
+    "c-api": {
+      id: "run-g1-c-api",
+      case: "c-api",
+      coord: { step: "implement", step_attempt: 1, group: "g1", group_attempt: 1 },
+      actor: "fleet",
+      purpose: "group_boundary",
+      tree: "branch",
+      outcome: "ran",
+      frames: 0,
+      ran_at: "2026-09-22T10:14:00Z",
+    },
+    "c-board": {
+      id: "run-g2-c-board",
+      case: "c-board",
+      coord: { step: "implement", step_attempt: 1, group: "g2", group_attempt: 1 },
+      actor: "fleet",
+      purpose: "group_boundary",
+      tree: "branch",
+      outcome: "not_run",
+      not_run_reason: "no spec covers Board.tsx",
+      frames: 0,
+      ran_at: "2026-09-22T10:31:00Z",
+    },
+  };
+  return arcCases().map((one) => (runs[one.id] === undefined ? one : { ...one, last_run: runs[one.id]! }));
 }
 
 export function executingConcurrent(): ArcMoment {
@@ -261,22 +415,48 @@ export function executingConcurrent(): ArcMoment {
         groups,
         step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:38:00Z"),
         processes: [],
+        diff: ARC_DIFF,
       }),
     ],
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:38:00.000Z", []),
     },
   };
 }
+
+/** What the failed screens_test printed, as Fleet's output route serves it. */
+const SCREENS_TEST_LINES = [
+  " FAIL  src/running.test.tsx > the Drones row opens the Job it is working",
+  "AssertionError: expected 'board' to be 'job'",
+  "  ❯ src/running.test.tsx:44:31",
+  "",
+  " Test Files  1 failed | 212 passed (213)",
+  "      Tests  1 failed | 1383 passed (1384)",
+];
+
+const SCREENS_TEST_OUTPUT = {
+  ok: true as const,
+  output: {
+    attempt: 1,
+    name: "screens_test",
+    path: ".armada/checks/3-show-what-s-running/implement.1.screens_test.log",
+    lines: SCREENS_TEST_LINES,
+    from_line: 1,
+    total_lines: SCREENS_TEST_LINES.length,
+    bytes: SCREENS_TEST_LINES.join("\n").length,
+    whole: true,
+  },
+};
 
 export function groupFailed(): ArcMoment {
   let groups = executingConcurrent().draft.groups!;
@@ -304,17 +484,21 @@ export function groupFailed(): ArcMoment {
     name: "groupFailed",
     says: "Implement — group three failed its Checks and is on its second run",
     fixtures: [
-      executing({
-        says: "running — a group failed at its boundary and is being run again",
-        groups,
-        step: implementStep(runs, "2026-09-22T10:46:00Z"),
-        processes: [droneProcess(52_640, "01:40")],
-      }),
+      {
+        ...executing({
+          says: "running — a group failed at its boundary and is being run again",
+          groups,
+          step: implementStep(runs, "2026-09-22T10:46:00Z"),
+          processes: [droneProcess(52_640, "01:40")],
+          diff: ARC_DIFF,
+        }),
+        checkOutputs: { "implement.1.screens_test.log": SCREENS_TEST_OUTPUT },
+      },
     ],
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.
@@ -332,6 +516,7 @@ export function groupFailed(): ArcMoment {
           cursor: 11,
         },
       ],
+      drones: [...arcDrones(groups), t6Retry(groups)],
       pulse: pulse("2026-09-22T10:46:00.000Z", [droneProcess(52_640, "01:40")]),
     },
   };
@@ -365,7 +550,7 @@ export function doneTouched(): ArcMoment {
     opens: ARC_JOB_ID,
     draft: {
       groups,
-      cases: arcCases(),
+      cases: casesRunThroughGroupTwo(),
       criteria: arcCriterionViews(),
       // What the gate settled and froze — the Drone cap a concurrent group is
       // bounded by, among the rest. `#1550`.
@@ -383,6 +568,7 @@ export function doneTouched(): ArcMoment {
           cursor: 12,
         },
       ],
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T11:05:00.000Z", [droneProcess(53_402, "02:55")]),
     },
   };
