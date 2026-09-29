@@ -65,8 +65,6 @@ export type JobResourcesProps = {
   note?: string;
   /** How old the reading is, as a phrase — `4s`. Formatted by the caller. */
   age?: string;
-  /** No longer drawn: the head says only `Updated 4s ago` (owner, 29 Sep). */
-  refreshed?: string;
   /** What the last look found, or `null` where nobody has pressed. */
   examined: JobExamined | null;
   /** A look already out. A second press does not send a second act. */
