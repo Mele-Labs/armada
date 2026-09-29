@@ -325,7 +325,11 @@ function OneJob(props: JobDetailProps) {
           now={props.now}
           floor={floor}
           stale={props.stale}
+          acting={props.acting}
+          actingAct={props.actingAct}
           onRedirect={props.onRedirect}
+          onAct={props.onAct}
+          onActHeld={props.onActHeld}
           onOpenStep={(stepId) => {
             setOpensStep(stepId);
             setTab("workflow");

@@ -24,6 +24,24 @@ test("the table reads how long each Drone has run, not when it started", async (
   expect(await page.getByRole("columnheader", { name: "Started" }).elements()).toHaveLength(0);
 });
 
+// The owner's note of 29 Sep: *a button that lets me kill the drone from here
+// instead of on the job header* — and the header's kill becomes the Job's.
+
+test("a running Drone's sheet offers its kill, and the header kills the Job", async () => {
+  await droneOnT5();
+  const sheet = page.getByRole("dialog", { name: "Drone on T5" }).last();
+  await expect.element(sheet.getByRole("button", { name: "Hold to kill drone" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Hold to kill job" }).last()).toBeInTheDocument();
+});
+
+test("a Drone that has stopped offers no kill, and neither does the header", async () => {
+  mount("arc/executing-sequential");
+  await page.getByRole("tab", { name: /^Drones/ }).last().click();
+  await page.getByRole("button", { name: "Drone on T1" }).last().click();
+  await expect.element(page.getByRole("dialog", { name: "Drone on T1" }).last()).toBeVisible();
+  expect(await page.getByRole("button", { name: "Hold to kill drone" }).elements()).toHaveLength(0);
+});
+
 test("pressing the step in a Drone's sheet lands on Workflow with that step's panel open", async () => {
   await droneOnT5();
   await page.getByRole("dialog", { name: "Drone on T5" }).last().getByRole("button", { name: "Implement", exact: true }).click();

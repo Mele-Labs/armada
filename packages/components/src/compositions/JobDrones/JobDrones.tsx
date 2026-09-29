@@ -60,6 +60,8 @@ export type JobDroneReading = {
   emptyNote: string;
   /** The redirect box, where this Drone can be reached. */
   footer?: ReactNode;
+  /** In the head beside Close: the kill, where this Drone can be ended. */
+  controls?: ReactNode;
 };
 
 export type JobDronesProps = {
@@ -183,6 +185,7 @@ export function JobDrones({
         size="wide"
         title={reading?.title ?? "Drone"}
         {...(reading === undefined ? {} : { subtitle: reading.subtitle })}
+        {...(reading?.controls === undefined ? {} : { controls: reading.controls })}
         closeLabel="Close"
         closeBinding="Esc"
         {...(reading?.footer === undefined
