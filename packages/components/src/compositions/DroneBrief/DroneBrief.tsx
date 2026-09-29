@@ -94,6 +94,12 @@ export type DroneBriefProps = {
    * same reasoning as `steps`.
    */
   checks?: readonly string[];
+  /**
+   * Sections as headings over their text, with no box of their own. For a
+   * brief drawn inside a card — the Drone transcript's Armada turn — where the
+   * card is already the depth and a box per section would be another layer.
+   */
+  flat?: boolean;
 };
 
 /**
@@ -149,14 +155,14 @@ export type BriefLine = {
   kind?: BlockKind;
 };
 
-export function DroneBrief({ lines, steps, checks }: DroneBriefProps) {
+export function DroneBrief({ lines, steps, checks, flat }: DroneBriefProps) {
   const sections = briefSections(lines);
   if (sections === undefined) return <FlatBrief lines={lines} />;
   if (sections.length === 0) return null;
   return (
     <div className="armada-brief armada-brief--sectioned">
       {sections.map((section, at) => (
-        <BriefSectionView key={at} section={section} steps={steps} checks={checks} />
+        <BriefSectionView key={at} section={section} steps={steps} checks={checks} flat={flat} />
       ))}
     </div>
   );
@@ -246,10 +252,12 @@ function BriefSectionView({
   section,
   steps,
   checks,
+  flat,
 }: {
   section: BriefSection;
   steps: readonly BriefStep[] | undefined;
   checks: readonly string[] | undefined;
+  flat: boolean | undefined;
 }) {
   const kind = section.kind ?? "standing";
   const [open, setOpen] = useState(SECTION_OPEN[kind]);
@@ -261,6 +269,7 @@ function BriefSectionView({
       tone={kind === "standing" ? "muted" : "neutral"}
       open={open}
       onToggle={() => setOpen((was) => !was)}
+      flat={flat}
     >
       {kind === "steps" && steps !== undefined ? (
         <StepsRead steps={steps} raw={section.blocks} />

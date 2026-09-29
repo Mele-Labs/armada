@@ -1,25 +1,26 @@
-/* Drone turns — a well, because it is a record being read rather than a
-   surface being acted on. The same treatment the rail takes for the same
-   reason, and for the further reason that nothing here is actionable at all. */
+/* Drone turns — no ground of its own. The speaker cards sit straight on the
+   sheet; a well under them was a fourth layer the owner called overwhelming,
+   29 Sep 2026, and the card alone carries the depth. The inline --space-1
+   adds to the sheet body's --pad-card to reach the head's --space-6, so a
+   card's edge lines up under the sheet's title. */
 .armada-turns {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2);
+  padding: 0 var(--space-1);
   margin: 0;
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
   list-style: none;
 }
 
 /* --- A card per speaker --------------------------------------------------- */
 
-/* One speaker's run of turns, raised off the well: a card is --bg-raised with a
-   --border-subtle edge, the contract's card on the well's ground. The owner
-   drew it, 29 Sep 2026, in place of a column naming the speaker on every row. */
+/* One speaker's run of turns. The owner drew it, 29 Sep 2026, in place of a
+   column naming the speaker on every row. --bg-raised is one step below the
+   sheet's overlay, and on that lighter ground --border-subtle all but
+   vanished, so the edge is the card's own --edge-card. */
 .armada-turns__card {
   min-width: 0;
-  border: var(--border-width) solid var(--border-subtle);
+  border: var(--border-width) solid var(--edge-card);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
 }
@@ -47,8 +48,8 @@
   white-space: nowrap;
 }
 
-/* No gap between rows, so an opened run of thinking reads as one sunken block
-   rather than a stripe per row; each row's own padding spaces the rest. */
+/* No gap between rows, so an opened run of thinking hangs off one unbroken
+   rule rather than a dash per row; each row's own padding spaces the rest. */
 .armada-turns__rows {
   display: flex;
   flex-direction: column;
@@ -236,11 +237,15 @@
   align-items: center;
 }
 
-/* Opened, the summary and its rows read as one block set into the card — the
-   well's own ground, since the card is already the raised one. */
-.armada-turns__turn[data-quiet][data-open],
+/* Opened, the run's rows hang off a rule dropped from the mark, rather than
+   sitting in a sunken block: a well inside the card was a third surface, and
+   the card is meant to be the only one. --space-4 puts the rule under the
+   mark's centre — the row's --space-2 pad plus half the mark's slot. */
 .armada-turns__turn[data-nested] {
-  background: var(--bg-sunken);
+  margin-left: var(--space-4);
+  padding-left: var(--space-3);
+  border-left: var(--border-width) solid var(--border-default);
+  border-radius: 0;
 }
 
 /* The mark leads the line. --space-4 slot around a 12px glyph, the geometry

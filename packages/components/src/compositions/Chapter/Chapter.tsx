@@ -128,6 +128,12 @@ export type ChapterProps = {
   moreCloses?: boolean;
   /** For a caller that needs to point at the body. */
   bodyId?: string;
+  /**
+   * No surface of its own — a heading and a body, no well, no edge, no lid.
+   * For a chapter drawn inside a card that is already the one layer of depth,
+   * where a well per chapter stacks a fourth surface onto the reading.
+   */
+  flat?: boolean;
 };
 
 /** Chapter glyphs are 12px at strokeWidth 2, as every mark on this screen is. */
@@ -149,6 +155,7 @@ export function Chapter({
   onMore,
   moreCloses,
   bodyId,
+  flat,
 }: ChapterProps) {
   const head = (
     <>
@@ -192,7 +199,12 @@ export function Chapter({
     );
 
   return (
-    <section className="armada-chapter" data-tone={tone} data-open={open || undefined}>
+    <section
+      className="armada-chapter"
+      data-tone={tone}
+      data-open={open || undefined}
+      data-flat={flat || undefined}
+    >
       {/* The live phase's own line, along the top edge of the card rather than
           inside its header. It is the whole of what says this card is moving —
           the running mark is gone from here — so it belongs to the card and
