@@ -63,15 +63,6 @@
   min-width: 0;
 }
 
-/* The frame a peek into the Drone will fill. Empty on purpose, and the dashed
-   edge an empty state already takes. No token names a peek's height, so it is
-   two of the largest spacing step. */
-.armada-task-sheet__peek {
-  min-height: calc(var(--space-12) * 2);
-  border: var(--border-width) dashed var(--border-default);
-  border-radius: var(--radius-sm);
-}
-
 /* Each task it runs beside, as the Plan graph's own card. */
 .armada-task-sheet__beside {
   list-style: none;

@@ -58,6 +58,7 @@
 @import "./compositions/JobOutcome/JobOutcome.css";
 @import "./compositions/JobLedger/JobLedger.css";
 @import "./compositions/JobDrones/JobDrones.css";
+@import "./compositions/DronePeek/DronePeek.css";
 @import "./compositions/UnifiedDiff/UnifiedDiff.css";
 @import "./compositions/ReviewComments/ReviewComments.css";
 @import "./compositions/ReviewDecision/ReviewDecision.css";

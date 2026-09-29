@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
+import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -84,6 +85,11 @@ export type PlanTaskSheetProps = {
    */
   redirect?: PlanTaskRedirect;
   /**
+   * The task's own Drone, peeked at over the message box. **Absent is a task
+   * no Drone has run**, which draws the box alone.
+   */
+  drone?: PlanTaskDrone;
+  /**
    * The paths the Job's patch changed. **A file in it is a press** that opens
    * what the Job did to it; a file outside it stays text. Absent is a Job
    * with no patch yet, and no file is a press.
@@ -106,6 +112,9 @@ export type PlanTaskSheetProps = {
 
 /** The message box under the Drone. */
 export type PlanTaskRedirect = Omit<DroneMessageBoxProps, "placeholder">;
+
+/** The task's Drone, as the peek draws it. The box is `redirect`. */
+export type PlanTaskDrone = Omit<DronePeekProps, "message">;
 
 /**
  * A failed task's own acts — the owner's decision of 29 Sep 2026, *a failed
@@ -205,6 +214,7 @@ export function PlanTaskSheet({
   acts,
   rewrite,
   redirect,
+  drone,
   patched,
   file,
   onFile,
@@ -252,14 +262,18 @@ export function PlanTaskSheet({
           </div>
         )}
         {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
-        {/* **A frame for a peek into the Drone, and empty on purpose** (owner,
-            29 Sep 2026): what it shows waits on the Drone work. The message
-            box sits under it, so what a person reads and what they send are
-            one place. */}
-        <section className="armada-task-sheet__field" aria-label="Drone">
-          <h3 className="armada-task-sheet__label">Drone</h3>
-          <div className="armada-task-sheet__peek" aria-hidden="true" />
-          {redirect === undefined ? null : (
+        {/* **What a person reads and what they send are one place**, under
+            the head: the Drone's tail with the box at its foot. A task no
+            Drone has run has no tail, so the box stands alone. */}
+        {drone !== undefined ? (
+          <DronePeek
+            key={id}
+            {...drone}
+            {...(redirect === undefined ? {} : { message: redirect })}
+          />
+        ) : redirect === undefined ? null : (
+          <section className="armada-task-sheet__field" aria-label="Drone">
+            <h3 className="armada-task-sheet__label">Drone</h3>
             <DroneMessageBox
               value={redirect.value}
               onChange={redirect.onChange}
@@ -268,8 +282,8 @@ export function PlanTaskSheet({
               disabledReason={redirect.disabledReason}
               waiting={redirect.waiting}
             />
-          )}
-        </section>
+          </section>
+        )}
         {tier === undefined || model === undefined ? null : (
           <TaskField label="Model">
             {tier} · {model}
