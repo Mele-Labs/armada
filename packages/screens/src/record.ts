@@ -96,6 +96,29 @@ export const FAMILY_SAYS: Record<LedgerFamily, string> = {
   tests: "Test",
 };
 
+/**
+ * What the open row is, for its eyebrow: its family's word, or the kind's own
+ * where the family names something the row is not. A plan is filed under
+ * Tasks and is not a task; a flagged pattern is a Judge's row and is not an
+ * answer; a kept deliverable is evidence Fleet kept rather than a claim.
+ */
+export function rowSays(row: LedgerRow): string | undefined {
+  const family = familyOf(row.kind);
+  return KIND_SAYS[row.kind] ?? (family === null ? undefined : FAMILY_SAYS[family]);
+}
+
+const KIND_SAYS: Readonly<Record<string, string>> = {
+  plan_recorded: "Plan",
+  plan_revised: "Plan",
+  flagged: "Flag",
+  deliverable_kept: "Deliverable",
+  task_files: "Files",
+  case_run: "Case",
+  shown_again: "Case",
+  cases_rerun: "Cases",
+  frames_kept: "Frames",
+};
+
 /** The rows one step holds, or every row where no step is chosen. */
 export function underStep(rows: readonly LedgerRow[], step: string | null): readonly LedgerRow[] {
   return step === null ? rows : rows.filter((row) => row.coord?.step === step);

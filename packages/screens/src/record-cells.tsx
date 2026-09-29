@@ -5,7 +5,7 @@
 // English and holds no JSX; these are chrome.
 
 import type { ReactNode } from "react";
-import { Bot, Box, FileCheck, FileDiff, FlaskConical, ListTodo, Scale } from "lucide-react";
+import { Bot, Box, FileCheck, FileDiff, FlaskConical, ListTodo, Scale, Shield } from "lucide-react";
 
 import { PathChip, type JobLedgerMark } from "@armada/components";
 
@@ -19,28 +19,29 @@ const MARK_STROKE = 2;
  * The mark a row leads with under All, or nothing where the registry assigns
  * its family no glyph.
  *
- * **Seven families have one and Checks do not** (the owner asked for the six
- * that were owed, 29 Sep 2026). `file-check` and `file-diff` keep their own
- * reservations; `box`, `scale`, `bot`, `list-todo` and `flask-conical` were
- * minted for the Job, a Judge, a Drone, a task and a case run. A Check's only
- * honest silhouette is a bare shield, and at 12px in grey that is
- * `shield-minus` and `shield-off` with their one stroke gone — rule 4 of
- * `docs/contracts/iconography.md`. `[conventions.record_kind_mark]` in
- * `packages/icons/icons.toml` holds the reasoning for each.
+ * **Every family has one** (the owner asked for the six that were owed, 29 Sep
+ * 2026). `file-check` and `file-diff` keep their own reservations; `box`,
+ * `scale`, `bot`, `list-todo` and `flask-conical` were minted for the Job, a
+ * Judge, a Drone, a task and a case run. A Check takes the bare `shield`, under
+ * a rule-4 exception the owner gave for this column alone —
+ * `docs/contracts/iconography.md`, *The Record's kind marks*.
+ * `[conventions.record_kind_mark]` in `packages/icons/icons.toml` holds the
+ * reasoning for each.
  */
 export function markFor(kind: string): JobLedgerMark | undefined {
   const family = familyOf(kind);
-  const Glyph = family === null ? undefined : MARKS[family];
+  if (family === null) return undefined;
+  const Glyph = MARKS[family];
   // `says` is the kind as the record spells it, which is what the column this
   // replaced drew and what the tooltip now carries.
-  if (Glyph === undefined) return undefined;
   return { glyph: <Glyph size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />, says: kind };
 }
 
-const MARKS: Partial<Record<LedgerFamily, typeof FileCheck>> = {
+const MARKS: Record<LedgerFamily, typeof FileCheck> = {
   job: Box,
   evidence: FileCheck,
   files: FileDiff,
+  checks: Shield,
   judges: Scale,
   drones: Bot,
   tasks: ListTodo,

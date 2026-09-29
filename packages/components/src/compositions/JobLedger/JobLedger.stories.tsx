@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
-import { Box, FileCheck, FileDiff, ListTodo, Scale } from "lucide-react";
+import { Box, FileCheck, FileDiff, ListTodo, Scale, Shield } from "lucide-react";
 import { useState } from "react";
 import { JobLedger, type JobLedgerRow } from "./JobLedger";
 
@@ -34,6 +34,7 @@ const ROWS: JobLedgerRow[] = [
     what: "screens_test",
     outcome: "Failed",
     tone: "failed",
+    mark: { glyph: <Shield {...MARK} />, says: "checked" },
   },
   {
     id: "r2",
@@ -45,6 +46,7 @@ const ROWS: JobLedgerRow[] = [
     what: "typecheck",
     outcome: "Passed",
     tone: "passed",
+    mark: { glyph: <Shield {...MARK} />, says: "checked" },
   },
   {
     id: "r3",
@@ -191,11 +193,10 @@ export const ARowOpen: Story = {
 /**
  * All, with each row led by its kind's mark.
  *
- * **Every family has a glyph but the Check.** Each is reserved to its family's
- * rows in `packages/icons/icons.toml`, group `Record kind`, and none is an
- * outcome. A Check's only honest silhouette is a bare shield, which at 12px in
- * grey collides with `shield-minus` and `shield-off`, so its rows draw none.
- * `[record-kind-marks]` is where that is filed.
+ * **Every family has a glyph.** Each is reserved to its family's rows in
+ * `packages/icons/icons.toml`, group `Record kind`, and none is an outcome. A
+ * Check's is the bare `shield`, under a rule-4 waiver the owner gave for this
+ * column alone.
  */
 export const KindMarkedOnAll: Story = {
   args: {

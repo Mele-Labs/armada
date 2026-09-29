@@ -582,7 +582,7 @@ never a Job ending and never a machine discarding anything.
 **A Record row leads with its family's mark under All**, at 12px in
 `--fg-muted` and never a status hue: the kind is the whole of what it says, and
 the Outcome column owns what the row came to. Two marks were already sanctioned
-— `file-check` for Evidence, `file-diff` for Files — and five were minted for
+— `file-check` for Evidence, `file-diff` for Files — and six were minted for
 the rest in a group of their own, `Record kind` in `packages/icons/icons.toml`:
 
 ```
@@ -591,11 +591,17 @@ judges   scale          a criterion answered, a pattern flagged
 drones   bot            a Drone arriving at a step, or leaving it
 tasks    list-todo      the plan recorded, a task done, failed or dropped
 tests    flask-conical  a case run, run again, shown again
-checks   —              [record-kind-marks], below
+checks   shield         a Check run — the one mark under a rule-4 waiver
 ```
 
 **None of them is an outcome and none is borrowed.** Each one's reservation
 names its family's rows and nothing else, and its refusals are on its row.
+
+**The bare `shield` breaks rule 4, and the owner waived it for this mark alone**
+(29 Sep 2026). At 12px in grey it is `shield-minus` and `shield-off` with their
+one stroke gone. It draws only in the Record's kind column, beside `Check` in
+Who and `Passed` or `Failed` in Outcome, and never where a result shield draws.
+Nothing else inherits the waiver.
 
 ### Blast radius
 
@@ -819,21 +825,6 @@ should paper over.
   icons because several escalation reasons shared one hue. Ship label-only
   unless a real machine's worth of files in the column proves it hard to
   scan; that cannot be judged without one.
-
-- **[record-kind-marks]** Which glyph, if any, carries a Check's row on the
-  Record? Seven of the eight families have a mark since 2026-09-29, when the
-  owner asked for the six that were owed and five were minted — see *The
-  Record's kind marks* above. The Check is the one left. Its silhouette is the
-  shield throughout, and every member of that family is one Check outcome;
-  the bare `shield` that is not an outcome is, at 12px in `--fg-muted`,
-  `shield-minus` and `shield-off` with their one stroke gone, and both of those
-  draw grey — rule 4 inside one hue. What would settle it is either an
-  exception to rule 4 for a mark that only ever draws in the Record's kind
-  column, or a Check mark from outside the shield family, which would be a
-  second silhouette for one source. Until then a Check row draws no mark, and
-  its Who cell already says Check.
-  `packages/icons/icons.toml`, `[conventions.record_kind_mark]`, holds the
-  refusals.
 
 - **[attested-verdict-glyph]** Which glyph, if any, carries a criterion
   verdict from source Attestation (`confirmed` / `withheld`)?

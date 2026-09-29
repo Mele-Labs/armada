@@ -27,8 +27,8 @@ import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf, clock } from "./duration";
 import {
   filtersOf,
-  FAMILY_SAYS,
   ledgerRowsFor,
+  rowSays,
   statusOf,
   underFilter,
   underStep,
@@ -274,7 +274,8 @@ function RowRead({
   // Who ran it, where the eyebrow has not already said so: a Check's row is
   // run by a Check, and `Check · Implement` over `06:46:00 · Check` said it
   // twice. A Drone writing a File is a fact the eyebrow does not carry.
-  const who = family !== null && drawn.whoSays === FAMILY_SAYS[family] ? null : drawn.whoSays;
+  const says = rowSays(row);
+  const who = drawn.whoSays === says ? null : drawn.whoSays;
   // The step, as a way to it: the eyebrow names it, and pressing it opens the
   // step's panel in Workflow. What follows the step — its group, its task —
   // stays words, after the step's chevron, which reads as the trail's own
@@ -289,7 +290,7 @@ function RowRead({
     <div className="armada-ledger__read">
       <header className="armada-ledger__read-head">
         <Eyebrow>
-          {family == null ? null : `${FAMILY_SAYS[family]} · `}
+          {says === undefined ? null : `${says} · `}
           {step === undefined || after === undefined ? (
             drawn.where
           ) : (
@@ -461,8 +462,10 @@ function StepDroneRead({ row, detail }: { row: LedgerRow; detail: JobWhole }) {
 
 /**
  * Every value a row carries past its title, each under its own label (the owner,
- * 29 Sep 2026: *there is just some text with no labels*). The Check sheet's
- * `Expected` is the pattern. A label the concepts table knows carries its
+ * 29 Sep 2026: *there is just some text with no labels*). **One system for the
+ * whole body**: a single value takes `FieldLabel` over it, as a Check's
+ * `Expected` does, and a block — a list, a log, a diff, a Drone — takes the
+ * `Eyebrow` over it. The two sit at one spacing, so the body is one column. A label the concepts table knows carries its
  * sentence on hover, which is where an explanation goes — never the body.
  *
  * Nothing at all where the row carries nothing more, so a Job created or a
@@ -473,8 +476,8 @@ function RowFields({ row, detail }: { row: LedgerRow; detail: JobWhole }) {
     const planned = detail.work_plan?.tasks ?? [];
     if (planned.length === 0) return null;
     return (
-      <div className="armada-ledger__read-field">
-        <FieldLabel>Tasks</FieldLabel>
+      <section className="armada-ledger__read-section">
+        <Eyebrow>Tasks</Eyebrow>
         <ol className="armada-ledger__read-said armada-ledger__read-list">
           {planned.map((task) => (
             <li key={task.id}>
@@ -482,7 +485,7 @@ function RowFields({ row, detail }: { row: LedgerRow; detail: JobWhole }) {
             </li>
           ))}
         </ol>
-      </div>
+      </section>
     );
   }
   if (row.kind === "judged") {
