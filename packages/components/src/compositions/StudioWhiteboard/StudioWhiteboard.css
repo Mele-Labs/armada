@@ -21,12 +21,52 @@
   pointer-events: none;
 }
 
-/* A relation somebody proposed and nobody has answered. The hue is
-   `awaiting_review`'s — *needs you, not urgent*, which is what this is — and it
-   is the only colour on a Studio's edges, because the dash it sits over is the
-   one thing on the board that asks a person for an answer. */
-.armada-studio-edge__waiting {
+/* A relation somebody proposed and nobody has answered, answered where it is
+   drawn: who proposed it, the relation, and Accept and Reject. A glass card
+   like the nodes it joins, and tighter than one, since it sits on the line
+   between two of them. It takes the pointer the plain label refuses.
+
+   **Over the nodes it joins, never under them.** React Flow draws its edge
+   labels in a layer before the nodes', and two nodes close together left the
+   card behind both with its buttons unreachable (measured, 29 Sep 2026). A
+   picked node is lifted to 1000 (`SELECTED_NODE_Z` in `@xyflow/system`), and
+   picking one end of a proposal is how a person reads it, so the card is one
+   over that. It is not a layer of the app's: it stacks inside the board.
+
+   **Written heavier than `glass.css`'s hover**, which drops a card to `1`
+   while the pointer is on it, and so put the card back under a picked node
+   the moment a person reached for Accept. */
+.armada-studio-whiteboard .armada-card.armada-studio-edge__proposal {
+  z-index: 1001;
+}
+
+.armada-studio-edge__proposal {
+  position: absolute;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  white-space: nowrap;
+  pointer-events: all;
+}
+
+/* Who proposed it, as the card's eyebrow. The hue is `awaiting_review`'s —
+   *needs you, not urgent*, which is what this is — and it is the only colour
+   on a Studio's edges, because this is the one thing on the board that asks a
+   person for an answer. */
+.armada-studio-edge__proposer {
   color: var(--status-awaiting-review);
+}
+
+.armada-studio-edge__relation,
+.armada-studio-edge__continue {
+  color: var(--fg-muted);
+}
+
+.armada-studio-edge__acts {
+  display: flex;
+  gap: var(--space-2);
 }
 
 /* A node's width, so the aside reads as one more card on the board rather than
