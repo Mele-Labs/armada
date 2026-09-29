@@ -32,12 +32,15 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * filter has already said the family, and a spelling like `task_files` was
  * costing a sentence's width to say what the row's words say.
  *
- * **The open row is a sheet at every width, unlike the step inspector.** That
- * one pays for a column because the run tree beside it is drawn for 240px.
- * These are not: at 768, and at 1440 while Helm's dock still took 380px off
- * the content, the table had 250px left and broke a repository path one
- * character to a line — the v1 defect the fold exists to prevent. #1583 gave
- * 1440 back; the floor is the width the rule is really for.
+ * **The filters sit inside the panel they narrow**, on its head row beside the
+ * panel's own controls. Stacked under the destinations as a second strip, the
+ * two read as one level (the owner, 28 September 2026).
+ *
+ * **The open row is a column beside the table, and a sheet below
+ * `--layout-breakpoint`.** It was a sheet at every width while Helm's dock took
+ * 380px off the content and left the table 250px; the dock is a layer now
+ * (#1583), and the board draws the two side by side. The floor is still the
+ * width a column cannot pay for.
  */
 
 /** Who ran a row, as the column reads it. */
@@ -134,6 +137,13 @@ export type JobLedgerProps = {
   kindMarks?: boolean;
   /** The window is at `--window-floor`, where the folded inspector goes flush. */
   floor?: boolean;
+  /**
+   * The window is at or below `--layout-breakpoint`. The open row folds into a
+   * sheet over the table rather than taking a column beside it.
+   */
+  narrow?: boolean;
+  /** Controls at the trailing end of the filter row — the panel's own, not filters. */
+  controls?: ReactNode;
 };
 
 /** A whole Job's worth of reading, without the list becoming the cost. */
@@ -154,29 +164,36 @@ export function JobLedger({
   bound = BOUND,
   kindMarks = false,
   floor = false,
+  narrow = false,
+  controls,
 }: JobLedgerProps) {
   const drawn = rows.slice(0, bound);
   const leftOut = rows.length - drawn.length;
 
   return (
     <>
-      <div className="armada-ledger">
-        <div className="armada-ledger__list">
-          <TabsWithCounts
-            label="What the Record holds"
-            value={filter}
-            onChange={onFilter}
-            items={filters.map((one) => ({ id: one.id, label: one.label, count: one.count }))}
-          />
+      <div className="armada-ledger" data-narrow={narrow || undefined}>
+        <section className="armada-ledger__list armada-glass" aria-label="What the Record holds">
+          <div className="armada-ledger__head">
+            <TabsWithCounts
+              label="What the Record holds"
+              value={filter}
+              onChange={onFilter}
+              items={filters.map((one) => ({ id: one.id, label: one.label, count: one.count }))}
+            />
+            {controls === undefined ? null : (
+              <div className="armada-ledger__controls">{controls}</div>
+            )}
+          </div>
 
           {note === undefined ? null : (
-            <p className="armada-ledger__note" role="note">
+            <p className="armada-ledger__note armada-ledger__note--inset" role="note">
               {note}
             </p>
           )}
 
           {drawn.length === 0 ? (
-            <p className="armada-ledger__note" role="note">
+            <p className="armada-ledger__note armada-ledger__note--inset" role="note">
               {emptyNote}
             </p>
           ) : (
@@ -261,17 +278,29 @@ export function JobLedger({
           )}
 
           {leftOut > 0 ? (
-            <p className="armada-ledger__note" role="note">
+            <p className="armada-ledger__note armada-ledger__note--inset" role="note">
               {leftOut} older {leftOut === 1 ? "row is" : "rows are"} not drawn
             </p>
           ) : null}
-        </div>
+        </section>
 
+        {narrow ? null : (
+          <aside
+            className="armada-ledger__pane armada-glass"
+            aria-label={inspectorTitle ?? "This row"}
+          >
+            {inspector ?? (
+              <p className="armada-ledger__note armada-ledger__note--inset" role="note">
+                {inspectorAbsent}
+              </p>
+            )}
+          </aside>
+        )}
       </div>
 
       {/* Contained, so the shell's rail stays out from under the layer. */}
       <Sheet
-        open={openRow !== null}
+        open={narrow && openRow !== null}
         contained
         floor={floor}
         title={inspectorTitle ?? "This row"}

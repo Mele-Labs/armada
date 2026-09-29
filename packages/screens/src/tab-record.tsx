@@ -9,7 +9,7 @@
 // The rows are composed from today's reads in `draft/ledger.ts`, the words are
 // `record.ts`, and this file holds the open state of one reading.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ADVANCE_GATE,
   Button,
@@ -17,22 +17,26 @@ import {
   GUIDE_DRIFT,
   GuideMark,
   JobLedger,
+  Select,
   STEP_STATE,
   type JobLedgerRow,
 } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
+import { useNarrow } from "@armada/shell";
 
 import { TAB_LABEL } from "./detail-tabs";
-import { absoluteOf } from "./duration";
+import { absoluteOf, clock } from "./duration";
 import {
   filtersOf,
+  FAMILY_SAYS,
   ledgerRowsFor,
   underFilter,
+  underStep,
   unfiledSays,
   type RecordFilter,
 } from "./record";
 import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
-import { FieldLabel } from "./regions";
+import { Eyebrow } from "./regions";
 import { taskGroupsOf } from "./draft/group";
 import { familyOf, type LedgerRow } from "./draft/ledger";
 
@@ -58,16 +62,30 @@ export function RecordTab({
   onSaid,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
+  // Which step the rows are narrowed to. `null` is every step, and the Job's
+  // own rows with them.
+  const [step, setStep] = useState<string | null>(null);
   // Which row is open. **Held here and not in the ledger**, so a live redraw of
   // the Record does not close the row somebody is reading.
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const narrow = useNarrow();
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
 
-  const shown = useMemo(() => underFilter(rows, filter), [rows, filter]);
+  const atStep = useMemo(() => underStep(rows, step), [rows, step]);
+  const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
   const drawn = useMemo(() => ledgerRowsFor(shown, detail), [shown, detail]);
-  const open = shown.find((row) => String(row.cursor) === openRow);
-  const openDrawn = drawn.find((row) => row.id === openRow);
+  // Beside the table the pane always reads a row, the newest until somebody
+  // presses another: a column saying nothing is open is an empty frame. Folded
+  // into a sheet, nothing opens until it is pressed.
+  const reading = openRow ?? (narrow ? null : (drawn[0]?.id ?? null));
+  const open = shown.find((row) => String(row.cursor) === reading);
+  const openDrawn = drawn.find((row) => row.id === reading);
+  // The steps a row names, in the Job's own order. A step nothing happened in
+  // is not a place to narrow to.
+  const steps = (detail?.steps ?? []).filter((one) =>
+    rows.some((row) => row.coord?.step === one.step_id),
+  );
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.record}>
@@ -78,9 +96,9 @@ export function RecordTab({
       ) : (
         <JobLedger
           rows={drawn}
-          filters={filtersOf(rows)}
+          filters={filtersOf(atStep)}
           filter={filter}
-          {...(unfiledSays(rows) === undefined ? {} : { note: unfiledSays(rows) })}
+          {...(unfiledSays(atStep) === undefined ? {} : { note: unfiledSays(atStep) })}
           onFilter={(id) => {
             setFilter(id as RecordFilter);
             // The open row may not answer the new filter, and an inspector
@@ -88,10 +106,30 @@ export function RecordTab({
             // screen exists to end.
             setOpenRow(null);
           }}
-          openRow={openRow}
+          controls={
+            steps.length < 2 ? undefined : (
+              <Select
+                aria-label="Step"
+                value={step ?? ""}
+                onChange={(event) => {
+                  setStep(event.target.value === "" ? null : event.target.value);
+                  setOpenRow(null);
+                }}
+              >
+                <option value="">Any step</option>
+                {steps.map((one) => (
+                  <option key={one.step_id} value={one.step_id}>
+                    {one.label}
+                  </option>
+                ))}
+              </Select>
+            )
+          }
+          openRow={reading}
           onOpenRow={setOpenRow}
           kindMarks={filter === "all"}
           floor={floor}
+          narrow={narrow}
           emptyNote={EMPTY[filter]}
           {...(open === undefined ? {} : { inspectorTitle: open.what })}
           {...(open === undefined || openDrawn === undefined
@@ -99,7 +137,9 @@ export function RecordTab({
             : {
                 inspector: (
                   <RowRead
+                    key={openDrawn.id}
                     row={open}
+                    rows={rows}
                     drawn={openDrawn}
                     detail={detail}
                     outputs={outputs}
@@ -128,6 +168,8 @@ const EMPTY: Record<RecordFilter, string> = {
 
 type RowReadProps = {
   row: LedgerRow;
+  /** Every row of the Record, so a failed Check can say whether a later run passed. */
+  rows: readonly LedgerRow[];
   drawn: JobLedgerRow;
   detail: JobWhole;
   outputs: ReturnType<typeof useCheckOutputs>;
@@ -137,11 +179,11 @@ type RowReadProps = {
 /**
  * One row, read whole.
  *
- * **A Check shows its output and what it gated**, which is the reading the four
- * views could not put side by side: the run, the lines it printed, and the step
- * the run decided.
+ * **A Check shows its output and what it stopped**, which is the reading the
+ * four views could not put side by side: the run, the lines it printed, and
+ * the step the run decided.
  */
-function RowRead({ row, drawn, detail, outputs, onSaid }: RowReadProps) {
+function RowRead({ row, rows, drawn, detail, outputs, onSaid }: RowReadProps) {
   const step = detail.steps.find((one) => one.step_id === row.coord?.step);
   const run =
     row.kind !== "checked"
@@ -150,64 +192,124 @@ function RowRead({ row, drawn, detail, outputs, onSaid }: RowReadProps) {
           (one) => one.name === row.what && one.attempt === row.coord?.step_attempt,
         );
   const kept = run?.output_path;
-  const held = kept === undefined ? undefined : outputs.of(basename(kept));
+  const name = kept === undefined ? undefined : basename(kept);
+  const held = name === undefined ? undefined : outputs.of(name);
+  const family = familyOf(row.kind);
+  const machine = family === "checks" || family === "files";
+
+  // Opening the row is the ask: the reading is what the pane is for, and a
+  // second press to see it was the step the board does not draw.
+  useEffect(() => {
+    if (name !== undefined && outputs.of(name) === undefined) outputs.fetch(name);
+  }, [name, outputs]);
+
+  const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
 
   return (
-    <>
-      <div className="armada-ledger__facts">
-        <Fact label="When">{absoluteOf(row.at) ?? row.at}</Fact>
-        <Fact label="Where">{drawn.where}</Fact>
-        <Fact label="Who">{drawn.whoSays}</Fact>
-        <Fact label="Kind">{row.kind}</Fact>
-      </div>
-
-      {row.outcome === "" ? null : (
-        <p className="armada-ledger__note">
-          {row.outcome}
-          {/* What a file nobody declared costs the Job is the question the row's
-              words cannot answer without teaching. #1537, the owner, 28 Sep. */}
-          {familyOf(row.kind) === "files" ? <GuideMark guide={GUIDE_DRIFT} /> : null}
+    <div className="armada-ledger__read">
+      <header className="armada-ledger__read-head">
+        <Eyebrow>
+          {family == null ? drawn.where : `${FAMILY_SAYS[family]} · ${drawn.where}`}
+        </Eyebrow>
+        <p className="armada-ledger__read-name" data-machine={machine || undefined}>
+          {row.what}
         </p>
-      )}
-
-      {run === undefined ? null : (
-        <>
-          {run.expected === undefined ? null : (
-            <p className="armada-ledger__note">Expected {run.expected}</p>
+        <p className="armada-ledger__read-status">
+          {run === undefined ? null : (
+            <span className="armada-ledger__read-outcome" data-tone={drawn.tone}>
+              {sentenceCase(run.outcome)}
+            </span>
           )}
-          {/* What the Check gated: the step it ruled on, where that step now
-              stands, and what the workflow said would decide it. */}
-          {step === undefined ? null : (
-            <p className="armada-ledger__note">
-              Gated {step.label}, now {STEP_STATE[step.state]?.verb ?? step.state}.
-              {step.advance_gate === undefined
-                ? ""
-                : ` It advances when ${ADVANCE_GATE[step.advance_gate]?.verb ?? step.advance_gate}.`}
+          <span className="armada-ledger__read-meta" title={absoluteOf(row.at) ?? undefined}>
+            {clock(row.at)} · {drawn.whoSays}
+          </span>
+        </p>
+      </header>
+
+      <div className="armada-ledger__read-body">
+        {run === undefined ? (
+          row.outcome === "" ? null : (
+            <p className="armada-ledger__read-said" data-inline>
+              {row.outcome}{" "}
+              {/* What a file nobody declared costs the Job is the question the
+                  row's words cannot answer without teaching. #1537, the owner,
+                  28 Sep. */}
+              {family === "files" ? <GuideMark guide={GUIDE_DRIFT} /> : null}
             </p>
-          )}
-          {/* The output is fetched by whoever opened the row and never with it
-              — a test runner's whole output is what the split keeps off the
-              published state. So the control comes first and the reading
-              replaces it. */}
-          {kept === undefined ? (
-            <p className="armada-ledger__note">This Check kept no output.</p>
-          ) : held === undefined ? (
-            <Button variant="secondary" onClick={() => outputs.fetch(basename(kept))}>
-              Read what it printed
-            </Button>
-          ) : (
-            <ConsoleOutput
-              rows={held.state === "got" ? rowsOf(held.output) : []}
-              {...(held.state === "got" ? { region: regionOf(held.output) } : {})}
-              emptyNote={noteFor(held)}
-            />
-          )}
-        </>
-      )}
+          )
+        ) : (
+          <>
+            {run.produced === undefined && run.expected === undefined ? null : (
+              <p className="armada-ledger__read-said">
+                {run.produced === undefined ? null : sentenceCase(run.produced)}
+                {run.expected === undefined ? null : (
+                  <span className="armada-ledger__read-expected">Expected {run.expected}</span>
+                )}
+              </p>
+            )}
 
-      <RunAgain row={row} detail={detail} onSaid={onSaid} />
-    </>
+            <section className="armada-ledger__read-section">
+              <Eyebrow>Output</Eyebrow>
+              {/* Fetched when the row opens and never with the Record — a test
+                  runner's whole output is what the split keeps off the
+                  published state. */}
+              {name === undefined ? (
+                <p className="armada-ledger__note">This Check kept no output.</p>
+              ) : held === undefined || held.state === "fetching" ? (
+                <p className="armada-ledger__note">Reading what it printed</p>
+              ) : (
+                <ConsoleOutput
+                  rows={held.state === "got" ? rowsOf(held.output) : []}
+                  {...(held.state === "got" ? { region: regionOf(held.output) } : {})}
+                  emptyNote={noteFor(held)}
+                />
+              )}
+            </section>
+
+            {step === undefined ? null : (
+              <section className="armada-ledger__read-section">
+                <Eyebrow>What it stopped</Eyebrow>
+                <div className="armada-ledger__read-well">
+                  <p className="armada-ledger__read-said">
+                    It gated {step.label}, which is now {STEP_STATE[step.state]?.verb ?? step.state}.
+                    {step.advance_gate === undefined
+                      ? ""
+                      : ` It advances when ${ADVANCE_GATE[step.advance_gate]?.verb ?? step.advance_gate}.`}
+                  </p>
+                  {passedLater === undefined ? null : (
+                    <p className="armada-ledger__read-later">
+                      <span className="armada-ledger__read-dot" aria-hidden />
+                      Passed at {clock(passedLater.at)}, on attempt {passedLater.coord?.step_attempt}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        <RunAgain row={row} detail={detail} onSaid={onSaid} />
+      </div>
+    </div>
   );
+}
+
+/** The same Check passing on a later run of the same step, where one did. */
+function laterPass(row: LedgerRow, rows: readonly LedgerRow[]): LedgerRow | undefined {
+  const at = row.coord;
+  if (at === null) return undefined;
+  return rows.find(
+    (one) =>
+      one.kind === "checked" &&
+      one.what === row.what &&
+      one.coord?.step === at.step &&
+      one.coord.step_attempt > at.step_attempt &&
+      one.outcome.startsWith("passed"),
+  );
+}
+
+function sentenceCase(said: string): string {
+  return said.charAt(0).toUpperCase() + said.slice(1);
 }
 
 /**
@@ -238,15 +340,6 @@ function RunAgain({
     >
       {says}
     </Button>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <span className="armada-ledger__fact">
-      <FieldLabel>{label}</FieldLabel>
-      <span className="armada-ledger__fact-value">{children}</span>
-    </span>
   );
 }
 

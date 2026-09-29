@@ -1,8 +1,10 @@
-/* Job ledger — the filter strip and one table. The open row is a sheet over
-   it at every width; the component's own note carries why. */
+/* Job ledger — one bordered panel holding its filters and its table, and the
+   open row read whole beside it. Below --layout-breakpoint the reading folds
+   into a sheet over the table; the component's own note carries why. */
 .armada-ledger {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -10,10 +12,65 @@
    the column demand that width and the page scrolls sideways instead of the
    cell wrapping. */
 .armada-ledger__list {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* The panel's head: its filters leading, its own controls trailing. The rule
+   under it is the one that separates the panel's controls from what they
+   narrow. */
+.armada-ledger__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+.armada-ledger__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* A note inside the panel keeps the head's inset, so it lines up with the
+   filters rather than touching the panel's edge. */
+.armada-ledger__note--inset {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* The open row, read whole, beside the table. --w-run-column is the step
+   inspector's width: the board draws 392px, which is not on the ladder, and
+   380 is the nearest column the app already pays for. Sticky, so a long
+   Record scrolls under a reading that stays put. */
+.armada-ledger__pane {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: var(--w-run-column);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+}
+
+/* Inside the panel the heading row sits on the glass rather than on a band of
+   --bg-base, and takes the row rule's weight: the head's own rule above it is
+   the heavier division. */
+.armada-ledger__list .armada-table-header-cell {
+  background: transparent;
+  border-bottom-color: var(--border-subtle);
+}
+
+.armada-ledger__list .armada-table-row:last-child {
+  border-bottom: 0;
 }
 
 /* The open row's reading, inside the sheet. */
@@ -47,6 +104,7 @@
 /* The machine columns hold one value each and never wrap: a wrapped timestamp
    is two lines of noise beside a sentence that needed the room. */
 .armada-ledger__when,
+.armada-ledger__where,
 .armada-ledger__who {
   white-space: nowrap;
 }
@@ -84,7 +142,6 @@
    is as wide as its longest unbreakable run, and a repository path has none —
    so without it the Outcome column was pushed off the right edge at 768, and
    at 1440 while Helm's dock still took 380px off the content (#1583). */
-.armada-ledger__where,
 .armada-ledger__what,
 .armada-ledger__outcome {
   text-wrap: pretty;
@@ -96,9 +153,15 @@
    Breaking a path mid-token is ugly; a column off the screen is the v1
    failure, and 768 still reaches it. Only the two columns that carry paths,
    because it breaks a heading too. */
-.armada-ledger__what,
 .armada-ledger__outcome {
   overflow-wrap: anywhere;
+}
+
+/* What keeps its words whole. Its paths are filename chips (PathChip), so a
+   Check's name is the longest run it holds, and breaking `components_test`
+   mid-word beside the pane cost more than the column it saved. */
+.armada-ledger__what {
+  overflow-wrap: break-word;
 }
 
 /* The headings never break. `Where` wrapping to `WHER / E` is what this stops. */
@@ -206,4 +269,138 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   color: var(--fg-default);
+}
+
+/* The open row, read whole — the board's pane. A head carrying what the row
+   is, where, and what it came to; a body of labelled sections under it; the
+   act last. */
+.armada-ledger__read {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.armada-ledger__read-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+.armada-ledger__read-name {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+/* A Check's command and a file's path are machine strings, and read as one. */
+.armada-ledger__read-name[data-machine] {
+  font-family: var(--font-mono);
+}
+
+.armada-ledger__read-status {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* What the run came to, in its verdict's hue as text — never a chip, which is
+   a Job state and nothing else. */
+.armada-ledger__read-outcome {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.armada-ledger__read-outcome[data-tone="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-ledger__read-outcome[data-tone="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-ledger__read-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-ledger__read-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.armada-ledger__read-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-ledger__read-said {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* A row's outcome with the guide mark beside it, as one run of text. */
+.armada-ledger__read-said[data-inline] {
+  display: block;
+}
+
+.armada-ledger__read-expected {
+  color: var(--fg-subtle);
+}
+
+/* The board's well: --bg-sunken, the log pane's own ground. */
+.armada-ledger__read-well {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.armada-ledger__read-later {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-ledger__read-dot {
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--run-passed);
+}
+
+/* The act is last, the full width of the pane, under whatever it acts on. */
+.armada-ledger__read-body > .armada-button:last-child {
+  margin-top: auto;
 }

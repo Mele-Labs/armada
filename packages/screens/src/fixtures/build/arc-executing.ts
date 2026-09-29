@@ -278,6 +278,30 @@ export function executingConcurrent(): ArcMoment {
   };
 }
 
+/** What the failed screens_test printed, as Fleet's output route serves it. */
+const SCREENS_TEST_LINES = [
+  " FAIL  src/running.test.tsx > the Drones row opens the Job it is working",
+  "AssertionError: expected 'board' to be 'job'",
+  "  ❯ src/running.test.tsx:44:31",
+  "",
+  " Test Files  1 failed | 212 passed (213)",
+  "      Tests  1 failed | 1383 passed (1384)",
+];
+
+const SCREENS_TEST_OUTPUT = {
+  ok: true as const,
+  output: {
+    attempt: 1,
+    name: "screens_test",
+    path: ".armada/checks/3-show-what-s-running/implement.1.screens_test.log",
+    lines: SCREENS_TEST_LINES,
+    from_line: 1,
+    total_lines: SCREENS_TEST_LINES.length,
+    bytes: SCREENS_TEST_LINES.join("\n").length,
+    whole: true,
+  },
+};
+
 export function groupFailed(): ArcMoment {
   let groups = executingConcurrent().draft.groups!;
   groups = withTask(groups, "T6", {
@@ -304,12 +328,15 @@ export function groupFailed(): ArcMoment {
     name: "groupFailed",
     says: "Implement — group three failed its Checks and is on its second run",
     fixtures: [
-      executing({
-        says: "running — a group failed at its boundary and is being run again",
-        groups,
-        step: implementStep(runs, "2026-09-22T10:46:00Z"),
-        processes: [droneProcess(52_640, "01:40")],
-      }),
+      {
+        ...executing({
+          says: "running — a group failed at its boundary and is being run again",
+          groups,
+          step: implementStep(runs, "2026-09-22T10:46:00Z"),
+          processes: [droneProcess(52_640, "01:40")],
+        }),
+        checkOutputs: { "implement.1.screens_test.log": SCREENS_TEST_OUTPUT },
+      },
     ],
     opens: ARC_JOB_ID,
     draft: {

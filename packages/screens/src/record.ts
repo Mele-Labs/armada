@@ -78,6 +78,23 @@ export function filtersOf(rows: readonly LedgerRow[]): JobLedgerFilter[] {
   }));
 }
 
+/** One row of a family, named — the open row's eyebrow. */
+export const FAMILY_SAYS: Record<LedgerFamily, string> = {
+  job: "The Job",
+  evidence: "Evidence",
+  files: "File",
+  checks: "Check",
+  judges: "Judge",
+  drones: "Drone",
+  tasks: "Task",
+  tests: "Test",
+};
+
+/** The rows one step holds, or every row where no step is chosen. */
+export function underStep(rows: readonly LedgerRow[], step: string | null): readonly LedgerRow[] {
+  return step === null ? rows : rows.filter((row) => row.coord?.step === step);
+}
+
 /** The rows one filter holds, in the order they were composed. */
 export function underFilter(rows: readonly LedgerRow[], filter: RecordFilter): LedgerRow[] {
   return filter === "all" ? [...rows] : rows.filter((row) => familyOf(row.kind) === filter);
