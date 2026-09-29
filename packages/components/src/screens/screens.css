@@ -2266,3 +2266,111 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* The Workflow destination, as its board draws it (29 Sep 2026). Appended, per
+   the rule at the head of `index.css`.
+
+   **The canvas takes the height the destination has left**, and never less
+   than --h-workflow-canvas: the board's frame runs to the foot of the window,
+   and the inspector over it needs the room. The stacked run stays a page. */
+.armada-workflow-tab[data-view="canvas"] {
+  flex: 1 0 auto;
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__surface {
+  flex: 1 0 auto;
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__stage {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: var(--h-workflow-canvas);
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__canvas {
+  flex: 1 0 auto;
+}
+
+/* In the canvas view the layer is the stage's, not the tab's: the panel starts
+   where the run's frame does, as the board draws it, and never covers the
+   toggle above. It is held inside the frame's height and scrolls its own
+   regions from there — the head holds still (`WorkflowInspector.css`). */
+.armada-workflow-tab__stage .armada-workflow-tab__inspector {
+  position: static;
+  max-height: calc(100% - var(--space-4) * 2);
+  margin: var(--space-4);
+}
+
+/* The board's frame: an edge, a corner and the page's own glow at its top
+   left, so the run reads as one surface rather than cards on the page. The
+   glow's ellipse is `TheShell.css`'s, at the frame's scale. */
+.armada-workflow-tab__canvas {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(calc(var(--space-12) * 10) calc(var(--space-12) * 7) at 20% 0, var(--accent-faint), transparent),
+    var(--surface-canvas);
+}
+
+/* The steps past the right edge fade rather than stop, so a run wider than
+   its frame says there is more of it. Over the canvas and under the chip, and
+   it takes no presses. The frame is its own stacking context, so the dock's
+   token here ranks only against React Flow's panes. */
+.armada-workflow-tab__canvas::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: calc(var(--space-12) + var(--space-6));
+  background: linear-gradient(90deg, transparent, var(--surface-canvas));
+  pointer-events: none;
+  z-index: var(--z-dock);
+}
+
+/* Which workflow this is and which step the Job is on, over the top-right
+   corner as the board draws it. */
+.armada-workflow-tab__where {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: calc(var(--z-dock) + 1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-canvas);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-workflow-tab__workflow {
+  color: var(--fg-subtle);
+}
+
+.armada-workflow-tab__rule {
+  width: var(--border-width);
+  align-self: stretch;
+  background: var(--border-subtle);
+}
+
+.armada-workflow-tab__on {
+  color: var(--fg-muted);
+}
+
+/* The panel at the board's width: --w-dock, the nearest step on the ladder to
+   the board's 392. Narrow still takes the whole width. */
+.armada-workflow-tab:not([data-narrow]) .armada-workflow-tab__inspector {
+  width: var(--w-dock);
+}
+
+/* Narrow's whole width, less the gutter it is held off the frame by. */
+.armada-workflow-tab[data-narrow] .armada-workflow-tab__stage .armada-workflow-tab__inspector {
+  width: calc(100% - var(--space-4) * 2);
+}

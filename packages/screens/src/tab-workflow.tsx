@@ -1,16 +1,13 @@
 // Workflow — the Job's run, drawn as the workflow it froze. `#1539`.
 //
-// **The steps, and one Plan node** (owner, 25 Sep 2026). The whole plan used
-// to hang off the step that wrote it — a node per group, a node per task, and
-// a second edge from the step that worked each group. It is one node now,
-// carrying the group count and the task count, and pressing it opens the Plan
-// tab where the plan is drawn whole. The second edge went with the group
-// nodes, knowingly: `plan-canvas.ts` carries what was traded away.
-//
-// **And nothing of the plan but that node** (owner, 28 Sep 2026). The implement
-// board is gone, and with it the only route into a task from here — a task is
-// opened from Plan. `docs/journeys/monitor-active-work.md` carries what that
-// board still owes and where it has no destination.
+// **The steps, and nothing of the plan on the canvas** (owner, 25, 28 and 29
+// Sep 2026). The whole plan hung off the step that wrote it until 25 Sep, then
+// one Plan node did, and on 29 Sep that node went too (`nm0h`): the Workflow
+// board draws none, and the step that makes or works the plan says so in its
+// own panel, with a link to the Plan tab. The second edge went with the group
+// nodes, knowingly: `plan-canvas.ts` carries what was traded away. A task is
+// opened from Plan; `docs/journeys/monitor-active-work.md` carries what the
+// retired implement board still owes.
 //
 // **Canvas by default, stacked available, at every width** (#1530). Narrow
 // opens on where you are: a whole plan fitted into 768px is cards nobody can
@@ -18,7 +15,7 @@
 // shrinking the run. The toggle is remembered per viewer, and where it is kept
 // is the caller's: this package holds no storage.
 
-import { Tabs, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
+import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
 import { useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
@@ -28,7 +25,8 @@ import { TAB_LABEL } from "./detail-tabs";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { steeringOf } from "./steering";
-import { PLAN_NODE_ID, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
+import { ordered } from "./facts";
+import { stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { workflowReadingOf } from "./workflow-inspector";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
@@ -47,7 +45,7 @@ export type WorkflowTabProps = {
   view: WorkflowView;
   onView: (view: WorkflowView) => void;
   /**
-   * The plan's groups, for what the Plan node counts and for what the
+   * The plan's groups, for what the working step counts and for what the
    * inspector says about the step that works them (`#1532`'s draft, on
    * `JobDetailProps.draft`). **Absent derives one group per task from what
    * Fleet serves**, which is thinner and never broken — `draft/group.ts`
@@ -61,8 +59,8 @@ export type WorkflowTabProps = {
   onAct: (act: ConfirmableAct, jobId: string) => void;
   onActHeld: (act: HeldAct, jobId: string) => void;
   /**
-   * Where the Plan node goes: the Plan tab. **The screen's, not this tab's** —
-   * `JobDetail.tsx` owns which destination is open, and a tab that moved it
+   * Where the plan link in a step's panel goes: the Plan tab. **The screen's,
+   * not this tab's** — `JobDetail.tsx` owns which destination is open, and a tab that moved it
    * itself would be a second place the strip can be driven from.
    */
   onOpenPlan: () => void;
@@ -78,7 +76,6 @@ export function WorkflowTab({
   groups: given,
   acting,
   actingAct,
-  onRedirect,
   onAct,
   onActHeld,
   onOpenPlan,
@@ -91,7 +88,6 @@ export function WorkflowTab({
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
-  const [instruction, setInstruction] = useState("");
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -120,34 +116,58 @@ export function WorkflowTab({
 
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
-  // The steps, and the one Plan node. A press on a step opens it in the panel;
-  // a press on the Plan node leaves for the Plan tab, so nothing here is
-  // selected by it.
-  const run = workflowRunOf({
-    whole,
-    groups,
-    selected: open,
-    onOpen: (id) => {
-      if (id === PLAN_NODE_ID) {
-        onOpenPlan();
-        return;
-      }
-      setOpen(id);
-    },
-  });
+  // The steps. A press on one opens it in the panel.
+  const run = workflowRunOf({ whole, groups, selected: open, onOpen: setOpen });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026). The panel
   // used to land on the step the Job is on, so the column beside the canvas was
   // never blank — there is no column now. The canvas has the tab's whole width
   // and this is a layer over it, so a reading nobody asked for would be a panel
   // covering the run it exists to explain.
-  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder });
+  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder, onOpenPlan });
   const steering = steeringOf(job, whole);
   const label = `${job.title}, as its workflow's run`;
+  // The board's corner: which workflow this is, and which step the Job is on.
+  // **No step count** — the steps are drawn right under it.
+  const on = ordered(whole).find((step) => step.step_id === whole.job.current_step_id);
+
+  // Nothing until a press, and then a layer over the run rather than a
+  // column beside it — the dock's own arrangement, `screens.css`. **Over the
+  // canvas's own frame in the canvas view**, as the board draws it, so the
+  // panel starts where the run does and never covers the toggle above it.
+  const layer =
+    reading === undefined ? null : (
+      <div className="armada-workflow-tab__inspector-layer">
+        <div className="armada-workflow-tab__inspector">
+          <WorkflowInspector
+            {...reading}
+            onClose={() => setOpen(null)}
+            // The redirect box went (owner, 29 Sep 2026, `losq`): a person
+            // never knows which Drone to message. The running Drones take its
+            // place, empty until the drones view lands.
+            running={null}
+            {...(steering.act === undefined
+              ? {}
+              : {
+                  stop: {
+                    children: HOLD_LABEL.kill_drone,
+                    askLabel: ACT_LABEL.kill_drone,
+                    description: HOLD_SAID.kill_drone,
+                    disabled: acting && actingAct !== "kill_drone",
+                    pending: acting && actingAct === "kill_drone",
+                    onAsk: () => onAct("kill_drone", job.id),
+                    onCommit: () => onActHeld("kill_drone", job.id),
+                  },
+                })}
+          />
+        </div>
+      </div>
+    );
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.workflow}>
-      {/* No `data-plan` any more: the run is a spine with at most one node
-          under it, which is the height `--h-workflow-canvas` is set for. */}
+      {/* The run is a spine and nothing under it. The canvas takes the height
+          the destination has left, as the board draws it, and never less than
+          `--h-workflow-canvas`. */}
       <div className="armada-workflow-tab" data-view={view} data-narrow={narrow || undefined}>
         <div className="armada-workflow-tab__surface">
           {/* Above the run rather than over it: drawn inside the canvas the
@@ -158,68 +178,39 @@ export function WorkflowTab({
               September 2026, so the guide was retired and its number with it. */}
           <div className="armada-workflow-tab__modes">{toggle}</div>
           {view === "canvas" ? (
-            <div className="armada-workflow-tab__canvas">
-              <WorkflowCanvas
-                nodes={run.nodes}
-                edges={run.edges}
-                label={label}
-                running={run.running}
-                following={following}
-                onFollowing={setFollowing}
-                opensOn={run.opensOn}
-              />
+            <div className="armada-workflow-tab__stage">
+              <div className="armada-workflow-tab__canvas">
+                <div className="armada-workflow-tab__where">
+                  <Tooltip label="The workflow this Job froze">
+                    <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
+                  </Tooltip>
+                  {on === undefined ? null : (
+                    <>
+                      <span className="armada-workflow-tab__rule" aria-hidden="true" />
+                      <span className="armada-workflow-tab__on">step {on.ordinal}</span>
+                    </>
+                  )}
+                </div>
+                <WorkflowCanvas
+                  nodes={run.nodes}
+                  edges={run.edges}
+                  label={label}
+                  running={run.running}
+                  following={following}
+                  onFollowing={setFollowing}
+                  opensOn={run.opensOn}
+                  hangsFromTop
+                />
+              </div>
+              {layer}
             </div>
           ) : (
             <WorkflowStacked label={label} rows={run.rows} />
           )}
         </div>
 
-        {/* Nothing until a press, and then a layer over the canvas rather than
-            a column beside it — the dock's own arrangement, `screens.css`. The
-            canvas keeps the tab's width either way. */}
-        {reading === undefined ? null : (
-          <div className="armada-workflow-tab__inspector-layer">
-            <div className="armada-workflow-tab__inspector">
-              <WorkflowInspector
-                {...reading}
-                onClose={() => setOpen(null)}
-                redirect={{
-                  value: instruction,
-                  onChange: setInstruction,
-                  onSend: () => {
-                    onRedirect(job.id, instruction);
-                    setInstruction("");
-                  },
-                  drones: reading.drones,
-                  disabled: steering.act === undefined,
-                  disabledReason: NO_DRONE,
-                  ...(steering.sent === undefined ? {} : { waiting: steering.sent }),
-                }}
-                {...(steering.act === undefined
-                  ? {}
-                  : {
-                      stop: {
-                        children: HOLD_LABEL.kill_drone,
-                        askLabel: ACT_LABEL.kill_drone,
-                        description: HOLD_SAID.kill_drone,
-                        disabled: acting && actingAct !== "kill_drone",
-                        pending: acting && actingAct === "kill_drone",
-                        onAsk: () => onAct("kill_drone", job.id),
-                        onCommit: () => onActHeld("kill_drone", job.id),
-                      },
-                    })}
-              />
-            </div>
-          </div>
-        )}
+        {view === "canvas" ? null : layer}
       </div>
     </div>
   );
 }
-
-/**
- * Why the box is closed. **One Drone per Job today**, so a step with nothing on
- * it has nothing to reach — and stopping a group is stopping that Drone until
- * Fleet runs one per task.
- */
-const NO_DRONE = "No Drone is on this Job, so there is nothing to redirect.";

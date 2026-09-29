@@ -4,15 +4,19 @@
 // **What it cannot answer, it says.** The cases a group owes are a draft shape
 // Fleet does not serve (`draft/group.ts`, `cases_at_boundary`), so the tests
 // region draws the reason rather than an empty list that reads as "none owed".
+//
+// **A step that makes or works the plan links to it, and lists none of its
+// tasks** (owner, 28 and 29 Sep 2026, `25i2` and `nm0h`).
 
 import type {
   WorkflowInspectorCheck,
   WorkflowInspectorProps,
   WorkflowInspectorTask,
 } from "@armada/components";
-import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
+import { issueLink, type JobDetail as JobWhole, type StepDetail } from "@armada/protocol";
 
-import { isSweepMarker, nameOf } from "./declared";
+import { span } from "./duration";
+import { checksOf as gateChecksOf, isRunning } from "./gates";
 import type { GroupView } from "./draft/group";
 import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
@@ -26,27 +30,43 @@ export type WorkflowReading = Omit<WorkflowInspectorProps, "redirect" | "stop"> 
   drones: { id: string; label: string }[];
 };
 
-// Why there are no cases here was a sentence until 28 Sep, and it said Fleet
-// serves none yet. The owner cut that sentence where the group's boundary drew
-// it, and this drew the same one. The band is absent instead.
+// Why there are no cases here said *Fleet does not serve the cases a boundary
+// owes yet* until 28 Sep, and the owner asked what was missing and how it gets
+// fixed (`frpl`). What is missing is coverage: nothing says which tests cover
+// which files, so nothing can choose the ones a boundary owes. #1274 is the
+// issue that decides it, by a `COVERS` file per spec folder.
+const NO_CASES = {
+  says: "No tests run here yet. Nothing tells Armada which tests cover these files, so it can't choose any. A COVERS file beside the tests would fix that.",
+  issue: 1274,
+} as const;
 
-/** Why a step has no tasks: either no plan was recorded, or none of it lands here. */
-const NO_TASKS_RECORDED = "No plan has been recorded for this Job.";
-const NO_TASKS_HERE = "No task of the plan is worked at this step.";
-
-/** The latest run of each Check the step declares, by name. */
-function checksOf(step: StepDetail, only?: readonly string[]): WorkflowInspectorCheck[] {
-  const latest = new Map<string, string>();
-  for (const run of step.check_runs ?? []) latest.set(run.name, run.outcome);
+/**
+ * Each Check the step declares, beside what it came to — **or where the gate
+ * has it right now**, while the gate runs them (owner, 29 Sep 2026, `juhq`).
+ * `gates.ts` is what reads the live set over the last ruling.
+ */
+function checksOf(step: StepDetail, now: number, only?: readonly string[]): WorkflowInspectorCheck[] {
   // **De-duplicated.** A step can declare the same Check twice under different
   // globs — the arc's `implement` declares `test` for Rust and again for
   // Bridge — and one command is one row whatever selected it.
-  const named = (step.checks ?? []).filter((check) => !isSweepMarker(check)).map((check) => nameOf(check));
-  return [...new Set(named)]
-    .filter((name) => only === undefined || only.includes(name))
-    .map((name) => {
-      const outcome = latest.get(name);
-      const row: WorkflowInspectorCheck = { name };
+  const reads = gateChecksOf(step);
+  return reads
+    .filter((read, at) => reads.findIndex((one) => one.name === read.name) === at)
+    .filter((read) => only === undefined || only.includes(read.name))
+    .map((read) => {
+      const row: WorkflowInspectorCheck = { name: read.name };
+      if (isRunning(read)) {
+        row.live = "running";
+        const lasted = span(read.live!.started_at!, now);
+        if (lasted !== null) row.outcome = lasted;
+        return row;
+      }
+      if (read.live !== undefined && read.run === undefined) {
+        row.live = "waiting";
+        row.outcome = "waiting";
+        return row;
+      }
+      const outcome = read.run?.outcome;
       if (outcome !== undefined) {
         row.outcome = outcome;
         if (outcome === "passed" || outcome === "failed") row.named = outcome;
@@ -85,6 +105,10 @@ export type WorkflowInspectorReading = {
   selected: string | null;
   /** The step that works the groups, as `workflow-canvas.ts` computed it. */
   groupsUnder?: string;
+  /** Opens the Plan destination, for the plan card. */
+  onOpenPlan?: () => void;
+  /** What a running Check measures to. The caller's clock. */
+  now?: number;
 };
 
 /**
@@ -96,6 +120,8 @@ export function workflowReadingOf({
   groups,
   selected,
   groupsUnder,
+  onOpenPlan,
+  now = Date.now(),
 }: WorkflowInspectorReading): WorkflowReading | undefined {
   if (selected === null) return undefined;
 
@@ -107,7 +133,7 @@ export function workflowReadingOf({
       kind: "group",
       doing: doingOfGroup(group),
       tasks: group.tasks.map(taskOf),
-      checks: step === undefined ? [] : checksOf(step, group.checks_selected),
+      checks: step === undefined ? [] : checksOf(step, now, group.checks_selected),
       checksAbsent: "No Check runs at this group's end.",
       tests: [],
       drones: dronesOf(whole, group.tasks),
@@ -116,36 +142,41 @@ export function workflowReadingOf({
 
   const step = ordered(whole).find((one) => stepNodeId(one.step_id) === selected);
   if (step === undefined) return undefined;
-  // **The step that wrote the plan and the step that works it both hold the
-  // groups**, and each says which it is. A step that listed nothing here would
-  // be the one place on the screen the graph's two edges are not both drawn.
+  // **The step that wrote the plan and the step that works it both say so**,
+  // and link to it. Neither lists the plan's tasks: they are the Plan
+  // destination's, one press away.
   const wrote = step.step_id === stepTheGroupsWereMadeAt(whole);
   const works = step.step_id === groupsUnder;
-  const mine = wrote || works ? groups : [];
-  const tasks = mine.flatMap((one) => one.tasks);
+  const frozen = frozenBeneath(whole.job.status, step.state);
+  const activity = frozen?.activity ?? activityOf(step.state);
+  const checks = checksOf(step, now);
   return {
     name: step.label,
     kind: "step",
-    doing: doingOfStep(whole, step, mine.length, wrote),
-    tasks: tasks.map(taskOf),
-    tasksAbsent: whole.work_plan === undefined ? NO_TASKS_RECORDED : NO_TASKS_HERE,
-    checks: checksOf(step),
+    eyebrow: `Step ${step.ordinal}`,
+    state: { activity, said: frozen?.word ?? stateOf(step) },
+    ...(wrote || works
+      ? {
+          plan: {
+            groups: groups.map((one) => ({
+              id: one.id,
+              name: `Group ${one.ordinal}`,
+              tasks: `${one.tasks.length} ${one.tasks.length === 1 ? "task" : "tasks"}`,
+            })),
+            ...(onOpenPlan === undefined ? {} : { onOpen: onOpenPlan }),
+          },
+        }
+      : {}),
+    checks,
     checksAbsent: "No Check runs at this step.",
     tests: [],
-    drones: dronesOf(whole, tasks),
+    // Only where Checks run: a step that makes no diff owes no test, and a
+    // note about coverage there would be about nothing it does.
+    ...(checks.length === 0
+      ? {}
+      : { testsAbsent: { says: NO_CASES.says, issue: { href: issueLink(NO_CASES.issue), label: `See #${NO_CASES.issue}.` } } }),
+    drones: dronesOf(whole, wrote || works ? groups.flatMap((one) => one.tasks) : []),
   };
-}
-
-/** What the step is doing now, as a sentence. Read off the record, never guessed. */
-function doingOfStep(whole: JobWhole, step: StepDetail, groups: number, wrote: boolean): string {
-  const frozen = frozenBeneath(whole.job.status, step.state);
-  const said = frozen?.word ?? stateOf(step);
-  const activity = frozen?.activity ?? activityOf(step.state);
-  const many = `${groups} ${groups === 1 ? "group" : "groups"}`;
-  const where = groups === 0 ? "" : wrote ? ` It wrote ${many}.` : ` It works ${many}.`;
-  if (activity === "not_started") return `Nothing has entered this step yet.${where}`;
-  if (activity === "awaiting_human") return `This step is ${said} — it is waiting on you.${where}`;
-  return `This step is ${said}.${where}`;
 }
 
 /** What the group is doing now. Its own word, which the step machine has none of. */

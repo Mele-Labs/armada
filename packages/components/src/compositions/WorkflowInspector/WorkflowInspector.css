@@ -165,6 +165,15 @@
   justify-content: flex-start;
 }
 
+/* The stop at the foot of the panel and the whole of its width, as the board
+   draws *Hold to stop this group*: the last thing in the column, apart from
+   the regions above it. */
+.armada-wf-inspector__acts {
+  margin-block-start: auto;
+  flex-direction: column;
+  align-items: stretch;
+}
+
 /* A task's own regions: what it was told, what it may touch, what it wrote and
    what it said. Drawn for `kind: "task"` alone. #1536. */
 .armada-wf-inspector__brief,
@@ -237,4 +246,164 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+/* --- The Workflow board's head and regions (29 Sep 2026) ------------------- */
+
+/* The eyebrow over the name — where it sits, `Step 2` — in the regions' own
+   caps. The name under it takes the board's weight. */
+.armada-wf-inspector__titles .armada-wf-inspector__eyebrow {
+  font-family: var(--font-mono);
+}
+
+.armada-wf-inspector__name {
+  font-weight: var(--weight-heading);
+}
+
+/* Its state, as the board's pill: the mark and the word on the state's own
+   tint. The hue is the step machine's, never chosen here. */
+.armada-wf-inspector__state {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--status-not-started);
+  background: var(--status-not-started-bg);
+}
+
+.armada-wf-inspector__state[data-activity="running"],
+.armada-wf-inspector__state[data-activity="retrying"] {
+  color: var(--status-running);
+  background: var(--status-running-bg);
+}
+
+.armada-wf-inspector__state[data-activity="awaiting_human"] {
+  color: var(--status-awaiting-review);
+  background: var(--status-awaiting-review-bg);
+}
+
+.armada-wf-inspector__state[data-activity="advanced"] {
+  color: var(--status-completed-success);
+  background: var(--status-completed-success-bg);
+}
+
+.armada-wf-inspector__state[data-activity="stopped"] {
+  color: var(--status-escalated);
+  background: var(--status-escalated-bg);
+}
+
+/* The plan as a small card: each group and how many tasks it holds. A press
+   anywhere on it opens Plan, so it lifts on hover the way a node card does. */
+.armada-wf-inspector__plan {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font: inherit;
+  color: var(--fg-default);
+  text-align: start;
+}
+
+button.armada-wf-inspector__plan {
+  cursor: pointer;
+}
+
+button.armada-wf-inspector__plan:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.armada-wf-inspector__plan-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-wf-inspector__plan-groups > li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-wf-inspector__plan-tasks {
+  color: var(--fg-subtle);
+}
+
+/* A way to another destination or out to an issue, in the board's link hue.
+   A button where it moves the screen, an anchor where it opens a page; both
+   read as the same link. */
+.armada-wf-inspector__link {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.armada-wf-inspector__note .armada-wf-inspector__link {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.armada-wf-inspector__link:hover {
+  text-decoration: underline;
+}
+
+/* Why nothing runs here, in the board's dashed well: a note about the
+   boundary rather than a row of it. */
+.armada-wf-inspector__note {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  text-wrap: pretty;
+}
+
+/* A Check's name is the command, so it reads in mono as the board sets it. */
+.armada-wf-inspector__row-name {
+  font-family: var(--font-mono);
+}
+
+/* Where the running Drones will be listed, held empty until the drones view
+   lands (`losq`). The tests note's dashed well, with nothing in it. */
+.armada-wf-inspector__held {
+  min-height: var(--space-12);
+  border: var(--border-width) dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+/* A Check the gate is running now: its mark beside the name, and the elapsed
+   time in the running hue. A waiting one keeps the quiet row. */
+.armada-wf-inspector__row-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-wf-inspector__row[data-live="running"] .armada-wf-inspector__row-name {
+  color: var(--fg-default);
+}
+
+.armada-wf-inspector__row[data-live="running"] .armada-chip {
+  color: var(--status-running);
 }

@@ -177,3 +177,30 @@ button.armada-wf-card:hover {
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
+
+/* The board's second row: how long, then where it has got to. One line that
+   clips, so every step card on the spine is the same height and an edge lands
+   where the placement says. The running step's line takes the running hue, as
+   the board draws it. */
+.armada-wf-card__line {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-wf-card[data-working] .armada-wf-card__line {
+  color: var(--status-running);
+}
+
+/* Beside a line, the gate is the board's outlined chip — *will ask you* —
+   rather than a fragment under the facts. */
+.armada-wf-card__gate[data-chip="true"] {
+  align-self: flex-start;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}

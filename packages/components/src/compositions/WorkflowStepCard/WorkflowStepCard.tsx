@@ -40,6 +40,13 @@ export type WorkflowStepCardProps = {
   /** Its position in the run, counted from one. Stands in for a glyph on a step nothing entered. */
   ordinal?: number;
   facts?: readonly WorkflowStepFact[];
+  /**
+   * The board's second row: how long, and where it has got to — `9m 38s ·
+   * advanced`. **A line rather than chips** on a step of the run, so the card
+   * reads the way the Workflow board draws it; a node that passes none draws
+   * its facts as chips instead.
+   */
+  line?: string;
   /** The step the Job is on. The card takes a stronger edge; what loops is `running`. */
   current?: boolean;
   /** Open in the inspector. */
@@ -58,6 +65,7 @@ export function WorkflowStepCard({
   said,
   ordinal,
   facts = [],
+  line,
   current = false,
   selected = false,
   gate,
@@ -94,6 +102,7 @@ export function WorkflowStepCard({
           {name}
         </span>
       </span>
+      {line === undefined ? null : <span className="armada-wf-card__line">{line}</span>}
       {facts.length === 0 ? null : (
         <span className="armada-wf-card__facts">
           {facts.map((fact) => (
@@ -103,7 +112,11 @@ export function WorkflowStepCard({
           ))}
         </span>
       )}
-      {gate === undefined ? null : <span className="armada-wf-card__gate">{gate}</span>}
+      {gate === undefined ? null : (
+        <span className="armada-wf-card__gate" data-chip={line === undefined ? undefined : "true"}>
+          {gate}
+        </span>
+      )}
     </>
   );
 
