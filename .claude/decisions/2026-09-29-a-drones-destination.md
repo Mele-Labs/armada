@@ -1,0 +1,31 @@
+# Where do a Job's Drones go, and what does opening one show?
+
+**Decided 2026-09-29.**
+
+On the Record sheet he asked for a tab nobody had drawn: *"we need a drones tab
+on the job page. This will show the running drones and I can open them up to
+follow what that drone is doing."* Then what it is for, in the redesign where
+each task gets its own Drone: *"it would show running Drones, drones that are
+completed or have been killed, and I can peek into the entire transcript for
+that drone."*
+
+## Settled before the build
+
+- **Which Drones:** every one the Job has used across its tasks — running,
+  done, and killed.
+- **What opening one shows:** its whole transcript.
+
+## Asked, and answered
+
+| Question | Chosen | Cost he took |
+|---|---|---|
+| Where in the strip, and does it carry a count? | **After Record, no count.** Pulse keeps its *Drones running* | Nothing on the tab says how many are running; a reader looks at Pulse or opens the tab |
+| A note to one Drone from its sheet? | **Mocked, as the Plan task sheet does** | One more place drawn ahead of Fleet, which redirects the Job and not one Drone (#1536) |
+| Running first, or task order? | **Both, and the reader toggles** — his words: *"Build both and let the user toggle."* | A second control in the panel's head, beside the filter |
+
+The last one is [[2026-09-22-the-rail-is-a-choice]] again: offered two orders
+to pick between, he gave the person the control instead.
+
+**Where it landed:** `packages/screens/src/tab-drones.tsx`, the composition
+`packages/components/src/compositions/JobDrones/`, and the draft
+`packages/screens/src/draft/drone.ts`.

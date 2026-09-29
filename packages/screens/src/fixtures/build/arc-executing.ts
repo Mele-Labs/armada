@@ -15,6 +15,7 @@ import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
 import type { GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
+import { arcDrones, t6Retry } from "./arc-drones";
 import {
   ARC_APPROVED_AT,
   ARC_BRANCH,
@@ -330,6 +331,8 @@ export function executingSequential(): ArcMoment {
   let groups = throughGroupTwo();
   groups = withGroup(groups, "g3", { state: "running" });
   groups = withTask(groups, "T5", { state: "working", turns: 14, drone_id: ARC_DRONES.T5 });
+  // Group three runs its two tasks at once, so both its Drones are working.
+  groups = withTask(groups, "T6", { state: "working", turns: 9, drone_id: ARC_DRONES.T6 });
   return {
     name: "executingSequential",
     says: "Implement — groups one and two passed, group three is working",
@@ -351,6 +354,7 @@ export function executingSequential(): ArcMoment {
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:20:00.000Z", [droneProcess(52_118, "06:12")]),
     },
   };
@@ -392,6 +396,7 @@ export function executingConcurrent(): ArcMoment {
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T10:38:00.000Z", []),
     },
   };
@@ -479,6 +484,7 @@ export function groupFailed(): ArcMoment {
           cursor: 11,
         },
       ],
+      drones: [...arcDrones(groups), t6Retry(groups)],
       pulse: pulse("2026-09-22T10:46:00.000Z", [droneProcess(52_640, "01:40")]),
     },
   };
@@ -530,6 +536,7 @@ export function doneTouched(): ArcMoment {
           cursor: 12,
         },
       ],
+      drones: arcDrones(groups),
       pulse: pulse("2026-09-22T11:05:00.000Z", [droneProcess(53_402, "02:55")]),
     },
   };

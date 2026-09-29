@@ -34,11 +34,13 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 | Workflow | What will run, and in what order | machinery |
 | Plan | The work, split into what a Drone takes | work |
 | Record | What the Job produced, and what judged it | produced |
+| Drones | Every Drone it has used, and what each one wrote | drones |
 | Pulse | What it is costing this machine | cost |
+| Settings | What it was approved with, and what you changed since | configuration |
 
 **One label per destination, written once.** `packages/screens/src/detail-tabs.tsx` carries it and every surface that names a tab reads it from there. The design boards called one destination `Plan`, `Plan the split` and `Plan 4 groups`; a name written twice is a name that drifts.
 
-**A tab carries a count only where the count is a reading.** Workflow carries the frozen workflow's steps and Plan carries the tasks a Drone may still do — a dropped task is not work outstanding, so it is not counted. The rest carry nothing, because a zero on a tab trains the eye to skip the number.
+**A tab carries a count only where the count is a reading.** Workflow carries the frozen workflow's steps and Plan carries the tasks a Drone may still do — a dropped task is not work outstanding, so it is not counted. Drones carries none because Pulse already counts the Drones running (the owner, 29 Sep 2026). The rest carry nothing, because a zero on a tab trains the eye to skip the number.
 
 **A destination named before it is built says so.** Plan draws one line naming what will hold it and where that reading is today. A strip that grew tabs as issues landed would change shape under a reader between releases, and the position a tab sits in is what a hand learns.
 

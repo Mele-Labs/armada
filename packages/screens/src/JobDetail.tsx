@@ -1,5 +1,5 @@
-// One Job, read whole, at six destinations: Overview, Workflow, Plan, Record,
-// Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
+// One Job, read whole, at seven destinations: Overview, Workflow, Plan, Record,
+// Drones, Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
 // tree, the selected step in the inspector, its story in the order it happened
 // — and the other four are where the readings that used to compete for that one
 // panel go instead. `#1534`.
@@ -7,8 +7,8 @@
 // **This file is the screen, not a tab.** It reads the Job whole, draws the
 // header, the standing callout and the strip, and hands each tab what it needs.
 // What a tab holds is that tab's own module: `tab-overview.tsx`,
-// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-pulse.tsx`,
-// `tab-settings.tsx`.
+// `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
+// `tab-pulse.tsx`, `tab-settings.tsx`.
 
 import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
 import { useCallback, useReducer, useState } from "react";
@@ -35,6 +35,7 @@ import type { JobDetail as JobWhole } from "@armada/protocol";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { proposalEditsOf } from "./tab-proposal-read";
+import { DronesTab } from "./tab-drones";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { RecordTab } from "./tab-record";
@@ -309,6 +310,16 @@ function OneJob(props: JobDetailProps) {
             setOpensStep(stepId);
             setTab("workflow");
           }}
+        />
+      ) : tab === "drones" ? (
+        <DronesTab
+          job={job}
+          whole={whole}
+          {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
+          {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          floor={floor}
+          stale={props.stale}
+          onRedirect={props.onRedirect}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
