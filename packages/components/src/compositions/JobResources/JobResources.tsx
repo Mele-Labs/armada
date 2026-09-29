@@ -7,15 +7,14 @@
 
 import { RotateCw } from "lucide-react";
 import { useState } from "react";
-import type { ReactNode } from "react";
 
 import type { Artifact, JobExamined, Look } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { DestinationCard } from "../DestinationCard/DestinationCard";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "../../guides";
-import type { Guide } from "../../guides/guide";
 import {
   ANY,
   CPU_USAGE,
@@ -128,7 +127,7 @@ export function JobResources({
   const [member, setMember] = useState(ANY);
   return (
     <section className="armada-holds">
-      <Card
+      <DestinationCard
         label={STATS}
         guide={GUIDE_PULSE}
         trailing={
@@ -172,12 +171,15 @@ export function JobResources({
               : INSTEAD[nothingToAsk]}
           </p>
         ) : null}
-      </Card>
+      </DestinationCard>
 
       {reading === null ? null : (
         <>
+          {/* **A card for every list, including an empty one.** A card that
+              disappeared when it held nothing would make "no worktree on
+              disk" and "this build does not draw worktrees" the same screen. */}
           <div className="armada-holds__pair">
-            <Card
+            <DestinationCard
               label="Processes"
               guide={GUIDE_PROCESSES}
               trailing={
@@ -192,8 +194,8 @@ export function JobResources({
                 examined={examined}
                 {...(onKillProcess === undefined ? {} : { onKill: onKillProcess })}
               />
-            </Card>
-            <Card
+            </DestinationCard>
+            <DestinationCard
               label="Worktrees"
               guide={GUIDE_WORKTREE_SIZE}
               trailing={
@@ -205,14 +207,14 @@ export function JobResources({
               }
             >
               <Worktrees worktrees={reading.worktrees} {...(onOpen === undefined ? {} : { onOpen })} />
-            </Card>
+            </DestinationCard>
           </div>
-          <Card
+          <DestinationCard
             label="Job logs"
             trailing={<LogMember logs={reading.logs} member={member} onMember={setMember} />}
           >
             <Logs logs={reading.logs} member={member} {...(onOpen === undefined ? {} : { onOpen })} />
-          </Card>
+          </DestinationCard>
         </>
       )}
     </section>
@@ -263,37 +265,6 @@ const STATS = "Stats";
 /** When the figures were true — `Updated 4s ago`, and nothing beside it. */
 function readAt(reading: PulseReading, age?: string): string {
   return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${age} ago`;
-}
-
-/**
- * One card of the board: its name, what sits at the end of that line, and the
- * list under it.
- *
- * **A card for every list, including an empty one.** A card that disappeared
- * when it held nothing would make "no worktree on disk" and "this build does
- * not draw worktrees" the same screen.
- */
-function Card({
-  label,
-  guide,
-  trailing,
-  children,
-}: {
-  label: string;
-  guide?: Guide;
-  trailing?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="armada-holds__card" aria-label={label}>
-      <div className="armada-holds__card-head">
-        <h3 className="armada-holds__title">{label}</h3>
-        {guide === undefined ? null : <GuideMark guide={guide} />}
-        <span className="armada-holds__card-trail">{trailing}</span>
-      </div>
-      <div className="armada-holds__card-body">{children}</div>
-    </section>
-  );
 }
 
 /**

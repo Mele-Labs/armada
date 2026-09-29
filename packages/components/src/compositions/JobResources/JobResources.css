@@ -10,17 +10,6 @@
   min-width: 0;
 }
 
-/* No padding of its own: the head is a strip edge to edge, so its rule runs
-   the card's full width, and the body under it keeps the card's inset. */
-.armada-holds__card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--edge-card);
-  border-radius: var(--radius-lg);
-  background: var(--surface-card);
-}
-
 /* Processes and Worktrees share a line where the window has room, and stack
    where it does not — the job sheet draws this board too, at a third of the
    width. Each card grows from a basis of six --space-12 steps. */
@@ -31,58 +20,8 @@
   min-width: 0;
 }
 
-.armada-holds__pair > .armada-holds__card {
+.armada-holds__pair > .armada-destination-card {
   flex: 1 1 calc(var(--space-12) * 6);
-}
-
-/* The card's name, then whatever the card says at its trailing edge: the
-   read time and Refresh on Stats, a figure on the lists, the filter on the
-   logs. It wraps rather than clipping, for the narrow sheet.
-
-   A strip with a rule under it, as the left column's panels draw theirs, so
-   the name reads as the card's head and not as one more label in it. One
-   height on every card — the logs' select plus the strip's padding — so the
-   rules of the side-by-side pair meet on one line. */
-.armada-holds__card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-  min-height: calc(var(--h-control) + var(--space-3) * 2 + var(--border-width));
-  padding: var(--space-3) var(--pad-card);
-  border-block-end: var(--border-width) solid var(--edge-rule);
-}
-
-/* What the card holds, at the card's inset. The first row has no rule over
-   it, so the head's is the only line above the list. */
-.armada-holds__card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  padding: var(--space-3) var(--pad-card) var(--space-4);
-}
-
-/* A step above the --text-xs labels under it, so the head does not run into
-   the figures' own names. */
-.armada-holds__title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-  font-weight: var(--weight-medium);
-  color: var(--text-body);
-}
-
-.armada-holds__card-trail {
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-1) var(--space-3);
-  min-width: 0;
 }
 
 /* The act and its `?`, held together. */
