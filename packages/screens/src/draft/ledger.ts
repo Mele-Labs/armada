@@ -580,7 +580,7 @@ function fileRowsOf(
       coord: task.coord,
       actor: "drone",
       kind: "task_files",
-      what: task.scope.join(", "),
+      what: task.scope.join(PATHS_JOINED),
       outcome: saidItWouldChange(targets, outside),
       cursor: mint(),
     });
@@ -588,13 +588,26 @@ function fileRowsOf(
   return rows;
 }
 
+/** How a task's files are joined into one `what`, so `pathsOf` can part them. */
+const PATHS_JOINED = ", ";
+
+/**
+ * The paths a file row names: one for `file_written`, the task's scope for
+ * `task_files`. Empty for a row of any other kind.
+ */
+export function pathsOf(row: LedgerRow): string[] {
+  if (row.kind === "file_written") return [row.what];
+  if (row.kind === "task_files") return row.what.split(PATHS_JOINED);
+  return [];
+}
+
 /**
  * What a finished task's files came to, against what the Job said it would
  * change.
  *
  * **Every sentence names who said it and what they said**, so nothing here
- * needs teaching before it can be read. What it costs a Job is a separate
- * question and is guide 20's, behind the `?` on the row's own reading.
+ * needs teaching before it can be read. The sentence is the table's Outcome
+ * alone: the row's sheet draws the file's diff in its place (the owner, 29 Sep).
  */
 function saidItWouldChange(
   targets: readonly string[] | undefined,

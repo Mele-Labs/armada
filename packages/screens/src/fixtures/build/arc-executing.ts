@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { JobProcess, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
 import type { GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -91,6 +91,62 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
   };
 }
 
+/**
+ * The Job's diff once group three's agents stopped — two of the files its
+ * tasks wrote, and the one T1 wrote that the Job never named.
+ */
+const ARC_PATCH = [
+  "diff --git a/packages/screens/src/Running.tsx b/packages/screens/src/Running.tsx",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/packages/screens/src/Running.tsx",
+  "@@ -0,0 +1,14 @@",
+  '+import { RunningList } from "@armada/components";',
+  '+import type { Running } from "@armada/protocol";',
+  "+",
+  "+/** What is running, in four lists: Drones, Checks, Judge calls, proposer calls. */",
+  "+export function RunningPanel({ running }: { running: Running }) {",
+  "+  return (",
+  '+    <div className="armada-running">',
+  '+      <RunningList title="Drones" rows={running.drones} />',
+  '+      <RunningList title="Checks" rows={running.checks} />',
+  '+      <RunningList title="Judge calls" rows={running.judges} />',
+  '+      <RunningList title="Proposer calls" rows={running.proposers} />',
+  "+    </div>",
+  "+  );",
+  "+}",
+  "diff --git a/crates/ipc/operations.toml b/crates/ipc/operations.toml",
+  "--- a/crates/ipc/operations.toml",
+  "+++ b/crates/ipc/operations.toml",
+  "@@ -212,5 +212,11 @@ path = \"/jobs/:job_id/resources\"",
+  ' method = "GET"',
+  ' answers = "JobResources"',
+  " ",
+  "+[[operation]]",
+  '+name = "get_running"',
+  '+path = "/running"',
+  '+method = "GET"',
+  '+answers = "Running"',
+  "+",
+  " [[operation]]",
+  ' name = "get_worktrees"',
+].join("\n");
+
+const ARC_DIFF: Diff = {
+  state: "read",
+  jobId: ARC_JOB_ID,
+  work: {
+    files: [
+      { path: "packages/screens/src/Running.tsx", change: "added" },
+      { path: "crates/ipc/operations.toml", change: "modified", outside_plan: true },
+    ],
+    measured_from: "main",
+    measured_whole: true,
+    plan_declared: true,
+    patch: ARC_PATCH,
+  },
+};
+
 /** The Job at some instant inside `implement`. */
 function executing(args: {
   says: string;
@@ -98,6 +154,8 @@ function executing(args: {
   step: StepDetail;
   processes: JobProcess[];
   status?: string;
+  /** The Job's diff, where this moment serves one. */
+  diff?: Diff;
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -123,7 +181,7 @@ function executing(args: {
       footprint: { state: "none" },
       handed: { state: "none" },
       evidence: { state: "none" },
-      diff: { state: "none" },
+      diff: args.diff ?? { state: "none" },
       remarks: { state: "none" },
     },
     calls: {},
@@ -261,6 +319,7 @@ export function executingConcurrent(): ArcMoment {
         groups,
         step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:38:00Z"),
         processes: [],
+        diff: ARC_DIFF,
       }),
     ],
     opens: ARC_JOB_ID,
@@ -334,6 +393,7 @@ export function groupFailed(): ArcMoment {
           groups,
           step: implementStep(runs, "2026-09-22T10:46:00Z"),
           processes: [droneProcess(52_640, "01:40")],
+          diff: ARC_DIFF,
         }),
         checkOutputs: { "implement.1.screens_test.log": SCREENS_TEST_OUTPUT },
       },

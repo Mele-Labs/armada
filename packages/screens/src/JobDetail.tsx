@@ -301,6 +301,9 @@ function OneJob(props: JobDetailProps) {
           jobId={job.id}
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           onSaid={props.onSaid}
           onOpenStep={(stepId) => {
             setOpensStep(stepId);

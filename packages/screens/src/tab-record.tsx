@@ -16,13 +16,12 @@ import {
   Button,
   ConsoleOutput,
   DropdownMenu,
-  GUIDE_DRIFT,
-  GuideMark,
   JobLedger,
   STEP_STATE,
+  UnifiedDiff,
   type JobLedgerRow,
 } from "@armada/components";
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf, clock } from "./duration";
@@ -38,8 +37,11 @@ import {
 import { noteFor, regionOf, rowsOf, useCheckOutputs, type ReadCheckOutput } from "./outputs";
 import { Eyebrow, FieldLabel } from "./regions";
 import { titleOf } from "./record-cells";
-import { taskGroupsOf } from "./draft/group";
-import { familyOf, type LedgerRow } from "./draft/ledger";
+import { taskGroupsOf, type GroupView } from "./draft/group";
+import { familyOf, pathsOf, type LedgerRow } from "./draft/ledger";
+import { drawn as drawnPatch, whyNoDiff } from "./review";
+import { droneOfTask } from "./tab-plan-read";
+import { spentOf } from "./workflow-inspector";
 
 export type RecordTabProps = {
   jobId: string;
@@ -50,6 +52,12 @@ export type RecordTabProps = {
   /** The window is at `--window-floor`. */
   floor: boolean;
   onReadCheckOutput: ReadCheckOutput;
+  /** The Job's diff, as the screen holds it. A File row draws its own files' part. */
+  diff: Diff;
+  /** Ask for the Job's diff, or `null` to let it go. Asked when a File row opens. */
+  onReadDiff: (jobId: string | null) => void;
+  /** The plan's groups, where the draft holds them. Absent reads the wire's. */
+  groups?: readonly GroupView[];
   /** Say a sentence to the person — what an act that is not built yet answers. */
   onSaid: (sentence: string) => void;
   /**
@@ -65,6 +73,9 @@ export function RecordTab({
   rows,
   floor,
   onReadCheckOutput,
+  diff,
+  onReadDiff,
+  groups: given,
   onSaid,
   onOpenStep,
 }: RecordTabProps) {
@@ -77,6 +88,11 @@ export function RecordTab({
   const [openRow, setOpenRow] = useState<string | null>(null);
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
+  // Every task, for the Drone a row names. The Workflow tab's own fallback.
+  const tasks = useMemo(
+    () => (given ?? (detail === null ? [] : taskGroupsOf(detail))).flatMap((group) => group.tasks),
+    [given, detail],
+  );
 
   const atStep = useMemo(() => underStep(rows, step), [rows, step]);
   const shown = useMemo(() => underFilter(atStep, filter), [atStep, filter]);
@@ -150,6 +166,10 @@ export function RecordTab({
                     drawn={openDrawn}
                     detail={detail}
                     outputs={outputs}
+                    jobId={jobId}
+                    diff={diff}
+                    onReadDiff={onReadDiff}
+                    tasks={tasks}
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
                   />
@@ -183,6 +203,10 @@ type RowReadProps = {
   drawn: JobLedgerRow;
   detail: JobWhole;
   outputs: ReturnType<typeof useCheckOutputs>;
+  jobId: string;
+  diff: Diff;
+  onReadDiff: (jobId: string | null) => void;
+  tasks: readonly GroupView["tasks"][number][];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
 };
@@ -194,7 +218,19 @@ type RowReadProps = {
  * four views could not put side by side: the run, the lines it printed, and
  * the step the run decided.
  */
-function RowRead({ row, rows, drawn, detail, outputs, onSaid, onOpenStep }: RowReadProps) {
+function RowRead({
+  row,
+  rows,
+  drawn,
+  detail,
+  outputs,
+  jobId,
+  diff,
+  onReadDiff,
+  tasks,
+  onSaid,
+  onOpenStep,
+}: RowReadProps) {
   const step = detail.steps.find((one) => one.step_id === row.coord?.step);
   const run =
     row.kind !== "checked"
@@ -212,6 +248,14 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid, onOpenStep }: RowR
   useEffect(() => {
     if (name !== undefined && outputs.of(name) === undefined) outputs.fetch(name);
   }, [name, outputs]);
+
+  // A File row asks for the Job's diff when it opens, and never the Record:
+  // the patch is the expensive read, and Overview lets it go on the way out.
+  useEffect(() => {
+    if (family !== "files") return;
+    onReadDiff(jobId);
+    return () => onReadDiff(null);
+  }, [family, jobId]);
 
   const passedLater = run?.outcome === "failed" ? laterPass(row, rows) : undefined;
   // Who ran it, where the eyebrow has not already said so: a Check's row is
@@ -269,15 +313,15 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid, onOpenStep }: RowR
 
       <div className="armada-ledger__read-body">
         {run === undefined ? (
-          row.outcome === "" ? null : (
-            <p className="armada-ledger__read-said" data-inline>
-              {row.outcome}{" "}
-              {/* What a file nobody declared costs the Job is the question the
-                  row's words cannot answer without teaching. #1537, the owner,
-                  28 Sep. */}
-              {family === "files" ? <GuideMark guide={GUIDE_DRIFT} /> : null}
-            </p>
-          )
+          <>
+            {/* A File row's outcome stays in the table; its sheet is for the
+                diff. The owner, 29 Sep. */}
+            {family === "files" || row.outcome === "" ? null : (
+              <p className="armada-ledger__read-said">{row.outcome}</p>
+            )}
+            <DroneRead row={row} detail={detail} tasks={tasks} />
+            {family === "files" ? <FileDiff row={row} diff={diff} jobId={jobId} /> : null}
+          </>
         ) : (
           <>
             {/* What it produced, and what it was held to: two things, so two
@@ -342,6 +386,78 @@ function RowRead({ row, rows, drawn, detail, outputs, onSaid, onOpenStep }: RowR
     </div>
   );
 }
+
+/**
+ * Which Drone produced a row, and what it spent. **The Workflow panel's own
+ * reading** — `droneOfTask` for the label and `spentOf` for the figures — so
+ * the two surfaces cannot name one Drone two ways. Nothing where the row names
+ * no task, or the plan holds none by that id.
+ */
+function DroneRead({
+  row,
+  detail,
+  tasks,
+}: {
+  row: LedgerRow;
+  detail: JobWhole;
+  tasks: RowReadProps["tasks"];
+}) {
+  const taskId = row.coord?.task;
+  if (row.actor !== "drone" || taskId === undefined) return null;
+  const task = tasks.find((one) => one.id === taskId);
+  const drone = task === undefined ? undefined : droneOfTask(detail, task);
+  if (task === undefined || drone === undefined) return null;
+  const spent = spentOf(task);
+  return (
+    <section className="armada-ledger__read-section">
+      <Eyebrow>Drone</Eyebrow>
+      <p className="armada-ledger__read-drone">
+        {drone.label} · {task.state}
+      </p>
+      {spent.length === 0 ? null : <p className="armada-ledger__read-said">{spent.join(" · ")}</p>}
+    </section>
+  );
+}
+
+/**
+ * The part of the Job's diff a File row names.
+ *
+ * **The branch's change to the file, not the task's.** Fleet serves one patch
+ * for the Job, so a file two tasks wrote shows both, and the eyebrow says whose
+ * diff it is. Nothing while it is being read or where it holds no section for
+ * the file; a read that failed keeps `whyNoDiff`'s words.
+ */
+function FileDiff({ row, diff, jobId }: { row: LedgerRow; diff: Diff; jobId: string }) {
+  const mine = diff.state !== "none" && diff.jobId === jobId ? diff : null;
+  const work = mine?.state === "read" ? mine.work : undefined;
+  const patch = useMemo(() => (work === undefined ? undefined : drawnPatch(work)), [work]);
+  if (mine?.state === "failed") {
+    return (
+      <section className="armada-ledger__read-section">
+        <Eyebrow>{JOB_DIFF}</Eyebrow>
+        <p className="armada-ledger__note">{whyNoDiff(diff, jobId)}</p>
+      </section>
+    );
+  }
+  if (patch === undefined) return null;
+  const paths = pathsOf(row);
+  const files = patch.files.filter((file) =>
+    paths.some((path) => file.path === path || file.path.startsWith(path.endsWith("/") ? path : `${path}/`)),
+  );
+  if (files.length === 0) return null;
+  // The bound can fall inside the last file drawn, so that file says so.
+  const last = patch.files[patch.files.length - 1];
+  const cut = patch.cut !== undefined && last !== undefined && files.includes(last) ? patch.cut : undefined;
+  return (
+    <section className="armada-ledger__read-section">
+      <Eyebrow>{JOB_DIFF}</Eyebrow>
+      <UnifiedDiff files={files} emptyNote="" {...(cut === undefined ? {} : { cut })} />
+    </section>
+  );
+}
+
+/** Whose diff a File row draws: the branch's, which any task may have added to. */
+const JOB_DIFF = "Diff on the branch";
 
 /** The same Check passing on a later run of the same step, where one did. */
 function laterPass(row: LedgerRow, rows: readonly LedgerRow[]): LedgerRow | undefined {

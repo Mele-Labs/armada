@@ -357,11 +357,6 @@
   text-wrap: pretty;
 }
 
-/* A row's outcome with the guide mark beside it, as one run of text. */
-.armada-ledger__read-said[data-inline] {
-  display: block;
-}
-
 /* What a Check produced: the result, so body text in --fg-default — one step
    up from the muted sentences around it, which are context. */
 .armada-ledger__read-produced {
@@ -370,6 +365,14 @@
   line-height: var(--leading-sm);
   color: var(--fg-default);
   text-wrap: pretty;
+}
+
+/* Which Drone produced the row, named the way the Workflow panel names it. */
+.armada-ledger__read-drone {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
 }
 
 /* What it was held to, as a labelled field: the label over the value, so the
