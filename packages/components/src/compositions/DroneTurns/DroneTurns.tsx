@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, CircleDot } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
+import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
 
 /**
  * Drone turns — one Drone's transcript, read while it is still being written.
@@ -18,10 +19,11 @@ import { Button } from "../../primitives/Button/Button";
  * to wait for its result would be unbounded buffering in the loop that advances
  * the Job.
  *
- * **A row kind is the wire's own word, in mono.** No vocabulary in the
- * repository carries a verb, a glyph or a hue per turn kind — `Saw` is the
- * wire's enum and has no `enum-verbs.toml` rows — so the spelling renders
- * rather than copy invented here. Reported.
+ * **The second column names who, not what** — Drone, Armada or Fleet, in the
+ * words and the sans `ActivityLog` names them with. The body already says what:
+ * a call leads with its tool. So a refusal says so in its body, since the
+ * column no longer does. The owner's decision, 29 Sep 2026. A row with no
+ * speaker falls back to the wire's kind, in mono.
  *
  * **The step is a boundary, not a column.** One step's turns run to dozens, so
  * a name repeated down every row would be the same string forty times over
@@ -39,6 +41,8 @@ export type DroneTurn = {
   at: string;
   /** The wire's kind: `called`, `said`, `refused`, `started`, and the rest. */
   kind: string;
+  /** Who wrote the row. Drawn in the second column; `kind` is drawn where absent. */
+  who?: ActivityActor;
   /** The machine value the row is about — a tool, a session, an unread line. */
   subject?: string;
   /**
@@ -50,8 +54,8 @@ export type DroneTurn = {
   /** `detail` was cut short upstream. Rendered as cut, never as the whole value. */
   truncated?: boolean;
   /**
-   * What came back, where this row is a call joined to its answer. Absent on a
-   * call still running, which the row says in words rather than leaving blank.
+   * What came back, where it says more than that the call answered — a plain
+   * successful answer carries none. Absent draws nothing.
    */
   answer?: ReactNode;
   /** Prose: the Drone's own text, or the harness's wording for a refusal. */
@@ -363,7 +367,11 @@ function Row({ turn, nested = false }: { turn: DroneTurn; nested?: boolean }) {
   return (
     <li className="armada-turns__turn" id={rowId(turn)} data-nested={nested || undefined}>
       <span className="armada-turns__at">{turn.at}</span>
-      <span className="armada-turns__kind">{turn.kind}</span>
+      {turn.who === undefined ? (
+        <span className="armada-turns__kind">{turn.kind}</span>
+      ) : (
+        <span className="armada-turns__who">{ACTOR_NAMED[turn.who]}</span>
+      )}
       <span className="armada-turns__body">
         {turn.subject === undefined && turn.detail === undefined ? null : (
           <span className="armada-turns__head">

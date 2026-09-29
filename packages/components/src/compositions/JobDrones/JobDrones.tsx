@@ -116,62 +116,64 @@ export function JobDrones({
             {emptyNote}
           </p>
         ) : (
-          <Table className="armada-drones__table">
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>Drone</TableHeaderCell>
-                <TableHeaderCell>Where</TableHeaderCell>
-                <TableHeaderCell>State</TableHeaderCell>
-                <TableHeaderCell>Spent</TableHeaderCell>
-                <TableHeaderCell>Run time</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  selected={row.id === openRow}
-                  data-row-id={row.id}
-                  onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
-                >
-                  <TableCell className="armada-drones__drone">
-                    {onOpenRow === undefined ? (
-                      row.drone
-                    ) : (
-                      // The keyboard's path to the row's act. The press stops
-                      // here, or the row answers it a second time.
-                      <button
-                        type="button"
-                        className="armada-drones__open"
-                        aria-expanded={row.id === openRow}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenRow(row.id);
-                        }}
-                      >
-                        {row.drone}
-                      </button>
-                    )}
-                  </TableCell>
-                  <TableCell variant="secondary" className="armada-drones__where">
-                    {row.where}
-                  </TableCell>
-                  <TableCell className="armada-drones__state">
-                    <span className="armada-drones__said" data-state={row.state}>
-                      <span className="armada-drones__dot" aria-hidden />
-                      {row.stateSays}
-                    </span>
-                  </TableCell>
-                  <TableCell variant="metadata" className="armada-drones__spent">
-                    {row.spent}
-                  </TableCell>
-                  <TableCell variant="metadata" className="armada-drones__ran" title={row.sinceExact}>
-                    {row.ranFor}
-                  </TableCell>
+          <div className="armada-drones__scroll">
+            <Table className="armada-drones__table">
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>Drone</TableHeaderCell>
+                  <TableHeaderCell>Where</TableHeaderCell>
+                  <TableHeaderCell>State</TableHeaderCell>
+                  <TableHeaderCell>Spent</TableHeaderCell>
+                  <TableHeaderCell>Run time</TableHeaderCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    selected={row.id === openRow}
+                    data-row-id={row.id}
+                    onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
+                  >
+                    <TableCell className="armada-drones__drone">
+                      {onOpenRow === undefined ? (
+                        row.drone
+                      ) : (
+                        // The keyboard's path to the row's act. The press stops
+                        // here, or the row answers it a second time.
+                        <button
+                          type="button"
+                          className="armada-drones__open"
+                          aria-expanded={row.id === openRow}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenRow(row.id);
+                          }}
+                        >
+                          {row.drone}
+                        </button>
+                      )}
+                    </TableCell>
+                    <TableCell variant="secondary" className="armada-drones__where">
+                      {row.where}
+                    </TableCell>
+                    <TableCell className="armada-drones__state">
+                      <span className="armada-drones__said" data-state={row.state}>
+                        <span className="armada-drones__dot" aria-hidden />
+                        {row.stateSays}
+                      </span>
+                    </TableCell>
+                    <TableCell variant="metadata" className="armada-drones__spent">
+                      {row.spent}
+                    </TableCell>
+                    <TableCell variant="metadata" className="armada-drones__ran" title={row.sinceExact}>
+                      {row.ranFor}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
 
