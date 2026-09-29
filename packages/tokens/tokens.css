@@ -569,6 +569,9 @@
   --h-badge: 20px;
   --h-kbd: 20px;
   --h-menu-item: 32px;
+  /* The window's title row: 32 + 8 + 4, where the bar has always measured. A
+     token since a floating sheet has to start under it (29 Sep 2026). */
+  --h-title-bar: 44px;
   --pad-card: 20px;       /* not 24 */
   /* The Job row is padding-driven, amended 2026-08-23 and again 2026-09-08.
      It was a fixed 60px, which left 9px of clearance above a 43px content block and

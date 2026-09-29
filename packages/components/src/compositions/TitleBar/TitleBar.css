@@ -18,7 +18,7 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   flex: none;
-  height: calc(var(--space-8) + var(--space-2) + var(--space-1));
+  height: var(--h-title-bar);
   padding-inline: var(--space-3);
   border-bottom: var(--border-width) solid var(--border-subtle);
   background: var(--bg-sunken);

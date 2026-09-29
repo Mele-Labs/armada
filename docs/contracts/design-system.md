@@ -1171,7 +1171,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | --- | --- |
 | Dialog | Centred in the window on both axes |
 | Guide card | Centred in the window on both axes |
-| Sheet | Full height, flush to one side edge, trailing by default |
+| Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
 | Command palette | Horizontally centred, top-anchored |
 

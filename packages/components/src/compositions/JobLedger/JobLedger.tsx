@@ -292,10 +292,12 @@ export function JobLedger({
 
       </div>
 
-      {/* Contained, so the shell's rail stays out from under the layer. */}
+      {/* Floating over the whole work area, as Helm's dock does: contained in
+          the content column it read as cut off at that column's edge (the
+          owner, 29 Sep 2026). */}
       <Sheet
         open={openRow !== null}
-        contained
+        floating
         floor={floor}
         title={inspectorTitle ?? "This row"}
         closeLabel="Close"
