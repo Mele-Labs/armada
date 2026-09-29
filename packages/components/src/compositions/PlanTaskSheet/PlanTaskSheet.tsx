@@ -79,6 +79,8 @@ export type PlanTaskSheetProps = {
   redirect?: PlanTaskRedirect;
   /** The window is at `--window-floor`. */
   floor?: boolean;
+  /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
+  docked?: boolean;
   onClose?: () => void;
 };
 
@@ -178,12 +180,14 @@ export function PlanTaskSheet({
   rewrite,
   redirect,
   floor = false,
+  docked = false,
   onClose,
 }: PlanTaskSheetProps) {
   return (
     <Sheet
       open={open}
       contained
+      docked={docked}
       floor={floor}
       title={title}
       subtitle={

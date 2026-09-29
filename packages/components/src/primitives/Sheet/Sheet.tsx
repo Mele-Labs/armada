@@ -99,6 +99,15 @@ export type SheetProps = {
    */
   contained?: boolean;
   /**
+   * Helm's dock, for a reading a person works beside rather than through —
+   * the owner's note on the task sheet, 28 Sep 2026. Held off the top,
+   * trailing and bottom edges of its container, rounded, on the card glass,
+   * and **no scrim and no `aria-modal`**: the content under it stays live, so
+   * pressing another row changes what the dock reads. Only beside the content;
+   * below `--layout-breakpoint` the caller drops it and the sheet is a sheet.
+   */
+  docked?: boolean;
+  /**
    * The close control's label, and the binding drawn beside it. Absent leaves
    * the close icon-only with the binding in its tooltip, which is what the
    * floor takes — `4l`, and there only.
@@ -132,6 +141,7 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
+  docked = false,
   closeLabel,
   closeBinding,
   floor = false,
@@ -173,14 +183,15 @@ export function Sheet({
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
   return (
-    <div className="armada-sheet-scrim" data-contained={contained || undefined}>
+    <div className="armada-sheet-scrim" data-contained={contained || undefined} data-docked={docked || undefined}>
       <div
-        className="armada-sheet"
+        className={docked ? "armada-sheet armada-glass" : "armada-sheet"}
         data-side={side}
         data-size={size}
-        data-floor={floor || undefined}
+        data-floor={(floor && !docked) || undefined}
+        data-docked={docked || undefined}
         role="dialog"
-        aria-modal="true"
+        aria-modal={docked ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
@@ -198,12 +209,13 @@ export function Sheet({
           )}
           {labelled ? (
             /* A secondary on an overlay is filled one surface step from its
-               ground, which is what `ground="sunken"` spells. */
+               ground, which is what `ground="sunken"` spells. Docked it is
+               on the glass, where Helm's own Close takes `card`. */
             <Button
               ref={closeRef}
               variant="secondary"
               size="sm"
-              ground="sunken"
+              ground={docked ? "card" : "sunken"}
               title={tooltip}
               onClick={onClose}
             >

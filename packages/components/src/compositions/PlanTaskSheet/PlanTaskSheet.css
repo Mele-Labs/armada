@@ -192,3 +192,17 @@
   justify-content: flex-end;
   min-width: 0;
 }
+
+/* Close stays in the head's trailing corner at every width — the owner's note
+   on this sheet, 28 Sep 2026. A task's title is a sentence and the sheet's own
+   one-line title clipped it under the close; here it wraps instead. Docked,
+   `Sheet.css` already does this for the dock. */
+.armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__title {
+  white-space: normal;
+  text-wrap: pretty;
+}

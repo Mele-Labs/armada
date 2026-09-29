@@ -14,6 +14,7 @@
 // is `tab-plan-ask.tsx`, and what it looks like is `PlanBoard`.
 
 import { JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
+import { useNarrow } from "@armada/shell";
 import { useState } from "react";
 
 import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
@@ -223,6 +224,11 @@ export function PlanTab({
   // What has been typed at the open task's Drone and not sent. This tab's own
   // state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
+  // Beside the breakpoint the inspector is Helm's dock; under it, a sheet over
+  // the content — `Narrow`'s arithmetic, 720 less 380 is under
+  // `--w-step-panel-min`. Read here rather than handed down: `JobDetail.tsx`
+  // reads the same hook for Overview and Workflow.
+  const narrow = useNarrow();
 
   const step = planStepOf(whole);
   // Whether the split above is this Job's plan. A wave's plan is the Jobs it
@@ -360,6 +366,7 @@ export function PlanTab({
         {...reading}
         open
         floor={floor}
+        docked={!narrow}
         {...(rewrite === undefined ? {} : { rewrite })}
         {...(redirect === undefined ? {} : { redirect })}
         onClose={() => {

@@ -279,3 +279,53 @@
   padding: var(--pad-card);
   border-top: var(--armada-hairline) solid var(--border-subtle);
 }
+
+/* Docked: Helm's dock (`TheShell.css`, `.armada-shell__dock`), for a reading a
+   person works beside. The scrim stays as the positioned box that lays the
+   panel out, but it dims nothing and takes no press, so the content under it
+   stays live. `--space-4` off the container's bottom; the top and trailing
+   edges already sit `--space-4` in from the window, which is where Helm's own
+   dock sits, so the two line up. The glass is `armada-glass` beside this
+   class, and a sheet's own --bg-overlay would paint under it.
+
+   `--z-dock`, Helm's own, not `--z-modal`: at `--z-modal` it covered Helm
+   opened after it. At the same step Helm's layer, later in the document,
+   lies over it, and menus and dialogs lie over both. */
+.armada-sheet-scrim[data-docked] {
+  z-index: var(--z-dock);
+  background: none;
+  pointer-events: none;
+  padding-bottom: var(--space-4);
+  animation: none;
+  overflow: visible;
+}
+
+.armada-sheet[data-docked] {
+  pointer-events: auto;
+  flex: none;
+  width: var(--w-dock);
+  max-width: 100%;
+  margin-left: auto;
+  border-radius: var(--radius-lg);
+  background: none;
+  overflow: clip;
+  overflow-clip-margin: var(--border-width);
+}
+
+/* The head never wraps its close away from the trailing corner — the owner's
+   second note. The title wraps instead, and the close stays on its first line. */
+.armada-sheet[data-docked] .armada-sheet__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-bottom-color: var(--border-subtle);
+}
+
+.armada-sheet[data-docked] .armada-sheet__title {
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+.armada-sheet[data-docked] .armada-sheet__body {
+  padding: var(--space-4);
+}
