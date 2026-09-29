@@ -1138,7 +1138,7 @@ measuring in JavaScript.
 
 | Layer | Opens | Preferred alignment |
 | --- | --- | --- |
-| Dropdown menu | Below the trigger | Trailing edges flush |
+| Dropdown menu | Below the trigger | Trailing edges flush, caller may set leading |
 | Popover | Below the trigger | Leading edges flush, caller may set trailing |
 | Tooltip | Below the element it wraps | Leading edges flush |
 | Split-button menu | Below the whole control, not the caret | Leading edges flush |
@@ -1775,10 +1775,14 @@ what the owner saw on Manifest on 17 Sep 2026. The fill is the contract's own
 for a selected row, with `--fg-default` on it because `--accent` measures
 4.06:1 there and would not clear as body text.
 
-**This is what a panel's own filters are, and not what a destination is.** Two
-filled tracks stacked — a Job's destinations over the Record panel's filters —
-carry no hierarchy between them, which the owner hit on 28 Sep 2026. The
-destinations are the strip below; the filters stay this control.
+**Neither a destination nor a panel's own filters.** Two filled tracks stacked
+— a Job's destinations over the Record panel's filters — carry no hierarchy
+between them, which the owner hit on 28 Sep 2026; the destinations are the
+strip below. **A panel's filters are a dropdown in the panel's head**: the
+trigger reads the chosen filter and its count, the menu lists every filter with
+its count on this section's rule, and the chosen one carries the check. The
+owner, 29 Sep 2026: nine segmented filters overflowed and wrapped at laptop
+width.
 
 **The track is `--bg-raised`, not `--bg-sunken`, and that is Button's own
 rule.** A filled control steps one surface from its ground, and the grounds a

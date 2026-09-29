@@ -15,15 +15,38 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
  * No glyphs otherwise: icons stay on ghost/icon-only row actions, confirmation
  * dialogs and toolbars, per iconography; one drawing in the sheet disagrees,
  * see the report.
+ *
+ * **A filter menu counts what each item holds** — `count` on an item and
+ * `triggerCount` on the trigger, a trailing mono `--text-2xs` in `--fg-subtle`,
+ * which is Tabs' own count rule. Zero draws nothing. This is what a panel's
+ * filters are (the owner, 29 Sep 2026): a segmented strip of nine counted
+ * filters overflowed and wrapped at laptop width.
  */
 export type DropdownMenuEntry =
-  | { kind: "item"; id: string; label: string; shortcut?: string; danger?: boolean; selected?: boolean }
+  | {
+      kind: "item";
+      id: string;
+      label: string;
+      shortcut?: string;
+      danger?: boolean;
+      selected?: boolean;
+      /** How many rows the item holds, where it is a filter. Zero draws nothing. */
+      count?: number;
+    }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
 
 export type DropdownMenuProps = {
   /** Sentence case, and it names what the menu is for. */
   triggerLabel: string;
+  /** How many the trigger's chosen filter holds. Zero draws nothing. */
+  triggerCount?: number;
+  /**
+   * Which of the trigger's edges the menu lines up with. Trailing by default,
+   * per Floating layers; `start` for a trigger that leads its row, whose menu
+   * would otherwise hang out past the panel it sits in.
+   */
+  align?: "start" | "end";
   entries: DropdownMenuEntry[];
   defaultOpen?: boolean;
   /**
@@ -38,6 +61,8 @@ export type DropdownMenuProps = {
 
 export function DropdownMenu({
   triggerLabel,
+  triggerCount,
+  align = "end",
   entries,
   defaultOpen = false,
   disabled = false,
@@ -84,7 +109,11 @@ export function DropdownMenu({
   }, [open]);
 
   return (
-    <div className="armada-dropdown-menu" ref={root}>
+    <div
+      className="armada-dropdown-menu"
+      ref={root}
+      data-align={align === "start" ? "start" : undefined}
+    >
       <button
         ref={trigger}
         type="button"
@@ -95,6 +124,7 @@ export function DropdownMenu({
         onClick={() => setOpen((v) => !v)}
       >
         {triggerLabel}
+        <Count of={triggerCount} />
         {/* Says this opens a menu, settled 2026-09-17 (icons.toml, chevron-down).
             Every trigger here has a label, so none is left without it. */}
         <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
@@ -130,7 +160,10 @@ export function DropdownMenu({
                   onSelect?.(entry.id);
                 }}
               >
-                <span className="armada-dropdown-menu__text">{entry.label}</span>
+                <span className="armada-dropdown-menu__text">
+                  {entry.label}
+                  <Count of={entry.count} />
+                </span>
                 {entry.selected ? (
                   <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
                 ) : entry.shortcut ? (
@@ -142,5 +175,11 @@ export function DropdownMenu({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function Count({ of }: { of: number | undefined }) {
+  return of === undefined || of === 0 ? null : (
+    <span className="armada-dropdown-menu__count">{of}</span>
   );
 }

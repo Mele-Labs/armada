@@ -75,6 +75,12 @@
   box-shadow: var(--shadow-overlay);
 }
 
+/* Leading edges flush, where the caller asked for them. */
+.armada-dropdown-menu[data-align="start"] > .armada-dropdown-menu__panel {
+  right: auto;
+  left: 0;
+}
+
 .armada-dropdown-menu__item {
   width: 100%;
   display: flex;
@@ -112,6 +118,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A filter's count, Tabs' own rule: trailing mono in --fg-subtle, never a
+ * filled pill, and --weight-body so a medium trigger does not lift the number
+ * into the label. */
+.armada-dropdown-menu__count {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-body);
+  color: var(--fg-subtle);
+}
+
+.armada-dropdown-menu__trigger > .armada-dropdown-menu__count {
+  margin-left: var(--space-1);
 }
 
 /* Same slot a kbd would take; never both on one item. */
@@ -206,6 +228,14 @@
     inset: auto;
     /* Logical, so flip-block moves the gap to the other side with the panel. */
     margin-block-start: var(--space-1);
+  }
+
+  /* Leading edges flush: the panel's inline-start edge on the trigger's. Same
+   * specificity as the fallback above and later, so it wins where anchors
+   * exist. */
+  .armada-dropdown-menu[data-align="start"] > .armada-dropdown-menu__panel {
+    inset: auto;
+    position-area: block-end span-inline-end;
   }
 }
 
