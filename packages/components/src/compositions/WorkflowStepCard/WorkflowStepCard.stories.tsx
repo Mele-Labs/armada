@@ -51,6 +51,8 @@ export const Running: Story = {
     facts: [{ value: "4 groups" }, { value: "11 checks" }, { value: "attempt 2" }],
     onOpen: fn(),
   },
+  // The loop is the claim; the test run otherwise emulates reduced motion.
+  parameters: { motion: "on" },
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector(".armada-wf-card")!;
     const sweep = card.querySelector(".armada-wf-card__sweep");
@@ -80,6 +82,8 @@ export const WaitingOnYou: Story = {
     facts: [{ value: "delivers" }],
     onOpen: fn(),
   },
+  // Under reduced motion nothing moves anyway, so holding still would prove nothing.
+  parameters: { motion: "on" },
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector(".armada-wf-card")!;
     await expect(card.querySelector(".armada-wf-card__sweep")).toBeNull();

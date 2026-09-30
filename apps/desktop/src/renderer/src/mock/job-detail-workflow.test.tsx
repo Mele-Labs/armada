@@ -10,7 +10,7 @@ import { page } from "vitest/browser";
 import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
 import { GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
 
-import { entered, mount, unmountAfterEach } from "./testing";
+import { entered, motion, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -149,6 +149,8 @@ test("the panel's head says where the step sits and its state, and its regions s
 // until 28 Sep. The owner asked what was missing and how it gets fixed
 // (`frpl`), so it says both, and links the issue that builds it.
 test("a step opens with its plan, its Drones, the tests it lacks and why, and its Checks", async () => {
+  // The stop is named for its hold, which reduced motion does not offer.
+  await motion();
   await workflow();
   await card("Implement").click();
   const opened = panel("Implement");

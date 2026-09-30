@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, unmountAfterEach } from "./testing";
+import { motion, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -43,6 +43,8 @@ test("the Drones filter names its choice without a number", async () => {
 // instead of on the job header* — and the header's kill becomes the Job's.
 
 test("a running Drone's sheet offers its kill, and the header kills the Job", async () => {
+  // Both kills are named for their hold, which reduced motion does not offer.
+  await motion();
   await droneOnT5();
   const sheet = page.getByRole("dialog", { name: "Drone on T5" }).last();
   await expect.element(sheet.getByRole("button", { name: "Hold to kill drone" })).toBeVisible();
@@ -50,6 +52,8 @@ test("a running Drone's sheet offers its kill, and the header kills the Job", as
 });
 
 test("a Drone that has stopped offers no kill, and neither does the header", async () => {
+  // Under reduced motion no kill is named for a hold, so the absence would prove nothing.
+  await motion();
   mount("arc/executing-sequential");
   await page.getByRole("tab", { name: /^Drones/ }).last().click();
   await page.getByRole("button", { name: "Drone on T1" }).last().click();

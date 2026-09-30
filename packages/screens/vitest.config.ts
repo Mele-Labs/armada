@@ -25,6 +25,11 @@
 // A test that renders needs JSX; one that calls a function does not.
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
+
+/** Motion on or off for the page a test runs in, where every test starts with it reduced. */
+const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
+  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
 
 export default defineConfig({
   test: {
@@ -46,7 +51,13 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({}),
+            // **Reduced motion, emulated.** Every `--duration-*` a panel moves
+            // on is 0ms under it (`packages/tokens/src/motion.css`), so a
+            // dialog is in place on its first frame and a press cannot land on
+            // one still scaling in. A test whose claim is the motion itself
+            // turns it back on with `motion()` in `src/mounted.tsx`.
+            provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
+            commands: { motion },
             instances: [{ browser: "chromium" }],
             // A desktop window, now that the app's stylesheet lays these out.
             viewport: { width: 1440, height: 900 },

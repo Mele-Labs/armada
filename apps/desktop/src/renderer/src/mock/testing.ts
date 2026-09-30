@@ -1,8 +1,8 @@
 // What a browser test needs to drive `App` on a scenario: mount it, take it
 // down after, and reach a surface the way a person does — by the rail.
 
-import { afterEach, expect } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { afterEach, expect, onTestFinished } from "vitest";
+import { commands, page, userEvent } from "vitest/browser";
 
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
@@ -93,6 +93,24 @@ export function mountTwo(scenario: Scenario, labels: [string, string]): [HTMLEle
 export async function entered(layer: ReturnType<typeof page.getByRole>): Promise<void> {
   await expect.element(layer).toBeVisible();
   await Promise.all(layer.element().getAnimations().map((one) => one.finished));
+}
+
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    /** `vitest.config.ts`' own: motion on, or back to reduced. */
+    motion: (on: boolean) => Promise<void>;
+  }
+}
+
+/**
+ * Motion on, for the rest of the test that awaits this. **This project runs with reduced motion
+ * emulated**, so a panel is in place on its first frame (`vitest.config.ts`). A test whose claim
+ * is what a person without the preference sees — a hold filling, a drawing moving, a control
+ * named for its hold — awaits this first, and the test's end puts the preference back.
+ */
+export async function motion(): Promise<void> {
+  await commands.motion(true);
+  onTestFinished(() => commands.motion(false));
 }
 
 /** Every Board row drawn, in either arrangement. */
