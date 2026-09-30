@@ -2570,3 +2570,9 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* The plan gate's Send, at the end of the row Approve the plan leads. */
+.armada-plan-tab__gate > .armada-plan-tab__acts > .armada-button + .armada-button {
+  margin-inline-start: auto;
+}
+

@@ -7,12 +7,11 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { Button, Card, CardContent } from "@armada/components";
+import { Button, Card, CardContent, Textarea } from "@armada/components";
 
 import type { JobSummary, StepDetail } from "@armada/protocol";
 
 import { Eyebrow } from "./InsideAJob";
-import { RedirectControl } from "./Redirect";
 import { decidedSaidOf, originLineOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 
@@ -52,7 +51,9 @@ function originSaid(criterion: CriterionView): string {
 
 /**
  * The two acts at a plan gate. **Approve it, or tell the Drone that wrote it
- * what to change** — the owner's call of 22 Sep 2026. The narrower asks, which
+ * what to change** — the owner's call of 22 Sep 2026. **The request is a field
+ * that is always open** (owner, 30 Sep 2026: *why isn't this just a
+ * textarea?*), sent as the redirect the button's dialog sent. The narrower asks, which
  * change one group or one task without sending the whole plan back, are on the
  * board's own cards and in the task inspector (`#1552`).
  *
@@ -68,10 +69,19 @@ export function PlanGate({
   onApproveReview,
   onRedirect,
 }: PlanGateProps) {
+  const [instruction, setInstruction] = useState("");
   if (step === undefined || step.state !== "awaiting_human") return null;
+  const empty = instruction.trim() === "";
   return (
     <div className="armada-plan-tab__gate">
       <p className="armada-plan-tab__waiting">This plan is waiting on you.</p>
+      <Textarea
+        label="Request changes to the entire plan"
+        rows={3}
+        value={instruction}
+        disabled={stale || acting}
+        onChange={(event) => setInstruction(event.target.value)}
+      />
       <div className="armada-plan-tab__acts">
         <Button
           variant="primary"
@@ -82,12 +92,18 @@ export function PlanGate({
         >
           Approve the plan
         </Button>
-        <RedirectControl
-          jobId={job.id}
-          drone="holding"
-          disabled={stale || acting}
-          onRedirect={onRedirect}
-        />
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={stale || acting || empty}
+          pending={acting}
+          onClick={() => {
+            onRedirect(job.id, instruction.trim());
+            setInstruction("");
+          }}
+        >
+          Send
+        </Button>
       </div>
     </div>
   );
