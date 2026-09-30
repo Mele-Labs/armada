@@ -73,7 +73,14 @@ test("Done draws every Job that completed or was cleared, folded until asked for
   await done.click();
   // A Job the Board's Done tab held and Overview did not draw at all before.
   await expect.element(page.getByRole("button", { name: "Collapse Done" })).toBeVisible();
-  expect(document.querySelectorAll("#armada-overview-panel-done [data-job-id]").length).toBeGreaterThan(0);
+  // **Polled, not read.** The head flipping to `Collapse Done` is one render
+  // and the rows under it are the next, so a `querySelectorAll` on the line
+  // after it is a race the test loses whenever the machine is busy — the same
+  // shape `canvas-pan` lost on 30 Sep 2026, and this one refused the merge
+  // line beside it.
+  await expect
+    .poll(() => document.querySelectorAll("#armada-overview-panel-done [data-job-id]").length)
+    .toBeGreaterThan(0);
 });
 
 test("Reported is reachable, and it was only ever in the Board's menu", async () => {

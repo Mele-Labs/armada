@@ -44,6 +44,17 @@ export default defineConfig({
           // seen does not sit over the press a test about something else is
           // making. `mock/guides-met.ts` carries the reasoning.
           setupFiles: ["./src/renderer/src/mock/guides-met.ts"],
+          // **Five seconds for a poll, not vitest's one.** Every
+          // `expect.poll` and `expect.element` here waits for a render, and
+          // one second is the budget on a quiet machine — the merge line runs
+          // this beside 3,835 Rust tests, and `board-gone` and `canvas-pan`
+          // each refused it on 30 Sep 2026 for a render that had not landed
+          // yet. Raising the ceiling costs nothing a passing test spends: a
+          // poll returns the moment it succeeds, and the slowest passing test
+          // in the five heaviest files measures 1,573ms. What it does cost is
+          // a genuinely failing poll, which now waits five seconds instead of
+          // one — rare enough to be worth the trade against a red merge line.
+          expect: { poll: { timeout: 5_000 } },
           browser: {
             enabled: true,
             headless: true,
