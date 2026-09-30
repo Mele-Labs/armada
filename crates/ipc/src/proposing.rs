@@ -1,8 +1,17 @@
 //! One proposal, while the Job proposer is still reading it.
 //!
 //! **[`JudgeInFlight`] one step earlier, and the step is the difference.** A
-//! Judge call rides on a step of a Job; a proposal is the interval before any
-//! Job exists, so it hangs off nothing and needs [`ProposalId`] of its own.
+//! Judge call rides on a step of a Job; a proposal rides on no step, so it
+//! hangs off nothing and needs [`ProposalId`] of its own.
+//!
+//! **A proposal is an interval with a Job on the Board, from protocol 19.0.**
+//! `domain/job-statuses.toml` declares `proposing` for it, so a dispatched
+//! request is a row from the moment it is sent rather than nothing until the
+//! call answers. Nothing in Fleet creates that Job yet — the status reads
+//! `in_code = "Not yet"` — and none of the messages here changed for it: this
+//! is still what a client watches the *call* through, and the Job's own row is
+//! what it comes back to. Which means [`ProposalId`] stays the subject of a
+//! stop, rather than a [`JobId`](crate::ids::JobId) taking it over.
 //!
 //! **This one ticks and that one does not.** `JudgeInFlight` carries `since`
 //! and a budget on the grounds that a surface subtracts for itself, which is
@@ -84,6 +93,11 @@ pub struct ProposalInFlight {
 /// long as it takes and then stops doing — [`crate::JudgeInFlight::look`] makes
 /// the same argument for the same reason. Nothing stores one, no transition
 /// names one, and a registry row would claim otherwise.
+///
+/// **`proposing` being a status does not make these five statuses.** That row
+/// is the whole interval, stored and transitioned out of; these are how far
+/// inside it the call has got, and no edge of the Job machine moves when one
+/// changes.
 ///
 /// **A closed set here where `look` is a string**, and the difference is who
 /// decides. A look is decided by the four call sites that make one, so a

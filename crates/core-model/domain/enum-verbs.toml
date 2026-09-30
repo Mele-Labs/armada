@@ -217,6 +217,14 @@ status_token = "--status-piloted"
 vocabulary = "Job status"
 in_code = ""
 
+[verbs.job_status.proposing]
+verb = "proposing"
+icon = ""
+status_token = "--status-running"
+vocabulary = "Job status"
+in_code = ""
+notes = "**The word the wire already uses**, and the one `docs/concepts/job.md` and `docs/concepts/job-proposer.md` had already written down against `#1159` — `ProposalInFlight` is what a client watches this interval through, and a second word for one interval is what the registry exists to stop. Present participle because the thing is happening while a person reads the badge, which is `running`'s own form; *needs proposing* was refused because the `needs` family means a person must act (`awaiting_approval`'s ruling) and nobody is being asked for anything here, and *reading* was refused because it says nothing about what is being read and collides with a person reading the Board. **The token is `running`'s, aliased rather than minted**, which is `queued` taking `--status-not-started` one row down: `packages/tokens/src/status.css` says status hue is never chosen, and the hue this needs is *active, in flight* — the money is being spent while the row sits here. Grey would say dormant, which is what a person correctly scans past, and amber would say a person is on it. No new value was introduced and no token file was edited. **No glyph, and not for want of looking.** `circle-dot` is `job_status.running`'s own and lending it to a second Job status would leave the badge saying which point of a Job's life by the word alone, against the rule in `docs/contracts/iconography.md`'s status section; `clock` is `queued`'s and means time passing rather than work happening; `hourglass` is banned outright; `send` is Dispatch, the act rather than the state, and is Action's at 16px; `split` is `escalation_reason.fan_out`'s one request becoming several, which is what the *answer* may be and not what this is; `scroll-text` is the workflow a Job runs, and the whole point of this status is that there is not one yet; `search` is Chrome's magnifier at 16px; `circle-dashed` is reserved by its own row to `step_state.not_started` and a plan's open task, and its note bans a loading reading outright. Nothing in `packages/icons/icons.toml` claims a machine reading a request it has been handed, so the glyph is filed open as `[proposing-glyph]` on `docs/contracts/iconography.md` rather than borrowed, and the status ships drawing its verb alone — `escalation_reason.scope_refused` and its twelve siblings are the precedent."
+
 [verbs.job_status.queued]
 verb = "queued"
 icon = "clock"

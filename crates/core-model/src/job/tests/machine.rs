@@ -29,10 +29,16 @@ fn declared_terminality_agrees_with_the_wired_edges() {
     }
 }
 
+/// **Two seeds, because one status is entered and arrived at by nothing.**
+/// `awaiting_approval` takes a top-level Job and `queued` a sub-dispatched one,
+/// and `queued` needs no seed of its own since the gate leads to it. `proposing`
+/// — a Job dispatched from a request, `#1159` — is reached by no edge at all,
+/// because a Job is created in it, so a walk over `transitions_out` alone cannot
+/// find it and a seeded walk is what says so out loud.
 #[test]
-fn every_status_is_reachable_from_the_entry_status() {
-    let mut seen = vec![JobStatus::AwaitingApproval];
-    let mut frontier = vec![JobStatus::AwaitingApproval];
+fn every_status_is_reachable_from_an_entry_status() {
+    let mut seen = vec![JobStatus::AwaitingApproval, JobStatus::Proposing];
+    let mut frontier = seen.clone();
     while let Some(status) = frontier.pop() {
         for next in status.transitions_out() {
             if !seen.contains(&next) {
@@ -44,9 +50,15 @@ fn every_status_is_reachable_from_the_entry_status() {
     assert_eq!(seen.len(), JobStatus::ALL.len(), "unreachable: {seen:?}");
 }
 
+/// `proposing` is left out and its edge is not: `proposing -> killed` is in
+/// [`EDGES`] and `every_edge_in_the_table_is_admitted` below leaves it out for
+/// the same reason — nothing creates a Job standing there yet. See [`reach`].
 #[test]
 fn killed_is_reachable_from_every_non_terminal_status() {
-    for status in JobStatus::ALL.iter().filter(|s| !s.is_terminal()) {
+    for status in JobStatus::ALL
+        .iter()
+        .filter(|s| !s.is_terminal() && **s != JobStatus::Proposing)
+    {
         let job = reach(*status);
         let moved = job
             .transition(Target::Killed, Actor::Human, at("2026-08-26T10:00:00.000Z"))
@@ -57,9 +69,13 @@ fn killed_is_reachable_from_every_non_terminal_status() {
 
 // ------------------------------------------------------------- what is legal
 
+/// **Every edge but the three out of `proposing`.** Admitting an edge needs a
+/// Job standing at its `from`, and nothing builds one there — see [`reach`]. The
+/// gate's `the transition registry and the edge table name the same edges` is
+/// what holds those three, and it compares text rather than driving a machine.
 #[test]
 fn every_edge_in_the_table_is_admitted() {
-    for edge in EDGES {
+    for edge in EDGES.iter().filter(|e| e.from != JobStatus::Proposing) {
         // A guarded edge makes two claims and this is the first: admitted with
         // its condition met. That it refuses without it is asserted below.
         let job = match edge.guard {
@@ -80,10 +96,15 @@ fn every_edge_in_the_table_is_admitted() {
     }
 }
 
+/// **`proposing` is out of both loops, on two different grounds.** As a `from`,
+/// no Job stands there to be refused from — see [`reach`]. As a `to`, there is
+/// no [`Target`] naming it at all, which is a stronger refusal than this test's:
+/// the move cannot be spelled rather than being spelled and turned down.
 #[test]
 fn every_pair_the_table_does_not_name_is_refused() {
-    for from in JobStatus::ALL {
-        for to in JobStatus::ALL {
+    let walkable = || JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing);
+    for from in walkable() {
+        for to in walkable() {
             if EDGES.iter().any(|e| e.from == *from && e.to == *to) {
                 continue;
             }
@@ -111,9 +132,11 @@ fn every_pair_the_table_does_not_name_is_refused() {
     }
 }
 
+/// `proposing` is out for the reason above: no [`Target`] names it, so it has no
+/// self-edge to spell.
 #[test]
 fn no_status_transitions_to_itself() {
-    for status in JobStatus::ALL {
+    for status in JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing) {
         let job = reach(*status);
         assert!(job
             .transition(
@@ -583,11 +606,13 @@ fn a_transition_moves_the_status_and_nothing_else() {
     assert_eq!(moved.job.id(), job.id());
 }
 
+/// `proposing` is out of the inner loop only: no [`Target`] names it, so it is
+/// not a destination a terminal Job could be asked for.
 #[test]
 fn a_terminal_job_goes_nowhere_at_all() {
     for terminal in JobStatus::ALL.iter().filter(|s| s.is_terminal()) {
         let job = reach(*terminal);
-        for to in JobStatus::ALL {
+        for to in JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing) {
             assert_eq!(
                 job.transition(
                     target_for(*to, None),

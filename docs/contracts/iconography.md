@@ -186,6 +186,14 @@ at different points in a Job's life. Every dormant status renders grey. Rule
 4 below is what holds each group apart: human figure, eye, stamp and
 terminal box in amber; clock and lidded box in grey.
 
+**`proposing` shares `running`'s hue and draws no glyph**, which is the one
+place this section is not fully satisfied. The hue is right — a request being
+read is Armada working, and the money is being spent while the row sits there —
+and nothing in `packages/icons/icons.toml` claims a machine reading something a
+person handed it, so the word is carrying the distinction on its own until
+`[proposing-glyph]` below is answered. `crates/core-model/domain/enum-verbs.toml`
+holds what was refused.
+
 ### `queued`'s reasons — icon differentiates
 
 `queued` renders grey whatever its reason, and a reader is meant to move past
@@ -948,3 +956,30 @@ should paper over.
   whether a person scanning the Board can tell this row from a
   `drone_killed` row on the words alone; if they can, it stays wordless,
   the same way `[drone-killed-glyph]` above was left.
+
+- **[proposing-glyph]** Which glyph, if any, carries the Job status
+  `proposing` — a request dispatched and being read by the Job proposer,
+  before any workflow has been resolved? It ships drawing its verb alone,
+  **proposing**, on `--status-running`'s hue, which is the first Job status
+  to draw no glyph at all. That makes it the one place the statuses section
+  above is not fully obeyed: two statuses share a hue and the glyph is
+  supposed to carry which point of a Job's life it is, so until this is
+  answered the word is carrying it. What was looked at and refused:
+  `circle-dot` is `job_status.running`'s own and lending it would put the
+  same mark on both sides of that shared hue, which is the collision the
+  rule exists to stop; `clock` is `queued`'s and means time passing rather
+  than work happening, which is the exact thing this status is not;
+  `hourglass` is banned outright; `send` is Dispatch, the act rather than
+  the state, and belongs to Action at 16px; `split` is
+  `escalation_reason.fan_out`'s one-becoming-several, which is what the
+  proposer's *answer* may be and not what this is; `scroll-text` is the
+  workflow a Job runs, and the whole claim of this status is that there is
+  not one yet; `circle-dashed` is reserved by its own row to
+  `step_state.not_started` and a Plan's open task, and that row bans a
+  loading reading in so many words. What makes it hard is that this is the
+  only row in the badge set that means **a machine is reading something a
+  person handed it** — every candidate says either that work is underway on
+  a repository or that time is passing, and neither is this. What decides
+  it is whether a person scanning the Board can tell this row from a
+  `running` row on the word alone; if they can, it stays wordless, the same
+  way `[drone-killed-glyph]` and `[scope-refused-glyph]` were left.

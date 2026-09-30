@@ -208,6 +208,33 @@ on = "Close as superseded"
 in_code = "Not yet"
 
 [[transitions]]
+from = "proposing"
+to = "awaiting_approval"
+on = "The Job proposer answered, and the workflow it resolved is frozen into the Job"
+in_code = "Not yet"
+notes = "**The one road out that produces work**, and the Job on it is the head of what the proposal became. `propose_from_request` already answers every Job it mints at `awaiting_approval`, so this edge adds no gate and removes none — what changes is that the row was on the Board while the proposer read, rather than appearing when it answered. The step machine is initialised as it crosses, because this is the moment a WorkflowDef exists to initialise it from. Where the proposer splits one request into several, the extras are created here rather than moved and carry `dispatched_by` back to this Job; a second relation for the split was refused because `dispatched_by` already says it."
+
+[[transitions]]
+from = "proposing"
+to = "escalated"
+on = "The proposer declined to find a workflow, or the call faulted"
+in_code = "Not yet"
+notes = """
+**Two endings on one edge, told apart by the reason and not by a second status.** A request no workflow fits (`fleet.no_workflow_fits`) and a call that could not be made or could not be read (`fleet.proposer_unreachable`, `fleet.proposer_unreadable`) both leave a Job that is not work and a person who has to decide — which is `escalated` exactly, and what a person does is rephrase and dispatch again, on `escalated -> killed`'s own note.
+
+**No trigger names it yet**, and that is what `[statuses.proposing]`'s `open_questions` carries. This file's sibling makes a declared edge a trigger's to claim, so until `escalation-triggers.toml` has a word for each of the two conditions nothing can fire this — which is no different from every other row here reading `Not yet`. The two want different words because a person's next act differs: rewrite the request, or make the call again.
+
+Not `rejected`, which is a person's verdict on work and is terminal — a machine writing a terminal status over a request nobody has read is what #208 took away from the gate, one status earlier. Not `completed_failed` for the same reason: nothing mechanical writes it.
+"""
+
+[[transitions]]
+from = "proposing"
+to = "killed"
+on = "stop_proposal: a person who has waited long enough ends the call"
+in_code = "Not yet"
+notes = "`killed` is reachable from every non-terminal status and carries no verdict, which is what a person abandoning their own dispatch means. The act already exists and already kills the call rather than only the socket — `crates/ipc/operations.toml`, `stop_proposal` — so what this edge adds is where the row goes afterwards. A stop that lands after the proposer has answered is not this edge: `ProposalStopped.stopped` is `false` there, the Jobs are on the Board, and the head Job took the edge above."
+
+[[transitions]]
 from = "queued"
 to = "superseded"
 on = "A Job from the same proposal landed the work while this one waited"
