@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { ButtonAnswer } from "../Button/Button";
+import { Tooltip } from "../Tooltip/Tooltip";
 import { useHold } from "../HoldButton/useHold";
 
 /**
@@ -26,6 +27,17 @@ export type SplitButtonItem = {
   shortcut?: string;
   /** Destructive. Last in the list, `--status-completed-failed` text. */
   danger?: boolean;
+  /**
+   * What choosing this does, on hover over the entry. Absent draws none, which
+   * is every entry whose verb is the whole of it.
+   *
+   * **An entry behind a caret is the one place a label is read without the act
+   * beside it.** The review gate's Approve and Reject sit here — the owner's
+   * own arrangement, 30 Sep 2026 — and what each leaves behind is the
+   * difference a person has to know before choosing, so the sentence that used
+   * to sit on a button of its own comes with the act rather than being dropped.
+   */
+  note?: ReactNode;
   onSelect?: () => void;
 };
 
@@ -68,6 +80,34 @@ export type SplitButtonProps = {
   /** Render with the menu open. Uncontrolled otherwise. */
   defaultOpen?: boolean;
   disabled?: boolean;
+  /**
+   * The face's own act is unavailable while everything behind the caret still
+   * is. **Not `disabled`, which takes the whole control**, and the difference
+   * is the point: a merge Fleet would refuse must not be pressable, and
+   * Approve, which the same caret discloses, must still be. The control paints
+   * as a disabled one — a greyed face has no variant left to express — and the
+   * caret alone stays live, which is what says there is another act here.
+   */
+  faceDisabled?: boolean;
+  /**
+   * The id of the sentence saying why the face is off, named on the face
+   * rather than read from beside it. **The reason is the caller's to draw and
+   * to place**: it is a whole sentence, and inside the control it would widen
+   * the face's column. `ReviewDecision` puts it under the row.
+   */
+  faceDescribedBy?: string;
+  /**
+   * What pressing the face does, on hover over it. Absent draws none.
+   *
+   * **The face only, never the caret.** A tooltip names the control it is on
+   * and never the one beside it — the design system contract, under Tooltip —
+   * so the caret keeps `menuLabel` and each entry carries its own `note`.
+   *
+   * **Not for a face that holds.** `useHold` takes `onBlur` to cancel a hold
+   * caught by focus leaving, and a tooltip takes the same handler to close; no
+   * caller pairs them and this does not try to reconcile the two.
+   */
+  note?: ReactNode;
   /**
    * The act this control opened a dialog for is out, and Fleet has not
    * answered — the same reading as `Button`'s own `pending`, on the one
@@ -116,6 +156,9 @@ export function SplitButton({
   size = "default",
   defaultOpen = false,
   disabled = false,
+  faceDisabled = false,
+  faceDescribedBy,
+  note,
   pending = false,
   answer,
   pendingLabel,
@@ -140,6 +183,50 @@ export function SplitButton({
   // opening one with nothing to show.
   const noMenu = items.length === 0;
 
+  const face = (
+    <button
+      type="button"
+      className="armada-split-button__action"
+      data-pending={pending || undefined}
+      data-answer={pending ? undefined : answer}
+      // Not `disabled`, on `Button`'s own reasoning: a disabled control
+      // drops focus and is skipped by a screen reader, and this is the one
+      // still standing for the press that is out.
+      disabled={pending ? undefined : disabled || faceDisabled}
+      aria-disabled={pending || undefined}
+      aria-busy={pending || undefined}
+      {...(faceDescribedBy === undefined || holding ? {} : { "aria-describedby": faceDescribedBy })}
+      {...(holding
+        ? {
+            ...held.handlers,
+            ref: held.ref,
+            "data-hold": "",
+            // Both, where the caller named one: a hold's own description and
+            // the reason the act is off are two facts about the same control.
+            "aria-describedby":
+              faceDescribedBy === undefined ? describedBy : `${faceDescribedBy} ${describedBy}`,
+          }
+        : { onClick: pending ? undefined : onAction })}
+    >
+      {holding ? (
+        <>
+          <span className="armada-hold__fill" data-phase={held.phase} aria-hidden="true" />
+          {icon}
+          <span className="armada-hold__label">{hold.label}</span>
+          {/* Hidden and still read: a description follows its reference into hidden content. */}
+          <span id={describedBy} hidden>
+            {hold.description}
+          </span>
+        </>
+      ) : (
+        <>
+          {icon}
+          {pending ? (pendingLabel ?? children) : children}
+        </>
+      )}
+    </button>
+  );
+
   return (
     <div className="armada-split-button">
       <div
@@ -148,50 +235,22 @@ export function SplitButton({
         data-ground={ground}
         data-size={size === "default" ? undefined : size}
       >
-        <button
-          type="button"
-          className="armada-split-button__action"
-          data-pending={pending || undefined}
-          data-answer={pending ? undefined : answer}
-          // Not `disabled`, on `Button`'s own reasoning: a disabled control
-          // drops focus and is skipped by a screen reader, and this is the one
-          // still standing for the press that is out.
-          disabled={pending ? undefined : disabled}
-          aria-disabled={pending || undefined}
-          aria-busy={pending || undefined}
-          {...(holding
-            ? {
-                ...held.handlers,
-                ref: held.ref,
-                "data-hold": "",
-                "aria-describedby": describedBy,
-              }
-            : { onClick: pending ? undefined : onAction })}
-        >
-          {holding ? (
-            <>
-              <span className="armada-hold__fill" data-phase={held.phase} aria-hidden="true" />
-              {icon}
-              <span className="armada-hold__label">{hold.label}</span>
-              {/* Hidden and still read: a description follows its reference into hidden content. */}
-              <span id={describedBy} hidden>
-                {hold.description}
-              </span>
-            </>
-          ) : (
-            <>
-              {icon}
-              {pending ? (pendingLabel ?? children) : children}
-            </>
-          )}
-        </button>
+        {/* `asChild`, because the face is a flex item of the control: a `span`
+            around it would take the segment out of the group it is half of.
+            The bubble is `position: fixed` against the face's own anchor, so
+            the face's `overflow: clip` — there for the press line's corners —
+            does not reach it. */}
+        {note === undefined ? face : <Tooltip asChild label={note}>{face}</Tooltip>}
         <button
           type="button"
           className="armada-split-button__caret"
           aria-haspopup={noMenu ? undefined : "menu"}
           aria-expanded={noMenu ? undefined : pending ? false : open}
           aria-label={menuLabel}
-          disabled={disabled || pending}
+          // `faceDisabled` reaches the caret only where the caret *is* the
+          // face: with no menu behind it both segments send the one act, so
+          // leaving it live would be the blocked press by another door.
+          disabled={disabled || pending || (noMenu && faceDisabled)}
           onClick={() => (noMenu ? onAction?.() : setOpen((was) => !was))}
         >
           <ChevronDown size={16} strokeWidth={2} aria-hidden="true" />
@@ -199,26 +258,34 @@ export function SplitButton({
       </div>
       {!noMenu && open && !pending && (
         <div className="armada-split-button__menu" role="menu" aria-label={menuLabel}>
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              className="armada-split-button__item"
-              data-danger={item.danger || undefined}
-              // Closes on choosing. A menu still open over the confirmation it
-              // just raised is a control that did not respond.
-              onClick={() => {
-                setOpen(false);
-                item.onSelect?.();
-              }}
-            >
-              <span>{item.label}</span>
-              {item.shortcut !== undefined && (
-                <span className="armada-split-button__shortcut">{item.shortcut}</span>
-              )}
-            </button>
-          ))}
+          {items.map((item) => {
+            const entry = (
+              <button
+                type="button"
+                role="menuitem"
+                className="armada-split-button__item"
+                data-danger={item.danger || undefined}
+                // Closes on choosing. A menu still open over the confirmation it
+                // just raised is a control that did not respond.
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect?.();
+                }}
+              >
+                <span>{item.label}</span>
+                {item.shortcut !== undefined && (
+                  <span className="armada-split-button__shortcut">{item.shortcut}</span>
+                )}
+              </button>
+            );
+            return item.note === undefined ? (
+              <Fragment key={item.label}>{entry}</Fragment>
+            ) : (
+              <Tooltip key={item.label} asChild label={item.note}>
+                {entry}
+              </Tooltip>
+            );
+          })}
         </div>
       )}
     </div>

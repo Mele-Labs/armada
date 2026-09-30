@@ -16,9 +16,13 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * them will try to satisfy all of them. So the list is drawn and nothing is
  * preselected.
  *
- * **It sits under the decision, in the same block.** Review and reply are one
- * loop: the diff, then what to do about it, then what other people said about
- * it, one scroll apart and never a second surface.
+ * **It sits under the decision, one column and one scroll.** Review and reply
+ * are one loop: the diff, then what to do about it, then what other people
+ * said about it, never a second surface.
+ *
+ * **Each comment is its own card on the canvas** — the owner's ask of 30 Sep
+ * 2026. They are siblings of the decision's card, not children of it, so the
+ * glass is legitimate and their edges line up with its edge.
  *
  * # Every word here except Armada's own was written by somebody outside
  *
@@ -174,7 +178,10 @@ export function ReviewComments({
         <>
           <ul className="armada-remarks__list">
             {comments.map((comment) => (
-              <li className="armada-remarks__one" key={comment.id}>
+              // A card on the canvas, so it takes the one glass recipe. The
+              // owner's ask of 30 Sep: each comment differentiated from the
+              // one under it, which a run of paragraphs was not doing.
+              <li className="armada-remarks__one armada-glass" key={comment.id}>
                 <div className="armada-remarks__who">
                   {/* The login and the instant, both as the forge wrote them.
                       Mono, because they are machine readings and not prose. */}
@@ -230,16 +237,20 @@ export function ReviewComments({
 
           {/* Off until something is picked, for the reason the drone's question
               is: fleet would refuse an empty press, and a round trip to learn
-              nothing was chosen is a refusal that reads as a failure. */}
-          <Button
-            variant="primary"
-            pending={pending}
-            answer={answer}
-            disabled={off || chosen.length === 0}
-            onClick={() => chosen.length > 0 && onTakeUp([...chosen])}
-          >
-            {pending ? "Sending to a drone…" : takeUpLabel}
-          </Button>
+              nothing was chosen is a refusal that reads as a failure.
+              Wrapped, so the control keeps its own width: stretched across a
+              column of cards it read as a bar between them. */}
+          <div className="armada-remarks__send">
+            <Button
+              variant="primary"
+              pending={pending}
+              answer={answer}
+              disabled={off || chosen.length === 0}
+              onClick={() => chosen.length > 0 && onTakeUp([...chosen])}
+            >
+              {pending ? "Sending to a drone…" : takeUpLabel}
+            </Button>
+          </div>
         </>
       )}
 
