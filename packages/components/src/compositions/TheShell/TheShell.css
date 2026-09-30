@@ -1,4 +1,4 @@
-/* Helm's dock, the edge strip and sheet it folds to, and the left column's own handle.
+/* Helm's dock, the sheet it folds to, and the left column's own handle.
    The frame around them is screens.css's. */
 
 /* The canvas under Depth: --bg-base under two faint pools of light, so a quiet
@@ -45,16 +45,9 @@
    were siblings in the flow supplying the gap themselves. **Nothing follows
    the panel in the flow any more** (#1583) — the dock and its handle are on
    a layer over it — so the gutter is unconditional, and the panel measures
-   the same with Helm open and shut.
-
-   The folded strip is the one thing still in the flow beside it, and it
-   carries its own leading border flush to the panel. */
+   the same with Helm open and shut. */
 .armada-shell__work > .armada-shell__panel {
   margin-right: var(--space-4);
-}
-
-.armada-shell__work:has(.armada-shell__strip) > .armada-shell__panel {
-  margin-right: 0;
 }
 
 /* Helm's dock, on a layer over the work rather than a track beside it. #1583:
@@ -256,40 +249,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-4);
-}
-
-/* The rail's width on the opposite edge. The whole strip is the control. */
-.armada-shell__strip {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  width: var(--sidebar-rail);
-  padding: var(--space-3) 0;
-  border: 0;
-  border-left: var(--border-width) solid var(--border-subtle);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.armada-shell__strip:hover {
-  background: var(--bg-hover);
-  color: var(--fg-default);
-}
-
-.armada-shell__strip:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--border-width) * -2);
-}
-
-.armada-shell__strip-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-default);
 }
 
 /* The left column's own handle — one drag for Navigation, Stats and Fleet

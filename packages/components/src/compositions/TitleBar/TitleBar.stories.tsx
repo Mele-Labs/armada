@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
@@ -200,5 +200,66 @@ export const RevealedShortcuts: Story = {
 
     await userEvent.keyboard("{/Meta}");
     await expect(findBadge()).not.toBeInTheDocument();
+  },
+};
+
+/**
+ * A slim window, with every slot filled. Under about 924px the row goes behind
+ * one menu, leaving the mark and Fleet's dot beside it (the owner, 30 Sep
+ * 2026). The side columns once had a zero minimum, so below ~1100px the picker
+ * slid under search and Dispatch sat on Helm.
+ */
+export const InASlimWindow: Story = {
+  args: {
+    ...Full.args,
+    helm: { questions: 3, binding: "⌘J", onOpen: fn() },
+    repositoryMenu: {
+      entries: [
+        { kind: "item", id: "all", label: "All repositories", selected: true },
+        { kind: "separator", id: "rule" },
+        { kind: "item", id: "/code/armada", label: "armada" },
+      ],
+      onSelect: fn(),
+    },
+  },
+  render: (args) => (
+    <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
+      <TitleBar {...args} />
+    </div>
+  ),
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Dispatch", hidden: true })).not.toBeVisible();
+    await expect(canvasElement.querySelector(".armada-title-bar__search")).not.toBeVisible();
+
+    const bar = canvasElement.querySelector(".armada-title-bar")!.getBoundingClientRect();
+    const menu = canvas.getByRole("button", { name: "Menu" });
+    await expect(menu.getBoundingClientRect().right).toBeLessThanOrEqual(bar.right);
+    await expect(menu.getBoundingClientRect().right).toBeGreaterThan(bar.right - bar.width / 4);
+
+    await userEvent.click(menu);
+    const panel = canvas.getByRole("dialog", { name: "Menu" });
+    await expect(panel).toBeVisible();
+    // The repositories are rows in the panel, not a second list opening in it.
+    await expect(within(panel).queryByRole("button", { expanded: false })).toBeNull();
+    await expect(within(panel).getByRole("button", { name: "All repositories", pressed: true })).toBeVisible();
+    const dispatch = within(panel).getByRole("button", { name: "Dispatch" });
+    await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^n$/);
+    await userEvent.click(canvas.getByRole("button", { name: /^Helm/ }));
+    await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
+    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await userEvent.click(canvas.getByRole("button", { name: "armada" }));
+    await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
+    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+  },
+};
+
+/** Wide, the row is all there and the menu is not. */
+export const WideHasNoMenu: Story = {
+  args: InASlimWindow.args,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Dispatch" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Menu", hidden: true })).not.toBeVisible();
   },
 };
