@@ -1,7 +1,7 @@
 // Overview's review gate on a plan — through `App`.
 //
-// **The owner's, 30 Sep 2026** (`.claude/decisions/2026-09-30-overview-shows-
-// the-plan-at-its-gate.md`): a plan waiting on him drew the work review, and
+// **The owner's, 30 Sep 2026** (the decision *Overview shows the plan at its
+// gate*): a plan waiting on him drew the work review, and
 // asked him to approve without showing what he was approving. The gate now
 // draws Plan's own review where the waiting step claimed a plan, and the work
 // review everywhere else. What decides it is the claim's `evidence_type`.

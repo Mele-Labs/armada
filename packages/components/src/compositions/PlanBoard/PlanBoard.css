@@ -372,7 +372,7 @@
 }
 
 /* The group's name, where a keyboard focuses it to move the group. */
-.armada-plan-board__group-name[tabindex]:focus-visible {
+.armada-plan-board__group-name:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
   border-radius: var(--radius-sm);

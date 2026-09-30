@@ -364,7 +364,7 @@ export const LabelsAndValues: Story = {
     await expect(values).toHaveLength(labels.length);
     const model = [...values].find((one) => one.textContent === "difficult · opus")!;
     const box = getComputedStyle(model);
-    await expect(box.borderBottomWidth).toBe("0px");
+    await expect(parseFloat(box.borderBottomWidth)).toBe(0);
     await expect(box.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     await expect(getComputedStyle(labels[0]!).color).not.toBe(box.color);
   },

@@ -478,7 +478,7 @@ export class JobCommands {
 
   /**
    * A person's move on the plan, direct rather than asked of the Drone —
-   * `.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`.
+   * the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
    * **Ahead of its route** (#1685), with the move as the body. Edit's lock,
    * since both change the plan the Drone is held to.
    */

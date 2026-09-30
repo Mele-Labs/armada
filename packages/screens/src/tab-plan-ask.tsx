@@ -10,7 +10,7 @@
 // change is a person saying something to the Drone that wrote the plan, and
 // `redirect` is what that has always been. **Every other change is a person's
 // own**, made directly through Fleet —
-// `.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`.
+// the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
 
 import type { GroupView } from "./draft/group";
 

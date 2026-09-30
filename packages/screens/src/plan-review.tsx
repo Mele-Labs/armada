@@ -302,7 +302,8 @@ export function usePlanReview({
   // **A person's own edits, direct, while the plan waits on them** — the
   // gate Propose a change takes, and not Add task's: Add and Drop are offered
   // on a running plan too, and a running plan's order is no longer the
-  // person's to rearrange. `.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`.
+  // person's to rearrange. The owner's decision of 30 Sep 2026, *plan edits go
+  // straight through Fleet*.
   const move =
     !revisable || onMovePlan === undefined
       ? undefined
