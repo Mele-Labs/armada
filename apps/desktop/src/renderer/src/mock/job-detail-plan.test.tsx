@@ -5,6 +5,8 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
+import { issueLink } from "@armada/protocol";
+import { ARC_JOB_ID } from "@armada/screens/src/fixtures/build/arc";
 import { running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { WAITING_CALL } from "@armada/screens/src/fixtures/build/running";
@@ -175,6 +177,104 @@ test("pressing a group on the graph opens its panel, and Add task there sends it
   await userEvent.type(dialog.getByLabelText("Title"), "Add a regression test");
   await dialog.getByRole("button", { name: "Add task" }).click();
   expect(addTask).toHaveBeenCalledWith(JOB_ID, expect.objectContaining({ after: last.id }));
+});
+
+// A plan waiting on its first review (owner, 30 Sep 2026): graph and list
+// offer the same acts, a task opened from a group's panel closes back to it,
+// a group takes a proposed change, and a task can be edited.
+
+/** `arc/plan-review` on the Plan graph, with group 3's panel open. */
+async function groupThreeOnTheGraph() {
+  const app = mount("arc/plan-review");
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "Graph" }).click();
+  await page.getByRole("button", { name: /^Group 3,/ }).click();
+  const panel = page.getByRole("dialog", { name: "Group 3" });
+  await entered(panel);
+  return { api: app.api, panel };
+}
+
+test("a group's panel on the graph offers the asks its card on the list does", async () => {
+  const { panel } = await groupThreeOnTheGraph();
+  const asks = panel.getByRole("group", { name: "Ask about group 3" });
+  for (const name of ["Move up", "Move down", "Remove", "Propose a change"]) {
+    await expect.element(asks.getByRole("button", { name })).toBeVisible();
+  }
+  await asks.getByRole("button", { name: "Move up" }).click();
+  await expect.element(page.getByRole("dialog", { name: /run group 3 before group 2/ })).toBeVisible();
+});
+
+test("a task opened from a group's panel closes back to that group, and one opened from the plan closes to the plan", async () => {
+  const { panel } = await groupThreeOnTheGraph();
+  await panel.getByRole("listitem", { name: /^T5 / }).getByRole("button").click();
+  const task = page.getByRole("dialog", { name: "Draw what is running, in four lists" });
+  await entered(task);
+  await expect.element(task.getByRole("button", { name: "Back to Group 3" })).toBeVisible();
+  await task.getByRole("button", { name: /^Close/ }).click();
+  await expect.element(page.getByRole("dialog", { name: "Group 3" })).toBeVisible();
+  expect(page.getByRole("dialog", { name: "Draw what is running, in four lists" }).query()).toBeNull();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+  // From the plan itself, Close is just close.
+  await page.getByRole("tab", { name: "List" }).click();
+  await page.getByRole("listitem", { name: /^T5 / }).getByRole("button").click();
+  const again = page.getByRole("dialog", { name: "Draw what is running, in four lists" });
+  await entered(again);
+  expect(again.getByRole("button", { name: /^Back to/ }).query()).toBeNull();
+  await again.getByRole("button", { name: /^Close/ }).click();
+  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+});
+
+test("Propose a change on a group sends the planning Drone an instruction naming the group and its tasks", async () => {
+  const { api, panel } = await groupThreeOnTheGraph();
+  const redirect = vi.spyOn(api, "redirectDrone");
+  await panel.getByRole("button", { name: "Propose a change" }).click();
+  const send = panel.getByRole("button", { name: "Send to the Drone" });
+  await expect.element(send).toBeDisabled();
+  await userEvent.type(panel.getByRole("textbox", { name: "Propose a change" }), "Run T6 after T5 rather than beside it");
+  await send.click();
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  const [jobId, instruction] = redirect.mock.calls[0]!;
+  expect(jobId).toBe(ARC_JOB_ID);
+  expect(instruction).toContain("on group 3 (T5, T6): Run T6 after T5 rather than beside it");
+  expect(instruction).toContain("refuse it and say what that reason is");
+});
+
+test("Edit this task opens filled from the task, and Save says the route is not built, naming #1657 and what changed", async () => {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+  });
+  const { panel } = await groupThreeOnTheGraph();
+  await panel.getByRole("listitem", { name: /^T6 / }).getByRole("button").click();
+  const task = page.getByRole("dialog", { name: "Open a Drone's Job from its row" });
+  await entered(task);
+  await task.getByRole("button", { name: "Edit this task" }).click();
+  await expect.element(task.getByLabelText("Title")).toHaveValue("Open a Drone's Job from its row");
+  await expect.element(task.getByLabelText("Brief")).toHaveValue("The row opens the Job, not the Drone.");
+  await expect.element(task.getByLabelText("Files")).toHaveValue("packages/screens/src/running-rows.tsx");
+  await expect.element(task.getByLabelText("Done when")).toHaveValue("Pressing a Drone's row opens that Job");
+  await expect.element(task.getByLabelText("Model")).toHaveValue("sonnet");
+  const save = task.getByRole("button", { name: "Save" });
+  await expect.element(save).toBeDisabled();
+  await userEvent.selectOptions(task.getByLabelText("Model"), "haiku");
+  await save.click();
+  await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+  // Nothing was done, so what was typed stays.
+  await expect.element(task.getByLabelText("Model")).toHaveValue("haiku");
+  // The failure is drawn under the panel's dim, so the panels go first.
+  await userEvent.keyboard("{Escape}");
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+  await page.getByRole("button", { name: "Copy debug info" }).click();
+  await expect.poll(() => written).toHaveLength(1);
+  const pasted = written[0]!;
+  expect(pasted).toContain("bridge.not_implemented");
+  expect(pasted).toContain(issueLink(1657));
+  expect(pasted).toContain("POST /jobs/{job_id}/tasks/{task_id}/edit");
+  expect(pasted).toContain("T6");
+  expect(pasted).toContain("haiku");
 });
 
 test("a refused Add task says nothing was sent, and keeps the title typed", async () => {
