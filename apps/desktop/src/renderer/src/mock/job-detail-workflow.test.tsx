@@ -242,3 +242,42 @@ test("the canvas head carries no mark, because the guide that hung there is reti
   await page.getByRole("tab", { name: "Stacked" }).last().click();
   await expect.element(page.getByRole("list", { name: /as its workflow's run$/ }).last()).toBeVisible();
 });
+
+// # A Drone opens where Drones are read, with a way back to the step
+//
+// The owner's decision of 29 Sep 2026: a panel that sends you to another
+// destination leaves a way back, rather than opening a second panel beside it.
+// The step's Drones are presses into the Drones tab, and Back — or Close —
+// returns to the step with its panel open.
+
+test("a Drone pressed in a step's panel opens in Drones, and Back returns to the step", async () => {
+  await workflow();
+  await card("Implement").click();
+  await panel("Implement").getByRole("button", { name: /Drone on T1/ }).click();
+
+  await expect.element(page.getByRole("tab", { name: /^Drones/, selected: true }).last()).toBeVisible();
+  const drone = page.getByRole("dialog", { name: "Drone on T1" }).last();
+  await expect.element(drone).toBeVisible();
+  const back = drone.getByRole("button", { name: /Back to Implement/ });
+  await expect.element(back).toBeVisible();
+
+  await back.click();
+  await expect.element(page.getByRole("tab", { name: /^Workflow/, selected: true }).last()).toBeVisible();
+  await expect.element(panel("Implement")).toBeVisible();
+});
+
+test("a step reached from a Drone's panel carries the way back to that Drone", async () => {
+  mount("arc/executing-sequential");
+  await page.getByRole("tab", { name: /^Drones/ }).last().click();
+  await page.getByRole("row", { name: /Drone on T1/ }).last().click();
+  const drone = page.getByRole("dialog", { name: "Drone on T1" }).last();
+  await drone.getByRole("button", { name: /^Implement/ }).click();
+
+  await expect.element(page.getByRole("tab", { name: /^Workflow/, selected: true }).last()).toBeVisible();
+  const opened = panel("Implement");
+  await expect.element(opened).toBeVisible();
+  await expect.element(opened.getByRole("button", { name: /Back to Drone on T1/ })).toBeVisible();
+  // Close goes back too, after a jump: the step was reached, not opened.
+  await opened.getByRole("button", { name: "Close" }).click();
+  await expect.element(page.getByRole("tab", { name: /^Drones/, selected: true }).last()).toBeVisible();
+});

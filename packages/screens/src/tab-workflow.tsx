@@ -202,7 +202,9 @@ export function WorkflowTab({
       <WorkflowInspector
         {...reading}
         sheet={{ back: trail?.back }}
-        onClose={() => openStep(null)}
+        // After a jump here, Close goes back, as Plan's, Drones' and Record's
+        // do (owner, 30 Sep 2026); otherwise it closes the step.
+        onClose={trail?.close ?? (() => openStep(null))}
         // The redirect box went (owner, 29 Sep 2026, `losq`): a person never
         // knows which Drone to message. The step's Drones take its place.
         running={{
