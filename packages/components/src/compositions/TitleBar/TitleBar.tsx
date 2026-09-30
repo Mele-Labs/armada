@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import { KbdCmd } from "../../primitives/Kbd/Kbd";
+import { actionOf } from "../../actions";
+import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
 import { useShortcutReveal } from "../../shortcut-reveal";
 
@@ -201,6 +202,7 @@ export function TitleBar({
                   >
                     <Plus size={16} strokeWidth={2} aria-hidden />
                     <span>Dispatch</span>
+                    <Kbd aria-hidden>{actionOf("new_job").shortcut}</Kbd>
                   </button>
                 )}
                 {helm === undefined ? null : (

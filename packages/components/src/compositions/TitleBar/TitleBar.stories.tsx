@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
@@ -231,6 +231,8 @@ export const InASlimWindow: Story = {
     await userEvent.click(menu);
     const panel = canvas.getByRole("dialog", { name: "Menu" });
     await expect(panel).toBeVisible();
+    const dispatch = within(panel).getByRole("button", { name: "Dispatch" });
+    await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^n$/);
     await userEvent.click(canvas.getByRole("button", { name: /^Helm/ }));
     await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
