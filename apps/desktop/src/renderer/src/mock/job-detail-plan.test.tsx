@@ -140,6 +140,23 @@ test("Add task is in each group's head, and opens with a title, an optional deta
   await expect.element(dialog.getByRole("button", { name: "Add task" })).toBeDisabled();
 });
 
+// The owner's, 30 Sep 2026: a group's Add task adds into that group, after its
+// last task, rather than at the plan's end.
+test("Add task in a group's head sends the task after that group's last task", async () => {
+  const api = await opened(withPlan(PLAN_PARTWAY));
+  const addTask = vi.spyOn(api, "addTask");
+  await onThePlanList();
+  const second = page.getByRole("listitem", { name: "Group 2" });
+  const last = PLAN_PARTWAY.tasks[1]!;
+  await expect.element(second.getByText(last.id, { exact: true })).toBeVisible();
+  await second.getByRole("button", { name: "Add task" }).click();
+  const dialog = page.getByRole("dialog");
+  await entered(dialog);
+  await userEvent.type(dialog.getByLabelText("Title"), "Add a regression test");
+  await dialog.getByRole("button", { name: "Add task" }).click();
+  expect(addTask).toHaveBeenCalledWith(JOB_ID, expect.objectContaining({ after: last.id }));
+});
+
 test("a refused Add task says nothing was sent, and keeps the title typed", async () => {
   await opened(withPlan(PLAN_PARTWAY), planUnreachable);
   await onThePlanList();

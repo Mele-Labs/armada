@@ -292,9 +292,11 @@ export function PlanTab({
   // ask that survived leaving the destination would be a dialog opening over
   // a plan somebody has stopped reading.
   const [asking, setAsking] = useState<PlanAskInFlight | null>(null);
-  // Whether the add-task dialog is open. One for the plan: every group's
-  // Add task adds at the end.
-  const [adding, setAdding] = useState(false);
+  // Which task the add-task dialog adds after, or `null` while it is shut.
+  // A group's Add task adds into that group (owner, 30 Sep 2026): after its
+  // last task, or for a group with none, after the nearest task before it —
+  // `""`, the plan's end, only where no task comes before.
+  const [adding, setAdding] = useState<string | null>(null);
   // What has been typed at the open task's Drone and not sent. This tab's own
   // state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
@@ -335,6 +337,10 @@ export function PlanTab({
   const revisable = step?.state === "awaiting_human" && !stale;
 
   const groups = groupsOf(whole, draft);
+  const addInto = (groupId: string) => {
+    const upTo = groups.slice(0, groups.findIndex((one) => one.id === groupId) + 1);
+    setAdding(upTo.flatMap((one) => one.tasks).at(-1)?.id ?? "");
+  };
   const cases = casesOf(whole, draft);
   // **The step the groups are worked at, for the failed Check's own output.**
   // The board draws what each boundary came to now that no second board does
@@ -525,7 +531,7 @@ export function PlanTab({
               onAsk={(group, ask) => setAsking({ group, ask: ask as PlanAskKind })}
               {...(onAddTask === undefined
                 ? {}
-                : { add: { label: ADD_TASK_LABEL, onAdd: () => setAdding(true), disabled: stale } })}
+                : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
             />
           )}
         </>
@@ -564,9 +570,9 @@ export function PlanTab({
     )}
     {onAddTask === undefined ? null : (
       <AddTaskDialog
-        open={adding}
-        onAddTask={(title, note) => onAddTask(job.id, { title, note, scope: [], expects: "", after: "" })}
-        onClose={() => setAdding(false)}
+        open={adding !== null}
+        onAddTask={(title, note) => onAddTask(job.id, { title, note, scope: [], expects: "", after: adding ?? "" })}
+        onClose={() => setAdding(null)}
         {...(onSaid === undefined ? {} : { onSaid })}
       />
     )}

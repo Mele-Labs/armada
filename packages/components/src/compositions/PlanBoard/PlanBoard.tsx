@@ -154,7 +154,8 @@ export type PlanBoardAsk = {
  */
 export type PlanBoardAdd = {
   label: string;
-  onAdd: () => void;
+  /** Pressed in this group's head: the task goes into this group. */
+  onAdd: (groupId: string) => void;
   /** Nothing is live to send it over. */
   disabled?: boolean;
 };
@@ -309,7 +310,7 @@ function GroupCard({
               size="sm"
               ground="card"
               disabled={add.disabled}
-              onClick={add.onAdd}
+              onClick={() => add.onAdd(group.id)}
             >
               {add.label}
             </Button>
