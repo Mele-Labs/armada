@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fireEvent, fn, waitFor } from "storybook/test";
+import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
 
 import { STUDIO_NODE_KIND } from "../StudioNode/StudioNode";
 import { StudioWhiteboard, type StudioWhiteboardEdge, type StudioWhiteboardNode } from "./StudioWhiteboard";
@@ -56,7 +56,7 @@ const edges: StudioWhiteboardEdge[] = [
   { id: "e9", source: "issue", target: "job", kind: "produced" },
   { id: "e10", source: "contradiction", target: "sketch", kind: "produced" },
   { id: "r1", source: "note-legend", target: "note-width", kind: "same_as", proposed: false },
-  { id: "r2", source: "sketch", target: "cluster", kind: "same_as", proposed: true },
+  { id: "r2", source: "sketch", target: "cluster", kind: "same_as", proposed: true, proposer: "Helm proposes" },
   { id: "r3", source: "deferral", target: "outline", kind: "blocks", proposed: false },
   { id: "r4", source: "sketch", target: "outline", kind: "blocks", proposed: true },
   { id: "r5", source: "finding-file", target: "deferral", kind: "answers", proposed: false },
@@ -69,7 +69,7 @@ function centre(element: Element) {
 }
 
 export const EveryKind: Story = {
-  args: { nodes, edges, onNodeMoved: fn(), onSelectionChange: fn() },
+  args: { nodes, edges, onNodeMoved: fn(), onSelectionChange: fn(), onDecide: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
     await step("one node of every kind, each named for a reader", async () => {
       for (const kind of Object.values(STUDIO_NODE_KIND)) {
@@ -82,8 +82,16 @@ export const EveryKind: Story = {
       for (const label of ["same as", "blocks", "answers"]) {
         await expect(canvas.getAllByText(label)).toHaveLength(2);
       }
-      await expect(canvas.getAllByRole("group", { name: /, proposed$/ })).toHaveLength(3);
+      await expect(canvas.getAllByRole("group", { name: /, proposed, waiting on you$/ })).toHaveLength(3);
       await expect(canvas.getAllByRole("group", { name: / produced / })).toHaveLength(11);
+    });
+
+    await step("a proposed relation is answered on its own label, which names who proposed it", async () => {
+      const proposal = canvas.getByRole("group", { name: /^Helm proposes: Sketch The legend, redrawn same as / });
+      await userEvent.click(within(proposal).getByRole("button", { name: /^Accept: / }));
+      await expect(args.onDecide).toHaveBeenCalledWith("r2", true);
+      // Where the record names nobody, the label says the bare fact.
+      await expect(canvas.getAllByRole("group", { name: /^Proposed: / })).toHaveLength(2);
     });
 
     const note = canvas.getByRole("group", { name: /^Note: The legend under the step bar/ });
@@ -129,7 +137,7 @@ export const EveryKind: Story = {
 
 /** A Studio reopened read-only: nothing drags, by pointer or by arrow key, and nothing is saved. */
 export const ReadOnly: Story = {
-  args: { nodes, edges, readOnly: true, onNodeMoved: fn(), onSelectionChange: fn() },
+  args: { nodes, edges, readOnly: true, onNodeMoved: fn(), onSelectionChange: fn(), onDecide: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
     const note = canvas.getByRole("group", { name: /^Note: The legend under the step bar/ });
     await waitFor(() => expect(note).toBeVisible());
@@ -156,6 +164,11 @@ export const ReadOnly: Story = {
       await expect(args.onSelectionChange).toHaveBeenLastCalledWith(["job"]);
       await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
       await expect(args.onNodeMoved).not.toHaveBeenCalled();
+    });
+
+    await step("a proposed relation says how to answer it, and offers no answer", async () => {
+      await expect(canvas.getAllByText("Continue to accept or reject.")).toHaveLength(3);
+      await expect(canvas.queryByRole("button", { name: /^Accept: / })).toBeNull();
     });
   },
 };
