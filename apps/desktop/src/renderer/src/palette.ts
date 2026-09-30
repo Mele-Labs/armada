@@ -101,6 +101,7 @@ export function dormantIn(where: {
     open_log: "the story's own chapter",
     open_diff: "the story's own Produced chapter",
     open_stage: "the phase strip",
+    move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 
     // The Studio's own control, for the reason above it: `Studios` holds which
     // kind is being written, and `App` has no handle to it. A wiring gap,

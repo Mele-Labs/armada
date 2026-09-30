@@ -2,6 +2,7 @@ import { Button } from "../../primitives/Button/Button";
 import { CardContent } from "../../primitives/Card/Card";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { keyFor } from "../../actions";
 import {
   PlanGroupBody,
   PlanGroupShape,
@@ -85,7 +86,7 @@ export function PlanGroupSheet({
           {keys.tabIndex === undefined ? (
             <PlanGroupShape group={group} />
           ) : (
-            <Tooltip label="Move group" shortcut="⌥↑ ⌥↓">
+            <Tooltip label="Move group" shortcut={keyFor("move_in_plan")}>
               <span className="armada-plan-group-sheet__handle" aria-label={`Group ${group.ordinal}`} {...keys}>
                 <PlanGroupShape group={group} />
               </span>

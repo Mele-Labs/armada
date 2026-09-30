@@ -1317,6 +1317,7 @@ v              observe             (detail only)
 u              submit for verification  (piloted job only)
 e              redispatch as a new job
 h / l / ← / →  expand and collapse  (detail only)
+⌥↑ ⌥↓          move up / down       (detail only)
 [ ]            move between chapters  (detail only)
 L              open the log         (detail only)
 f              open the diff        (detail only)

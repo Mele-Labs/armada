@@ -3,6 +3,7 @@ import { ChevronRight, TriangleAlert } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { keyFor } from "../../actions";
 import { Clamped } from "../Clamped/Clamped";
 import { GroupBoundary, type GroupBoundaryProps } from "../GroupBoundary/GroupBoundary";
 import { GroupShape } from "../GroupShape/GroupShape";
@@ -659,7 +660,7 @@ export function PlanGroupName({
   return keys.tabIndex === undefined ? (
     name
   ) : (
-    <Tooltip asChild label={hint} shortcut="⌥↑ ⌥↓">
+    <Tooltip asChild label={hint} shortcut={keyFor("move_in_plan")}>
       {name}
     </Tooltip>
   );

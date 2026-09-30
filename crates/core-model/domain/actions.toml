@@ -370,6 +370,18 @@ destructive = false
 confirms = false
 notes = "One act, not two. A step's facts and a log entry's payload both open in place beneath the focused row, and giving each its own key would put two bindings on one gesture. The keys mirror `move_focus` on the other axis — a tree discloses sideways and roves vertically — and the glyph is the icon registry's own word for it, taken under the reservation's tree reading rather than its record reading: the run tree is a tree, and a Job row still does not grow a caret, which is why the scope is detail and not the list."
 
+[actions.move_in_plan]
+kind = "Action"
+tier = "Contextual"
+verb = "Move up / down"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "detail"
+destructive = false
+confirms = false
+notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus`, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
+
 [actions.focus_chapter]
 kind = "Motion"
 tier = "Contextual"
