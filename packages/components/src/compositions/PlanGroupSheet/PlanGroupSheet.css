@@ -1,0 +1,62 @@
+/* Plan group sheet — one plan group, pressed on the Plan graph. The body is
+   the list's own card body; only what the narrower panel changes is here. */
+
+/* Close stays in the head's trailing corner, Add task beside it — the task
+   panel's own rule, for the same head. */
+.armada-sheet:has(> .armada-sheet__body > .armada-plan-group-sheet__body) .armada-sheet__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.armada-sheet:has(> .armada-sheet__body > .armada-plan-group-sheet__body) .armada-sheet__controls {
+  flex: none;
+}
+
+/* The panel is a third of the list's width, and one row of eight tracks left
+   a title two letters wide. The title takes its own line across the row, and
+   the facts go under it, still aligned down the list by the subgrid. */
+.armada-plan-group-sheet__body .armada-plan-board__task-head > * {
+  grid-row: 1;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-head > :first-child {
+  grid-column: 1;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-id {
+  grid-column: 2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-title {
+  grid-column: 3 / -2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-head > svg:last-child {
+  grid-column: -2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-beside,
+.armada-plan-group-sheet__body .armada-plan-board__task-touched {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-model {
+  grid-column: 5;
+  grid-row: 2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-turns {
+  grid-column: 6;
+  grid-row: 2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-cost {
+  grid-column: 7;
+  grid-row: 2;
+}
+
+.armada-plan-group-sheet__body .armada-plan-board__task-head {
+  row-gap: 0;
+  padding-block: var(--space-1);
+}

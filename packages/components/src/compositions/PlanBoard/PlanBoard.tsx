@@ -272,6 +272,48 @@ function GroupAsks({
   );
 }
 
+/**
+ * What a group's card holds under its head — the overlap warning, its task
+ * rows, its asks and its boundary. **One drawing for the list's card and the
+ * graph's group panel** (owner, 30 Sep 2026), so pressing a group on the graph
+ * reads what the list already shows. A fragment: the caller lays it out.
+ */
+export function PlanGroupBody({
+  group,
+  openTaskId,
+  onOpenTask,
+  askPending = false,
+  onAsk,
+}: {
+  group: PlanBoardGroup;
+  openTaskId?: string;
+  onOpenTask?: (taskId: string) => void;
+  askPending?: boolean;
+  onAsk?: (groupId: string, askId: string) => void;
+}) {
+  return (
+    <>
+      {(group.overlaps ?? []).map((overlap) => (
+        <PlanOverlap key={overlap.says} says={overlap.says} paths={overlap.paths} />
+      ))}
+      <ul className="armada-plan-board__tasks" aria-label={`Group ${group.ordinal} tasks`}>
+        {group.tasks.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            open={task.id === openTaskId}
+            {...(onOpenTask === undefined ? {} : { onOpenTask })}
+          />
+        ))}
+      </ul>
+      {onAsk === undefined || (group.asks ?? []).length === 0 ? null : (
+        <GroupAsks group={group} pending={askPending} onAsk={onAsk} />
+      )}
+      <GroupBoundary {...group.boundary} />
+    </>
+  );
+}
+
 function GroupCard({
   group,
   openTaskId,
@@ -317,23 +359,13 @@ function GroupCard({
           )}
         </CardHeader>
         <CardContent>
-          {(group.overlaps ?? []).map((overlap) => (
-            <PlanOverlap key={overlap.says} says={overlap.says} paths={overlap.paths} />
-          ))}
-          <ul className="armada-plan-board__tasks" aria-label={`Group ${group.ordinal} tasks`}>
-            {group.tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                open={task.id === openTaskId}
-                {...(onOpenTask === undefined ? {} : { onOpenTask })}
-              />
-            ))}
-          </ul>
-          {onAsk === undefined || (group.asks ?? []).length === 0 ? null : (
-            <GroupAsks group={group} pending={askPending} onAsk={onAsk} />
-          )}
-          <GroupBoundary {...group.boundary} />
+          <PlanGroupBody
+            group={group}
+            askPending={askPending}
+            {...(openTaskId === undefined ? {} : { openTaskId })}
+            {...(onOpenTask === undefined ? {} : { onOpenTask })}
+            {...(onAsk === undefined ? {} : { onAsk })}
+          />
         </CardContent>
       </Card>
     </li>

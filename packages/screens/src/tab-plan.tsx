@@ -13,7 +13,15 @@
 // `plan-board.ts` over `tab-plan-read.ts`, the lead is `plan-lead.tsx`, an ask
 // is `tab-plan-ask.tsx`, and what it looks like is `PlanBoard`.
 
-import { DroneBrief, JudgeRefusal, PlanBoard, PlanTaskSheet, Tabs, WorkflowCanvas } from "@armada/components";
+import {
+  DroneBrief,
+  JudgeRefusal,
+  PlanBoard,
+  PlanGroupSheet,
+  PlanTaskSheet,
+  Tabs,
+  WorkflowCanvas,
+} from "@armada/components";
 import { useEffect, useMemo, useState } from "react";
 
 import type { Diff, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
@@ -305,9 +313,18 @@ export function PlanTab({
   // The file open beside the task. It belongs to the task: another task, or
   // none, closes it.
   const [openFile, setOpenFile] = useState<string | null>(null);
+  // The group whose panel is open, pressed on the graph. **One panel at a
+  // time**: opening a task closes it, and opening it closes the task.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const openTaskAt = (id: string | null) => {
     setOpenTask(id);
     setOpenFile(null);
+    setOpenGroup(null);
+  };
+  const openGroupAt = (id: string) => {
+    openTaskAt(null);
+    setInstruction("");
+    setOpenGroup(id);
   };
 
   // The patch, read while the destination is open — Overview's own effect,
@@ -355,7 +372,8 @@ export function PlanTab({
   const board = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
-  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask });
+  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask, onOpenGroup: openGroupAt, openGroup });
+  const group = openGroup === null ? undefined : board?.groups.find((one) => one.id === openGroup);
   const revisions = revisionsOf(whole, draft, step);
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
   useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
@@ -571,6 +589,21 @@ export function PlanTab({
             setInstruction("");
           })
         }
+      />
+    )}
+    {group === undefined ? null : (
+      <PlanGroupSheet
+        open
+        group={group}
+        onOpenTask={openTaskAt}
+        {...(onAddTask === undefined
+          ? {}
+          : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
+        floor={floor}
+        {...(taskWidth === undefined ? {} : { width: taskWidth })}
+        onResize={resizeTask}
+        under={adding !== null}
+        onClose={() => setOpenGroup(null)}
       />
     )}
     {onAddTask === undefined ? null : (

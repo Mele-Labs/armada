@@ -157,6 +157,26 @@ test("Add task in a group's head sends the task after that group's last task", a
   expect(addTask).toHaveBeenCalledWith(JOB_ID, expect.objectContaining({ after: last.id }));
 });
 
+// The owner's, 30 Sep 2026: pressing a group on the graph opens its panel, and
+// Add task in that panel's head adds into that group, as the list's does.
+test("pressing a group on the graph opens its panel, and Add task there sends it after that group's last task", async () => {
+  const api = await opened(withPlan(PLAN_PARTWAY));
+  const addTask = vi.spyOn(api, "addTask");
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "Graph" }).click();
+  await page.getByRole("button", { name: /^Group 2,/ }).click();
+  const panel = page.getByRole("dialog", { name: "Group 2" });
+  await entered(panel);
+  const last = PLAN_PARTWAY.tasks[1]!;
+  await expect.element(panel.getByText(last.id, { exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "Add task" }).click();
+  const dialog = page.getByRole("dialog", { name: /Add a task/ });
+  await entered(dialog);
+  await userEvent.type(dialog.getByLabelText("Title"), "Add a regression test");
+  await dialog.getByRole("button", { name: "Add task" }).click();
+  expect(addTask).toHaveBeenCalledWith(JOB_ID, expect.objectContaining({ after: last.id }));
+});
+
 test("a refused Add task says nothing was sent, and keeps the title typed", async () => {
   await opened(withPlan(PLAN_PARTWAY), planUnreachable);
   await onThePlanList();
