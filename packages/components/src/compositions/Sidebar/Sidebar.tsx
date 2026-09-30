@@ -142,7 +142,7 @@ function Item({
  * it goes, which at 48px is the only chrome they have left.
  *
  * `title` rather than the `Tooltip` primitive, following
- * `.armada-shell__strip` — the same one-line hint with the same binding in
+ * the title row's Helm button — the same one-line hint with the same binding in
  * it, and one control's hover is not worth a second layer in the column.
  */
 function CollapseToggle({
