@@ -17,10 +17,8 @@ struct Dir(PathBuf);
 
 impl Dir {
     fn new(test: &str) -> Dir {
-        let at = std::env::temp_dir().join(format!(
-            "armada-check-slots-{}-{test}",
-            std::process::id()
-        ));
+        let at =
+            std::env::temp_dir().join(format!("armada-check-slots-{}-{test}", std::process::id()));
         let _ = std::fs::remove_dir_all(&at);
         Dir(at)
     }
@@ -126,7 +124,11 @@ async fn the_wait_says_how_many_are_in_use() {
     let slots = CheckSlots::at(&dir.0, 4);
     let taken = slots.try_take(4).expect("writable").expect("all free");
 
-    let full = slots.try_take(1).expect("writable").err().expect("all held");
+    let full = slots
+        .try_take(1)
+        .expect("writable")
+        .err()
+        .expect("all held");
     assert_eq!(full.to_string(), "waiting for a Check slot: 4 of 4 in use");
 
     let told = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -134,7 +136,9 @@ async fn the_wait_says_how_many_are_in_use() {
     let waiting = slots.clone();
     let asking = tokio::spawn(async move {
         waiting
-            .take(1, move |in_use| hearing.lock().expect("unpoisoned").push(in_use))
+            .take(1, move |in_use| {
+                hearing.lock().expect("unpoisoned").push(in_use)
+            })
             .await
     });
     tokio::time::sleep(Duration::from_millis(400)).await;
@@ -160,7 +164,11 @@ fn a_wide_check_takes_every_slot_it_wants_or_none() {
     let slots = CheckSlots::at(&dir.0, 3);
     let one = slots.try_take(1).expect("writable").expect("free");
 
-    let wide = slots.try_take(3).expect("writable").err().expect("one held");
+    let wide = slots
+        .try_take(3)
+        .expect("writable")
+        .err()
+        .expect("one held");
     assert_eq!(wide.to_string(), "waiting for 3 Check slots: 1 of 3 in use");
     // Nothing kept from the refused ask: the other two are still free.
     let two = slots.try_take(2).expect("writable").expect("two are free");
@@ -171,7 +179,10 @@ fn a_wide_check_takes_every_slot_it_wants_or_none() {
 fn a_check_wider_than_the_machine_takes_every_slot_there_is() {
     let dir = Dir::new("wider");
     let slots = CheckSlots::at(&dir.0, 2);
-    let all = slots.try_take(5).expect("writable").expect("clamped to two");
+    let all = slots
+        .try_take(5)
+        .expect("writable")
+        .expect("clamped to two");
     assert!(slots.try_take(1).expect("writable").is_err());
     drop(all);
 }

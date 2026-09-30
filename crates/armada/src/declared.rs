@@ -27,7 +27,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use checks_runner::{resolve_width, Attempt, CheckWidth};
+use checks_runner::{resolve_width, Attempt, CheckSlots, CheckWidth, HELD_ENV};
 use config::Manifest;
 use verification::{Exit, NeverRan};
 
@@ -69,11 +69,17 @@ impl Registry {
 ///
 /// Returns what the command did. There is no error return for a command that
 /// failed — a failure is an [`Exit`], and the caller turns it into a status.
+///
+/// `test` runs one test through the Check's `one_test` instead of the whole
+/// Check. `slots` is the machine's: a Check takes its `places` of them for its
+/// prerequisites and its run, and a Command takes none.
 pub async fn execute(
     root: &Path,
     registry: Registry,
     name: &str,
+    test: Option<&str>,
     budget: Duration,
+    slots: Option<&CheckSlots>,
 ) -> Result<Ran, NotDeclared> {
     let manifest = Manifest::load(&root.join(MANIFEST)).map_err(|why| NotDeclared::NoManifest {
         path: root.join(MANIFEST),
@@ -92,6 +98,17 @@ pub async fn execute(
     };
     let Some(command) = command else {
         return Err(unknown(&manifest, registry, name));
+    };
+    let command = match (test, manifest.check(name)) {
+        (None, _) => command,
+        (Some(test), check) => check
+            .and_then(config::Check::one_test)
+            .and_then(|one| checks_runner::one_test(one, test))
+            .ok_or_else(|| NotDeclared::NoOneTest {
+                name: name.to_string(),
+                test: test.to_string(),
+                path: manifest.path().to_path_buf(),
+            })?,
     };
     // **`${width}` resolves here too, and to the same number a gate reaches.**
     // A Check a person runs is the Check a Drone is measured by, per this
@@ -122,24 +139,65 @@ pub async fn execute(
         .iter()
         .map(|needed| needed.name().to_string())
         .collect();
-    if let Some(blocked) = first_unmet(requires, root, budget, width).await {
+    // Held until this returns, across the prerequisites too, as Fleet's gate
+    // holds a place for them.
+    let _held = match (registry, slots) {
+        (Registry::Checks, Some(slots)) => {
+            let places = manifest
+                .check(name)
+                .map_or(1, |check| check.places().get() as usize);
+            match slots.take(places, |_| {}).await {
+                Ok(held) => Some(held),
+                Err(why) => {
+                    eprintln!("running without a Check slot, which could not be taken: {why}");
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
+    let env = [(HELD_ENV.to_string(), String::from("1"))];
+    let env: &[(String, String)] = match registry {
+        Registry::Checks => &env,
+        Registry::Commands => &[],
+    };
+
+    if let Some(blocked) = first_unmet(requires, root, budget, width, env).await {
         return Ok(Ran {
             name: name.to_string(),
             command,
+            test: test.map(str::to_string),
             destructive,
             required,
             attempt: blocked,
         });
     }
 
-    let attempt = checks_runner::run(&command, root, budget).await;
+    let attempt = checks_runner::run_writing_with_env(&command, root, budget, None, env).await;
     Ok(Ran {
         name: name.to_string(),
         command,
+        test: test.map(str::to_string),
         destructive,
         required,
         attempt,
     })
+}
+
+/// The machine's Check slots, as many as `fleet::ChecksAtOnce`'s machine
+/// number, beside `fleet.json` so every clone and worktree shares them.
+///
+/// **`None` inside a Check that already holds them**, for
+/// [`checks_runner::HELD_ENV`]'s reason, and where `HOME` is unset.
+pub fn machine_slots() -> Option<CheckSlots> {
+    if checks_runner::already_held() {
+        return None;
+    }
+    let runtime_file = fleet::runtime::machine_path().ok()?;
+    Some(CheckSlots::at(
+        runtime_file.parent()?.join("check-slots"),
+        crate::serve::provisional_checks_at_once().get(),
+    ))
 }
 
 /// Every Check the Manifest in `root` would run on a change to `changed`, in
@@ -176,9 +234,11 @@ async fn first_unmet(
     root: &Path,
     budget: Duration,
     width: CheckWidth,
+    env: &[(String, String)],
 ) -> Option<Attempt> {
     for needed in requires {
-        let attempt = checks_runner::run(&resolve_width(needed.run(), width), root, budget).await;
+        let run = resolve_width(needed.run(), width);
+        let attempt = checks_runner::run_writing_with_env(&run, root, budget, None, env).await;
         if attempt.exit != Exit::Code(0) {
             return Some(Attempt {
                 exit: Exit::NeverRan(NeverRan::PrerequisiteFailed {
@@ -199,6 +259,8 @@ pub struct Ran {
     pub name: String,
     /// The `run` string, verbatim as the Manifest wrote it.
     pub command: String,
+    /// The one test asked for, where `command` is the Check's `one_test`.
+    pub test: Option<String>,
     /// Whether the Manifest calls this destructive. **Said, never enforced** —
     /// the flag pauses a Drone, and the person typing this is already the one
     /// triggering it.
@@ -222,10 +284,19 @@ impl Ran {
     /// `256` is `0`.
     pub fn status(&self) -> u8 {
         match self.attempt.exit {
+            _ if self.matched_nothing() => 1,
             Exit::Code(0) => 0,
             Exit::Code(code) => u8::try_from(code).unwrap_or(1),
             _ => 1,
         }
+    }
+
+    /// Whether the one test asked for matched nothing. **Not a pass**, though
+    /// both runners can exit zero on it. `checks_runner::one_test_ran`.
+    pub fn matched_nothing(&self) -> bool {
+        self.test.is_some()
+            && checks_runner::one_test_ran(&self.attempt.exit, &self.attempt.output, 0)
+                == checks_runner::OneTestRan::NoMatch
     }
 }
 
@@ -286,6 +357,13 @@ pub enum NotDeclared {
         asked: Registry,
         path: PathBuf,
     },
+    /// A test was named, and the Check declares no `one_test` to run it with,
+    /// or the name cannot be one argument.
+    NoOneTest {
+        name: String,
+        test: String,
+        path: PathBuf,
+    },
     /// Nothing declares it, and this is what is declared.
     NoSuchName {
         name: String,
@@ -334,6 +412,11 @@ impl fmt::Display for NotDeclared {
                 asked.other().noun(),
                 asked.noun(),
                 asked.other().verb()
+            ),
+            NotDeclared::NoOneTest { name, test, path } => write!(
+                out,
+                "`{name}` in {} has no `one_test` that can run `{test}` — `armada check {name}` runs it whole",
+                path.display()
             ),
             NotDeclared::NoSuchName {
                 name,

@@ -308,7 +308,7 @@ const PROVISIONAL_HEADROOM: Headroom = Headroom::of(Spare::percent(15), Bytes::g
 /// one at a time against 16.5s at four, with two to six within noise, because
 /// the slowest Check and one Cargo target lock set the floor. Four was per gate;
 /// the limit is the machine's now (#1063), and half leaves the rest to Drones.
-fn provisional_checks_at_once() -> fleet::ChecksAtOnce {
+pub(crate) fn provisional_checks_at_once() -> fleet::ChecksAtOnce {
     fleet::ChecksAtOnce::for_cores(
         std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
     )
