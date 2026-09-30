@@ -552,10 +552,14 @@ export function PlanTab({
         {...(file === undefined ? {} : { file })}
         onFile={setOpenFile}
         back={trail?.back}
-        onClose={() => {
-          openTaskAt(null);
-          setInstruction("");
-        }}
+        onClose={
+          // Jumped to, Close goes back — `trail.ts`.
+          trail?.close ??
+          (() => {
+            openTaskAt(null);
+            setInstruction("");
+          })
+        }
       />
     )}
     {onAddTask === undefined ? null : (

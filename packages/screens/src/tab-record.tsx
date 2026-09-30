@@ -206,7 +206,8 @@ export function RecordTab({
             )
           }
           openRow={openRow}
-          onOpenRow={setOpenRow}
+          // Jumped to, Close goes back — `trail.ts`.
+          onOpenRow={(id) => (id === null && trail?.close !== undefined ? trail.close() : setOpenRow(id))}
           kindMarks={filter === "all"}
           floor={floor}
           back={trail?.back}

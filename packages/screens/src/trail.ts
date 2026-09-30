@@ -7,11 +7,16 @@
 // beside the task rather than in its own destination — so the two can be
 // compared.
 //
-// **The trail is the jump's and nobody else's.** It clears the moment a person
-// moves themselves: a destination pressed on the strip, or the panel they
-// landed in closed — Close and `Esc` keep meaning close, rather than turning
-// into a second back. Leaving the Job clears it with everything else, since
-// `JobDetail` remounts per Job.
+// **Close on a panel you jumped to takes you back** (owner, 30 Sep 2026).
+// While the trail holds a place, the landed panel's Close and `Esc` do what
+// Back does — pop one place and restore it — so a jump out and a close read
+// as one round trip. Once the trail is empty, Close just closes. Back stays
+// drawn beside it, because Back names where it goes and Close does not.
+//
+// **Otherwise the trail is the jump's and nobody else's.** It clears the
+// moment a person moves themselves: a destination pressed on the strip, or the
+// landed panel shut some other way, as a filter change does. Leaving the Job
+// clears it with everything else, since `JobDetail` remounts per Job.
 
 import { useEffect, useRef, useState } from "react";
 import type { SheetBack } from "@armada/components";
@@ -26,10 +31,15 @@ export type Place = { tab: DetailTab; open?: Open };
 
 /**
  * What a destination that can be jumped into and out of takes. `back` is
- * handed to its sheet; `onHere` is told which panel is open, every time that
- * changes, with `null` for none.
+ * handed to its sheet; `close`, where present, is what its sheet's Close does
+ * instead of closing — the same pop as `back`; `onHere` is told which panel is
+ * open, every time that changes, with `null` for none.
  */
-export type TrailProps = { back: SheetBack | undefined; onHere: (open: Open | null) => void };
+export type TrailProps = {
+  back: SheetBack | undefined;
+  close: (() => void) | undefined;
+  onHere: (open: Open | null) => void;
+};
 
 /** The registry's `history` act, back half — `actions.toml`, `⌘[ ⌘]`. */
 const BACK_KEY = "⌘[";
@@ -84,9 +94,11 @@ export function useTrail(restore: (to: Place) => void) {
               binding: BACK_KEY,
               onBack: back,
             },
+      close: last === undefined ? undefined : back,
       onHere: (open) => {
         here.current = open === null ? { tab } : { tab, open };
-        // The panel landed in has closed, which is the person moving on.
+        // The panel landed in has shut by some other way than Close — a
+        // filter change — which is the person moving on.
         if (open === null) setTrail([]);
       },
     }),
