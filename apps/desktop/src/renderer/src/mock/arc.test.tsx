@@ -340,6 +340,7 @@ describe("classifying", () => {
     "arc/approved-frozen: the first criterion says the issue it came from has been edited " +
       "since, and the Job still shows the words it froze",
     async () => {
+      window.localStorage.removeItem("armada.bridge.plan-lead-open");
       mount("arc/approved-frozen");
       // **Plan leads with what the Job is held to**, and has since the owner
       // asked why it did not. Overview stopped drawing it a second time on
@@ -350,13 +351,19 @@ describe("classifying", () => {
       // proposal's, and the proposal is Settings' once a Job is approved.
       const held = page.getByRole("tabpanel", { name: "Plan" });
       await expect.element(held).toHaveTextContent("What this Job is held to");
+      // **Shut to one line by default** (29 Sep 2026): the band and the first
+      // criterion. Where it came from is behind the press.
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
+      await expect.element(held).not.toHaveTextContent("From issue armada/1162");
+      await held.getByRole("button", { name: /What this Job is held to/, expanded: false }).click();
       // The word `issue` is on the line: a bare `owner/number` is a
       // repository, a path and a branch as readily as an issue (`u7y9`).
       await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
+      // The press is remembered per viewer; the next claim starts shut.
+      window.localStorage.removeItem("armada.bridge.plan-lead-open");
     },
   );
 
@@ -443,13 +450,14 @@ describe("the plan", () => {
     const sheet = page.getByRole("dialog").first();
     // The panel's words, rewritten on 28 Sep 2026 — *everything on this task
     // panel sounds like an AI bot phrased it*.
-    await expect.element(sheet).toHaveTextContent("What the Drone is told");
+    await expect.element(sheet).toHaveTextContent("Brief");
+    await expect.element(sheet).toHaveTextContent("Keep the four lists in this order");
     await expect.element(sheet).toHaveTextContent("difficult · opus");
-    await expect.element(sheet).toHaveTextContent("Run by its own agent");
+    await expect.element(sheet).toHaveTextContent("Runs beside");
     await expect.element(sheet).toHaveTextContent("T6");
     await expect.element(sheet).toHaveTextContent("Tests for this task");
     await expect.element(sheet).toHaveTextContent("Running.test.tsx");
-    await expect.element(sheet).toHaveTextContent("How we will know it worked");
+    await expect.element(sheet).toHaveTextContent("Done when");
     await expect.element(sheet).not.toHaveTextContent("What the planner holds it to");
   });
 

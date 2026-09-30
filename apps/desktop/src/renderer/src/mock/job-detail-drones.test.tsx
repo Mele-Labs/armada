@@ -80,5 +80,6 @@ test("pressing the task in a Drone's sheet lands on Plan with that task's sheet 
   await expect.element(page.getByRole("tab", { name: /^Plan/, selected: true }).last()).toBeVisible();
   const sheet = page.getByRole("dialog").last();
   await expect.element(sheet).toHaveTextContent("T5");
-  await expect.element(sheet).toHaveTextContent("Run by its own agent");
+  await expect.element(sheet).toHaveTextContent("Draw what is running, in four lists");
+  await expect.element(sheet).toHaveTextContent("Drone on T5");
 });
