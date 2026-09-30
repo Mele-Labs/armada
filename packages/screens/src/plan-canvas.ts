@@ -5,8 +5,8 @@
 // the cards and the placement are the ones that used to hang under the step
 // that recorded the plan. What was left behind is the step row above them, and
 // with it the second edge — there are no step nodes here, so nothing can draw
-// *and this step worked it*. That cost was stated and taken; Workflow draws one
-// Plan node now and pressing it lands here.
+// *and this step worked it*. That cost was stated and taken; a Workflow step's
+// panel carries a card of the plan instead, and pressing it lands here.
 //
 // **Placement is computed here, from plan order.** The canvas holds none, so
 // the numbers below are the layout and they are unit-tested in this package.
@@ -83,38 +83,6 @@ const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   failed: "failed",
   dropped: "stopped",
 };
-
-/**
- * The order a plan's own word is chosen in: what is wrong first, then what is
- * moving, then what has not started, then what is done.
- *
- * **A plan has no machine of its own.** `GroupState` is the finest state
- * anything records about the work a plan describes, so the word on the Plan
- * node is one of its groups' words rather than a vocabulary invented for the
- * summary. `pending` outranks `passed` because a plan is not done while a
- * group of it has not started.
- */
-const ROLLS_UP: readonly GroupState[] = [
-  "failed",
-  "retrying",
-  "checking",
-  "joining",
-  "running",
-  "pending",
-  "passed",
-  "landed",
-];
-
-/**
- * Where the plan is, as one mark and one word — what the Plan node on the
- * workflow's canvas says about itself.
- *
- * A plan with no group says `pending`: there is nothing to have started.
- */
-export function planActivityOf(groups: readonly GroupView[]): { activity: StepActivity; said: GroupState } {
-  const said = ROLLS_UP.find((state) => groups.some((group) => group.state === state)) ?? "pending";
-  return { activity: GROUP_ACTIVITY[said], said };
-}
 
 /** One group's card. Its own word, with the nearest step mark behind it. */
 function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
