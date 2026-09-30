@@ -286,9 +286,9 @@ export function waveParent(): JobFixture {
       workflow: epicWorkflow(),
       at: "dispatch",
       steps: [planStep(), arcStep("dispatch", "Dispatch the wave", 2), rollUpStep()],
-      says: "running — a wave of Jobs under one plan, three of five still out",
-      created_at: "2026-09-22T07:10:00Z",
-      started_at: "2026-09-22T07:12:00Z",
+      says: "running — the second pass of its wave, three Jobs waiting on you",
+      created_at: "2026-09-22T05:10:00Z",
+      started_at: "2026-09-22T05:12:00Z",
     },
     ARC_NOW,
   );
@@ -300,6 +300,9 @@ const WAVE_IDS = {
   c: "01M2D8B2YL001WAVE00000C",
   d: "01M2D8B2YL001WAVE00000D",
   e: "01M2D8B2YL001WAVE00000E",
+  // The first pass's two, which the roll-up sent back.
+  f: "01M2D8B2YL001WAVE00000F",
+  g: "01M2D8B2YL001WAVE00000G",
 };
 
 /**
@@ -311,8 +314,8 @@ const GATE_REFUSAL: JudgeQuestion = {
   step_id: "handoff",
   criterion_id: "every_code_reaches_the_journal",
   question: "Does every refusal the seam produces reach the journal with its code?",
-  expected: "A refusal with an unknown code is journalled as `error.unknown`, with the raw code beside it.",
-  produced: "An unknown code is journalled with an empty `code` field and the raw value is dropped.",
+  expected: "A refusal with an unknown code is journalled as error.unknown, with the raw code beside it.",
+  produced: "An unknown code is journalled with an empty code field and the raw value is dropped.",
   consequence: "A person reading the journal after an unknown refusal cannot tell which code arrived.",
   asked_at: "2026-09-22T10:48:00Z",
 };
@@ -321,8 +324,8 @@ const BLOCKED_REFUSAL: JudgeQuestion = {
   step_id: "implement",
   criterion_id: "the_half_is_named",
   question: "Does the message say which half refused — Bridge or Fleet?",
-  expected: "A transport failure names the side that refused, as `error-contract.md` requires.",
-  produced: "The message reads `the request failed` and names neither side.",
+  expected: "A transport failure names the side that refused, as error-contract.md requires.",
+  produced: "The message reads 'the request failed' and names neither side.",
   consequence: "A person cannot tell whether to restart Fleet or reopen the window.",
   asked_at: "2026-09-22T11:02:00Z",
 };
@@ -342,63 +345,187 @@ const UNCLEARED: CommandInFlight = {
 };
 
 /**
- * What the wave dispatched: five Jobs, and which waits on which.
+ * One Job of the wave as the plan wrote it: which pass dispatched it, what it
+ * waits on, and the brief and expectations `plan.md` handed its Drone. What it
+ * has spent and how far through its tasks it is are the Board's, drawn here
+ * because the wave's own view does not carry the row.
+ */
+type WaveChild = {
+  id: string;
+  handle: string;
+  title: string;
+  status: string;
+  round: number;
+  waits: string[];
+  landed?: "merged" | "closed_unmerged";
+  brief: string;
+  expects: string[];
+  cost_micros?: number;
+  tasks?: { done: number; of: number };
+};
+
+/**
+ * What the two passes dispatched, and which waits on which.
  *
  * **The order is the work's own.** The seam refuses first; the two surfaces
  * that carry the code follow it; naming which half refused follows the toast
  * that would say so; and the second error shape can only be dropped once every
  * surface carries the first — so it waits on both, and never the reverse.
  *
+ * **The first pass is history.** It tried the seam as one Job; the roll-up
+ * sent it back as too large to review, and the second pass split it. Its Jobs
+ * are still Jobs, so a person pressing Wave 1 reads what they did.
+ *
  * **No landing link, because a wave is not a landing order.** One of these
  * waits on another because its work depends on that work, and each lands when
  * it is done — nothing says the fourth merges after the third.
  */
-function waveChildren(): { fixture: JobFixture; waits: string[] }[] {
-  const rows: [string, string, string, string, string[]][] = [
-    [WAVE_IDS.a, "32-refuse-an-unknown-code", "Refuse an unknown code at the seam", "completed_success", []],
-    [WAVE_IDS.b, "33-name-the-fault-in-the-toast", "Name the fault in the toast", "completed_success", [WAVE_IDS.a]],
-    [WAVE_IDS.c, "34-carry-the-code-into-the-log", "Carry the code into the journal", "awaiting_review", [WAVE_IDS.a]],
-    [WAVE_IDS.d, "35-say-which-half-refused", "Say which half refused", "escalated", [WAVE_IDS.b]],
-    [WAVE_IDS.e, "36-drop-the-second-error-shape", "Drop the second error shape", "running", [WAVE_IDS.c, WAVE_IDS.d]],
-  ];
-  return rows.map(([id, handle, title, status, waits], at) => ({
-    waits,
-    fixture: lightFixture(
-      {
-        id,
-        handle,
-        title,
-        status,
-        workflow: featureWorkflow(),
-        at: status === "completed_success" || status === "awaiting_review" ? "handoff" : "implement",
-        steps: [
-          arcStep("plan", "Plan the change", 1),
-          arcStep("implement", "Implement", 2),
-          arcStep("tests", "Write tests", 3),
-          arcStep("handoff", "Review the change", 4),
-        ],
-        says: `${status} — one Job of the wave`,
-        created_at: "2026-09-22T07:20:00Z",
-        started_at: "2026-09-22T07:22:00Z",
-        ended_at: status === "completed_success" ? "2026-09-22T09:05:00Z" : undefined,
-        branch: `armada/${handle}`,
-        row: {
-          origin: "sub_dispatched",
-          dispatched_by: WAVE_ID,
-          ...(status === "completed_success" ? { landed: "merged" } : {}),
-          // The flag that lifts a row into Needs you, and what tells a running
-          // Job with a Drone inside a call apart from one simply working.
-          ...(id === WAVE_IDS.e ? { asking: true } : {}),
+const WAVE_CHILDREN: WaveChild[] = [
+  {
+    id: WAVE_IDS.f,
+    handle: "26-list-the-refusal-codes",
+    title: "List every code Fleet refuses with",
+    status: "completed_success",
+    round: 1,
+    waits: [],
+    landed: "merged",
+    brief:
+      "Write down every refusal code Fleet can send, with one line on what each means, in one file Bridge can read.",
+    expects: ["Every code Fleet sends is in the list", "Each code has a one-line meaning"],
+    cost_micros: 940_000,
+    tasks: { done: 2, of: 2 },
+  },
+  {
+    id: WAVE_IDS.g,
+    handle: "27-handle-refusals-at-the-seam",
+    title: "Handle every refusal at the seam",
+    status: "superseded",
+    round: 1,
+    waits: [WAVE_IDS.f],
+    landed: "closed_unmerged",
+    brief:
+      "Catch every refusal where Bridge meets Fleet and turn it into the contract's shape, in one change.",
+    expects: ["Nothing past the seam sees a raw refusal"],
+    cost_micros: 3_420_000,
+    tasks: { done: 6, of: 6 },
+  },
+  {
+    id: WAVE_IDS.a,
+    handle: "32-refuse-an-unknown-code",
+    title: "Refuse an unknown code at the seam",
+    status: "completed_success",
+    round: 2,
+    waits: [],
+    landed: "merged",
+    brief:
+      "Make the seam turn any code it does not know into error.unknown, and keep the raw code beside it. Nothing past the seam should see a code it can't name.",
+    expects: ["An unknown code arrives as error.unknown", "The raw code is kept, not dropped"],
+    cost_micros: 2_140_000,
+    tasks: { done: 4, of: 4 },
+  },
+  {
+    id: WAVE_IDS.b,
+    handle: "33-name-the-fault-in-the-toast",
+    title: "Name the fault in the toast",
+    status: "completed_success",
+    round: 2,
+    waits: [WAVE_IDS.a],
+    landed: "merged",
+    brief: "Show the refusal's code and what it means in the toast, instead of \"Something went wrong\".",
+    expects: ["Every refusal toast names its code", "An unknown code reads as unknown, not blank"],
+    cost_micros: 1_380_000,
+    tasks: { done: 3, of: 3 },
+  },
+  {
+    id: WAVE_IDS.c,
+    handle: "34-carry-the-code-into-the-log",
+    title: "Carry the code into the journal",
+    status: "awaiting_review",
+    round: 2,
+    waits: [WAVE_IDS.a],
+    brief:
+      "Write every refusal to the journal with its code, so someone reading it later can tell what arrived.",
+    expects: [
+      "Each refusal's journal line carries its code",
+      "An unknown code is journalled with the raw value beside it",
+    ],
+    cost_micros: 2_650_000,
+    tasks: { done: 5, of: 5 },
+  },
+  {
+    id: WAVE_IDS.d,
+    handle: "35-say-which-half-refused",
+    title: "Say which half refused",
+    status: "escalated",
+    round: 2,
+    waits: [WAVE_IDS.b],
+    brief:
+      "When a request fails, say whether Bridge or Fleet refused it. The two need different fixes, so the message has to tell them apart.",
+    expects: ["A transport failure names the side that refused", "The wording matches error-contract.md"],
+    cost_micros: 1_910_000,
+    tasks: { done: 2, of: 4 },
+  },
+  {
+    id: WAVE_IDS.e,
+    handle: "36-drop-the-second-error-shape",
+    title: "Drop the second error shape",
+    status: "running",
+    round: 2,
+    waits: [WAVE_IDS.c, WAVE_IDS.d],
+    brief:
+      "Remove the old message-only error shape now that every surface reads the contract's. Delete it rather than wrapping it.",
+    expects: ["Nothing builds the old shape", "Every test that used it reads the new one"],
+    tasks: { done: 1, of: 6 },
+  },
+];
+
+/** Each child as a Board fixture, dispatched by the wave's parent. */
+function waveChildren(): { child: WaveChild; fixture: JobFixture }[] {
+  return WAVE_CHILDREN.map((child, at) => {
+    const { id, handle, title, status, round } = child;
+    const done = status === "completed_success" || status === "superseded";
+    const created = round === 1 ? "2026-09-22T05:20:00Z" : "2026-09-22T07:20:00Z";
+    const started = round === 1 ? "2026-09-22T05:22:00Z" : "2026-09-22T07:22:00Z";
+    const ended = round === 1 ? "2026-09-22T06:40:00Z" : "2026-09-22T09:05:00Z";
+    return {
+      child,
+      fixture: lightFixture(
+        {
+          id,
+          handle,
+          title,
+          status,
+          workflow: featureWorkflow(),
+          at: done || status === "awaiting_review" ? "handoff" : "implement",
+          steps: [
+            arcStep("plan", "Plan the change", 1),
+            arcStep("implement", "Implement", 2),
+            arcStep("tests", "Write tests", 3),
+            arcStep("handoff", "Review the change", 4),
+          ],
+          says: `${status} — one Job of the wave`,
+          created_at: created,
+          started_at: started,
+          ended_at: done ? ended : undefined,
+          branch: `armada/${handle}`,
+          row: {
+            origin: "sub_dispatched",
+            dispatched_by: WAVE_ID,
+            ...(child.landed === undefined ? {} : { landed: child.landed }),
+            // The flag that lifts a row into Needs you, and what tells a running
+            // Job with a Drone inside a call apart from one simply working.
+            ...(id === WAVE_IDS.e ? { asking: true } : {}),
+          },
+          detail: {
+            ...(id === WAVE_IDS.c ? { judge_question: GATE_REFUSAL } : {}),
+            ...(id === WAVE_IDS.d ? { judge_question: BLOCKED_REFUSAL } : {}),
+            ...(id === WAVE_IDS.e ? { command_waiting: UNCLEARED, when_blocked: "ask_me" } : {}),
+          },
         },
-        detail: {
-          ...(id === WAVE_IDS.c ? { judge_question: GATE_REFUSAL } : {}),
-          ...(id === WAVE_IDS.d ? { judge_question: BLOCKED_REFUSAL } : {}),
-          ...(id === WAVE_IDS.e ? { command_waiting: UNCLEARED, when_blocked: "ask_me" } : {}),
-        },
-      },
-      ARC_NOW + at,
-    ),
-  }));
+        ARC_NOW + at,
+      ),
+    };
+  });
 }
 
 /** The three questions the wave is holding open, as main gathers them. */
@@ -414,7 +541,7 @@ export function epicWave(): ArcMoment {
   const children = waveChildren();
   return {
     name: "wave",
-    says: "A wave — five Jobs under one plan, two merged and three still out",
+    says: "A wave — the second pass of the split, with three Jobs waiting on you",
     fixtures: [waveParent(), ...children.map((one) => one.fixture)],
     opens: WAVE_ID,
     questions: waveQuestions(),
@@ -422,21 +549,111 @@ export function epicWave(): ArcMoment {
       wave: {
         job: WAVE_ID,
         title: "Carry the error contract through every surface",
-        // Pass 1 split the work at the seam alone and was replaced when the
-        // roll-up sent it back; pass 2 is the plan being run now. A loop return
-        // replaces `plan.md` whole, so the first is history.
+        // Pass 1 tried the seam as one Job and was sent back by the roll-up;
+        // pass 2 is the plan being run now. A loop return replaces `plan.md`
+        // whole, so the first is history.
         rounds: [
-          { round: 1, says: "The seam alone — one Job to refuse an unknown code", live: false },
-          { round: 2, says: "The seam, then every surface that reads a refusal", live: true },
+          { round: 1, says: "the seam", live: false },
+          { round: 2, says: "every surface", live: true },
         ],
-        jobs: children.map((one) => ({
-          job: one.fixture.job.id,
-          title: one.fixture.job.title,
-          status: one.fixture.job.status,
-          handle: one.fixture.job.handle,
-          round: 2,
-          waits_on: one.waits,
-          ...(one.fixture.job.landed === undefined ? {} : { landed: one.fixture.job.landed }),
+        judged_by: "haiku",
+        jobs: children.map(({ child }) => ({
+          job: child.id,
+          title: child.title,
+          status: child.status,
+          handle: child.handle,
+          round: child.round,
+          waits_on: child.waits,
+          ...(child.landed === undefined ? {} : { landed: child.landed }),
+          brief: child.brief,
+          expects: child.expects,
+          ...(child.cost_micros === undefined ? {} : { cost_micros: child.cost_micros }),
+          ...(child.tasks === undefined ? {} : { tasks: child.tasks }),
+        })),
+      },
+    },
+  };
+}
+
+/**
+ * The same parent back at its plan gate: the first wave rolled up, and the
+ * second pass's split waiting on a person. **`evidence_type: "plan"` is what
+ * Overview's gate switches on** to draw Plan's review rather than the work's.
+ */
+function waveParentAtItsGate(): JobFixture {
+  const fixture = lightFixture(
+    {
+      id: WAVE_ID,
+      handle: "31-carry-the-error-contract-everywhere",
+      title: "Carry the error contract through every surface",
+      status: "awaiting_review",
+      workflow: epicWorkflow(),
+      at: "plan",
+      steps: [
+        {
+          ...planStep(),
+          state: "awaiting_human",
+          attempts: [{ attempt: 2, outcome: "awaiting_human", started_at: "2026-09-22T07:12:00Z" }],
+          verdicts: [],
+        },
+        arcStep("dispatch", "Dispatch the wave", 2),
+        rollUpStep(),
+      ],
+      says: "awaiting_review — the second pass's split is waiting on you",
+      created_at: "2026-09-22T05:10:00Z",
+      started_at: "2026-09-22T05:12:00Z",
+    },
+    ARC_NOW,
+  );
+  return {
+    ...fixture,
+    recorded: {
+      ...fixture.recorded,
+      evidence: {
+        state: "read",
+        jobId: WAVE_ID,
+        steps: [
+          {
+            step_id: "plan",
+            evidence_type: "plan",
+            claimed: "The seam first, then every surface that reads a refusal, as five Jobs.",
+            shown_by: ".armada/deliverables/31-carry-the-error-contract-everywhere/plan.2.md",
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * An Epic Job whose plan step waits on a person, after one wave: what
+ * Overview's plan gate draws for a wave rather than a task board.
+ */
+export function epicPlanReview(): ArcMoment {
+  const firsts = waveChildren().filter(({ child }) => child.round === 1);
+  return {
+    name: "planReview",
+    says: "A wave — the first rolled up, and the second pass's split waiting on your review",
+    fixtures: [waveParentAtItsGate(), ...firsts.map((one) => one.fixture)],
+    opens: WAVE_ID,
+    draft: {
+      wave: {
+        job: WAVE_ID,
+        title: "Carry the error contract through every surface",
+        rounds: [{ round: 1, says: "the seam", live: false }],
+        judged_by: "haiku",
+        jobs: firsts.map(({ child }) => ({
+          job: child.id,
+          title: child.title,
+          status: child.status,
+          handle: child.handle,
+          round: child.round,
+          waits_on: child.waits,
+          ...(child.landed === undefined ? {} : { landed: child.landed }),
+          brief: child.brief,
+          expects: child.expects,
+          ...(child.cost_micros === undefined ? {} : { cost_micros: child.cost_micros }),
+          ...(child.tasks === undefined ? {} : { tasks: child.tasks }),
         })),
       },
     },

@@ -43,7 +43,7 @@ import {
 import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
-import { epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
+import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
@@ -435,6 +435,7 @@ export const SCENARIOS: readonly Scenario[] = [
   moment("members", membersStacked()),
   moment("members", membersMerged()),
   moment("epic", epicWave()),
+  moment("epic", epicPlanReview()),
   // One Job per workflow kind, on one Board and then one at a time.
   holding("kinds", "One Job per workflow kind, each on the steps its own file declares", [
     ...KIND_FIXTURES,
