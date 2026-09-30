@@ -4,7 +4,7 @@
 // **It leads because the owner asked why it did not** (28 Sep 2026): *Isn't
 // this why the plan was formed?* The design board leads with the same card.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Button, Card, CardContent } from "@armada/components";
@@ -18,6 +18,14 @@ import type { CriterionView } from "./draft/criterion";
 
 export type PlanLeadProps = {
   criteria: readonly CriterionView[];
+  /**
+   * Approve the plan and Propose a change, as `PlanReview` builds them — the
+   * same node Overview's gate draws, so the two cannot offer different acts.
+   */
+  gate: ReactNode;
+};
+
+export type PlanGateProps = {
   job: JobSummary;
   /** The step that recorded the plan. The gate is drawn only while it waits. */
   step: StepDetail | undefined;
@@ -51,7 +59,7 @@ function originSaid(criterion: CriterionView): string {
  * Drawn only while the step that recorded the plan is waiting on a person, so
  * a Job already implementing offers nothing here to press.
  */
-function PlanGate({
+export function PlanGate({
   job,
   step,
   stale,
@@ -59,7 +67,7 @@ function PlanGate({
   deciding,
   onApproveReview,
   onRedirect,
-}: Omit<PlanLeadProps, "criteria">) {
+}: PlanGateProps) {
   if (step === undefined || step.state !== "awaiting_human") return null;
   return (
     <div className="armada-plan-tab__gate">
@@ -139,7 +147,7 @@ const NOTHING_HELD = "Nothing was written down for this Job to be held to.";
  * inspector. `#1274` is why the two are never one list: a Drone never chooses
  * the cases it is held to, and a task's `expects` is the planner's word.
  */
-export function PlanLead({ criteria, ...gate }: PlanLeadProps) {
+export function PlanLead({ criteria, gate }: PlanLeadProps) {
   const [open, toggle] = useLeadOpen();
   const Mark = open ? ChevronDown : ChevronRight;
   const first = criteria[0]?.text ?? NOTHING_HELD;
@@ -187,7 +195,7 @@ export function PlanLead({ criteria, ...gate }: PlanLeadProps) {
             ))}
           </ul>
         )}
-        <PlanGate {...gate} />
+        {gate}
       </CardContent>
     </Card>
   );
