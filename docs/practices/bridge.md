@@ -304,6 +304,20 @@ settles every animation everywhere.** A press that ought to land at once, on a
 surface that does not animate, would start waiting for a reason nobody wrote
 down, and a test that tolerates a slow surface can no longer catch one.
 
+**All three browser suites run with reduced motion emulated** — Playwright's
+`reducedMotion: "reduce"`, in each `vitest.config.ts` — so every `--duration-*`
+a panel moves on is 0ms and a sheet is in place on its first frame. Only ~15 of
+~50 mock test files spelled `entered()`, and on 30 Sep 2026 a Workflow test that
+did not missed its press under a load average of 19. `entered()` stays where it
+is: harmless here, and still right about the app.
+
+**A test whose claim is the motion turns it back on**, because under reduced
+motion a hold is not offered, nothing travels and no loop runs — so "nothing
+moved" would hold whatever the code did. `await motion()` in a test, or
+`beforeEach(motion)` for a file (`mock/testing.ts`, `packages/screens/src/mounted.tsx`);
+`parameters: { motion: "on" }` on a story (`packages/components/.storybook/motion.ts`).
+A control named for its hold counts: `Hold to kill job` is only drawn with motion on.
+
 ## Everything else specific to this app
 
 **The build is three bundles from one config, not one.** `electron.vite.config.ts`

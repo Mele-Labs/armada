@@ -14,6 +14,11 @@
 import tailwindcss from "@tailwindcss/vite";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
+
+/** Motion on or off for the page a test runs in, where every test starts with it reduced. */
+const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
+  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
 
 export default defineConfig({
   test: {
@@ -65,7 +70,16 @@ export default defineConfig({
             // shortens. Measured before choosing it: the slowest passing
             // test in the five heaviest files is 1,573ms, and the whole mock
             // suite went from 577s to 18s with no test changing colour.
-            provider: playwright({ actionTimeout: 3_000 }),
+            //
+            // **Reduced motion, emulated.** Every `--duration-*` a panel moves
+            // on is 0ms under it (`packages/tokens/src/motion.css`), so a sheet
+            // or dialog is in place on its first frame and a press cannot land
+            // on one still sliding in — `arc/plan-revision-refused` and a
+            // Workflow test each did, under load, on 30 Sep 2026. A test whose
+            // claim is the motion itself turns it back on with `motion()` in
+            // `src/renderer/src/mock/testing.ts`.
+            provider: playwright({ actionTimeout: 3_000, contextOptions: { reducedMotion: "reduce" } }),
+            commands: { motion },
             instances: [{ browser: "chromium" }],
             viewport: { width: 1440, height: 900 },
           },
