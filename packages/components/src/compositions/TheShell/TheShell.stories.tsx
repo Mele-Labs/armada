@@ -489,8 +489,12 @@ export const DockResizable: Story = {
   },
 };
 
-/** Below the breakpoint: the dock folds to an edge strip carrying the questions waiting, and opens as a sheet. */
-export const DockFoldedToAStrip: Story = {
+/**
+ * Below the breakpoint: no edge strip — the owner dropped it on 30 Sep 2026.
+ * The title row's Helm button carries the questions waiting and opens the dock
+ * as a sheet, the same press as at every other width.
+ */
+export const DockFoldedToASheet: Story = {
   args: {
     ...shell,
     collapsed: true,
@@ -505,7 +509,8 @@ export const DockFoldedToAStrip: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Open Helm, 3 questions waiting" }));
+    await expect(canvas.queryByRole("button", { name: /Open Helm/ })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Helm 3" }));
     await expect(canvas.getByRole("dialog", { name: "Helm" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: /^Close/ }));
     await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();

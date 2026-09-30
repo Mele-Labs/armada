@@ -947,9 +947,9 @@ inside the route rather than over it — below `--layout-breakpoint` it folds to
 a sheet flush to that route's edge, never to the window's. **Helm's dock is the
 one exception**: at `--layout-breakpoint` and wider it draws over the content
 when open, because it answers questions about whatever is on screen rather
-than inspecting one Job, and draws nothing at all when closed — the title
-row's own Helm button is the one way back, since the edge strip that used to
-sit there at any width is gone.
+than inspecting one Job, and draws nothing at all when closed. The title row's
+own Helm button is the one way back at every width, since no edge strip is
+drawn at any; below the breakpoint it opens the dock as a sheet.
 
 > **Rule.** Helm's dock is a layer over the content and never a column in it,
 > and Bridge opens with it shut. Opening it changes nothing about the width of
@@ -1048,7 +1048,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 | --- | --- | --- | --- |
 | Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
-| Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | An edge strip; open draws it as a sheet over the content instead | Not built |
+| Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
 | The Workflow canvas's inspector | A layer over the canvas, opened by pressing a node and closed by Close; nothing until a press | The same layer, at the width of the destination | Not built |
 
