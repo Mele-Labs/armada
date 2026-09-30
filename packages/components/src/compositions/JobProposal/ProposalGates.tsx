@@ -1,6 +1,7 @@
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
+import { ConceptLabel } from "../../concepts";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_ALWAYS_LOOKS } from "../../guides";
 
@@ -157,6 +158,17 @@ export function ProposalGates({
                 {step.unmeant}
               </p>
             )}
+            {/* What the button would change, read before it is pressed. The
+                only explanation used to be the overrode sentence below, which
+                a person reads after overriding — so the choice was made
+                blind (`rhxt`, 29 Sep). Nothing to press, nothing to say. */}
+            {step.repositoryDecides === undefined ||
+            step.overridden === true ||
+            onOverride === undefined ? null : (
+              <p className="armada-proposal__gate-choice">
+                Deciding it for this Job hands this step to the three boxes instead.
+              </p>
+            )}
             {step.repositoryDecides === undefined || step.overridden !== true ? null : (
               <p className="armada-proposal__overrode">
                 {`This Job decides this step for itself, in place of the repository's ${step.repositoryDecides}.`}
@@ -238,7 +250,13 @@ function Deferred({
   return (
     <div className="armada-proposal__deferred">
       <span className="armada-proposal__deferred-said">
-        {`The repository decides — ${step.repositoryDecides}`}
+        {"The repository decides — "}
+        {/* The key as `armada.yml` writes it, and `concepts.tsx` says what it
+            is: a bare identifier gets a tooltip naming it, which is the rule
+            `ProposalFields` labels already keep. */}
+        <ConceptLabel className="armada-proposal__deferred-policy">
+          {step.repositoryDecides}
+        </ConceptLabel>
       </span>
       {onOverride === undefined ? null : (
         <Button variant="secondary" size="sm" onClick={() => onOverride(step.id, true)}>

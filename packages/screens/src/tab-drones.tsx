@@ -182,6 +182,8 @@ export function DronesTab({
         }
         openRow={openRow}
         onOpenRow={(id) => {
+          // Jumped to, Close goes back — `trail.ts`.
+          if (id === null && trail?.close !== undefined) return trail.close();
           setOpenRow(id);
           setInstruction("");
         }}

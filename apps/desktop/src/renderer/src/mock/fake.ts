@@ -5,16 +5,38 @@
 // kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
-import type { JobSummary, Outcome } from "@armada/protocol";
+import { PROTOCOL_VERSION, refusedWith, sentOf } from "@armada/protocol";
+import type { JobSummary, Outcome, WorkPlan } from "@armada/protocol";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
+import { groupsAdding, groupsDropping, nextTaskId, planAdding, planDropping } from "./plan-fleet";
 
 const OK: Outcome = { ok: true };
+
+/** A fake's draft as it stands, and a way to hear it change. */
+export type LiveDraft = {
+  current: () => ArcDraft | undefined;
+  subscribe: (onDraft: () => void) => () => void;
+};
+
+/**
+ * Each fake's own draft, by the api it answers as. **Beside `BridgeApi` rather
+ * than on it**: the draft is the mock's stand-in for reads Fleet does not serve
+ * (`moment.ts`' `draft`), and the preload has no such member to type it by.
+ */
+const DRAFTS = new WeakMap<BridgeApi, LiveDraft>();
+
+/** The draft `api`'s fake holds, where `api` is one. `mount.tsx` draws from it. */
+export function liveDraft(api: BridgeApi): LiveDraft | undefined {
+  return DRAFTS.get(api);
+}
 
 /** A window's own `window.armada`, over one scenario. Each call makes a fresh one. */
 export function fakeBridge(scenario: Scenario): BridgeApi {
@@ -22,6 +44,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
   const listeners = new Set<(state: BridgeState) => void>();
   const summoners = new Set<(to: Summons) => void>();
   let summoned = false;
+  let draft = scenario.draft;
+  const drafters = new Set<() => void>();
 
   /** Publish a change — on a microtask, because main's reach a window over IPC, never inside the call. */
   function publish(change: Partial<BridgeState>): void {
@@ -40,6 +64,30 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
           ? { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, ...change } } }
           : watched,
     });
+  }
+
+  /**
+   * A person's own add or drop, folded where main's `foldPlan` folds the plan
+   * Fleet answers with, and into the draft groups an arc board draws instead.
+   * **Refused where no plan is open to change**, as Fleet refuses a Job with
+   * no plan recorded.
+   */
+  function editPlan(
+    jobId: string,
+    route: string,
+    plan: (was: WorkPlan) => WorkPlan | undefined,
+    groups: (was: GroupView[]) => GroupView[],
+  ): PlanEditAnswer {
+    const watched = state.watched;
+    const was = watched.state === "read" && watched.jobId === jobId ? watched.detail.work_plan : undefined;
+    const now = was === undefined ? undefined : plan(was);
+    if (watched.state !== "read" || now === undefined) return refused(path(jobId, route));
+    publish({ watched: { ...watched, detail: { ...watched.detail, work_plan: now } } });
+    if (jobId === scenario.opens && draft?.groups !== undefined) {
+      draft = { ...draft, groups: groups(draft.groups) };
+      queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
+    }
+    return { ok: true, plan: now };
   }
 
   function forget(jobIds: readonly string[]): void {
@@ -90,8 +138,11 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/pilot`) }),
     restartTask: async (jobId, taskId) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/restart`) }),
-    editTask: async (jobId, taskId) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`) }),
+    editTask: async (jobId, taskId, edit) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
+    // A drop on the plan, #1685 — answered as the edit is.
+    movePlan: async (jobId, move) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, "/plan/move"), sent: sentOf(move) }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));
@@ -125,8 +176,22 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     saveLimits: async () => OK,
     savePreference: async () => OK,
     fileReport: async () => OK,
-    addTask: async (jobId) => refused(path(jobId, "/plan")),
-    dropTask: async (jobId) => refused(path(jobId, "/plan")),
+    addTask: async (jobId, add) => {
+      let id = "";
+      return editPlan(
+        jobId,
+        "/add_task",
+        (was) => ((id = nextTaskId(was, draft?.groups)), planAdding(was, id, add)),
+        (was) => groupsAdding(was, id, add),
+      );
+    },
+    dropTask: async (jobId, drop) =>
+      editPlan(
+        jobId,
+        "/drop_task",
+        (was) => (was.tasks.some((task) => task.id === drop.task) ? planDropping(was, drop) : undefined),
+        (was) => groupsDropping(was, drop),
+      ),
 
     // The footprint and the hand-in are pushed about the open Job, so they arrive with it.
     watchJob: async (jobId) => {
@@ -295,5 +360,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // The mock provides no haptics, so nothing calls this; answered for the type.
     tap: () => undefined,
   };
-  return { ...api, ...scenario.behaves?.({ state: () => state, publish }) };
+  const fake = { ...api, ...scenario.behaves?.({ state: () => state, publish }) };
+  DRAFTS.set(fake, {
+    current: () => draft,
+    subscribe: (onDraft) => {
+      drafters.add(onDraft);
+      return () => drafters.delete(onDraft);
+    },
+  });
+  return fake;
 }

@@ -40,6 +40,13 @@ the board fit one screen.
 **What this gives up:** the criteria are a sentence in the lead rather than a
 row each, which is one press away from what the sketch drew.
 
+**30 Sep 2026: the sentence above was not true when it was written.** The lead
+read the waiting step alone, and a delivering step verifies nothing of its own —
+so on `job/reviewAtDelivery`, the Job this fold most often sits under, the
+second clause was empty while the folded record held three Checks and two
+criteria. It is true now: the lead counts every step's evidence, which is
+`the-lead-counts-the-whole-jobs-evidence`. The fold itself is unchanged.
+
 ## What had no answer, and still has none
 
 Four capabilities went with the deleted arrangement and have no destination:

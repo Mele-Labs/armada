@@ -340,6 +340,7 @@ describe("classifying", () => {
     "arc/approved-frozen: the first criterion says the issue it came from has been edited " +
       "since, and the Job still shows the words it froze",
     async () => {
+      window.localStorage.removeItem("armada.bridge.plan-lead-open");
       mount("arc/approved-frozen");
       // **Plan leads with what the Job is held to**, and has since the owner
       // asked why it did not. Overview stopped drawing it a second time on
@@ -350,13 +351,19 @@ describe("classifying", () => {
       // proposal's, and the proposal is Settings' once a Job is approved.
       const held = page.getByRole("tabpanel", { name: "Plan" });
       await expect.element(held).toHaveTextContent("What this Job is held to");
+      // **Shut to one line by default** (29 Sep 2026): the band and the first
+      // criterion. Where it came from is behind the press.
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
+      await expect.element(held).not.toHaveTextContent("From issue armada/1162");
+      await held.getByRole("button", { name: /What this Job is held to/, expanded: false }).click();
       // The word `issue` is on the line: a bare `owner/number` is a
       // repository, a path and a branch as readily as an issue (`u7y9`).
       await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
+      // The press is remembered per viewer; the next claim starts shut.
+      window.localStorage.removeItem("armada.bridge.plan-lead-open");
     },
   );
 
@@ -417,8 +424,9 @@ describe("the plan", () => {
 
   test("arc/planned: each group says which Checks run at its end — four where it writes Rust, seven where it writes Bridge", async () => {
     await planList("arc/planned");
-    await expect.element(groupCard(1)).toHaveTextContent("will run at this boundary");
-    await expect.element(groupCard(2)).toHaveTextContent("will run at this boundary");
+    // No clause about where they run (owner, 30 Sep 2026: *just fluff*).
+    await expect.element(groupCard(1).getByRole("region", { name: "Checks at this boundary" })).toBeVisible();
+    await expect.element(groupCard(1)).not.toHaveTextContent("will run at this boundary");
     // The count is on the strip and the names are behind its press.
     await openStrip(1, "Checks");
     await expect.element(groupCard(1)).toHaveTextContent("acceptance");
@@ -442,13 +450,14 @@ describe("the plan", () => {
     const sheet = page.getByRole("dialog").first();
     // The panel's words, rewritten on 28 Sep 2026 — *everything on this task
     // panel sounds like an AI bot phrased it*.
-    await expect.element(sheet).toHaveTextContent("What the Drone is told");
+    await expect.element(sheet).toHaveTextContent("Brief");
+    await expect.element(sheet).toHaveTextContent("Keep the four lists in this order");
     await expect.element(sheet).toHaveTextContent("difficult · opus");
-    await expect.element(sheet).toHaveTextContent("Run by its own agent");
+    await expect.element(sheet).toHaveTextContent("Runs beside");
     await expect.element(sheet).toHaveTextContent("T6");
     await expect.element(sheet).toHaveTextContent("Tests for this task");
     await expect.element(sheet).toHaveTextContent("Running.test.tsx");
-    await expect.element(sheet).toHaveTextContent("How we will know it worked");
+    await expect.element(sheet).toHaveTextContent("Done when");
     await expect.element(sheet).not.toHaveTextContent("What the planner holds it to");
   });
 
@@ -527,12 +536,11 @@ describe("the plan", () => {
       .toHaveTextContent("It drops packages/screens/src/Running.test.tsx.");
   });
 
-  test("arc/plan-revision-refused: a group offers move up, move down and remove while the plan waits, and the first group cannot move up", async () => {
+  test("arc/plan-revision-refused: a group offers Remove and Propose a change while the plan waits", async () => {
     await planList("arc/plan-revision-refused");
     const asks = page.getByRole("group", { name: "Ask about group 1" });
-    await expect.element(asks.getByRole("button", { name: "Move up" })).toBeDisabled();
-    await expect.element(asks.getByRole("button", { name: "Move down" })).toBeEnabled();
     await expect.element(asks.getByRole("button", { name: "Remove" })).toBeEnabled();
+    await expect.element(asks.getByRole("button", { name: "Propose a change" })).toBeEnabled();
     // The board says nothing about what an ask is. The `?` on the groups' own
     // head is where that went — #1602. The head is the noun and nothing more:
     // *The groups, in the order they run* would be the removed sentence in a
@@ -545,42 +553,12 @@ describe("the plan", () => {
       .not.toHaveTextContent("The plan is the Drone's record");
   });
 
-  test("arc/plan-revision-refused: moving a group past one that claims the same file warns before the ask goes out", async () => {
-    await planList("arc/plan-revision-refused");
-    await page
-      .getByRole("group", { name: "Ask about group 3" })
-      .getByRole("button", { name: "Move down" })
-      .click();
-    const dialog = page.getByRole("dialog").first();
-    await expect
-      .element(dialog)
-      .toHaveTextContent("Ask the Drone to run group 3 after group 4?");
-    await expect
-      .element(dialog)
-      .toHaveTextContent("Group 3 and group 4 both claim packages/screens/src/running-rows.tsx");
-    await expect.element(dialog).toHaveTextContent("Group 3 writes it first as the plan stands");
-    await expect.element(dialog).toHaveTextContent("it may refuse");
-  });
-
-  test("arc/plan-revision-refused: a reorder the scopes do not disagree with carries no warning", async () => {
-    await planList("arc/plan-revision-refused");
-    await page
-      .getByRole("group", { name: "Ask about group 2" })
-      .getByRole("button", { name: "Move up" })
-      .click();
-    const dialog = page.getByRole("dialog").first();
-    await expect
-      .element(dialog)
-      .toHaveTextContent("Ask the Drone to run group 2 before group 1?");
-    await expect.element(dialog).not.toHaveTextContent("both claim");
-  });
-
-  test("arc/plan-revision-refused: a task's inspector asks for a rewrite, and the control is off until something is typed", async () => {
+  test("arc/plan-revision-refused: a task's inspector proposes a change, and the control is off until something is typed", async () => {
     await planList("arc/plan-revision-refused");
     await taskRow("T6").getByRole("button").first().click();
     const sheet = page.getByRole("dialog").first();
-    await expect.element(sheet).toHaveTextContent("Rewrite this task");
-    const send = sheet.getByRole("button", { name: "Ask the Drone" });
+    await sheet.getByRole("button", { name: "Propose a change" }).click();
+    const send = sheet.getByRole("button", { name: "Send to the Drone" });
     await expect.element(send).toBeDisabled();
     await sheet.getByRole("textbox").first().fill("Split the rows out of this one");
     await expect.element(send).toBeEnabled();

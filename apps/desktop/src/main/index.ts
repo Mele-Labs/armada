@@ -9,7 +9,7 @@ import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome, StudioPromotion } from "@armada/protocol";
 import type { HelmContext, StagedAttachment } from "@armada/protocol";
-import type { AddTask, DropTask, FileReport } from "@armada/protocol";
+import type { AddTask, DropTask, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type {
   Artifact,
   CommandAnswer,
@@ -534,8 +534,12 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.restartTask, (_event, jobId: string, taskId: string) =>
     connection?.commands.restartTask(jobId, taskId),
   );
-  ipcMain.handle(CHANNELS.editTask, (_event, jobId: string, taskId: string) =>
-    connection?.commands.editTask(jobId, taskId),
+  ipcMain.handle(CHANNELS.editTask, (_event, jobId: string, taskId: string, edit: EditTask) =>
+    connection?.commands.editTask(jobId, taskId, edit),
+  );
+  // A group or a task dropped somewhere new on the plan — #1685.
+  ipcMain.handle(CHANNELS.movePlan, (_event, jobId: string, move: MovePlan) =>
+    connection?.commands.movePlan(jobId, move),
   );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person

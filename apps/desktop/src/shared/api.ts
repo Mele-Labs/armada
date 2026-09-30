@@ -8,6 +8,8 @@
 
 import type {
   AddTask,
+  EditTask,
+  MovePlan,
   Artifact,
   CaptureOpened,
   CallRead,
@@ -157,8 +159,16 @@ export type BridgeApi = {
   pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
   /** Run a failed plan task again. #1656, as `pilotTask`. */
   restartTask: (jobId: string, taskId: string) => Promise<Outcome>;
-  /** Change a failed plan task before it runs again. #1657, as `pilotTask`. */
-  editTask: (jobId: string, taskId: string) => Promise<Outcome>;
+  /**
+   * Change a plan task that is open or failed — only the fields `edit`
+   * names. #1657, as `pilotTask`; the fields ride on the debug info.
+   */
+  editTask: (jobId: string, taskId: string, edit: EditTask) => Promise<Outcome>;
+  /**
+   * Move a group, or a task into a group, where a person dropped it on the
+   * plan. #1685, as `pilotTask`; the move rides on the debug info.
+   */
+  movePlan: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the

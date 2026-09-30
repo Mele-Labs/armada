@@ -196,6 +196,52 @@ describe("what a person may still change", () => {
   );
 });
 
+describe("the step the repository decides", () => {
+  /** The row the owner could not read (`rhxt`, 29 Sep). */
+  const deferred = () => page.getByRole("listitem", { name: "Review the change" });
+
+  // **Only the whole screen carries this.** The word is the repository's, not
+  // the step's: it comes off the proposal the window holds and reaches the row
+  // through `gateRowsOf`, so a story handed a row cannot show that the two
+  // ends are joined.
+  test(
+    "the row says what its repository's policy resolves to today, and that this Job moves " +
+      "with it",
+    async () => {
+      open();
+
+      await expect.element(deferred()).toHaveTextContent("The repository decides — review_gate");
+      // `human_always`, as this repository's `armada.yml` declares it, in the
+      // verb `enum-verbs.toml` generates for that value.
+      await expect.element(deferred()).toHaveTextContent("Today that policy says a person answers");
+      await expect.element(deferred()).toHaveTextContent("for this Job as well");
+      // And the wire's own spelling stays off the screen.
+      await expect.element(deferred()).not.toHaveTextContent("human_always");
+    },
+  );
+
+  test("what the button would change is on the row before it is pressed", async () => {
+    open();
+
+    await expect
+      .element(deferred())
+      .toHaveTextContent("Deciding it for this Job hands this step to the three boxes instead.");
+    expect(deferred().getByRole("checkbox").all()).toHaveLength(0);
+
+    // Pressed, the three boxes are the answer, and the row stops offering the
+    // choice it has already taken.
+    await deferred().getByRole("button", { name: "Decide it for this Job" }).click();
+
+    expect(deferred().getByRole("checkbox").all()).toHaveLength(3);
+    await expect
+      .element(deferred())
+      .not.toHaveTextContent("hands this step to the three boxes");
+    await expect
+      .element(deferred())
+      .toHaveTextContent("This Job decides this step for itself, in place of the repository's");
+  });
+});
+
 describe("what each criterion says about itself", () => {
   test(
     "a criterion names the issue its words came from as an issue, and says what will decide " +

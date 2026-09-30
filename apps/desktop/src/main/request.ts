@@ -19,7 +19,7 @@ import type { Preferences } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
 import type { CallArguments, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
-import { refusedWith } from "@armada/protocol";
+import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { Picked } from "./picked";
@@ -168,7 +168,13 @@ export async function ask(
   body?: unknown,
   waitMs: number = COMMAND_MS,
 ): Promise<Answer> {
-  const asked = { method, path };
+  // A pending route's body rides on the fault, so `Not implemented` says
+  // what the act carried — `sentOf`.
+  const asked = {
+    method,
+    path,
+    ...(body !== undefined && pendingAt(method, path) !== null ? { sent: sentOf(body) } : {}),
+  };
   try {
     const answer = await fetch(`http://${HOST}:${port}${path}`, {
       method,

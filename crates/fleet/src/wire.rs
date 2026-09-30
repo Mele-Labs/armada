@@ -314,6 +314,11 @@ pub(crate) fn manifest_summary(manifest: &config::Manifest, records_root: &str) 
         records_root: records_root.to_string(),
         version: manifest.version(),
         checks: manifest.check_names(),
+        // The two words a `manifest_rule:` gate defers to, read off the live
+        // cell like every other policy question. Absent from the file is the
+        // policy's own default here, which is what the gate would resolve.
+        auto_merge: manifest.auto_merge().as_written().to_string(),
+        review_gate: manifest.review_gate().as_written().to_string(),
     }
 }
 

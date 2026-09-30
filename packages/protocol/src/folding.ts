@@ -144,7 +144,7 @@ export function journalledFrom(
 }
 
 /** The request an unreadable answer names, so the fault can say which. */
-export type AskedRoute = { method: "GET" | "POST"; path: string };
+export type AskedRoute = { method: "GET" | "POST"; path: string; sent?: Record<string, string> };
 
 /**
  * What an answer outside 2xx comes to.

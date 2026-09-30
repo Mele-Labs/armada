@@ -15,7 +15,10 @@ export const GUIDE_ALWAYS_LOOKS: Guide = {
   steps: [
     "The boxes on a step choose its gate.",
     "Whether Checks have to pass, whether a Judge reads it, whether a person answers.",
-    "They are the whole of what you are choosing.",
+    "On most steps they are the whole of what you are choosing.",
+    "A step can defer to the repository instead, and then no box is ticked.",
+    "Its row names the policy that decides it, and what that policy says today.",
+    "Deciding it for this Job hands the step back to the three boxes.",
     "Two readings run whatever is ticked.",
     "Fleet checks that the work stayed inside what the plan declared.",
     "Fleet looks for a Check that was gamed: a test deleted, a skip added, a command narrowed " +

@@ -30,6 +30,22 @@ export const ARC_DRONES: Record<string, string> = {
 /** Which model each tier resolves to. The planner picks the tier; this follows. */
 export const ARC_TIERS = { difficult: "opus", medium: "sonnet", easy: "haiku" } as const;
 
+/**
+ * The planner's brief on each task: the one thing it wanted the task's Drone
+ * to know before starting. **Every task carries one**, so the task panel's
+ * Brief is drawn on every moment rather than on one task.
+ */
+const ARC_NOTES: Record<string, string> = {
+  T1: "Answer from the state Fleet already holds. No new table.",
+  T2: "Send it when a Drone starts or exits, not on every turn.",
+  T3: "Only the words change. The stat stays where it is.",
+  T4: "Settings says it in two places. Change both.",
+  T5: "Keep the four lists in this order, and draw each row as the Board does.",
+  T6: "The row opens the Job, not the Drone.",
+  T7: "Name what it is waiting for. No spinner.",
+  T8: "Fixed data only. None of the four should need Fleet.",
+};
+
 /** One task, before anything has run it. */
 function task(
   id: string,
@@ -45,6 +61,7 @@ function task(
     title,
     scope,
     expects,
+    ...(ARC_NOTES[id] === undefined ? {} : { note: ARC_NOTES[id] }),
     state: "open",
     touched_after_done: false,
     group,
@@ -107,8 +124,6 @@ export function arcGroups(): GroupView[] {
     ["c-panel"],
     "Pressing a Drone's row opens that Job",
   );
-  // The planner's brief, on the one task that carries one.
-  t5.note = "Keep the four lists in this order, and draw each row as the Board does.";
   t5.concurrent_with = ["T6"];
   t6.concurrent_with = ["T5"];
 

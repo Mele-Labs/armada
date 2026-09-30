@@ -7,7 +7,7 @@ import type { CriterionView } from "./draft/criterion";
 import type { LandingRule } from "./draft/landing";
 import type { GateView, ProposalView } from "./draft/proposal";
 import { sampleDetail, sampleStep } from "./draft/sample";
-import type { WorkflowSummary } from "@armada/protocol";
+import type { ManifestSummary, WorkflowSummary } from "@armada/protocol";
 import {
   completeChoices,
   criteriaAdded,
@@ -21,6 +21,7 @@ import {
   landingWith,
   proposalEditsOf,
   proposalOnWorkflow,
+  repositorySaysOf,
   workflowChoicesOf,
 } from "./tab-proposal-read";
 
@@ -69,6 +70,17 @@ describe("what the screen opens on", () => {
   });
 });
 
+/** One Manifest Fleet holds, with whichever policy words this case is about. */
+const manifest = (words: Partial<ManifestSummary>): ManifestSummary => ({
+  id: "01M",
+  repository: "armada",
+  path: "armada/armada.yml",
+  records_root: "/records/armada",
+  version: 1,
+  checks: [],
+  ...words,
+});
+
 describe("one row per step", () => {
   it("takes the step's own label off the Job, and its id where Fleet has no record", () => {
     const whole = sampleDetail({
@@ -85,6 +97,27 @@ describe("one row per step", () => {
 
     expect(rows[0]?.advanceGate).toBe("auto_if_judge_passes");
     expect(rows[1]?.repositoryDecides).toBe("review_gate");
+  });
+
+  // The repository's own word reaches the row that defers to it, which is
+  // what tells a reader whether a person will be asked (`rhxt`, 29 Sep).
+  it("says what the repository's policy resolves to, where the Manifest carries it", () => {
+    const says = repositorySaysOf(manifest({ review_gate: "auto_if_judge_passes" }));
+
+    expect(gateRowsOf(GATES, null, undefined, says)[1]?.does).toContain(
+      "the checks decide, unless the Judge objects",
+    );
+  });
+
+  // A Fleet older than 18.4 sends neither word. The row says the repository
+  // decides and stops there, rather than naming the documented default.
+  it("claims nothing where the Manifest carries no word", () => {
+    for (const held of [manifest({}), undefined]) {
+      const rows = gateRowsOf(GATES, null, undefined, repositorySaysOf(held));
+      expect(rows[1]?.does).toBe(
+        "The repository's review_gate policy decides whether a person signs off.",
+      );
+    }
   });
 
   // What the step declares is what a tick cannot move, so the warning is read

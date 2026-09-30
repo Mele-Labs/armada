@@ -90,19 +90,19 @@ export const Dropped: Story = {
 };
 
 /**
- * A task that names no files and no evidence. **The three fields a Drone is
- * dispatched on are still drawn**, because absent is an answer there: what it
- * will be told, what it runs beside and what covers it are the reading a
- * person approves a plan by, and a blank where one should be is the finding.
+ * A task that names no files and no evidence. **An empty field is not
+ * drawn**: no brief and nothing beside it leave no label with a sentence
+ * standing in. What covers it is the one still said, because a task nothing
+ * tests is the finding a person approves a plan by.
  */
 export const NothingBeyondTheTitle: Story = {
   args: { id: "T7", title: "Cover the four states the definition of done names", state: "open" },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("Its title and the files below, and nothing else.")).toBeVisible();
-    await expect(sheet.getByText("Nothing. It runs on its own.")).toBeVisible();
+    await expect(sheet.queryByRole("heading", { name: "Brief" })).toBeNull();
+    await expect(sheet.queryByRole("heading", { name: "Runs beside" })).toBeNull();
+    await expect(sheet.queryByRole("heading", { name: "Done when" })).toBeNull();
     await expect(sheet.getByText("No test covers this task yet.")).toBeVisible();
-    await expect(sheet.queryByText("How we will know it worked")).toBeNull();
   },
 };
 
@@ -184,17 +184,15 @@ export const AgainstWhatItTouched: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(
-      sheet.getByText("10 in the plan · 8 written to · 1 the plan never named"),
-    ).toBeVisible();
     await expect(sheet.getAllByText("not touched")).toHaveLength(2);
+    await expect(sheet.getAllByText("not planned")).toHaveLength(1);
     await expect(sheet.getByText("crates/ipc/src/activity.rs")).toBeVisible();
   },
 };
 
 /**
- * A task whose work reached everything it named. **The count says so and no
- * row is marked** — a badge on every row would say nothing at all.
+ * A task whose work reached everything it named. **No row is marked** — a
+ * badge on every row would say nothing at all.
  */
 export const EverythingItNamed: Story = {
   args: {
@@ -212,7 +210,7 @@ export const EverythingItNamed: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("2 in the plan · 2 written to")).toBeVisible();
+    await expect(sheet.getByText("packages/screens/src/overview.test.ts")).toBeVisible();
     await expect(sheet.queryByText("not touched")).toBeNull();
   },
 };
@@ -227,32 +225,31 @@ export const NotReadAgainstAnything: Story = {
   args: { ...LONG, state: "working" },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByText("10 in the plan")).toBeVisible();
+    await expect(sheet.getByText("crates/api/src/routes/served.rs")).toBeVisible();
     await expect(sheet.queryByText("not touched")).toBeNull();
   },
 };
 
 /**
- * The plan is still a question, so the inspector can ask for this task to be
- * written differently. **The field is the confirmation**: an empty one sends
- * nothing, which is why the control is off until something is typed. Verified
- * against a sheet whose `rewrite` is absent, where neither is drawn at all.
+ * The plan is still a question, so the panel can propose a change to this
+ * task. **The field is the confirmation**: an empty one sends nothing, which
+ * is why Send is off until something is typed. Verified against a sheet whose
+ * `propose` is absent, where neither is drawn at all.
  */
-export const AskingForARewrite: Story = {
+export const ProposingAChange: Story = {
   args: {
     ...LONG,
     state: "open",
-    rewrite: {
-      label: "Rewrite this task",
-      lead: "Say what this task should be instead. The Drone that wrote the plan decides, and it may refuse.",
-      placeholder: "Take the panel's rows out of this one and give them a task of their own",
-      send: "Ask the Drone",
-      onAsk: fn(),
+    propose: {
+      label: "Propose a change",
+      send: "Send to the Drone",
+      onPropose: fn(),
     },
   },
   play: async ({ canvasElement, args }) => {
     const sheet = within(canvasElement);
-    const send = sheet.getByRole("button", { name: "Ask the Drone" });
+    await userEvent.click(sheet.getByRole("button", { name: "Propose a change" }));
+    const send = sheet.getByRole("button", { name: "Send to the Drone" });
     await expect(send).toBeDisabled();
     await userEvent.type(
       sheet.getByRole("textbox"),
@@ -260,21 +257,42 @@ export const AskingForARewrite: Story = {
     );
     await expect(send).toBeEnabled();
     await userEvent.click(send);
-    await expect(args.rewrite?.onAsk).toHaveBeenCalledWith(
+    await expect(args.propose?.onPropose).toHaveBeenCalledWith(
       "Split the rows out, so the tests have something smaller to hold",
     );
   },
 };
 
-/** The ask is out. The field and the control both refuse a second one. */
-export const TheRewriteIsOut: Story = {
+/** A change is out. The control refuses a second one until it is answered. */
+export const TheProposalIsOut: Story = {
   args: {
-    ...AskingForARewrite.args,
-    rewrite: { ...AskingForARewrite.args!.rewrite!, pending: true },
+    ...ProposingAChange.args,
+    propose: { ...ProposingAChange.args!.propose!, pending: true },
   } as Story["args"],
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByRole("textbox")).toBeDisabled();
+    await expect(sheet.getByRole("button", { name: "Propose a change" })).toBeDisabled();
+  },
+};
+
+/**
+ * Edit this task, filled from the task, sending only what changed. Save is
+ * off until something differs.
+ */
+export const EditingTheTask: Story = {
+  args: {
+    ...LONG,
+    state: "open",
+    edit: { models: ["opus", "sonnet", "haiku"], onEdit: fn(async () => false) },
+  },
+  play: async ({ canvasElement, args }) => {
+    const sheet = within(canvasElement);
+    await userEvent.click(sheet.getByRole("button", { name: "Edit this task" }));
+    const save = sheet.getByRole("button", { name: "Save" });
+    await expect(save).toBeDisabled();
+    await userEvent.selectOptions(sheet.getByLabelText("Model"), "haiku");
+    await userEvent.click(save);
+    await expect(args.edit?.onEdit).toHaveBeenCalledWith({ model: "haiku" });
   },
 };
 
@@ -329,12 +347,13 @@ export const ManyFilesAndOneUnplanned: Story = {
 };
 
 /**
- * Every label has a value in a box of its own.
+ * Every label is a register over plain text, and no value is boxed.
  *
- * **A break test on a size, because this is the note that keeps coming back.**
- * The owner has made it four times across four surfaces: a run of fields all
- * in one weight reads as a wall. A stylesheet that stopped drawing the box
- * would still put every word on the screen, and every other story would pass.
+ * **A break test on a style, because this note came back.** The value sat in a
+ * sunken box once, and the owner read it as a field he could type in (29 Sep
+ * 2026): a panel that only reads must not look like a form. The label's small
+ * caps in `--fg-subtle` over `--fg-default` is the separator, and a
+ * stylesheet that put the box back would pass every other story here.
  */
 export const LabelsAndValues: Story = {
   args: { ...LONG, state: "working", tier: "difficult", model: "opus" },
@@ -345,26 +364,27 @@ export const LabelsAndValues: Story = {
     await expect(values).toHaveLength(labels.length);
     const model = [...values].find((one) => one.textContent === "difficult · opus")!;
     const box = getComputedStyle(model);
-    await expect(box.borderBottomStyle).toBe("solid");
-    await expect(box.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(parseFloat(box.borderBottomWidth)).toBe(0);
+    await expect(box.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    await expect(getComputedStyle(labels[0]!).color).not.toBe(box.color);
   },
 };
 
 /**
- * The mark is left of the title and the id.
+ * The id is left of the title, at the head's leading edge; the state is the
+ * badge under it.
  *
- * **A break test on position**, which is the whole of what the owner asked for
- * (28 Sep 2026) and the one thing a text assertion cannot see: the mark was in
- * the head's trailing controls, beside Close, and read the same to a test.
+ * **A break test on position**, which a text assertion cannot see: both are
+ * in the head either way.
  */
-export const TheMarkLeads: Story = {
+export const TheIdLeads: Story = {
   args: { ...LONG, state: "done" },
   play: async ({ canvasElement }) => {
-    const mark = canvasElement.querySelector(".armada-task-mark")!;
-    const title = canvasElement.querySelector(".armada-sheet__title")!;
-    await expect(mark.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await expect(mark.getBoundingClientRect().left).toBeLessThan(
-      title.getBoundingClientRect().left,
-    );
+    const sheet = within(canvasElement);
+    const id = sheet.getByText("T1");
+    const title = sheet.getByRole("heading", { name: LONG.title });
+    await expect(id.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(id.getBoundingClientRect().left).toBeLessThan(title.getBoundingClientRect().left);
+    await expect(sheet.getByText("Done")).toBeVisible();
   },
 };

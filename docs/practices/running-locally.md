@@ -309,6 +309,7 @@ fails typecheck there until the fake answers it.
 | Any read the scenario holds nothing for | A failure whose sentence says it is not in this mock scenario |
 | An act | Succeeds. Where it changes one field on a Job — approve, kill, reject, a model, a clear — that field moves |
 | A Studio read or write | The scenario's own Studios, kept by the fake and written to as Fleet would |
+| A plan edit — `addTask`, `dropTask` | The open Job's plan changes, in its `work_plan` and in the moment's draft groups: a new open task, the next free `T<n>`, after the one named; or the task dropped, with its reason. Refused where no plan is open. `mock/plan-fleet.ts` |
 
 **Every scenario keeps Studios**, so the surface opens wherever it is reached. A
 scenario naming none keeps an empty list and draws its empty state, never a read

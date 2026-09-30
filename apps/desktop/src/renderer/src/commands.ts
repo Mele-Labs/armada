@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -478,20 +478,34 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * A failed plan task's Pilot, Restart or Edit, from its panel. **Not through
+   * A failed plan task's Pilot or Restart, or Edit this task, from its panel.
+   * **Not through
    * `acted`**, `killProcess`'s reason: it names a task, not a header act. The
    * answer goes where every command's does, so `Not implemented` is drawn with
    * the issue that builds the route — #250, #1656, #1657.
    */
-  async function taskAct(act: TaskAct, jobId: string, taskId: string): Promise<void> {
+  async function taskAct(act: TaskAct, jobId: string, taskId: string, edit?: EditTask): Promise<Outcome> {
     const answer =
       act === "pilot_task"
         ? await window.armada.pilotTask(jobId, taskId)
         : act === "restart_task"
           ? await window.armada.restartTask(jobId, taskId)
-          : await window.armada.editTask(jobId, taskId);
+          : await window.armada.editTask(jobId, taskId, edit ?? {});
     setOutcome(answer);
     tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
+   * A group or a task dropped somewhere new on the plan. `taskAct`'s reason:
+   * the answer is drawn where every command's is, so `Not implemented` names
+   * #1685 until Fleet serves the route.
+   */
+  async function movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
+    const answer = await window.armada.movePlan(jobId, move);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
   }
 
   /**
@@ -883,6 +897,7 @@ export function useCommands(sending: Sending) {
     report,
     addTask,
     dropTask,
+    movePlan,
     decide,
     refresh,
   };

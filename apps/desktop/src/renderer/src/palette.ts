@@ -101,6 +101,7 @@ export function dormantIn(where: {
     open_log: "the story's own chapter",
     open_diff: "the story's own Produced chapter",
     open_stage: "the phase strip",
+    move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 
     // The Studio's own control, for the reason above it: `Studios` holds which
     // kind is being written, and `App` has no handle to it. A wiring gap,
@@ -130,7 +131,10 @@ export function dormantIn(where: {
     // the 48px rail and never hides — #1435 read those as the same thing and
     // was corrected.
     toggle_sidebar: "⌘\\ collapses the column to its rail; not reachable from the palette yet",
-    history: "no back and forward yet",
+    // The Back trail (`packages/screens/src/trail.ts`) answers ⌘[ inside a
+    // Job after a jump between panels, and only there; `App` holds no handle
+    // to it, and there is no forward yet.
+    history: "⌘[ goes back after a jump inside a job; no forward yet",
   };
 }
 

@@ -55,12 +55,57 @@
   text-wrap: pretty;
 }
 
-/* A failed task's own acts, under why it stopped. */
+/* A task's own acts: a failed one's two under why it stopped, Edit this
+   task, Propose a change while the plan waits on a person, and Drop this
+   task. */
 .armada-task-sheet__acts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* The drop's reason, asked in place under the acts. A column: the hint and
+   a refusal sit under the field, and the two buttons under them at the end,
+   where the proposal puts its own. */
+.armada-task-sheet__drop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Edit this task: the five fields down one column, and Cancel and Save
+   under them at the end, the drop's own buttons. */
+.armada-task-sheet__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-task-sheet__drop-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* A hint while nobody has tried to drop with the field blank, `Input`'s own
+   invalid colour once they have. */
+.armada-task-sheet__hint {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-task-sheet__hint[data-tone="error"],
+.armada-task-sheet__refused {
+  color: var(--status-completed-failed);
+}
+
+.armada-task-sheet__refused {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 /* Each task it runs beside, as the Plan graph's own card. */
@@ -178,18 +223,9 @@
   color: var(--fg-subtle);
 }
 
-/* The rewrite ask's own control, on its own line under the field it sends.
-   End-aligned, so the sheet's one act sits where a sheet's acts always do. */
-.armada-task-sheet__rewrite-act {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
 /* Close stays in the head's trailing corner at every width — the owner's note
    on this sheet, 28 Sep 2026. A task's title is a sentence and the sheet's own
-   one-line title clipped it under the close; here it wraps instead. Docked,
-   `Sheet.css` already does this for the dock. */
+   one-line title clipped it under the close; here it wraps instead. */
 .armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__head {
   flex-wrap: nowrap;
   align-items: flex-start;
@@ -226,11 +262,12 @@
   background: var(--surface-row-selected);
 }
 
-/* The file diff docked beside the task: `--w-dialog-wide`, the widest
-   reading width the tokens hold, and never past the container's leading edge,
-   which the scrim's own box already bounds. */
-.armada-sheet[data-docked]:has(> .armada-sheet__body > .armada-task-diff) {
-  width: var(--w-dialog-wide);
+/* The file diff beside the task: up to `--w-dialog-wide`, the widest reading
+   width the tokens hold, and never past the work area's leading margin, which
+   the scrim's own box already bounds. At the floor it is flush, as every
+   floating sheet is there. */
+.armada-sheet[data-floating]:not([data-floor]):has(> .armada-sheet__body > .armada-task-diff) {
+  max-width: var(--w-dialog-wide);
 }
 
 /* The path is the panel's title, so it wraps rather than clips, in the mono
