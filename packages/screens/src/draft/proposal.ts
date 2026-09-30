@@ -33,12 +33,14 @@ export type RepositoryDecides = "auto_merge" | "review_gate";
  * The word as `armada.yml` writes it — `human_always`, `checks-pass`;
  * `policyMeans` renders it.
  *
- * **Absent is a policy nothing read, never a default.** Fleet resolves these
- * at the gate and records the answer nowhere (`crates/fleet/src/policy.rs`),
- * and no read a Job's screen makes carries them: `ManifestSummary` holds a
- * repository's Checks and not its policies, and `ManifestDeclared.review_gate`
- * reaches the Manifest surface alone. So a reading handed nothing says only
- * that the repository decides.
+ * **Absent is a Fleet older than 18.4, never a default.** `ManifestSummary`
+ * carries both words since then and a file declaring neither key crosses as
+ * each policy's own default, so nothing else is missing — a reading handed
+ * nothing says only that the repository decides.
+ *
+ * **One file's word and not the gate's answer.** Fleet folds a Job's several
+ * gating Manifests at the gate and records nothing (`fleet::policy`), so this
+ * is what the repository says today rather than what will happen.
  */
 export type RepositorySays = Readonly<Partial<Record<RepositoryDecides, string>>>;
 
@@ -93,14 +95,6 @@ export type ProposalView = {
    */
   asked?: string;
   gates: GateView[];
-  /**
-   * What this Job's repository says for each policy a gate defers to.
-   *
-   * **On the proposal rather than on the gate**: the policy is the
-   * repository's, and a copy per step could draw two rows disagreeing about
-   * one word.
-   */
-  repository_says?: RepositorySays;
   /**
    * The line the ticks cannot turn off.
    *

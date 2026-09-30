@@ -480,6 +480,15 @@ async fn what_fleet_holds_is_what_a_proposal_may_name() {
     let manifests: Vec<ipc::ManifestSummary> =
         ipc::decode("the Manifests", &body).expect("a Manifest list");
     assert_eq!(manifests[0].id.as_str(), "01FIXTUREMANIFEST");
+    // The two policy words, 18.4. **The fixture declares neither key**, so
+    // this is the case that matters: each crosses as its own default rather
+    // than as an empty string, which Bridge reads as a Fleet older than the
+    // field and draws a gate's deference unresolved for.
+    assert_eq!(manifests[0].auto_merge, "never", "the policy's own default");
+    assert_eq!(
+        manifests[0].review_gate, "human_always",
+        "a file saying nothing still says what the gate would resolve to"
+    );
 
     let (status, body) = call(&app, "GET", "/models", "").await;
     assert_eq!(status, StatusCode::OK);

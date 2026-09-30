@@ -56,11 +56,6 @@ export function arcProposal(over: Partial<ProposalView> = {}): ProposalView {
     title: "Show what is running in the Drones stat",
     workflow_id: "feature",
     gates: [],
-    // What this repository says for the policy its `handoff` step defers to.
-    // `human_always`, because that is what the mock Fleet's own `armada.yml`
-    // declares — `DECLARED` in `apps/desktop/.../mock/manifest-fleet.ts`, the
-    // same Manifest this Job is dispatched against.
-    repository_says: { review_gate: "human_always" },
     fleet_always_looks: true,
     tiers: ARC_TIERS,
     drone_cap: 2,

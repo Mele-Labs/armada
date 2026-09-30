@@ -696,6 +696,10 @@ pub fn manifests() -> Vec<ManifestSummary> {
         records_root: "/records/a-repository-key".to_string(),
         version: 1,
         checks: vec!["build".to_string()],
+        // Both policies' own defaults, which is what a file saying nothing
+        // resolves to at the gate.
+        auto_merge: "never".to_string(),
+        review_gate: "human_always".to_string(),
     }]
 }
 

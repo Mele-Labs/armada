@@ -9,7 +9,12 @@
 
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
 import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
-import type { JobDetail as JobWhole, WorkflowStep, WorkflowSummary } from "@armada/protocol";
+import type {
+  JobDetail as JobWhole,
+  ManifestSummary,
+  WorkflowStep,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 import { criterionWritten, decidedSaidOf, originSaidOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
@@ -103,6 +108,20 @@ export function gateRowsOf(
     if (unmeant !== undefined) row.unmeant = unmeant;
     return row;
   });
+}
+
+/**
+ * What this Job's repository says for each policy a gate can defer to.
+ *
+ * **Both words or neither**: a Fleet that sends these sends both, and one
+ * older than 18.4 sends neither — so a row on an older Fleet reads as a
+ * deference nothing resolved rather than as a policy nobody set.
+ */
+export function repositorySaysOf(manifest: ManifestSummary | undefined): RepositorySays {
+  return {
+    ...(manifest?.auto_merge === undefined ? {} : { auto_merge: manifest.auto_merge }),
+    ...(manifest?.review_gate === undefined ? {} : { review_gate: manifest.review_gate }),
+  };
 }
 
 /**

@@ -35,6 +35,8 @@ fn manifest(id: &str) -> ManifestSummary {
         records_root: String::from("/Machine/Armada/records"),
         version: 1,
         checks: Vec::new(),
+        auto_merge: String::from("never"),
+        review_gate: String::from("human_always"),
     }
 }
 
