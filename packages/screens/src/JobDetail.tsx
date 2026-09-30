@@ -289,7 +289,11 @@ function OneJob(props: JobDetailProps) {
           manifest={manifest}
         />
       ) : tab === "overview" ? (
-        <>
+        // **One box scrolls the wave and the board under it**, as Plan's does:
+        // with the wave outside the board's own scroller, the graph took the
+        // height and the board was squeezed to nothing — nothing under the
+        // wave could be reached.
+        <div className="armada-detail-tab armada-overview-scroll">
         {/* The wave this Job dispatched, above the run — what it dispatched is
             the product of an Epic Job, and the run is how it got there. A Job
             that dispatched nothing draws nothing. #1544. A Job pressed opens
@@ -327,7 +331,7 @@ function OneJob(props: JobDetailProps) {
           }}
           trail={trail.of("overview")}
         />
-        </>
+        </div>
       ) : tab === "workflow" ? (
         <WorkflowTab
           job={job}

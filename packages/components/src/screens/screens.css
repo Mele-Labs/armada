@@ -2627,3 +2627,12 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+
+/* Overview's one scroller: the wave an Epic Job dispatched and the board under
+   it scroll as one, the way Plan's destination holds its wave. The board keeps
+   its own class and stops scrolling itself — inside this box it takes the
+   height it needs rather than giving it up to the wave's graph. */
+.armada-overview-scroll > .armada-overview-board {
+  flex: none;
+  overflow-y: visible;
+}

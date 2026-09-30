@@ -1004,6 +1004,25 @@ describe("the wave", () => {
     await expect.element(wave().getByText("Up to 5 waves")).toBeVisible();
   });
 
+  // The owner, 30 Sep 2026: "I can't seem to scroll when I have a wave
+  // selected." The wave sat outside Overview's scroller and squeezed the board
+  // under it to nothing, so the wheel moved nothing.
+  test("epic/wave: Overview scrolls from the wave down through the board under it", async () => {
+    mount("epic/wave");
+    await expect.element(wave().getByText("Up to 5 waves")).toBeVisible();
+    const board = page.getByRole("tabpanel", { name: "Overview" }).element() as HTMLElement;
+    let scroller: HTMLElement | null = board;
+    while (scroller !== null && getComputedStyle(scroller).overflowY !== "auto") {
+      scroller = scroller.parentElement;
+    }
+    expect(scroller).not.toBeNull();
+    const box = scroller!;
+    expect(box.contains(wave().element())).toBe(true);
+    expect(box.clientHeight).toBeGreaterThan(200);
+    box.scrollTop = box.scrollHeight;
+    await expect.poll(() => box.scrollTop).toBeGreaterThan(0);
+  });
+
   test("epic/wave: pressing a past wave draws its Jobs on the graph", async () => {
     mount("epic/wave");
     await wave().getByRole("tab", { name: "Wave 1 · the seam" }).click();
