@@ -6,7 +6,8 @@
 // is asking you sits at its top, so a line in Needs you and its answer are one
 // press apart.
 
-import { Badge, Button, HoldButton, RowLink, Sheet, Tooltip, type SheetBack } from "@armada/components";
+import { Badge, Button, HoldButton, Input, RowLink, Sheet, Textarea, Tooltip, type SheetBack } from "@armada/components";
+import type { EditJob } from "@armada/protocol";
 import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/vocabulary";
 import { useCallback, useState, type ReactNode } from "react";
 
@@ -97,6 +98,90 @@ function Related({
   );
 }
 
+/** One line each, blank lines and stray spaces dropped. */
+function linesOf(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+/**
+ * Edit this Job: title, brief and what it expects, filled from the Job as the
+ * panel draws it — Edit this task's form, on the fields a proposed Job has.
+ * **Cancel restores** by unmounting, so the next Edit starts from the Job
+ * again. Save sends only what differs, and is off until something does.
+ */
+function EditJobForm({
+  job,
+  disabled,
+  onEdit,
+  onClose,
+}: {
+  job: WaveJobView;
+  disabled: boolean;
+  onEdit: (edit: EditJob) => Promise<boolean>;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(job.title);
+  const [brief, setBrief] = useState(job.brief ?? "");
+  const [expects, setExpects] = useState((job.expects ?? []).join("\n"));
+  const [saving, setSaving] = useState(false);
+
+  const listed = linesOf(expects);
+  const changed: EditJob = {
+    ...(title.trim() === job.title ? {} : { title: title.trim() }),
+    ...(brief.trim() === (job.brief ?? "") ? {} : { brief: brief.trim() }),
+    ...(listed.join("\n") === (job.expects ?? []).join("\n") ? {} : { expects: listed }),
+  };
+  const untitled = title.trim() === "";
+  const same = Object.keys(changed).length === 0;
+
+  async function save(): Promise<void> {
+    setSaving(true);
+    try {
+      if (await onEdit(changed)) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="armada-task-sheet__edit" aria-label="Edit this Job">
+      <Input
+        label="Title"
+        value={title}
+        invalid={untitled}
+        disabled={saving}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <Textarea label="Brief" rows={4} value={brief} disabled={saving} onChange={(event) => setBrief(event.target.value)} />
+      <Textarea
+        label="Expects"
+        rows={3}
+        value={expects}
+        disabled={saving}
+        onChange={(event) => setExpects(event.target.value)}
+      />
+      <div className="armada-task-sheet__drop-acts">
+        <Button variant="secondary" size="sm" ground="sunken" disabled={saving} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="sunken"
+          pending={saving}
+          disabled={untitled || same || disabled}
+          onClick={() => void save()}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 /** One Job of the wave, read whole, with what it asks of you at the top. */
 function JobSheet({
   wave,
@@ -123,6 +208,14 @@ function JobSheet({
 }) {
   const rendering = JOB_STATUS[job.status];
   const spent = waveSpentSaid(job);
+  // Edit this Job's form, open under the acts. **Only a proposed Job**: one
+  // that has run is a scope change, a different act.
+  // Held by the Job's id, so pressing to another Job in Waits for or Blocks
+  // never carries an open form across.
+  const [editingJob, setEditing] = useState<string | null>(null);
+  const editing = editingJob === job.job;
+  const onEditJob = region.onEditJob;
+  const editable = onEditJob !== undefined && job.status === "awaiting_approval";
   return (
     <Sheet
       open
@@ -171,6 +264,11 @@ function JobSheet({
         <Related label="Blocks" jobs={blocksOf(wave, job)} onOpen={onOpenRelated} />
         {spent === undefined ? null : <Field label="Spent">{spent}</Field>}
         <div className="armada-task-sheet__acts">
+          {!editable || editing ? null : (
+            <Button size="sm" ground="sunken" disabled={region.stale} onClick={() => setEditing(job.job)}>
+              Edit this Job
+            </Button>
+          )}
           <Button size="sm" ground="sunken" onClick={() => region.onOpenJob(job.job)}>
             Open job
           </Button>
@@ -188,6 +286,15 @@ function JobSheet({
             </HoldButton>
           )}
         </div>
+        {!editable || !editing ? null : (
+          <EditJobForm
+            key={job.job}
+            job={job}
+            disabled={region.stale}
+            onEdit={async (edit) => (await onEditJob(job.job, edit)).ok}
+            onClose={() => setEditing(null)}
+          />
+        )}
       </div>
     </Sheet>
   );
