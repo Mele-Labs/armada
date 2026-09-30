@@ -284,3 +284,42 @@ async fn a_lowered_limit_still_grants_an_ask_once_enough_frees() {
         .expect("it did not panic");
     assert_eq!(places.held(), 2);
 }
+
+/// **Fleet's gate takes the machine's Check slots too**, so a Job's Checks and
+/// a session's `armada check` share one budget. Dropped while it waits for one
+/// and asked again, the ask keeps what it had.
+#[tokio::test]
+async fn a_place_waits_for_a_machine_slot_another_process_holds() {
+    let dir = std::env::temp_dir().join(format!("armada-fleet-slots-{}", std::process::id()));
+    let slots = checks_runner::CheckSlots::at(&dir, 1);
+    let places = Places::on_the_machine(
+        ChecksAtOnce::of(4),
+        checks_runner::CheckWidth::read(1),
+        Some(slots.clone()),
+    );
+    let gate = asking(&places, Asking::Gate);
+    let elsewhere = slots.try_take(1).expect("writable").expect("free");
+
+    let mut ask = gate.ask();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(500), gate.granted(&mut ask, |_| {}))
+            .await
+            .is_err(),
+        "a Check started while another process held the one slot"
+    );
+    drop(elsewhere);
+    let place = tokio::time::timeout(Duration::from_secs(5), gate.granted(&mut ask, |_| {}))
+        .await
+        .expect("taken once the slot was free");
+    assert!(
+        slots.try_take(1).expect("writable").is_err(),
+        "the place holds the machine's slot"
+    );
+
+    drop(place);
+    assert!(
+        slots.try_take(1).expect("writable").is_ok(),
+        "given back with the place"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -41,7 +41,10 @@ pub fn ran(ran: &Ran, verb: &str) {
     if ran.attempt.output.truncated {
         println!("  (output was longer than the capture limit; this is the tail)");
     }
-    println!("{} {}", ran.name, Ended(&ran.attempt.exit));
+    match &ran.test {
+        Some(test) if ran.matched_nothing() => println!("{} has no test named `{test}`", ran.name),
+        _ => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
+    }
 }
 
 /// Everything a clean removed, and everything it left where it was.

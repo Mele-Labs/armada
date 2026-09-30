@@ -24,6 +24,8 @@ type Story = StoryObj<typeof HoldButton>;
 
 /** At rest. A click is a press let go at once, so it kills nothing and asks nothing. */
 export const Rest: Story = {
+  // The hold is the claim, and the test run's reduced motion does not offer one.
+  parameters: { motion: "on" },
   play: async ({ args, canvas, userEvent }) => {
     const button = canvas.getByRole("button", { name: "Hold to kill job" });
     await expect(button).toHaveAccessibleDescription(args.description);

@@ -124,8 +124,8 @@ export const OneDroneAndTwoLists: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("combobox")).toBeNull();
     await expect(canvas.getByText("Reaches Drone on T7")).toBeVisible();
-    const boundaryChecks = canvas.getByRole("region", { name: "Checks at this boundary" });
-    const boundaryTests = canvas.getByRole("region", { name: "Tests at this boundary" });
+    const boundaryChecks = canvas.getByRole("region", { name: "Checks at this step" });
+    const boundaryTests = canvas.getByRole("region", { name: "Tests at this step" });
     await expect(boundaryChecks).toHaveTextContent("screens_test");
     await expect(boundaryChecks).not.toHaveTextContent("not covered");
     await expect(boundaryTests).toHaveTextContent("not covered");

@@ -12,7 +12,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { issueLink } from "@armada/protocol";
 
-import { entered, mount, unmountAfterEach } from "./testing";
+import { entered, motion, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -24,6 +24,8 @@ unmountAfterEach();
 const ISSUE = issueLink(1647);
 
 test("a process held and confirmed says the kill is not built yet, and the debug info names the issue", async () => {
+  // The kill is held, and under reduced motion there is no hold to make.
+  await motion();
   const written: string[] = [];
   // `navigator.clipboard` is a getter, so the write is replaced rather than the object.
   Object.defineProperty(navigator, "clipboard", {

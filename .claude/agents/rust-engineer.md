@@ -59,9 +59,12 @@ durable one.
 
 ## Build and test time
 
-`cargo nextest run --workspace`, not `cargo test` — measured at 3x on v1, 83
-seconds against 27 for the same 2,034 tests, because `cargo test` runs each test
-binary to completion before starting the next. Install it with `--locked`.
+`armada check test`, which runs `cargo nextest` at the machine's width and in
+its turn among every other Check on the machine; one test by name is `armada
+check test <name>`. Never `cargo test`, and never `nextest` bare: nextest is
+measured at 3x `cargo test` on v1, 83 seconds against 27 for the same 2,034
+tests, and a bare run skips both the width and the turn. Install nextest with
+`--locked`.
 
 Cold compilation was v1's real cost and was never solved. Do not reintroduce a
 hook that rebuilds on merge; that was the cause v1 named. See

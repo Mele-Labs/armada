@@ -226,6 +226,8 @@ export const ThePullRequestOnceItLanded: Story = {
  * header's. So the `Drone` fact and a drone kill no longer go together here.
  */
 export const ARunningJobWithADrone: Story = {
+  // Both kills are named for their hold, which the test run's reduced motion does not offer.
+  parameters: { motion: "on" },
   args: {
     ...ARunningJob.args,
     fields: [

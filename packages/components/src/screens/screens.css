@@ -1812,22 +1812,17 @@
   color: var(--notice-caution);
 }
 
-/* Workflow — the canvas or the stacked run, with the inspector on a layer over
-   it. Appended, per the rule at the head of `index.css`. #1539.
+/* Workflow — the canvas or the stacked run, with the step's panel over it.
+   Appended, per the rule at the head of `index.css`. #1539.
 
-   **The canvas is the width of the tab, and the inspector overlays it** (owner,
-   25 Sep 2026). It was a second grid track, so a run drew in half the page
-   whether or not anybody had opened a node, and an empty column held the other
-   half. This is the same move #1583 made for Helm — the dock stopped being a
-   column and became a layer — and it is that mechanism reused, not a second
-   one. `TheShell.css`, `__dock-layer`, is the one to read.
-
-   Positioned, because the layer resolves against this box: the canvas keeps the
-   tab's width at every state of the panel, so nothing reflows when it opens. */
+   **The canvas is the width of the tab, and the panel overlays it** (owner,
+   25 Sep 2026), and since 29 Sep the panel is the app's own: the Sheet Plan's
+   task panel is drawn in, docked as Helm's dock is (`WorkflowInspector`'s
+   `sheet`). **Not positioned**, so that Sheet resolves against the screen
+   rather than this tab and runs the app's full height. */
 .armada-workflow-tab {
   display: flex;
   flex-direction: column;
-  position: relative;
   /* **The destination scrolls, not the panes.** The canvas is a fixed frame a
      person pans inside and the stacked run under the toggle is a page; a pane
      that scrolled put the run under a fold nobody had a reason to reach for,
@@ -1861,64 +1856,6 @@
 /* No board under the run any more (owner, 28 Sep 2026: *I dont think we need
    the groups/plan info on the workflow view*). The tab is the run, the toggle
    above it and the inspector over it; the groups are the Plan tab's. */
-
-/* The inspector's layer, over the run rather than a track beside it — Helm's
-   `__dock-layer`, at the one place this screen differs from it.
-
-   **No scrim and no `aria-modal`**, for the dock's own reason: this is a panel
-   a person works *beside*. They press a node, read what it is doing and reply
-   to its Drone, so the canvas under it stays live and one press away, and
-   `--z-dock` is the token for exactly that class of layer — over the content,
-   under anything opened from inside it. The panel's dropdown and the ask behind
-   `HoldButton` both open above it on their own tokens.
-
-   **`pointer-events` is the difference from the dock.** The dock fills its
-   layer top to bottom, so there is no part of it that is layer and not dock.
-   This layer has to run the height of the tab for the panel to stay with what a
-   press selected (below), which leaves the region beside the board covered by
-   nothing anybody can see. The layer takes no presses and the panel takes its
-   own, so a group on the board under it is still pressable. */
-.armada-workflow-tab__inspector-layer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  z-index: var(--z-dock);
-  display: flex;
-  max-width: 100%;
-  pointer-events: none;
-}
-
-/* Beside a board of four groups the panel would otherwise be scrolled past,
-   and review and reply are one loop — the reply box has to stay with what a
-   press selected. Sticky inside the layer, which is what the layer's full
-   height buys; the panel's own head and body carry the scroll from there
-   (`WorkflowInspector.css`).
-
-   The step panel's own floor as a width, so a reading that moved here from the
-   run column lays out the way it did there. The gutter is the dock's `margin`,
-   for the dock's reason: a panel held off the content, not chrome flush to it. */
-.armada-workflow-tab__inspector {
-  pointer-events: auto;
-  flex: none;
-  position: sticky;
-  top: 0;
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  width: var(--w-step-panel-min);
-  max-width: 100%;
-  max-height: 100vh;
-  margin: var(--space-4);
-  min-height: 0;
-}
-
-/* Narrow gives the panel the whole width of the tab, the way the dock folds to
-   a sheet over the work below the breakpoint rather than shrinking to a strip
-   nothing reads. Close is the way back to the canvas, as it is there. */
-.armada-workflow-tab[data-narrow] .armada-workflow-tab__inspector {
-  width: 100%;
-}
 
 /* The canvas/stacked toggle. Above the run rather than over it: drawn inside
    the canvas as a React Flow panel it sat on top of the last step's card at
@@ -2509,6 +2446,94 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* The Workflow destination, as its board draws it (29 Sep 2026). Appended, per
+   the rule at the head of `index.css`.
+
+   **The canvas takes the height the destination has left**, and never less
+   than --h-workflow-canvas: the board's frame runs to the foot of the window,
+   and the inspector over it needs the room. The stacked run stays a page. */
+.armada-workflow-tab[data-view="canvas"] {
+  flex: 1 0 auto;
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__surface {
+  flex: 1 0 auto;
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__stage {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: var(--h-workflow-canvas);
+}
+
+.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__canvas {
+  flex: 1 0 auto;
+}
+
+/* The board's frame: an edge, a corner and the page's own glow at its top
+   left, so the run reads as one surface rather than cards on the page. The
+   glow's ellipse is `TheShell.css`'s, at the frame's scale. */
+.armada-workflow-tab__canvas {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(calc(var(--space-12) * 10) calc(var(--space-12) * 7) at 20% 0, var(--accent-faint), transparent),
+    var(--surface-canvas);
+}
+
+/* The steps past the right edge fade rather than stop, so a run wider than
+   its frame says there is more of it. Over the canvas and under the chip, and
+   it takes no presses. The frame is its own stacking context, so the dock's
+   token here ranks only against React Flow's panes. */
+.armada-workflow-tab__canvas::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: calc(var(--space-12) + var(--space-6));
+  background: linear-gradient(90deg, transparent, var(--surface-canvas));
+  pointer-events: none;
+  z-index: var(--z-dock);
+}
+
+/* Which workflow this is and which step the Job is on, over the top-right
+   corner as the board draws it. */
+.armada-workflow-tab__where {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: calc(var(--z-dock) + 1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-canvas);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-workflow-tab__workflow {
+  color: var(--fg-subtle);
+}
+
+.armada-workflow-tab__rule {
+  width: var(--border-width);
+  align-self: stretch;
+  background: var(--border-subtle);
+}
+
+.armada-workflow-tab__on {
+  color: var(--fg-muted);
+}
+
 
 /* Plan's lead, shut (owner, 29 Sep 2026): the band on its own line and the
    first criterion cut to fit under it, the whole block the press. The mark

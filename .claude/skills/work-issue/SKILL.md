@@ -81,12 +81,18 @@ owner's machine was unusable.
 
 | You changed | Run |
 |---|---|
-| A crate under `crates/` | `cargo nextest run -p <crate>` for it and each crate that depends on it (`cargo tree -i <crate> -e normal --depth 1`) |
+| A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
 | Any Rust | `cargo fmt --all --check`, and `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
-| What a milestone's claim reads | `cargo test -p acceptance` |
-| `apps/` or `packages/` | `armada check typecheck`, and `pnpm exec vitest run <files>` for the tests and stories you touched. **Every story runs from `-C packages/components`**, and a screen's tests through `App` run from `-C apps/desktop` (`src/renderer/src/mock/*.test.tsx`); `packages/screens` has only its `.test.ts` and `.test.tsx` projects. `bridge_build` and `storybook` only where their `when:` matches |
+| What a milestone's claim reads | `armada check acceptance` |
+| `apps/` or `packages/` | `armada check typecheck`, and `armada check <name> <test>` for each test and story you touched. **A story is in `components_test`**, a screen's test through `App` in `desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `bridge_build` and `storybook` only where their `when:` matches |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
 | Anything | `cargo xtask verify-foundations` once, before the PR — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
+
+**Through `armada check`, never `vitest` or `nextest` bare.** A Check waits
+for one of the machine's Check slots and hands its runner `${width}`; a bare run
+takes neither. Confirmed 30 Sep 2026: sessions running suites bare beside a
+Fleet took the load to 19 on 18 cores, and a different test timed out each run.
+`docs/concepts/manifest.md`, *How many Checks run at once*.
 
 **One heavy run at a time, across every session on the machine.** Never start a
 build or a test suite while another is running, your own background runs

@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect } from "storybook/test";
 
+import { motionEmulated } from "../../../.storybook/motion";
 import { Tokens } from "./Tokens";
 
 /**
@@ -198,5 +200,33 @@ export const Motion: Story = {
   "duration-pulse",
 ],
     as: "duration",
+  },
+};
+
+const REDUCED = "(prefers-reduced-motion: reduce)";
+const sheet = (): string => getComputedStyle(document.documentElement).getPropertyValue("--duration-sheet").trim();
+
+/**
+ * The test run emulates reduced motion (`vitest.config.ts`), and the tokens answer it: a sheet
+ * travels in no time, so a `play` press never lands on one still arriving. Nothing to check in
+ * `storybook dev`, where the preference is the machine's.
+ */
+export const MotionReduced: Story = {
+  args: Motion.args,
+  play: async () => {
+    if (!motionEmulated()) return;
+    await expect(window.matchMedia(REDUCED).matches).toBe(true);
+    await expect(sheet()).toBe("0ms");
+  },
+};
+
+/** And a story that says `motion: "on"` runs on the durations a person without the preference sees. */
+export const MotionOn: Story = {
+  args: Motion.args,
+  parameters: { motion: "on" },
+  play: async () => {
+    if (!motionEmulated()) return;
+    await expect(window.matchMedia(REDUCED).matches).toBe(false);
+    await expect(sheet()).not.toBe("0ms");
   },
 };
