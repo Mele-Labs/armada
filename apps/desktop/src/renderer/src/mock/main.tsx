@@ -1,4 +1,6 @@
-// The mock's page: the app on `?scenario=<name>`, and the picker beside it.
+// The mock's page: the app on `?scenario=<name>`, and the picker — a second
+// root, whose own host stays empty because what it draws goes into the app's
+// left column through a portal.
 
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
