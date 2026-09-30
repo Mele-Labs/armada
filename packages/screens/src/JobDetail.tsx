@@ -284,6 +284,13 @@ function OneJob(props: JobDetailProps) {
           onRaising={setRaising}
           onRaisingTurns={setRaisingTurns}
           onOpenTab={setTab}
+          // The lead's act, where what it names is a Check that failed: the
+          // Record, on that Check's row. **The Plan boundary's own route**,
+          // below — one way into a Check's row, pressed from two places.
+          onOpenCheck={(at) => {
+            setOpensCheck(at);
+            setTab("record");
+          }}
         />
         </>
       ) : tab === "workflow" ? (
