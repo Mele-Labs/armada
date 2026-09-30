@@ -479,6 +479,7 @@ export const CHANNELS = {
   pilotTask: "bridge:pilot-task",
   restartTask: "bridge:restart-task",
   editTask: "bridge:edit-task",
+  movePlan: "bridge:move-plan",
   clearTerminalJobs: "bridge:clear-terminal-jobs",
   forgetTerminalJobs: "bridge:forget-terminal-jobs",
   reclaimWorktree: "bridge:reclaim-worktree",

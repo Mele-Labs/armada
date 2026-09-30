@@ -25,6 +25,7 @@ import type { WorkflowView } from "./workflow-view";
 import type {
   CommandAnswer,
   EditTask,
+  MovePlan,
   Examination,
   FileReport,
   FollowedLog,
@@ -115,6 +116,11 @@ export type JobDetailProps = {
    * its route, so the answer is `Not implemented` naming the issue.
    */
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
+  /**
+   * A group or a task dragged somewhere new on the plan, sent straight to
+   * Fleet. Ahead of its route (#1685), so the answer is `Not implemented`.
+   */
+  onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

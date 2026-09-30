@@ -140,6 +140,9 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/restart`) }),
     editTask: async (jobId, taskId, edit) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
+    // A drop on the plan, #1685 — answered as the edit is.
+    movePlan: async (jobId, move) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, "/plan/move"), sent: sentOf(move) }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));

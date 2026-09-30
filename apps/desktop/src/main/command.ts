@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { CapRaise, ChosenAnswer, EditTask, FileReport, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { CapRaise, ChosenAnswer, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -473,6 +473,18 @@ export class JobCommands {
   async editTask(jobId: string, taskId: string, edit: EditTask): Promise<Outcome> {
     return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
       ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/edit`), edit),
+    );
+  }
+
+  /**
+   * A person's move on the plan, direct rather than asked of the Drone —
+   * `.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`.
+   * **Ahead of its route** (#1685), with the move as the body. Edit's lock,
+   * since both change the plan the Drone is held to.
+   */
+  async movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, "plan/move"), move),
     );
   }
 

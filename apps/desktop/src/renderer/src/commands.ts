@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { EditManifestProposal, EditTask, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -497,6 +497,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * A group or a task dropped somewhere new on the plan. `taskAct`'s reason:
+   * the answer is drawn where every command's is, so `Not implemented` names
+   * #1685 until Fleet serves the route.
+   */
+  async function movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
+    const answer = await window.armada.movePlan(jobId, move);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
    * Send a redirect. **Not through `act`** — the dialog that collected the
    * instruction already was the confirmation, so there is nothing left to
    * confirm here, only to send.
@@ -885,6 +897,7 @@ export function useCommands(sending: Sending) {
     report,
     addTask,
     dropTask,
+    movePlan,
     decide,
     refresh,
   };

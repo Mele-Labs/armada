@@ -23,7 +23,7 @@ import type { FileReport } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { AddTask, DropTask, EditTask } from "@armada/protocol";
+import type { AddTask, DropTask, EditTask, MovePlan } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, Followed, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
@@ -135,6 +135,9 @@ const api: BridgeApi = {
 
   editTask: (jobId: string, taskId: string, edit: EditTask): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editTask, jobId, taskId, edit),
+
+  movePlan: (jobId: string, move: MovePlan): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.movePlan, jobId, move),
 
   // The disk, never the record — every row this reaches stays on the board,
   // under `Cleared`. One entry taking every id rather than a loop of
