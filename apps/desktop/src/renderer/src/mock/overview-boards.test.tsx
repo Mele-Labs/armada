@@ -394,8 +394,13 @@ describe("the lead and what it is about are one panel", () => {
 
     const lead = document.querySelector(".armada-lead");
     expect(lead?.contains(document.querySelector(".armada-verdict") as Node)).toBe(true);
-    const approve = await page.getByRole("button", { name: "Approve the work" }).element();
-    expect(lead?.contains(approve)).toBe(true);
+    // **The face, not the entry.** `Approve the work` was a button of its own
+    // until the review gate took two split buttons on 30 Sep 2026; it is
+    // behind Merge's caret now and is not in the document until the caret is
+    // opened. What this claim is about is where the decision sits, and the
+    // face is the part of it a person sees without pressing anything.
+    const merge = await page.getByRole("button", { name: "Merge and take the work" }).element();
+    expect(lead?.contains(merge)).toBe(true);
     // Folded, per `the-review-gate-sits-under-the-lead`: unfolding it to make
     // the merge tidier is not this change's to do.
     expect(
