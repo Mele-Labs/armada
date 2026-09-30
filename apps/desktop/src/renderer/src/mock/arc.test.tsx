@@ -1090,11 +1090,10 @@ describe("the wave", () => {
     await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Copy debug info" }).click();
     await expect.poll(() => written).toHaveLength(1);
-    const pasted = written[0]!;
-    expect(pasted).toContain("bridge.not_implemented");
-    expect(pasted).toContain(issueLink(1694));
-    expect(pasted).toContain("POST /jobs/{job_id}/approve_wave");
-    for (const id of sent.jobs) expect(pasted).toContain(id);
+    expect(written[0]).toContain("bridge.not_implemented");
+    expect(written[0]).toContain(issueLink(1694));
+    expect(written[0]).toContain("POST /jobs/{job_id}/approve_wave");
+    for (const id of sent.jobs) expect(written[0]).toContain(id);
   });
 
   // The owner's, 30 Sep 2026: a proposed Job is edited in its own panel,
@@ -1130,11 +1129,10 @@ describe("the wave", () => {
     await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
     await page.getByRole("button", { name: "Copy debug info" }).click();
     await expect.poll(() => written).toHaveLength(1);
-    const pasted = written[0]!;
-    expect(pasted).toContain("bridge.not_implemented");
-    expect(pasted).toContain(issueLink(1699));
-    expect(pasted).toContain("POST /jobs/{job_id}/edit");
-    expect(pasted).toContain("Say which half refused, in the toast");
+    expect(written[0]).toContain("bridge.not_implemented");
+    expect(written[0]).toContain(issueLink(1699));
+    expect(written[0]).toContain("POST /jobs/{job_id}/edit");
+    expect(written[0]).toContain("Say which half refused, in the toast");
   });
 
   test("epic/wave: Waits for opens the Job waited on, with a way back", async () => {

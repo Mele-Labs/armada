@@ -89,7 +89,7 @@ export type PlanReviewProps = {
   /**
    * The Board's own rows. **Where one waits at `awaiting_approval` dispatched
    * by this Job, the plan is an Epic's and those are its proposed wave**
-   * (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`),
+   * (the decision that approving an Epic's plan releases its wave),
    * so Approve the plan releases them together through `onApproveWave`.
    */
   board?: readonly JobSummary[];

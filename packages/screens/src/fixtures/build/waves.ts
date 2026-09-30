@@ -640,7 +640,7 @@ function waveParentAtItsGate(): JobFixture {
  * real Job at `awaiting_approval` dispatched by the Epic, carrying its brief,
  * what it expects and what it waits on — and nothing it has spent, landed or
  * done, because none of them has run.
- * `.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`.
+ * Held by the decision that approving an Epic's plan releases its wave.
  */
 function proposedWave(): WaveChild[] {
   return WAVE_CHILDREN.filter((child) => child.round === 2).map(

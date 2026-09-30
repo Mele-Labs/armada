@@ -904,7 +904,7 @@ export class JobCommands {
   // ------------------------------------------------------ deciding on work
   /**
    * Approve an Epic Job's plan, and release every Job of the wave it proposed
-   * — `.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`.
+   * — the decision that approving an Epic's plan releases its wave.
    * **Ahead of its route** (#1694), with the Jobs as the body. The review's
    * lock, since it is the answer at the same gate.
    */
