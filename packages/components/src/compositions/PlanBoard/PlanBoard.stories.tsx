@@ -42,7 +42,7 @@ function planned(): PlanBoardGroup[] {
       ordinal: 1,
       state: "pending",
       says: "not started",
-      scope: { root: "crates/**", count: 2 },
+      scope: { root: "crates/**" },
       tasks: [
         {
           id: "T1",
@@ -60,10 +60,9 @@ function planned(): PlanBoardGroup[] {
         },
       ],
       shapeSays: "2 tasks, one after another",
+      concurrent: false,
       boundary: {
-        clause: "will run at this boundary",
         checks: notRun(RUST),
-        testsClause: "runs at this boundary",
         tests: [{ id: "c-api", spec: "crates/api/src/tests/running.rs", reads: "owed" }],
       },
     },
@@ -72,8 +71,9 @@ function planned(): PlanBoardGroup[] {
       ordinal: 2,
       state: "pending",
       says: "not started",
-      scope: { root: "packages/screens/src/**", count: 2 },
+      scope: { root: "packages/screens/src/**" },
       shapeSays: "2 tasks, at the same time",
+      concurrent: true,
       tasks: [
         {
           id: "T5",
@@ -93,9 +93,7 @@ function planned(): PlanBoardGroup[] {
         },
       ],
       boundary: {
-        clause: "will run at this boundary",
         checks: notRun(BRIDGE),
-        testsClause: "runs at this boundary",
         tests: [
           { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
         ],
@@ -152,7 +150,6 @@ export const GroupFailed: Story = {
           },
         ],
         boundary: {
-          clause: "ran at this boundary",
           checks: BRIDGE.map((name) =>
             name === "screens_test"
               ? {
@@ -188,8 +185,9 @@ export const GroupFailed: Story = {
     // Cut on 28 Sep, and neither comes back with the reading.
     await expect(card).not.toHaveTextContent("No task of group");
     await expect(card).not.toHaveTextContent("does not serve the cases");
-    // The shape, and nothing about the Job's Drone cap.
-    await expect(card).toHaveTextContent("2 tasks, at the same time");
+    // The shape, drawn rather than said, and nothing about the Job's Drone cap.
+    await expect(within(card).getByRole("img", { name: "2 tasks, at the same time" })).toBeVisible();
+    await expect(card).not.toHaveTextContent("at the same time");
     await expect(card).not.toHaveTextContent("Drones at once");
   },
 };
@@ -213,7 +211,6 @@ export const DoneTouchedLater: Story = {
           },
         ],
         boundary: {
-          clause: "ran at this boundary",
           checks: BRIDGE.map((name) => ({ name, reads: "passed" as const })),
           verdictSays: "all passed",
           verdictNamed: "passed",
@@ -285,50 +282,46 @@ export const OpeningATask: Story = {
   },
 };
 
-/** What the board offers while the plan is still a question. `#1552`. */
-const ASKS = [
-  { id: "move_up", label: "Move up" },
-  { id: "move_down", label: "Move down" },
-  { id: "remove", label: "Remove" },
-];
-
 /**
- * The plan at its gate, where it may still be argued with. Every group offers
- * the same three controls, and the first group's Move up is drawn off rather
- * than left out — a card whose controls change place as it moves is a card a
- * person has to read again.
+ * The plan at its gate, where a person edits it directly (owner, 30 Sep
+ * 2026): Remove on each group asks its reason in place, and a group or a task
+ * moves by dragging or by `⌥↑` / `⌥↓` on it. Propose a change is the one ask
+ * to the Drone.
  */
 export const WaitingAtItsGate: Story = {
   args: {
     approach: APPROACH,
     askable: true,
-    groups: planned().map((group, at) => ({
-      ...group,
-      asks: ASKS.map((ask) =>
-        ask.id === "move_up" && at === 0 ? { ...ask, disabled: true } : ask,
-      ),
-    })),
+    groups: planned(),
     onOpenTask: fn(),
-    onAsk: fn(),
+    remove: { label: "Remove", onRemove: fn(async () => null) },
+    propose: { label: "Propose a change", send: "Send to the Drone", onPropose: fn() },
+    move: { onMove: fn() },
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const first = canvas.getByRole("group", { name: "Ask about group 1" });
-    await expect(within(first).getByRole("button", { name: "Move up" })).toBeDisabled();
+    await expect(within(first).queryByRole("button", { name: "Move up" })).toBeNull();
     await userEvent.click(within(first).getByRole("button", { name: "Remove" }));
-    await expect(args.onAsk).toHaveBeenCalledWith("g1", "remove");
+    await expect(canvas.getByRole("region", { name: "Remove group 1" })).toBeVisible();
+    canvas.getByRole("heading", { name: "Group 1" }).focus();
+    await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+    await expect(args.move?.onMove).toHaveBeenCalledWith({ group: "g1", to: 1 });
+    canvas.getByRole("button", { name: /T2 Send an event/ }).focus();
+    await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+    await expect(args.move?.onMove).toHaveBeenCalledWith({ group: "g2", task: "T2", to: 0 });
   },
 };
 
 /**
- * One ask is out, so every one of them is off — a second press while the first
- * is unanswered would be two asks about one plan with no order between them.
+ * A proposal is out, so Propose a change is off — a second while the first is
+ * unanswered would be two asks about one plan with no order between them.
  */
 export const AnAskIsOut: Story = {
   args: { ...WaitingAtItsGate.args, askPending: true } as Story["args"],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const second = canvas.getByRole("group", { name: "Ask about group 2" });
-    await expect(within(second).getByRole("button", { name: "Move down" })).toBeDisabled();
+    await expect(within(second).getByRole("button", { name: "Propose a change" })).toBeDisabled();
   },
 };

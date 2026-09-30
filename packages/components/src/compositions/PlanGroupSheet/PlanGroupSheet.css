@@ -60,3 +60,24 @@
   row-gap: 0;
   padding-block: var(--space-1);
 }
+
+/* The head's second line: the group's shape, drawn, and where it stands —
+   the list card's head, in the panel's. */
+.armada-plan-group-sheet__subtitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The drawing is the group's handle here, for `⌥↑` / `⌥↓`. */
+.armada-plan-group-sheet__handle {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+
+.armada-plan-group-sheet__handle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+

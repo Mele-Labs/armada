@@ -16,6 +16,7 @@
 import {
   DroneBrief,
   PlanBoard,
+  type PlanMove,
   PlanGroupSheet,
   PlanTaskSheet,
   Tabs,
@@ -23,15 +24,23 @@ import {
 } from "@armada/components";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { Diff, EditTask, JobDetail as JobWhole, JobSummary, Outcome, StepDetail } from "@armada/protocol";
+import type {
+  Diff,
+  EditTask,
+  JobDetail as JobWhole,
+  JobSummary,
+  MovePlan,
+  Outcome,
+  StepDetail,
+} from "@armada/protocol";
 
 import { PlanGate } from "./plan-lead";
 import { useTaskWidth } from "./task-width";
-import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, taskSheetOf, tasksOf } from "./tab-plan-read";
-import { planBoardOf } from "./plan-board";
+import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
+import { movedGroups, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
-import { PlanAskDialog, proposeInstruction, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
+import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
 import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { CHANGED_NOTHING, drawn } from "./review";
@@ -47,7 +56,6 @@ import {
   TRANSCRIPT_EMPTY,
   TRANSCRIPT_UNSERVED,
 } from "./tab-drones-read";
-import type { PlanAskKind } from "./draft/revision";
 import type { TrailProps } from "./trail";
 import { ADD_TASK_LABEL } from "./copy";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
@@ -93,11 +101,18 @@ export type PlanReviewProps = {
   /**
    * Add a task to the plan, from a group's head, and drop one, from its
    * panel, with a reason (owner, 30 Sep 2026) — `PlanWell`'s own two routes.
-   * **Absent draws neither.** `after` is always the end: reordering is not in
-   * this milestone, the owner's call on #897.
+   * **Absent draws neither.** `after` is the group's last task; where a task
+   * goes after that is a move, below. Remove on a group drops each of its
+   * tasks through `onDropTask`, with one reason.
    */
   onAddTask?: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
   onDropTask?: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
+  /**
+   * A group or a task dragged somewhere new, sent straight to Fleet (owner,
+   * 30 Sep 2026: *edits to the plan should just be made directly through
+   * fleet*). **Absent, nothing is draggable.** Ahead of its route, #1685.
+   */
+  onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /** What an add or a drop that was taken says, once. */
   onSaid?: (sentence: string) => void;
   /**
@@ -179,6 +194,7 @@ export function usePlanReview({
   models = [],
   onAddTask,
   onDropTask,
+  onMovePlan,
   onSaid,
   diff,
   opensTask,
@@ -191,10 +207,10 @@ export function usePlanReview({
   // screen's** — the sheet belongs to the destination, so a reader who leaves
   // and comes back lands on the board rather than inside one task.
   const [openTask, setOpenTask] = useState<string | null>(opensTask ?? null);
-  // The ask a person has opened and not sent. **This region's own state too**:
-  // an ask that survived leaving the destination would be a dialog opening
-  // over a plan somebody has stopped reading.
-  const [asking, setAsking] = useState<PlanAskInFlight | null>(null);
+  // A move that is out and not answered. **Drawn where it was dropped until
+  // Fleet answers**, then the plan is whatever Fleet says — so a refused move
+  // snaps back rather than sitting in an order nothing holds.
+  const [moving, setMoving] = useState<PlanMove | null>(null);
   // Which task the add-task dialog adds after, and the ordinal of the group it
   // adds into, or `null` while it is shut. A group's Add task adds into that
   // group (owner, 30 Sep 2026): after its last task, or for a group with none,
@@ -259,7 +275,8 @@ export function usePlanReview({
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const board = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
+  const read = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
+  const board = read === undefined || moving === null ? read : { ...read, groups: movedGroups(read.groups, moving) };
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
   const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask, onOpenGroup: openGroupAt, openGroup });
@@ -282,6 +299,40 @@ export function usePlanReview({
           onRedirect(job.id, proposeInstruction(groups, groupId, instruction)),
       }
     : undefined;
+  // **A person's own edits, direct, while the plan waits on them** — the
+  // gate Propose a change takes, and not Add task's: Add and Drop are offered
+  // on a running plan too, and a running plan's order is no longer the
+  // person's to rearrange. `.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`.
+  const move =
+    !revisable || onMovePlan === undefined
+      ? undefined
+      : {
+          onMove: (next: PlanMove) => {
+            setMoving(next);
+            void onMovePlan(job.id, next).finally(() => setMoving(null));
+          },
+          disabled: moving !== null,
+        };
+  // Remove on a group: each of its tasks still on the plan dropped with the
+  // one reason, through the drop Fleet already serves. The first refusal
+  // stops it and is what the form says.
+  const remove =
+    !revisable || onDropTask === undefined
+      ? undefined
+      : {
+          label: REMOVE_GROUP_LABEL,
+          onRemove: async (groupId: string, reason: string) => {
+            const held = groups.find((one) => one.id === groupId)?.tasks ?? [];
+            for (const task of held) {
+              if (task.state === "done" || task.state === "dropped") continue;
+              const answer = await onDropTask(job.id, { task: task.id, reason });
+              if (!answer.ok) return refusalSaid(answer.outcome);
+            }
+            onSaid?.("Removed");
+            return null;
+          },
+          disabled: stale,
+        };
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
   useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
   // What it runs beside, as the graph's own card off the same groups, so each
@@ -446,8 +497,9 @@ export function usePlanReview({
           <PlanBoard
             {...board}
             askPending={acting}
-            onAsk={(group, ask) => setAsking({ group, ask: ask as PlanAskKind })}
             {...(propose === undefined ? {} : { propose })}
+            {...(remove === undefined ? {} : { remove })}
+            {...(move === undefined ? {} : { move })}
             {...(onAddTask === undefined
               ? {}
               : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
@@ -492,21 +544,23 @@ export function usePlanReview({
         <PlanGroupSheet
           open
           group={group}
+          {...(board === undefined ? {} : { groups: board.groups })}
           onOpenTask={(taskId) => {
             const from = group.id;
             openTaskAt(taskId);
             setFromGroup(from);
           }}
           askPending={acting}
-          onAsk={(groupId, ask) => setAsking({ group: groupId, ask: ask as PlanAskKind })}
           {...(propose === undefined ? {} : { propose })}
+          {...(remove === undefined ? {} : { remove })}
+          {...(move === undefined ? {} : { move })}
           {...(onAddTask === undefined
             ? {}
             : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
           floor={floor}
           {...(taskWidth === undefined ? {} : { width: taskWidth })}
           onResize={resizeTask}
-          under={adding !== null || asking !== null}
+          under={adding !== null}
           onClose={() => setOpenGroup(null)}
         />
       )}
@@ -521,15 +575,6 @@ export function usePlanReview({
           {...(onSaid === undefined ? {} : { onSaid })}
         />
       )}
-      <PlanAskDialog
-        groups={groups}
-        inFlight={asking}
-        onCancel={() => setAsking(null)}
-        onSend={(instruction) => {
-          setAsking(null);
-          onRedirect(job.id, instruction);
-        }}
-      />
     </>
   );
 

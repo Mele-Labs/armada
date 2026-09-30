@@ -5,7 +5,7 @@
 // prose, for `StepBar`'s reason: a count in words is copy, and copy has one
 // owner. So does the rule that decides it.
 
-import type { PlanBoardAsk, PlanBoardTest } from "@armada/components";
+import type { PlanBoardTest } from "@armada/components";
 import type { PlanTaskSheetProps, PlanTaskTest, TaskMarkState } from "@armada/components";
 import type { JobDetail, StepDetail } from "@armada/protocol";
 
@@ -13,7 +13,7 @@ import { caseViewsOf, scopeRevisionsOf, type CaseView, type ScopeRevisionView } 
 import { criterionViewsOf, type CriterionView } from "./draft/criterion";
 import { taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
 import type { JobDraft } from "./draft/held";
-import { planRevisionsOf, type PlanAskKind, type PlanRevisionView } from "./draft/revision";
+import { planRevisionsOf, type PlanRevisionView } from "./draft/revision";
 import type { TaskView } from "./draft/task";
 import { money } from "./facts";
 
@@ -93,30 +93,6 @@ export function groupSaid(state: GroupState): string {
     case "landed":
       return "landed";
   }
-}
-
-/** Whether a group's boundary has already run. The tense every sentence takes. */
-function hasRun(state: GroupState): boolean {
-  return state === "passed" || state === "failed" || state === "retrying" || state === "landed";
-}
-
-/**
- * `will run at this boundary`, in the tense the group's state earns.
- *
- * **The clause, not the sentence.** The strip draws the count beside it, and
- * `7` next to `7 checks will run` is one number said twice.
- */
-export function boundaryClause(state: GroupState): string {
-  if (state === "checking") return "running at this boundary";
-  if (hasRun(state)) return "ran at this boundary";
-  return "will run at this boundary";
-}
-
-/** `run at this boundary`. Nothing where no case does. */
-export function testsClause(state: GroupState, tests: number): string | undefined {
-  if (tests === 0) return undefined;
-  if (hasRun(state)) return "ran at this boundary";
-  return `${tests === 1 ? "runs" : "run"} at this boundary`;
 }
 
 /**
@@ -224,8 +200,8 @@ export function touchedByOf(groups: readonly GroupView[]): Map<string, string> {
  * measures the diff nor where the next group collides (owner, 28 Sep 2026);
  * the root says the first exactly, and `overlapsOf` says the second.
  */
-export function scopeRootOf(paths: readonly string[]): { root: string; count: number } {
-  if (paths.length === 0) return { root: "the whole repository", count: 0 };
+export function scopeRootOf(paths: readonly string[]): { root: string } {
+  if (paths.length === 0) return { root: "the whole repository" };
   const [first, ...rest] = paths;
   let common = (first ?? "").split("/").slice(0, -1);
   for (const path of rest) {
@@ -235,7 +211,7 @@ export function scopeRootOf(paths: readonly string[]): { root: string; count: nu
     common = common.slice(0, at);
   }
   const root = common.length === 0 ? "**" : `${common.join("/")}/**`;
-  return { root, count: paths.length };
+  return { root };
 }
 
 // The callout's future waits on [case-waits-for-last-group] in docs/concepts/plan.md.
@@ -270,70 +246,18 @@ export function overlapsOf(
 }
 
 /**
- * What may be asked of the Drone about a group, and what each control is
- * called. **A plan is a record, so these are requests** — the verb is what a
- * person wants, and `#1552` is why none of them edits anything.
- */
-export const ASK_LABEL: Record<PlanAskKind, string> = {
-  move_up: "Move up",
-  move_down: "Move down",
-  remove: "Remove",
-  rewrite: "Propose a change",
-};
-
-/**
  * Proposing a change, on a group or on a task — **one verb for both** (owner,
- * 30 Sep 2026). Prose the Drone reads and may refuse; Edit this task is the
- * form that changes a task's fields. No placeholder: an empty field stays
- * empty.
+ * 30 Sep 2026). Prose the Drone reads and may refuse; every other change to a
+ * plan is a person's own, made directly through Fleet. No placeholder: an
+ * empty field stays empty.
  */
 export const PROPOSE_ASK = {
-  label: ASK_LABEL.rewrite,
+  label: "Propose a change",
   send: "Send to the Drone",
 } as const;
 
-/**
- * The asks one group offers. **The first group cannot move up and the last
- * cannot move down**, and both are drawn off rather than left out: a card
- * whose controls change place as it moves is a card a person has to re-read.
- */
-export function asksOf(groups: readonly GroupView[], at: number): PlanBoardAsk[] {
-  return [
-    { id: "move_up", label: ASK_LABEL.move_up, disabled: at === 0 },
-    { id: "move_down", label: ASK_LABEL.move_down, disabled: at === groups.length - 1 },
-    { id: "remove", label: ASK_LABEL.remove },
-  ];
-}
-
-/**
- * Where a reorder would contradict the tasks' declared files.
- *
- * **The one mechanical catch there is** (`#1552`). Two groups claiming one
- * path have an order between them that their own scopes decide, so swapping
- * that pair is the ask whose consequence can be computed rather than guessed.
- * Everything else about a split — why these tasks, why this size — is the
- * Drone's to answer, which is what the ask is for.
- *
- * **A warning and not a refusal**, on `overlapsOf`'s terms: the reorder is
- * legal and what it costs is a file written in the other order.
- */
-export function reorderWarning(
-  groups: readonly GroupView[],
-  groupId: string,
-  ask: PlanAskKind,
-): string | undefined {
-  if (ask !== "move_up" && ask !== "move_down") return undefined;
-  const at = groups.findIndex((one) => one.id === groupId);
-  const other = ask === "move_up" ? at - 1 : at + 1;
-  if (at < 0 || other < 0 || other >= groups.length) return undefined;
-  const moving = groups[at]!;
-  const passed = groups[other]!;
-  const claimed = new Set(passed.scope);
-  const shared = moving.scope.filter((path) => claimed.has(path));
-  if (shared.length === 0) return undefined;
-  const first = at < other ? moving : passed;
-  return `Group ${moving.ordinal} and group ${passed.ordinal} both claim ${shared.join(", ")}. Group ${first.ordinal} writes it first as the plan stands, and this ask reverses that.`;
-}
+/** Removing a group: each of its tasks dropped, with one reason. */
+export const REMOVE_GROUP_LABEL = "Remove";
 
 /** The mark a task's row leads with. `TaskMark` prints no word beside it. */
 export function markOf(state: TaskView["state"]): TaskMarkState {

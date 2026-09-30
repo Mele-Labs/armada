@@ -1,11 +1,16 @@
 import { Button } from "../../primitives/Button/Button";
 import { CardContent } from "../../primitives/Card/Card";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import {
   PlanGroupBody,
+  PlanGroupShape,
+  usePlanMover,
   type PlanBoardAdd,
   type PlanBoardGroup,
+  type PlanBoardMove,
   type PlanBoardProps,
+  type PlanBoardRemove,
 } from "../PlanBoard/PlanBoard";
 
 /**
@@ -19,18 +24,22 @@ import {
  * area and resizing by the same handle.
  *
  * **Everything the list's card can do, this can** (owner, 30 Sep 2026: "graph
- * and list should offer the same features"): Add task, the group's asks, and
- * Propose a change, each on the list's own terms.
+ * and list should offer the same features"): Add task, Remove, Propose a
+ * change, and dragging a task's row, each on the list's own terms.
  */
 export type PlanGroupSheetProps = {
   open: boolean;
   group: PlanBoardGroup;
+  /** Every group, in order, so `⌥↑` / `⌥↓` on a task can cross into the next one. */
+  groups?: readonly PlanBoardGroup[];
   /** Pressing a task row. The caller opens its panel in place of this one. */
   onOpenTask?: (taskId: string) => void;
   /** Absent draws no Add task. */
   add?: PlanBoardAdd;
-  /** The group's asks, as the list's card offers them. `group.asks` empty draws none. */
-  onAsk?: (groupId: string, askId: string) => void;
+  /** Remove, as the list's card offers it. Absent draws none. */
+  remove?: PlanBoardRemove;
+  /** Moving a task, as the list does. Absent, nothing moves. */
+  move?: PlanBoardMove;
   askPending?: boolean;
   /** Proposing a change to this group, beside its asks. */
   propose?: PlanBoardProps["propose"];
@@ -46,9 +55,11 @@ export type PlanGroupSheetProps = {
 export function PlanGroupSheet({
   open,
   group,
+  groups,
   onOpenTask,
   add,
-  onAsk,
+  remove,
+  move,
   askPending = false,
   propose,
   floor = false,
@@ -57,6 +68,8 @@ export function PlanGroupSheet({
   under = false,
   onClose,
 }: PlanGroupSheetProps) {
+  const mover = usePlanMover(groups ?? [group], move);
+  const keys = mover.groupKeys(group);
   return (
     <Sheet
       open={open}
@@ -65,8 +78,22 @@ export function PlanGroupSheet({
       floor={floor}
       title={`Group ${group.ordinal}`}
       subtitle={
-        <span className="armada-plan-board__state" data-state={group.state}>
-          {group.says}
+        <span className="armada-plan-group-sheet__subtitle">
+          {/* **The drawing is the group's handle here**: the panel holds one
+              group, so there is nowhere to drag it, and `⌥↑` / `⌥↓` on this
+              is how Graph moves a group, as the list's head does. */}
+          {keys.tabIndex === undefined ? (
+            <PlanGroupShape group={group} />
+          ) : (
+            <Tooltip label="Move group" shortcut="⌥↑ ⌥↓">
+              <span className="armada-plan-group-sheet__handle" aria-label={`Group ${group.ordinal}`} {...keys}>
+                <PlanGroupShape group={group} />
+              </span>
+            </Tooltip>
+          )}
+          <span className="armada-plan-board__state" data-state={group.state}>
+            {group.says}
+          </span>
         </span>
       }
       controls={
@@ -86,8 +113,9 @@ export function PlanGroupSheet({
           group={group}
           askPending={askPending}
           guide
+          mover={mover}
           {...(onOpenTask === undefined ? {} : { onOpenTask })}
-          {...(onAsk === undefined ? {} : { onAsk })}
+          {...(remove === undefined ? {} : { remove })}
           {...(propose === undefined ? {} : { propose })}
         />
       </CardContent>

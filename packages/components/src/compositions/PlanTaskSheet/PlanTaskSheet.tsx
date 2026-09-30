@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../primitives/Badge/Badge";
-import { Button, type ButtonAnswer } from "../../primitives/Button/Button";
+import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
 import { PlanOverlap, PlanProposeForm, type PlanPropose } from "../PlanBoard/PlanBoard";
+import { PlanDropForm, type PlanTaskDrop } from "../PlanBoard/PlanDropForm";
+
+export type { PlanTaskDrop };
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
@@ -186,20 +189,6 @@ export type PlanTaskEdit = {
   disabled?: boolean;
 };
 
-/**
- * Dropping a task. **The reason is asked for in place**, under the acts: a
- * drop is a short act on the task being read, and a dialog over the panel
- * would hide the very task the reason is about.
- */
-export type PlanTaskDrop = {
-  /**
-   * Sends the drop. Resolves to `null` where it was taken, or to what the
-   * refusal says where it was not — and the reason typed stays.
-   */
-  onDrop: (reason: string) => Promise<string | null>;
-  /** Nothing is live to send it over. */
-  disabled?: boolean;
-};
 
 /**
  * Proposing a change, in the caller's own words. **Prose and not a form**: it
@@ -509,7 +498,7 @@ function Acts({
           }}
         />
       )}
-      {drop === undefined || open !== "drop" ? null : <DropForm drop={drop} onClose={shut} />}
+      {drop === undefined || open !== "drop" ? null : <PlanDropForm drop={drop} label="Drop this task" send="Drop" sending="Dropping…" onClose={shut} />}
     </>
   );
 }
@@ -609,81 +598,6 @@ function EditForm({ edit, task, onClose }: { edit: PlanTaskEdit; task: TaskAsDra
           onClick={() => void save()}
         >
           {saving ? "Saving…" : "Save"}
-        </Button>
-      </div>
-    </section>
-  );
-}
-
-/** The drop's reason, asked in place once Drop this task is pressed. */
-function DropForm({ drop, onClose }: { drop: PlanTaskDrop; onClose: () => void }) {
-  const [reason, setReason] = useState("");
-  const [dropping, setDropping] = useState(false);
-  const [refused, setRefused] = useState<string | null>(null);
-  // Only a refusal is drawn on the control: a drop that is taken closes the form.
-  const [answer, setAnswer] = useState<ButtonAnswer>();
-  // **A blank field is a hint until a drop is tried with it**, and an error
-  // from then on: a red field nobody has typed in reads as a mistake already made.
-  const [triedBlank, setTriedBlank] = useState(false);
-  const tap = useHaptics();
-  const blank = reason.trim() === "";
-
-  async function send(): Promise<void> {
-    if (blank) {
-      setTriedBlank(true);
-      return;
-    }
-    setDropping(true);
-    setRefused(null);
-    setAnswer(undefined);
-    try {
-      const said = await drop.onDrop(reason.trim());
-      // The tap answers the press: a drop that is taken closes the form, with
-      // no control left to draw the answer on. #1326.
-      tap(patternFor(said === null ? "accepted" : "refused"));
-      if (said === null) {
-        onClose();
-        return;
-      }
-      setRefused(said);
-      setAnswer("refused");
-    } finally {
-      setDropping(false);
-    }
-  }
-
-  return (
-    <section className="armada-task-sheet__drop" aria-label="Drop this task">
-      <Input
-        label="Reason"
-        value={reason}
-        invalid={triedBlank && blank}
-        disabled={dropping}
-        onChange={(event) => setReason(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") void send();
-        }}
-      />
-      {blank ? (
-        <span className="armada-task-sheet__hint" data-tone={triedBlank ? "error" : "muted"}>
-          A reason is needed.
-        </span>
-      ) : null}
-      {refused === null ? null : <span className="armada-task-sheet__refused">{refused}</span>}
-      <div className="armada-task-sheet__drop-acts">
-        <Button variant="secondary" size="sm" ground="sunken" disabled={dropping} onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          ground="sunken"
-          pending={dropping}
-          answer={answer}
-          disabled={blank || drop.disabled}
-          onClick={() => void send()}
-        >
-          {dropping ? "Dropping…" : "Drop"}
         </Button>
       </div>
     </section>

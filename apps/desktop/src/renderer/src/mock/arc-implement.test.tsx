@@ -114,7 +114,7 @@ describe("implement", () => {
       await planList("arc/executing-concurrent");
 
       await expect.element(groupCard(3)).toHaveTextContent("joining its work");
-      await expect.element(groupCard(3)).toHaveTextContent("2 tasks, at the same time");
+      await expect.element(groupCard(3).getByRole("img", { name: "2 tasks, at the same time" })).toBeVisible();
       // The Job's cap rode on that line until 28 Sep, and read as one number twice.
       await expect.element(groupCard(3)).not.toHaveTextContent("Drones at once");
       await expect.element(taskRow("T5")).toHaveTextContent("beside T6");
@@ -139,7 +139,6 @@ describe("implement", () => {
       await expect.element(taskRow("T5")).toHaveTextContent("~$1.90");
       await expect.element(taskRow("T6")).toHaveTextContent("~$0.72");
       // The boundary has not run, and the two costs are on screen anyway.
-      await expect.element(boundaryOf(3)).toHaveTextContent("will run at this boundary");
       await openChecks(3);
       await expect.element(boundaryOf(3)).toHaveTextContent("not run");
     },

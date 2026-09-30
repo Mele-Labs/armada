@@ -70,7 +70,7 @@ overwritten.
 | --- | --- |
 | The step that records the plan | Record it whole, while its step runs. A retry, or a loop's return to that step, replaces the plan |
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
-| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs |
+| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, while the plan waits on its review — Fleet does not serve the move yet (#1685) |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind
