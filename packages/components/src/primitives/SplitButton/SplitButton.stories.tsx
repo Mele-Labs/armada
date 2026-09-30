@@ -467,6 +467,8 @@ const holdArgs = {
  */
 export const HoldFace: Story = {
   args: holdArgs,
+  // The hold is the claim, and the test run's reduced motion does not offer one.
+  parameters: { motion: "on" },
   render: (args) => (
     <Row>
       <SplitButton {...args} />

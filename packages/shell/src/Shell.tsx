@@ -185,6 +185,9 @@ export function Shell({
   const [dockWidth, resizeDock] = useDockWidth();
   const [leftWidth, resizeLeft] = useLeftWidth();
   const live = connection.state === "connected";
+  // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
+  const pickerEntries = repositoryEntries(repositories, listed, onAddRepository !== undefined, scope);
+  const pick = (id: string) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id));
 
   return (
     <TheShell
@@ -233,16 +236,30 @@ export function Shell({
       {...(SIDEBAR_KEY === undefined ? {} : { collapseBinding: SIDEBAR_KEY })}
       leftWidth={leftWidth}
       onResizeLeft={resizeLeft}
+      repositoryMenu={{
+        entries: pickerEntries,
+        onSelect: pick,
+        ...(onOpenManifest === undefined
+          ? {}
+          : {
+              manifest: {
+                label: MANIFEST_SAID,
+                icon: ManifestGlyph,
+                disabled: repositories.length === 0,
+                onOpen: onOpenManifest,
+              },
+            }),
+      }}
       repositoryPicker={
         <>
           <DropdownMenu
             triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
-            entries={repositoryEntries(repositories, listed, onAddRepository !== undefined, scope)}
+            entries={pickerEntries}
             // Disabled only where nothing behind it is actionable — Add a
             // repository stays reachable on an empty Fleet, which is when it
             // matters most, so its presence keeps the trigger live.
             disabled={repositories.length === 0 && onAddRepository === undefined}
-            onSelect={(id) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id))}
+            onSelect={pick}
           />
           {/* Beside the pick rather than under it: the menu answers *which*,
               and this answers *open it*, which are two acts and not one entry.

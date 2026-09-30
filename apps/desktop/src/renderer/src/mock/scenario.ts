@@ -72,7 +72,10 @@ function distinct<T>(items: T[], key: (item: T) => string): T[] {
 function servedFrom(manifest: ManifestSummary): RepositorySummary {
   return manifest.id === repository().manifest?.id
     ? repository()
-    : { root: `/Users/user/${manifest.id}`, records_root: manifest.records_root, manifest };
+    // Named for its repository, not its id: the recording's Manifest has the
+    // id `armada`, which put it on the base repository's own folder and ticked
+    // both in the picker.
+    : { root: `/Users/user/${manifest.repository}`, records_root: manifest.records_root, manifest };
 }
 
 /**

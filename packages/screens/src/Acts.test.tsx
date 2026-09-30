@@ -10,14 +10,17 @@
 // `SplitButton.stories.tsx` pins the primitive on its own terms; this pins
 // that `Acts` hands it the right name.
 
-import { afterEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import type { JobSummary } from "@armada/protocol";
 import { Acts } from "./Acts";
-import { mount, unmount } from "./mounted";
+import { motion, mount, unmount } from "./mounted";
 
 afterEach(unmount);
+// The kill here is named for its hold, and reduced motion — which this project runs under — offers
+// none. These claims are about the marks on the header a person without the preference sees.
+beforeEach(motion);
 
 function job(over: Partial<JobSummary> = {}): JobSummary {
   return {

@@ -17,7 +17,7 @@ import {
 } from "@armada/components";
 import type { Guide } from "@armada/components";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { motion, mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -125,6 +125,8 @@ test("a guide with no relation draws no figure, and holds no frame where one wou
 });
 
 test("the drawing animates once when the guide is opened, and never on a loop", async () => {
+  // The claim is the motion, so it is the motion a person without the preference sees.
+  await motion();
   await catalogue();
   await rowFor(GUIDE_MEMBER_LINK).click();
   const figure = panelFor(GUIDE_MEMBER_LINK).getByRole("img", { name: /landing in order/ });

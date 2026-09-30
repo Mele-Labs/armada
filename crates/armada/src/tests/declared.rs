@@ -6,6 +6,8 @@
 
 use std::time::Duration;
 
+use checks_runner::CheckSlots;
+
 use crate::declared::{execute, Registry};
 use crate::tests::{repository, TempDir};
 
@@ -31,7 +33,7 @@ fn a_repository() -> TempDir {
 #[tokio::test]
 async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Checks, "build", BUDGET)
+    let ran = execute(dir.path(), Registry::Checks, "build", None, BUDGET, None)
         .await
         .expect("`build` is declared");
 
@@ -44,7 +46,7 @@ async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
 #[tokio::test]
 async fn a_check_that_fails_carries_its_own_exit_code_out() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Checks, "test", BUDGET)
+    let ran = execute(dir.path(), Registry::Checks, "test", None, BUDGET, None)
         .await
         .expect("`test` is declared");
 
@@ -56,7 +58,7 @@ async fn a_check_that_fails_carries_its_own_exit_code_out() {
 #[tokio::test]
 async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Checks, "buidl", BUDGET)
+    let refused = execute(dir.path(), Registry::Checks, "buidl", None, BUDGET, None)
         .await
         .expect_err("`buidl` is not a Check")
         .to_string();
@@ -73,7 +75,7 @@ async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
 #[tokio::test]
 async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Commands, "build", BUDGET)
+    let refused = execute(dir.path(), Registry::Commands, "build", None, BUDGET, None)
         .await
         .expect_err("`build` is a Check, not a Command")
         .to_string();
@@ -85,7 +87,7 @@ async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() 
 #[tokio::test]
 async fn a_command_named_at_check_is_refused_the_same_way_round() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Checks, "fmt", BUDGET)
+    let refused = execute(dir.path(), Registry::Checks, "fmt", None, BUDGET, None)
         .await
         .expect_err("`fmt` is a Command, not a Check")
         .to_string();
@@ -98,7 +100,7 @@ async fn a_command_named_at_check_is_refused_the_same_way_round() {
 #[tokio::test]
 async fn a_destructive_command_runs_and_says_it_is_destructive() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Commands, "wipe", BUDGET)
+    let ran = execute(dir.path(), Registry::Commands, "wipe", None, BUDGET, None)
         .await
         .expect("`wipe` is declared");
 
@@ -111,7 +113,7 @@ async fn a_destructive_command_runs_and_says_it_is_destructive() {
 #[tokio::test]
 async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
     let dir = TempDir::new();
-    let refused = execute(dir.path(), Registry::Checks, "build", BUDGET)
+    let refused = execute(dir.path(), Registry::Checks, "build", None, BUDGET, None)
         .await
         .expect_err("there is no Manifest here")
         .to_string();
@@ -124,19 +126,97 @@ async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
 #[tokio::test]
 async fn this_repositorys_own_checks_and_commands_resolve() {
     for name in ["build", "test"] {
-        let refused = execute(&repository(), Registry::Commands, name, BUDGET)
+        let refused = execute(&repository(), Registry::Commands, name, None, BUDGET, None)
             .await
             .expect_err("they are Checks, not Commands")
             .to_string();
         assert!(refused.contains("as a Check"), "{name}: {refused}");
     }
     for name in ["fmt", "gate"] {
-        let refused = execute(&repository(), Registry::Checks, name, BUDGET)
+        let refused = execute(&repository(), Registry::Checks, name, None, BUDGET, None)
             .await
             .expect_err("they are Commands, not Checks")
             .to_string();
         assert!(refused.contains("as a Command"), "{name}: {refused}");
     }
+}
+
+/// **A Check takes the machine's slots**, waits while every one is held, and
+/// tells what it starts that it holds one, so a Check inside it does not wait
+/// on its own parent.
+#[tokio::test]
+async fn a_check_waits_for_a_machine_slot_and_hands_it_down() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\nid: a-test-project\nchecks:\n  env:\n    run: /usr/bin/env\n",
+    );
+    let slots = CheckSlots::at(dir.path().join("slots"), 1);
+    let elsewhere = slots.try_take(1).expect("writable").expect("free");
+
+    let root = dir.path().to_path_buf();
+    let waiting = slots.clone();
+    let running = tokio::spawn(async move {
+        execute(&root, Registry::Checks, "env", None, BUDGET, Some(&waiting)).await
+    });
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(!running.is_finished(), "ran while the one slot was held");
+
+    drop(elsewhere);
+    let ran = tokio::time::timeout(Duration::from_secs(10), running)
+        .await
+        .expect("ran once the slot was free")
+        .expect("the task ran")
+        .expect("`env` is declared");
+    assert!(
+        ran.attempt
+            .output
+            .stdout
+            .contains(&format!("{}=", checks_runner::HELD_ENV)),
+        "{}",
+        ran.attempt.output.stdout
+    );
+}
+
+/// **One test runs through the Check's `one_test`**, and a Check with none
+/// refuses rather than running the whole suite in its place.
+#[tokio::test]
+async fn one_test_runs_through_the_checks_one_test() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\n\
+         id: a-test-project\n\
+         checks:\n  \
+           test:\n    run: /usr/bin/false\n    one_test:\n      run: /bin/echo only {}\n  \
+           build:\n    run: /usr/bin/true\n",
+    );
+    let ran = execute(
+        dir.path(),
+        Registry::Checks,
+        "test",
+        Some("a b"),
+        BUDGET,
+        None,
+    )
+    .await
+    .expect("`test` declares a one_test");
+    assert_eq!(ran.command, "/bin/echo only \"a b\"");
+    assert_eq!(ran.attempt.output.stdout, "only a b\n");
+    assert_eq!(ran.status(), 0);
+
+    let refused = execute(
+        dir.path(),
+        Registry::Checks,
+        "build",
+        Some("a"),
+        BUDGET,
+        None,
+    )
+    .await
+    .expect_err("`build` declares no one_test")
+    .to_string();
+    assert!(refused.contains("no `one_test`"), "{refused}");
 }
 
 /// **Absent `when` means always**, and a declared one is read against the

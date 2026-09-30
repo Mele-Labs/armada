@@ -4,7 +4,7 @@ import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
 import { Sidebar, type SidebarItem } from "../Sidebar/Sidebar";
 import { StatsPanel, type StatsPanelProps } from "../StatsPanel/StatsPanel";
-import { TitleBar } from "../TitleBar/TitleBar";
+import { TitleBar, type TitleBarProps } from "../TitleBar/TitleBar";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
@@ -35,6 +35,8 @@ export type TheShellProps = {
    * the traffic lights. Absent draws none.
    */
   repositoryPicker?: ReactNode;
+  /** The picker's entries, for the title row's narrow menu. */
+  repositoryMenu?: TitleBarProps["repositoryMenu"];
   /** Opens the command palette from the title row's search field. Absent draws no field. */
   onSearch?: () => void;
   /** Opens the composer from the title row's Dispatch control. Absent draws no control. */
@@ -112,19 +114,20 @@ export type TheShellProps = {
  * panel keeps its frame and its place on the trailing edge, and the screen
  * underneath keeps the window's width open or shut. It starts shut.
  *
- * **Closed draws nothing at all beyond the layout breakpoint** — #1094 dropped
- * the edge strip that used to sit there at any width, since the title row's
- * own Helm button (#1087) is already the way back. Folded keeps its strip:
- * under the breakpoint the title row has no room for the button.
+ * **Closed draws nothing at all, at every width.** The title row's own Helm
+ * button (#1087) is the one way back. #1094 dropped the edge strip that used
+ * to sit on the trailing edge beyond the layout breakpoint, and the owner
+ * dropped the folded one on 30 Sep 2026 once the title row fit the button in a slim
+ * window. Open and folded draws the sheet.
  */
 export type TheShellDock = {
   /** The panel over the content, or the sheet when folded. */
   open: boolean;
   /** Below `--layout-breakpoint`. A prop, because a media query cannot read the token. */
   folded?: boolean;
-  /** Questions waiting on the person. Zero draws no count. */
+  /** Questions waiting on the person, counted on the title row's Helm button. Zero draws no count. */
   questions?: number;
-  /** The binding, beside the close and in the strip's tooltip. */
+  /** The binding, beside the close and in the title row's Helm tooltip. */
   binding?: string;
   onOpen: (open: boolean) => void;
   /**
@@ -157,6 +160,7 @@ export type TheShellDock = {
 export function TheShell({
   railHeader,
   repositoryPicker,
+  repositoryMenu,
   onSearch,
   onDispatch,
   dispatchDisabled,
@@ -182,6 +186,7 @@ export function TheShell({
       <div className="armada-shell">
         <TitleBar
           repositoryPicker={repositoryPicker}
+          {...(repositoryMenu === undefined ? {} : { repositoryMenu })}
           onSearch={onSearch}
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}
@@ -393,7 +398,6 @@ function LeftHandle({ width, onResize }: { width: number; onResize: (width: numb
 function Dock({
   open,
   folded = false,
-  questions = 0,
   binding,
   width,
   onResize,
@@ -449,43 +453,29 @@ function Dock({
     );
   }
 
-  // Closed, at width: nothing. The title row's Helm button is the one way back — #1094.
+  // Closed, at any width: nothing. The title row's Helm button is the one way back.
   if (!folded) return null;
 
-  const waiting = questions > 0 ? `, ${questions} ${questions === 1 ? "question" : "questions"} waiting` : "";
   return (
-    <>
-      <button
-        type="button"
-        className="armada-shell__strip"
-        aria-label={`Open ${DOCK_TITLE}${waiting}`}
-        aria-expanded={open}
-        title={binding === undefined ? `Open ${DOCK_TITLE}` : `Open ${DOCK_TITLE} — ${binding}`}
-        onClick={() => onOpen(true)}
-      >
-        <MessageSquare size={16} strokeWidth={2} aria-hidden />
-        {questions > 0 ? <span className="armada-shell__strip-count">{questions}</span> : null}
-      </button>
-      <HelmSheet
-        open={open && folded}
-        title={DOCK_TITLE}
-        binding={binding}
-        controls={action}
-        onClose={() => onOpen(false)}
-      >
-        {body}
-      </HelmSheet>
-    </>
+    <HelmSheet
+      open={open && folded}
+      title={DOCK_TITLE}
+      binding={binding}
+      controls={action}
+      onClose={() => onOpen(false)}
+    >
+      {body}
+    </HelmSheet>
   );
 }
 
 /**
- * Helm's title-row reopen control, from the same `dock` shape the edge strip
- * reads — so the caller states the dock once and both controls agree on it.
+ * Helm's title-row reopen control, from the same `dock` shape the dock reads —
+ * so the caller states the dock once and the button and the dock agree on it.
  *
- * **Absent whenever the full dock is showing beside the content.** Drawn
- * while folded (the strip's own state) and while closed outright — the latter
- * is the only way back once #1094 stopped drawing a strip there at all.
+ * **Absent whenever the full dock is showing over the content.** Drawn while
+ * folded, open or shut, and while closed outright: it is the one way back to
+ * Helm at every width, since no edge strip is drawn at any.
  */
 function helmButtonOf(
   dock: TheShellDock | undefined,

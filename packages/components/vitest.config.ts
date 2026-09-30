@@ -21,6 +21,11 @@
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
+
+/** Motion on or off for the page a story runs in, where every story starts with it reduced. */
+const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
+  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
 
 export default defineConfig({
   // Resolved against the working directory, which is why the Check runs this
@@ -28,10 +33,18 @@ export default defineConfig({
   plugins: [storybookTest({ configDir: ".storybook" })],
   test: {
     name: "storybook",
+    // Hands `motion` below to a story that asks for it; `.storybook/motion.ts`.
+    setupFiles: ["./.storybook/vitest.setup.ts"],
     browser: {
       enabled: true,
       headless: true,
-      provider: playwright({}),
+      // **Reduced motion, emulated.** Every `--duration-*` a panel moves on is
+      // 0ms under it (`packages/tokens/src/motion.css`), so a sheet or dialog
+      // is in place on its first frame and a `play` press cannot land on one
+      // still sliding in. A story whose claim is the motion itself says
+      // `parameters: { motion: "on" }`.
+      provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
+      commands: { motion },
       instances: [{ browser: "chromium" }],
     },
   },

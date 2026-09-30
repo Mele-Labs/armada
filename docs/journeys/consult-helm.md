@@ -12,7 +12,7 @@ Design fidelity: drawn. Analysis: Complete. UI/UX design: Complete.
 
 ## Flow
 
-Open the dock (`⌘J`, or the edge strip below 1100px) → the conversation zone holds the repository Helm currently answers for → ask, or Start fresh → the picker never moves.
+Open the dock (`⌘J`, or the title row's Helm button) → the conversation zone holds the repository Helm currently answers for → ask, or Start fresh → the picker never moves.
 
 Which repository Helm answers for follows the most recent explicit act: picking a repository, "Discuss with Helm" on a question card, or the dock's own switch. Closing Bridge and restarting Fleet does not lose the conversation — Fleet resumes it from the stored session, and a follow-up lands in context.
 

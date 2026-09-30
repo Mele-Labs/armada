@@ -14,7 +14,8 @@ export type PopoverAlign = "start" | "end";
 export type PopoverProps = {
   /** The control that opens it. Renders in the normal flow. */
   trigger: ReactNode;
-  children: ReactNode;
+  /** A function is handed `close`, for a panel whose acts should put it away. */
+  children: ReactNode | ((close: () => void) => ReactNode);
   align?: PopoverAlign;
   defaultOpen?: boolean;
   /** Names the layer, where more than one popover can be open on a page in turn. */
@@ -61,7 +62,7 @@ export function Popover({ trigger, children, align = "start", defaultOpen = fals
           role="dialog"
           aria-label={label}
         >
-          {children}
+          {typeof children === "function" ? children(() => setOpen(false)) : children}
         </div>
       ) : null}
     </div>

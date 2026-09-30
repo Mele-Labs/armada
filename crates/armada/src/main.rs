@@ -50,8 +50,12 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Verb::Check { name } => declared_by_the_manifest(Registry::Checks, &name, "check").await,
-        Verb::Run { name } => declared_by_the_manifest(Registry::Commands, &name, "run").await,
+        Verb::Check { name, test } => {
+            declared_by_the_manifest(Registry::Checks, &name, test.as_deref(), "check").await
+        }
+        Verb::Run { name } => {
+            declared_by_the_manifest(Registry::Commands, &name, None, "run").await
+        }
         Verb::Covers => checks_this_change_hits(),
         Verb::Clean { everything, force } => clean_this_repository(everything, force),
         // **Blocking, on the runtime's own thread, and alone there.** This
@@ -135,7 +139,12 @@ fn short(sha: &str) -> &str {
 /// adopt an ancestor's Manifest for the daemon, and a Check that quietly ran
 /// under a different repository's declaration would be the same failure with
 /// less warning.
-async fn declared_by_the_manifest(registry: Registry, name: &str, verb: &str) -> ExitCode {
+async fn declared_by_the_manifest(
+    registry: Registry,
+    name: &str,
+    test: Option<&str>,
+    verb: &str,
+) -> ExitCode {
     let root = match std::env::current_dir() {
         Ok(root) => root,
         Err(why) => {
@@ -143,7 +152,17 @@ async fn declared_by_the_manifest(registry: Registry, name: &str, verb: &str) ->
             return ExitCode::FAILURE;
         }
     };
-    match declared::execute(&root, registry, name, PROVISIONAL_CHECK_BUDGET).await {
+    let slots = declared::machine_slots();
+    match declared::execute(
+        &root,
+        registry,
+        name,
+        test,
+        PROVISIONAL_CHECK_BUDGET,
+        slots.as_ref(),
+    )
+    .await
+    {
         Ok(ran) => {
             say::ran(&ran, verb);
             ExitCode::from(ran.status())

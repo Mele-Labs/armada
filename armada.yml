@@ -34,7 +34,10 @@ base: main
 # declare `width:` to take less — never more. Nothing enforces it: these lines
 # are the enforcement, which is why a runner that sizes itself from a config
 # file rather than a flag reads `ARMADA_CHECK_WIDTH` from its environment
-# instead. #1444.
+# instead. #1444. **Checks also take turns across the whole machine**:
+# `armada check`, the land line and Fleet's gate share one set of slots, so a
+# Check may wait on one another session started. `docs/concepts/manifest.md`,
+# *How many Checks run at once*.
 #
 # **`runner:` is where the ways of running less than a whole check live.** A
 # check names the runner and the commands are written once in that runner's own

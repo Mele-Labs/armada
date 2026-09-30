@@ -76,7 +76,7 @@ test("a job that landed, read in full", async ({ page }) => {
 });
 
 test("the same job at the narrowest window bridge lays out for", async ({ page }) => {
-  // `--window-floor`, the desktop window's minWidth, in `packages/tokens/src/spacing.css`.
+  // `--window-floor`, the narrowest layout tier, in `packages/tokens/src/spacing.css`.
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto(at("recorded/done-worktree-given-back"), { waitUntil: "domcontentloaded" });
   await photograph(page, "job-detail-recorded-narrow", THE_JOB);
