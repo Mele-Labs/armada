@@ -49,6 +49,7 @@ import { whyNoSteps } from "./run";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { FIRST_WORKFLOW_VIEW, type WorkflowView } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
+import { useTrail } from "./trail";
 
 export type { ConfirmableAct, HeldAct, JobAct } from "./Acts";
 export type { FoldedReads } from "./mine";
@@ -99,9 +100,23 @@ function OneJob(props: JobDetailProps) {
   // Whether the lead's approval act asked for the proposal. Cleared by the
   // strip, on `opensStep`'s terms — the proposal is Overview's, not a tab.
   const [opensProposal, setOpensProposal] = useState(false);
+  const [opensDrone, setOpensDrone] = useState<string | undefined>(undefined);
+  const [opensRow, setOpensRow] = useState<string | undefined>(undefined);
+  // The way back across a jump between destinations — `trail.ts`.
+  const trail = useTrail((to) => {
+    setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
+    setOpensDrone(to.tab === "drones" ? to.open?.id : undefined);
+    setOpensRow(to.tab === "record" ? to.open?.id : undefined);
+    setOpensCheck(undefined);
+    setOpensProposal(false);
+    setTab(to.tab);
+  });
   const toTab = (next: DetailTab) => {
+    trail.clear();
+    setOpensRow(undefined);
     setOpensStep(undefined);
     setOpensTask(undefined);
+    setOpensDrone(undefined);
     setOpensCheck(undefined);
     setOpensProposal(false);
     setTab(next);
@@ -300,6 +315,13 @@ function OneJob(props: JobDetailProps) {
           // proposal to draw**, so a Job at the gate with no proposal read
           // offers no button rather than one that reaches nothing.
           {...(edits === undefined ? {} : { onOpenProposal: () => setOpensProposal(true) })}
+          {...(opensTask === undefined ? {} : { opensTask })}
+          onOpenDrone={(droneId) => {
+            trail.push("overview");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
+          trail={trail.of("overview")}
         />
         </>
       ) : tab === "workflow" ? (
@@ -335,12 +357,28 @@ function OneJob(props: JobDetailProps) {
           onApproveReview={props.onApproveReview}
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          {...(props.onTaskAct === undefined ? {} : { onTaskAct: props.onTaskAct })}
+          {...(props.onMovePlan === undefined ? {} : { onMovePlan: props.onMovePlan })}
+          models={props.models?.models ?? []}
+          onAddTask={props.onAddTask}
+          onDropTask={props.onDropTask}
+          onSaid={props.onSaid}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
+          now={props.now}
+          onOpenDrone={(droneId) => {
+            trail.push("plan");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
           onOpenCheck={(name, stepAttempt) => {
+            trail.push("plan");
             setOpensCheck({ name, stepAttempt });
             setTab("record");
           }}
+          trail={trail.of("plan")}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -381,6 +419,8 @@ function OneJob(props: JobDetailProps) {
             setTab("workflow");
           }}
           {...(opensCheck === undefined ? {} : { opensCheck })}
+          {...(opensRow === undefined ? {} : { opensRow })}
+          trail={trail.of("record")}
         />
       ) : tab === "drones" ? (
         <DronesTab
@@ -401,9 +441,12 @@ function OneJob(props: JobDetailProps) {
             setTab("workflow");
           }}
           onOpenTask={(taskId) => {
+            trail.push("drones");
             setOpensTask(taskId);
             setTab("plan");
           }}
+          {...(opensDrone === undefined ? {} : { opensDrone })}
+          trail={trail.of("drones")}
         />
       ) : (
         <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
