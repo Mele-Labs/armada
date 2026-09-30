@@ -152,8 +152,8 @@ export function JobSettings({
   const reviewOffered =
     reviewModel === null || models.includes(reviewModel) ? models : [reviewModel, ...models];
   const runsAll = whenBlocked === "allow_all";
-  // An empty slot stays empty — the owner's standing rule. The line a removal
-  // leaves behind keeps the last allow's answer on screen after its row goes.
+  // The line a removal leaves behind keeps the last allow's answer on screen
+  // after the row it was about has gone.
   const showsAllowed = allowed.length > 0 || allowedSaid !== undefined;
 
   return (
@@ -292,7 +292,11 @@ export function JobSettings({
           </RadioGroup>
           <Said>{whenBlockedSaid}</Said>
 
-          {/* **Dimmed and kept under Run it**, never emptied: a list that
+          {/* **No list, no heading.** An empty slot stays empty — the owner,
+              29 Sep 2026 — and a heading kept so the list has a place a
+              person recognises is the placeholder that rule refuses.
+
+              **Dimmed and kept under Run it**, never emptied: a list that
               vanished would read as allows that were thrown away. Dimming is
               the token step, not an alpha. */}
           {!showsAllowed ? null : (

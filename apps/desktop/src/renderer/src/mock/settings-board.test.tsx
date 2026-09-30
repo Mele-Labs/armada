@@ -64,19 +64,31 @@ test("every section is a card, and the canvas under it is what makes it glass", 
   }
 });
 
-test("the board reaches the destination's trailing edge, two cards to a row", async () => {
+test("the board reaches the destination's trailing edge, and its columns end level", async () => {
   await page.viewport(1600, 1000);
   await settings("job/running");
   await expect.poll(() => cards().length).toBeGreaterThanOrEqual(3);
 
-  const [first, second] = cards().map((card) => card.getBoundingClientRect());
-  // Side by side is two facts: the second starts after the first ends, and
-  // the two share a band of the screen.
-  expect(second!.left).toBeGreaterThanOrEqual(first!.right);
-  expect(second!.top).toBeLessThan(first!.bottom);
-  // And the row spends the whole destination. Half a window of nothing is
-  // what the single column left.
-  expect(second!.right).toBeGreaterThanOrEqual(boxOf(".armada-settings-tab").right - 1);
+  const boxes = cards().map((card) => card.getBoundingClientRect());
+  // Two columns, told by how many leading edges the cards stand on.
+  const lefts = [...new Set(boxes.map((box) => Math.round(box.left)))].sort((a, b) => a - b);
+  expect(lefts).toHaveLength(2);
+  // The trailing column reaches the destination's edge. Half a window of
+  // nothing is what the single column left.
+  expect(Math.max(...boxes.map((box) => box.right))).toBeGreaterThanOrEqual(
+    boxOf(".armada-settings-tab").right - 1,
+  );
+
+  // **Composed, not run out.** No column ends a whole card short of another,
+  // which is the difference between an arrangement and a row flow: flowed by
+  // row, Limits and Commands ran down the leading column and left a card and
+  // a half of nothing under Model. Measured 133px against a tallest card of
+  // 350 here, and 501 against the same 350 before.
+  const bottoms = lefts.map((left) =>
+    Math.max(...boxes.filter((box) => Math.round(box.left) === left).map((box) => box.bottom)),
+  );
+  const tallest = Math.max(...boxes.map((box) => box.height));
+  expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThan(tallest);
 });
 
 test("a cap sits in a box of its own, with Raise against the figure it raises", async () => {

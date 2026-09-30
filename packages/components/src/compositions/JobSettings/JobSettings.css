@@ -33,13 +33,25 @@
 /* The cards, two up where the row has the width for them and one where it has
    not. --w-proposal-settings is the measured floor for a label beside a
    control carrying a sentence, which is what every card here holds, so the
-   column count follows the content rather than a breakpoint. */
+   column count follows the content rather than a breakpoint.
+
+   **Columns rather than a grid, because the columns have to balance.** A grid
+   flows by row, so a short card beside a tall one leaves the rest of that
+   column empty and the cards after it pile up under the tall one: at 1600
+   Limits and Commands ran down the leading column with Model alone beside
+   them and a card and a half of nothing under it. A card's height is its
+   content's and no arrangement written here can know it, so the browser's own
+   balancing is what answers it — every card is unbreakable, and the gap
+   between two down a column is a margin because a column has no row gap. */
 .armada-job-settings__cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--w-proposal-settings)), 1fr));
-  gap: var(--space-4);
-  align-items: start;
+  columns: var(--w-proposal-settings);
+  column-gap: var(--space-4);
   min-width: 0;
+}
+
+.armada-job-settings__cards > * {
+  break-inside: avoid;
+  margin-block-end: var(--space-4);
 }
 
 /* The label a list names itself by. The select's and the radio group's own
