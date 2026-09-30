@@ -9,9 +9,10 @@
 // exactly one of; waiting is a Job at a human gate whose Drone is gone.
 // Neither word is a status and neither is minted here.
 
+import { money } from "./facts";
 import { LANDED } from "./Row";
 import type { WaveJobView, WaveView } from "./draft/wave";
-import type { WaveCanvasEdge, WaveCanvasNode } from "@armada/components";
+import type { WaveCanvasEdge, WaveCanvasFact, WaveCanvasNode } from "@armada/components";
 
 /**
  * The layout, in the canvas's own coordinates. `WAVE_APART` is a card's width
@@ -99,13 +100,32 @@ export type WaveRun = {
   opensOn: string[];
 };
 
-/** What a card says under its title: where it landed, and how many it waits on. */
-function factsOf(job: WaveJobView, held: ReadonlySet<string>): string[] {
-  const facts: string[] = [];
+/** What a Job has spent, where it has — `~$2.80`. */
+export const waveSpentSaid = (job: WaveJobView): string | undefined =>
+  job.cost_micros === undefined ? undefined : money(job.cost_micros);
+
+/** How far through its tasks a Job is — `2/7` — while it has some still to do. */
+export const waveTasksSaid = (job: WaveJobView): string | undefined =>
+  job.tasks === undefined || job.tasks.done >= job.tasks.of
+    ? undefined
+    : `${String(job.tasks.done)}/${String(job.tasks.of)}`;
+
+/**
+ * What a card says under its title: where it landed, what it spent, and how
+ * far through its tasks it is.
+ *
+ * **No count of what it waits on.** The edge into the card draws that, and a
+ * figure beside the thing it counts is noise (owner, 29 Sep 2026). A bare
+ * figure carries its name for the tooltip.
+ */
+function factsOf(job: WaveJobView): WaveCanvasFact[] {
+  const facts: WaveCanvasFact[] = [];
   const landed = waveLandedSaid(job);
   if (landed !== undefined) facts.push(landed);
-  const waits = job.waits_on.filter((one) => held.has(one)).length;
-  if (waits > 0) facts.push(waits === 1 ? "waits on 1" : `waits on ${String(waits)}`);
+  const spent = waveSpentSaid(job);
+  if (spent !== undefined) facts.push({ said: spent, name: "Spent" });
+  const tasks = waveTasksSaid(job);
+  if (tasks !== undefined) facts.push({ said: tasks, name: "Tasks done" });
   return facts;
 }
 
@@ -138,7 +158,7 @@ export function waveRunOf(
         title: job.title,
         status: job.status,
         ...(job.handle === undefined ? {} : { handle: job.handle }),
-        facts: factsOf(job, held),
+        facts: factsOf(job),
         ...(onOpen === undefined ? {} : { onOpen: () => onOpen(job.job) }),
       },
     };
@@ -189,16 +209,4 @@ export function waveStandingOf(
   const need = (want: WaveNeed) =>
     out.filter((job) => waveNeedOf(job.status, asking.has(job.job)) === want);
   return { landed, out, blocked: need("blocked"), waiting: need("waiting") };
-}
-
-/**
- * What the wave has reached, as one sentence.
- *
- * **Counted, never estimated.** The two halves are the two a person is looking
- * for: what is done with, and what is still out.
- */
-export function waveSaid(standing: WaveStanding): string {
-  const jobs = standing.landed.length + standing.out.length;
-  const each = jobs === 1 ? "Job" : "Jobs";
-  return `${String(jobs)} ${each} under one plan — ${String(standing.landed.length)} merged, ${String(standing.out.length)} still out.`;
 }
