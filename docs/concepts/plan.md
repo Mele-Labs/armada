@@ -143,3 +143,7 @@ step's declared file scope — what `declare_plan_at: step_start` and the
 paths a Drone said it would touch, unrelated to this Plan's tasks. The two
 must not collide in name: this document's Plan and Task are the Job's own
 record of its work, not a file-scope declaration.
+
+## Open questions
+
+- **[case-waits-for-last-group]** When a later group edits a file an earlier group's task wrote, should that task's cases still wait for the later group's boundary, and is the overlap worth drawing? Today a case runs at the boundary of the last group holding a task it covers, and again at handoff (#1530): if group 3's T6 writes `running-rows.tsx` and group 4's T7 edits it again, T6's case is skipped at group 3's boundary and runs at group 4's. Nothing runs at the same time, since groups still run one at a time. The cost is timing: a break T6 made surfaces a group late, after T7 has changed the same file. Plan draws the overlap as an amber callout on the later group ("Group 4 writes these files too") and as a line in the earlier task's panel ("T7 edited a file this task had already finished"). Neither says the consequence, and a later task editing an earlier one's file is not a fault in itself. What decides it: once Fleet runs groups, whether a break found a group late costs more than running a case twice, and whether a person reading the plan needs to know which boundary a case waits for. Groups are not yet built in Fleet, so there is nothing to measure yet.

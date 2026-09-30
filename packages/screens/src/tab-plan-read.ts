@@ -238,6 +238,7 @@ export function scopeRootOf(paths: readonly string[]): { root: string; count: nu
   return { root, count: paths.length };
 }
 
+// The callout's future waits on [case-waits-for-last-group] in docs/concepts/plan.md.
 /**
  * Which files each group shares with another, keyed by group id.
  *
@@ -449,6 +450,7 @@ export function taskSheetOf(
     title: task.title,
     state: markOf(task.state),
     scope: task.scope,
+    // Drawn while [case-waits-for-last-group] is open — whether the overlap is worth saying at all.
     ...(later === undefined ? {} : { overlap: `${later} edited a file this task had already finished` }),
     tier: task.tier,
     model: task.model,
