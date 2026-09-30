@@ -20,6 +20,7 @@ import { dispatchSketch, dispatchTyping } from "./arc-dispatch";
 import {
   approvedFrozen,
   proposingDispatched,
+  proposingFilling,
   proposingReading,
   proposingReview,
   proposingSlow,
@@ -42,7 +43,14 @@ export {
   ARC_TITLE,
 } from "./arc-base";
 export { dispatchSketch, dispatchTyping };
-export { approvedFrozen, proposingDispatched, proposingReading, proposingReview, proposingSlow };
+export {
+  approvedFrozen,
+  proposingDispatched,
+  proposingFilling,
+  proposingReading,
+  proposingReview,
+  proposingSlow,
+};
 export { plannedMoment, planRevisionRefused };
 export { doneTouched, executingConcurrent, executingSequential, groupFailed };
 export { landed };
@@ -54,6 +62,9 @@ export const ARC_MOMENTS: readonly ArcMoment[] = [
   proposingDispatched(),
   proposingReading(),
   proposingSlow(),
+  // The four, in the order the fields settle. They sit between the wait and the
+  // answer because that is where they happen.
+  ...proposingFilling(),
   proposingReview(),
   approvedFrozen(),
   plannedMoment(),

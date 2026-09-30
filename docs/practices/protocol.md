@@ -1763,6 +1763,60 @@ every other row, and the bounded drop-oldest broadcast in
 dispatch, several requests sent at once will publish one `job.created` each,
 which is the same one-message-per-row the approval gate already published.
 
+## Protocol 19.1: a proposal fills in as it is written
+
+`ProposalInFlight.settled` and the two DTOs behind it, `ProposalSettled` and
+`ProposalSettings` — additive on a message that already existed, so the minor
+moves. A Bridge built before this ignores the field and draws the wait exactly as
+it did at 19.0.
+
+The owner, 30 Sep 2026, having looked at a proposing Job on screen: *"I would
+really push for us to find a way to make the proposer not report the job whole.
+Is there anyway for it to fill in as it goes?"* Four fields, in his order —
+workflow, title, done-when, settings — and
+`.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md` carries the
+order's reasoning, the option he turned down and the cost he took.
+
+**Fields that are settled, never a transcript.** Fleet reads the answer's prefix
+in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
+crosses only once its own line has ended — so a client either has a title or has
+none, and never has `Say which of the two giv`. The raw text does not cross:
+`answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
+the dated correction of the rule that used to make it the whole of what a surface
+could say.
+
+**What the correction turns on is the premise, not the reasoning.** *A channel
+carrying the answer as it was written would be a second, earlier, worse copy of
+the Jobs it minted* was right while nothing existed until the answer landed. A
+dispatched request is a Job from the press since 19.0, so a field read early is
+that row becoming more complete rather than a rival to it — and the objection
+still stands for the text itself, which is why nothing beside the count carries
+one.
+
+**Bridge draws each field where the Job already draws it**, through one fold
+(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+row's Workflow column, the settled title is the row's title, the done-when lines
+are the Job's criteria and the settings are its urgency. The wait inside
+Overview's lead says which of the four the call has got to, because that is the
+one region on a proposing Job's page whose subject is the call.
+
+**Fleet publishes it and nothing folds it yet.** `job-statuses.toml` still reads
+`in_code = "Not yet"` for `proposing`, so no Fleet creates a Job at dispatch and
+`proposal.moved` names no Job for `arrivals.ts` to fold onto. The mock is what
+mints the row and applies the fold; when Fleet's half lands, `arrivals.ts` calls
+`filled` on the Job the message names and nothing in `packages/` changes.
+
+**It makes the back-pressure question neither better nor worse.** No new queue,
+no new channel and no per-client state: `settled` rides on `proposal.moved`, which
+is already on the one bounded drop-oldest broadcast, and a dropped message costs
+a reading that the next one supersedes — the field is the whole prefix re-read
+rather than a delta, so a client that lost one is not missing a field, it is a
+beat behind. What it does add is messages: a field settling publishes
+immediately rather than waiting for `TOKEN_TICK`, which is four more messages per
+one-Job answer plus one per done-when line. That is bounded by the answer's own
+shape and not by the frame rate, which is the property `TOKEN_TICK` exists to
+hold.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

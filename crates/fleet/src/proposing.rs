@@ -28,29 +28,46 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use config::ResolvedWorkflow;
-use core_model::{Ulid, WorkflowId};
+use core_model::{Ulid, Urgency, WorkflowId};
 use verification::field;
 
 use crate::judging::CallFailed;
 
 /// The block an answer owes per Job, and the one word that declines.
 ///
-/// The last three paragraphs are load-bearing and none is decoration. The
-/// first stops one Job becoming three, which is the failure a proposer that
-/// *can* split work invents; the second is what makes a member of a split
-/// briefable on its own part, since that line is the only thing its Drone is
-/// given; the third stops a list of paths being answered from.
+/// The last four paragraphs are load-bearing and none is decoration. The
+/// first is the field order, which is a contract rather than a layout — see
+/// [`Settled`]; the second stops one Job becoming three, which is the failure
+/// a proposer that *can* split work invents; the third is what makes a member
+/// of a split briefable on its own part, since that line is the only thing its
+/// Drone is given; the fourth stops a list of paths being answered from.
+///
+/// **The first four lines are in the owner's order and it is not arbitrary**
+/// (30 Sep 2026): the workflow decides the Job's shape, the title is what makes
+/// the row recognisable, done-when is the goal, and the settings are the part he
+/// can still change. *A proposal fills in as it is written*, 30 Sep 2026, in
+/// the decisions register.
 const ANSWER_FORMAT: &str = "\
 Answer with nothing but the block below, once for each Job the work needs.
 
     job: <its number, counting from 1>
     workflow: <the id, spelled exactly as it appears above>
     title: <what to call this Job, in the words the request used>
+    done_when: <one thing that has to be true before this Job is finished, in \
+one line. Write the line again for each one. Leave it out where the request \
+names none>
+    settings: urgency=<normal, or incident where something is broken for \
+people using the software right now>
     scope: <what this Job is to do, and none of what the others are. Leave \
 the line out where you write one Job>
     because: <why that workflow, in one line>
     after: <the job numbers that must finish first, comma separated. Leave \
 the line out where none do>
+
+Write the lines in the order above, and finish each line before starting the \
+next. Somebody is watching this answer arrive and each line fills a place on \
+their screen as it lands, so a line written out of order fills the wrong place \
+and a line revised further down moves under them while they read it.
 
 If no workflow above fits the request:
 
@@ -98,6 +115,22 @@ pub struct ProposedJob {
     /// The one-based positions of the Jobs that must finish first. **Always
     /// earlier than this one**, which is what makes a plan creatable in order.
     pub after: Vec<usize>,
+    /// What this Job is held to, one line each, in the order it wrote them.
+    ///
+    /// **Empty is a request that named none**, which is every request that
+    /// describes work without saying when it is finished — and it is what the
+    /// Done when card has always drawn as *nothing was read out of a request or
+    /// an issue*. Each line reaches the Job as an `AcceptanceCriterion` whose
+    /// source is the Judge: these are prose, and prose is what the Judge reads.
+    pub done_when: Vec<String>,
+    /// How urgent the request says the work is.
+    ///
+    /// **The one setting this call answers.** `write_targets` and `atomic` are
+    /// the scope step's and say so where they are set; the model is
+    /// configuration's. Urgency is a fact about the request itself — something
+    /// is broken for people right now, or it is not — which is the one thing on
+    /// the settings block this call is placed to read.
+    pub urgency: Urgency,
 }
 
 /// What one call proposed. **No arm of this means "the usual one".**
@@ -345,6 +378,13 @@ impl Brief {
                     brief: String::new(),
                     because: field(block, "because"),
                     after,
+                    done_when: done_when(block),
+                    // **Normal where the line is absent or unreadable**, which
+                    // is the same value this call sent before it asked at all.
+                    // An unspellable urgency is not a reason to refuse a plan:
+                    // the word is a setting a person changes at the gate, and
+                    // the gate is in front of them either way.
+                    urgency: urgency(block).unwrap_or(Urgency::Normal),
                 },
             ));
         }
@@ -396,11 +436,13 @@ fn declines(block: &str) -> bool {
 
 /// Every line that opens a field, in the order [`ANSWER_FORMAT`] states them.
 /// What [`scope_field`] reads until: the next of these, or the end of the
-/// block.
-const FIELD_LINES: [&str; 6] = [
+/// block, and what [`Settled`] reads a field as ended by.
+const FIELD_LINES: [&str; 8] = [
     "job:",
     "workflow:",
     "title:",
+    "done_when:",
+    "settings:",
     "scope:",
     "because:",
     "after:",
@@ -437,6 +479,133 @@ fn scope_field(block: &str) -> Option<String> {
         value.push_str(trimmed);
     }
     (!value.is_empty()).then_some(value)
+}
+
+/// Every `done_when` line in this block, in the order it wrote them.
+///
+/// **One line each, and repeats are the shape rather than a mistake** —
+/// [`ANSWER_FORMAT`] asks for the line again per criterion, because a person
+/// watching the answer arrive gets one more line on the screen each time rather
+/// than one line that grows. A blank one is dropped.
+fn done_when(block: &str) -> Vec<String> {
+    block
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("done_when:"))
+        .map(str::trim)
+        .filter(|said| !said.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// What the `settings` line said about urgency, where it said anything.
+///
+/// `key=value`, comma separated, so a second setting is a second pair rather
+/// than a second line — which is what keeps the four fields four.
+fn urgency(block: &str) -> Option<Urgency> {
+    let said = field(block, "settings")?;
+    said.split(',')
+        .filter_map(|pair| pair.split_once('='))
+        .find(|(key, _)| key.trim().eq_ignore_ascii_case("urgency"))
+        .and_then(|(_, value)| Urgency::from_wire(value.trim().to_ascii_lowercase().as_str()))
+}
+
+/// What the proposer has settled, read off an answer that is still being
+/// written.
+///
+/// # A prefix is the same Job, not a second copy of it
+///
+/// `crates/ipc/src/proposing.rs` carried the opposite rule until 30 Sep 2026 —
+/// a count and never the text, because a channel carrying the answer as it was
+/// written would be a second, earlier, worse copy of the Jobs it minted. That
+/// was right while nothing existed until the answer landed. A dispatched
+/// request is a Job from the press now, so there is a row from the moment
+/// Dispatch is pressed and a field read early is that row becoming more
+/// complete. The DTO carries the dated correction.
+///
+/// # A field is settled when its own line has ended
+///
+/// The format is one field per line, so a `\n` is what says a value will not
+/// change. Everything after the last newline is a line still being written and
+/// is not read at all — which is what stops a title landing as `Say which of
+/// the two was giv`.
+///
+/// # The head Job only
+///
+/// A request that becomes several Jobs is several rows, and the extras carry
+/// `dispatched_by`. What is being watched is the row the press made, so the
+/// reading stops at the second `job:` line rather than proposing a shape for
+/// rows nobody is looking at yet.
+///
+/// # What it never carries
+///
+/// No `scope`, no `because`, no `after`, and no raw text. `scope` is a brief
+/// and a brief is what the Drone is handed; a transcript on the wire is the
+/// thing the correction above is careful not to become. Four fields, because
+/// four fields are what a person watching has somewhere to put.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Settled {
+    /// The workflow, **only where this repository holds it**. A name nothing
+    /// holds ends the call as [`Unresolved::NotHeld`], and drawing it in the
+    /// meantime would put a workflow on screen that nothing froze.
+    pub workflow: Option<WorkflowId>,
+    /// What the Job is called. Until this lands the row's title is the request
+    /// as it was typed, and when it lands the title changes under whoever is
+    /// reading it.
+    pub title: Option<String>,
+    /// What the Job is held to, in the order the lines arrived.
+    pub done_when: Vec<String>,
+    /// How urgent it read the request as being. `None` until the line ends.
+    pub urgency: Option<Urgency>,
+}
+
+impl Settled {
+    /// Read what has settled out of the answer as far as it has been written.
+    ///
+    /// **Pure, and the whole prefix every time.** It re-reads rather than
+    /// folding frame by frame, because a fold would have to hold a
+    /// half-written line and decide what to do with it; re-reading a few
+    /// hundred characters on a throttled tick costs nothing and cannot drift
+    /// from what the finished answer says.
+    pub fn of(written: &str, held: &BTreeMap<WorkflowId, ResolvedWorkflow>) -> Settled {
+        // Everything up to and including the last newline. A line with no
+        // newline after it is still being written.
+        let ended = match written.rfind('\n') {
+            Some(at) => &written[..=at],
+            None => return Settled::default(),
+        };
+        let head = head_block(ended);
+        let workflow = field(&head, "workflow")
+            .map(|named| WorkflowId::carried(Ulid::carried(named)))
+            .filter(|named| held.contains_key(named));
+        Settled {
+            workflow,
+            title: field(&head, "title"),
+            done_when: done_when(&head),
+            urgency: urgency(&head),
+        }
+    }
+}
+
+/// The first Job's block of a partly written answer, whether or not it is
+/// numbered.
+///
+/// **[`blocks`]'s tolerance, one block deep.** An answer that skipped `job:`
+/// is one Job and the whole prefix is its block; an answer that numbered it
+/// ends the block where the second number starts.
+fn head_block(ended: &str) -> String {
+    let mut out = String::new();
+    let mut opened = false;
+    for line in ended.lines() {
+        if line.trim().starts_with("job:") {
+            if opened {
+                break;
+            }
+            opened = true;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
 }
 
 /// The job numbers this block waits on. A word that is not a number is dropped

@@ -1,0 +1,98 @@
+# How does a proposal reach the screen — whole, or a field at a time?
+
+**Decided 2026-09-30.** The next half of
+`2026-09-30-a-dispatched-request-is-a-job.md`, taken after looking at what that
+one built.
+
+A dispatched request is a Job from the press, so there is a row the moment
+Dispatch is pressed. What that row had was its status, its request as a title,
+and a wait saying how far a model call had got — and then, all at once, an
+answer. He looked at it and asked for the rest:
+
+> Now that we have this I would really push for us to find a way to make the
+> proposer not report the job whole. Is there anyway for it to fill in as it
+> goes?
+>
+> 1. Workflow
+> 2. Title
+> 3. Done When
+> 4. Settings
+
+## The order is his, and it is not arbitrary
+
+**Workflow** decides the Job's shape — every other decision on the screen hangs
+off which workflow this runs under. **Title** is what makes the row
+recognisable, and until it lands the row's title is the request as he typed it.
+**Done when** is the goal. **Settings** are the part he can still change, so
+they are the part it costs least to learn last.
+
+That order is now the order the answer format asks the model to write in, which
+makes it a contract rather than a layout — `crates/fleet/src/proposing.rs`,
+`ANSWER_FORMAT`.
+
+## One call, read as it arrives
+
+Offered four smaller calls, one fact each, against one call read as it is
+written.
+
+**Chosen: one call, read as it arrives.** The proposer stays one model call with
+one reading of the request behind it — *which workflow, what to call it and
+whether it is one Job or several answer the same question* — and what changes is
+that Fleet reads the answer's prefix instead of only counting it.
+
+**What four calls would have cost, and why he turned it down:** four calls is
+four latencies, four budgets and four chances to fail, and the first three
+answers would each be a decision taken without the reading the fourth is about
+to do. It also makes the proposer four things instead of one, and the thing it
+is — a Policy, not an Agent, with no toolset and nothing it can transition — is
+what keeps it cheap.
+
+**Cost he took**, in the words it was put to him in: reading a half-written
+answer is fragile, the field order becomes a contract with the model, and a call
+that dies halfway leaves a Job with a workflow and no title.
+
+## What is done about the half-written answer
+
+Named here because the cost above is real and is paid, not avoided.
+
+| The risk | What holds it |
+|---|---|
+| Half a field on screen | A field settles only once its own line has ended. A newline is what says a value will not change |
+| A field drawn that the finished answer contradicts | The prefix is re-read whole each time rather than folded, and one test asserts what settled equals what the plan ends up holding |
+| A workflow nothing holds | Only a workflow this repository holds ever settles — the same rule that refuses the finished answer, one field early |
+| A call that dies after the workflow | `proposing -> escalated`, with the workflow kept and no title. The row's title is still the request, so it reads as words somebody wrote rather than as a blank |
+
+## The title changes under a reader, and that was asked for
+
+It is the second field, so the row's title stops being the request while he may
+be reading it. **What keeps it honest is that nothing he typed leaves the
+screen**: the moment the title replaces the request, the request becomes the
+Job's brief, which is where Fleet puts it when the call answers anyway. On the
+Job's page the header changes and the words appear one region down; on the Board
+the row's title changes in place.
+
+## What this reverses, and what it does not
+
+`crates/ipc/src/proposing.rs` said of `answered_characters`: *a count and never
+the text — what the proposer decided arrives as the Jobs it minted, and a
+channel carrying the answer as it was written would be a second, earlier, worse
+copy of that.*
+
+**That was correct when it was written.** Nothing existed until the answer
+landed, so anything read early would have been a rival to the real thing.
+
+**The premise changed, not the reasoning.** A dispatched request is a Job from
+the press, so a field read early is not a second copy of that row — it is that
+row becoming more complete. **The objection still stands for the text itself**,
+which is why what crosses the wire is fields that are settled and never a
+transcript, and why the count is still a count. The DTO carries the old sentence
+with its date beside the new one.
+
+## What is owed
+
+Fleet publishes `settled` and nothing folds it onto a Job yet, because
+`job-statuses.toml` still reads `in_code = "Not yet"` for `proposing` — no Fleet
+creates a Job at dispatch, so `proposal.moved` names no Job to fold onto. The
+mock is what mints the row and applies the fold. When Fleet's half lands,
+`apps/desktop/src/main/arrivals.ts` calls the same fold on the Job the message
+names.

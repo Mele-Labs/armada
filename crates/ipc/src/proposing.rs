@@ -26,7 +26,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, ProposalId};
+use crate::enums::Urgency;
+use crate::ids::{Instant, ProposalId, WorkflowId};
 
 /// One Job proposer call, while it is still out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,11 +78,118 @@ pub struct ProposalInFlight {
     /// How much of the answer has arrived, in characters.
     ///
     /// Characters rather than tokens because that is what the stream carries at
-    /// this point. **A count and never the text**: what the proposer decided
+    /// this point.
+    ///
+    /// **A count and never the text.** That much is unchanged: the raw answer
+    /// does not cross this seam, and [`settled`](ProposalInFlight::settled) is
+    /// fields rather than a transcript.
+    ///
+    /// **What it used to say, and why it said it:** *what the proposer decided
     /// arrives as the Jobs it minted, and a channel carrying the answer as it
-    /// was written would be a second, earlier, worse copy of that.
+    /// was written would be a second, earlier, worse copy of that.* **That was
+    /// correct when it was written.** Nothing existed until the answer landed,
+    /// so anything read early would have been a rival to the real thing, and
+    /// this count was deliberately the whole of what a surface could say about
+    /// the answer.
+    ///
+    /// **30 Sep 2026 changed the premise, not the reasoning.** A dispatched
+    /// request is a Job from the press — *a dispatched request is a job*, in the
+    /// decisions register — so
+    /// there is a row from the moment Dispatch is pressed. A field read off the
+    /// answer is not a second copy of that row; it is that row becoming more
+    /// complete, and `settled` is how it crosses. **The objection still holds
+    /// for the text itself**, which is why this field is still a count and why
+    /// nothing beside it carries a transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answered_characters: Option<u64>,
+    /// What the proposer has decided so far.
+    ///
+    /// **Absent until something has.** A call that has not begun writing has
+    /// settled nothing, and an empty object would make a client tell "no field
+    /// yet" from "no reading yet" for no difference. Absent also on every Fleet
+    /// older than 19.1.
+    ///
+    /// See [`ProposalSettled`] for what is in it and what is deliberately not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled: Option<ProposalSettled>,
+}
+
+/// What the proposer has decided, while it is still writing the rest.
+///
+/// **Four fields, in the owner's order, and the order is his reasoning rather
+/// than a layout** (30 Sep 2026): the workflow decides the Job's shape, the
+/// title is what makes the row recognisable, done-when is the goal, and the
+/// settings are the part he can still change.
+/// *A proposal fills in as it is written*, 30 Sep 2026, in the decisions
+/// register, carries the option he turned down — four smaller calls, one fact
+/// each — and the cost he took for one call read as it arrives.
+///
+/// # Fields that are settled, never a transcript
+///
+/// `crates/fleet/src/proposing.rs` is the one reader of the answer's prefix, and
+/// a field appears here only once its own line has ended. What that buys is that
+/// nothing on this seam carries half a sentence: a client either has a title or
+/// has none, and never `Say which of the two was giv`.
+///
+/// **No `scope`, no `because`, no `after` and no raw text.** `scope` is the brief
+/// a Drone is handed, `because` is entry zero's rationale, `after` is the plan's
+/// own shape — each reaches a client as the Job it belongs to, once the call has
+/// answered. These four are the four a person watching has somewhere to put.
+///
+/// # The head Job only
+///
+/// A request that becomes several Jobs is several rows. What is being watched is
+/// the row the press made, so this is the first block of the answer and never a
+/// shape for rows nobody is looking at yet.
+///
+/// # A field may land and the call may then die
+///
+/// `proposing -> escalated` is the ending for a call that faulted, and a Job that
+/// got a workflow and no title reaches it with a workflow and no title. **The
+/// title's absence is what keeps the row honest**: until one lands, the row's
+/// title is the request as it was typed, so a half-read Job still reads as words
+/// somebody wrote and never as a blank.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposalSettled {
+    /// The workflow it chose. **Only ever one this repository holds** — Fleet
+    /// checks the name against the catalogue before putting it here, so a
+    /// client never draws a workflow that nothing froze and that the call is
+    /// about to be refused for naming.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<WorkflowId>,
+    /// What the Job is called.
+    ///
+    /// **This is the field that changes a row under a reader.** Before it lands
+    /// the row's title is the request as it was typed; when it lands the row
+    /// says something else. That is what was asked for, and a client drawing it
+    /// owes the person the fact that it moved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// What the Job is held to, one line each, in the order they arrived.
+    ///
+    /// **This one fills in within itself**, because the answer writes the line
+    /// again per criterion rather than one line that grows. Empty is a request
+    /// that named none, which is the ordinary case and is what the Done when
+    /// card already draws a sentence for.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub done_when: Vec<String>,
+    /// The settings it decided. Absent until the line has ended.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<ProposalSettings>,
+}
+
+/// The settings the proposer answered.
+///
+/// **One field, and a type rather than a bare `urgency` on
+/// [`ProposalSettled`].** Urgency is the one setting this call is placed to read
+/// — it is a fact about the request, where `write_targets` and `atomic` are the
+/// scope step's and the model is configuration's. The fourth thing a person
+/// watches fill is *the settings*, so the fourth field is the settings, and a
+/// second one is a field here rather than a fifth field there.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposalSettings {
+    /// How urgent it read the request as being.
+    pub urgency: Urgency,
 }
 
 /// How far a proposal has got. **The fact an elapsed count cannot state.**

@@ -44,10 +44,16 @@ Doing that by hand means knowing the workflow catalogue before you can ask for a
 
 | Output | Detail |
 | --- | --- |
-| `title` | What the Job is called, written from the description or the prompt |
 | `workflow_id` | Which WorkflowDef the work should run under |
+| `title` | What the Job is called, written from the description or the prompt |
+| `acceptance_criteria` | What the Job is held to, one line each, where the request says |
+| `urgency` | `incident` where something is broken for people right now; `normal` otherwise |
 | A graph, where the work is several Jobs | The order they must land in |
 | `facts`, where the work is several Jobs | What each one is for, and none of what the others are |
+
+**The first four are in the owner's order and it is not a layout** (30 Sep 2026): the workflow decides the Job's shape, the title is what makes the row recognisable, done-when is the goal, and the settings are the part he can still change. The answer format asks for them in that order because a person watches the answer arrive and each line fills a place on their screen as it lands — `crates/fleet/src/proposing.rs`, `ANSWER_FORMAT`.
+
+**Urgency is the one setting it answers**, and the other two the 23 September ruling named are not its to answer: `atomic` follows from the scope step's declaration and the model is configuration's. What a proposal reaches the gate with is still a person's to change.
 
 **Naming the Job is part of the same reading**, so nobody types a title for work they have already described — the call has the description in front of it and a [Job](job.md) requires a name.
 
@@ -136,7 +142,11 @@ At step 3 the proposer works out what kind of work it is and which workflow it r
 
 **Step 4 is a row somebody comes back to, never a screen they sit on.** The owner, 30 Sep 2026: *"I want it to be like a job. Something where I can propose multiple things at once and they go off and get proposed. I dont need to sit on the screen and watch it."* So the press takes the composer away and opens nothing — several requests go off at once, and each has an address. The wait is `ProposerWait` inside Overview's lead on the Job's own page: how far the call has reached, how long it has been out against Fleet's budget, which model is reading it, and the stop. *A dispatched request is a job*, 30 Sep 2026, in the decisions register.
 
-**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress alone. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
+**Step 4 draws the call, and the Job filling in as the call writes it.** The four fields the proposer settles — the workflow, the title, what the Job is held to, and its settings — reach the Job one at a time as the answer is written, in that order. Protocol 19.1, and `.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md`.
+
+**What this paragraph said, and why it said it.** *This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress alone. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens.* Corrected 2026-09-08, against the built surface — and **correct as written**: nothing existed until the answer landed, so a skeleton of rows would have claimed something false.
+
+**30 Sep 2026 changed what there is to fill in.** A dispatched request is a Job from the press, so there is one row from the moment Dispatch is pressed and the fields are that row's own. **What the 8 Sep correction refused is still refused**: nothing draws a skeleton of Job rows, because a plan of several is still one answer read at the end — what fills in is the head Job's four fields, on the row that already exists. The owner's words: *"Now that we have this I would really push for us to find a way to make the proposer not report the job whole. Is there anyway for it to fill in as it goes?"*
 
 **Every Job exists before any of them is approved.** Step 3 creates each at `awaiting_approval` and step 5 dispatches the one it is pressed on — see [Job Board](job-board.md), Job status on the Board.
 
@@ -164,7 +174,7 @@ Why: every Job the request became already stands at `awaiting_approval`, so a pl
 
 ## What is recorded
 
-**Its output is not stored as its own record.** `workflow_id`, `title` and the Job's own brief land on the [Job](job.md) — the last as `facts` — and no field says a proposal happened.
+**Its output is not stored as its own record.** `workflow_id`, `title`, the lines it is held to, its urgency and the Job's own brief land on the [Job](job.md) — the brief as `facts` — and no field says a proposal happened.
 
 **Its reasoning is.** Entry zero of a Job's `scope_revisions[]` carries a `rationale` — why that workflow. It names no paths, because none were proposed; the step's own declaration is the entry that names them. That rationale is the only durable trace the call ever ran.
 

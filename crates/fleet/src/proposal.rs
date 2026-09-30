@@ -95,7 +95,7 @@ pub async fn proposed(
         proposing.client.as_ref(),
         &ask,
         proposing.budget,
-        &making.telling(),
+        &making.telling(workflows),
         stopped.asked(),
     )
     .await
@@ -122,7 +122,7 @@ pub async fn proposed(
         proposing.client.as_ref(),
         &retry_ask,
         proposing.budget,
-        &making.telling(),
+        &making.telling(workflows),
         making.retry().asked(),
     )
     .await;
@@ -432,7 +432,11 @@ where
             origin: ipc::TopLevelOrigin::from(
                 dispatched_as.unwrap_or(core_model::TopLevelOrigin::AutoDetected),
             ),
-            urgency: ipc::Urgency::from(core_model::Urgency::Normal),
+            // **What the `settings` line said, and `normal` where it said
+            // nothing** — `ProposedJob::urgency`. It was hard-coded normal
+            // until 30 Sep 2026, which made the settings block on the gate a
+            // block the proposer filled none of.
+            urgency: ipc::Urgency::from(job.urgency),
             // **Undetermined, and that is a value.** Absent is scope not yet
             // worked out; empty would claim the Job writes nothing. The scope
             // step settles it and declares it, and `atomic` follows from what
@@ -441,7 +445,18 @@ where
             write_targets: None,
             dependencies,
             model: None,
-            acceptance_criteria: Vec::new(),
+            // **What the `done_when` lines said**, each as a criterion the
+            // Judge reads: they are prose, and prose is the Judge's. Empty is a
+            // request that named none, which is what the Done when card has
+            // always drawn as nothing having been read out of a request.
+            acceptance_criteria: job
+                .done_when
+                .iter()
+                .map(|text| ipc::ProposedCriterion {
+                    text: text.clone(),
+                    source: ipc::CriterionSource::from(core_model::CriterionSource::Judge),
+                })
+                .collect(),
             subject: None,
             facts: job.brief.clone(),
             attachments,
