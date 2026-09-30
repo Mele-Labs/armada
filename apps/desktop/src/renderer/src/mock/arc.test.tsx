@@ -134,10 +134,15 @@ describe("every arc moment loads", () => {
 // invisible to every one of them: Overview is where a person lands, and a
 // moment that fell through to an older arrangement drew it without a single
 // claim noticing (the owner did, 25 Sep 2026).
+//
+// **It said the frozen board until 29 Sep 2026**, and that was the next
+// defect: he opened a Job whose group had failed and the screen drew the
+// configuration he approved. Overview shows what needs him now, led by one
+// sentence, and the frozen values are Settings'.
 describe("what Overview opens on", () => {
   test.for(PAST_THE_PRESS)(
-    "%s: Overview is the frozen board on arrival — what the Job is held to, and that nothing " +
-      "on it may be moved",
+    "%s: Overview leads with one sentence saying where the Job is, and draws none of what " +
+      "froze at approval",
     async (name) => {
       expect(ARC, `${name} is not one of the arc's scenarios`).toContain(name);
       mount(name);
@@ -147,13 +152,35 @@ describe("what Overview opens on", () => {
       // sheet's panel and passed against the defect.
       const overview = page.getByRole("tabpanel", { name: "Overview" });
       await expect.element(overview).toBeVisible();
-      // The one sentence only a frozen board says. A Job with a Drone out
-      // cannot be asked to choose its workflow again.
-      await expect.element(overview).toHaveTextContent(/Frozen\. This is what every Drone is given\./);
-      // And what it is held to, which is the reading the whole board is for.
-      await expect
-        .element(overview.getByRole("region", { name: "Done when" }))
-        .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
+      // The lead, whatever it says: every one of these moments has a sentence
+      // and it is the first thing in the panel.
+      await expect.element(overview.getByRole("heading", { level: 2 }).first()).toBeVisible();
+      // The two sentences only the frozen board says, and it is not here.
+      await expect.element(overview).not.toHaveTextContent(/Frozen\. This is what every Drone is given\./);
+      expect(overview.getByRole("region", { name: "Done when" }).all()).toHaveLength(0);
+    },
+  );
+});
+
+// What Settings holds once the press is behind. **Only what no other
+// destination draws** — the owner's call of 29 Sep 2026, so the request stays
+// the brief's and the criteria stay Plan's.
+describe("what froze at approval", () => {
+  test.for(PAST_THE_PRESS)(
+    "%s: Settings says when it froze, and holds the gates, how it lands and the tier models",
+    async (name) => {
+      mount(name);
+      await page.getByRole("tab", { name: /^Settings/ }).click();
+
+      const settings = page.getByRole("tabpanel", { name: "Settings" });
+      const froze = settings.getByRole("region", { name: "Frozen at approval" });
+      await expect.element(froze).toHaveTextContent(/Nothing here changes while the Job runs\./);
+      await expect.element(froze).toHaveTextContent("feature — 4 steps");
+      await expect.element(froze).toHaveTextContent("One branch for the whole Job");
+      await expect.element(froze).toHaveTextContent("Difficult");
+      // Frozen is values, never fields a person could move.
+      expect(froze.getByRole("checkbox").all()).toHaveLength(0);
+      expect(froze.getByRole("combobox").all()).toHaveLength(0);
     },
   );
 });
@@ -289,21 +316,21 @@ describe("classifying", () => {
   );
 
   test(
-    "arc/approved-frozen: the Job says when it was approved, and that what it is held to was " +
-      "frozen at that moment",
+    "arc/approved-frozen: Settings says when it was approved, and draws the tiers as values",
     async () => {
       mount("arc/approved-frozen");
+      await page.getByRole("tab", { name: /^Settings/ }).click();
 
       // The instant is written out in the reader's own locale, so what is
       // asserted is that it is there and dated — never its spelling.
-      await expect
-        .element(page.getByText(/Frozen\. This is what every Drone is given\./))
-        .toBeVisible();
-      await expect.element(page.getByText(/^Frozen .*2026/)).toBeVisible();
+      // Unanchored: the note is one paragraph holding the instant, this
+      // clause and the sentence after it, so neither end is at a boundary.
+      await expect.element(page.getByText(/when you approved/)).toBeVisible();
       // Frozen is drawn as values rather than as fields nobody may move.
-      expect(page.getByRole("checkbox").all()).toHaveLength(0);
-      expect(page.getByRole("combobox", { name: "Difficult" }).query()).toBeNull();
-      await expect.element(page.getByText("Difficult")).toBeVisible();
+      const froze = page.getByRole("region", { name: "Frozen at approval" });
+      expect(froze.getByRole("checkbox").all()).toHaveLength(0);
+      expect(froze.getByRole("combobox", { name: "Difficult" }).all()).toHaveLength(0);
+      await expect.element(froze).toHaveTextContent("Difficult");
     },
   );
 
@@ -312,8 +339,15 @@ describe("classifying", () => {
       "since, and the Job still shows the words it froze",
     async () => {
       mount("arc/approved-frozen");
+      // **Plan leads with what the Job is held to**, and has since the owner
+      // asked why it did not. Overview stopped drawing it a second time on
+      // 29 Sep 2026, so this is the one place it reads.
+      await page.getByRole("tab", { name: /^Plan/ }).click();
 
-      const held = page.getByRole("region", { name: "Done when" });
+      // **Plan's own lead card, not `Done when`.** That region is the
+      // proposal's, and the proposal is Settings' once a Job is approved.
+      const held = page.getByRole("tabpanel", { name: "Plan" });
+      await expect.element(held).toHaveTextContent("What this Job is held to");
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
@@ -321,11 +355,6 @@ describe("classifying", () => {
       // repository, a path and a branch as readily as an issue (`u7y9`).
       await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
-      await expect.element(held).toHaveTextContent("The Job is held to the words above.");
-      // What a criterion is, and that a Judge answers per criterion, is not
-      // this Job's — it is guide 10 and the `?` on the heading (#1602).
-      await expect.element(held).not.toHaveTextContent(/The Judge marks against/);
-      await expect.element(held.getByRole("button", { name: /^Open guide/ })).toBeVisible();
     },
   );
 
@@ -334,6 +363,7 @@ describe("classifying", () => {
       "for itself",
     async () => {
       mount("arc/approved-frozen");
+      await page.getByRole("tab", { name: /^Settings/ }).click();
 
       const handoff = page.getByRole("listitem", { name: "Review the change" });
       await expect

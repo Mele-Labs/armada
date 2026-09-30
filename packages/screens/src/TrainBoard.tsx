@@ -9,6 +9,8 @@
 import { useRef } from "react";
 import { Button, JobMembers, MemberDecision } from "@armada/components";
 
+import { JobLead } from "./JobLead";
+
 import type { MembersBoard } from "./members";
 
 export type TrainBoardProps = {
@@ -23,23 +25,22 @@ export function TrainBoard({ read, onSaid, onCopied }: TrainBoardProps) {
   return (
     <div className="armada-train">
       {/* The thing waiting on a person, before anything they would have to
-          look for it among. */}
-      <div className="armada-train__lead" data-waiting={read.lead.waiting || undefined}>
-        <div className="armada-train__lead-said">
-          <p className="armada-train__lead-headline">{read.lead.said}</p>
-          <p className="armada-train__lead-because">{read.lead.because}</p>
-        </div>
-        {read.decision === undefined ? null : (
-          <Button
-            onClick={() => {
-              decision.current?.scrollIntoView({ block: "nearest" });
-              decision.current?.querySelector("button")?.focus();
-            }}
-          >
-            Answer it
-          </Button>
-        )}
-      </div>
+          look for it among. `JobLead` is the ordinary Job's banner too. */}
+      <JobLead
+        {...read.lead}
+        act={
+          read.decision === undefined ? undefined : (
+            <Button
+              onClick={() => {
+                decision.current?.scrollIntoView({ block: "nearest" });
+                decision.current?.querySelector("button")?.focus();
+              }}
+            >
+              Answer it
+            </Button>
+          )
+        }
+      />
 
       <div className="armada-train__columns" data-alone={read.decision === undefined || undefined}>
         <JobMembers {...read.train} onSaid={onSaid} onCopied={onCopied} />

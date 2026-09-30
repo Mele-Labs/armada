@@ -35,6 +35,7 @@ import type { JobDetail as JobWhole } from "@armada/protocol";
 import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
+import { FrozenAtApproval } from "./frozen-at-approval";
 import { proposalEditsOf } from "./tab-proposal-read";
 import { DronesTab } from "./tab-drones";
 import { PlanTab } from "./tab-plan";
@@ -246,10 +247,14 @@ function OneJob(props: JobDetailProps) {
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
       <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
-      {tab === "overview" && edits !== undefined ? (
-        // A Job at or just past its approval gate: the proposal is what
-        // Overview has to draw, because no step has run. **And no wave**: a
-        // Job that has not been approved has dispatched nothing.
+      {tab === "overview" && edits !== undefined && edits.proposal.approved_at === undefined ? (
+        // A Job at its approval gate: the proposal is what Overview has to
+        // draw, because no step has run and approving it is the one thing
+        // waiting. **And no wave**: a Job not approved has dispatched nothing.
+        //
+        // **Only until it is approved.** After that the frozen values are a
+        // reading that never changes, and Overview's job is what needs you —
+        // the owner, 29 Sep 2026. Settings holds them from then on.
         <ProposalTab
           job={job}
           whole={whole}
@@ -278,6 +283,7 @@ function OneJob(props: JobDetailProps) {
           onReporting={setReporting}
           onRaising={setRaising}
           onRaisingTurns={setRaisingTurns}
+          onOpenTab={setTab}
         />
         </>
       ) : tab === "workflow" ? (
@@ -324,6 +330,13 @@ function OneJob(props: JobDetailProps) {
         <SettingsTab
           job={job}
           whole={whole}
+          // What froze at approval, above the settings still open. A frozen
+          // setup is settings — the owner's 29 September call.
+          frozen={
+            edits === undefined || edits.proposal.approved_at === undefined ? undefined : (
+              <FrozenAtApproval landing={edits.landing} proposal={edits.proposal} whole={whole} />
+            )
+          }
           models={props.models ?? null}
           stale={props.stale}
           acting={props.acting}

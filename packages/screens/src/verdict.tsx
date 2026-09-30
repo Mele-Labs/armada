@@ -679,7 +679,13 @@ export function verdictSlotAtGate({
   );
   // Armada's review comes first, above the record it is about. #903.
   const confidence = whole?.confidence;
-  if (confidence === undefined) return sheetWith();
+  // **Under the lead, the record folds** — the same trade the reviewed gate
+  // below already makes, for the same reason. Overview leads with one thing
+  // and that sentence already carries what the gate found (`Land is waiting
+  // on you to approve it. All 3 Checks passed and the Judge met both
+  // criteria.`), so the record unfolded pushed the board's cards a screen
+  // down on the one status a person most needs to act on. 29 Sep 2026.
+  if (confidence === undefined) return sheetWith(undefined, true);
   const captured = capturedOf(open, claimed, frames ?? NO_FRAMES);
   return (
     <ReviewedGate

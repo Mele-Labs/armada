@@ -20,6 +20,7 @@ import type {
   TaskBarSegment,
 } from "@armada/components";
 
+import type { JobLeadProps } from "./JobLead";
 import type { JobMembersView, MemberView } from "./draft/members";
 import type { LandingRule } from "./draft/landing";
 
@@ -62,7 +63,7 @@ export type MembersBoard = {
   /** The member holding a question, where one is. */
   decision?: MemberDecisionProps;
   /** What leads the screen: the one thing outstanding, or that nothing is. */
-  lead: { said: string; because: string; waiting: boolean };
+  lead: JobLeadProps;
 };
 
 /**
@@ -193,14 +194,14 @@ function leadOf(
   const landed = counted.filter((member) => member.landed).length;
   const count = `${landed} of ${counted.length} pull ${counted.length === 1 ? "request" : "requests"} merged.`;
   if (asking === -1) {
-    return { said: "Nothing is waiting on you.", because: count, waiting: false };
+    return { said: "Nothing is waiting on you.", because: count };
   }
   const member = all[asking] as MemberView;
   const behind = movesSaid(all.slice(asking + 1));
   return {
     said: `Member ${asking + 1} is asking you something.`,
     because: `${openSaid(member, landing)} ${behind} ${count}`,
-    waiting: true,
+    tone: "awaiting-review",
   };
 }
 

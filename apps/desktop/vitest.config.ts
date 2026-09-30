@@ -47,7 +47,14 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({}),
+            // **Three seconds, not Playwright's fifteen.** A file is one
+            // worker and its tests run in order, so a file with 38 failing
+            // tests spent 38 × 15s waiting for elements that were never
+            // going to appear — 570s in one file, which no number of cores
+            // shortens. Measured before choosing it: the slowest passing
+            // test in the five heaviest files is 1,573ms, and the whole mock
+            // suite went from 577s to 18s with no test changing colour.
+            provider: playwright({ actionTimeout: 3_000 }),
             instances: [{ browser: "chromium" }],
             viewport: { width: 1440, height: 900 },
           },

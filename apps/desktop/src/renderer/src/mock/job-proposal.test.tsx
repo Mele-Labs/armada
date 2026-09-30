@@ -241,30 +241,32 @@ describe("approved", () => {
       "again",
     async () => {
       frozen();
+      // **Settings holds what froze, since 29 Sep 2026** — Overview shows what
+      // needs you, and a reading that never changes is a setting.
+      await page.getByRole("tab", { name: /^Settings/ }).click();
 
-      // The positive the absences stand behind: this is the one sentence only
-      // a frozen board says.
-      await expect
-        .element(page.getByRole("region", { name: "What was asked" }))
-        .toHaveTextContent("Frozen. This is what every Drone is given.");
-
-      const overview = page.getByRole("tabpanel", { name: "Overview" });
-      expect(overview.getByRole("textbox").all()).toHaveLength(0);
-      expect(overview.getByRole("combobox").all()).toHaveLength(0);
-      expect(overview.getByRole("checkbox").all()).toHaveLength(0);
-      expect(overview.getByRole("spinbutton").all()).toHaveLength(0);
+      const froze = page.getByRole("region", { name: "Frozen at approval" });
+      await expect.element(froze).toHaveTextContent(/Nothing here changes while the Job runs\./);
+      expect(froze.getByRole("textbox").all()).toHaveLength(0);
+      expect(froze.getByRole("combobox").all()).toHaveLength(0);
+      expect(froze.getByRole("checkbox").all()).toHaveLength(0);
+      expect(froze.getByRole("spinbutton").all()).toHaveLength(0);
       expect(page.getByRole("button", { name: "Add a criterion" }).all()).toHaveLength(0);
       expect(page.getByRole("button", { name: /^Remove criterion/ }).all()).toHaveLength(0);
 
-      // And the words are still there, read rather than typed in.
+      // And the words the Job is held to are still read somewhere: Plan's
+      // lead. **Not `Done when`** — that region belongs to the proposal, and
+      // the proposal is Settings' once a Job is approved.
+      await page.getByRole("tab", { name: /^Plan/ }).click();
       await expect
-        .element(heldTo())
+        .element(page.getByRole("tabpanel", { name: "Plan" }))
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
     },
   );
 
   test("the workflow reads as its name and its steps, with no picker to change it", async () => {
     frozen();
+    await page.getByRole("tab", { name: /^Settings/ }).click();
 
     const workflow = page.getByRole("region", { name: "Workflow" });
     await expect.element(workflow).toHaveTextContent("feature — 4 steps");

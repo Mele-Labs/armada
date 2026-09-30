@@ -10,7 +10,8 @@ import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { cap } from "./RaiseCap";
 import { span } from "./duration";
-import { GROUP_STATE_WORDS, type GroupView } from "./draft";
+import { type GroupView } from "./draft";
+import { GROUP_STATE } from "@armada/components";
 
 /** One group, as the Produced panel draws it. */
 export type LandedGroup = {
@@ -109,7 +110,7 @@ function ordinalWord(ordinal: number): string {
 
 /** One group's row: what it came to, and what it left. */
 export function groupOf(group: GroupView): LandedGroup {
-  const word = GROUP_STATE_WORDS[group.state];
+  const word = GROUP_STATE[group.state];
   const done = group.tasks.filter((task) => task.state === "done").length;
   const files = new Set(group.tasks.flatMap((task) => task.scope)).size;
   const checks = group.checks_selected.length;
@@ -119,8 +120,8 @@ export function groupOf(group: GroupView): LandedGroup {
       : span(group.started_at, group.ended_at);
   return {
     name: `Group ${ordinalWord(group.ordinal)}`,
-    verb: word.verb ?? group.state,
-    status: word.badgeStatus ?? undefined,
+    verb: word?.verb ?? group.state,
+    status: word?.badgeStatus ?? undefined,
     tasks: `${done} of ${group.tasks.length} done`,
     ...(took === null ? {} : { took }),
     files: files === 1 ? "1 file" : `${files} files`,
