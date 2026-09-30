@@ -1848,10 +1848,10 @@
   height: var(--h-workflow-canvas);
 }
 
-/* The taller frame went with the group nodes (owner, 25 Sep 2026). A run is a
-   spine with one Plan node under it now, which is exactly what
-   `--h-workflow-canvas` is measured for; `--h-workflow-run-canvas` draws the
-   plan itself, on the Plan tab. */
+/* The taller frame went with the group nodes (owner, 25 Sep 2026), and the
+   Plan node with them on 29 Sep: a run is a spine and nothing under it, and
+   the canvas's height is set below; `--h-workflow-run-canvas` draws the plan
+   itself, on the Plan tab. */
 
 /* No board under the run any more (owner, 28 Sep 2026: *I dont think we need
    the groups/plan info on the workflow view*). The tab is the run, the toggle
