@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
+import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
 
 /**
  * A panel that enters from an edge. The contract gives it exactly one line —
@@ -135,6 +136,29 @@ export type SheetProps = {
    */
   beside?: boolean;
   /**
+   * A docked sheet's width in px, where a person has resized it. Absent draws
+   * `--w-dock`. Read only with `onResize`, and clamped to what the container
+   * leaves before it draws — a width remembered from a wider window never
+   * draws past today's.
+   */
+  width?: number;
+  /**
+   * Drags and arrow-key nudges the docked sheet's leading edge — Helm's own
+   * handle (`dock-handle.tsx`), in the gap beside the dock. Clamped between
+   * `--w-dock-min` and what the container leaves once the handle's gap and
+   * `--w-work-min` of the content under it are kept uncovered. **Absent draws
+   * no handle** and a fixed `--w-dock`; so does a sheet that is not docked.
+   * Remembering the result is the caller's.
+   */
+  onResize?: (width: number) => void;
+  /**
+   * With `beside`: the width of the dock this one sits beside, where that dock
+   * resizes — its `width`, as given. Clamped here the way that dock clamps
+   * it, against the same container, so the `--space-4` between the two holds
+   * at whatever width the other is dragged to. Absent assumes `--w-dock`.
+   */
+  besideWidth?: number;
+  /**
    * Another layer lies over this one and takes `Esc` first. Both bind on
    * `window` in the capture phase, where the first one opened runs first, so
    * the one underneath has to be told to wait.
@@ -185,6 +209,9 @@ export function Sheet({
   contained = false,
   docked = false,
   beside = false,
+  width,
+  onResize,
+  besideWidth,
   under = false,
   floating = false,
   closeLabel,
@@ -194,6 +221,22 @@ export function Sheet({
   onClose,
 }: SheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+
+  // A resizing dock, or one beside it, reads its container's width: the
+  // ceiling is what that container leaves, and both docks sit in the same one,
+  // so each computes the same clamp from the same figure.
+  const resizes = docked && onResize !== undefined;
+  const follows = docked && beside && besideWidth !== undefined;
+  const room = useWidthOf(scrimRef, open && (resizes || follows));
+  // The handle's gap is the one piece of chrome beside a docked sheet: the
+  // container already sits `--space-4` in from the window.
+  const range = dockWidthRange(room - tokenPx("--space-4"));
+  const drawn = (wanted: number | undefined): number => {
+    const at = wanted ?? defaultDockWidth();
+    // Not measured yet (a first render, or no layout at all): as given.
+    return room === 0 ? at : clampToRange(at, range);
+  };
 
   useEffect(() => {
     // `preventScroll`: a docked sheet sits in the screen's own scroller, and
@@ -259,14 +302,18 @@ export function Sheet({
 
   return (
     <div
+      ref={scrimRef}
       className="armada-sheet-scrim"
+      style={follows ? ({ "--armada-sheet-beside": `${drawn(besideWidth)}px` } as CSSProperties) : undefined}
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
       data-docked={docked || undefined}
       data-beside={(docked && beside) || undefined}
     >
+      {resizes ? <DockHandle width={drawn(width)} {...range} label={title} onResize={onResize} /> : null}
       <div
         className={docked ? "armada-sheet armada-glass" : "armada-sheet"}
+        style={resizes ? { width: `${drawn(width)}px` } : undefined}
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
@@ -316,4 +363,24 @@ export function Sheet({
       </div>
     </div>
   );
+}
+
+/**
+ * An element's own width, kept current as it resizes — 0 until it is measured,
+ * and while `on` is false. Measured before paint, so a remembered width is
+ * clamped on the frame it first draws rather than one frame late.
+ */
+function useWidthOf(ref: RefObject<HTMLElement | null>, on: boolean): number {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!on || element === null) return;
+    const read = (): void => setWidth(element.getBoundingClientRect().width);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, on]);
+  return width;
 }

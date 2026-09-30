@@ -107,6 +107,14 @@ export type PlanTaskSheetProps = {
   floor?: boolean;
   /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
   docked?: boolean;
+  /**
+   * The docked panel's width, where a person has dragged it — `Sheet`'s own
+   * pair (owner, 30 Sep 2026: "I should be able to resize it with the resize
+   * handle we have"). Absent draws `--w-dock` and no handle. The file diff
+   * beside it follows whatever width this is.
+   */
+  width?: number;
+  onResize?: (width: number) => void;
   onClose?: () => void;
   /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
   back?: SheetBack | undefined;
@@ -222,6 +230,8 @@ export function PlanTaskSheet({
   onFile,
   floor = false,
   docked = false,
+  width,
+  onResize,
   onClose,
   back,
 }: PlanTaskSheetProps) {
@@ -231,6 +241,7 @@ export function PlanTaskSheet({
       open={open}
       contained
       docked={docked}
+      {...(onResize === undefined ? {} : { width, onResize })}
       floor={floor}
       title={title}
       subtitle={
@@ -368,6 +379,7 @@ export function PlanTaskSheet({
         contained
         docked={docked}
         beside
+        {...(onResize === undefined ? {} : { besideWidth: width })}
         floor={floor}
         title={file.path}
         closeLabel="Close"

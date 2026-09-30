@@ -359,9 +359,24 @@
 /* Beside another dock: the file diff to the left of Plan's task panel. The
    scrim keeps the trailing dock's width and a `--space-4` gap clear, and the
    panel stops at the container's leading edge rather than past it. Its width
-   is the caller's, since only the caller knows what the reading needs. */
+   is the caller's, since only the caller knows what the reading needs.
+   `--armada-sheet-beside` is the other dock's width as drawn, set by `Sheet`
+   where that dock resizes; absent, it is at rest. */
 .armada-sheet-scrim[data-beside] {
-  padding-right: calc(var(--w-dock) + var(--space-4));
+  padding-right: calc(var(--armada-sheet-beside, var(--w-dock)) + var(--space-4));
+}
+
+/* A resizing dock's leading edge: Helm's handle (`src/dock-handle.css`), in
+   the gap to the dock's left. It takes the dock's place at the trailing end,
+   so the dock sits flush to it, and the scrim's own padding already holds it
+   to the dock's height. It takes presses where the scrim takes none. */
+.armada-sheet-scrim[data-docked] > .armada-dock-handle {
+  margin-left: auto;
+  pointer-events: auto;
+}
+
+.armada-sheet-scrim[data-docked] > .armada-dock-handle + .armada-sheet[data-docked] {
+  margin-left: 0;
 }
 
 .armada-sheet-scrim[data-beside] > .armada-sheet[data-docked] {

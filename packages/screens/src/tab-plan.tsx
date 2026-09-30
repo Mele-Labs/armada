@@ -22,6 +22,7 @@ import type { Diff, JobDetail as JobWhole, JobSummary, StepDetail } from "@armad
 import { TAB_LABEL } from "./detail-tabs";
 import { Eyebrow } from "./InsideAJob";
 import { PlanLead } from "./plan-lead";
+import { useTaskWidth } from "./task-width";
 import {
   casesOf,
   criteriaOf,
@@ -284,6 +285,7 @@ export function PlanTab({
   // `--w-step-panel-min`. Read here rather than handed down: `JobDetail.tsx`
   // reads the same hook for Overview and Workflow.
   const narrow = useNarrow();
+  const [taskWidth, resizeTask] = useTaskWidth();
   // The file open beside the task. It belongs to the task: another task, or
   // none, closes it.
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -510,6 +512,8 @@ export function PlanTab({
         open
         floor={floor}
         docked={!narrow}
+        {...(taskWidth === undefined ? {} : { width: taskWidth })}
+        onResize={resizeTask}
         {...(rewrite === undefined ? {} : { rewrite })}
         {...(redirect === undefined ? {} : { redirect })}
         {...(peek === undefined ? {} : { drone: peek })}
