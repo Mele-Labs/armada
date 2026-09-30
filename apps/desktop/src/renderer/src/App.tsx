@@ -776,9 +776,9 @@ export function App({ draft }: AppProps = {}) {
                   setConfirming({ act: "kill_process", jobId, pid, command })
                 }
                 onKillProcesses={(jobId, count) => setConfirming({ act: "kill_processes", jobId, count })}
-                // A failed task's own acts, straight through: each is ahead of
+                // A plan task's own acts, straight through: each is ahead of
                 // its route, so the answer is Not implemented naming the issue.
-                onTaskAct={(act, jobId, taskId) => void commands.taskAct(act, jobId, taskId)}
+                onTaskAct={(act, jobId, taskId, edit) => commands.taskAct(act, jobId, taskId, edit)}
                 recorded={{
                   footprint: state.footprint,
                   handed: state.handed,

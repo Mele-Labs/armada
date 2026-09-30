@@ -242,7 +242,17 @@ export function transportFailure(
 const UNKNOWN_ROUTE = 404;
 
 /** The fold's words for the ids a pending route is filled with. The payload keeps the wire's. */
-const SAID: Record<string, string> = { job_id: "Job", pid: "Process", task_id: "Task" };
+const SAID: Record<string, string> = {
+  job_id: "Job",
+  pid: "Process",
+  task_id: "Task",
+  // What Edit this task carries, in the form's own words.
+  title: "Title",
+  note: "Brief",
+  scope: "Files",
+  expects: "Done when",
+  model: "Model",
+};
 
 /** A command to a route Fleet does not serve yet, and an issue names what builds it. */
 const NOT_IMPLEMENTED: BridgeCode = "bridge.not_implemented";
@@ -269,6 +279,8 @@ function notImplementedFailure(
   const named = `${route.method} ${route.path}`;
   const { job_id: jobId, ...ids } = filled;
   const status = outcome.fault.why === "unanswerable" ? outcome.fault.status : UNKNOWN_ROUTE;
+  // What the act carried, so the brief says what it would have done.
+  const sent = Object.entries(outcome.fault.sent ?? {});
   return {
     kind: "fault",
     headline: "Not implemented",
@@ -282,6 +294,7 @@ function notImplementedFailure(
         { key: "route", value: named },
         { key: "act", value: route.act },
         ...Object.entries(ids).map(([key, value]) => ({ key, value })),
+        ...sent.map(([key, value]) => ({ key, value })),
         { key: "path", value: outcome.fault.path },
         { key: "status", value: String(status) },
         ...logField(bridge),
@@ -294,6 +307,7 @@ function notImplementedFailure(
       { label: "Route", value: named },
       { label: "Act", value: route.act },
       ...Object.entries(filled).map(([key, value]) => ({ label: SAID[key] ?? key, value })),
+      ...sent.map(([key, value]) => ({ label: SAID[key] ?? key, value })),
     ],
     values: machineLog(bridge),
     note: `Fleet answered ${status}.`,

@@ -24,6 +24,7 @@ import type { WorkflowView } from "./workflow-view";
 
 import type {
   CommandAnswer,
+  EditTask,
   Examination,
   FileReport,
   FollowedLog,
@@ -109,10 +110,11 @@ export type JobDetailProps = {
   /** Send a redirect straight through — its own dialog is the confirmation. */
   onRedirect: (jobId: string, instruction: string) => void;
   /**
-   * A failed plan task's Pilot, Restart or Edit, pressed on its panel. Each is
-   * ahead of its route, so the answer is `Not implemented` naming the issue.
+   * A failed plan task's Pilot or Restart, or Edit this task on an open or
+   * failed one with what it changed, pressed on its panel. Each is ahead of
+   * its route, so the answer is `Not implemented` naming the issue.
    */
-  onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

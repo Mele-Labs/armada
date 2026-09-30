@@ -5,7 +5,7 @@
 // kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
+import { PROTOCOL_VERSION, refusedWith, sentOf } from "@armada/protocol";
 import type { JobSummary, Outcome, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
@@ -138,8 +138,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/pilot`) }),
     restartTask: async (jobId, taskId) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/restart`) }),
-    editTask: async (jobId, taskId) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`) }),
+    editTask: async (jobId, taskId, edit) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));

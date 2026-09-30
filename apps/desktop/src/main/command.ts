@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { CapRaise, ChosenAnswer, FileReport, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { CapRaise, ChosenAnswer, EditTask, FileReport, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -450,8 +450,10 @@ export class JobCommands {
   }
 
   /**
-   * A failed plan task's own acts, from its panel. **Each is ahead of its
-   * route** — #250 pilots, #1656 restarts, #1657 edits — so the answer is
+   * A plan task's own acts, from its panel — a failed task's Pilot and
+   * Restart, and Edit on an open or failed one. **Each is ahead of its
+   * route** — #250 pilots, #1656 restarts, #1657 edits, with the fields it
+   * changed as the body — so the answer is
    * `bridge.not_implemented` until each ships. Restart shares the step's
    * restart lock; Pilot and Edit share the redirect's, since both change what
    * the Job's Drone is doing. The task id is encoded, as a pid is.
@@ -468,9 +470,9 @@ export class JobCommands {
     );
   }
 
-  async editTask(jobId: string, taskId: string): Promise<Outcome> {
+  async editTask(jobId: string, taskId: string, edit: EditTask): Promise<Outcome> {
     return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
-      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/edit`)),
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/edit`), edit),
     );
   }
 
