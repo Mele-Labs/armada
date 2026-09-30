@@ -36,6 +36,7 @@ import {
   landingValueOf,
   landingWith,
   proposalOnWorkflow,
+  repositorySaysOf,
   stepsDeclaredOf,
   workflowChoicesOf,
 } from "./tab-proposal-read";
@@ -115,6 +116,7 @@ export function ProposalTab({
           proposal.gates,
           whole,
           stepsDeclaredOf(workflows, proposal.workflow_id),
+          repositorySaysOf(manifest),
         )}
         {...(open
           ? {

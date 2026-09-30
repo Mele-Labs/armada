@@ -135,6 +135,18 @@ export type ManifestSummary = {
   records_root: string;
   version: number;
   checks: string[];
+  /**
+   * `never`, `checks-pass` or `always`, as `armada.yml` writes it. **Absent
+   * from a Fleet older than the field**, which is the only absence there is:
+   * a file saying nothing means the policy's own default and Fleet sends that
+   * word. Since 18.4.
+   *
+   * **One file's word, not the resolution.** A Job gated by several Manifests
+   * is answered most-restrictive-wins at the gate, and nothing records it.
+   */
+  auto_merge?: string;
+  /** `human_always` or `auto_if_judge_passes`, for `auto_merge`'s reasons. */
+  review_gate?: string;
 };
 
 /**

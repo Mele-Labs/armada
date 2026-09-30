@@ -23,16 +23,24 @@ import {
   Tooltip,
 } from "@armada/components";
 
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import type { JobDetail as JobWhole, ManifestSummary } from "@armada/protocol";
 
 import type { LandingRule } from "./draft/landing";
 import type { ProposalView, TierModels } from "./draft/proposal";
-import { completeChoices, frozenAtOf, gateRowsOf, landingValueOf } from "./tab-proposal-read";
+import {
+  completeChoices,
+  frozenAtOf,
+  gateRowsOf,
+  landingValueOf,
+  repositorySaysOf,
+} from "./tab-proposal-read";
 
 export type FrozenAtApprovalProps = {
   landing: LandingRule;
   proposal: ProposalView;
   whole: JobWhole | null;
+  /** This Job's repository, for the policy a frozen gate still defers to. */
+  manifest?: ManifestSummary | undefined;
 };
 
 /** What the instant in the card's head is, for a reader who only sees a date. */
@@ -49,7 +57,12 @@ const HOLDS = "Nothing here changes while the Job runs.";
  * **One card, three regions.** Its head says these values froze, so each
  * region is named by what it is rather than by saying frozen again.
  */
-export function FrozenAtApproval({ landing, proposal, whole }: FrozenAtApprovalProps) {
+export function FrozenAtApproval({
+  landing,
+  proposal,
+  whole,
+  manifest,
+}: FrozenAtApprovalProps) {
   const tiers: TierModels = proposal.tiers;
   // The instant, which the proposal's own heading carried while Overview drew
   // it. Nothing else on any destination says when the Job was approved.
@@ -72,7 +85,7 @@ export function FrozenAtApproval({ landing, proposal, whole }: FrozenAtApprovalP
         <ProposalGates
           workflow={proposal.workflow_id}
           workflowChoices={[]}
-          steps={gateRowsOf(proposal.gates, whole)}
+          steps={gateRowsOf(proposal.gates, whole, undefined, repositorySaysOf(manifest))}
         />
         <ProposalLanding landing={landingValueOf(landing)} completeChoices={completeChoices()} />
         <div className="armada-proposal__region">

@@ -201,6 +201,12 @@ export function manifest(): ManifestSummary {
     records_root: "/Users/user/Library/Application Support/Armada/records/armada",
     version: 3,
     checks: ["cargo_build", "cargo_nextest"],
+    // What this repository's own `armada.yml` declares, which is what the
+    // mock Fleet's Manifest surface serves for it too — `DECLARED` in
+    // `apps/desktop/.../mock/manifest-fleet.ts`. A step deferring to either
+    // policy reads its word off here.
+    auto_merge: "never",
+    review_gate: "human_always",
   };
 }
 

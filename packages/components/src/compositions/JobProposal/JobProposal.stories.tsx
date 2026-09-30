@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import { JobProposal } from "./JobProposal";
 import type { ProposalGateRow } from "./ProposalGates";
@@ -59,7 +59,12 @@ const STEPS: ProposalGateRow[] = [
     repositoryDecides: "review_gate",
     overridden: false,
     advanceGate: "manifest_rule:review_gate",
-    does: "The repository's review_gate policy decides whether a person signs off.",
+    // What the repository's word resolves to, in the verb generated for it.
+    // `tab-proposal-read.ts` composes this from the policy `armada.yml`
+    // declares; a row handed no word says only that the repository decides.
+    does:
+      "Today that policy says a person answers. Editing the Manifest changes it, for this Job " +
+      "as well.",
   },
 ];
 
@@ -145,6 +150,36 @@ export const YoursToChange: Story = {
     onRemoveCriterion: () => {},
     onOpenIssue: () => {},
   },
+  /**
+   * **What the fourth state offers, before anything is pressed.** The owner
+   * read this row and could not tell the two apart (`rhxt`, 29 Sep): it said
+   * *The repository decides — review_gate* over a button, and what the button
+   * changed was written only after he had pressed it.
+   */
+  play: async ({ canvas, userEvent }) => {
+    const deferred = canvas.getByRole("listitem", { name: "Review the change" });
+    const boxes = canvas.getByRole("listitem", { name: "Implement" });
+
+    // The two states, side by side: a step the repository decides offers no
+    // box at all, because the answer is not this Job's to give.
+    expect(within(deferred).queryAllByRole("checkbox")).toHaveLength(0);
+    expect(within(boxes).getAllByRole("checkbox")).toHaveLength(3);
+
+    // What pressing it would change, beside the button rather than after it.
+    expect(
+      within(deferred).getByText(/hands this step to the three boxes/),
+    ).toBeVisible();
+
+    // And the identifier says what it is. A hover is the whole of the claim:
+    // the sentence is in the document while closed, so a rendering shows
+    // nothing about whether a reader can reach it.
+    const policy = within(deferred).getByText("review_gate");
+    expect(within(deferred).getByText(/whether a person answers the step/)).not.toBeVisible();
+    await userEvent.hover(policy);
+    await waitFor(() =>
+      expect(within(deferred).getByText(/whether a person answers the step/)).toBeVisible(),
+    );
+  },
 };
 
 /**
@@ -181,5 +216,8 @@ export const ApprovedAndFrozen: Story = {
     expect(canvas.queryAllByRole("textbox")).toHaveLength(0);
     expect(canvas.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(canvas.getByText(/This Job decides this step for itself/)).toBeVisible();
+    // Nothing here can be pressed, so nothing here says what pressing would
+    // change: the line beside the button is the button's, not the row's.
+    expect(canvas.queryAllByText(/hands this step to the three boxes/)).toHaveLength(0);
   },
 };

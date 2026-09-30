@@ -369,6 +369,7 @@
 
 .armada-proposal__gate-does,
 .armada-proposal__gate-frozen,
+.armada-proposal__gate-choice,
 .armada-proposal__overrode {
   display: flex;
   flex-wrap: wrap;
@@ -412,6 +413,14 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
+}
+
+/* The policy's key, which is a value a person searches `armada.yml` for — the
+   same rule that puts a step named by its id in mono. It carries the tooltip
+   naming it, so it is the identifier and not the sentence around it. */
+.armada-proposal__deferred-policy {
+  font-family: var(--font-mono);
+  color: var(--fg-default);
 }
 
 /* What the Job is held to: one criterion per row, on the card's own surface.

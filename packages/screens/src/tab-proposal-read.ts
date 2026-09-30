@@ -9,7 +9,12 @@
 
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
 import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
-import type { JobDetail as JobWhole, WorkflowStep, WorkflowSummary } from "@armada/protocol";
+import type {
+  JobDetail as JobWhole,
+  ManifestSummary,
+  WorkflowStep,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 import { criterionWritten, decidedSaidOf, originSaidOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
@@ -17,7 +22,7 @@ import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
 import { gateReadingOf, gatesForSteps, unmeantOf } from "./draft/proposal";
-import type { GateView, ProposalView } from "./draft/proposal";
+import type { GateView, ProposalView, RepositorySays } from "./draft/proposal";
 import { absoluteOf } from "./duration";
 
 /**
@@ -70,6 +75,8 @@ export function gateRowsOf(
   whole: JobWhole | null,
   /** What the chosen workflow declares, where it is not the frozen one. */
   declared: ReadonlyMap<string, WorkflowStep> = new Map(),
+  /** What this repository's policies say, for the rows that defer to one. */
+  says: RepositorySays = {},
 ): ProposalGateRow[] {
   return gates.map((gate) => {
     // The frozen step first, then the chosen workflow's. A step neither holds
@@ -77,7 +84,7 @@ export function gateRowsOf(
     // of — and a box ticked on it says so.
     const step = whole?.steps.find((one) => one.step_id === gate.step_id) ??
       declared.get(gate.step_id);
-    const reading = gateReadingOf(gate);
+    const reading = gateReadingOf(gate, says);
     // What the step declares, which a tick cannot change.
     const unmeant = unmeantOf(gate, {
       checks: (step?.checks?.length ?? 0) > 0,
@@ -101,6 +108,20 @@ export function gateRowsOf(
     if (unmeant !== undefined) row.unmeant = unmeant;
     return row;
   });
+}
+
+/**
+ * What this Job's repository says for each policy a gate can defer to.
+ *
+ * **Both words or neither**: a Fleet that sends these sends both, and one
+ * older than 18.4 sends neither — so a row on an older Fleet reads as a
+ * deference nothing resolved rather than as a policy nobody set.
+ */
+export function repositorySaysOf(manifest: ManifestSummary | undefined): RepositorySays {
+  return {
+    ...(manifest?.auto_merge === undefined ? {} : { auto_merge: manifest.auto_merge }),
+    ...(manifest?.review_gate === undefined ? {} : { review_gate: manifest.review_gate }),
+  };
 }
 
 /**

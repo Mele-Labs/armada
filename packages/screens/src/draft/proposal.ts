@@ -13,6 +13,7 @@
 // proposing screens draft twice over: the shape is draft, and so is the idea
 // that it exists before a Job does.
 
+import { ADVANCE_GATE, AUTO_MERGE } from "@armada/components";
 import type {
   DeclaredCheck,
   DeclaredJudge,
@@ -26,6 +27,22 @@ import type { TaskTier } from "./task";
 
 /** Which repository policy a step defers to, where it defers to one. */
 export type RepositoryDecides = "auto_merge" | "review_gate";
+
+/**
+ * What the repository's policies say today, by the key that defers to them.
+ * The word as `armada.yml` writes it — `human_always`, `checks-pass`;
+ * `policyMeans` renders it.
+ *
+ * **Absent is a Fleet older than 18.4, never a default.** `ManifestSummary`
+ * carries both words since then and a file declaring neither key crosses as
+ * each policy's own default, so nothing else is missing — a reading handed
+ * nothing says only that the repository decides.
+ *
+ * **One file's word and not the gate's answer.** Fleet folds a Job's several
+ * gating Manifests at the gate and records nothing (`fleet::policy`), so this
+ * is what the repository says today rather than what will happen.
+ */
+export type RepositorySays = Readonly<Partial<Record<RepositoryDecides, string>>>;
 
 /**
  * What one step is gated by.
@@ -230,6 +247,22 @@ const REPOSITORY_DOES: Readonly<Record<RepositoryDecides, string>> = {
 };
 
 /**
+ * What a repository's word for a policy means, in the verb generated for it,
+ * or `undefined` where nothing read the word.
+ *
+ * **`review_gate` resolves to an `advance_gate`**, which is why its words come
+ * from that table: `human_always` and `auto_if_judge_passes` are the two values
+ * it resolves to, and each already renders as what it does to a step.
+ */
+function policyMeans(policy: RepositoryDecides, word: string | undefined): string | undefined {
+  if (word === undefined) return undefined;
+  // A word no registry renders reads as nothing, rather than as itself: a bare
+  // `auto_if_judge_passes` in a sentence is Fleet's spelling where a person is
+  // deciding, which is the reason `advanceGate` is held and not drawn.
+  return (policy === "auto_merge" ? AUTO_MERGE[word] : ADVANCE_GATE[word])?.verb ?? undefined;
+}
+
+/**
  * One step's gate, read as what Fleet would do.
  *
  * The order is the order the wire resolves in: a repository rule nobody
@@ -238,11 +271,20 @@ const REPOSITORY_DOES: Readonly<Record<RepositoryDecides, string>> = {
  * `HumanAlways` still runs the tiers, and what they establish is the material
  * the person reads.
  */
-export function gateReadingOf(gate: GateView): GateReading {
+export function gateReadingOf(gate: GateView, says: RepositorySays = {}): GateReading {
   if (gate.repository_decides !== undefined && gate.overridden !== true) {
+    const policy = gate.repository_decides;
+    // What the deference resolves to, where the repository's word was read.
+    // Deferred and unresolved is what nobody could read (`rhxt`, 29 Sep): the
+    // policy can move, and this Job moves with it at every gate it reaches.
+    const means = policyMeans(policy, says[policy]);
     return {
-      advance_gate: `manifest_rule:${gate.repository_decides}`,
-      does: REPOSITORY_DOES[gate.repository_decides],
+      advance_gate: `manifest_rule:${policy}`,
+      does:
+        means === undefined
+          ? REPOSITORY_DOES[policy]
+          : `Today that policy says ${means}. ` +
+            "Editing the Manifest changes it, for this Job as well.",
     };
   }
   if (gate.you) {
