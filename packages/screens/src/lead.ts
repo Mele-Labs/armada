@@ -18,6 +18,21 @@ import { panelsOf } from "./gates";
 
 import { elapsedSince } from "./duration";
 
+import type { DetailTab } from "./detail-tabs";
+import type { CheckAt } from "./tab-record";
+
+/**
+ * Where an act sends a person: a destination, or one Check's row on the
+ * Record. **The Record's own route** for the second — the same
+ * `RecordTabProps.opensCheck` the Plan's group boundary presses through, so
+ * there is one way into a Check's row and not two.
+ *
+ * **Absent where the thing the act names is already under the lead.** A
+ * Drone's question and a command it was not given are answered in the slot
+ * below, not at a destination.
+ */
+export type LeadOpens = { tab: DetailTab } | { check: CheckAt };
+
 /**
  * The line that leads Overview. `waiting` colours the edge, exactly as it does
  * on the train's lead, so the tone is read before a word of it is.
@@ -29,6 +44,8 @@ export type JobLead = {
   tone?: "awaiting-review" | "completed-failed";
   /** The one act, where the screen has somewhere to send a person. */
   act?: string;
+  /** Where that act goes, where it goes somewhere rather than answering here. */
+  opens?: LeadOpens;
 };
 
 /** The step a person is being asked about, or the one a Drone is on. */
@@ -229,6 +246,9 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
         because: because(tasksSaid(whole), "Nothing else on it is running."),
         tone: "completed-failed",
         act: "Read what stopped it",
+        // The whole Record, because no one row is why it stopped — newest
+        // first is the reading, and the row that ended it is the top of it.
+        opens: { tab: "record" },
       };
     }
     return {
@@ -247,6 +267,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       because: because(tasksSaid(whole), "Nothing else on it is running."),
       tone: "completed-failed",
       act: "Read what stopped it",
+      opens: { tab: "record" },
     };
   }
 
@@ -265,6 +286,16 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       ),
       tone: "completed-failed",
       act: "Read what it produced",
+      // That Check's own row, and the step it ran on with it: a Check at a
+      // group's boundary is on the step that works the groups, and one that
+      // failed mid-workflow is on whichever step `currentStep` found.
+      opens: {
+        check: {
+          name: failed.name,
+          stepAttempt: failed.attempt,
+          ...(step === undefined ? {} : { step: step.step_id }),
+        },
+      },
     };
   }
 
