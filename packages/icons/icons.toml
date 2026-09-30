@@ -783,6 +783,24 @@
     reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label, and never a control that expands in place."
     notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as WhereRow's into act and Job detail's Details act draw it."
 
+  [[icons.chevron-right.usage]]
+    means = "forward — the forward half of the history act"
+    group = "Chrome"
+    size = "12px"
+    status = "Specified"
+    paired_with = "chevron-left"
+    reserved = "Trailing the label of the control that retraces a step the way back undid — the forward half of actions.toml's `history` act, ⌘]. Never leading, never alone without a label."
+    notes = "Registered 2026-09-30 by the owner, with chevron-left for the back half, once the Back trail in Job detail had drawn Back as words alone. It is the goes-to usage above read along a trail: forward goes to a place, so it trails its label as goes-to does, and the two cannot be told apart because they mean the same thing. Nothing draws Forward yet; the row is here so the pair is decided together."
+
+[icons.chevron-left]
+  means = "back — the back half of the history act"
+  group = "Chrome"
+  size = "12px"
+  status = "Specified"
+  paired_with = "chevron-right"
+  reserved = "Leading the label of the control that returns to where a person was before a jump — Sheet's `back` slot, `Back to T6`, and actions.toml's `history` act, ⌘[. Never alone without a label, never collapse or disclosure, which are chevron-up's and chevron-down's, and never a sort, a previous page or a direction indicator."
+  notes = "Registered 2026-09-30 by the owner. The Back trail landed on 29 Sep with its control in words alone, because the registry had no left chevron and the `history` row said neither half had a glyph to take. Leading, where chevron-right's goes-to trails: the mark points the way the press goes, and back goes the other way from where a label reads. 12px, strokeWidth 2, at the label's own size and colour, as the goes-to usage does."
+
 [icons.panel-left-close]
   means = "Put the left column away — a frame with its leading column divided off, and the caret leaving"
   group = "Chrome"

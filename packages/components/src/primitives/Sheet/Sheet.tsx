@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
 import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
@@ -59,10 +59,10 @@ export type SheetSize = "default" | "wide" | "widest" | "reading";
  * board to its Record row. **One slot for every sheet**, so a jump reads the
  * same wherever it lands.
  *
- * No glyph: `chevron-left` is not registered, and the registry's `history`
- * act says neither half of back and forward has one to take. So the label
- * says it, naming the thing returned to — `Back to T6` — and the tooltip
- * names the destination too: `Back to Plan · T6`.
+ * `chevron-left` leads the label, 12px at strokeWidth 2 — the back half of the
+ * registry's `history` act, registered by the owner on 30 Sep 2026. The label
+ * names the thing returned to — `Back to T6` — and the tooltip names the
+ * destination too: `Back to Plan · T6`.
  */
 export type SheetBack = {
   label: string;
@@ -327,6 +327,7 @@ export function Sheet({
                 title={back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`}
                 onClick={back.onBack}
               >
+                <ChevronLeft size={12} strokeWidth={2} aria-hidden="true" />
                 {back.label}
                 {back.binding === undefined ? null : <KbdBinding binding={back.binding} />}
               </Button>

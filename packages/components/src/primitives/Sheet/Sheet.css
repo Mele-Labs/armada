@@ -354,7 +354,7 @@
    whole width under it. The head wraps for it even where a sheet holds its
    head to one line, and the close still takes the first line's trailing
    corner. The ghost's own inline padding
-   is pulled back so its label starts on the title's edge.
+   is pulled back so its chevron starts on the title's edge.
    `[role]` and the `:has` are weight, not meaning: the task sheet holds its
    own head to one line at 0,4,0, and a way back has to win over that. */
 .armada-sheet[role="dialog"]:has(> .armada-sheet__head > .armada-sheet__way) .armada-sheet__head {

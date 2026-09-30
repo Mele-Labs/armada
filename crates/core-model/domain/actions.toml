@@ -118,13 +118,12 @@ notes = "Built by #1591: the press collapses the left column to the same 48px ra
 kind = "Action"
 tier = "Global"
 verb = "Back / forward"
-icon = ""
-icon_absent = "undecided"
+icon = "chevron-left"
 shortcut = "⌘[ ⌘]"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "One row for a pair, because the two are one act with a direction. `chevron-left` is not registered and `chevron-right` is reserved to expand and collapse, so neither half has a glyph to take."
+notes = "One row for a pair, because the two are one act with a direction. The row names the back half's glyph, `chevron-left`, leading `Back to …` in Sheet's head; the forward half takes `chevron-right`, trailing its label. Both registered by the owner on 30 Sep 2026, once Job detail's Back trail had drawn Back as words alone."
 
 [actions.send_message]
 kind = "Action"

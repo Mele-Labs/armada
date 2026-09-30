@@ -130,7 +130,10 @@ export function dormantIn(where: {
     // the 48px rail and never hides — #1435 read those as the same thing and
     // was corrected.
     toggle_sidebar: "⌘\\ collapses the column to its rail; not reachable from the palette yet",
-    history: "no back and forward yet",
+    // The Back trail (`packages/screens/src/trail.ts`) answers ⌘[ inside a
+    // Job after a jump between panels, and only there; `App` holds no handle
+    // to it, and there is no forward yet.
+    history: "⌘[ goes back after a jump inside a job; no forward yet",
   };
 }
 
