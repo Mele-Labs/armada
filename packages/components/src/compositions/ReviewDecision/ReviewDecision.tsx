@@ -113,10 +113,16 @@ export type ReviewDecisionProps = {
    * The answer that was pressed and Fleet has not answered. The control
    * carrying that act waits and its face says which one is out — including an
    * act chosen behind the caret, which is what `SplitButton`'s `pendingLabel`
-   * is for. Every other control is off; absent is nothing out. #1117.
+   * is for, and the face keeps that act's own label once `answered` takes
+   * over. Every other control is off; absent is nothing out. #1117.
    */
   pending?: DecisionAct;
-  /** Fleet's answer to the last of the four pressed, drawn on that act's control. Pending wins. */
+  /**
+   * Fleet's answer to the last of the four pressed, drawn on that act's
+   * control. **An act chosen behind a caret keeps its own label on the face
+   * until this clears**, so the line and the words beside it name one act.
+   * Pending wins.
+   */
   answered?: ReviewDecisionAnswered;
   /** The label over the note field. Sentence case, no Wh- opener. */
   noteLabel?: string;
@@ -200,6 +206,15 @@ export function ReviewDecision({
   // face says which of them is out.
   const waitingOn = (...acts: DecisionAct[]) => acts.some((act) => pending === act);
   const underway = pending === undefined ? undefined : UNDERWAY[pending];
+  // What the face reads while Fleet's answer to the act behind the caret is
+  // still drawn. **The answer keeps the label, not only the press** —
+  // `pendingLabel` already holds it while the press is out, and the line is
+  // drawn on the same face afterwards: a line meaning accepted beside a face
+  // reading `Merge and take the work` names the act that did not go out, at
+  // the one moment a person is checking that the right one did. #1117's rule
+  // is that the control pressed answers, and what was pressed was the entry.
+  const faceOf = (lead: string, behind: DecisionAct, chosen: string) =>
+    pending === undefined && answered?.act === behind ? chosen : lead;
 
   const approveEntry: SplitButtonItem = { label: approveLabel, note: approveNote, onSelect: onApprove };
   // `danger` is what keeps a terminal act from reading as a variant of the
@@ -269,7 +284,7 @@ export function ReviewDecision({
             answer={answerOn("merge") ?? answerOn("approve")}
             onAction={onMerge}
           >
-            {mergeLabel}
+            {faceOf(mergeLabel, "approve", approveLabel)}
           </SplitButton>
         ) : (
           <Button
@@ -298,7 +313,7 @@ export function ReviewDecision({
           answer={answerOn("changes") ?? answerOn("reject")}
           onAction={onRequestChanges}
         >
-          {requestChangesLabel}
+          {faceOf(requestChangesLabel, "reject", rejectLabel)}
         </SplitButton>
       </div>
 

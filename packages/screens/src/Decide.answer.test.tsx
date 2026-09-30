@@ -65,9 +65,17 @@ test("a refused merge answers on merge alone", async () => {
     .not.toHaveAttribute("data-answer");
 });
 
-test("an accepted approve answers accepted, and the next press clears it", async () => {
+// The face keeps the chosen act's own words while the answer is drawn, so the
+// line and the words beside it name one act rather than two.
+test("an accepted approve answers accepted, on a face that says Approve the work", async () => {
   gate({ act: "approve", answer: "accepted" });
-  await expect.element(page.getByRole("button", { name: MERGING })).toHaveAttribute("data-answer", "accepted");
+  await expect
+    .element(page.getByRole("button", { name: "Approve the work" }))
+    .toHaveAttribute("data-answer", "accepted");
+  await expect.element(page.getByRole("button", { name: MERGING })).not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("button", { name: SENDING_BACK }))
+    .not.toHaveAttribute("data-answer");
   gate(undefined, "approve", rerender);
   await expect
     .element(page.getByRole("button", { name: "Approving…" }))

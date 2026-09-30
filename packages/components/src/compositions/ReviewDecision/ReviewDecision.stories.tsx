@@ -266,6 +266,40 @@ export const WaitingOnAnActChosenBehindTheCaret: Story = {
   },
 };
 
+/**
+ * Fleet took the Approve that was chosen behind Merge's caret. **The face
+ * still reads `Approve the work` while the answer is drawn**, and goes back to
+ * `Merge and take the work` when it clears.
+ *
+ * The line is drawn on that face. A line meaning accepted beside a face
+ * reading `Merge and take the work` would name the act that did not go out, at
+ * the one moment a person is checking that the right one did — so the label
+ * holds past the press, not only during it.
+ */
+export const AnsweredOnAnActChosenBehindTheCaret: Story = {
+  args: { note: "", onMerge: () => {}, answered: { act: "approve", answer: "accepted" } },
+  play: async ({ canvas }) => {
+    const face = canvas.getByRole("button", { name: "Approve the work" });
+    await expect(canvas.queryByRole("button", { name: "Merge and take the work" })).toBeNull();
+    // `data-answer` is read because no accessible property carries the line
+    // along a control's edge — `Decide.answer.test.tsx`'s own reason. What
+    // matters here is that it is on the face whose words name the act.
+    await expect(face).toHaveAttribute("data-answer", "accepted");
+  },
+};
+
+/** The same for Reject, behind Request changes' caret. Its dialog makes the mismatch likelier to be seen. */
+export const AnsweredOnRejectChosenBehindTheCaret: Story = {
+  args: { note: NOTE, answered: { act: "reject", answer: "accepted" } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Reject the work" })).toHaveAttribute(
+      "data-answer",
+      "accepted",
+    );
+    await expect(canvas.queryByRole("button", { name: "Request changes" })).toBeNull();
+  },
+};
+
 /** Five seconds on and Fleet still has not answered, so the group says so. */
 export const StillWaitingOnFleet: Story = {
   args: { note: NOTE, pending: "changes" },
