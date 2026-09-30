@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { CapRaise, ChosenAnswer, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { ApproveWave, CapRaise, ChosenAnswer, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -902,6 +902,18 @@ export class JobCommands {
   }
 
   // ------------------------------------------------------ deciding on work
+  /**
+   * Approve an Epic Job's plan, and release every Job of the wave it proposed
+   * — `.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`.
+   * **Ahead of its route** (#1694), with the Jobs as the body. The review's
+   * lock, since it is the answer at the same gate.
+   */
+  async approveWave(jobId: string, wave: ApproveWave): Promise<Outcome> {
+    return this.act(jobId, this.deciding, "already_deciding", (port) =>
+      ask(port, "POST", route(jobId, "approve_wave"), wave),
+    );
+  }
+
   /** Take the work. On the last step Fleet commits and delivers first. */
   async approveReview(jobId: string): Promise<Outcome> {
     return this.settleWork(jobId, "approve_review");

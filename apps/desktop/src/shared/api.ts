@@ -10,6 +10,7 @@ import type {
   AddTask,
   EditTask,
   MovePlan,
+  ApproveWave,
   Artifact,
   CaptureOpened,
   CallRead,
@@ -169,6 +170,11 @@ export type BridgeApi = {
    * plan. #1685, as `pilotTask`; the move rides on the debug info.
    */
   movePlan: (jobId: string, move: MovePlan) => Promise<Outcome>;
+  /**
+   * Approve an Epic Job's plan and release every Job of the wave it proposed,
+   * in one act. #1694, as `movePlan`; the Jobs ride on the debug info.
+   */
+  approveWave: (jobId: string, wave: ApproveWave) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the

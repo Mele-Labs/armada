@@ -86,6 +86,18 @@ export type PlanReviewProps = {
   /** A decision at this gate is already out. */
   deciding: boolean;
   onApproveReview: (jobId: string) => void;
+  /**
+   * The Board's own rows. **Where one waits at `awaiting_approval` dispatched
+   * by this Job, the plan is an Epic's and those are its proposed wave**
+   * (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`),
+   * so Approve the plan releases them together through `onApproveWave`.
+   */
+  board?: readonly JobSummary[];
+  /**
+   * Approve an Epic's plan and release every Job of its proposed wave, in one
+   * act. Ahead of its route (#1694). Absent, the gate approves as any plan's.
+   */
+  onApproveWave?: (jobId: string, jobs: readonly string[]) => void;
   onRedirect: (jobId: string, instruction: string) => void;
   /**
    * A failed task's Pilot or Restart, and Edit this task with what it
@@ -189,6 +201,8 @@ export function usePlanReview({
   acting,
   deciding,
   onApproveReview,
+  board: rows = [],
+  onApproveWave,
   onRedirect,
   onTaskAct,
   models = [],
@@ -459,6 +473,12 @@ export function usePlanReview({
           },
         };
 
+  // The wave this plan proposed, where it is an Epic's: every Job it
+  // dispatched that is waiting to be released. One press releases them all.
+  const wave = rows
+    .filter((row) => row.dispatched_by === job.id && row.status === "awaiting_approval")
+    .map((row) => row.id);
+
   const gate = (
     <PlanGate
       job={job}
@@ -466,7 +486,11 @@ export function usePlanReview({
       stale={stale}
       acting={acting}
       deciding={deciding}
-      onApproveReview={onApproveReview}
+      onApproveReview={
+        onApproveWave === undefined || wave.length === 0
+          ? onApproveReview
+          : (jobId) => onApproveWave(jobId, wave)
+      }
       onRedirect={onRedirect}
     />
   );

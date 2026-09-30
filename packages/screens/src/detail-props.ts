@@ -303,6 +303,11 @@ export type JobDetailProps = {
   /** Open the issue a finding became. #906. */
   onOpenFindingIssue: (jobId: string, finding: string) => void;
   onApproveReview: (jobId: string) => void;
+  /**
+   * Approve an Epic Job's plan, releasing every Job of the wave it proposed.
+   * Ahead of its route (#1694), so the answer is `Not implemented`.
+   */
+  onApproveWave?: (jobId: string, jobs: readonly string[]) => void;
   onRequestChanges: (jobId: string, note: string) => void;
   onReject: (jobId: string) => void;
   /**

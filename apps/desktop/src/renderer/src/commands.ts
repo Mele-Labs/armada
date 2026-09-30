@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { ApproveWave, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -779,6 +779,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Approve an Epic Job's plan, releasing every Job of the wave it proposed.
+   * **Under `deciding`, as `approve`**: it is the answer at the plan's gate,
+   * so the button pressed is the one that waits. `Not implemented` names #1694
+   * until Fleet serves the route.
+   */
+  async function approveWave(jobId: string, wave: ApproveWave): Promise<void> {
+    return decided(jobId, "approve", async () => {
+      heard(jobId, "approve", await window.armada.approveWave(jobId, wave));
+    });
+  }
+
+  /**
    * Hand the comments a person picked off the pull request to a drone.
    *
    * **Under `deciding`, with the four answers at the same gate.** It leaves
@@ -898,6 +910,7 @@ export function useCommands(sending: Sending) {
     addTask,
     dropTask,
     movePlan,
+    approveWave,
     decide,
     refresh,
   };

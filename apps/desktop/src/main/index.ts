@@ -9,7 +9,7 @@ import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome, StudioPromotion } from "@armada/protocol";
 import type { HelmContext, StagedAttachment } from "@armada/protocol";
-import type { AddTask, DropTask, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type {
   Artifact,
   CommandAnswer,
@@ -540,6 +540,10 @@ void app.whenReady().then(() => {
   // A group or a task dropped somewhere new on the plan — #1685.
   ipcMain.handle(CHANNELS.movePlan, (_event, jobId: string, move: MovePlan) =>
     connection?.commands.movePlan(jobId, move),
+  );
+  // An Epic's plan approved, releasing every Job of its wave — #1694.
+  ipcMain.handle(CHANNELS.approveWave, (_event, jobId: string, wave: ApproveWave) =>
+    connection?.commands.approveWave(jobId, wave),
   );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person

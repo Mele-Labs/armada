@@ -359,6 +359,8 @@ function OneJob(props: JobDetailProps) {
           acting={props.acting}
           deciding={props.deciding}
           onApproveReview={props.onApproveReview}
+          {...(props.onApproveWave === undefined ? {} : { onApproveWave: props.onApproveWave })}
+          board={props.board ?? []}
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
           diff={props.recorded.diff}
