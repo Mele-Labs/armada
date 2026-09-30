@@ -91,6 +91,14 @@ const WANTED = [
   "criterion_verdict_check",
   "criterion_verdict_judge",
   "step_state",
+  // A group of a Job's plan, between a step and a task. Wanted here with no
+  // enum and no registry file behind it, which is the case `advance_gate` and
+  // `gaming_pattern` already are: `enum-verbs.toml`'s header says why, and its
+  // glyphs are the step's borrowed one level further down. It replaces
+  // `GROUP_STATE_WORDS` in `packages/screens/src/draft/words.ts`, which held
+  // the words but could carry no glyph — a draft value has no registry row to
+  // attach one to, which is that file's own stated reason for withholding it.
+  "group_state",
   "advance_gate",
   // The Setup sheet and the Manifest form both offer its three words, and both showed the file's.
   "auto_merge",

@@ -32,7 +32,7 @@ import {
 import type { Explaining, JobDetailField } from "@armada/components";
 import type { GroupView } from "./draft/group";
 import type { StepNotice } from "./InsideAJob";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { CommandAnswer, CommandInFlight, Criterion, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
@@ -307,18 +307,24 @@ function CommandWaiting({
 }
 
 /**
- * What the drone is waiting on a person for, in the slot a question takes. Its
- * own question, a command it was not given, or both: a drone held inside a
- * permission call is rarely asking as well, and when it is, neither box may
- * hide the other.
+ * What is waiting on a person, in the slot under Overview's lead. A Drone's
+ * own question, a command it was not given, the verdict at a review gate, or
+ * several at once: a Drone held inside a permission call is rarely asking as
+ * well, and when it is, neither box may hide the other.
+ *
+ * **Every one of them, never the first.** The lead names the one that releases
+ * the most and the rest are still open — dropping them here would be the
+ * screen deciding on his behalf which of two things he answers.
  */
-export function waitingOf(question: ReactNode, command: ReactNode): ReactNode {
-  if (command === undefined) return question;
-  if (question === undefined) return command;
+export function waitingOf(...slots: readonly ReactNode[]): ReactNode {
+  const drawn = slots.filter((slot) => slot !== undefined && slot !== null && slot !== false);
+  if (drawn.length === 0) return undefined;
+  if (drawn.length === 1) return drawn[0];
   return (
     <>
-      {question}
-      {command}
+      {drawn.map((slot, at) => (
+        <Fragment key={at}>{slot}</Fragment>
+      ))}
     </>
   );
 }

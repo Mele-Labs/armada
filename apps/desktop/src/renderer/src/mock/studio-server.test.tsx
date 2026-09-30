@@ -35,11 +35,11 @@ afterEach(() => {
 });
 
 const node = (name: RegExp) => page.getByRole("group", { name });
-const offers = () => page.getByRole("button", { name: "Acts", exact: true });
+/** The bar hovering over what is picked: a row of presses, not a menu — 28 Sep 2026. */
+const bar = () => page.getByRole("group", { name: "What is picked" });
+/** One act on the bar, by its accessible name, which a glyph-only press carries too. */
 async function act(name: string): Promise<void> {
-  await expect.element(offers()).toBeVisible();
-  if (offers().element().getAttribute("aria-expanded") !== "true") await offers().click();
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await bar().getByRole("button", { name, exact: true }).click();
 }
 
 /** The instance Fleet is holding, as `list_servers` answers it. */

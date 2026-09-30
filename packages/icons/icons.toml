@@ -448,7 +448,7 @@
   size = "16px"
   status = "Specified"
   reserved = "The sketch pad's pen only. Never edit, never rename, and never compose — a pencil here means a line a person draws with the pointer, not a field they type in."
-  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), minted because the set held no drawing glyph at all: freehand is the sketch pad's alone, per docs/contracts/design-system.md hard rule 6, so nothing had needed one. The control is a mode and draws `aria-pressed`, which is why the reservation names edit and rename — a pencil that sometimes means *type here* and sometimes means *draw here* is the mixed-meaning failure rule 4 exists to stop, and Studios' own rename is a text control with no glyph. Against the group it joins it collides with nothing: `square-plus` is a box with a cross in it, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with a peeled corner, `shapes` three overlapping figures. Refused: `pen-tool`, which draws a bezier handle and would promise a curve tool the pad does not have; `brush` and `highlighter`, whose loaded heads are interior detail rule 3 will not have at this size; `signature`, which sits beside `stamp`'s attestation and would read as a mark you make rather than a picture you draw."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), minted because the set held no drawing glyph at all: freehand is the sketch pad's alone, per docs/contracts/design-system.md hard rule 6, so nothing had needed one. The control is a mode and draws `aria-pressed`, which is why the reservation names edit and rename — a pencil that sometimes means *type here* and sometimes means *draw here* is the mixed-meaning failure rule 4 exists to stop, and Studios' own rename takes `square-pen` instead, minted for rename alone on 29 Sep 2026. Against the group it joins it collides with nothing: `square-plus` is a box with a cross in it, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with a peeled corner, `shapes` three overlapping figures. Refused: `pen-tool`, which draws a bezier handle and would promise a curve tool the pad does not have; `brush` and `highlighter`, whose loaded heads are interior detail rule 3 will not have at this size; `signature`, which sits beside `stamp`'s attestation and would read as a mark you make rather than a picture you draw."
 
 [icons.pin]
   means = "A pushpin seen from the side, head over a driven point — a view held on one thing"
@@ -608,6 +608,14 @@
   status = "Specified"
   notes = "Changed from git-fork, which loses its nodes at 12px. One line becoming two is literally what fanning out means, and it frees git-* for real git operations."
 
+[icons.square-pen]
+  means = "A pen crossing out of a square's open corner — a name in a box being rewritten"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Renaming, and nothing else. Today that is the Studio heading's Rename alone. Never a general edit, never drawing, which is `pencil`'s, and never writing a node up, which is `type`'s."
+  notes = "Minted 2026-09-29 from the owner's note on the Studio heading (annotation jyee): *an edit icon button instead of a word button*, with Rename in its tooltip. It lifts the ban his own 28 Sep registry put on `square-pen` for this one meaning, and he took the cost knowingly: the heading sits on the same screen as the canvas rail's `pencil`, and at 16px the two read as cousins — a pen on a diagonal, one boxed and one bare. What keeps them apart is the box and the reservations, not the pen: `pencil` is still the sketch pad's and still never edit or rename, and this row is rename only, so neither glyph ever means the other's act. Why this one and not `pencil`: lifting `pencil`'s reservation would have made one outline mean *draw* in the rail and *rename* in the heading, which is rule 4's mixed meaning on a single screen. Refused: `text-cursor-input`, which is honest but is not the edit glyph he asked for; `notebook-pen` and `pen-line`, whose unboxed pens sit closer still to `pencil`. The decision is `.claude/decisions/2026-09-29-rename-takes-square-pen.md`."
+
 [icons.square-plus]
   means = "A square with a cross centred inside it — a box added"
   group = "Canvas rail"
@@ -667,7 +675,7 @@
   size = "16px"
   status = "Specified"
   reserved = "Writing a Studio node up into prose. Never a text field, never a rename, never a font or a style control, and never editing what is already written."
-  notes = "Minted 2026-09-28 with the node bar's mint. Write up turns a Note, a Cluster, a Contradiction or an Outline into an Issue draft, which is prose with a title and a body \u2014 so the glyph has to say *words* and not *a document*. Refused: `file-text` and `file-pen`, since `file-*` is reserved to evidence throughout and a draft is not a submission; `notebook-pen` and `square-pen`, compounds whose pens collide with `pencil`, reserved to the sketch pad and banned there from meaning edit; `feather`, a held instrument on a diagonal, which is `pencil`'s own silhouette at 16px; `notepad-text`, a lined pad, which parts from `sticky-note` and `clipboard-list` on interior detail alone."
+  notes = "Minted 2026-09-28 with the node bar's mint. Write up turns a Note, a Cluster, a Contradiction or an Outline into an Issue draft, which is prose with a title and a body \u2014 so the glyph has to say *words* and not *a document*. Refused: `file-text` and `file-pen`, since `file-*` is reserved to evidence throughout and a draft is not a submission; `notebook-pen`, a compound whose pen collides with `pencil`, reserved to the sketch pad and banned there from meaning edit; `square-pen`, which means rename since 29 Sep 2026 and nothing else; `feather`, a held instrument on a diagonal, which is `pencil`'s own silhouette at 16px; `notepad-text`, a lined pad, which parts from `sticky-note` and `clipboard-list` on interior detail alone."
 
 [icons.undo-2]
   means = "An arrow bending back on itself over a straight tail, pointing against the reading direction"

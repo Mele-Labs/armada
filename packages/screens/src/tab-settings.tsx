@@ -12,18 +12,28 @@
 // arrangement: the panel is the reading, and the tabpanel around it is what
 // makes the strip's sixth entry land somewhere.
 
+import type { ReactNode } from "react";
+
 import { SettingsPanel, type SettingsPanelProps } from "./settings";
 import { TAB_LABEL } from "./detail-tabs";
 
-export type SettingsTabProps = SettingsPanelProps;
+export type SettingsTabProps = SettingsPanelProps & {
+  /**
+   * The values that froze at approval, above the ones still open. **A frozen
+   * setup is settings** — the owner's 29 September call, which took them off
+   * Overview so that destination could say what needs you.
+   */
+  frozen?: ReactNode;
+};
 
-export function SettingsTab(props: SettingsTabProps) {
+export function SettingsTab({ frozen, ...props }: SettingsTabProps) {
   return (
     <div
       className="armada-detail-tab armada-settings-tab"
       role="tabpanel"
       aria-label={TAB_LABEL.settings}
     >
+      {frozen}
       <SettingsPanel {...props} />
     </div>
   );

@@ -72,16 +72,19 @@ function bothJobs(base: Scenario): Scenario {
   };
 }
 
-test("the callout names the job that took over, under the header and above the run", async () => {
+// Above the board, which is the arrangement Overview draws since 29 Sep
+// 2026 — it was above the run tree, and the claim is the same one: a person
+// reads that this Job was replaced before they read what it did.
+test("the callout names the job that took over, under the header and above the board", async () => {
   mount(aRedispatch());
   const callout = page.getByText("This job was redispatched");
   await expect.element(callout).toBeVisible();
 
   const said = document.querySelector<HTMLElement>(".armada-alert");
   const header = document.querySelector<HTMLElement>(".armada-job-head");
-  const inside = document.querySelector<HTMLElement>(".armada-inside");
+  const inside = document.querySelector<HTMLElement>(".armada-overview-board");
   if (said === null || header === null || inside === null) {
-    throw new Error("the header, the callout and the arrangement are all drawn");
+    throw new Error("the header, the callout and the board are all drawn");
   }
   expect(said.getBoundingClientRect().top).toBeGreaterThan(header.getBoundingClientRect().top);
   expect(said.getBoundingClientRect().top).toBeLessThan(inside.getBoundingClientRect().top);

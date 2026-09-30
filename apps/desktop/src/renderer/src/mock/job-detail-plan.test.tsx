@@ -5,23 +5,16 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
-import { preparing, running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
+import { running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { WAITING_CALL } from "@armada/screens/src/fixtures/build/running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import {
-  awaitingApprovalPlanPending,
-  PLAN_MID_TASK,
-  PLAN_PARTWAY,
-  PLAN_WITH_A_DROPPED_TASK,
-  withPlan,
-} from "@armada/screens/src/fixtures/plans";
 
 import type { BridgeApi } from "../../../shared/api";
 import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";
 import type { FleetHandle, Scenario } from "./scenario";
 import { onJob } from "./scenario";
-import { entered, mount, openHelm, unmountAfterEach } from "./testing";
+import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -35,151 +28,28 @@ async function opened(fixture: JobFixture, behaves?: Scenario["behaves"], whereO
   return app.api;
 }
 
-/** Whether some element reading exactly `text` is laid out on screen — the bar's own tooltip carries a hidden copy. */
-function shownWithText(text: string): boolean {
-  return [...document.querySelectorAll<HTMLElement>("body *")].some(
-    (one) => one.textContent?.trim() === text && one.children.length === 0 && one.getClientRects().length > 0 && getComputedStyle(one).visibility !== "hidden",
-  );
-}
 
-/**
- * The Plan region, by the name it carries. **Not by its text**: the strip's
- * Plan tab spells the same word, and a region that is absent is the claim
- * three of these tests make.
- */
-const planRegion = () => page.getByRole("region", { name: "Plan" });
 
-/** A plan row, found by its task's title. A list item, because the Working area names the task too. */
-async function rowOf(title: string) {
-  const row = page.getByRole("listitem").filter({ hasText: title });
-  await expect.element(row).toBeVisible();
-  return row;
-}
 
-test("a plan partway done: its region, its count, its tasks, and the branch in Where things are", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  await expect.element(planRegion()).toBeVisible();
-  await expect.poll(() => shownWithText("1 of 3")).toBe(true);
-  await expect.element(page.getByRole("listitem").getByText("T1", { exact: true })).toBeVisible();
-  await expect.poll(() => shownWithText("Re-point the reducer's own import at it")).toBe(true);
-  const where = page.getByRole("button", { expanded: false, name: /Where things are/i });
-  await expect.element(where.getByText("fix/settings-split-selectors")).toBeVisible();
-});
+// **The Plan region came off Overview on 29 Sep 2026**, and with it eleven
+// claims made here: a plan partway done with its count and its rows, a
+// dropped task reading its reason, the Working area folding what is done,
+// the files each task changed, `Add task` and the four `Drop…` claims, and
+// the sentence naming which step records a plan.
+//
+// **Overview draws a Plan card**, whose own claims are `overview-boards`' —
+// what a group holds, how it runs, and where it stands. The rows and the
+// acts belong to the Plan destination, which is being rebuilt; `PlanWell`
+// has no renderer until it lands, so `Drop…` and `Add task` are unreachable
+// and the claims about them are made nowhere rather than made wrongly here.
 
-test("a dropped task reads its reason, and offers no second drop", async () => {
-  await opened(withPlan(PLAN_WITH_A_DROPPED_TASK));
-  await expect.element(page.getByText("The existing integration test already exercises this path.")).toBeVisible();
-  await expect.poll(() => shownWithText("1 of 3")).toBe(true);
-  const dropped = await rowOf("Add a unit test that does not construct the store");
-  expect(dropped.getByRole("button", { name: "Drop…" }).query()).toBeNull();
-});
-
-test("the Working area opens the task being worked, folds the one done, and carries the plan bar", async () => {
-  await opened(withPlan(PLAN_MID_TASK));
-  const working = page.getByRole("button", { name: /T2\s*Re-point the reducer's own import at it/ });
-  await expect.element(working).toHaveAttribute("aria-expanded", "true");
-  const done = page.getByRole("button", { name: /T1\s*Extract selectColumnOrder into its own module/ });
-  await expect.element(done).toHaveAttribute("aria-expanded", "false");
-  await expect.element(page.getByRole("img", { name: "1 of 3 tasks" }).first()).toBeInTheDocument();
-  // The Drone's sentence, as written, and its call one press away.
-  await done.click();
-  const calls = page.getByRole("button", { name: "1 call · Edit" }).first();
-  await expect.element(calls).toHaveAttribute("aria-expanded", "false");
-  await calls.click();
-  await expect.element(calls).toHaveAttribute("aria-expanded", "true");
-});
-
-// #1187: files per task, sized by their edits; the file no task's edits name,
-// sized by the diff; and Produced as the Job's own panel, with no footnote.
-test("each task lists the files it changed, the one no task owns sits apart, and Produced is its own panel", async () => {
-  await opened(withPlan(PLAN_MID_TASK));
-  const byEdits = page.getByRole("list", { name: "Files, sizes of its edits, not the diff" });
-  await expect.element(byEdits.first()).toHaveTextContent("selectors.ts+58\u22124");
-  await expect.element(page.getByText("Changed outside any task's edits")).toBeVisible();
-  await expect.element(page.getByRole("list", { name: "Files, lines in the diff" })).toHaveTextContent("index.ts+21");
-  const folder = page.getByRole("region", { name: "packages/settings/src" });
-  await expect.element(folder).toHaveTextContent(/^packages\/settings\/src\+94\u221231selectors\.ts/);
-  await expect.element(folder).toHaveTextContent("index.tsnew+21");
-  expect(page.getByRole("button", { name: /Open the diff/ }).all()).toHaveLength(1);
-  expect(page.getByText("Fleet commits once at the end", { exact: false }).query()).toBeNull();
-});
-
-test("no plan on the workflow draws no Plan region", async () => {
+// The one claim that is Overview's own: a Job whose workflow records no plan
+// draws a Plan card that says so, rather than a card of nothing.
+test("a Job with no plan draws a Plan card that says why", async () => {
   await opened(running());
-  expect(planRegion().query()).toBeNull();
-});
-
-test("before the plan step has recorded one, there is no Plan region", async () => {
-  await opened(preparing());
-  expect(planRegion().query()).toBeNull();
-});
-
-test("a plan not recorded yet says which step records it, and offers no Add task", async () => {
-  await opened(awaitingApprovalPlanPending());
-  await expect.element(planRegion()).toBeVisible();
-  await expect.element(page.getByText("No plan yet — Plan the change records it.")).toBeVisible();
-  expect(page.getByRole("button", { name: "Add task" }).query()).toBeNull();
-});
-
-test("Add task opens with a title, an optional detail, and nothing to add until titled", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  await page.getByRole("button", { name: "Add task" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect.element(dialog.getByLabelText("Title")).toBeVisible();
-  await expect.element(dialog.getByLabelText("Detail — optional")).toBeVisible();
-  await expect.element(dialog.getByRole("button", { name: "Add task" })).toBeDisabled();
-});
-
-test("Drop… is on an open task's row, and not on a done one's", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  const open = await rowOf("Add a unit test that does not construct the store");
-  await expect.element(open.getByRole("button", { name: "Drop…" })).toBeInTheDocument();
-  const done = await rowOf("Extract selectColumnOrder into its own module");
-  expect(done.getByRole("button", { name: "Drop…" }).query()).toBeNull();
-});
-
-test("a drop reason not typed yet is a hint, and Drop waits for one", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  const row = await rowOf("Add a unit test that does not construct the store");
-  await row.getByRole("button", { name: "Drop…" }).click();
-  await expect.element(row.getByText("A reason is needed.")).toHaveAttribute("data-tone", "muted");
-  await expect.element(row.getByRole("button", { name: "Drop", exact: true })).toBeDisabled();
-});
-
-test("a drop tried with no reason turns the hint into an error", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  const row = await rowOf("Add a unit test that does not construct the store");
-  await row.getByRole("button", { name: "Drop…" }).click();
-  await row.getByLabelText("Reason").click();
-  await userEvent.keyboard("{Enter}");
-  await expect.element(row.getByText("A reason is needed.")).toHaveAttribute("data-tone", "error");
-});
-
-/** A Fleet that cannot be reached for a plan edit. */
-const planUnreachable: Scenario["behaves"] = () => ({
-  addTask: async () => ({ ok: false, outcome: NOT_CONNECTED }),
-  dropTask: async () => ({ ok: false, outcome: NOT_CONNECTED }),
-});
-
-test("a refused drop says nothing was sent, and keeps the reason typed", async () => {
-  await opened(withPlan(PLAN_PARTWAY), planUnreachable);
-  const row = await rowOf("Add a unit test that does not construct the store");
-  await row.getByRole("button", { name: "Drop…" }).click();
-  await userEvent.type(row.getByLabelText("Reason"), "Already covered elsewhere.");
-  await row.getByRole("button", { name: "Drop", exact: true }).click();
-  await expect.element(row.getByText("Fleet is not connected. Nothing was sent.")).toBeVisible();
-  await expect.element(row.getByLabelText("Reason")).toHaveValue("Already covered elsewhere.");
-});
-
-test("a refused Add task says nothing was sent, and keeps the title typed", async () => {
-  await opened(withPlan(PLAN_PARTWAY), planUnreachable);
-  await page.getByRole("button", { name: "Add task" }).click();
-  const dialog = page.getByRole("dialog");
-  await entered(dialog);
-  await userEvent.type(dialog.getByLabelText("Title"), "Add a regression test");
-  await dialog.getByRole("button", { name: "Add task" }).click();
-  await expect.element(dialog.getByText("Fleet is not connected. Nothing was sent.")).toBeVisible();
-  await expect.element(dialog.getByLabelText("Title")).toHaveValue("Add a regression test");
+  const card = page.getByRole("region", { name: "Plan" });
+  await expect.element(card).toBeVisible();
+  await expect.element(card.getByRole("note")).toBeVisible();
 });
 
 test("Job settings: the sixth destination, and a choice sends this Job's id and the wire's word", async () => {

@@ -5,21 +5,16 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { awaitingApproval, reading, reviewAtDelivery, queued, running } from "@armada/screens/src/fixtures/build/index";
+import { reviewAtDelivery, queued, running } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import {
-  advancedOnce,
-  BROKEN,
-  heldByTheGamingCheck,
   reviewAtAQuestion,
-  withBreakages,
   withRow,
 } from "./job-detail-fixtures";
-import { PLAN_PARTWAY, withPlan } from "@armada/screens/src/fixtures/plans";
-import type { FleetHandle } from "./scenario";
+import type { } from "./scenario";
 import { onJob } from "./scenario";
 import { entered, mount, unmountAfterEach } from "./testing";
 
@@ -57,24 +52,13 @@ test("picking comments on the pull request makes Send live", async () => {
   await expect.element(send).toBeEnabled();
 });
 
-test("still reading: the run reads, and Where things are draws from what the Board held", async () => {
-  await opened(reading(), { whereOpen: true });
-  const run = page.getByRole("status", { name: "Reading the run" });
-  await expect.element(run.getByText("Reproduction")).toBeVisible();
-  await expect.element(page.getByText("Branch").first()).toBeInTheDocument();
-  expect(page.getByText("Reading this job.").query()).toBeNull();
-});
-
-test("awaiting approval: the run is the workflow's diagram, drawn once, with each step's Checks showing", async () => {
-  await opened(awaitingApproval());
-  await expect.element(page.getByText("cargo_nextest · cargo nextest run --workspace")).toBeVisible();
-  expect(page.getByText("Regression check", { exact: true }).elements()).toHaveLength(1);
-});
-
-test("once approved, the run is the tree again and the diagram is gone", async () => {
-  await opened(queued());
-  expect(page.getByText("cargo_nextest · cargo nextest run --workspace").query()).toBeNull();
-});
+// **The run tree and *Where things are* came off Overview on 29 Sep 2026.**
+// Three claims stood here: the run reading while the Job's own read is out
+// with the branch drawn from what the Board held, the workflow's diagram
+// standing in for the tree before approval with each step's Checks showing,
+// and the tree coming back once approved. The Workflow destination draws the
+// run now — as a canvas, with a Check count per step rather than each Check's
+// command — so none of the three has a subject on this screen.
 
 test("the header's one control opens the rest of what this Job can do", async () => {
   await opened(recorded("done-worktree-given-back"));
@@ -82,45 +66,10 @@ test("the header's one control opens the rest of what this Job can do", async ()
   await expect.element(page.getByRole("menuitem", { name: /record/i })).toBeVisible();
 });
 
-test("a Check failed on a test another Job is fixing: the row names the fix", async () => {
-  await opened(
-    withBreakages(() => [
-      {
-        check: "test",
-        test: BROKEN,
-        failure: "expected the same reference on repeat calls",
-        fix: "01M1FIXJOB000000000000000000",
-        fix_title: "Fix the selectors test broken on main",
-        reported_by: "01M1REPORTER0000000000000000",
-      },
-    ]),
-    { whereOpen: true },
-  );
-  // The rows sit at the foot of the left column, below the window's fold at the test runner's size.
-  await expect.element(page.getByText(BROKEN).first()).toBeInTheDocument();
-  await expect.element(page.getByText(/Fix the selectors test broken on main is fixing it/)).toBeInTheDocument();
-});
-
-test("this Job is the fix, and two Jobs wait on it: a count, never the list", async () => {
-  await opened(
-    withBreakages((jobId) => [
-      {
-        check: "test",
-        test: BROKEN,
-        failure: "expected the same reference on repeat calls",
-        fix: jobId,
-        fix_title: "Fix the selectors test broken on main",
-        reported_by: "01M1REPORTER0000000000000000",
-        waiting: [
-          { job_id: "01M1WAITINGONE00000000000000", title: "Split the settings reducer" },
-          { job_id: "01M1WAITINGTWO00000000000000", title: "Memoise the manifest list" },
-        ],
-      },
-    ]),
-    { whereOpen: true },
-  );
-  await expect.element(page.getByText(/2 Jobs wait on it/)).toBeVisible();
-});
+// **Breakages have no region since 29 Sep 2026.** `workOf` in `work.tsx`
+// built the rows — a Check failing on a test another Job is already fixing,
+// and the count of Jobs waiting on this one to be the fix — and nothing
+// calls it. Two claims stood here and neither has a screen to be made on.
 
 const text = () => document.body.textContent ?? "";
 
@@ -153,72 +102,19 @@ test.fails("n opens the composer from a Job's detail", async () => {
   await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
 });
 
-test("typing n into a task's drop reason is typing, not the dispatch key", async () => {
-  await opened(withPlan(PLAN_PARTWAY));
-  // A list item, because the Working area names the task too.
-  const row = page.getByRole("listitem").filter({ hasText: "Add a unit test that does not construct the store" });
-  await expect.element(row).toBeVisible();
-  await row.getByRole("button", { name: "Drop…" }).click();
-  await userEvent.type(row.getByLabelText("Reason"), "n");
-  expect(page.getByText("Pick the repository this Job is for").query()).toBeNull();
-});
+// **`n` into a drop reason** needed a drop reason to type into, and `Drop…`
+// went with the Plan region. The claim underneath — that a key bound at the
+// screen is typing while a field has focus — is the composer's, and the Plan
+// destination is where it will be made again.
 
-/** The open step's name, as the panel draws it. */
-const openStepName = () => document.querySelector(".armada-inside__step-name");
+// **Selecting a step, and what the selection does when the Job advances**,
+// was the step inspector's — `.armada-inside__step-name`, a panel beside the
+// run tree. Both went with the Overview reframe, so the two claims here (the
+// panel following the running step, and holding where a person put it) have
+// nothing to follow or hold.
 
-/** Running, on a Fleet this test can move on to the next step. */
-async function advancing() {
-  let fleet: FleetHandle | undefined;
-  const scenario = onJob(running());
-  mount({ ...scenario, behaves: (handle) => ((fleet = handle), {}) });
-  await expect.element(page.getByRole("button", { name: "Fix", exact: true })).toBeVisible();
-  return () => {
-    const next = advancedOnce(running());
-    fleet!.publish({ jobs: [next.job], watched: next.watched });
-  };
-}
-
-test("advancing with the running step selected: the panel follows to the next step", async () => {
-  const advance = await advancing();
-  await page.getByRole("button", { name: "Fix", exact: true }).click();
-  await expect.poll(() => openStepName()?.textContent).toContain("Fix");
-  advance();
-  await expect.poll(() => openStepName()?.textContent).toContain("Regression check");
-});
-
-test("advancing with an earlier step selected: the panel holds where the person put it", async () => {
-  const advance = await advancing();
-  await page.getByRole("button", { name: "Root cause", exact: true }).click();
-  await expect.poll(() => openStepName()?.textContent).toContain("Root cause");
-  advance();
-  await expect.poll(() => page.getByRole("button", { name: /Regression check/ }).elements().length).toBeGreaterThan(0);
-  expect(openStepName()?.textContent).toContain("Root cause");
-});
-
-test("held by the gaming check with the Drone still there: Send it back redirects with the flag and the note", async () => {
-  const api = await opened(heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]));
-  const overrule = vi.spyOn(api, "overrideVerdict");
-  const redirect = vi.spyOn(api, "redirectDrone");
-  const restart = vi.spyOn(api, "restartStep");
-  await expect.element(page.getByText("3 commands were refused during Regression check")).toBeVisible();
-  await expect.element(page.getByText(/Sends the flag back to the drone still on this step/)).toBeVisible();
-  await userEvent.type(page.getByRole("textbox", { name: "Note for the drone (optional)" }), "Put it back");
-  await page.getByRole("button", { name: "Send it back" }).click();
-  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("A test may have been weakened to make this step pass."));
-  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("The person's note: Put it back"));
-  expect(restart).not.toHaveBeenCalled();
-  await page.getByRole("button", { name: "Carry on" }).click();
-  await expect.poll(() => overrule.mock.calls.length).toBe(1);
-  expect(overrule).toHaveBeenCalledWith(JOB_ID, "");
-});
-
-test("held by the gaming check with the Drone gone: Send it back restarts the step", async () => {
-  const api = await opened(heldByTheGamingCheck(["override_verdict", "restart_step", "redispatch_job"]));
-  const redirect = vi.spyOn(api, "redirectDrone");
-  const restart = vi.spyOn(api, "restartStep");
-  await expect.element(page.getByText(/Restarts the step with a fresh drone/)).toBeVisible();
-  await page.getByRole("button", { name: "Send it back" }).click();
-  await expect.poll(() => restart.mock.calls.length).toBe(1);
-  expect(restart).toHaveBeenCalledWith(JOB_ID, undefined);
-  expect(redirect).not.toHaveBeenCalled();
-});
+// **The gaming check's card has no renderer.** `StepActs` drew it — the
+// refused-command count, *Send it back*, *Carry on* and the note — and it was
+// the step inspector's, so nothing renders it since 29 Sep 2026. Two claims
+// stood here, one per shape the act takes: redirecting the Drone still on the
+// step, and restarting the step where it has gone.
