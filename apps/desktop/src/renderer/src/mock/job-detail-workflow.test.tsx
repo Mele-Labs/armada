@@ -10,7 +10,7 @@ import { page } from "vitest/browser";
 import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
 import { GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
 
-import { mount, unmountAfterEach } from "./testing";
+import { entered, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -253,11 +253,12 @@ test("the canvas head carries no mark, because the guide that hung there is reti
 test("a Drone pressed in a step's panel opens in Drones, and Back returns to the step", async () => {
   await workflow();
   await card("Implement").click();
+  await entered(panel("Implement"));
   await panel("Implement").getByRole("button", { name: /Drone on T1/ }).click();
 
   await expect.element(page.getByRole("tab", { name: /^Drones/, selected: true }).last()).toBeVisible();
   const drone = page.getByRole("dialog", { name: "Drone on T1" }).last();
-  await expect.element(drone).toBeVisible();
+  await entered(drone);
   const back = drone.getByRole("button", { name: /Back to Implement/ });
   await expect.element(back).toBeVisible();
 
@@ -271,11 +272,12 @@ test("a step reached from a Drone's panel carries the way back to that Drone", a
   await page.getByRole("tab", { name: /^Drones/ }).last().click();
   await page.getByRole("row", { name: /Drone on T1/ }).last().click();
   const drone = page.getByRole("dialog", { name: "Drone on T1" }).last();
-  await drone.getByRole("button", { name: /^Implement/ }).click();
+  await entered(drone);
+  await drone.getByRole("button", { name: "Implement", exact: true }).click();
 
   await expect.element(page.getByRole("tab", { name: /^Workflow/, selected: true }).last()).toBeVisible();
   const opened = panel("Implement");
-  await expect.element(opened).toBeVisible();
+  await entered(opened);
   await expect.element(opened.getByRole("button", { name: /Back to Drone on T1/ })).toBeVisible();
   // Close goes back too, after a jump: the step was reached, not opened.
   await opened.getByRole("button", { name: "Close" }).click();
