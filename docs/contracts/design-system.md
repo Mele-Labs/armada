@@ -1060,7 +1060,7 @@ table is shorter by a column.
 
 The last column is a client and not a window width. A desktop window under
 768px keeps the < 1100px column's layout, with the floor tier's flush sheets,
-and each surface that crowds there fits itself (the title row goes to glyphs).
+and each surface that crowds there fits itself: under about 924px the title row goes behind one menu.
 
 The stacked row is the status grammar's own shape: headline sentence on
 line one (`Job 12 stalled at step 3`), labelled field run on line two

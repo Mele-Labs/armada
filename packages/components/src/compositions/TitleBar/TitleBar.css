@@ -243,41 +243,87 @@
   display: none;
 }
 
-/* Compact: search, Dispatch and Helm as glyphs, and the mark in place of the
-   lockup. The labels leave the eye but not the button's name, and each
-   button's `title` says what it is.
+/* The menu, and the panel it opens: drawn always, shown only when narrow. */
+.armada-title-bar__menu {
+  display: none;
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+
+.armada-title-bar__menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-title-bar__menu-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-title-bar__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--h-control-sm);
+  padding-inline: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-title-bar__menu-item > span:first-of-type {
+  flex: 1;
+  text-align: left;
+}
+
+.armada-title-bar__menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.armada-title-bar__menu-item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-title-bar__menu-item:disabled {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+/* Narrow: the row goes behind the menu, leaving the mark, Fleet's dot and
+   the menu itself. Every act in the panel has a shortcut but Dispatch, and
+   the owner took that trade (30 Sep 2026).
 
    armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
    Measured in the mock — docs/contracts/design-system.md
    The full row's sides measure 279px and 266px, and search stops reading
    below about 160px, so the full row needs about 860px. */
 @container (max-width: 900px) {
-  .armada-title-bar__label,
-  .armada-title-bar__search-label,
-  .armada-title-bar__search-kbd {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .armada-title-bar__search,
+  .armada-title-bar__start,
+  .armada-title-bar__center,
   .armada-title-bar__helm,
-  .armada-title-bar__dispatch .armada-button {
-    position: relative;
-    justify-content: center;
-    width: auto;
-    min-width: var(--h-control-sm);
-    padding-inline: var(--space-2);
-  }
-
   .armada-title-bar__lockup {
     display: none;
   }
 
-  .armada-title-bar__mark {
+  .armada-title-bar__mark,
+  .armada-title-bar__menu {
     display: flex;
+  }
+
+  /* The other two regions are gone, so this one takes the whole row. */
+  .armada-title-bar__end {
+    grid-column: 1 / -1;
   }
 }

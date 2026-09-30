@@ -1,9 +1,10 @@
-import { MessageSquare, Plus, Search } from "lucide-react";
+import { Menu, MessageSquare, Plus, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
+import { Popover } from "../../primitives/Popover/Popover";
 import { useShortcutReveal } from "../../shortcut-reveal";
 
 /**
@@ -85,12 +86,10 @@ export function TitleBar({
 
       <div className="armada-title-bar__center">
         {onSearch === undefined ? null : (
-          <button type="button" className="armada-title-bar__search" onClick={onSearch} title="Search — ⌘K">
+          <button type="button" className="armada-title-bar__search" onClick={onSearch}>
             <Search size={16} strokeWidth={2} aria-hidden />
             <span className="armada-title-bar__search-label">Search jobs, commands, settings…</span>
-            <span className="armada-title-bar__search-kbd">
-              <KbdCmd shortcut="⌘K" />
-            </span>
+            <KbdCmd shortcut="⌘K" />
           </button>
         )}
 
@@ -99,9 +98,9 @@ export function TitleBar({
           // carry a title-bar-only no-drag hook on, same reasoning as the
           // picker below. #1156.
           <div className="armada-title-bar__dispatch">
-            <Button variant="tonal" size="sm" onClick={onDispatch} disabled={dispatchDisabled} title="Dispatch">
+            <Button variant="tonal" size="sm" onClick={onDispatch} disabled={dispatchDisabled}>
               <Plus size={16} strokeWidth={2} aria-hidden />
-              <span className="armada-title-bar__label">Dispatch</span>
+              Dispatch
             </Button>
           </div>
         )}
@@ -116,7 +115,7 @@ export function TitleBar({
             title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
           >
             <MessageSquare size={16} strokeWidth={2} aria-hidden />
-            <span className="armada-title-bar__label">Helm</span>
+            <span>Helm</span>
             {helm.questions > 0 ? (
               <span className="armada-title-bar__helm-count">{helm.questions}</span>
             ) : null}
@@ -160,6 +159,64 @@ export function TitleBar({
         >
           <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[fleet.state]} aria-hidden />
         </span>
+
+        {/* The narrow bar's one control: everything the row above carries, in
+            a panel. Drawn always and shown by the stylesheet, like the mark. */}
+        <div className="armada-title-bar__menu">
+          <Popover
+            align="end"
+            label="Menu"
+            trigger={
+              <Button variant="ghost" size="sm" iconOnly aria-label="Menu" title="Menu">
+                <Menu size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            }
+          >
+            {(close) => (
+              <div
+                className="armada-title-bar__menu-panel"
+                // Any act closes the panel; the picker's own trigger opens its
+                // list and leaves the panel up.
+                onClick={(event) => {
+                  const pressed = (event.target as Element).closest("button");
+                  if (pressed !== null && !pressed.hasAttribute("aria-haspopup")) close();
+                }}
+              >
+                {repositoryPicker === undefined ? null : (
+                  <div className="armada-title-bar__menu-picker">{repositoryPicker}</div>
+                )}
+                {onSearch === undefined ? null : (
+                  <button type="button" className="armada-title-bar__menu-item" onClick={onSearch}>
+                    <Search size={16} strokeWidth={2} aria-hidden />
+                    <span>Search</span>
+                    <KbdCmd shortcut="⌘K" />
+                  </button>
+                )}
+                {onDispatch === undefined ? null : (
+                  <button
+                    type="button"
+                    className="armada-title-bar__menu-item"
+                    onClick={onDispatch}
+                    disabled={dispatchDisabled}
+                  >
+                    <Plus size={16} strokeWidth={2} aria-hidden />
+                    <span>Dispatch</span>
+                  </button>
+                )}
+                {helm === undefined ? null : (
+                  <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
+                    <MessageSquare size={16} strokeWidth={2} aria-hidden />
+                    <span>Helm</span>
+                    {helm.questions > 0 ? (
+                      <span className="armada-title-bar__helm-count">{helm.questions}</span>
+                    ) : null}
+                    {helm.binding === undefined ? null : <KbdCmd shortcut={helm.binding} />}
+                  </button>
+                )}
+              </div>
+            )}
+          </Popover>
+        </div>
       </div>
     </div>
   );

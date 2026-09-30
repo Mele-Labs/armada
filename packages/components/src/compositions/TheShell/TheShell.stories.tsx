@@ -510,7 +510,9 @@ export const DockFoldedToASheet: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /Open Helm/ })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Helm 3" }));
+    // At this width the title row is behind its menu, and Helm is in it.
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Helm 3/ }));
     await expect(canvas.getByRole("dialog", { name: "Helm" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: /^Close/ }));
     await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();
