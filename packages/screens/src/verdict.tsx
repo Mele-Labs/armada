@@ -628,6 +628,15 @@ export function verdictSlotAtGate({
   // work record (owner, 30 Sep 2026): a record about work that has not
   // started asked for approval without showing what was being approved. No
   // claim yet keeps the work review below.
+  //
+  // **Nothing while this Job's claims are still being read.** Until they
+  // arrive the gate cannot know which review it is, and drawing the work's
+  // Approve first asked for a decision on something not yet shown (owner,
+  // 30 Sep 2026). A failed read is known, and draws the work review with
+  // `Decide`'s own line saying the claims could not be read.
+  const evidence = recorded.evidence;
+  const settled = evidence.state === "read" || evidence.state === "failed";
+  if (!settled || evidence.jobId !== job.id) return undefined;
   if (claimed?.evidence_type === "plan") return <PlanReview {...plan} />;
   const address = whole?.delivery?.pull_request;
   const detail = whole?.delivery?.pull_request_detail;

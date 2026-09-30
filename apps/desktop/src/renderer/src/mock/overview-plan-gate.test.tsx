@@ -96,3 +96,30 @@ test.each(Object.keys(NOT_A_PLAN))("a gate whose step claimed %s still draws the
   expect(page.getByRole("region", { name: "The plan" }).query()).toBeNull();
   expect(page.getByRole("button", { name: "Approve the plan" }).query()).toBeNull();
 });
+
+test("while the claims are still being read, the gate asks for no decision, and draws the plan once they arrive", async () => {
+  const scenario = scenarioNamed(PLAN_REVIEW);
+  if (scenario === undefined) throw new Error(`no scenario named ${PLAN_REVIEW}`);
+  let arrive: (() => void) | undefined;
+  mount({
+    ...scenario,
+    behaves: (fleet) => ({
+      ...scenario.behaves?.(fleet),
+      // The read goes out and stays out until the test lets it answer.
+      readEvidence: async (jobId) => {
+        if (jobId === null) return fleet.publish({ evidence: { state: "none" } });
+        fleet.publish({ evidence: { state: "reading", jobId } });
+        const evidence = scenario.reads[jobId]?.recorded.evidence;
+        if (evidence !== undefined) arrive = () => fleet.publish({ evidence });
+      },
+    }),
+  });
+  await expect.poll(() => arrive).toBeDefined();
+  await expect.element(page.getByRole("tab", { name: "Overview" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Approve the work" }).query()).toBeNull();
+  expect(page.getByRole("button", { name: "Approve the plan" }).query()).toBeNull();
+  arrive!();
+  const plan = await thePlan();
+  await expect.element(plan.getByRole("button", { name: "Approve the plan" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Approve the work" }).query()).toBeNull();
+});

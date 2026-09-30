@@ -139,7 +139,11 @@ export type OverviewTabProps = JobDetailProps & {
   trail?: TrailProps;
 };
 
-/** What `Decide` is handed for the claims' read, which this tab holds itself. */
+/**
+ * What `Decide` is handed for the claims' read: nothing. This tab holds the read
+ * for every review gate, because which gate draws depends on the claims it
+ * would fetch — so `Decide` neither opens nor closes it.
+ */
 const HELD_ABOVE = () => {};
 
 /**
