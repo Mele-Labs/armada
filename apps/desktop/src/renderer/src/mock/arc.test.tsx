@@ -14,8 +14,10 @@
 // written against what is on screen survives the rename and fails the day the
 // sentence stops being true.
 
-import { expect, test, describe } from "vitest";
+import { expect, test, describe, vi } from "vitest";
 import { page } from "vitest/browser";
+
+import { issueLink } from "@armada/protocol";
 
 import {
   GUIDE_ALWAYS_LOOKS,
@@ -1032,6 +1034,48 @@ describe("the wave", () => {
     await waveCard("Drop the second error shape").click();
     const panel = await panelOf("Drop the second error shape");
     await expect.element(panel.getByRole("button", { name: /drop from the wave$/i })).toBeVisible();
+  });
+
+  // The owner's, 30 Sep 2026: the split being approved is drawn, as real Jobs
+  // at awaiting approval, and one Approve the plan releases every one of them.
+  // Fleet has no route for that yet, so it says so, naming #1694 and the Jobs.
+  test("epic/plan-review: the gate draws the proposed wave, and Approve the plan asks Fleet to release it all, which is not built", async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    });
+    const app = mount("epic/plan-review");
+    const approveWave = vi.spyOn(app.api, "approveWave");
+    await page.getByRole("tab", { name: /^Plan/ }).click();
+    await expect
+      .element(wave().getByRole("tab", { name: "Wave 2 · every surface" }))
+      .toHaveAttribute("aria-selected", "true");
+    const proposed = [
+      "Refuse an unknown code at the seam",
+      "Name the fault in the toast",
+      "Carry the code into the journal",
+      "Say which half refused",
+      "Drop the second error shape",
+    ];
+    for (const title of proposed) {
+      await expect.element(waveCard(title)).toHaveAccessibleName(`${title}, needs approval`);
+    }
+    // The gate's one approve answers them, so none is a line of its own.
+    expect(page.getByRole("listbox", { name: "Needs you" }).query()).toBeNull();
+
+    await page.getByRole("button", { name: "Approve the plan" }).click();
+    await expect.poll(() => approveWave.mock.calls.length).toBe(1);
+    const [, sent] = approveWave.mock.calls[0]!;
+    expect(sent.jobs).toHaveLength(proposed.length);
+    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Copy debug info" }).click();
+    await expect.poll(() => written).toHaveLength(1);
+    const pasted = written[0]!;
+    expect(pasted).toContain("bridge.not_implemented");
+    expect(pasted).toContain(issueLink(1694));
+    expect(pasted).toContain("POST /jobs/{job_id}/approve_wave");
+    for (const id of sent.jobs) expect(pasted).toContain(id);
   });
 
   test("epic/wave: Waits for opens the Job waited on, with a way back", async () => {
