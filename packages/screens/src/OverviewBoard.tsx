@@ -70,10 +70,10 @@ export type OverviewBoardProps = {
    * and its answers, or the Allow / Always allow / Reject choice for a command
    * it was not given.
    *
-   * **Directly under the lead, because the lead is its sentence.** The two
-   * were a screen apart until 29 Sep 2026 — the lead on Overview and the
-   * controls in a step panel — and then the panel came off and the lead was
-   * left offering an act with nowhere to do it.
+   * **Inside the lead, because the lead is its sentence.** Under it until
+   * 30 Sep 2026, when the owner read the two and saw one thing said twice:
+   * *"This panel duplicates what is shown in the panel below. Why can't we
+   * just have one panel?"*
    */
   waiting?: ReactNode;
   workflow?: OverviewWorkflow;
@@ -106,8 +106,7 @@ export function OverviewBoard({
 }: OverviewBoardProps) {
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
-      <JobLead {...lead} />
-      {waiting}
+      <JobLead {...lead} waiting={waiting} />
 
       <div className="armada-overview-board__cards">
         {/* **What the Job is for, before what it is doing.** It took the

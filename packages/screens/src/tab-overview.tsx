@@ -41,6 +41,7 @@ import { againOf, useShowAgain } from "./again";
 import { leadOf } from "./lead";
 import { OverviewBoard } from "./OverviewBoard";
 import type { DetailTab } from "./detail-tabs";
+import type { CheckAt } from "./tab-record";
 import { CircleDashed } from "lucide-react";
 
 import { shapeSaid } from "./plan-board";
@@ -114,6 +115,18 @@ export type OverviewTabProps = JobDetailProps & {
   onRaisingTurns: (open: boolean) => void;
   /** A card's press. Overview is a door to each destination — the owner, 29 Sep. */
   onOpenTab: (tab: DetailTab) => void;
+  /**
+   * Open the Record on one Check's row. **The screen's, not this tab's** —
+   * `JobDetail.tsx` owns which destination is open, exactly as it does for the
+   * Plan's group boundary.
+   */
+  onOpenCheck: (at: CheckAt) => void;
+  /**
+   * Draw the proposal this Job is waiting to have approved. **Absent where
+   * there is no proposal read to draw**, and then the lead offers no act —
+   * a dead press is what `#1675` was filed against.
+   */
+  onOpenProposal?: () => void;
 };
 
 /**
@@ -739,8 +752,8 @@ export function OverviewTab(props: OverviewTabProps) {
   const explain =
     onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
   const waiting = waitingOf(
-    questionOf(whole, job.id, now, stale, acting, onAnswer, actingAct),
-    commandOf(whole, now, answering, explain),
+    questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
+    commandOf(whole, answering, explain),
     verdictSlot,
   );
 
@@ -751,13 +764,33 @@ export function OverviewTab(props: OverviewTabProps) {
   // **No act where the thing to act on is already under the lead.** A button
   // named `Decide it` over the Allow / Reject choice it scrolls to is a press
   // that moves nothing.
+  //
+  // **The act goes where the thing it names actually lives**, which since the
+  // reframe took the step panel off Overview is another destination. Until 29
+  // Sep 2026 every one of them selected a step instead, and nothing has read
+  // that selection since `InsideAJob` was deleted — four buttons, four dead
+  // presses, which is what the owner pressed and reported.
+  //
+  // **And no act where the route cannot land.** The approval act reaches
+  // `ProposalTab`, which draws nothing without a proposal read, so the screen
+  // hands `onOpenProposal` down only where it has one.
+  const opens = lead.opens;
+  const openProposal = props.onOpenProposal;
+  const reaches =
+    opens === undefined || !("proposal" in opens) || openProposal !== undefined;
   const leadAct =
-    lead.act === undefined || open === undefined || waiting !== undefined ? undefined : (
+    lead.act === undefined || open === undefined || waiting !== undefined || !reaches ? undefined : (
       <Button
         onClick={() => {
-          // Selecting the step is what opens the inspector on it, which is
-          // where the question box and the gate's own acts already are.
-          selectStep(open.step_id);
+          if (opens === undefined) {
+            // Selecting the step is what opens the inspector on it, which is
+            // where the question box and the gate's own acts already are.
+            selectStep(open.step_id);
+            return;
+          }
+          if ("check" in opens) props.onOpenCheck(opens.check);
+          else if ("proposal" in opens) openProposal?.();
+          else props.onOpenTab(opens.tab);
         }}
       >
         {lead.act}

@@ -31,20 +31,48 @@ export function ProposalFields({ children }: { children: ReactNode }) {
 export function ProposalField({
   label,
   bare,
+  trailing,
+  beneath,
   children,
 }: {
   /** The setting's name. A word `concepts.ts` knows gets its sentence on hover. */
   label: string;
   /** The value is a control, which already draws its own box. */
   bare?: boolean;
+  /**
+   * The act this value is the subject of, beside the value rather than beside
+   * the label. **Job settings' `Raise` is the whole of why this exists**: a
+   * button drawn off the label floats away from the figure it moves, which is
+   * what the owner read on Settings, 29 Sep 2026.
+   */
+  trailing?: ReactNode;
+  /**
+   * What the row says under itself — when the change takes, and that it took.
+   * In the value's own column, so it reads as belonging to the control above
+   * it rather than to the run of settings.
+   */
+  beneath?: ReactNode;
   children: ReactNode;
 }) {
+  const value = (
+    <div className="armada-proposal__field-value" data-bare={bare === true ? "true" : undefined}>
+      {children}
+    </div>
+  );
   return (
     <div className="armada-proposal__field">
       <ConceptLabel className="armada-proposal__field-label">{label}</ConceptLabel>
-      <div className="armada-proposal__field-value" data-bare={bare === true ? "true" : undefined}>
-        {children}
-      </div>
+      {trailing === undefined ? (
+        value
+      ) : (
+        <div className="armada-proposal__field-cell">
+          {value}
+          {trailing}
+        </div>
+      )}
+      {beneath === undefined ? null : (
+        <div className="armada-proposal__field-beneath">{beneath}</div>
+      )}
     </div>
   );
 }

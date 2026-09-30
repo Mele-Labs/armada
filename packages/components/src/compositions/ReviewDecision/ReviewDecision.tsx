@@ -1,8 +1,7 @@
 import { useId, type ReactNode } from "react";
 import { Button, STILL_WAITING, useStillWaiting, type ButtonAnswer } from "../../primitives/Button/Button";
-import { Separator } from "../../primitives/Separator/Separator";
+import { SplitButton, type SplitButtonItem } from "../../primitives/SplitButton/SplitButton";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Review decision — the answers to a Job waiting at a human gate, and the note
@@ -15,29 +14,29 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * the field sits where the diff is, already open, with nothing to press to
  * reach it.
  *
- * **Four acts, and three of them are recoverable.** That difference is the
- * whole job of this component's arrangement, and it is carried by position and
- * by a sentence rather than by a shade of red:
+ * **Four acts, in two pairs, one split button each** — the owner's own
+ * arrangement, 30 Sep 2026. Three of the four are recoverable, and that is
+ * carried by a sentence on hover rather than by a shade of red:
  *
  * | Act | Where it sits | What survives |
  * |---|---|---|
- * | Merge | the group, primary, **only where there is a pull request** | the work lands, and Fleet runs the repository's after-merge checks |
- * | Approve | the group | the work is taken and the pull request is left open |
- * | Request changes | the group, secondary | the drone, the worktree and the step — it goes back to work |
- * | Reject | below a rule, alone | **nothing. Terminal, and it ends the drone** |
+ * | Merge | the accent face, **only where there is a pull request** | the work lands, and Fleet runs the repository's after-merge checks |
+ * | Approve | behind that caret | the work is taken and the pull request is left open |
+ * | Request changes | the second face | the drone, the worktree and the step — it goes back to work |
+ * | Reject | behind that caret, `danger`, last | **nothing. Terminal, and it ends the drone** |
  *
  * **Merge takes the primary fill from Approve when it is offered, and that is
  * the point of it.** A job holding an open pull request has one ordinary
  * ending, and it is not "record this done and leave the branch on the forge" —
- * that is the state the button exists to stop. Where there is no pull request
- * to merge the prop is absent, the control is not drawn, and Approve is the
- * primary act again.
+ * that is the state the face exists to stop. Where there is no pull request
+ * the prop is absent, no caret is drawn over Approve, and Approve is a primary
+ * button on its own: a split button with nothing in its menu is a button.
  *
- * **Reject is not in the group and is not behind a caret.** A split button
- * would make it a variant of the act on its face, which is exactly the reading
- * it must not have: `crates/api/src/routes.rs` calls it a verdict on the work,
- * and the operations inventory calls it a hard stop. It sits below a rule, with
- * its own sentence, so what it costs is read before it is reached.
+ * **Reject behind a caret reverses this component's own earlier rule**, and
+ * the owner reversed it. It sat below a rule, alone, so that a split button
+ * could not make a terminal act read as a variant of the face above it. What
+ * carries that now is `danger` — last in the list, `--status-completed-failed`
+ * — and its hover, which says the Job ends and the Drone is stopped.
  *
  * **Approve does not confirm; merge and reject do.** Approving is the ordinary
  * path — it is why the gate exists, and asking twice for the common case is a
@@ -46,20 +45,26 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * takes it back. Both are the caller's to confirm, and this only asks.
  *
  * **Request changes is refused with a blank note**, before the press, matching
- * the 422 Fleet gives it. A round trip to learn the field was empty is a
- * refusal a person reads as a failure.
+ * the 422 Fleet gives it. It is a face, so `faceDisabled` refuses it and
+ * Reject behind the same caret stays reachable — a blank note is a reason not
+ * to send words, never a reason not to end a Job.
  *
  * **Merge can be drawn and disabled at once.** `#663`: a branch behind main
  * with conflicts is a pull request Fleet would refuse to merge, and
- * `mergeBlockedReason` says so under the row rather than hiding it. Fleet
+ * `mergeBlockedReason` says so under the row rather than hiding it. Again
+ * `faceDisabled`, so Approve behind that caret is still one press away. Fleet
  * sends a Drone to clear the conflicts on its own, so nothing here presses
  * anything.
  *
  * **No glyph on any of them.** Primary and secondary are label-only by
- * contract, and a mark on the destructive one alone would make the difference
- * between them a picture rather than a sentence — which is the reading that
- * lets a person press the terminal one thinking it is the loud version of the
- * mild one. The labels say what each does; the sentences say what survives.
+ * contract, and the one mark here is each control's caret, which `SplitButton`
+ * owns. The labels say what each does; the hovers say what survives — and
+ * every one of the four carries one, because two of the acts no longer have a
+ * face of their own to be read from.
+ *
+ * **A card on the canvas, so it takes `armada-glass`** — `src/glass.css`. It
+ * is a sibling of the comments below it and of Overview's cards, and it was
+ * the one region among them with no card treatment at all.
  */
 export type ReviewDecisionProps = {
   /** The reviewer's own words. Controlled — the caller holds the draft. */
@@ -84,7 +89,7 @@ export type ReviewDecisionProps = {
   /**
    * Why merging is blocked, shown under the row rather than folded into
    * `disabledNote` — the rest of the group stays live while this one alone is
-   * not. **Presence disables the merge control regardless of `disabled`.**
+   * not. **Presence disables the merge face regardless of `disabled`.**
    * `#663`: a branch behind main with conflicts is not a pull request Fleet
    * can land, and a button that fails on the press is worse than one that
    * says so first.
@@ -105,21 +110,31 @@ export type ReviewDecisionProps = {
   /** Why the controls are off, where they are. Never left to be guessed at. */
   disabledNote?: ReactNode;
   /**
-   * The answer that was pressed and Fleet has not answered. That control waits
-   * and every other one is off; absent is nothing out. #1117.
+   * The answer that was pressed and Fleet has not answered. The control
+   * carrying that act waits and its face says which one is out — including an
+   * act chosen behind the caret, which is what `SplitButton`'s `pendingLabel`
+   * is for, and the face keeps that act's own label once `answered` takes
+   * over. Every other control is off; absent is nothing out. #1117.
    */
   pending?: DecisionAct;
-  /** Fleet's answer to the last of the four pressed, drawn on that control alone. Pending wins. */
+  /**
+   * Fleet's answer to the last of the four pressed, drawn on that act's
+   * control. **An act chosen behind a caret keeps its own label on the face
+   * until this clears**, so the line and the words beside it name one act.
+   * Pending wins.
+   */
   answered?: ReviewDecisionAnswered;
   /** The label over the note field. Sentence case, no Wh- opener. */
   noteLabel?: string;
-  /** What approving does, on hover over its control. */
+  /** The label over the listed changes, and the heading they are sent under. #907. */
+  changesLabel?: string;
+  /** What approving does, on hover over its entry. */
   approveNote?: ReactNode;
   /** What requesting changes does, on hover over its control. */
   requestChangesNote?: ReactNode;
   /** What merging does, on hover over its control. */
   mergeNote?: ReactNode;
-  /** What rejecting costs, on hover over its control. */
+  /** What rejecting costs, on hover over its entry. */
   rejectNote?: ReactNode;
   mergeLabel?: string;
   approveLabel?: string;
@@ -140,6 +155,10 @@ const UNDERWAY: Record<DecisionAct, string> = {
   changes: "Requesting changes…",
   reject: "Rejecting…",
 };
+
+/** What each caret is called, for a reader who cannot see it. */
+const KEPT_MENU = "The other way to take this work";
+const SENT_BACK_MENU = "The other way to end this review";
 
 /** One thing that should change, and where it came from: `Small fix`, or a View. #907. */
 export type DecisionChange = {
@@ -162,7 +181,8 @@ export function ReviewDecision({
   disabledNote,
   pending,
   answered,
-  noteLabel = "What should change",
+  noteLabel = "Notes",
+  changesLabel = "What should change",
   approveNote = "Takes the work as the drone left it.",
   requestChangesNote = "Sends this note to the drone as a turn. It keeps the worktree and the step, and comes back running.",
   mergeNote = "Merges the pull request on its code host, then takes the work. Armada runs the repository's after-merge checks against what landed; merging it there yourself skips them.",
@@ -182,17 +202,40 @@ export function ReviewDecision({
   const stillWaiting = useStillWaiting(pending !== undefined);
   const mergeReasonId = useId();
   const answerOn = (act: DecisionAct) => (answered?.act === act ? answered.answer : undefined);
+  // A control carries a pair, so it waits for either of its two acts and its
+  // face says which of them is out.
+  const waitingOn = (...acts: DecisionAct[]) => acts.some((act) => pending === act);
+  const underway = pending === undefined ? undefined : UNDERWAY[pending];
+  // What the face reads while Fleet's answer to the act behind the caret is
+  // still drawn. **The answer keeps the label, not only the press** —
+  // `pendingLabel` already holds it while the press is out, and the line is
+  // drawn on the same face afterwards: a line meaning accepted beside a face
+  // reading `Merge and take the work` names the act that did not go out, at
+  // the one moment a person is checking that the right one did. #1117's rule
+  // is that the control pressed answers, and what was pressed was the entry.
+  const faceOf = (lead: string, behind: DecisionAct, chosen: string) =>
+    pending === undefined && answered?.act === behind ? chosen : lead;
+
+  const approveEntry: SplitButtonItem = { label: approveLabel, note: approveNote, onSelect: onApprove };
+  // `danger` is what keeps a terminal act from reading as a variant of the
+  // recoverable one on the face above it: last, and in --status-completed-failed.
+  const rejectEntry: SplitButtonItem = {
+    label: rejectLabel,
+    note: rejectNote,
+    danger: true,
+    onSelect: onReject,
+  };
 
   return (
-    <div className="armada-decision">
+    <div className="armada-review-decision armada-glass">
       {listed ? (
-        <div className="armada-decision__changes">
-          <span className="armada-decision__label">{noteLabel}</span>
-          <ul className="armada-decision__list" aria-label={noteLabel}>
+        <div className="armada-review-decision__changes">
+          <span className="armada-review-decision__label">{changesLabel}</span>
+          <ul className="armada-review-decision__list" aria-label={changesLabel}>
             {changes.map((change) => (
-              <li key={change.id} className="armada-decision__change">
-                <div className="armada-decision__change-head">
-                  <span className="armada-decision__from">{change.from}</span>
+              <li key={change.id} className="armada-review-decision__change">
+                <div className="armada-review-decision__change-head">
+                  <span className="armada-review-decision__from">{change.from}</span>
                   {onRemoveChange === undefined ? null : (
                     <Button
                       size="sm"
@@ -205,7 +248,7 @@ export function ReviewDecision({
                     </Button>
                   )}
                 </div>
-                <span className="armada-decision__text">{change.text}</span>
+                <span className="armada-review-decision__text">{change.text}</span>
               </li>
             ))}
           </ul>
@@ -215,35 +258,37 @@ export function ReviewDecision({
       {/* First, and always open. The reply is half of the loop this surface is,
           and a field behind a control is a second surface. */}
       <Textarea
-        label={listed ? "Anything else the drone should know" : noteLabel}
+        label={noteLabel}
         rows={4}
         value={note}
         disabled={disabled}
         onChange={(event) => onNote(event.target.value)}
       />
 
-      <div className="armada-decision__kept">
+      <div className="armada-review-decision__acts">
         {/* The one accent fill on this surface, and it moves. A job with a pull
-            request open has one ordinary ending and it is this one; a job with
-            none never draws this control at all. `mergeBlockedReason` present
-            is a third case — drawn, disabled either way. */}
+            request open has one ordinary ending and it is Merge, Approve behind
+            its caret; a job with none draws Approve alone, because a split
+            button with nothing in its menu is a button. */}
         {merging ? (
-          <Tooltip label={mergeNote}>
-            <Button
-              variant="primary"
-              pending={pending === "merge"}
-              answer={answerOn("merge")}
-              disabled={disabled || mergeBlockedReason !== undefined}
-              aria-describedby={mergeBlockedReason === undefined ? undefined : mergeReasonId}
-              onClick={onMerge}
-            >
-              {pending === "merge" ? UNDERWAY.merge : mergeLabel}
-            </Button>
-          </Tooltip>
-        ) : null}
-        <Tooltip label={approveNote}>
+          <SplitButton
+            variant="primary"
+            note={mergeNote}
+            items={[approveEntry]}
+            menuLabel={KEPT_MENU}
+            disabled={disabled}
+            faceDisabled={mergeBlockedReason !== undefined}
+            {...(mergeBlockedReason === undefined ? {} : { faceDescribedBy: mergeReasonId })}
+            pending={waitingOn("merge", "approve")}
+            pendingLabel={underway}
+            answer={answerOn("merge") ?? answerOn("approve")}
+            onAction={onMerge}
+          >
+            {faceOf(mergeLabel, "approve", approveLabel)}
+          </SplitButton>
+        ) : (
           <Button
-            variant={merging ? "secondary" : "primary"}
+            variant="primary"
             pending={pending === "approve"}
             answer={answerOn("approve")}
             disabled={disabled}
@@ -251,56 +296,41 @@ export function ReviewDecision({
           >
             {pending === "approve" ? UNDERWAY.approve : approveLabel}
           </Button>
-        </Tooltip>
-        {/* Off while the note is blank, which is what Fleet would answer. */}
-        <Tooltip label={requestChangesNote}>
-          <Button
-            variant="secondary"
-            pending={pending === "changes"}
-            answer={answerOn("changes")}
-            disabled={disabled || blank}
-            onClick={onRequestChanges}
-          >
-            {pending === "changes" ? UNDERWAY.changes : requestChangesLabel}
-          </Button>
-        </Tooltip>
+        )}
+
+        {/* The two answers that send the work back. The face is refused while
+            the note is blank, which is what Fleet would answer; Reject behind
+            the caret is not, because ending a Job never needed words. */}
+        <SplitButton
+          variant="secondary"
+          note={requestChangesNote}
+          items={[rejectEntry]}
+          menuLabel={SENT_BACK_MENU}
+          disabled={disabled}
+          faceDisabled={blank}
+          pending={waitingOn("changes", "reject")}
+          pendingLabel={underway}
+          answer={answerOn("changes") ?? answerOn("reject")}
+          onAction={onRequestChanges}
+        >
+          {faceOf(requestChangesLabel, "reject", rejectLabel)}
+        </SplitButton>
       </div>
 
       {/* Under the row so a long sentence never widens Merge's column;
-          `aria-describedby` keeps it read as Merge's reason. */}
+          `faceDescribedBy` keeps it read as Merge's own reason. */}
       {mergeBlockedReason === undefined ? null : (
-        <p id={mergeReasonId} className="armada-decision__said" role="note">
+        <p id={mergeReasonId} className="armada-review-decision__said" role="note">
           {mergeBlockedReason}
         </p>
       )}
 
-      {/* The rule is load-bearing, not decoration: it is what says the control
-          under it is not another answer in the group above. */}
-      <Separator decorative={false} className="armada-decision__rule" />
-
-      <div className="armada-decision__terminal">
-        {/* Outlined, because a solid red control reads as an error state rather
-            than as an act. Alone, because it is the only one of the three that
-            leaves nothing behind. */}
-        <Tooltip label={rejectNote}>
-          <Button
-            variant="destructive"
-            pending={pending === "reject"}
-            answer={answerOn("reject")}
-            disabled={disabled}
-            onClick={onReject}
-          >
-            {pending === "reject" ? UNDERWAY.reject : rejectLabel}
-          </Button>
-        </Tooltip>
-      </div>
-
       {stillWaiting ? (
-        <p className="armada-decision__said" role="status">
+        <p className="armada-review-decision__said" role="status">
           {STILL_WAITING}
         </p>
       ) : refused && disabledNote !== undefined ? (
-        <p className="armada-decision__said" role="note">
+        <p className="armada-review-decision__said" role="note">
           {disabledNote}
         </p>
       ) : null}

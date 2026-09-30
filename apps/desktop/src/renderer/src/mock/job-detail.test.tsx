@@ -40,6 +40,40 @@ test("Merge asks first, with Cancel holding focus", async () => {
   await expect.element(page.getByRole("dialog").getByRole("button", { name: "Cancel" })).toHaveFocus();
 });
 
+// The owner's arrangement of 30 Sep 2026: two split buttons, Approve and
+// Reject each behind a caret. A story proves the control; only the screen
+// proves the act reaches Fleet from the caret it was chosen in.
+test("Approve, chosen behind Merge's caret, is what reaches Fleet", async () => {
+  const api = await opened(reviewAtDelivery());
+  const approveReview = vi.spyOn(api, "approveReview");
+  await page.getByRole("button", { name: "The other way to take this work" }).click();
+  await page.getByRole("menuitem", { name: "Approve the work" }).click();
+  expect(approveReview).toHaveBeenCalledWith(JOB_ID);
+});
+
+test("Reject, behind the other caret, still asks before it ends the Job", async () => {
+  const api = await opened(reviewAtDelivery());
+  const rejectWork = vi.spyOn(api, "rejectWork");
+  await page.getByRole("button", { name: "The other way to end this review" }).click();
+  await page.getByRole("menuitem", { name: "Reject the work" }).click();
+  const confirm = page.getByRole("dialog");
+  await entered(confirm);
+  expect(rejectWork, "the choice rejected").not.toHaveBeenCalled();
+  await confirm.getByRole("button", { name: "Reject the work" }).click();
+  expect(rejectWork).toHaveBeenCalledWith(JOB_ID);
+});
+
+// **The record's card did not unfold it.** The decision record of 29 Sep 2026,
+// `2026-09-29-the-review-gate-sits-under-the-lead.md`: unfolded, the sheet put
+// five sections between the lead and the buttons. Only the screen knows the
+// lead is above it.
+test("the Job's record stays folded under the lead, with the decision under it", async () => {
+  await opened(reviewAtDelivery());
+  const fold = page.getByRole("button", { name: "The Job's record" });
+  await expect.element(fold).toHaveAttribute("aria-expanded", "false");
+  await expect.element(page.getByRole("textbox", { name: "Notes" })).toBeVisible();
+});
+
 test("picking comments on the pull request makes Send live", async () => {
   await opened(reviewAtDelivery());
   const remarks = page.getByRole("region", { name: "Comments on the pull request" });

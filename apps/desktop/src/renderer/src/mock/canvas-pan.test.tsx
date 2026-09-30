@@ -32,6 +32,13 @@ async function panned(tab: RegExp, surface: string): Promise<string> {
   await page.getByRole("tab", { name: tab }).click();
   // The pane, which is what React Flow binds its pan to. A drag anywhere else
   // on the canvas is a drag on a card.
+  //
+  // **Waited for, not read.** The press above renders the tab and React Flow
+  // mounts inside that render, so a `querySelector` on the line after it is a
+  // race against that render. The wait is right either way; what was actually
+  // refusing the merge line was the remembered view above, which left no
+  // canvas to find at all.
+  await expect.poll(() => document.querySelector(`${surface} .react-flow__pane`)).not.toBeNull();
   const pane = document.querySelector<HTMLElement>(`${surface} .react-flow__pane`);
   expect(pane).not.toBeNull();
   // The first fit has to have landed, or the pan below races it.
@@ -42,7 +49,21 @@ async function panned(tab: RegExp, surface: string): Promise<string> {
     sourcePosition: from,
     targetPosition: { x: from.x + DRAGGED.x, y: from.y + DRAGGED.y },
   });
-  const after = viewportOf(surface);
+  // **Settled, not snapshotted.** React Flow fits again whenever its
+  // container resizes, and on a busy machine the layout can settle after the
+  // drag rather than before it — so the transform read on the line after the
+  // drop is one a pending fit is about to overwrite, and every assertion
+  // downstream compares against a value that was never the resting one. Two
+  // equal reads a frame apart is what makes it the resting one.
+  let after = viewportOf(surface);
+  await expect
+    .poll(() => {
+      const now = viewportOf(surface);
+      const still = now === after;
+      after = now;
+      return still;
+    })
+    .toBe(true);
   expect(after).not.toBe("none");
   return after;
 }

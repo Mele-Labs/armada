@@ -321,11 +321,13 @@ describe("classifying", () => {
       mount("arc/approved-frozen");
       await page.getByRole("tab", { name: /^Settings/ }).click();
 
-      // The instant is written out in the reader's own locale, so what is
-      // asserted is that it is there and dated — never its spelling.
-      // Unanchored: the note is one paragraph holding the instant, this
-      // clause and the sentence after it, so neither end is at a boundary.
-      await expect.element(page.getByText(/when you approved/)).toBeVisible();
+      // The instant sits in the card's own head since 29 Sep 2026, named by
+      // its tooltip rather than by a clause. It is written out in the reader's
+      // own locale, so what is asserted is that it is there and dated — never
+      // its spelling.
+      await expect
+        .poll(() => document.querySelector(".armada-settings-tab__frozen-at")?.textContent)
+        .toMatch(/\d{4}/);
       // Frozen is drawn as values rather than as fields nobody may move.
       const froze = page.getByRole("region", { name: "Frozen at approval" });
       expect(froze.getByRole("checkbox").all()).toHaveLength(0);
