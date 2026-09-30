@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LeftOutWorkflow, ManifestReading, ManifestSummary, RepositorySummary } from "@armada/protocol";
 import { Button, Dialog, KbdBinding } from "@armada/components";
-import { AskRepository, DispatchJob, watchOf } from "@armada/screens";
+import { AskRepository, DispatchJob } from "@armada/screens";
+import type { Answered } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
 import { dispatchSettingsOf } from "@armada/screens/src/draft/dispatch";
@@ -64,18 +65,17 @@ const UNREAD: { leftOut: readonly LeftOutWorkflow[]; reading: ManifestReading | 
 export function Composing({
   state,
   commands,
-  now,
   live,
   all,
   repositories,
   scoped,
-  onOpen,
+  onDispatched,
+  opensOn,
   onClose,
   onCopied,
 }: {
   state: BridgeState;
   commands: ReturnType<typeof useCommands>;
-  now: number;
   live: boolean;
   /** On All repositories, so no Manifest is picked for the Job to belong to. */
   all: boolean;
@@ -89,7 +89,18 @@ export function Composing({
    * scope — still passes it.
    */
   onPick: (root: string) => void;
-  onOpen: (jobId: string) => void;
+  /**
+   * The press. **It leaves this surface**, so what is handed over is the request
+   * as sent and the call to make — the proposal's own screen is what waits for
+   * it. The owner's decision of 30 Sep 2026, *the wait is a destination*.
+   */
+  onDispatched: (sent: string, ask: () => Promise<Answered>) => void;
+  /**
+   * What the request field opens on. The window's, because a proposal that made
+   * nothing hands the words back through it — a draft held here would be gone
+   * by the time the composer reopened.
+   */
+  opensOn?: string;
   onClose: () => void;
   onCopied: (value: string) => void;
 }) {
@@ -178,15 +189,20 @@ export function Composing({
         // handed over at the press rather than held by the command. On All,
         // the request names the answered repository rather than the pick,
         // which #959 keeps on All — `null` off All, where it already did.
+        //
+        // **The call is handed over rather than awaited here.** This surface is
+        // gone by the time it answers; the proposal's own screen is what waits.
         onPropose={(request, attachments) =>
-          commands.proposeFrom(
-            request,
-            attachments,
-            {
-              workflows: state.holds.workflows,
-              bridge: state.bridge,
-            },
-            all ? answered : null,
+          onDispatched(request, () =>
+            commands.proposeFrom(
+              request,
+              attachments,
+              {
+                workflows: state.holds.workflows,
+                bridge: state.bridge,
+              },
+              all ? answered : null,
+            ),
           )
         }
         onStage={stageAttachment}
@@ -215,34 +231,14 @@ export function Composing({
         {...(drafted.proposal === undefined
           ? {}
           : { settings: dispatchSettingsOf(drafted.proposal) })}
-        {...(drafted.prompt === undefined ? {} : { opensOn: drafted.prompt })}
+        {...(opensOn === undefined ? {} : { opensOn })}
         {...(drafted.sketch === undefined ? {} : { sketch: drafted.sketch })}
         // On the head of each card this surface draws, since each is its own
         // way out of the same composer.
         close={<WayOut ground="card" onClose={leave} />}
         // What the request field and its attachments would lose.
         onTyped={setTyped}
-        // What Fleet says the call is doing, against the same `now`
-        // every other elapsed figure on screen is drawn from.
-        watching={watchOf(state.proposing, now)}
-        onStop={() => void commands.stopProposal()}
-        // A proposed Job is opened where somebody wants to read it
-        // first, which is the same signpost the Board's own
-        // `awaiting_approval` row carries.
-        onOpen={(jobId) => {
-          onClose();
-          onOpen(jobId);
-        }}
-        // And released without leaving, on the head of the proposal.
-        // The same command the detail's own gate calls, so a second
-        // approval is refused by the one guard rather than by two.
-        onApprove={(jobId) => void commands.approve(jobId)}
-        approving={state.approving}
-        // What the board says each proposed Job is at now. The fold
-        // `approveDispatch` does is what moves the row off its gate.
-        statusOf={(jobId) => state.jobs.find((job) => job.id === jobId)?.status}
         disabled={!live}
-        onCopied={onCopied}
       />
       </Boundary>
       {/* The ask, and only where something would be lost. Every destructive

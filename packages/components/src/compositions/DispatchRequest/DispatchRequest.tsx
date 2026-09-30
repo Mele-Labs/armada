@@ -1,9 +1,7 @@
-import type { LucideIcon } from "lucide-react";
 import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
-import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
@@ -14,10 +12,6 @@ import { GUIDE_DISPATCH } from "../../guides";
 import { MentionPopover, useMention } from "../../primitives/MentionPopover/MentionPopover";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { ErrorNotice } from "../../errors/ErrorNotice/ErrorNotice";
-import type { DebugPayload } from "../../errors/ErrorNotice/ErrorNotice";
-import { ACTION } from "../../actions";
-import { JOB_STATUS } from "../../generated/vocabulary";
 import type { StagedAttachment } from "@armada/protocol";
 
 /**
@@ -25,78 +19,14 @@ import type { StagedAttachment } from "@armada/protocol";
  * proposer decides the rest.
  *
  * **Describing the work is the only way in.** A person types what they want
- * done, or pastes a link, and dispatches. They pick no workflow and write no
- * title — `../../../../../docs/concepts/job-proposer.md` says both, and says
- * why: doing it by hand means knowing the workflow catalogue before you can
- * ask for anything. The form that let you is gone, and the Settings block is
- * where a workflow, a model or a cap is overridden instead.
+ * done, or pastes a link; they pick no workflow and write no title, and
+ * `../../../../../docs/concepts/job-proposer.md` says why. The Settings block
+ * is where a workflow, a model or a cap is overridden instead.
  *
- * # The wait says what the call is doing, and offers a way out of it
- *
- * This read, until the proposal wait was made watchable: "there is no stream
- * behind it, so the wait here is Bridge's own idiom for an act in flight — the
- * control takes a present-participle label and goes dead". There is a stream
- * now. Fleet publishes what the call has reached and what it may be stopped by,
- * so the wait draws that instead of a dead button.
- *
- * **It still does not fill the proposal in progressively, and must not look as
- * though it does.** The Jobs arrive whole, once, at the end. What moves here is
- * the call's own progress — reached the vendor, thinking, answering — which is
- * a fact about the wait rather than a preview of the answer. A skeleton of Job
- * rows would claim rows are arriving one at a time, which is still not
- * happening.
- *
- * # Why a wait needs more than an elapsed count
- *
- * A person watching one is deciding whether to keep waiting, and that turns
- * entirely on whether the call is getting anywhere. "Ninety seconds and
- * thinking" and "ninety seconds and never reached the vendor" take opposite
- * decisions and, under an elapsed count alone, are the same pixels. So the
- * reach is drawn, and after `slowAfterMs` the surface says so and offers the
- * stop rather than waiting for somebody to wonder.
- *
- * **Stopping kills the call.** It is not this window giving up: a wait
- * abandoned leaves the proposer running inside Fleet and spending, with nobody
- * left to read what it decides.
- *
- * # Two refusals, drawn as two different things
- *
- * **No workflow resolved is Armada working.** Fleet answered, refused, and
- * returned the request unchanged — no Job was created. It takes no red and no
- * code: it is the surface saying what it will not send, and the way on is to
- * edit the request, or to name the workflow in Settings.
- *
- * **The call not being made at all is Armada failing.** That is a fault, it
- * carries the code every error carries, and it renders in the error treatment
- * inline — the placement blast radius picks, since a proposer that could not be
- * called stops this surface and nothing else. What to do about it is Fleet's
- * own sentence, because Fleet is what knows whether a budget ran out.
- *
- * # Nothing here decides scope, and nothing here may look like it did
- *
- * A Job reaches this gate with `write_targets` null — not empty. Null is scope
- * not yet determined; empty would claim the Job writes nothing. So no path, no
- * file count and no diff estimate appears on a proposed job, and the line under
- * the list says out loud what the gate approves: the workflow, the name and the
- * split.
- *
- * # Approving happens here, on the job you just read
- *
- * Every Job that comes back already exists, at `awaiting_approval`. **The head
- * of the proposal carries its own approval**, because everything the gate
- * approves — the workflow, the name and the split — is on this screen already,
- * and sending somebody to detail to say yes to what they are looking at is a
- * second surface for no second fact. Settled 2026-09-08, against the earlier
- * reading that approval is always a second act from detail.
- *
- * **It is one approval, and only the head's.** Fleet's rule is strictly one by
- * one, and a chained Job is not at its gate until the one before it completes,
- * so every row under the first carries Review alone and nothing here approves
- * several at once. The Job Board is unchanged: a row somebody is browsing past
- * still only signposts, because there the proposal is not on screen.
- *
- * Review stays beside the approval, for the case where the title is not enough
- * and the Job itself is what somebody wants to read.
+ * **The press leaves this surface.** The wait, the Jobs the request became and
+ * both refusals are `ProposalPage`'s — the owner's decision of 30 Sep 2026,
+ * *the wait is a destination*. So nothing here draws a proposal, and the one
+ * control never goes pending: by the time Fleet answers, this card is gone.
  */
 export type DispatchRequestProps = {
   /**
@@ -194,59 +124,23 @@ export type DispatchRequestProps = {
   onAttach: (attachment: StagedAttachment) => void;
   /** Take a staged file back, by the path `onStage` answered with. */
   onRemoveAttachment: (path: string) => void;
-  /** Send it. Never called with a blank request — the control is off until one. */
+  /**
+   * Send it. Never called with a blank request — the control is off until one.
+   *
+   * **The caller leaves this surface on the press**, so nothing here waits for
+   * an answer and this returns nothing to wait on.
+   */
   onDispatch: () => void;
-  /** Drop what came back and describe something else. */
-  onReset: () => void;
   /**
    * The way out of the surface this card belongs to, drawn at the head's
    * trailing edge — the card is what a person is leaving, so the exit sits on
    * it rather than loose above it. The caller's control; absent draws none.
    */
   close?: ReactNode;
-  /** Open one of the jobs that came back, where its own gate is drawn. */
-  onOpen: (jobId: string) => void;
-  /**
-   * Release the job at the head of the proposal, which is what starts the work.
-   *
-   * **Offered on one row and never on two.** Only the head is at its gate — the
-   * rest of a chain reach theirs as the one before them completes — so this is
-   * called with the first job's id or not at all.
-   */
-  onApprove: (jobId: string) => void;
-  /**
-   * Jobs whose approval is out, by id. The control says `Approving` and goes
-   * dead: approving twice does not spawn twice, but a control that looks
-   * unpressed invites the second press and then says nothing about the first.
-   */
-  approving?: readonly string[];
-  /** What the proposer answered, or that it has not been asked. */
-  proposal: Proposal;
-  /**
-   * Stop the call that is out. **Kills it rather than stopping the wait** — a
-   * wait abandoned leaves the proposer running inside Fleet and spending, with
-   * nobody left to read what it decides.
-   *
-   * Absent where stopping is not offered, which draws no control rather than a
-   * dead one.
-   */
-  onStop?: () => void;
-  /**
-   * How long a wait may run before the surface says so and puts the stop in
-   * front of the person, in milliseconds.
-   *
-   * **A prompt, not a limit.** Nothing happens at this mark except that the
-   * question is asked: the call keeps running until Fleet's own budget or until
-   * somebody presses stop. It is the caller's because what counts as long is a
-   * property of the deployment rather than of this component.
-   */
-  slowAfterMs?: number;
   /** Nothing may be dispatched while the connection is not live. */
   disabled?: boolean;
   /** Why the controls are off, where they are. A dead control with no reason reads as broken. */
   disabledNote?: ReactNode;
-  /** What the surface is told after a clipboard write, so it can raise a toast. */
-  onCopied?: (what: string) => void;
 };
 
 /**
@@ -269,115 +163,8 @@ const MODES = [
   { id: "sketch", label: "Sketch" },
 ];
 
-/**
- * Where the one call has got to.
- *
- * **Five states and no sixth.** There is no partial proposal: the call is asked
- * once and answers once. What `reading` gained is a description of the wait,
- * which is not a partial answer — see the type's own note.
- */
-export type Proposal =
-  /** Nothing asked. The ordinary opening state, and where a reset returns to. */
-  | { at: "unasked" }
-  /**
-   * Asked, and waiting. **The proposal still arrives whole**; `watch` describes
-   * the call, not the answer.
-   *
-   * Absent where Fleet has not said anything about the call yet, which is every
-   * moment before the first event and every Fleet too old to send one. The
-   * surface draws the wait without it rather than drawing nothing.
-   */
-  | { at: "reading"; watch?: ProposalWatch }
-  /** Answered. Every job here exists already, at `awaiting_approval`. */
-  | { at: "proposed"; request: string; jobs: readonly ProposedJob[] }
-  /** No workflow resolved. The request is unchanged and no job was created. */
-  | { at: "unresolved" }
-  /** The call could not be made. A fault, and it carries a code. */
-  | { at: "faulted"; code: string; message: ReactNode; payload?: DebugPayload };
-
-/**
- * What the call is doing, while it does it.
- *
- * **Every number here is already resolved by the caller.** Elapsed is a
- * subtraction against a clock, and a component that read one would tick on its
- * own schedule and disagree with every other elapsed figure on screen.
- */
-export type ProposalWatch = {
-  /**
-   * How far the call has got. `starting` is **the one worth telling apart**: a
-   * call still there after a minute never reached the vendor at all, which will
-   * not resolve by waiting.
-   */
-  reached: "starting" | "started" | "requesting" | "thinking" | "answering";
-  /** How long the call has been out, in milliseconds. */
-  elapsedMs: number;
-  /** Fleet's own ceiling for this call, in milliseconds. */
-  budgetMs: number;
-  /** Which model is reading it. What the wait costs, roughly. */
-  model: string;
-  /**
-   * The harness's running estimate of how much the model has thought. **Drawn
-   * as an approximation**, because that is what it is.
-   */
-  thinkingTokens?: number;
-  /** How much of the answer has arrived, in characters. */
-  answeredCharacters?: number;
-};
-
-/** One job the request became. **No scope, because none was proposed.** */
-export type ProposedJob = {
-  id: string;
-  /** What the proposer called it. Nobody typed this. */
-  title: string;
-  /**
-   * The workflow's name, resolved by the caller. Never the id: an id in a
-   * proposal is the one field a person cannot check.
-   */
-  workflow: string;
-  /**
-   * The job's own status off the wire, which at this gate is
-   * `awaiting_approval`. **Carried rather than assumed** — the job exists
-   * before this surface draws it, so the badge says what Fleet says.
-   */
-  status: string;
-};
-
-/**
- * A status as a badge draws it, from the generated vocabulary rather than
- * typed here — a second copy of a status word is a second vocabulary.
- *
- * `null` where the registry carries no verb, glyph or token for it, which
- * draws no badge rather than an invented one.
- */
-function badgeOf(status: string): { status: string; icon: LucideIcon; verb: string } | null {
-  const rendering = JOB_STATUS[status];
-  if (rendering === undefined) return null;
-  const { badgeStatus, icon, verb } = rendering;
-  if (badgeStatus === null || icon === null || verb === null) return null;
-  return { status: badgeStatus, icon, verb };
-}
-
-/**
- * What a row's control is called. `actions.toml` is the authority on the verb
- * and the binding, and `keys.ts` in `@armada/screens` reads the same row for
- * the Job Board's own `awaiting_approval` row — one act, one word.
- */
-const REVIEW = ACTION["review"];
-
-/**
- * What the row's forward control is called. The same row of `actions.toml` the
- * detail's own gate answers — one act, one word, wherever it is offered.
- */
-const APPROVE = ACTION["approve"];
-
-/** The status a job is at when its gate is somebody's to release. */
-const AT_THE_GATE = "awaiting_approval";
-
 /** What the field asks for, and the two things it takes. */
 const PLACEHOLDER = "Describe the work, or paste a link to a ticket.";
-
-/** Said on both refusals, because it is the fact a person most needs. */
-const NOTHING_CREATED = "Nothing was created and the request is unchanged.";
 
 export function DispatchRequest({
   request,
@@ -401,20 +188,10 @@ export function DispatchRequest({
   onAttach,
   onRemoveAttachment,
   onDispatch,
-  onReset,
   close,
-  onOpen,
-  onApprove,
-  approving = [],
-  proposal,
-  onStop,
-  slowAfterMs,
   disabled = false,
   disabledNote,
-  onCopied,
 }: DispatchRequestProps) {
-  const reading = proposal.at === "reading";
-  const answered = proposal.at === "proposed";
   const empty = request.trim() === "";
   // The hidden file input the "Attach" button clicks through. A ref rather
   // than state because nothing here reads its value; `onChange` does.
@@ -467,28 +244,17 @@ export function DispatchRequest({
       </CardHeader>
       <CardContent>
         <div className="armada-dispatch__body">
-          {answered ? null : (
-            <Where
-              {...(repository === undefined ? {} : { repository })}
-              refs={refs}
-              onRefs={onRefs}
-              branches={branches}
-              disabled={reading || disabled}
-            />
-          )}
+          <Where
+            {...(repository === undefined ? {} : { repository })}
+            refs={refs}
+            onRefs={onRefs}
+            branches={branches}
+            disabled={disabled}
+          />
 
-          {answered ? (
-            <Answered
-              proposal={proposal}
-              onOpen={onOpen}
-              onApprove={onApprove}
-              approving={approving}
-            />
-          ) : (
-            <>
-              {/* Above the field rather than on the card's head: it swaps what
-                  is directly under it, and nothing else on the card. */}
-              {sketchPad === undefined ? null : (
+          {/* Above the field rather than on the card's head: it swaps what
+              is directly under it, and nothing else on the card. */}
+          {sketchPad === undefined ? null : (
                 <div className="armada-dispatch__modes">
                   <Tabs items={MODES} value={mode} onChange={(id) => onMode?.(id as RequestMode)} />
                 </div>
@@ -500,7 +266,7 @@ export function DispatchRequest({
                   rows={4}
                   value={request}
                   placeholder={PLACEHOLDER}
-                  disabled={reading || disabled}
+                  disabled={disabled}
                   {...mention.fieldAria}
                   onChange={mention.onFieldChange}
                   onKeyDown={mention.onFieldKeyDown}
@@ -542,7 +308,7 @@ export function DispatchRequest({
                 {...(onRemoveLink === undefined ? {} : { onRemoveLink })}
                 {...(node === undefined ? {} : { node })}
                 {...(sketch === undefined ? {} : { sketch })}
-                disabled={reading || disabled}
+                disabled={disabled}
                 onPickFile={() => fileInputRef.current?.click()}
               />
               {settings}
@@ -550,65 +316,6 @@ export function DispatchRequest({
                   before anything was typed and still true of a job that never
                   ran. #1540 put them on the screen and #1602 took them off:
                   the `?` on the card's own title is where they live now. */}
-            </>
-          )}
-
-          {/* The wait. The proposal still arrives whole; what moves here is
-              the call's own progress, which is a fact about the wait rather
-              than a preview of the answer. */}
-          {proposal.at === "reading" ? (
-            <Waiting
-              {...(proposal.watch === undefined ? {} : { watch: proposal.watch })}
-              {...(onStop === undefined ? {} : { onStop })}
-              {...(slowAfterMs === undefined ? {} : { slowAfterMs })}
-            />
-          ) : null}
-
-          {/* Refusal one. No red, no code — Fleet answered and declined, which
-              is Armada working. The request is still in the field above. */}
-          {proposal.at === "unresolved" ? (
-            <div className="armada-dispatch__unresolved" role="status">
-              <p className="armada-dispatch__unresolved-head">
-                No workflow fits this request. {NOTHING_CREATED}
-              </p>
-              {/* The next move, and nothing about what a workflow is: that
-                  half was true before the refusal, so it is guide 3's. */}
-              <p className="armada-dispatch__unresolved-body">
-                Edit the request and dispatch again, or name the workflow yourself under
-                Settings.
-              </p>
-            </div>
-          ) : null}
-
-          {/* Refusal two. Armada failing, so it takes the error treatment and
-              its code. Inline, because a proposer that could not be called
-              stops this surface and reaches nothing else. */}
-          {proposal.at === "faulted" ? (
-            <ErrorNotice
-              kind="fault"
-              placement="inline"
-              code={proposal.code}
-              message={
-                <>
-                  {proposal.message} {NOTHING_CREATED}
-                </>
-              }
-              {...(proposal.payload === undefined ? {} : { payload: proposal.payload })}
-              onCopied={onCopied}
-              act={
-                /* The act named, not repeated. The footer's own control is
-                   `Dispatch again` while this is up, and a second button here
-                   would be two controls for one act eight lines apart — which
-                   is the thing the error treatment's "never a second decision"
-                   rule is about. The sentence says the part the button cannot:
-                   the fault said nothing about the request, so nothing has to
-                   be edited before asking again. */
-                <span className="armada-dispatch__act">
-                  Dispatch again. The request is not what failed.
-                </span>
-              }
-            />
-          ) : null}
 
           {disabledNote === undefined ? null : (
             <p className="armada-dispatch__note">{disabledNote}</p>
@@ -617,28 +324,16 @@ export function DispatchRequest({
       </CardContent>
 
       <CardFooter className="armada-dispatch__foot">
-        {answered ? (
-          <Button variant="secondary" onClick={onReset}>
-            Dispatch another
-          </Button>
-        ) : (
-          /* One control, because there is one way through this surface. The
-             form `Enter by hand` opened is gone: the Settings block took every
-             decision it carried, and the owner's call of 2026-09-23 is that
-             with those there it is not needed any more. */
-          <Button
-            variant="primary"
-            pending={reading}
-            onClick={onDispatch}
-            disabled={disabled || empty}
-          >
-            {reading
-              ? "Reading the request"
-              : proposal.at === "faulted"
-                ? "Dispatch again"
-                : "Dispatch"}
-          </Button>
-        )}
+        {/* One control, because there is one way through this surface. The
+            form `Enter by hand` opened is gone: the Settings block took every
+            decision it carried, and the owner's call of 2026-09-23 is that
+            with those there it is not needed any more.
+
+            **Never pending.** The press leaves this card, so there is no state
+            of it in which Fleet has been asked and has not answered. */}
+        <Button variant="primary" onClick={onDispatch} disabled={disabled || empty}>
+          Dispatch
+        </Button>
       </CardFooter>
     </Card>
   );
@@ -808,261 +503,5 @@ function Attached({
         <p className="armada-dispatch__said">Links go out with the request, one to a line.</p>
       )}
     </div>
-  );
-}
-
-/**
- * The wait, and what to do about it.
- *
- * **Three registers, and which one is drawn turns on one thing**: whether the
- * wait has passed the mark where a person should be asked. Before it, the wait
- * is ordinary and says what the call is doing. After it, the surface says so
- * and puts the stop in front of them — rather than leaving somebody to wonder
- * whether anything is happening and find no way to end it.
- *
- * **Nothing here ticks.** Every figure is resolved by the caller against one
- * clock, so this and the rest of the window cannot disagree about how long a
- * thing has taken.
- */
-function Waiting({
-  watch,
-  onStop,
-  slowAfterMs,
-}: {
-  watch?: ProposalWatch;
-  onStop?: () => void;
-  slowAfterMs?: number;
-}) {
-  // The wait unmounts this the moment `reading` ends, whichever way it ends —
-  // so a fresh wait always starts unpressed. #1117.
-  const [stopping, setStopping] = useState(false);
-
-  // No reading yet, and no mark to have passed. **The sentence that was here
-  // before any of this**, kept for a Fleet that sends no progress and for the
-  // moment before the first message lands.
-  if (watch === undefined) {
-    return (
-      <p className="armada-dispatch__waiting" role="status">
-        The proposer is reading the request. It answers once, whole.
-      </p>
-    );
-  }
-
-  const slow = slowAfterMs !== undefined && watch.elapsedMs >= slowAfterMs;
-  const left = Math.max(0, watch.budgetMs - watch.elapsedMs);
-
-  return (
-    <div className="armada-dispatch__wait" role="status">
-      <p className="armada-dispatch__wait-head">
-        <span className="armada-dispatch__wait-what">{REACHED[watch.reached]}</span>
-        <span className="armada-dispatch__wait-for">{lasting(watch.elapsedMs)}</span>
-      </p>
-      {/* The model and the ceiling on one line. The ceiling is what makes the
-          elapsed figure mean anything: against nothing it can only say "slow",
-          and against the budget it says how much of the decision is left. */}
-      <p className="armada-dispatch__wait-where">
-        {watch.model} · {left === 0 ? "out of time" : `${lasting(left)} left`}
-      </p>
-      {/* What it has actually done. Absent rather than zeroed: a call that has
-          not started thinking and one thinking about nothing are different
-          things, and a `0` would draw them the same. */}
-      {watch.thinkingTokens === undefined ? null : (
-        <p className="armada-dispatch__wait-count">
-          about {watch.thinkingTokens.toLocaleString()} tokens of thinking
-        </p>
-      )}
-      {watch.answeredCharacters === undefined ? null : (
-        <p className="armada-dispatch__wait-count">
-          {watch.answeredCharacters.toLocaleString()} characters of answer so far
-        </p>
-      )}
-      {slow ? (
-        <div className="armada-dispatch__wait-slow">
-          <p className="armada-dispatch__wait-ask">
-            This is taking longer than expected. It is still running — waiting is
-            reasonable, and so is stopping.
-          </p>
-          {/* Only the stop. **There is no `Keep waiting` control**, and the
-              absence is the design: waiting is what happens if nothing is
-              pressed, and a button for it would be a control that performs no
-              act — the one thing a surface must not offer. Dismissing the
-              notice would be worse again, hiding the only way out of the wait.
-              */}
-          {onStop === undefined ? null : (
-            <Button
-              variant="secondary"
-              pending={stopping}
-              onClick={() => {
-                setStopping(true);
-                onStop();
-              }}
-            >
-              {stopping ? "Stopping…" : "Stop the proposer"}
-            </Button>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * What each reach is called on screen.
- *
- * **`starting` is the one that says something is wrong.** A call that has not
- * announced itself never reached the vendor, so its sentence names the harness
- * rather than the model — that is the reading a person needs in order to stop
- * rather than wait.
- */
-const REACHED: Record<ProposalWatch["reached"], string> = {
-  starting: "Starting the proposer",
-  started: "Waiting to reach the model",
-  requesting: "Asking the model",
-  thinking: "The model is thinking",
-  answering: "The answer is arriving",
-};
-
-/**
- * A duration, in the coarsest unit that is still true. Seconds under a minute,
- * then minutes and seconds — a wait is read at a glance, and `142s` is a number
- * somebody has to divide.
- */
-function lasting(ms: number): string {
-  const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest === 0 ? `${minutes}m` : `${minutes}m ${rest}s`;
-}
-
-/**
- * What the request became.
- *
- * **The order is the whole of the graph.** A proposal of several is a chain —
- * each member waits on the one before it reaching `completed_success` — so
- * position carries it and no second field restates it.
- *
- * **One job draws no ordinal.** A list of one numbered `1` implies a second
- * that did not come.
- */
-function Answered({
-  proposal,
-  onOpen,
-  onApprove,
-  approving,
-}: {
-  proposal: Extract<Proposal, { at: "proposed" }>;
-  onOpen: (jobId: string) => void;
-  onApprove: (jobId: string) => void;
-  approving: readonly string[];
-}) {
-  const several = proposal.jobs.length > 1;
-
-  return (
-    <div className="armada-dispatch__answered">
-      {/* What was asked, kept on screen. The proposal is only readable against
-          the request it came from. */}
-      <p className="armada-dispatch__asked">{proposal.request}</p>
-
-      <p className="armada-dispatch__became">
-        {several
-          ? `The request became ${proposal.jobs.length} jobs, in this order.`
-          : "The request became one job."}
-      </p>
-
-      <ol className="armada-dispatch__jobs">
-        {proposal.jobs.map((job, index) => (
-          <li className="armada-dispatch__job" key={job.id}>
-            {several ? (
-              <span className="armada-dispatch__ordinal mono" aria-hidden="true">
-                {index + 1}
-              </span>
-            ) : null}
-            <div className="armada-dispatch__job-body">
-              <span className="armada-dispatch__title">{job.title}</span>
-              <span className="armada-dispatch__workflow">{job.workflow}</span>
-              {several && index > 0 ? (
-                <span className="armada-dispatch__waits">{`Waits on job ${index}.`}</span>
-              ) : null}
-            </div>
-            <AtTheGate status={job.status} />
-
-            <div className="armada-dispatch__job-acts">
-              {/* Opens the job, for the case where the title is not enough. It
-                  is not the way to approve one any more, but it is still the
-                  only way to read one before releasing it. */}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onOpen(job.id)}
-                aria-label={`${REVIEW === undefined ? "Review" : REVIEW.verb} ${job.title}`}
-              >
-                {REVIEW === undefined ? "Review" : REVIEW.verb}
-              </Button>
-
-              {/* The gate, on the one row that holds it. The status is Fleet's
-                  and is checked rather than assumed: a job already released —
-                  by this press or from anywhere else — draws no second one. */}
-              {index === 0 && job.status === AT_THE_GATE ? (
-                <Releasing
-                  job={job}
-                  out={approving.includes(job.id)}
-                  onApprove={onApprove}
-                />
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      {/* Two standing sentences stood here — what approving does, and what a
-          proposal is and is not. Both were true of a request nobody had sent,
-          so they are guide 3 and the `?` on this card's title (#1602). */}
-    </div>
-  );
-}
-
-/**
- * The gate, as a control. **The label and the accessible name are the same
- * words** — a button reading `Approving` under a name saying `Approve` tells a
- * screen reader the press is still there to make.
- */
-function Releasing({
-  job,
-  out,
-  onApprove,
-}: {
-  job: ProposedJob;
-  /** This job's approval is in flight. */
-  out: boolean;
-  onApprove: (jobId: string) => void;
-}) {
-  const verb = APPROVE === undefined ? "Approve" : APPROVE.verb;
-  const says = out ? "Approving" : verb;
-  return (
-    <Button
-      variant="primary"
-      size="sm"
-      pending={out}
-      onClick={() => onApprove(job.id)}
-      aria-label={`${says} ${job.title}`}
-    >
-      {says}
-    </Button>
-  );
-}
-
-/**
- * The badge on a proposed job. **The job's own status, not this surface's
- * idea of it** — every one of these exists on the board already, so a hardcoded
- * word here would be Bridge asserting something it was told.
- */
-function AtTheGate({ status }: { status: string }) {
-  const badge = badgeOf(status);
-  if (badge === null) return null;
-  return (
-    <Badge status={badge.status} icon={badge.icon}>
-      {badge.verb}
-    </Badge>
   );
 }

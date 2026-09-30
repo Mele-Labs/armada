@@ -157,7 +157,7 @@ export function proposingReading(): ArcMoment {
   const before = dispatchTyping();
   return {
     name: "proposingReading",
-    says: "Classifying — the proposer is still reading, and the form is waiting on it",
+    says: "Reading the request — the proposal's own screen, with the model out and a stop on it",
     fixtures: before.fixtures,
     proposing: {
       proposal_id: "01M2D3ZF41001PROPOSAL001",
@@ -172,6 +172,42 @@ export function proposingReading(): ArcMoment {
       reached: "thinking",
       thinking_tokens: 1_840,
     },
+    draft: { ...before.draft, proposal: arcProposal({ status: "proposing" }) },
+  };
+}
+
+/**
+ * A request the proposer split, which is the case that cannot be a Job.
+ *
+ * **One press away rather than already on screen**, and that is not a gap in
+ * the moment: the answer belongs to the press that asked for it, so the only
+ * honest way to draw it is to make the press. `becomes` is what the mock's
+ * Fleet answers with.
+ *
+ * Two, on the `feature` workflow the Board here already holds — the split is
+ * the substance, and a workflow nothing on this Board declares would draw its
+ * id in place of a name.
+ */
+export function proposingSeveral(): ArcMoment {
+  const before = dispatchTyping();
+  return {
+    name: "proposingSeveral",
+    says: "Dispatch — the press answers with two jobs, and the chain is the order they land in",
+    fixtures: before.fixtures,
+    becomes: [
+      arcJob("awaiting_approval", {
+        id: "01M2D3ZF41002FIRSTOFTWO0",
+        handle: "20-say-what-the-drones-stat-counts",
+        title: "Say what the Drones stat counts",
+        branch: undefined,
+      }),
+      arcJob("awaiting_approval", {
+        id: "01M2D3ZF41002SECONDOFTWO",
+        handle: "21-open-the-drone-behind-the-stat",
+        title: "Open the Drone behind the stat",
+        branch: undefined,
+      }),
+    ],
     draft: { ...before.draft, proposal: arcProposal({ status: "proposing" }) },
   };
 }

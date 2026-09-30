@@ -360,6 +360,10 @@
 /* The card a destination draws — Pulse's, and Overview's — so the two are one. */
 @import "./compositions/DestinationCard/DestinationCard.css";
 @import "./compositions/GroupShape/GroupShape.css";
+/* The proposal's own screen, where dispatching lands: the request, the call
+   being read, and what it became. Appended, per the rule at the head of this
+   file — the owner's decision of 30 Sep 2026, the wait is a destination. */
+@import "./compositions/ProposalPage/ProposalPage.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

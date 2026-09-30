@@ -51,7 +51,6 @@ export async function proposeRequest(
   repository: string | null = null,
 ): Promise<Answered> {
   return answeredAs(await window.armada.proposeFromRequest(request, attachments, repository), {
-    sent: request,
     workflows: seen.workflows,
     bridge: seen.bridge,
     at: new Date().toISOString(),

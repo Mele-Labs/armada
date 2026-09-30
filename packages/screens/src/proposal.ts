@@ -1,21 +1,25 @@
 // What `proposeFromRequest` answered, read into what the dispatch surface
 // draws.
 //
-// **The one place the seam is read.** `DispatchRequest` in `@armada/components`
+// **The one place the seam is read.** `ProposalPage` in `@armada/components`
 // knows nothing about the wire and the app does no reading of its own, so a
 // change to what Fleet answers lands here and nowhere else.
 //
-// # Two refusals, and a third that is neither
+// # Three endings that made nothing, and a fourth that is none of them
 //
 // `unresolved` is Fleet reading the request and declining: no workflow fits, no
 // Job was created, and the request comes back so nothing anybody typed is lost.
 // **It is not an error** — it takes no code and no red, because Armada worked.
 //
+// `stopped` is a person's own press. Not a failure either, and its code is
+// declared apart in `crates/fleet/src/refusing.rs` for that reason: a client
+// that drew it as a fault would say Armada broke.
+//
 // `faulted` is the call not being made at all. That is Armada failing, so it
 // takes the error treatment and the code every error carries.
 //
-// `refused` is neither: it is a command Bridge or Fleet turned down before any
-// of this, which every other act in the app already draws one way. It goes back
+// `refused` is none of the three: it is a command Bridge or Fleet turned down
+// before any of this, which every other act in the app draws one way. It goes back
 // to the caller as an `Outcome` rather than being redrawn here, so a proposer
 // refused for being disconnected reads exactly like an approval refused for it.
 //
@@ -63,12 +67,6 @@ export type Answered = {
 
 /** What the reading needs beyond the answer itself. */
 export type ProposalReading = {
-  /**
-   * The request that was dispatched. **The answer carries none on success** —
-   * the Jobs came back and the question did not — and a proposal is only
-   * readable against what was asked, so the caller keeps it and hands it here.
-   */
-  sent: string;
   /** The workflows Fleet holds, so a proposal names one rather than an id. */
   workflows: readonly WorkflowSummary[];
   /** Both protocol versions, for the payload a fault is quoted from. */
@@ -80,14 +78,16 @@ export type ProposalReading = {
 export function answeredAs(answer: Proposed, seen: ProposalReading): Answered {
   if (answer.ok) {
     return {
-      proposal: {
-        at: "proposed",
-        request: seen.sent,
-        jobs: answer.jobs.map((job) => became(job, seen.workflows)),
-      },
+      proposal: { at: "proposed", jobs: answer.jobs.map((job) => became(job, seen.workflows)) },
       outcome: null,
       request: null,
     };
+  }
+
+  // A person's own press, so the screen says so and hands back what they
+  // typed — rather than a red notice on whichever surface was up.
+  if (answer.why === "stopped") {
+    return { proposal: { at: "stopped" }, outcome: null, request: answer.request };
   }
 
   if (answer.why === "unresolved") {

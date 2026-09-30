@@ -40,6 +40,8 @@ import { BridgeSettings } from "@armada/screens";
 import { Kit } from "@armada/screens";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
+import { Proposal } from "./Proposal";
+import { useProposing } from "./proposing";
 import { ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { Overview } from "./Overview";
@@ -182,7 +184,12 @@ export function App({ draft }: AppProps = {}) {
   // asks for the form — **or until a moment being replayed hands the window a
   // request already half typed**, which is the one thing that can be true
   // before anybody has pressed anything. `drafted.tsx`.
-  const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
+  const drafted = useDrafted();
+  const [composing, setComposing] = useState(drafted.prompt !== undefined);
+  // What the request field opens on. **The window's, not the composer's**: the
+  // press leaves the composer, so a proposal that made nothing has to hand the
+  // words back through something that outlives it.
+  const [opensOn, setOpensOn] = useState(drafted.prompt);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -251,6 +258,10 @@ export function App({ draft }: AppProps = {}) {
   // than reached for: a redispatch opens its replacement, and a re-read
   // publishes what came back.
   const commands = useCommands({ onOpen: setOpenJob, onRead: setState, jobs: state.jobs });
+  // The proposal this window is on. **Its own destination since 30 Sep 2026** —
+  // dispatching leaves the composer and lands here, and nobody waits inside a
+  // form. The owner's decision of 30 Sep 2026, *the wait is a destination*.
+  const proposal = useProposing(state.proposing);
   // Whether the window is at `--window-floor`, `JobDetail`'s own reading —
   // Fleet settings is the same trailing layer and takes it the same way.
   const floor = useAtFloor();
@@ -386,6 +397,7 @@ export function App({ draft }: AppProps = {}) {
     () =>
       window.armada.onSummoned((to) => {
         setComposing(false);
+        proposal.leave();
         setAuditing(false);
         setClearing(false);
         setOpenJob(to.jobId);
@@ -479,6 +491,9 @@ export function App({ draft }: AppProps = {}) {
   function goTo(surfaceId: string): void {
     setOpenJob(null);
     setComposing(false);
+    // Leaving a proposal in flight is leaving it: the call keeps running and its
+    // Jobs land on the board, and the same one is not adopted back.
+    proposal.leave();
     setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
@@ -958,17 +973,51 @@ export function App({ draft }: AppProps = {}) {
                 }
               />
             </Boundary>
+          ) : proposal.run !== null ? (
+            <Proposal
+              run={proposal.run}
+              state={state}
+              commands={commands}
+              now={now}
+              // The Job, and the composer behind it closes with the proposal:
+              // Escape out of a Job that was just dispatched belongs on Overview
+              // rather than back in the form that asked for it.
+              onOpenJob={(jobId) => {
+                setComposing(false);
+                setOpensOn(undefined);
+                proposal.leave();
+                setOpenJob(jobId);
+              }}
+              // Back to the words. `opensOn` is already what was sent, so this
+              // only has to stop showing the proposal.
+              onEdit={() => {
+                proposal.leave();
+                setComposing(true);
+              }}
+              onAnother={() => {
+                setOpensOn(undefined);
+                proposal.leave();
+                setComposing(true);
+              }}
+              onCopied={setCopied}
+            />
           ) : composing ? (
             <Composing
               state={state}
               commands={commands}
-              now={now}
               live={live}
               all={all}
               repositories={repositories}
               scoped={scoped}
               onPick={pick}
-              onOpen={setOpenJob}
+              // The press leaves the composer for the proposal's own screen —
+              // and **the words are kept here**, so a refusal with no drawing
+              // there comes back to a field that still holds them.
+              onDispatched={(sent, ask) => {
+                setOpensOn(sent);
+                proposal.start(sent, ask);
+              }}
+              {...(opensOn === undefined ? {} : { opensOn })}
               onClose={() => setComposing(false)}
               onCopied={setCopied}
             />

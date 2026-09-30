@@ -197,6 +197,11 @@ export * from "./compositions/DroneBrief/DroneBrief";
 // used to sit behind `Enter by hand` is gone.
 export * from "./compositions/DispatchRequest/DispatchRequest";
 
+// The proposal's own screen, which dispatching leaves the composer for: the
+// request as sent, the call being read against its budget, and the Jobs it
+// drafted. The owner's decision of 30 Sep 2026, *the wait is a destination*.
+export * from "./compositions/ProposalPage/ProposalPage";
+
 // One worktree Fleet is holding, and the test it did not pass. The reasons are
 // the component: not-provably-safe is one word for four situations a person
 // answers differently, and each wants different facts in front of the decision.

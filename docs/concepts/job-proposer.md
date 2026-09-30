@@ -128,20 +128,26 @@ Skipping it where the answer looks obvious would cost the Job its entry zero, wh
 | --- | --- |
 | 1 | A person opens Dispatch a Job |
 | 2 | They describe the work — typed, or a link to a ticket or a Notion document |
-| 3 | They dispatch. The proposer reads the request and every Job it became is created |
-| 4 | The wait says what the call is doing, and offers the stop |
-| 5 | The person approves. That is what starts the work |
+| 3 | They dispatch. The composer closes and the proposal's own screen opens |
+| 4 | That screen says what the call is doing, and carries the stop |
+| 5 | It becomes the Job it drafted, or lists the chain. The person approves, and that is what starts the work |
 
 At step 3 the proposer works out what kind of work it is and which workflow it runs under. **Not yet built:** it does that in a status of its own, `proposing`, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed — #1159. What it proposes is editable until step 5, and step 5 is what freezes it, never step 3. See [Job](job.md), Reading the request is a status, and approval is what locks.
 
-**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress — how far it has reached, how long it has been out against Fleet's budget, which model is reading it — and past a mark the surface says so and offers the stop. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
+**Step 4 is a destination, not a state of the form.** A person waited inside the composer until 30 Sep 2026; the owner's decision of that day is that dispatch leaves it immediately and lands on a screen of its own for the proposal — the request as sent, the model reading it, the elapsed against the budget, how far the call has got, and Stop. It is not a Job and invents none: one request can be several, and the proposer does not know how many until it finishes.
+
+**The stop is on that screen for the whole of the wait.** What the slow mark adds is the sentence saying so, not the control — a screen somebody was sent to in order to watch one call carries the only act on it from the first frame.
+
+**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress — how far it has reached, how long it has been out against Fleet's budget, which model is reading it. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
+
+**Step 5 opens the Job where there is one.** A list of one is not a list, so the screen becomes that Job's own page; several are drawn as the chain, in the order they land in. A stop, a decline and a call that could not be made all say so on the same screen and hand the request back to the composer unchanged.
 
 **Every Job exists before any of them is approved.** Step 3 creates each at `awaiting_approval` and step 5 dispatches the one it is pressed on — see [Job Board](job-board.md), Job status on the Board.
 
 **Approving a Job dispatches that Job, and it is the only approval act on this path.**
 Why: every Job the request became already stands at `awaiting_approval`, so a plan-level act would have nothing left to create.
 
-**Step 5 happens on the proposal, not on Job detail.** The head of the proposal carries its own approval control, beside the Review that opens it. Everything the gate approves — the workflow, the name and the split — is already on the screen the proposal is drawn on, so sending a person to detail to say yes to what they are reading is a second surface for no second fact. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
+**Step 5 is never a press somebody has to go looking for.** Where the request became one Job, the screen is that Job's own page and the approval is on its header; where it became several, the head's row carries the approval beside the Review that opens it. Either way the person is already looking at everything the gate approves — the workflow, the name and the split — so nothing sends them somewhere else to say yes to what they are reading. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
 
 **Only the head of a proposal is approvable, and Review is still there.** A chained Job is not at its gate until the one before it completes, so the rows under the first offer no approval. Review opens any of them, for the case where the title is not enough to decide on.
 

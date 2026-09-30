@@ -30,7 +30,7 @@ const WORKFLOWS: WorkflowSummary[] = [
 const SENT = "The board flickers every time an event lands.";
 
 function seen() {
-  return { sent: SENT, workflows: WORKFLOWS, bridge: BRIDGE, at: "2026-09-02T22:14:03Z" };
+  return { workflows: WORKFLOWS, bridge: BRIDGE, at: "2026-09-02T22:14:03Z" };
 }
 
 /** The shape `board.test.ts` builds, cut to what a proposal reads. */
@@ -66,7 +66,6 @@ test("a proposal names the workflow, never its id", () => {
   const read = answeredAs({ ok: true, jobs: [job()] }, seen());
   expect(read.proposal).toEqual({
     at: "proposed",
-    request: SENT,
     jobs: [
       {
         id: "job_1",
@@ -123,6 +122,25 @@ test("no workflow resolved is drawn on the surface and echoes the request", () =
   };
   const read = answeredAs(answer, seen());
   expect(read.proposal).toEqual({ at: "unresolved" });
+  expect(read.outcome).toBeNull();
+  expect(read.request).toBe(SENT);
+});
+
+/**
+ * A stop is nobody's failure, so it is drawn where the decline is and not where
+ * the fault is. **The regression this catches is silent**: before Bridge read
+ * `fleet.proposer_stopped` at all, a person's own press fell through to a bare
+ * refusal and drew a red failure notice on whatever surface was up.
+ */
+test("a stop is drawn on the screen, with no outcome and no code", () => {
+  const answer: Proposed = {
+    ok: false,
+    why: "stopped",
+    request: SENT,
+    outcome: { ok: false, why: "refused", error: error({ code: "fleet.proposer_stopped" }) },
+  };
+  const read = answeredAs(answer, seen());
+  expect(read.proposal).toEqual({ at: "stopped" });
   expect(read.outcome).toBeNull();
   expect(read.request).toBe(SENT);
 });

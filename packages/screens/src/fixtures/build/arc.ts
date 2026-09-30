@@ -1,4 +1,4 @@
-// The arc: one Feature Job, twelve moments, from an empty prompt to a merge.
+// The arc: one Feature Job, from an empty prompt to a merge, one moment at a time.
 //
 // **The Job is #1162**, "Show what's running in the Drones stat", on branch
 // `armada/3-show-what-s-running-in-the-drones-stat` — the work the new boards
@@ -17,7 +17,7 @@
 
 import type { ArcMoment } from "./arc-base";
 import { dispatchSketch, dispatchTyping } from "./arc-dispatch";
-import { approvedFrozen, proposingReading, proposingReview } from "./arc-proposing";
+import { approvedFrozen, proposingReading, proposingReview, proposingSeveral } from "./arc-proposing";
 import { plannedMoment, planRevisionRefused } from "./arc-planning";
 import {
   doneTouched,
@@ -36,7 +36,7 @@ export {
   ARC_TITLE,
 } from "./arc-base";
 export { dispatchSketch, dispatchTyping };
-export { approvedFrozen, proposingReading, proposingReview };
+export { approvedFrozen, proposingReading, proposingReview, proposingSeveral };
 export { plannedMoment, planRevisionRefused };
 export { doneTouched, executingConcurrent, executingSequential, groupFailed };
 export { landed };
@@ -46,6 +46,7 @@ export const ARC_MOMENTS: readonly ArcMoment[] = [
   dispatchTyping(),
   dispatchSketch(),
   proposingReading(),
+  proposingSeveral(),
   proposingReview(),
   approvedFrozen(),
   plannedMoment(),

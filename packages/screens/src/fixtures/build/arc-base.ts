@@ -79,6 +79,16 @@ export type ArcMoment = {
   /** A proposer call still out — `BridgeState.proposing`, which is on the wire. */
   proposing?: ProposalInFlight;
   /**
+   * The Jobs a dispatch from this moment answers with.
+   *
+   * **Data rather than a fake, because an answer is a press's.** The proposal's
+   * screen draws what came back to a press, so nothing published can put it on
+   * screen; the mock's own Fleet turns these into the answer, and pressing
+   * Dispatch is what reaches it. Absent is every moment whose dispatch is not
+   * part of what it is a moment of.
+   */
+  becomes?: JobSummary[];
+  /**
    * Every question this moment's Jobs are holding open, as main gathers them
    * across every repository (`apps/desktop/src/main/questions.ts`). Wire
    * shapes, so a card answers from what was asked — which is why they are

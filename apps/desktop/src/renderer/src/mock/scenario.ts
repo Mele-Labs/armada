@@ -49,7 +49,7 @@ import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
 import { connected } from "./moment";
-import type { Scenario } from "./moment";
+import type { FleetHandle, Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
@@ -301,6 +301,21 @@ function moment(prefix: string, one: ArcMoment): Scenario {
   return {
     ...built,
     draft: one.draft,
+    // What a dispatch from this moment answers with. **A behaviour and not
+    // state**, because a proposal's answer belongs to the press that asked for
+    // it — `ArcMoment.becomes` says why. The Jobs join the board as Fleet's own
+    // would, so the rows follow it and approving one moves its status.
+    ...(one.becomes === undefined
+      ? {}
+      : {
+          behaves: (fleet: FleetHandle) => ({
+            proposeFromRequest: async () => {
+              const jobs = one.becomes ?? [];
+              fleet.publish({ jobs: [...fleet.state().jobs, ...jobs] });
+              return { ok: true as const, jobs };
+            },
+          }),
+        }),
     // A proposer call still out is `BridgeState.proposing`, which is on the
     // wire — so it is published as state rather than carried as a draft.
     state: {
