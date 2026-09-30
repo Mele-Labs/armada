@@ -15,7 +15,7 @@
 // sentence stops being true.
 
 import { expect, test, describe, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { issueLink } from "@armada/protocol";
 
@@ -1095,6 +1095,46 @@ describe("the wave", () => {
     expect(pasted).toContain(issueLink(1694));
     expect(pasted).toContain("POST /jobs/{job_id}/approve_wave");
     for (const id of sent.jobs) expect(pasted).toContain(id);
+  });
+
+  // The owner's, 30 Sep 2026: a proposed Job is edited in its own panel,
+  // directly through Fleet, and never by opening it — the Job's own screen
+  // would offer approving it alone. Fleet has no route yet, so Save says so,
+  // naming #1699 and carrying the edit.
+  test("epic/plan-review: a proposed Job's panel edits it directly, which Fleet has not built", async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    });
+    const app = mount("epic/plan-review");
+    const editJob = vi.spyOn(app.api, "editJob");
+    await page.getByRole("tab", { name: /^Plan/ }).click();
+    await waveCard("Say which half refused").click();
+    const panel = await panelOf("Say which half refused");
+    await panel.getByRole("button", { name: "Edit this Job" }).click();
+    const form = panel.getByRole("region", { name: "Edit this Job" });
+    const save = form.getByRole("button", { name: "Save", exact: true });
+    await expect.element(save).toBeDisabled();
+    await form.getByLabelText("Title").fill("Say which half refused, in the toast");
+    await save.click();
+
+    await expect.poll(() => editJob.mock.calls.length).toBe(1);
+    const [, sent] = editJob.mock.calls[0]!;
+    expect(sent).toEqual({ title: "Say which half refused, in the toast" });
+    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+    // Nothing was done, so what was typed stays.
+    await expect.element(form.getByLabelText("Title")).toHaveValue("Say which half refused, in the toast");
+    // The failure is drawn under the panel's dim, so the panel goes first.
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+    await page.getByRole("button", { name: "Copy debug info" }).click();
+    await expect.poll(() => written).toHaveLength(1);
+    const pasted = written[0]!;
+    expect(pasted).toContain("bridge.not_implemented");
+    expect(pasted).toContain(issueLink(1699));
+    expect(pasted).toContain("POST /jobs/{job_id}/edit");
+    expect(pasted).toContain("Say which half refused, in the toast");
   });
 
   test("epic/wave: Waits for opens the Job waited on, with a way back", async () => {
