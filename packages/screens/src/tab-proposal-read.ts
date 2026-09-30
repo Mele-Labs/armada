@@ -17,7 +17,7 @@ import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
 import { gateReadingOf, gatesForSteps, unmeantOf } from "./draft/proposal";
-import type { GateView, ProposalView } from "./draft/proposal";
+import type { GateView, ProposalView, RepositorySays } from "./draft/proposal";
 import { absoluteOf } from "./duration";
 
 /**
@@ -70,6 +70,8 @@ export function gateRowsOf(
   whole: JobWhole | null,
   /** What the chosen workflow declares, where it is not the frozen one. */
   declared: ReadonlyMap<string, WorkflowStep> = new Map(),
+  /** What this repository's policies say, for the rows that defer to one. */
+  says: RepositorySays = {},
 ): ProposalGateRow[] {
   return gates.map((gate) => {
     // The frozen step first, then the chosen workflow's. A step neither holds
@@ -77,7 +79,7 @@ export function gateRowsOf(
     // of — and a box ticked on it says so.
     const step = whole?.steps.find((one) => one.step_id === gate.step_id) ??
       declared.get(gate.step_id);
-    const reading = gateReadingOf(gate);
+    const reading = gateReadingOf(gate, says);
     // What the step declares, which a tick cannot change.
     const unmeant = unmeantOf(gate, {
       checks: (step?.checks?.length ?? 0) > 0,

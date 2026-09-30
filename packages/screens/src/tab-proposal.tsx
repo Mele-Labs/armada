@@ -115,6 +115,7 @@ export function ProposalTab({
           proposal.gates,
           whole,
           stepsDeclaredOf(workflows, proposal.workflow_id),
+          proposal.repository_says,
         )}
         {...(open
           ? {

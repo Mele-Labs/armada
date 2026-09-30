@@ -186,6 +186,43 @@ describe("what a combination of the boxes is on the wire", () => {
     expect(reading.does).toContain("review_gate policy");
   });
 
+  // What the deference resolves to is the thing the row could not say
+  // (`rhxt`, 29 Sep): *the repository decides* leaves a reader unable to tell
+  // whether a person will be asked or nobody will.
+  it("says what the repository's word means, in the verb generated for it", () => {
+    const gate = boxes({ repository_decides: "review_gate", overridden: false });
+
+    expect(gateReadingOf(gate, { review_gate: "human_always" }).does).toContain(
+      "a person answers",
+    );
+    expect(gateReadingOf(gate, { review_gate: "auto_if_judge_passes" }).does).toContain(
+      "the checks decide, unless the Judge objects",
+    );
+    // The policy is read again at every gate, so the Job moves with it.
+    expect(gateReadingOf(gate, { review_gate: "human_always" }).does).toContain(
+      "for this Job as well",
+    );
+  });
+
+  it("reads auto_merge's words off its own table", () => {
+    const gate = boxes({ repository_decides: "auto_merge", overridden: false });
+
+    expect(gateReadingOf(gate, { auto_merge: "checks-pass" }).does).toContain(
+      "Fleet merges once the forge's checks pass",
+    );
+  });
+
+  // Naming `human_always` because it is the documented default would be this
+  // screen answering for a repository nothing has read.
+  it("claims nothing about a policy no word was read for", () => {
+    const gate = boxes({ repository_decides: "review_gate", overridden: false });
+
+    expect(gateReadingOf(gate).does).toBe(
+      "The repository's review_gate policy decides whether a person signs off.",
+    );
+    expect(gateReadingOf(gate, { auto_merge: "never" }).does).not.toContain("Today");
+  });
+
   // Overriding hands the step back to the three boxes, which is the whole of
   // what "you can override it for this Job" means — #1548.
   it("reads an overridden step as its own boxes again", () => {

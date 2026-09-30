@@ -72,7 +72,7 @@ export function FrozenAtApproval({ landing, proposal, whole }: FrozenAtApprovalP
         <ProposalGates
           workflow={proposal.workflow_id}
           workflowChoices={[]}
-          steps={gateRowsOf(proposal.gates, whole)}
+          steps={gateRowsOf(proposal.gates, whole, undefined, proposal.repository_says)}
         />
         <ProposalLanding landing={landingValueOf(landing)} completeChoices={completeChoices()} />
         <div className="armada-proposal__region">

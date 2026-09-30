@@ -66,6 +66,17 @@ const SAID: Readonly<Record<string, string>> = {
   workflow:
     "The steps this Job runs, in order, and what it takes to advance past each one. It is frozen " +
     "at dispatch, so editing the definition does not change a Job already running.",
+  // The two keys a step's gate can defer to, named where a row prints one. A
+  // policy is read at the gate and never frozen onto the Job, which is the
+  // half of each sentence a reader cannot get from the row.
+  review_gate:
+    "The repository's rule for a step that defers to it: whether a person answers the step, or " +
+    "the Checks and the Judge do. It is read from the Manifest each time a step reaches its " +
+    "gate, so editing it changes a Job that is already running.",
+  auto_merge:
+    "The repository's rule for landing without a person: whether Fleet may merge the pull " +
+    "request, and whether the forge's own checks have to pass first. It is read from the " +
+    "Manifest each time, so editing it changes a Job that is already running.",
   "job log":
     "Everything Fleet recorded about this Job, one line per event. The screen you are reading is " +
     "this file read back.",
