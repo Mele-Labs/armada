@@ -73,7 +73,7 @@ thing that is silently absent is a gap nobody sees.
 
 ## Stories are the tests, and a `play` is the assertion
 
-**Every story is already a test.** `pnpm test` mounts each one in a browser, so
+**Every story is already a test.** `components_test` mounts each one in a browser, so
 a story that throws fails without anyone writing anything.
 
 **A `play` function is where a story states what a person should see.** A
@@ -159,18 +159,19 @@ drifted three times before it was deleted.
 
 ## Verify
 
-From `packages/components`:
+Checks from the root, the rest from `packages/components`:
 
-- `pnpm test` must pass. **It runs the stories.** Every one is mounted in a real
-  headless browser, so a story that throws is a failing test, and a story with a
-  `play` function has its assertions run against what it drew. Needs Playwright's
-  Chromium shell — `armada run browsers` from the root, once per machine.
+- `armada check components_test` must pass. **It runs the stories.** Every one
+  is mounted in a real headless browser, so a story that throws is a failing
+  test, and a story with a `play` function has its assertions run against what
+  it drew. Needs Playwright's Chromium shell — `armada run browsers`, once per
+  machine.
 - **A `play` you added is run once against the component broken on purpose.**
   Revert the break before committing; the point is the failure, not the fix.
-- **Run the stories you changed, not the package**: `pnpm exec vitest run
-  src/<path>`. The whole package runs once, before the PR, and never beside
-  another heavy run.
-- `pnpm exec vitest` watches instead, which is the loop to work in.
+- **Run the stories you changed, not the package**: `armada check
+  components_test "<story name>"`, the story's `name` rather than its export.
+  The whole package runs once, before the PR. **Never `vitest` bare**: it takes
+  no Check slot and no `${width}`.
 - `pnpm build-storybook` must succeed, once, before the PR.
 - `pnpm exec storybook dev -p 6006 --no-open --ci` to look at it. **Pass `--ci`**
   — without it a port conflict opens an interactive prompt and the command hangs.
