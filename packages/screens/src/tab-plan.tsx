@@ -292,11 +292,12 @@ export function PlanTab({
   // ask that survived leaving the destination would be a dialog opening over
   // a plan somebody has stopped reading.
   const [asking, setAsking] = useState<PlanAskInFlight | null>(null);
-  // Which task the add-task dialog adds after, or `null` while it is shut.
-  // A group's Add task adds into that group (owner, 30 Sep 2026): after its
-  // last task, or for a group with none, after the nearest task before it —
-  // `""`, the plan's end, only where no task comes before.
-  const [adding, setAdding] = useState<string | null>(null);
+  // Which task the add-task dialog adds after, and the ordinal of the group it
+  // adds into, or `null` while it is shut. A group's Add task adds into that
+  // group (owner, 30 Sep 2026): after its last task, or for a group with none,
+  // after the nearest task before it — `""`, the plan's end, only where no
+  // task comes before.
+  const [adding, setAdding] = useState<{ after: string; group?: number } | null>(null);
   // What has been typed at the open task's Drone and not sent. This tab's own
   // state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
@@ -339,7 +340,11 @@ export function PlanTab({
   const groups = groupsOf(whole, draft);
   const addInto = (groupId: string) => {
     const upTo = groups.slice(0, groups.findIndex((one) => one.id === groupId) + 1);
-    setAdding(upTo.flatMap((one) => one.tasks).at(-1)?.id ?? "");
+    const group = upTo.at(-1)?.ordinal;
+    setAdding({
+      after: upTo.flatMap((one) => one.tasks).at(-1)?.id ?? "",
+      ...(group === undefined ? {} : { group }),
+    });
   };
   const cases = casesOf(whole, draft);
   // **The step the groups are worked at, for the failed Check's own output.**
@@ -571,7 +576,10 @@ export function PlanTab({
     {onAddTask === undefined ? null : (
       <AddTaskDialog
         open={adding !== null}
-        onAddTask={(title, note) => onAddTask(job.id, { title, note, scope: [], expects: "", after: adding ?? "" })}
+        {...(adding?.group === undefined ? {} : { group: adding.group })}
+        onAddTask={(title, note) =>
+          onAddTask(job.id, { title, note, scope: [], expects: "", after: adding?.after ?? "" })
+        }
         onClose={() => setAdding(null)}
         {...(onSaid === undefined ? {} : { onSaid })}
       />

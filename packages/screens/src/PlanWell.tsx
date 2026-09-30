@@ -74,11 +74,14 @@ function AddTaskControl({
  */
 export function AddTaskDialog({
   open,
+  group,
   onAddTask,
   onClose,
   onSaid,
 }: {
   open: boolean;
+  /** The group it goes at the end of, by ordinal. Absent, the plan's end. */
+  group?: number;
   onAddTask: (title: string, detail: string) => Promise<PlanEditAnswer>;
   onClose: () => void;
   onSaid?: (sentence: string) => void;
@@ -128,8 +131,8 @@ export function AddTaskDialog({
           reset and would otherwise run straight into the field below it. */}
       <div className="armada-plan-add-task-body">
         <p>
-          The task goes at the end of the plan. If a drone is working on this job, it&rsquo;s
-          told now; otherwise the next drone sees it in the plan.
+          It goes at the end of {group === undefined ? "the plan" : `group ${group}`}. If a drone
+          is working on this job, it&rsquo;s told now; otherwise the next drone sees it in the plan.
         </p>
         {/* No `autoFocus`: the dialog's own contract puts initial focus on
             Cancel, and a second claim on it here would only lose to it. */}
