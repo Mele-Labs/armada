@@ -1,21 +1,24 @@
-/* Job settings — every setting a person can change on a running Job, on a
-   trailing sheet. The layer, its header and the body's padding are `Sheet`'s;
-   what lives here is how the sections inside it are spaced and read. */
+/* Job settings — every setting a person can change on a running Job, as a
+   board of cards on the destination's canvas. The card surface, its head and
+   its padding are `DestinationCard`'s; the rows inside are `ProposalField`'s.
+   What lives here is the board, and the few things only this panel draws. */
 
 .armada-job-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
   min-width: 0;
 }
 
 /* The lead, and why the controls are off where they are — held together,
-   because both are true of every setting below rather than of one. */
+   because both are true of every setting below rather than of one. A measure
+   for the prose: the board beside it runs the width of the destination. */
 .armada-job-settings__opening {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  max-width: var(--w-dialog-wide);
 }
 
 /* What every change here has in common, said once before any control. */
@@ -27,36 +30,19 @@
   text-wrap: pretty;
 }
 
-.armada-job-settings__section {
-  display: flex;
-  flex-direction: column;
+/* The cards, two up where the row has the width for them and one where it has
+   not. --w-proposal-settings is the measured floor for a label beside a
+   control carrying a sentence, which is what every card here holds, so the
+   column count follows the content rather than a breakpoint. */
+.armada-job-settings__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--w-proposal-settings)), 1fr));
   gap: var(--space-4);
+  align-items: start;
   min-width: 0;
 }
 
-/* A heading, not a band — the run sheet's rail heading, for its reason: the
-   layer has no surface of its own to put a fill on, so the hairline is what
-   separates it from the rows under it. Never uppercase. */
-.armada-job-settings__heading {
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-/* One setting: its label, its control, and the lines under it. */
-.armada-job-settings__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-/* The label a field names itself by. The select's and the radio group's own
+/* The label a list names itself by. The select's and the radio group's own
    labels are this treatment, so every setting's name reads alike. */
 .armada-job-settings__label {
   font-size: var(--text-xs);
@@ -64,30 +50,23 @@
   color: var(--fg-muted);
 }
 
-/* A ceiling: what it is on the left, the one control on the right. The text
-   takes the slack, so the button holds the trailing edge at any width. */
-.armada-job-settings__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-3);
+/* A cap, in its box. Mono one step under the sans beside it, as everywhere. */
+.armada-job-settings__figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
 }
 
-.armada-job-settings__row-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
+/* What has gone against a cap: the same figure, unboxed, because it is a
+   reading and not a value anybody set. */
+.armada-job-settings__against {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
 }
 
-.armada-job-settings__figures {
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-default);
-}
-
-/* Machine-derived: a cap, a spend, a turn count, a command, a Job id. Mono runs
-   one step smaller than the sans beside it. */
+/* Machine-derived: a command, run one step under the sans beside it. */
 .armada-job-settings__mono {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -139,13 +118,6 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
-}
-
-.armada-job-settings__empty {
-  margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-muted);
 }
 
 .armada-job-settings__commands {

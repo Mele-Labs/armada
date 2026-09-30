@@ -14,11 +14,13 @@
 
 import {
   AUTO,
+  DestinationCard,
   ProposalField,
   ProposalFields,
   ProposalGates,
   ProposalLanding,
   TIERS,
+  Tooltip,
 } from "@armada/components";
 
 import type { JobDetail as JobWhole } from "@armada/protocol";
@@ -33,10 +35,19 @@ export type FrozenAtApprovalProps = {
   whole: JobWhole | null;
 };
 
+/** What the instant in the card's head is, for a reader who only sees a date. */
+const WHEN = "When you approved this Job.";
+
+/** The one thing the reading says about itself, in the words the gate used. */
+const HOLDS = "Nothing here changes while the Job runs.";
+
 /**
  * Frozen because no handler is passed. `ProposalLanding` and `ProposalField`
  * already read that way at the gate, so the words a person approved and the
  * words they read back are one spelling.
+ *
+ * **One card, three regions.** Its head says these values froze, so each
+ * region is named by what it is rather than by saying frozen again.
  */
 export function FrozenAtApproval({ landing, proposal, whole }: FrozenAtApprovalProps) {
   const tiers: TierModels = proposal.tiers;
@@ -44,33 +55,39 @@ export function FrozenAtApproval({ landing, proposal, whole }: FrozenAtApprovalP
   // it. Nothing else on any destination says when the Job was approved.
   const frozenAt = frozenAtOf(proposal);
   return (
-    <section className="armada-settings-tab__frozen" aria-label="Frozen at approval">
-      {/* The board's own sentence on the approval screen, said here in the
-          past tense: the fields below read like the ones under them and only
-          this says which of the two a person can move. */}
-      <p className="armada-settings-tab__note">
-        {frozenAt === undefined ? "Frozen when you approved." : `Frozen ${frozenAt}, when you approved.`}{" "}
-        Nothing here changes while the Job runs.
-      </p>
-      <ProposalGates
-        workflow={proposal.workflow_id}
-        workflowChoices={[]}
-        steps={gateRowsOf(proposal.gates, whole)}
-        frozen
-      />
-      <ProposalLanding landing={landingValueOf(landing)} completeChoices={completeChoices()} />
-      <div className="armada-proposal__region">
-        <div className="armada-proposal__heading-row">
-          <h3 className="armada-proposal__heading">Model per tier, frozen</h3>
+    <DestinationCard
+      label="Frozen at approval"
+      {...(frozenAt === undefined
+        ? {}
+        : {
+            trailing: (
+              <Tooltip label={WHEN}>
+                <span className="armada-settings-tab__frozen-at">{frozenAt}</span>
+              </Tooltip>
+            ),
+          })}
+    >
+      <p className="armada-settings-tab__note">{HOLDS}</p>
+      <div className="armada-settings-tab__frozen">
+        <ProposalGates
+          workflow={proposal.workflow_id}
+          workflowChoices={[]}
+          steps={gateRowsOf(proposal.gates, whole)}
+        />
+        <ProposalLanding landing={landingValueOf(landing)} completeChoices={completeChoices()} />
+        <div className="armada-proposal__region">
+          <div className="armada-proposal__heading-row">
+            <h3 className="armada-proposal__heading">Model per tier</h3>
+          </div>
+          <ProposalFields>
+            {TIERS.map(([tier, label]) => (
+              <ProposalField key={tier} label={label}>
+                {tiers[tier] ?? AUTO}
+              </ProposalField>
+            ))}
+          </ProposalFields>
         </div>
-        <ProposalFields>
-          {TIERS.map(([tier, label]) => (
-            <ProposalField key={tier} label={label}>
-              {tiers[tier] ?? AUTO}
-            </ProposalField>
-          ))}
-        </ProposalFields>
       </div>
-    </section>
+    </DestinationCard>
   );
 }
