@@ -9,13 +9,18 @@
  * itself and its own note on where the figure came from. */
 .armada-title-bar {
   display: grid;
-  /* Three regions, not one flex row with a trailing spacer: `minmax(0, 1fr)`
+  /* Three regions, not one flex row with a trailing spacer: `1fr`
    * on both sides gives the picker and Helm+logo groups an equal share of
    * whatever is left over, so the center column — search and Dispatch — sits
    * on the bar's true midpoint whatever either side measures. A flex row with
    * two `flex: 1` spacers only centers the middle group when the two sides
-   * happen to be the same width, which picker+add-repo and Helm+logo are not. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+   * happen to be the same width, which picker+add-repo and Helm+logo are not.
+   *
+   * The sides floor at `max-content`, never 0: at 0 a narrow window drew
+   * them under the center group. The center column is what gives way, and
+   * search inside it. `AtTheWindowFloor` holds it. */
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  column-gap: var(--space-3);
   align-items: center;
   flex: none;
   height: var(--h-title-bar);
@@ -74,8 +79,8 @@
 .armada-title-bar__center {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
-  justify-self: center;
   min-width: 0;
 }
 
@@ -95,6 +100,7 @@
   gap: var(--space-2);
   min-width: 0;
   width: var(--sidebar-max);
+  container-type: inline-size;
   height: var(--h-control-sm);
   padding-inline: var(--space-3);
   border: var(--border-width) solid var(--border-default);
@@ -124,6 +130,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
+}
+
+/* At the window floor the field shrinks past its label; a clipped "S" reads
+   as a typo, so the label goes and the glass and ⌘K stay.
+
+   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
+   Measured in the mock at --window-floor — docs/contracts/design-system.md
+   The field is 95px there and the label shows one letter; at 160px it still
+   reads "Search j…". */
+@container (max-width: 160px) {
+  .armada-title-bar__search-label {
+    visibility: hidden;
+  }
 }
 
 /* The right region: Helm's reopen control, drawn only while the caller says

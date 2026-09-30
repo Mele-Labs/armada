@@ -202,3 +202,42 @@ export const RevealedShortcuts: Story = {
     await expect(findBadge()).not.toBeInTheDocument();
   },
 };
+
+/**
+ * At `--window-floor`, the narrowest the window goes, with every slot filled.
+ * The side columns once had a zero minimum, so below ~1100px the picker slid
+ * under search and Dispatch sat on Helm. The sides keep their content now and
+ * search is what gives way.
+ */
+export const AtTheWindowFloor: Story = {
+  args: {
+    ...Full.args,
+    helm: { questions: 3, binding: "⌘J", onOpen: () => {} },
+  },
+  render: (args) => (
+    <div style={{ width: "var(--window-floor)" }}>
+      <TitleBar {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const bar = canvasElement.querySelector(".armada-title-bar")!.getBoundingClientRect();
+    const boxes = [
+      ".armada-title-bar__picker",
+      ".armada-title-bar__search",
+      ".armada-title-bar__dispatch",
+      ".armada-title-bar__helm",
+      ".armada-title-bar__end > svg",
+      ".armada-title-bar__fleet",
+    ].map((selector) => ({ selector, box: canvasElement.querySelector(selector)!.getBoundingClientRect() }));
+
+    for (const { box } of boxes) {
+      await expect(box.left).toBeGreaterThanOrEqual(bar.left);
+      await expect(box.right).toBeLessThanOrEqual(bar.right);
+    }
+    for (const [at, { selector, box }] of boxes.entries()) {
+      const next = boxes[at + 1];
+      if (next === undefined) continue;
+      await expect({ [selector]: box.right <= next.box.left }).toEqual({ [selector]: true });
+    }
+  },
+};
