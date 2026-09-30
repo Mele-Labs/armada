@@ -115,8 +115,8 @@ export type TheShellProps = {
  * **Closed draws nothing at all, at every width.** The title row's own Helm
  * button (#1087) is the one way back. #1094 dropped the edge strip that used
  * to sit on the trailing edge beyond the layout breakpoint, and the owner
- * dropped the folded one on 30 Sep 2026 once the title row fit the button at
- * the window's floor. Open and folded draws the sheet.
+ * dropped the folded one on 30 Sep 2026 once the title row fit the button in a slim
+ * window. Open and folded draws the sheet.
  */
 export type TheShellDock = {
   /** The panel over the content, or the sheet when folded. */
