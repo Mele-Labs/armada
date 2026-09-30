@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Plus } from "lucide-react";
-import { expect, fn } from "storybook/test";
+import { expect, fn, waitFor } from "storybook/test";
 import { SplitButton, type SplitButtonProps } from "./SplitButton";
 import { holdDurationOf } from "../HoldButton/useHold";
 
@@ -531,5 +531,89 @@ export const HoldFaceReducedMotion: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Kill drone" }));
     await expect(args.onAction).toHaveBeenCalledTimes(1);
     await expect(args.hold?.onCommit).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * A sentence per act, on hover. The face's is `note`; each entry carries its
+ * own, which is the only place an act behind a caret can say what it does.
+ * The review gate is the caller — `ReviewDecision`, the owner's arrangement of
+ * 30 Sep 2026, where Merge is the face and Approve is behind the caret.
+ */
+export const EveryActSaysWhatItDoes: Story = {
+  render: () => (
+    <Row>
+      <SplitButton
+        variant="primary"
+        note="Merges the pull request on its code host, then takes the work."
+        items={[{ label: "Approve the work", note: "Takes the work as the drone left it." }]}
+        menuLabel="The other way to take this work"
+      >
+        Merge and take the work
+      </SplitButton>
+    </Row>
+  ),
+  /** The face's hover names the face, and the entry's names the entry. */
+  play: async ({ canvas, userEvent }) => {
+    const face = canvas.getByRole("button", { name: "Merge and take the work" });
+    await userEvent.hover(face);
+    // `--tooltip-delay` holds the bubble hidden, so this waits rather than reads.
+    await waitFor(() => expect(canvas.getByText(/^Merges the pull request/)).toBeVisible());
+    await userEvent.unhover(face);
+
+    await userEvent.click(canvas.getByRole("button", { name: "The other way to take this work" }));
+    await userEvent.hover(canvas.getByRole("menuitem", { name: "Approve the work" }));
+    await waitFor(() =>
+      expect(canvas.getByText("Takes the work as the drone left it.")).toBeVisible(),
+    );
+  },
+};
+
+/**
+ * `faceDisabled` — the face's own act is unavailable and the menu's are not.
+ * A merge Fleet would refuse must not be pressable; Approve, behind the same
+ * caret, must still be. The control paints as a disabled one, because a greyed
+ * face has no variant left to express, and the live caret is what says there
+ * is another act here.
+ */
+export const TheFaceIsOffAndTheCaretIsNot: Story = {
+  render: () => (
+    <Row>
+      <SplitButton
+        variant="primary"
+        faceDisabled
+        items={[{ label: "Approve the work", onSelect: fn() }]}
+        menuLabel="The other way to take this work"
+      >
+        Merge and take the work
+      </SplitButton>
+    </Row>
+  ),
+  /** A rendering cannot show that one segment of a dead-looking control still opens. */
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Merge and take the work" })).toBeDisabled();
+    const caret = canvas.getByRole("button", { name: "The other way to take this work" });
+    await expect(caret).toBeEnabled();
+    await userEvent.click(caret);
+    await expect(canvas.getByRole("menuitem", { name: "Approve the work" })).toBeVisible();
+  },
+};
+
+/**
+ * `faceDisabled` with nothing behind the caret. **Both segments send the one
+ * act there**, so the caret goes off with the face rather than staying the
+ * blocked press by another door.
+ */
+export const TheFaceIsOffAndThereIsNoMenu: Story = {
+  render: () => (
+    <Row>
+      <SplitButton variant="primary" faceDisabled items={[]} onAction={fn()}>
+        Merge and take the work
+      </SplitButton>
+    </Row>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Merge and take the work" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "More actions" })).toBeDisabled();
   },
 };

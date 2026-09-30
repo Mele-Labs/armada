@@ -35,6 +35,7 @@ import type { JobDetail as JobWhole } from "@armada/protocol";
 import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
+import { FrozenAtApproval } from "./frozen-at-approval";
 import { proposalEditsOf } from "./tab-proposal-read";
 import { DronesTab } from "./tab-drones";
 import { PlanTab } from "./tab-plan";
@@ -95,10 +96,14 @@ function OneJob(props: JobDetailProps) {
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
+  // Whether the lead's approval act asked for the proposal. Cleared by the
+  // strip, on `opensStep`'s terms — the proposal is Overview's, not a tab.
+  const [opensProposal, setOpensProposal] = useState(false);
   const toTab = (next: DetailTab) => {
     setOpensStep(undefined);
     setOpensTask(undefined);
     setOpensCheck(undefined);
+    setOpensProposal(false);
     setTab(next);
   };
 
@@ -246,10 +251,15 @@ function OneJob(props: JobDetailProps) {
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
       <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
-      {tab === "overview" && edits !== undefined ? (
-        // A Job at or just past its approval gate: the proposal is what
-        // Overview has to draw, because no step has run. **And no wave**: a
-        // Job that has not been approved has dispatched nothing.
+      {tab === "overview" && edits !== undefined && (edits.proposal.approved_at === undefined || opensProposal) ? (
+        // A Job at its approval gate: the proposal is what Overview has to
+        // draw, because no step has run and approving it is the one thing
+        // waiting. **And no wave**: a Job not approved has dispatched nothing.
+        //
+        // **Only until it is approved, or until the lead asks for it.** After
+        // the press the frozen values are a reading that never changes and
+        // Settings holds them — the owner, 29 Sep 2026; a Job sent back to the
+        // gate is read here again because that is where it is answered.
         <ProposalTab
           job={job}
           whole={whole}
@@ -278,6 +288,18 @@ function OneJob(props: JobDetailProps) {
           onReporting={setReporting}
           onRaising={setRaising}
           onRaisingTurns={setRaisingTurns}
+          onOpenTab={setTab}
+          // The lead's act, where what it names is a Check that failed: the
+          // Record, on that Check's row. **The Plan boundary's own route**,
+          // below — one way into a Check's row, pressed from two places.
+          onOpenCheck={(at) => {
+            setOpensCheck(at);
+            setTab("record");
+          }}
+          // The lead's approval act. **Handed down only where there is a
+          // proposal to draw**, so a Job at the gate with no proposal read
+          // offers no button rather than one that reaches nothing.
+          {...(edits === undefined ? {} : { onOpenProposal: () => setOpensProposal(true) })}
         />
         </>
       ) : tab === "workflow" ? (
@@ -324,6 +346,13 @@ function OneJob(props: JobDetailProps) {
         <SettingsTab
           job={job}
           whole={whole}
+          // What froze at approval, above the settings still open. A frozen
+          // setup is settings — the owner's 29 September call.
+          frozen={
+            edits === undefined || edits.proposal.approved_at === undefined ? undefined : (
+              <FrozenAtApproval landing={edits.landing} proposal={edits.proposal} whole={whole} />
+            )
+          }
           models={props.models ?? null}
           stale={props.stale}
           acting={props.acting}

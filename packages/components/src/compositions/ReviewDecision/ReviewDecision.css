@@ -1,24 +1,34 @@
-/* Review decision — flush with the record above it rather than a card of its
-   own: the panel is the one container for a page read top to bottom. */
-.armada-decision {
+/* Review decision — the gate's own card.
+ *
+ * **`armada-review-decision`, not `armada-decision`.** `JobMembers`'
+ * `MemberDecision.css` owns that name and is imported after this file, so
+ * every rule here lost to a card built for the other side of that screen: a
+ * flat --bg-raised box with --pad-card and `overflow-y: auto`, painted over a
+ * region whose own stylesheet said it took no card at all. Found 30 Sep 2026.
+ *
+ * **It is a card on the canvas**, so `armada-glass` in the markup carries the
+ * gradient, the edge and the shadow, and the corner is the one every card on
+ * the canvas takes. */
+.armada-review-decision {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--radius-lg);
 }
 
-/* The two answers that leave something behind. Together, because they are the
-   pair a reader chooses between; `wrap` because the window has a floor and two
-   labelled controls at that floor is the case that overflows first. */
-.armada-decision__kept {
+/* The two controls, each a pair. `wrap` because the window has a floor and two
+   labelled split buttons at that floor is the case that overflows first. */
+.armada-review-decision__acts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 /* What an act does, said beneath it. Sans, muted, and set against the labels
    above — it is read once and the label is what is found afterwards. */
-.armada-decision__said {
+.armada-review-decision__said {
   margin: 0;
   max-width: 88ch;
   font-family: var(--font-sans);
@@ -28,39 +38,14 @@
   text-wrap: pretty;
 }
 
-/* The rule between the recoverable pair and the terminal act. It carries its
-   own space here rather than in the primitive, which is what `Separator` says:
-   spacing belongs to the thing doing the separating. */
-.armada-decision__rule {
-  margin-top: var(--space-1);
-}
-
-/* The terminal act, alone. Its sentence sits under it rather than beside it,
-   so the control is not read as one of a row. */
-.armada-decision__terminal {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-/* The one sentence that names an end. --fg-default against the muted ones
-   above: weight, not hue — the control beside it already carries the only red
-   this region is allowed, and saying it twice would make the pair above read
-   as safe rather than as recoverable. */
-.armada-decision__said[data-terminal] {
-  color: var(--fg-default);
-}
-
-/* What should change, listed above the note. #907. One grid, so every row's
-   source, text and Remove line up with the rows around them. */
-.armada-decision__changes {
+/* What should change, listed above the note. #907. */
+.armada-review-decision__changes {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.armada-decision__label {
+.armada-review-decision__label {
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -70,7 +55,7 @@
   letter-spacing: var(--tracking-caps);
 }
 
-.armada-decision__list {
+.armada-review-decision__list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -81,26 +66,26 @@
 
 /* Stacked, not a column beside the text: `Small fix` read first, the change
    underneath it at its own width rather than squeezed by a source column. */
-.armada-decision__change {
+.armada-review-decision__change {
   display: flex;
   flex-direction: column;
   gap: calc(var(--space-1) / 2);
 }
 
-.armada-decision__change-head {
+.armada-review-decision__change-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
 }
 
-.armada-decision__from {
+.armada-review-decision__from {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
 
-.armada-decision__text {
+.armada-review-decision__text {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-default);

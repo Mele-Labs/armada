@@ -1,8 +1,10 @@
+import { SquarePen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Studio name — a Studio's name where it is drawn, and the way a person gives
@@ -16,6 +18,10 @@ import { Input } from "../../primitives/Input/Input";
  * The owner asked for that on 28 Sep 2026, so the whole row could open the
  * Studio — which means the field is opened from outside on a row, and `naming`
  * is that door. `onOpen` is gone with it: nothing inside the name is a press.
+ *
+ * **The heading's Rename is `square-pen` alone, the word in its tooltip** — the
+ * owner's note on 29 Sep 2026, which minted the glyph for rename and nothing
+ * else. Why that glyph is the registry's `square-pen` row.
  */
 
 export type StudioNameProps = {
@@ -141,9 +147,17 @@ export function StudioName({
           own split button, which opens this through `naming` — two controls for
           one act on one row is what the owner's note took away. */}
       {editable && onNaming === undefined ? (
-        <Button size="sm" variant="ghost" aria-label={`Rename ${shown}`} onClick={() => setTyped(name ?? "")}>
-          Rename
-        </Button>
+        <Tooltip label="Rename">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={`Rename ${shown}`}
+            onClick={() => setTyped(name ?? "")}
+          >
+            <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
+          </Button>
+        </Tooltip>
       ) : null}
     </div>
   );

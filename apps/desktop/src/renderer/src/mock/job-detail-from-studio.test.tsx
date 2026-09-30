@@ -18,7 +18,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "./studio-fleet";
-import { mount, openHelm, unmountAfterEach } from "./testing";
+import { mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -64,23 +64,12 @@ test("the header says where the job came from and who pressed, in one sentence",
   await expect.element(page.getByText("From a Studio, by you").first()).toBeVisible();
 });
 
-test("Where things are names the Studio, beside the worktree", async () => {
-  mount(dispatchedFromAStudio());
-  await expect.element(page.getByText(EVERY_KIND_NAME).first()).toBeVisible();
-  await expect.element(page.getByRole("button", { name: `Open ${EVERY_KIND_NAME}` })).toBeVisible();
-});
-
-test("one press leaves the job and lands on that Studio, with the job's node picked", async () => {
-  mount(dispatchedFromAStudio());
-  await page.getByRole("button", { name: `Open ${EVERY_KIND_NAME}` }).click();
-  await openHelm();
-  // **Helm's footer is what says where a person is**, and it names the node as
-  // well as the Studio — the same reading `studios.test.tsx` asserts a pick by.
-  // The job itself is gone: `goTo` clears it the way every destination does.
-  await expect
-    .element(page.getByText(`Studios · ${EVERY_KIND_NAME} · Job ${running().job.title} selected`))
-    .toBeVisible();
-});
+// **The route back to the Studio went with *Where things are*** on 29 Sep
+// 2026. Two claims stood here: the region naming the Studio beside the
+// worktree, and one press landing on that Studio with this Job's node picked.
+// The header still says *From a Studio, by you*, which is the claim above —
+// what it does not carry is the press, so there is no way back from a Job to
+// the canvas it was dispatched from.
 
 test("a job whose Studio has been deleted says so, and offers no press", async () => {
   mount(dispatchedFromAStudio({ still: false }));

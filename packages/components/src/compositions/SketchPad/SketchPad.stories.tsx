@@ -185,7 +185,7 @@ export const Drawing: Story = {
       await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
       await waitFor(() => expect(remove()).toBeEnabled());
       await expect(join()).toBeDisabled();
-      await expect(join()).toHaveAttribute("title", "Pick two boxes to join them.");
+      await expect(join()).toHaveAccessibleDescription("Pick two boxes to join them.");
     });
 
     await step("two boxes picked draw a line between them", async () => {

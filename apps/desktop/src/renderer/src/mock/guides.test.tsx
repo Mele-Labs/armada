@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { running } from "@armada/screens/src/fixtures/build/index";
-import { GUIDES, GUIDE_STEP_BAR } from "@armada/components";
+import { GUIDES, GUIDE_WORKFLOW } from "@armada/components";
 
 import { onJob } from "./scenario";
 import { mountApp } from "./mount";
@@ -36,11 +36,18 @@ afterEach(forget);
 const cardFor = (guide: { number: number; title: string }) =>
   page.getByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` });
 
-/** The run's own band carries the first mark a person meets on a Job. */
+/**
+ * The Workflow card carries the first mark a person meets on a Job.
+ *
+ * **It was the run band's step bar until 29 Sep 2026** — `GUIDE_STEP_BAR`,
+ * guide 8, whose only mark was in `InsideAJob`. The Overview reframe took
+ * that arrangement off, so guide 8 has no piece on screen and cannot be the
+ * first one met; the board's own cards carry the marks now.
+ */
 const runMark = () =>
-  page.getByRole("button", { name: `Open guide ${GUIDE_STEP_BAR.number}, ${GUIDE_STEP_BAR.title}` });
+  page.getByRole("button", { name: `Open guide ${GUIDE_WORKFLOW.number}, ${GUIDE_WORKFLOW.title}` });
 
-const card = () => cardFor(GUIDE_STEP_BAR);
+const card = () => cardFor(GUIDE_WORKFLOW);
 const closeCard = () => card().getByRole("button", { name: "Close" }).click();
 
 test("the first piece a person meets opens its card by itself, and the card carries the switch", async () => {
@@ -137,11 +144,20 @@ const listWidth = () =>
 
 /**
  * The catalogue, from a window that has just opened. The uninvited card is
- * over the rail the first time the piece is met and never again, so `met` says
- * whether there is one to close on the way.
+ * over the rail the first time a piece is met and never again.
+ *
+ * **Whichever card is up, rather than a card the caller named.** A Job drew
+ * one mark until 29 Sep 2026 and the board of cards that replaced it draws
+ * several, so which piece a window meets first is the board's business — and
+ * an unclosed card's scrim is what swallows the press to `Guides`.
  */
 const openCatalogue = async (met = false) => {
-  if (!met) await closeCard();
+  if (!met) {
+    const open = page.getByRole("dialog", { name: /^Guide \d+, / });
+    await expect.element(open).toBeVisible();
+    await open.getByRole("button", { name: "Close" }).click();
+    await expect.poll(() => open.query()).toBeNull();
+  }
   await page.getByRole("button", { name: "Guides", exact: true }).first().click();
   await expect.element(handle()).toBeVisible();
 };
@@ -182,7 +198,10 @@ test("the width is remembered, so the catalogue opens at it next time", async ()
   first.unmount();
   host.remove();
 
+  // **A second window still meets a card**, because the board draws a mark
+  // per card and only the first of them was met above. It was one mark on a
+  // Job until 29 Sep 2026, and `met` was true here for that reason.
   mount(onJob(running()));
-  await openCatalogue(true);
+  await openCatalogue();
   await expect.element(handle()).toHaveAttribute("aria-valuenow", widest);
 });

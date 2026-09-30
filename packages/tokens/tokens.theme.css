@@ -166,6 +166,7 @@
   --spacing-workflow-task-node: var(--w-workflow-task-node);
   --spacing-workflow-canvas: var(--h-workflow-canvas);
   --spacing-workflow-run-canvas: var(--h-workflow-run-canvas);
+  --spacing-overview-canvas: var(--h-overview-canvas);
   --spacing-workflow-canvas-min: var(--w-workflow-canvas-min);
   --spacing-sketch-box: var(--w-sketch-box);
   --spacing-sketch-pad: var(--h-sketch-pad);

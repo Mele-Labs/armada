@@ -69,8 +69,8 @@
   margin: var(--space-2);
 }
 
-/* What the surface draws over the board: the relations waiting on a person,
-   and whatever a selection cannot hover over itself.
+/* What the surface draws over the board: whatever a selection cannot hover
+   over itself.
 
    **It runs the frame's full height now.** It stopped short of the zoom pair in
    the bottom-right corner until 28 Sep 2026 (#1399); the pair is on the rail,

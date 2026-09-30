@@ -358,7 +358,13 @@ export * from "./compositions/DispatchSettings/TierModels";
 export * from "./compositions/DispatchSettings/DroneCap";
 // The proposal itself: gates, tiers, how it lands and what it is held to,
 // editable until approval and frozen at it. #1541, #1548, #1551.
+export * from "./compositions/GroupShape/GroupShape";
 export * from "./compositions/JobProposal/JobProposal";
+// Settings draws two of the proposal's regions on their own, frozen: what no
+// other destination holds once a Job is approved.
+export * from "./compositions/JobProposal/ProposalFields";
+export * from "./compositions/JobProposal/ProposalGates";
+export * from "./compositions/JobProposal/ProposalLanding";
 // The picture a person draws beside a prompt, on the one graph surface. #1547.
 export * from "./compositions/SketchPad/SketchPad";
 // A Job whose members are Jobs — pull requests landing in order. #1543.

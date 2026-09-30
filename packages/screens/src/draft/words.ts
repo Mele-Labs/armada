@@ -17,7 +17,6 @@
 import type { Rendering } from "@armada/components/src/generated/vocabulary";
 
 import type { CaseRunOutcome, CaseState } from "./cases";
-import type { GroupState } from "./group";
 import type { TaskState } from "./task";
 
 /**
@@ -54,40 +53,19 @@ export const TASK_STATE_WORDS: Readonly<Record<TaskState, DraftWord>> = {
 };
 
 /**
- * The group states. **None of these has a registry row**, because no registry
- * has a group in it yet — `job-statuses.toml` is the Job's machine and
- * `step-states.toml` is the step's, and a group is between them.
+ * **Group state was promoted on 29 Sep 2026** and its map is gone from here.
+ * It is `GROUP_STATE` in `@armada/components`, generated from
+ * `verbs.group_state.*` in `crates/core-model/domain/enum-verbs.toml` — same
+ * verbs and tokens, plus the glyph a draft word could never carry.
+ *
+ * **That glyph is why it moved.** A group's state had to draw as a tag beside
+ * a plan's groups (the owner, 29 Sep), and this file withholds icons on
+ * purpose: a value with no registry row has nothing to attach one to. So the
+ * row was written rather than the rule bent. It has no registry *file* and no
+ * enum, which `enum-verbs.toml`'s header records as the case `advance_gate`
+ * and `gaming_pattern` already are — Fleet has no group yet, and `#1545` is
+ * where the shape settles.
  */
-export const GROUP_STATE_WORDS: Readonly<Record<GroupState, DraftWord>> = {
-  pending: {
-    verb: "not started",
-    badgeStatus: "not-started",
-    statusToken: "--status-not-started",
-  },
-  running: { verb: "running", badgeStatus: "running", statusToken: "--status-running" },
-  joining: { verb: "joining", badgeStatus: "running", statusToken: "--status-running" },
-  checking: { verb: "checking", badgeStatus: "running", statusToken: "--status-running" },
-  passed: {
-    verb: "passed",
-    badgeStatus: "completed-success",
-    statusToken: "--status-completed-success",
-  },
-  failed: {
-    verb: "failed",
-    badgeStatus: "completed-failed",
-    statusToken: "--status-completed-failed",
-  },
-  retrying: {
-    verb: "retrying",
-    badgeStatus: "awaiting-review",
-    statusToken: "--status-awaiting-review",
-  },
-  landed: {
-    verb: "landed",
-    badgeStatus: "completed-success",
-    statusToken: "--status-completed-success",
-  },
-};
 
 /**
  * `classifying` is #1159's `proposing` status by the word the boards use. It is
@@ -152,7 +130,6 @@ export const DRAFT_VOCABULARIES: readonly {
   readonly words: Readonly<Record<string, DraftWord>>;
 }[] = [
   { vocabulary: "task_state", words: TASK_STATE_WORDS },
-  { vocabulary: "group_state", words: GROUP_STATE_WORDS },
   { vocabulary: "case_run_outcome", words: CASE_RUN_OUTCOME_WORDS },
   { vocabulary: "case_state", words: CASE_STATE_WORDS },
   { vocabulary: "job_status", words: { classifying: CLASSIFYING_WORD } },

@@ -12,9 +12,10 @@ import { ReviewDecision, type DecisionAct } from "./ReviewDecision";
  * separate route, tab or modal from the diff is the thing `bridge.md` says to
  * push back on before it is built.
  *
- * **Reject sits below a rule and never in the group.** The others are
- * recoverable and this one ends both the job and the drone, and a person has to
- * be able to tell which before pressing.
+ * **Two split buttons, the owner's own arrangement of 30 Sep 2026.** Merge
+ * with Approve behind its caret; Request changes with Reject behind its caret,
+ * `danger` and last. Every one of the four says what it does on hover, because
+ * two of them no longer have a face to be read from.
  *
  * **Merge is drawn only where there is a pull request**, and it takes the
  * primary fill when it is. A job holding one has a single ordinary ending, and
@@ -41,23 +42,30 @@ type Story = StoryObj<typeof ReviewDecision>;
  * read a refusal to learn a field was empty.
  */
 export const NothingWrittenYet: Story = {
-  args: { note: "" },
-  // What each act does is each button's own tooltip.
-  play: async ({ canvas, userEvent }) => {
-    const approve = canvas.getByRole("button", { name: "Approve the work" });
-    await userEvent.hover(approve);
-    await waitFor(() =>
-      expect(canvas.getByText("Takes the work as the drone left it.")).toBeVisible(),
-    );
-    await userEvent.unhover(approve);
+  args: { note: "", onReject: fn() },
+  /**
+   * **A blank note refuses the face and not the caret.** The two are different
+   * controls now, and a rendering cannot show that the second one is still
+   * live — so the press is made here. Reject's own sentence comes with it into
+   * the menu.
+   */
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Request changes" })).toBeDisabled();
 
-    const reject = canvas.getByRole("button", { name: "Reject the work" });
+    const caret = canvas.getByRole("button", { name: "The other way to end this review" });
+    await expect(caret).toBeEnabled();
+    await userEvent.click(caret);
+
+    const reject = canvas.getByRole("menuitem", { name: "Reject the work" });
     await userEvent.hover(reject);
     await waitFor(() =>
       expect(
         canvas.getByText("A verdict on the work, and the job ends there.", { exact: false }),
       ).toBeVisible(),
     );
+
+    await userEvent.click(reject);
+    await expect(args.onReject).toHaveBeenCalled();
   },
 };
 
@@ -101,19 +109,22 @@ export const ChangesListed: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: /^Remove The store module/ }));
     await expect(args.onRemoveChange).toHaveBeenCalledWith("small-fix-0");
-    await expect(canvas.getByLabelText("Anything else the drone should know")).toBeVisible();
+    // The field is `Notes` whether or not anything is listed above it: the
+    // list carries its own label now. The owner's word, 30 Sep 2026.
+    await expect(canvas.getByLabelText("Notes")).toBeVisible();
   },
 };
 
 /**
  * A job whose branch went out, so there is a pull request to merge. **Merge is
- * the primary act and Approve steps back to secondary**: approving here records
- * the job done and leaves the branch open on the forge, which is the ending the
+ * the face and Approve steps behind its caret**: approving here records the
+ * job done and leaves the branch open on the forge, which is the ending the
  * merge control exists to stop being the easy one.
  *
- * Approving is still on the surface, because a person may want the job closed
+ * Approving is still one press away, because a person may want the job closed
  * without landing the branch — a change somebody else will carry, or one that
- * is merging by another route.
+ * is merging by another route — and its hover is where what that costs is
+ * read now that it has no face of its own.
  *
  * **The press asks; it does not merge.** This is the confirmation's closed
  * state — the caller opens a dialog on `onMerge`, the way it does on
@@ -125,56 +136,68 @@ export const ChangesListed: Story = {
 export const APullRequestToMerge: Story = {
   args: {
     note: "",
-    onMerge: () => {},
+    onMerge: fn(),
+    onApprove: fn(),
+  },
+  /**
+   * **Each of the four says what it does, and two of them only have a hover
+   * to say it in.** A rendering shows the two faces; nothing about it shows
+   * what is behind either caret, or that choosing from one sends the act.
+   */
+  play: async ({ args, canvas, userEvent }) => {
+    const merge = canvas.getByRole("button", { name: "Merge and take the work" });
+    await userEvent.hover(merge);
+    await waitFor(() =>
+      expect(canvas.getByText("Merges the pull request on its code host", { exact: false })).toBeVisible(),
+    );
+    await userEvent.unhover(merge);
+
+    await userEvent.click(canvas.getByRole("button", { name: "The other way to take this work" }));
+    const approve = canvas.getByRole("menuitem", { name: "Approve the work" });
+    await userEvent.hover(approve);
+    await waitFor(() => expect(canvas.getByText("Takes the work as the drone left it.")).toBeVisible());
+    await userEvent.click(approve);
+    await expect(args.onApprove).toHaveBeenCalled();
+
+    // Merge asks on the face, and the caller's dialog is what merges.
+    await userEvent.click(merge);
+    await expect(args.onMerge).toHaveBeenCalled();
   },
 };
 
 /**
  * `#663`: the branch conflicts with main, so Fleet would refuse the merge.
- * **Merge stays drawn and takes no fill** — a disabled control has no variant
- * left to express — **with the reason under the row**, never folded into
- * `disabledNote`, which belongs to the whole group and is not in play here:
- * Approve, Request changes and Reject all still work. `#1131`: Fleet sends a
- * Drone to clear it on its own, so the reason names what is happening
- * rather than something to press.
- *
- * **The three buttons stay packed at their own width.** The reason used to
- * sit inside Merge's own flex item and, being the longest sentence on the
- * surface, stretched that column — pushing Approve to the far side of the
- * row. It sits under the whole group now, `aria-describedby` on Merge in
- * place of the position it gave up.
+ * **The face goes off and the caret does not** — Approve is behind that caret
+ * and it is the act a person who cannot merge most likely wants, so refusing
+ * the whole control would refuse the answer as well as the one Fleet objects
+ * to. The reason sits under the row, never folded into `disabledNote`, which
+ * belongs to the whole group and is not in play here. `#1131`: Fleet sends a
+ * Drone to clear it on its own, so the reason names what is happening rather
+ * than something to press.
  */
 export const TheBranchConflicts: Story = {
   args: {
     note: "",
     onMerge: () => {},
+    onApprove: fn(),
     mergeBlockedReason: "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.",
   },
-  play: async ({ canvasElement }) => {
-    const kept = canvasElement.querySelector<HTMLElement>(".armada-decision__kept")!;
-    const buttons = kept.querySelectorAll<HTMLElement>("button");
-    const merge = buttons[0]!;
-    const approve = buttons[1]!;
-    await expect(merge).toHaveTextContent("Merge and take the work");
-    await expect(approve).toHaveTextContent("Approve the work");
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    const merge = canvas.getByRole("button", { name: "Merge and take the work" });
+    await expect(merge).toBeDisabled();
 
-    // Packed at their own width: same row, and no wider a gap between them
-    // than the row declares — the regression a short "Resolve the conflicts
-    // first." never surfaced, once the reason sat inside Merge's own column.
-    const mergeBox = merge.getBoundingClientRect();
-    const approveBox = approve.getBoundingClientRect();
-    const rowGap = Number.parseFloat(getComputedStyle(kept).columnGap);
-    await expect(approveBox.top).toBeCloseTo(mergeBox.top, 0);
-    const seam = approveBox.left - mergeBox.right;
-    await expect(seam).toBeGreaterThanOrEqual(0);
-    await expect(seam).toBeLessThanOrEqual(rowGap + 1);
-
-    // The reason itself sits under the row, not beside it, and Merge still
-    // names it for a screen reader.
+    // The reason sits under the row, not beside it, and Merge still names it.
     const reason = canvasElement.querySelector<HTMLElement>('[role="note"]')!;
     await expect(reason).toHaveTextContent("This branch conflicts with main.");
-    await expect(reason.getBoundingClientRect().top).toBeGreaterThanOrEqual(mergeBox.bottom);
+    await expect(reason.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      merge.getBoundingClientRect().bottom,
+    );
     await expect(merge.getAttribute("aria-describedby")?.split(" ")).toContain(reason.id);
+
+    // The caret beside the dead face still opens, and Approve still sends.
+    await userEvent.click(canvas.getByRole("button", { name: "The other way to take this work" }));
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Approve the work" }));
+    await expect(args.onApprove).toHaveBeenCalled();
   },
 };
 
@@ -219,8 +242,61 @@ export const WaitingOnFleet: Story = {
       "true",
     );
     await expect(canvas.getByRole("button", { name: "Approve the work" })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Reject the work" })).toBeDisabled();
+    // Nothing else opens while a press is out, so Reject is not reachable
+    // either — the caret that discloses it is off with the rest.
+    await expect(canvas.getByRole("button", { name: "The other way to end this review" })).toBeDisabled();
+    await expect(canvas.queryByRole("menuitem")).toBeNull();
     await expect(canvas.queryByRole("status")).toBeNull();
+  },
+};
+
+/**
+ * Approve was chosen behind Merge's caret and Fleet has not answered. **The
+ * face says `Approving…`**, because once the menu has closed the face is the
+ * only surface that control still has — `SplitButton`'s own `pendingLabel`.
+ * A face still reading `Merge and take the work` would name the act that was
+ * not sent. #1117.
+ */
+export const WaitingOnAnActChosenBehindTheCaret: Story = {
+  args: { note: "", onMerge: () => {}, pending: "approve" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Approving…" })).toHaveAttribute("aria-busy", "true");
+    await expect(canvas.queryByRole("button", { name: "Merge and take the work" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Request changes" })).toBeDisabled();
+  },
+};
+
+/**
+ * Fleet took the Approve that was chosen behind Merge's caret. **The face
+ * still reads `Approve the work` while the answer is drawn**, and goes back to
+ * `Merge and take the work` when it clears.
+ *
+ * The line is drawn on that face. A line meaning accepted beside a face
+ * reading `Merge and take the work` would name the act that did not go out, at
+ * the one moment a person is checking that the right one did — so the label
+ * holds past the press, not only during it.
+ */
+export const AnsweredOnAnActChosenBehindTheCaret: Story = {
+  args: { note: "", onMerge: () => {}, answered: { act: "approve", answer: "accepted" } },
+  play: async ({ canvas }) => {
+    const face = canvas.getByRole("button", { name: "Approve the work" });
+    await expect(canvas.queryByRole("button", { name: "Merge and take the work" })).toBeNull();
+    // `data-answer` is read because no accessible property carries the line
+    // along a control's edge — `Decide.answer.test.tsx`'s own reason. What
+    // matters here is that it is on the face whose words name the act.
+    await expect(face).toHaveAttribute("data-answer", "accepted");
+  },
+};
+
+/** The same for Reject, behind Request changes' caret. Its dialog makes the mismatch likelier to be seen. */
+export const AnsweredOnRejectChosenBehindTheCaret: Story = {
+  args: { note: NOTE, answered: { act: "reject", answer: "accepted" } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Reject the work" })).toHaveAttribute(
+      "data-answer",
+      "accepted",
+    );
+    await expect(canvas.queryByRole("button", { name: "Request changes" })).toBeNull();
   },
 };
 

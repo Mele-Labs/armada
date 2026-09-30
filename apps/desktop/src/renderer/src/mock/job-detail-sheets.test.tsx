@@ -4,8 +4,8 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { ServerState } from "@armada/protocol";
-import { escalatedGateFailure, gateChecksStreaming, running } from "@armada/screens/src/fixtures/build/index";
+import type { } from "@armada/protocol";
+import { escalatedGateFailure, running } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
@@ -43,72 +43,57 @@ async function opened(
 
 const dialog = (name: string) => page.getByRole("dialog", { name });
 
-test("the log opens from its chapter's own control, and the control leaves the chapter", async () => {
+// **Opened by its key, not by a chapter's control.** `Open the log` was the
+// story chapter's own eyebrow act, and the Overview reframe of 29 Sep 2026
+// took the chapters with the column they were in. `L` is `actions.toml`'s
+// `open_log`, scope `detail`, and it is the route that survived — the sheet
+// it opens is unchanged, which is what these claims are about.
+test("L opens the activity log in a sheet", async () => {
   await opened(running());
-  await page.getByRole("button", { name: /Open the log/ }).click();
+  await userEvent.keyboard("L");
   await expect.element(dialog("Activity log")).toBeVisible();
-  await expect.poll(() => page.getByRole("button", { name: /Open the log/ }).query()).toBeNull();
 });
 
-/** The loops drawing under this keyframe right now: what moves on screen, whatever element carries it. */
-const looping = (keyframes: string): number =>
-  document.getAnimations().filter((one) => (one as CSSAnimation).animationName === keyframes).length;
+// **Nothing on a Job draws a step mark any more**, so the pulse behind an
+// open sheet has no subject. `WorkflowRail` drew the run tree's marks and no
+// screen renders it since the Overview reframe of 29 Sep 2026 — the claim
+// that the rail kept animating while a sheet was up went with it.
 
-test("the rail's current step keeps pulsing behind an open sheet", async () => {
+// `f` — `open_diff`, scope `detail`. The Produced chapter's own control went
+// with the chapters; the key and the sheet did not.
+test("f opens the Job's patch in a sheet", async () => {
   await opened(running());
-  await expect.poll(() => looping("armada-step-mark-pulse")).toBeGreaterThan(0);
-  // The same loops before and after: the chapter's live step shares the keyframe, so only a count says the rail's stayed.
-  const before = looping("armada-step-mark-pulse");
-  await page.getByRole("button", { name: /Open the log/ }).click();
-  await expect.element(dialog("Activity log")).toBeVisible();
-  expect(looping("armada-step-mark-pulse")).toBe(before);
-});
-
-test("the Job's patch opens from the Produced chapter", async () => {
-  await opened(running());
-  await page.getByRole("button", { name: /Open the diff/ }).click();
+  await userEvent.keyboard("f");
   await expect.element(page.getByRole("dialog")).toBeVisible();
 });
 
 test("the log opens on a Job a failed Check stopped", async () => {
   await opened(escalatedGateFailure());
-  await page.getByRole("button", { name: /Open the log/ }).click();
+  await userEvent.keyboard("L");
   await expect.element(dialog("Activity log")).toBeVisible();
 });
 
-test("the failed Check's output opens from the header's act, in the editor rather than a sheet", async () => {
+// `o` — the failed Check's output, from the open step. In the editor rather
+// than a sheet, which is the whole claim; the press that also did it was the
+// Checks chapter's, and the chapter is gone.
+test("o opens the failed Check's output in the editor rather than a sheet", async () => {
   const api = await opened(escalatedGateFailure());
   const openArtifact = vi.spyOn(api, "openArtifact");
-  await page.getByRole("button", { name: /Open the output/ }).first().click();
+  await userEvent.keyboard("o");
   await expect.poll(() => openArtifact.mock.calls.length).toBe(1);
   expect(openArtifact.mock.calls[0]![0]).toBe(JOB_ID);
 });
 
-test("a kept Check's row opens the output in a sheet, and Escape closes it", async () => {
-  await opened(escalatedGateFailure());
-  expect(page.getByRole("dialog").query()).toBeNull();
-  // The gate card names the same file as a chip to copy; the Checks row is the one that opens the sheet.
-  await page.getByRole("button", { name: "regression_verify.3.cargo_nextest.log", pressed: false }).last().click();
-  const output = dialog("Console output");
-  await expect.element(output.getByText(/visible_manifests_memoises/).first()).toBeVisible();
-  await expect.element(output.getByText("cargo_nextest — output")).toBeVisible();
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
-});
+// **A Check's output is read on Record, in the row, since #1537** — and the
+// Checks chapter that opened it in a sheet came off with the Overview reframe
+// on 29 Sep 2026. Two claims stood here: a kept Check's row opening the sheet
+// and Escape closing it, and a running one opening the sheet on the same
+// press while asking main to follow the log. Record's own rows are where both
+// are made now; the sheet they used has no control left that opens it.
 
-test("a running Check's row opens the sheet on the same press, and asks main to follow the log", async () => {
-  const api = await opened(gateChecksStreaming());
-  const follow = vi.spyOn(api, "followCheckOutput");
-  await page.getByRole("button", { name: "regression_verify.1.cargo_nextest.live.log", pressed: false }).click();
-  await expect.element(dialog("Console output").getByText(/Opening this Check.s log/)).toBeVisible();
-  await expect.poll(() => follow.mock.calls.some(([jobId, kept]) => jobId === JOB_ID && kept !== null)).toBe(true);
-});
-
-test("Pulse's Details opens the full reading", async () => {
-  await opened(running());
-  await page.getByRole("button", { name: /^Details/ }).click();
-  await expect.element(page.getByRole("dialog")).toBeVisible();
-});
+// **Pulse is a destination, so there is no Details to press.** The Overview
+// region had an eyebrow act that put the full reading in a dialog; the card
+// that replaced it opens the Pulse tab, and the tab draws the reading whole.
 
 /** This repository's own `armada.yml`, read as the Job's frozen Manifest. */
 const ARMADA_RUN_SHEET_READ = {
@@ -164,21 +149,6 @@ const RUN_SHEET_READ = {
   },
 };
 
-const SERVING: ServerState = {
-  id: "srv-storybook",
-  name: "storybook",
-  job_id: JOB_ID,
-  checkout: { path: "/repos/armada/.armada/worktrees/12-storybook", branch: "armada/12-storybook" },
-  phase: "serving",
-  serve: "pnpm storybook",
-  ports: [{ name: "PORT", port: 41207 }],
-  links: [{ url: "http://localhost:41207", name: "Storybook" }],
-  started_by: "person",
-  started_at: "2026-09-10T18:00:00Z",
-  serving_since: "2026-09-10T18:00:05Z",
-  stopped: false,
-  log: "run/storybook.log",
-};
 
 test("r opens the run sheet on this repository's own Setup, Checks and Commands", async () => {
   await opened(running(), { sheet: ARMADA_RUN_SHEET_READ });
@@ -188,18 +158,22 @@ test("r opens the run sheet on this repository's own Setup, Checks and Commands"
 
 test("the run sheet replaces the log: one sheet at a time", async () => {
   await opened(running());
-  await page.getByRole("button", { name: /Open the log/ }).click();
+  await userEvent.keyboard("L");
   await expect.element(dialog("Activity log")).toBeVisible();
   await userEvent.keyboard("r");
   await expect.element(dialog("Run")).toBeVisible();
   expect(dialog("Activity log").query()).toBeNull();
 });
 
-test("a refused Check's Run it here opens the run sheet with that Check selected", async () => {
+// **`Run it here` was the refused Check's row act**, and the Checks chapter
+// it sat on came off with the Overview reframe. The sheet it opened is live
+// and `r` opens it — what is gone is the Check arriving already selected,
+// which is Journey 9's own claim and has no control left to make it.
+test("r opens the run sheet, and it lists the Checks this Job can run", async () => {
   await opened(escalatedGateFailure(), { sheet: RUN_SHEET_READ });
-  await page.getByRole("button", { name: "Run it here" }).click();
+  await userEvent.keyboard("r");
   await expect.element(dialog("Run")).toBeVisible();
-  await expect.poll(() => dialog("Run").element().querySelector('button[aria-current="true"]')?.textContent).toContain("cargo_nextest");
+  await expect.element(dialog("Run").getByText("cargo_nextest").first()).toBeVisible();
 });
 
 test("a Check running from the sheet streams its output as it prints", async () => {
@@ -228,14 +202,12 @@ test("a Check running from the sheet streams its output as it prints", async () 
         lines: ["running 2034 tests", "test settings::selectors::visible_manifests_memoises ... FAIL"],
     },
   });
-  await page.getByRole("button", { name: "Run it here" }).click();
+  await userEvent.keyboard("r");
   await expect.element(dialog("Run").getByText(/FAIL/)).toBeVisible();
 });
 
-test("a serving row's link hands the address to the system browser rather than navigating", async () => {
-  const api = await opened(running(), { also: { servers: { servers: [SERVING] } }, whereOpen: true });
-  const openServerLink = vi.spyOn(api, "openServerLink");
-  await page.getByRole("button", { name: "Storybook", exact: true }).click();
-  await expect.poll(() => openServerLink.mock.calls.length).toBe(1);
-  expect(openServerLink).toHaveBeenCalledWith(SERVING.id, SERVING.links[0]!.url);
-});
+// **A server's row is Studio's, and `studio-server.test.tsx` makes this
+// claim there.** It was also on job detail's *Where things are*, which the
+// Overview reframe removed; the link handing its address to the system
+// browser rather than navigating is one behaviour with one place left to
+// press it.

@@ -2,13 +2,16 @@
 
    No padding of its own: the head is a strip edge to edge, so its rule runs
    the card's full width, and the body under it keeps the card's inset. */
+/* **The surface is `armada-glass`'s, not this file's** — the edge, the
+   gradient and the shadow come with that class, which the component puts
+   beside this one. Only the geometry is here, which is the split `glass.css`
+   asks every card on the canvas to keep. */
 .armada-destination-card {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: var(--border-width) solid var(--edge-card);
   border-radius: var(--radius-lg);
-  background: var(--surface-card);
+  overflow: hidden;
 }
 
 /* The card's name, then whatever the card says at its trailing edge: the

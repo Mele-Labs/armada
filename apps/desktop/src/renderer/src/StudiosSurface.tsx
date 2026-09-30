@@ -135,10 +135,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
           onSelectNode(null);
           onOpenChange({ id: studioId, editable: false });
         }}
-        onBack={() => {
-          onSelectNode(null);
-          onOpenChange(null);
-        }}
         onContinue={() => open !== null && onOpenChange({ ...open, editable: true })}
         onCreate={async () => {
           const answer = await createStudio(manifestId);

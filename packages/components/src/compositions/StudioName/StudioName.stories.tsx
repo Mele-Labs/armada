@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { StudioName } from "./StudioName";
 
@@ -17,9 +17,28 @@ export default meta;
 
 type Story = StoryObj<typeof StudioName>;
 
-/** The heading over an open Studio. The heading opens nothing, so Rename is beside it. */
+/**
+ * The heading over an open Studio. The heading opens nothing, so Rename is
+ * beside it — **a `square-pen` with the word in its tooltip**, the owner's note
+ * on 29 Sep 2026, and the only glyph in the set that means rename.
+ */
 export const Heading: Story = {
   args: { heading: true },
+  play: async ({ canvasElement }) => {
+    const board = within(canvasElement);
+    const rename = board.getByRole("button", { name: "Rename Stale counts" });
+    await expect(rename).not.toHaveTextContent("Rename");
+    await expect(rename.querySelector("svg")).not.toBeNull();
+
+    // The word is the tooltip's, drawn only once the pointer rests on the pen.
+    await expect(board.getByText("Rename")).not.toBeVisible();
+    await userEvent.hover(rename);
+    await waitFor(() => expect(board.getByText("Rename")).toBeVisible());
+    await userEvent.unhover(rename);
+
+    await userEvent.click(rename);
+    await expect(board.getByLabelText("Studio name")).toHaveValue("Stale counts");
+  },
 };
 
 /** Nobody has named it. Helm names an untitled Studio unasked, and until it does this is the word. */

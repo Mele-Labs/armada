@@ -1,0 +1,33 @@
+/* The group shape's own lines. Quiet, because the badge beside it carries the
+   state and a diagram in a status hue would claim to say the same thing. */
+.armada-group-shape {
+  flex: none;
+  overflow: visible;
+}
+
+.armada-group-shape__edge {
+  stroke: var(--border-default);
+  stroke-width: var(--border-width);
+}
+
+/* A task is an outline; the ends are not circles at all. A round mark means a
+   task here, so three in a row read as three tasks — the opening bar and the
+   boundary diamond keep the count honest. */
+.armada-group-shape__task {
+  fill: var(--bg-raised);
+  stroke: var(--fg-subtle);
+  stroke-width: var(--border-width);
+}
+
+.armada-group-shape__start {
+  stroke: var(--fg-subtle);
+  stroke-width: calc(var(--border-width) * 2);
+  stroke-linecap: round;
+}
+
+/* The boundary, where a group's Checks run — a gate, drawn as one. */
+.armada-group-shape__gate {
+  fill: var(--bg-raised);
+  stroke: var(--fg-subtle);
+  stroke-width: var(--border-width);
+}

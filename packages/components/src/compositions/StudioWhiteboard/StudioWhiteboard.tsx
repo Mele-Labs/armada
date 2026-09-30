@@ -12,7 +12,10 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+
+import { Button } from "../../primitives/Button/Button";
+import { Card } from "../../primitives/Card/Card";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from "../StudioNode/StudioNode";
@@ -27,11 +30,12 @@ import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from
  *
  * **No relation carries colour; one standing does.** Produced is a bare line;
  * Same as, Blocks and Answers carry their label and nothing more, so a hue
- * never says which kind an edge is. A relation nobody has answered is dashed
- * *and* says so under its label, in `awaiting_review`'s amber — the one thing
- * on the board waiting on a person, and a dash alone did not say it was
- * waiting or that anything had proposed it. Nothing here draws or deletes a
- * relation — that is a person's act.
+ * never says which kind an edge is. A relation nobody has answered is dashed,
+ * and its label is a small card: who proposed it, in `awaiting_review`'s
+ * amber, the relation, and Accept and Reject under it. **The answer is given
+ * where the relation lands** — the owner, 29 Sep 2026: a queue in the corner
+ * was disconnected from the edge it was about. Nothing here draws or deletes a
+ * relation on its own; accepting one is the caller's `onDecide`.
  */
 
 export type StudioWhiteboardNode = {
@@ -49,8 +53,11 @@ export type StudioWhiteboardEdge = {
   target: string;
 } & (
   | { kind: "produced" }
-  /** Proposed by Helm or a scout, and not yet accepted by a person. */
-  | { kind: StudioEdgeRelation; proposed: boolean }
+  /**
+   * Proposed by Helm or a scout, and not yet accepted by a person. `proposer`
+   * is who drew it, already said (`Helm proposes`); absent is the bare fact.
+   */
+  | { kind: StudioEdgeRelation; proposed: boolean; proposer?: string }
 );
 
 export type StudioWhiteboardProps = {
@@ -76,19 +83,21 @@ export type StudioWhiteboardProps = {
    */
   readOnly?: boolean;
   /**
+   * A proposed relation answered, from the Accept or Reject on its own label.
+   * Absent draws neither. While `readOnly`, the label says how to answer
+   * instead, and this is never called.
+   */
+  onDecide?: (edgeId: string, accepted: boolean) => void;
+  /** The relation whose answer is out to Fleet. Its Accept spins, and every answer waits. */
+  deciding?: string | null;
+  /**
    * The field behind whatever the rail opened, over the board's top-right
    * corner. **This and nothing else** — it drew the relations waiting on a
    * person too, and a panel doing two jobs with neither of them named is what
    * the owner read on 28 Sep 2026 as a card showing when nothing was selected.
-   * What waits on a person is `waiting`.
+   * What waits on a person is answered on its own edge.
    */
   children?: ReactNode;
-  /**
-   * What is waiting on a person, under the field and always under it. It comes
-   * and goes with what the Studio holds rather than with anything the person
-   * is doing, so it says so on its own face.
-   */
-  waiting?: ReactNode;
   /**
    * The bar down the board's leading edge — what a person puts on a Studio.
    * `GraphCanvasRail` is what goes here, and the sketch pad mounts the same
@@ -105,12 +114,14 @@ export type StudioWhiteboardProps = {
   nodeBar?: ReactNode;
 };
 
-/**
- * What a proposed relation says under its own label, on the board. Sentence
- * case and lower than the label, because it is the standing rather than the
- * relation — nothing here changes what a kind means.
- */
+/** What a proposed relation is read aloud as, after the relation itself. */
 const EDGE_PROPOSED = "proposed, waiting on you";
+
+/** Who proposed it, where the record does not say. */
+const PROPOSED = "Proposed";
+
+/** What a proposed relation's footer says while the Studio is read-only. */
+const CONTINUE_TO_ANSWER = "Continue to accept or reject.";
 
 /** The relation's label, as `studio.md`, Edges, names it. Produced has none. */
 export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
@@ -121,7 +132,15 @@ export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
 
 type BoardNodeData = StudioWhiteboardNode["node"];
 type BoardNode = Node<BoardNodeData, "studio">;
-type BoardEdgeData = { label: string | null; proposed: boolean };
+/** A proposed relation's card: who drew it, the sentence its buttons are named by, and the answer. */
+type Proposal = {
+  proposer: string;
+  said: string;
+  readOnly: boolean;
+  deciding: string | null;
+  onDecide?: (edgeId: string, accepted: boolean) => void;
+};
+type BoardEdgeData = { label: string | null; proposed: boolean; proposal: Proposal | null };
 type BoardEdge = Edge<BoardEdgeData, "studio">;
 
 /**
@@ -143,9 +162,67 @@ function BoardNodeView({ data, selected }: NodeProps<BoardNode>) {
   );
 }
 
+/**
+ * A proposed relation's label: who proposed it, the relation, and the answer.
+ * **Its buttons are named by the whole sentence**, `Accept: Note A same as
+ * Note B`, since a board can hold several proposals and a bare Accept names
+ * none of them. `nodrag nopan` are React Flow's own: a press here is a press,
+ * not the start of a pan.
+ */
+function ProposalCard({
+  id,
+  label,
+  proposal,
+  at,
+}: {
+  id: string;
+  label: string;
+  proposal: Proposal;
+  at: CSSProperties;
+}) {
+  const { proposer, said, readOnly, deciding, onDecide } = proposal;
+  return (
+    <Card
+      className="armada-studio-edge__proposal nodrag nopan"
+      style={at}
+      role="group"
+      aria-label={`${proposer}: ${said}`}
+    >
+      <span className="armada-studio-edge__proposer">{proposer}</span>
+      <span className="armada-studio-edge__relation">{label}</span>
+      {readOnly ? (
+        <span className="armada-studio-edge__continue">{CONTINUE_TO_ANSWER}</span>
+      ) : onDecide === undefined ? null : (
+        <span className="armada-studio-edge__acts">
+          <Button
+            size="sm"
+            pending={deciding === id}
+            disabled={deciding !== null}
+            aria-label={`Accept: ${said}`}
+            onClick={() => onDecide(id, true)}
+          >
+            Accept
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={deciding !== null}
+            aria-label={`Reject: ${said}`}
+            onClick={() => onDecide(id, false)}
+          >
+            Reject
+          </Button>
+        </span>
+      )}
+    </Card>
+  );
+}
+
 function BoardEdgeView(props: EdgeProps<BoardEdge>) {
   const [path, labelX, labelY] = getBezierPath(props);
   const label = props.data?.label ?? null;
+  const proposal = props.data?.proposal ?? null;
+  const at = { transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` };
   return (
     <>
       <BaseEdge
@@ -156,20 +233,18 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
       />
       {label === null ? null : (
         <EdgeLabelRenderer>
-          <span
-            className="armada-studio-edge__label"
-            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
-          >
-            {label}
-            {/* **A dashed line is not a sentence.** It was the whole of what
-                said a relation had been proposed, and the owner read the label
-                beside it as a fact the Studio had decided — *where did same as
-                come from*. The second line names the two things the dash could
-                not: that somebody proposed it, and that it is his to answer. */}
-            {props.data?.proposed !== true ? null : (
-              <span className="armada-studio-edge__waiting">{EDGE_PROPOSED}</span>
-            )}
-          </span>
+          {/* **A dashed line is not a sentence.** It was the whole of what said
+              a relation had been proposed, and the owner read the label beside
+              it as a fact the Studio had decided — *where did same as come
+              from*. So a proposed one names who drew it, and is answered here
+              rather than in a queue in the corner. */}
+          {proposal === null ? (
+            <span className="armada-studio-edge__label" style={at}>
+              {label}
+            </span>
+          ) : (
+            <ProposalCard id={props.id} label={label} proposal={proposal} at={at} />
+          )}
         </EdgeLabelRenderer>
       )}
     </>
@@ -208,10 +283,15 @@ function merged(given: readonly StudioWhiteboardNode[], kept: readonly BoardNode
   });
 }
 
-function edgeLabel(edge: StudioWhiteboardEdge, titleOf: (id: string) => string): string {
+/** The edge as a sentence: `Note A same as Note B`. */
+function edgeSaid(edge: StudioWhiteboardEdge, titleOf: (id: string) => string): string {
   const said = edge.kind === "produced" ? "produced" : STUDIO_EDGE_LABEL[edge.kind];
+  return `${titleOf(edge.source)} ${said} ${titleOf(edge.target)}`;
+}
+
+function edgeLabel(edge: StudioWhiteboardEdge, titleOf: (id: string) => string): string {
   const proposed = edge.kind !== "produced" && edge.proposed ? `, ${EDGE_PROPOSED}` : "";
-  return `${titleOf(edge.source)} ${said} ${titleOf(edge.target)}${proposed}`;
+  return `${edgeSaid(edge, titleOf)}${proposed}`;
 }
 
 /**
@@ -252,8 +332,9 @@ function Board({
   onSelectionChange,
   pick = null,
   readOnly = false,
+  onDecide,
+  deciding = null,
   children,
-  waiting,
   rail,
   nodeBar,
 }: StudioWhiteboardProps) {
@@ -298,9 +379,13 @@ function Board({
       data: {
         label: edge.kind === "produced" ? null : STUDIO_EDGE_LABEL[edge.kind],
         proposed: edge.kind !== "produced" && edge.proposed,
+        proposal:
+          edge.kind === "produced" || !edge.proposed
+            ? null
+            : { proposer: edge.proposer ?? PROPOSED, said: edgeSaid(edge, titleOf), readOnly, deciding, onDecide },
       },
     }));
-  }, [given, givenEdges, nodes]);
+  }, [given, givenEdges, nodes, readOnly, deciding, onDecide]);
 
   return (
     <GraphCanvas<BoardNode, BoardEdge>
@@ -316,7 +401,6 @@ function Board({
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
       aside={children}
-      waiting={waiting}
     >
       {nodeBar}
     </GraphCanvas>

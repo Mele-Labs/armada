@@ -559,7 +559,8 @@ alone.
 in Armada stays where it is, whatever room it would buy here: `plus` is the
 title row's Dispatch segment by its own reservation, `send` means dispatched,
 `eye` is Review, `pencil` is the sketch pad's pen and is banned there from
-meaning edit, `clock` is the set's one time-shaped mark, `clipboard-list` is the
+meaning edit, `square-pen` is rename and nothing else — the Studio heading's,
+minted 29 Sep 2026 — `clock` is the set's one time-shaped mark, `clipboard-list` is the
 Job Board, `flag` is reserved outright. Each refusal is recorded on the row of
 the glyph that took the act instead.
 

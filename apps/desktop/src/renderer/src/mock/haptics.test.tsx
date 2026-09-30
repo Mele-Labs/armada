@@ -6,10 +6,9 @@
 // is gone by the time the answer lands. #1326.
 
 import { expect, test, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
 import { reviewAtDelivery } from "@armada/screens/src/fixtures/build/index";
-import { PLAN_PARTWAY, withPlan } from "@armada/screens/src/fixtures/plans";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -27,10 +26,6 @@ async function opened(fixture: JobFixture, behaves?: Scenario["behaves"]): Promi
   return app.api;
 }
 
-/** A plan row, found by its task's title. */
-function rowOf(title: string) {
-  return page.getByRole("listitem").filter({ hasText: title }).first();
-}
 
 /** The confirming dialog an act goes through, once it has finished scaling up — #1323. */
 async function confirming() {
@@ -59,15 +54,7 @@ test("a refused act plays the level change, from the same place", async () => {
   expect(tap).toHaveBeenCalledWith("level_change");
 });
 
-test("a refused plan drop taps, from the screen that holds its own answer", async () => {
-  const api = await opened(withPlan(PLAN_PARTWAY), () => ({
-    dropTask: async () => ({ ok: false, outcome: NOT_CONNECTED }),
-  }));
-  const tap = vi.spyOn(api, "tap");
-  const row = rowOf("Add a unit test that does not construct the store");
-  await row.getByRole("button", { name: "Drop…" }).click();
-  await userEvent.type(row.getByLabelText("Reason"), "Already covered elsewhere.");
-  await row.getByRole("button", { name: "Drop", exact: true }).click();
-  await expect.poll(() => tap.mock.calls.length).toBe(1);
-  expect(tap).toHaveBeenCalledWith("level_change");
-});
+// **A refused plan drop tapped too**, from the screen holding its own answer
+// rather than from a toast. `Drop…` went with the Plan region on 29 Sep 2026
+// and `PlanWell` has no renderer, so there is no drop to refuse; the claim
+// belongs to the Plan destination when its rows carry the act again.

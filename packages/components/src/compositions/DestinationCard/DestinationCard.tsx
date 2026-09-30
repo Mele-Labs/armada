@@ -37,7 +37,11 @@ const CHEVRON = 12;
 
 export function DestinationCard({ label, guide, trailing, onOpen, children }: DestinationCardProps) {
   return (
-    <section className="armada-destination-card" aria-label={label}>
+    // **`armada-glass` beside its own class**, which is how a card on the
+    // canvas takes the surface rather than copying it — `glass.css`. Without
+    // it the card read flat beside the left column's panels, which have had
+    // the treatment since #1260. The owner, 29 Sep 2026.
+    <section className="armada-destination-card armada-glass" aria-label={label}>
       <div className="armada-destination-card__head" data-opens={onOpen === undefined ? undefined : ""}>
         {onOpen === undefined ? null : (
           <button

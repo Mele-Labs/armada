@@ -8,10 +8,15 @@
 // **The Job header and the tab strip belong to `JobDetail.tsx`.** An addition
 // to a region goes in that region's file; an addition to the screen goes there.
 
-import { JobHoldsSummary } from "@armada/components";
-import { ChevronRight } from "lucide-react";
+import {
+  Button,
+  CPU_USAGE,
+  GROUP_STATE,
+  MEMORY_USAGE,
+  processesTotal,
+  worktreesTotal,
+} from "@armada/components";
 import { useEffect, useMemo, useState } from "react";
-import { InsideAJob } from "./InsideAJob";
 
 import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
 import { heldForMoney, heldForTurns } from "./Acts";
@@ -25,57 +30,58 @@ import { openArtifact, openPullRequest } from "./opening";
 import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
 import { DIFF_CHAPTER, LOG_CHAPTER, useDetailKeys } from "./detail-keys";
-import { named } from "./run-labels";
 import { DetailSheet, holdOf, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
 import { chaptersOf } from "./chapters";
 import { landingsOf, stepTimelineOf, turnsOfAttempt, wroteIn } from "./timeline";
 import { PlanBar } from "./grouped";
-import { keepingProduced, ProducedOf } from "./produced-panel";
+import { keepingProduced } from "./produced-panel";
 import type { AttemptRead } from "./timeline";
 import type { StepChapter } from "@armada/components";
 import { againOf, useShowAgain } from "./again";
-import { approvalOverviewOf } from "./approval";
+import { leadOf } from "./lead";
+import { OverviewBoard } from "./OverviewBoard";
+import type { DetailTab } from "./detail-tabs";
+import type { CheckAt } from "./tab-record";
+import { CircleDashed } from "lucide-react";
+
+import { shapeSaid } from "./plan-board";
+
+import { workflowRunOf } from "./workflow-canvas";
+import type { Figure } from "@armada/components";
+import type { JobExamined } from "@armada/protocol";
+import type { PulseView } from "./draft/pulse";
+import type { LandingRule } from "./draft/landing";
+import { changedOf } from "./settings";
 import { LandBoard } from "./LandBoard";
 import { TrainBoard } from "./TrainBoard";
 import { landedOf } from "./landed";
 import { span } from "./duration";
 import { ordered } from "./facts";
 import { holdingOf, logOf, lookOf, turnsOf } from "./mine";
+import { verdictSlotOf } from "./verdict-answered";
 import { useDiffAgain } from "./produced";
 import { checkEntryId, useRunSheet } from "./rehearsal";
-import { verdictSlotOf } from "./verdict-answered";
 // Which Check's output `o` opens. **The same call the Checks chapter's own act
 // makes**, so the key and the control cannot open different files.
 import { checksOf, outputOf } from "./gates";
 import { openKept } from "./phases";
 import { CHECKS_CHAPTER } from "./checks";
-import { whileReading, whyUnreachable } from "./while-reading";
 import { runOf, whyNoSteps } from "./run";
+import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
 import { taskGroupsOf } from "./draft/group";
-import { stepThatWorksTheGroups } from "./workflow-canvas";
-import { answeringOf, askingOf, commandOf, fieldsOf, noticeOf, questionOf, tasksField, waitingOf } from "./step";
-import { StepActs } from "./StepActs";
-import { refusedAsideOf, type Deciding } from "./flag-held";
-import { whyNoNotes } from "./notes";
 import { entriesOf, hideUnread, whyNotWatching } from "./story";
 import {
   LOOK_FAILED,
-  NOTHING_HAPPENED_YET,
-  latestOf,
-  movesOf,
   nothingToAsk,
   pulseFiguresOf,
   pulseReadingOf,
-  spentOn,
-  summarised,
-  turnsTaken,
   whyNoReading,
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { jobMembersOf } from "./draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
-import { briefOf, whyNoBrief, workOf, workRehearsalOf } from "./work";
+import { whyNoBrief } from "./work";
 
 
 
@@ -107,72 +113,104 @@ export type OverviewTabProps = JobDetailProps & {
   onReporting: (open: boolean) => void;
   onRaising: (open: boolean) => void;
   onRaisingTurns: (open: boolean) => void;
+  /** A card's press. Overview is a door to each destination — the owner, 29 Sep. */
+  onOpenTab: (tab: DetailTab) => void;
+  /**
+   * Open the Record on one Check's row. **The screen's, not this tab's** —
+   * `JobDetail.tsx` owns which destination is open, exactly as it does for the
+   * Plan's group boundary.
+   */
+  onOpenCheck: (at: CheckAt) => void;
+  /**
+   * Draw the proposal this Job is waiting to have approved. **Absent where
+   * there is no proposal read to draw**, and then the lead offers no act —
+   * a dead press is what `#1675` was filed against.
+   */
+  onOpenProposal?: () => void;
 };
+
+/**
+ * The Settings card's one line: where the work lands, and whether anybody has
+ * moved a setting on this Job since it was approved.
+ *
+ * **`changedOf` is the count the tab strip already carries**, so the card and
+ * the tab cannot say different numbers.
+ */
+function settingsSaid(landing: LandingRule | undefined, changed: number): string {
+  const lands = landing?.target == null ? "Lands where the Manifest says" : `Lands in ${landing.target}`;
+  const moved =
+    changed === 0 ? "nothing changed since" : `${changed} ${changed === 1 ? "change" : "changes"} since`;
+  return `${lands} · ${moved}`;
+}
+
+/**
+ * What Overview's Pulse card holds: what is alive on this Job, then what it is
+ * taking from the machine. The owner's call of 29 Sep 2026, against the card
+ * that read one worktree size and nothing else.
+ *
+ * **The destination's own first three, then totals rather than counts.** The
+ * cost group is cut, because Spend and Turns are the lead's own and a card
+ * repeating them is the same figure twice on one screen; `pulseFiguresOf`
+ * marks that group's first figure `apart`, which is where the cut falls — the
+ * boundary is the band's own, not a list of labels typed here.
+ *
+ * `processesTotal` is `null` while nothing is running and `worktreesTotal` is
+ * `""` where any worktree went unmeasured; neither draws a row.
+ */
+function pulseCard(view: PulseView | null, examined: JobExamined | null, whole: JobWhole | null): Figure[] {
+  const band = pulseFiguresOf(view, whole);
+  const cost = band.findIndex((figure) => figure.apart === true);
+  const alive = cost === -1 ? band : band.slice(0, cost);
+  if (view === null) return alive;
+  const reading = pulseReadingOf(view, examined);
+  const running = processesTotal(reading.processes);
+  const disk = worktreesTotal(reading.worktrees);
+  const taking: Figure[] = [
+    ...(running === null
+      ? []
+      : [
+          { label: CPU_USAGE, value: running.cpu },
+          { label: MEMORY_USAGE, value: running.memory },
+        ]),
+    ...(disk === "" ? [] : [{ label: "Worktree", value: disk }]),
+  ];
+  const [first, ...rest] = taking;
+  return first === undefined ? alive : [...alive, { ...first, apart: true }, ...rest];
+}
 
 export function OverviewTab(props: OverviewTabProps) {
   const {
-    whereOpen,
-    onOpenWhere,
     onReadDiff,
     onOpenArtifact,
     onOpenPullRequest,
-    onOpenStudio,
     onReadCall,
     onReadCheckOutput,
     followed,
     onFollowCheckOutput,
     onReadFrame,
     onFrameSrc,
-    onNeedMaterial,
-    onNeedRemarks,
     onNeedPulse,
     whole,
     render,
     watched,
-    workflows,
     manifests,
     stale,
     now,
     acting,
     actingAct,
-    answered,
-    rerunningChecks,
-    deciding,
-    decidingAct,
-    observed,
-    journalled,
-    resources,
-    history,
-    examination,
-    onExamine,
-    recorded,
-    onAct,
-    onRedirect,
     onAnswer,
     onAnswerCommand,
     onExplainCommand,
+    observed,
+    resources,
+    examination,
+    onExamine,
+    recorded,
+    onRedirect,
     onAnswerJudge,
-    onOverrule,
-    onSendBack,
-    onRerun,
-    onRerunChecks,
     onShowAgain,
-    onMergePullRequest,
-    onRerunFailedChecks,
-    onInvestigateFailedChecks,
-    onQueueAfterFinding,
-    onFileFindingIssue,
-    onOpenFindingIssue,
-    onApproveReview,
-    onRequestChanges,
-    onReject,
-    onTakeUpRemarks,
-    onDismissFinding,
-    onOpenRemarkLink,
     onCopied,
     onSaid,
-    onAddTask,
-    onDropTask,
     rehearsal,
     onCompose,
     onReporting,
@@ -192,7 +230,7 @@ export function OverviewTab(props: OverviewTabProps) {
   const move = props.onMove;
   // Whether the folded inspector is up. Read only while `narrow`: above the
   // bound the inspector is a column and this decides nothing.
-  const [inspecting, setInspecting] = useState(false);
+  const [, setInspecting] = useState(false);
   // Which members somebody dropped in this window. Nothing serves a drop, so
   // what a press changes is what is drawn — `useDroppedMembers` says why.
   const dropping = useDroppedMembers();
@@ -233,9 +271,7 @@ export function OverviewTab(props: OverviewTabProps) {
   // folds to goes flush. Both read from tokens rather than from a media query,
   // which cannot see one — `floor.ts` carries the whole of why.
   const floor = props.floor;
-  const narrow = props.narrow;
 
-  const workflow = workflows.find((held) => held.id === job.workflow_id);
   const manifest = manifests.find((held) => held.id === job.owner_manifest_id);
   // The half of a board's reading no operation answers yet — `draft/held.ts`.
   // Absent on a real Fleet, and each board falls back to the wire.
@@ -248,9 +284,8 @@ export function OverviewTab(props: OverviewTabProps) {
   // written, and the counterpart to `main/reader.ts` on this side of the seam.
   // (`whole` itself was read above, before `job` was reconciled to it.)
   // What the Board's own row already answers, while this Job's read is out.
-  const reading = whileReading(watched, job, workflow, selected);
   const watching = turnsOf(observed, job.id);
-  const noted = logOf(journalled, job.id);
+  const noted = logOf(props.journalled, job.id);
   // The open sheet's own reading of the patch, taken again as the Job writes.
   useDiffAgain(onReadDiff, job.id, sheet, watching?.rows ?? [], job.assigned_drone !== undefined);
   const holding = holdingOf(resources, job.id);
@@ -263,7 +298,6 @@ export function OverviewTab(props: OverviewTabProps) {
   const open = steps.find((step) => step.step_id === (selected ?? job.current_step_id)) ?? steps[0];
   // The workflow overview, while this Job waits for approval — what will run,
   // in place of the idle step view `open` above would otherwise draw. #1149.
-  const overview = approvalOverviewOf(job, whole);
   // What a Job that has finished shows, above the run that finished it. #1542.
   const landed = landedOf({ job, whole, draft, manifest, holding });
   // What the observe socket says about itself, where it is not reading. **A
@@ -288,6 +322,17 @@ export function OverviewTab(props: OverviewTabProps) {
   // The strip's rows carry the three records a person reads because a verdict
   // went against them, and each opens. The Job id and the toast are the panel's,
   // so they are handed down rather than reached for; `phases.tsx` says why.
+  // What this step's Drone claimed it did, and the documents the Judge tier
+  // points at. Read off the same `evidence` the verdict slot is built from
+  // rather than fetched again — one call, drawn once. A read that has not
+  // arrived is not a step that claimed nothing.
+  const claimed = useMemo(
+    () =>
+      recorded.evidence.state === "read"
+        ? recorded.evidence.steps.find((one) => one.step_id === open?.step_id)
+        : undefined,
+    [recorded.evidence, open?.step_id],
+  );
   const opensRecords = useMemo(
     () => ({ jobId: job.id, open: onOpenArtifact, onSaid }),
     [job.id, onSaid],
@@ -298,10 +343,6 @@ export function OverviewTab(props: OverviewTabProps) {
   // rule `chapters.tsx` already follows for the same records.
   // `read` is the only state carrying rows, and a read that has not arrived is
   // not a step that claimed nothing — the tier draws its documents either way.
-  const claimed = useMemo(
-    () => (recorded.evidence.state === "read" ? recorded.evidence.steps.find((one) => one.step_id === open?.step_id) : undefined),
-    [recorded.evidence, open?.step_id],
-  );
   // The criterion a live judge question holds open on this step. Read here and
   // handed to the story; the strip that also took it is gone.
   const asking =
@@ -422,10 +463,6 @@ export function OverviewTab(props: OverviewTabProps) {
 
   /** Open one plan task's reading. The rail draws a title and a count; `#1421`'s
    *  fields are this sheet's. */
-  function openTask(taskId: string): void {
-    move({ move: "open", which: "task", taskId });
-  }
-
   /**
    * Open the Check output sheet on the current attempt's Check — live where
    * the gate is still running it, kept once it has ruled. `checkSheetOf` in
@@ -544,8 +581,13 @@ export function OverviewTab(props: OverviewTabProps) {
   // The verdict sheet's slot: `Decide`'s place at the gate, and the finished
   // Job's own place, whichever of the three arrangements the render is —
   // `verdictSlotOf`, in `verdict-answered.tsx`.
-  const atGate = render === "reviewing";
-  const question = questionOf(whole, job.id, now, stale, acting, onAnswer, actingAct);
+  //
+  // **Under the lead, with the Drone's question and the command.** The owner's
+  // call of 29 Sep 2026, on a screen whose lead read *Delivery is waiting on
+  // you to approve it* over a button that reached nothing: an approval is
+  // rank 1 in *Overview leads with what releases the most*, and rank 1 is
+  // answered where it is said. The diff and the pull request's comments stay
+  // where they were — Record reads the Job, this decides it.
   const verdictSlot = verdictSlotOf({
     job,
     whole,
@@ -556,43 +598,33 @@ export function OverviewTab(props: OverviewTabProps) {
     now,
     claimed,
     frames,
-    onNeedMaterial,
-    onNeedRemarks,
+    onNeedMaterial: props.onNeedMaterial,
+    onNeedRemarks: props.onNeedRemarks,
     stale,
     acting,
     actingAct,
-    answered,
-    deciding,
-    decidingAct,
-    onMergePullRequest,
-    onRerunFailedChecks,
-    onInvestigateFailedChecks,
-    onQueueAfterFinding,
-    onFileFindingIssue,
-    onOpenFindingIssue,
-    onApproveReview,
-    onRequestChanges,
-    onReject,
-    onTakeUpRemarks,
-    onOpenRemarkLink,
+    answered: props.answered,
+    deciding: props.deciding,
+    decidingAct: props.decidingAct,
+    onMergePullRequest: props.onMergePullRequest,
+    onRerunFailedChecks: props.onRerunFailedChecks,
+    onInvestigateFailedChecks: props.onInvestigateFailedChecks,
+    onQueueAfterFinding: props.onQueueAfterFinding,
+    onFileFindingIssue: props.onFileFindingIssue,
+    onOpenFindingIssue: props.onOpenFindingIssue,
+    onApproveReview: props.onApproveReview,
+    onRequestChanges: props.onRequestChanges,
+    onReject: props.onReject,
+    onTakeUpRemarks: props.onTakeUpRemarks,
+    onOpenRemarkLink: props.onOpenRemarkLink,
     onOpenPullRequest,
     onSaid,
     onAnswerJudge,
     onOpenDiff: () => openSheet("diff"),
-    onDismissFinding,
+    onDismissFinding: props.onDismissFinding,
     notes: noted?.notes ?? [],
   });
 
-  // One way to answer a command the Drone was not given, for both places a
-  // person meets one: the command it is waiting on, and a refused row.
-  const answering = answeringOf(job.id, stale, acting, onAnswerCommand, actingAct);
-  // What the card a gaming flag holds a step with draws from and sends. #1079.
-  const flagAnswers: Deciding = { diff: recorded.diff, stale, acting, actingAct, onOverrule, onSendBack, onRedirect };
-  const refusedAside = open === undefined ? undefined : refusedAsideOf(whole, open, answering);
-  // Bound to the Job being read, so nothing downstream carries an id back.
-  const explain =
-    onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
-  const waiting = waitingOf(question, commandOf(whole, now, answering, explain));
 
   // Read once: `plan` gates both the region and its own eyebrow act, and a
   // second call would be a second, possibly different, reading of `whole`.
@@ -602,12 +634,6 @@ export function OverviewTab(props: OverviewTabProps) {
   const drawsAWave = waveReadingOf(whole, props.draft, props.board ?? []) !== undefined;
   const planRead = planOf(whole);
   const plan = drawsAWave && planRead?.recorded !== true ? undefined : planRead;
-  // How many of the open step's tasks are through, where it holds groups. The
-  // same groups the Workflow tab's board opens, read for one line here.
-  const stepTasks =
-    whole === null || open === undefined || open.step_id !== stepThatWorksTheGroups(whole)
-      ? undefined
-      : tasksField(props.draft?.groups ?? taskGroupsOf(whole));
   // The Jobs landing under this one. The mock hands the whole reading; against
   // a real Fleet it is derived from the Board's own rows, which carry each
   // member's status, its branch and whether its pull request merged.
@@ -714,161 +740,124 @@ export function OverviewTab(props: OverviewTabProps) {
           />
         );
 
+  // **What the lead is about, under the lead.** A Drone's question and its
+  // answers, and the Allow / Always allow / Reject choice for a command it was
+  // not given. These were the step panel's until 29 Sep 2026; the reframe took
+  // the panel off Overview and took them with it, so `Answer it` and
+  // `Decide it` named acts with nowhere to happen. The owner put them back
+  // here rather than at a destination: the lead says a thing is waiting, and
+  // the thing waiting is what a person came to answer.
+  const answering = answeringOf(job.id, stale, acting, onAnswerCommand, actingAct);
+  // Bound to the Job being read, so nothing downstream carries an id back.
+  const explain =
+    onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
+  const waiting = waitingOf(
+    questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
+    commandOf(whole, answering, explain),
+    verdictSlot,
+  );
+
+  // **What leads the screen, before the run a person would have to read to
+  // find it.** The owner's 29 September call: Overview shows what needs you,
+  // and it leads with one thing. `lead.ts` holds the rank and its costs.
+  const lead = leadOf(job, whole, now);
+  // **No act where the thing to act on is already under the lead.** A button
+  // named `Decide it` over the Allow / Reject choice it scrolls to is a press
+  // that moves nothing.
+  //
+  // **The act goes where the thing it names actually lives**, which since the
+  // reframe took the step panel off Overview is another destination. Until 29
+  // Sep 2026 every one of them selected a step instead, and nothing has read
+  // that selection since `InsideAJob` was deleted — four buttons, four dead
+  // presses, which is what the owner pressed and reported.
+  //
+  // **And no act where the route cannot land.** The approval act reaches
+  // `ProposalTab`, which draws nothing without a proposal read, so the screen
+  // hands `onOpenProposal` down only where it has one.
+  const opens = lead.opens;
+  const openProposal = props.onOpenProposal;
+  const reaches =
+    opens === undefined || !("proposal" in opens) || openProposal !== undefined;
+  const leadAct =
+    lead.act === undefined || open === undefined || waiting !== undefined || !reaches ? undefined : (
+      <Button
+        onClick={() => {
+          if (opens === undefined) {
+            // Selecting the step is what opens the inspector on it, which is
+            // where the question box and the gate's own acts already are.
+            selectStep(open.step_id);
+            return;
+          }
+          if ("check" in opens) props.onOpenCheck(opens.check);
+          else if ("proposal" in opens) openProposal?.();
+          else props.onOpenTab(opens.tab);
+        }}
+      >
+        {lead.act}
+      </Button>
+    );
+
+  // **The lead, a strip, and a card per destination.** The arrangement
+  // `InsideAJob` drew here — the run tree, the plan well, the pointers and the
+  // step inspector — was the Job's detail rather than its state, which is what
+  // the owner opened a failing Job and could not see past on 29 Sep 2026.
+  const groups = props.draft?.groups ?? (whole === null ? [] : taskGroupsOf(whole));
+  const canvas = whole === null || whole.steps.length === 0 ? undefined : workflowRunOf({ whole, groups });
+  const tasks = (whole?.work_plan?.tasks ?? []).filter((task) => task.state !== "dropped");
+
   const inside = (
-    <InsideAJob
-      run={run.map(named)}
-      // The name Fleet holds, the id where it does not — a Job older than the
-      // check that refuses a workflow-less proposal at creation.
-      runWorkflowLabel={workflow?.name ?? job.workflow_id}
-      runAbsent={whyNoSteps(watched, job.id)}
-      runReading={reading?.run}
-      unreachable={whyUnreachable(watched, job.id)}
-      // What it holds on this machine, below the run and above the pointers.
-      // **Five lines, and the reading a press away.** It answers *is this
-      // working*, which is what a person suspecting a wedged Job came with —
-      // but the run is what they opened the Job to read, so the reading is on
-      // the sheet and what stays here is what changes the answer.
+    <OverviewBoard
+      lead={{ ...lead, act: leadAct }}
+      waiting={waiting}
+      {...(canvas === undefined
+        ? { workflowAbsent: whyNoSteps(watched, job.id) }
+        : {
+            workflow: {
+              nodes: canvas.nodes,
+              edges: canvas.edges,
+              label: `${job.title}, as its workflow's run`,
+              opensOn: canvas.opensOn,
+            },
+          })}
+      {...(tasks.length === 0
+        ? { planAbsent: plan?.recorded === false ? `${plan.stepLabel} has not recorded one yet.` : undefined }
+        : {
+            plan: {
+              working: tasks
+                .filter((task) => task.state === "working")
+                .map((task) => ({ id: task.id, title: task.title })),
+              groups: groups.map((group) => ({
+                ordinal: group.ordinal,
+                tasks: `${group.tasks.length} ${group.tasks.length === 1 ? "task" : "tasks"}`,
+                // **How it runs is drawn, not named** — the owner's sketch of
+                // 29 Sep 2026, after `2 tasks, one after another` and then a
+                // `sequential` chip both said in words what a reader pictures
+                // anyway. `shapeSaid` is Plan's own sentence, and it is what
+                // the drawing says to a reader who cannot see it.
+                count: group.tasks.length,
+                concurrent: group.concurrent,
+                shapeLabel: shapeSaid(group),
+                said: GROUP_STATE[group.state]?.verb ?? group.state,
+                status: GROUP_STATE[group.state]?.badgeStatus ?? "not-started",
+                icon: GROUP_STATE[group.state]?.icon ?? CircleDashed,
+              })),
+            },
+          })}
+      // **What this machine is carrying, not what the Job has spent.** Spend
+      // and Turns are the strip's, two regions up; a card repeating them is
+      // the same figure twice on one screen.
       //
-      // **What it is spending reads here too, since #1484.** Spend and Turns
-      // were the header's second line, above everything a person opened the
-      // Job for; the question they answer is this region's, so they are drawn
-      // in it. They come off `whole` rather than off a look, so they are there
-      // whether or not anyone has looked.
-      //
-      // **Fleet's last lines are the tail of it.** They had a region of their
-      // own above the run — #437 — and both regions answered *what is happening
-      // on this machine right now*, which is one region too many. Drawn at
-      // every state, not only while a Job is preparing: the lines that belong
-      // to no step are also the ones a reader wants after it stopped.
-      machine={
-        <JobHoldsSummary
-          latest={latestOf(watching?.rows ?? [], noted?.notes ?? [], movesOf(history, job.id))}
-          latestNote={whyNoNotes(journalled) ?? NOTHING_HAPPENED_YET}
-          figures={summarised(holding, examinedNow)}
-          note={whyNoReading(resources)}
-          spend={spentOn(whole)}
-          turns={turnsTaken(whole)}
-          age={holding === null ? undefined : (span(holding.read_at, now) ?? undefined)}
-        />
-      }
-      machineAct={
-        <button type="button" className="armada-screen__eyebrow-act" onClick={() => openSheet("holds")}>
-          Details
-          <ChevronRight size={12} strokeWidth={2} aria-hidden />
-        </button>
-      }
-      // The rail's current step pulses while the Job works, and nothing pulses
-      // on a Job that is over, where "still working" is a claim no step is
-      // making. **A sheet does not stop it** (#1276): the step is still
-      // working behind the layer, and the sheet's own live mark pulses beside it.
-      pulsing={render === "working"}
-      onSelectStep={selectStep}
-      // Folded, the inspector is a sheet, and pressing a step is what opens
-      // it: the run is what says which step to read, so it is also the way in.
-      narrow={narrow}
-      floor={floor}
-      inspectorOpen={inspecting && sheet === null}
-      inspectorTitle={typeof open?.label === "string" ? open.label : undefined}
-      onCloseInspector={() => setInspecting(false)}
-      // A count in the tree opens its chapter: the step, then the reader on it.
-      onOpenChapter={(stepId, chapterId) => {
-        selectStep(stepId);
-        keys.onFocusChapter(chapterId);
-      }}
-      // The tree draws exactly what the keyboard holds. **Selecting a step
-      // still does not open its facts** — that is `RunTree`'s rule and it is
-      // the reason the two are separate props at all.
-      openSteps={keys.openSteps}
-      onOpenStep={keys.onOpenStep}
-      plan={plan}
-      onOpenTask={openTask}
-      // `after` is always the end: reordering is not in this milestone, the
-      // owner's own call — `#897`. Absent where there is no plan to add to —
-      // no plan step at all, or the placeholder before its step has recorded
-      // one — since `add_task` is refused without a plan.
-      onAddTask={
-        plan?.recorded === true
-          ? (title, note) =>
-              onAddTask(job.id, { title, note, scope: [], expects: "", after: "" })
-          : undefined
-      }
-      onDropTask={(taskId, reason) => onDropTask(job.id, { task: taskId, reason })}
-      onSaid={onSaid}
-      whereOpen={whereOpen}
-      onOpenWhere={onOpenWhere}
-      where={workOf(
-        onOpenArtifact,
-        job,
-        whole,
-        manifest,
-        workflow,
-        // **Wrapped, never passed bare.** `open` takes an entry id, and this
-        // reaches `WhereRow`'s `Run…` as its `onClick` — which React calls with
-        // the click event, so a bare reference selected the event itself and
-        // the next render asked it for `.indexOf`. `onOpenRun` above has always
-        // wrapped it for the same reason.
-        workRehearsalOf(() => runHook.open(), runHook.worktreeOnDisk, rehearsal),
-        onOpenStudio,
-      )}
-      brief={whole === null ? undefined : briefOf(whole)}
+      // Totals rather than counts: the owner replaced Pulse's process count
+      // with CPU and memory on 29 Sep 2026 — *"I would prefer to use this
+      // space for total CPU/memory instead of a number of processes."*
+      pulse={pulseCard(holding === null ? null : pulseViewOf(holding), examinedNow, whole)}
+      pulseAbsent={whyNoReading(resources)}
+      {...(whole === null ? {} : { brief: whole.facts })}
       briefAbsent={whyNoBrief(watched, job.id)}
-      briefLoading={reading !== undefined}
-      overview={overview}
-      step={
-        open === undefined
-          ? undefined
-          : {
-              label: open.label,
-              labelIsAnIdentifier: open.label === open.step_id || undefined,
-              // The step's own facts, and — on the step the plan is worked at
-              // — how many of its tasks are through. `#1536`: a step running
-              // eight tasks used to read `running` and nothing else.
-              fields: [...fieldsOf(open, now), ...(stepTasks === undefined ? [] : [stepTasks])],
-              acts: (
-                <StepActs
-                  job={job}
-                  whole={whole}
-                  opens={opensRecords}
-                  render={render}
-                  acting={acting}
-                  actingAct={actingAct}
-                  answered={answered}
-                  rerunningChecks={rerunningChecks}
-                  stale={stale}
-                  onAct={onAct}
-                  onRedirect={onRedirect}
-                  onOverrule={onOverrule}
-                  onRerun={onRerun}
-                  onRerunChecks={onRerunChecks}
-                />
-              ),
-              // A question outranks the render's own notice: nothing else on
-              // this step is what a person is here for while one is open, and
-              // the two would otherwise both claim the band.
-              notice:
-                askingOf(whole) ?? noticeOf(job, whole, render, open, opensRecords, answering, flagAnswers),
-              // **The question sits where the redirect box does** — between the
-              // strip and the story, because it is the same kind of thing: a
-              // box a person acts in about the step they are looking at. A
-              // command the Drone is waiting on is the same box, and at the gate
-              // so is the review (the owner, 11 Sep 2026).
-              // Refused commands on a step a flag holds fold into a card of
-              // their own here, out of the band: they are not why it stopped.
-              before: atGate ? <>{waiting}{verdictSlot}</> : <>{refusedAside}{waiting}</>,
-              timelineAbsent: whyNoSteps(watched, job.id),
-              timeline,
-              produced: <ProducedOf chapter={produced.chapter()} />,
-              openRow: keys.openChapterId,
-              onOpenRow: keys.onOpenChapter,
-              timelineFolded: atGate,
-              // A finished Job's verdict sheet is a record, read after the story.
-              after: atGate ? undefined : verdictSlot,
-            }
-      }
-      stepAbsent={whyNoSteps(watched, job.id)}
-      stepReading={reading?.step}
-      sheet={sheetSlot}
-      onCopied={onCopied}
+      // What froze, and whether anybody has moved a setting since. `changedOf`
+      // is the same count the strip's own Settings tab carries.
+      settings={settingsSaid(props.draft?.landing, changedOf(whole))}
+      onOpenTab={props.onOpenTab}
     />
   );
 
@@ -888,7 +877,17 @@ export function OverviewTab(props: OverviewTabProps) {
   // A Job that has finished is read for what it came to, not for the run that
   // is over: the board takes this destination and the run is the Workflow
   // tab's, the plan the Plan tab's, the ledger the Record tab's. #1542.
-  if (landed === undefined) return inside;
+  // **The sheet layer goes with every arrangement, not only the two boards.**
+  // It was dropped from this return when `InsideAJob` came off, and `r`, `L`
+  // and `f` each opened nothing on an ordinary Job — the keys were still
+  // bound, and there was no layer for what they opened to be drawn in.
+  if (landed === undefined)
+    return (
+      <>
+        {inside}
+        {sheetSlot}
+      </>
+    );
   return (
     <>
       <LandBoard

@@ -32,7 +32,7 @@ import {
 import type { Explaining, JobDetailField } from "@armada/components";
 import type { GroupView } from "./draft/group";
 import type { StepNotice } from "./InsideAJob";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { CommandAnswer, CommandInFlight, Criterion, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
@@ -191,27 +191,18 @@ const REFUSED_STALE = "This Job is not live, so nothing can be sent.";
  * what is asked, in mono because it is what the drone sent; each answer is one
  * Fleet offered, in its order, with what it commits to under it.
  *
- * **Aged here and nowhere else**, on `questionOf`'s terms, and a command cut by
+ * **Aged by the lead above it**, on `questionOf`'s terms, and a command cut by
  * the wire says so on a line of its own, as a refused row does.
  */
 export function commandOf(
   whole: JobWhole | null,
-  now: number,
   answering: Answering,
   explain?: ExplainOne,
 ): ReactNode {
   const waiting = whole?.command_waiting;
   if (waiting === undefined) return undefined;
   // Keyed by the call, so a reading of one command never outlives it.
-  return (
-    <CommandWaiting
-      key={waiting.call}
-      waiting={waiting}
-      now={now}
-      answering={answering}
-      explain={explain}
-    />
-  );
+  return <CommandWaiting key={waiting.call} waiting={waiting} answering={answering} explain={explain} />;
 }
 
 /** Asking what this one command does. The screen is handed the way to ask. */
@@ -234,12 +225,10 @@ const NO_READING = "Fleet did not explain this command.";
  */
 function CommandWaiting({
   waiting,
-  now,
   answering,
   explain,
 }: {
   waiting: CommandInFlight;
-  now: number;
   answering: Answering;
   explain?: ExplainOne;
 }): ReactNode {
@@ -269,18 +258,12 @@ function CommandWaiting({
 
   return (
     <DroneQuestion
-      question={
-        <>
-          {waiting.detail === "" ? (
-            `The drone wants to use ${waiting.tool}.`
-          ) : (
-            <>
-              The drone wants to run <span className="mono">{waiting.detail}</span>
-            </>
-          )}
-          {cut === undefined ? null : <span className="block">{cut.size}</span>}
-        </>
-      }
+      // **No head and no restatement.** The lead above says a Drone wants to
+      // run a command, names it and carries the elapsed; this box is inside
+      // that panel now, so all three here would be the same thing twice. What
+      // the wire cut is not on the lead, so it stays.
+      label={null}
+      {...(cut === undefined ? {} : { question: cut.size })}
       options={offered.map(({ offer, label, means, rules, suggestedRule }) => ({
         label,
         consequence: means,
@@ -290,7 +273,6 @@ function CommandWaiting({
         ...(rules === undefined ? {} : { rules }),
         ...(suggestedRule === undefined ? {} : { suggestedRule }),
       }))}
-      waiting={span(waiting.asked_at, now) ?? undefined}
       disabled={answering.stale || answering.acting}
       disabledNote={answering.stale ? STALE_NOTE : undefined}
       pending={answering.acting && answering.actingAct === "answer_command"}
@@ -307,18 +289,24 @@ function CommandWaiting({
 }
 
 /**
- * What the drone is waiting on a person for, in the slot a question takes. Its
- * own question, a command it was not given, or both: a drone held inside a
- * permission call is rarely asking as well, and when it is, neither box may
- * hide the other.
+ * What is waiting on a person, in the slot under Overview's lead. A Drone's
+ * own question, a command it was not given, the verdict at a review gate, or
+ * several at once: a Drone held inside a permission call is rarely asking as
+ * well, and when it is, neither box may hide the other.
+ *
+ * **Every one of them, never the first.** The lead names the one that releases
+ * the most and the rest are still open — dropping them here would be the
+ * screen deciding on his behalf which of two things he answers.
  */
-export function waitingOf(question: ReactNode, command: ReactNode): ReactNode {
-  if (command === undefined) return question;
-  if (question === undefined) return command;
+export function waitingOf(...slots: readonly ReactNode[]): ReactNode {
+  const drawn = slots.filter((slot) => slot !== undefined && slot !== null && slot !== false);
+  if (drawn.length === 0) return undefined;
+  if (drawn.length === 1) return drawn[0];
   return (
     <>
-      {question}
-      {command}
+      {drawn.map((slot, at) => (
+        <Fragment key={at}>{slot}</Fragment>
+      ))}
     </>
   );
 }
@@ -327,10 +315,7 @@ export function waitingOf(question: ReactNode, command: ReactNode): ReactNode {
  * The question itself. `undefined` where nothing is outstanding, which is every
  * drone that knows what it is doing.
  *
- * **The elapsed is computed here and nowhere else.** `asked_at` crosses once and
- * nothing on the wire ticks, so the surface subtracts for itself — the same
- * arrangement `JudgeInFlight.since` has, on the `now` this screen re-renders
- * from.
+ * **The elapsed is `leadOf`'s now**, since the panel around this one draws it.
  *
  * **Stale and in-flight both disable, and each says which.** A window showing a
  * reading it knows is not live must not send an answer against it.
@@ -338,7 +323,6 @@ export function waitingOf(question: ReactNode, command: ReactNode): ReactNode {
 export function questionOf(
   whole: JobWhole | null,
   jobId: string,
-  now: number,
   stale: boolean,
   acting: boolean,
   onAnswer: (jobId: string, questionId: string, chose: string) => void,
@@ -348,9 +332,10 @@ export function questionOf(
   if (asking === undefined) return undefined;
   return (
     <DroneQuestion
-      question={asking.question}
+      // The lead says the Drone asked, quotes it and ages it — `commandOf`'s
+      // reason for drawing neither head nor question here.
+      label={null}
       options={asking.options}
-      waiting={span(asking.asked_at, now) ?? undefined}
       disabled={stale || acting}
       disabledNote={stale ? STALE_NOTE : undefined}
       pending={acting && actingAct === "answer"}

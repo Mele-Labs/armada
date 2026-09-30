@@ -52,11 +52,20 @@ function listed(): Sent {
   return sent;
 }
 
+/**
+ * Approve, which is a button of its own here: this gate holds no pull request
+ * address, so nothing draws Merge and Approve keeps the primary fill. Behind a
+ * caret it is `Decide.test.tsx`'s.
+ */
+async function approve(): Promise<void> {
+  await userEvent.click(page.getByRole("button", { name: "Approve the work" }));
+}
+
 test("request changes sends the listed change with the typed words, as one note", async () => {
   const sent = listed();
 
   await userEvent.fill(
-    page.getByRole("textbox", { name: "Anything else the drone should know" }),
+    page.getByRole("textbox", { name: "Notes" }),
     "Add a test that loads one.",
   );
   await userEvent.click(page.getByRole("button", { name: "Request changes" }));
@@ -69,7 +78,7 @@ test("request changes sends the listed change with the typed words, as one note"
 test("approving with a change still listed asks, and keeping them approves nothing", async () => {
   const sent = listed();
 
-  await userEvent.click(page.getByRole("button", { name: "Approve the work" }));
+  await approve();
   await expect.element(page.getByRole("dialog")).toBeVisible();
   expect(sent.approved, "the press approved past a listed change").toEqual([]);
 
@@ -81,7 +90,7 @@ test("approving with a change still listed asks, and keeping them approves nothi
 test("approving and dropping the listed changes takes the work once", async () => {
   const sent = listed();
 
-  await userEvent.click(page.getByRole("button", { name: "Approve the work" }));
+  await approve();
   await userEvent.click(
     page.getByRole("dialog").getByRole("button", { name: "Approve and drop them" }),
   );

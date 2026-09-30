@@ -55,36 +55,20 @@ const boxOf = (selector: string): DOMRect => {
 };
 
 /**
- * **A `DOMRect` is a float and a token is an integer, so the two are never
- * compared with `toBe` or a bare `>=`.** The same sheet measured
- * 478.99993896484375 on a busy machine where a quiet one read 479, which sank
- * an assertion sitting exactly on its bound — #1574, four times in about a
- * dozen full runs. Half a pixel is the tolerance `toBeCloseTo(…, 0)` states
- * and this restates, in one place rather than a `- 1` per line: widening the
- * bound only moves the cliff, and a 4px regression fails either way.
- *
- * **Two rects measured in one layout keep `toBe`.** `panelWidth()` either side
- * of `⌘J` is one element in one window, so #1583's claim is bit-for-bit and a
- * tolerance would admit the shift it exists to refuse.
- */
-const ROUNDING = 0.5;
-
-/** Measured at `bound` or above, give or take the rounding. */
-function atLeast(measured: number, bound: number): void {
-  expect(measured).toBeGreaterThanOrEqual(bound - ROUNDING);
-}
-
-/**
- * The worst text in the panel: the node drawn on the most lines per word it
+ * The worst text on the board: the node drawn on the most lines per word it
  * has. **A run of text never needs more lines than it has words** — one line
  * each is the worst honest wrapping — so a ratio above 1 is a word that was
  * broken down the middle, which is the defect this file exists for. Measured
  * with a range over each text node, `WorkflowDiagram.stories.tsx`'s `linesOf`
- * at the scale of a whole panel.
+ * at the scale of a whole destination.
+ *
+ * **Read on the cards since 29 Sep 2026.** It read the step panel, which the
+ * Overview reframe deleted — and the panel was where the 192px log broke, so
+ * the cards that took its place are where the same defect would show.
  */
 function brokenWord(): { text: string; words: number; lines: number } | null {
-  const panel = document.querySelector<HTMLElement>(".armada-inside__panel");
-  if (panel === null) throw new Error("the step panel is not drawn");
+  const panel = document.querySelector<HTMLElement>(".armada-overview-board__cards");
+  if (panel === null) throw new Error("the board's cards are not drawn");
   const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
   let worst: { text: string; words: number; lines: number } | null = null;
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
@@ -103,21 +87,22 @@ function brokenWord(): { text: string; words: number; lines: number } | null {
   return worst;
 }
 
+
+
 /**
  * App on the Job the owner had open, at `width`, with the layout settled.
  * **Helm is shut**, which is how Bridge opens since #1583; `withHelm` is what
  * puts it up.
  *
- * **It waits on the run and not on the inspector.** Under
- * `--layout-breakpoint` the inspector is a sheet that opens on a press, so a
- * wait for the panel would hang at every width the fold covers — which is
- * three of the widths this file measures.
+ * **It waits on the Overview board.** Until 29 Sep 2026 it waited on the run
+ * tree's heading and on `.armada-inside__run`, the two-column arrangement the
+ * Overview reframe replaced — a Job detail draws one board of cards now, and
+ * the cards are what this file mounts a Job to measure the shell around.
  */
 async function atWidth(width: number): Promise<void> {
   await page.viewport(width, 860);
   mount(onJob(workingAPlan()));
-  await expect.element(page.getByText("THE RUN").first()).toBeVisible();
-  await expect.poll(() => document.querySelector(".armada-inside__run") !== null).toBe(true);
+  await expect.poll(() => document.querySelector(".armada-overview-board__cards") !== null).toBe(true);
 }
 
 /**
@@ -130,36 +115,14 @@ async function withHelm(): Promise<void> {
   await expect.poll(() => document.querySelector(".armada-shell__dock-layer, .armada-sheet")).not.toBe(null);
 }
 
-/** Press a step in the run, which is what opens the folded inspector. */
-async function openInspector(): Promise<void> {
-  await page.getByRole("button", { name: "Fix", exact: true }).first().click();
-  await expect.poll(() => document.querySelector(".armada-inside__panel") !== null).toBe(true);
-}
 
 // 1280 is where the owner found it. It was wide enough for Helm's dock to sit
-// beside the content and too narrow for what was left to hold both columns at
-// their drawn widths, so the run column gave up 140px. **Nothing yields here
-// any more** — the dock stopped taking the 412px, and the 1280 measurement
-// that #1428 landed is now the easy case rather than the hard one.
-test("at 1280 with Helm up, neither of job detail's columns yields", async () => {
-  await atWidth(1280);
-  await withHelm();
-  // First, because it is the thing the owner photographed: with the panel at
-  // 192px this reported `Extract selectColumnOrder into its own module`, six
-  // words on forty lines.
-  expect(brokenWord()).toBe(null);
-  atLeast(boxOf(".armada-inside__panel").width, floor("--w-step-panel-min"));
-  expect(boxOf(".armada-inside__run").width).toBeCloseTo(380, 0);
-});
-
-// The run column is still at its drawn width up here too, which is what stops
-// this reading as "the run column got narrower".
-test("at 1512 the run column is still at its drawn width", async () => {
-  await atWidth(1512);
-  expect(boxOf(".armada-inside__run").width).toBeCloseTo(380, 0);
-  atLeast(boxOf(".armada-inside__panel").width, floor("--w-step-panel-min"));
-  expect(brokenWord()).toBe(null);
-});
+// **Job detail no longer has two columns.** The run tree and the step panel
+// were one arrangement, and the Overview reframe of 29 Sep 2026 replaced them
+// with a board of cards — so the 1280 measurement #1428 landed, and the 1512
+// one that stopped it reading as "the run column got narrower", are claims
+// about a screen that is gone. What survives is everything below: the shell
+// around a Job, which is what this file was always really measuring.
 
 // ---- what #1583 claims, measured ------------------------------------------
 //
@@ -178,8 +141,6 @@ test.each([2000, 1512, 1440, 1280, 1101])(
     const shut = panelWidth();
     await withHelm();
     expect(panelWidth()).toBe(shut);
-    // And the run under it did not move either, which is the part a person sees.
-    expect(boxOf(".armada-inside__run").width).toBeCloseTo(380, 0);
     // Shut again, by the one press the issue asks for — the dock's own Close,
     // scoped to it, because job detail draws a Close of its own.
     await page.getByRole("complementary", { name: "Helm" }).getByRole("button", { name: /^Close/ }).click();
@@ -199,70 +160,12 @@ test.each([1000, 768])("at %i the content is the same width with the sheet shut 
   expect(panelWidth()).toBe(shut);
 });
 
-// ---- below `--layout-breakpoint`, where the inspector folds ---------------
-//
-// **This is where the two-floor claim moved to, not where it was deleted.**
-// Until #1534 the panel was a column at every width and these three widths
-// asserted it held `--w-step-panel-min`; 768px drew a 196px panel before #1428
-// and the floor is what fixed that. Below the bound there is no arithmetic that
-// pays for two columns at once, so the inspector is a sheet over the run — the
-// move Helm's dock already makes at the same bound — and the claim is the same
-// one it always was: the reading is wide enough that no word breaks in it.
-test.each([1100, 1000, 900, 768])("at %i the run is the whole content and no inspector column is drawn", async (width) => {
-  await atWidth(width);
-  expect(document.querySelector(".armada-inside__panel")).toBe(null);
-  // One track: the run is as wide as the arrangement, give or take rounding.
-  expect(boxOf(".armada-inside__run").width).toBeCloseTo(boxOf(".armada-inside").width, 0);
-});
-
-// The sheet is the reading, so it is the sheet the broken-word walker reads.
-// At the floor it goes flush to both edges, which is `Sheet`'s own rule and is
-// why the expected width is the ground there rather than `--w-sheet`.
-//
-// **The panel is a hairline narrower than the sheet, and that was never slack.**
-// `Sheet`'s trailing side draws `border-left: var(--border-width)`, so the sheet
-// is `--w-sheet` to the pixel and the panel inside it is one less. The `- 1`
-// here read as tolerance and was arithmetic, which is how it came to sit exactly
-// on the bound a busy machine rounded under — #1574. Both are named now, each
-// against what declares it.
-test.each([1100, 1000, 900])("at %i pressing a step opens the inspector at --w-sheet, unbroken", async (width) => {
-  await atWidth(width);
-  await openInspector();
-  expect(boxOf(".armada-sheet").width).toBeCloseTo(floor("--w-sheet"), 0);
-  expect(boxOf(".armada-inside__panel").width).toBeCloseTo(floor("--w-sheet") - floor("--border-width"), 0);
-  expect(brokenWord()).toBe(null);
-});
-
-test("at 768 the folded inspector is flush to both edges and nothing breaks", async () => {
-  await atWidth(768);
-  await openInspector();
-  const sheet = boxOf(".armada-sheet");
-  expect(sheet.width).toBeGreaterThan(floor("--w-sheet"));
-  expect(brokenWord()).toBe(null);
-});
-
-// Esc closes it, and the run is still where the reader left it: a layer, never
-// a route. `Sheet` catches the press in the capture phase so the same key does
-// not also leave the Job.
-test("Esc closes the folded inspector and leaves the Job open", async () => {
-  await atWidth(1000);
-  await openInspector();
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => document.querySelector(".armada-inside__panel")).toBe(null);
-  await expect.element(page.getByText("THE RUN").first()).toBeVisible();
-});
-
-// Inside the band the window cannot pay for both floors, and the rule that
-// yields there is the panel's `min()`. What it must never do is overflow the
-// card and clip the log against its edge, which two hard minimums would.
-test("at 1150 the log is not clipped against the card's edge", async () => {
-  await atWidth(1150);
-  const panel = boxOf(".armada-inside__panel");
-  const inside = boxOf(".armada-inside");
-  expect(panel.right).toBeLessThanOrEqual(Math.ceil(inside.right));
-  atLeast(boxOf(".armada-inside__run").width, floor("--w-run-column-min"));
-  expect(brokenWord()).toBe(null);
-});
+// **Where the inspector folded, there is nothing to fold.** Below
+// `--layout-breakpoint` the step panel used to become a sheet over the run,
+// and six claims here measured it: the run taking the whole content, the
+// sheet at `--w-sheet`, flush at 768, Escape closing it, and the log not
+// clipping at 1150. The board of cards that replaced both columns on 29 Sep
+// 2026 reflows instead of folding, and its own claim is `overview-boards`'.
 
 // ---- the left column, and the band it used to collapse in -----------------
 //
@@ -287,23 +190,28 @@ function leftColumnWidth(): number {
   return parseFloat(getComputedStyle(element).width);
 }
 
-/** Both floors met, at a width where they could not both be met before. */
-function bothFloorsHold(): void {
-  atLeast(boxOf(".armada-inside__panel").width, floor("--w-step-panel-min"));
-  atLeast(boxOf(".armada-inside__run").width, floor("--w-run-column-min"));
+/**
+ * What the content owes at a width where it could not pay before.
+ *
+ * **Two column floors until 29 Sep 2026** — `--w-step-panel-min` and
+ * `--w-run-column-min`, which is what the 192px log came down to. The board
+ * of cards that replaced both has no floor to meet; what it still owes is the
+ * thing the floors were for, which is that no word in it breaks a letter to
+ * a line. That is `brokenWord`, and it was always the claim underneath.
+ */
+function contentHolds(): void {
   expect(brokenWord()).toBe(null);
 }
 
 // The old band, end to end, with Helm up. Every one of these drew the rail
-// before and drew a step panel under its floor at the bottom of it; all four
-// are the ordinary case now.
+// before; all four are the ordinary case now.
 test.each([1101, 1150, 1250, 1279])(
-  "at %i the left column stands at width with Helm up, and both of job detail's columns hold",
+  "at %i the left column stands at width with Helm up, and the content holds",
   async (width) => {
     await atWidth(width);
     await withHelm();
     expect(leftColumnWidth()).toBe(floor("--sidebar-default"));
-    bothFloorsHold();
+    contentHolds();
   },
 );
 
@@ -313,7 +221,7 @@ test("one pixel over --layout-breakpoint the column is at width, with Helm up", 
   await atWidth(floor("--layout-breakpoint") + 1);
   await withHelm();
   expect(leftColumnWidth()).toBe(floor("--sidebar-default"));
-  bothFloorsHold();
+  contentHolds();
 });
 
 // The collapse is the window's arithmetic, so it is on every surface and not
@@ -390,7 +298,7 @@ test("at --layout-breakpoint the column is the rail", async () => {
 test("one pixel over --layout-breakpoint the column is at its full width", async () => {
   await atWidth(floor("--layout-breakpoint") + 1);
   expect(leftColumnWidth()).toBe(floor("--sidebar-default"));
-  bothFloorsHold();
+  contentHolds();
 });
 
 // **Helm is not one of the terms.** This is the test that used to say the

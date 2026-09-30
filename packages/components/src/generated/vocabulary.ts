@@ -139,6 +139,18 @@ export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "stopped": { verb: "stopped", icon: Flag, badgeStatus: null, statusToken: null, hint: null },
 };
 
+/** `group_state`, keyed by the wire value. */
+export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
+  "pending": { verb: "not started", icon: CircleDashed, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "running": { verb: "running", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "joining": { verb: "joining", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "checking": { verb: "checking", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "passed": { verb: "passed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+  "failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "retrying": { verb: "retrying", icon: RotateCw, badgeStatus: "awaiting-review", statusToken: "--status-awaiting-review", hint: null },
+  "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+};
+
 /** `advance_gate`, keyed by the wire value. */
 export const ADVANCE_GATE: Readonly<Record<string, Rendering | undefined>> = {
   "auto": { verb: "the checks decide", icon: null, badgeStatus: null, statusToken: null, hint: null },

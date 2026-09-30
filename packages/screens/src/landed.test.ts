@@ -91,22 +91,35 @@ describe("the headline counts what the Job was held to", () => {
   });
 });
 
+/**
+ * The Job with its own totals taken off, which is what these three claims are
+ * about. **The arc Job carries `spend` since 29 Sep 2026** — it was added so
+ * Overview's figures strip had something to draw — and before that the absence
+ * was incidental, which is why they read the derived figures without asking
+ * for it. The claim never changed; what it rests on is now written down.
+ */
+function derived(): LandedRead {
+  const whole = FIXTURE.watched.state === "read" ? FIXTURE.watched.detail : null;
+  const { spend: _counted, ...rest } = whole!;
+  return read({ whole: rest });
+}
+
 describe("every figure is derived with its retries", () => {
   // Group three retried once, so its two tasks ran twice: eight tasks, ten
   // agents. A count of eight would contradict the retry on the row below it.
   it("counts an agent per task, and again for the group that was retried", () => {
-    expect(figure(read(), "Drones")).toBe("10");
+    expect(figure(derived(), "Drones")).toBe("10");
   });
 
   // Four Checks at group one's boundary, seven at each of the others, and
   // group three's seven twice.
   it("counts a boundary's Checks once per run of that boundary", () => {
-    expect(figure(read(), "Checks")).toBe("32");
+    expect(figure(derived(), "Checks")).toBe("32");
   });
 
   it("adds the spend up from each task's own agent, since the Job carries no total", () => {
-    expect(figure(read(), "Spend")).toBe("$7.53");
-    expect(figure(read(), "Turns")).toBe("135");
+    expect(figure(derived(), "Spend")).toBe("$7.53");
+    expect(figure(derived(), "Turns")).toBe("135");
   });
 
   it("names the Job's own totals where Fleet counted them", () => {

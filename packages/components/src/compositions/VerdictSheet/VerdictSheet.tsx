@@ -178,25 +178,31 @@ export function VerdictSheet({
           <span className="armada-verdict__when">{header.when}</span>
         </div>
       )}
-      {folded ? (
-        <div className="armada-verdict__block">
-          <button
-            type="button"
-            className="armada-verdict__fold"
-            aria-expanded={open}
-            onClick={() => setOpen((was) => !was)}
-          >
-            <Mark size={12} aria-hidden="true" />
-            <span className="armada-verdict__label">The Job&apos;s record</span>
-          </button>
-          {/* `hidden`, not unmounted, on `DroneBrief`'s rule: a folded record stays in the page. */}
-          <div className="armada-verdict__record-body" hidden={!open}>
-            {record}
-          </div>
-        </div>
-      ) : (
-        record
-      )}
+      {/* A card on the canvas, folded or open — `src/glass.css`, the one
+          recipe. It was the flat region among Overview's cards, which is what
+          the owner read on 30 Sep 2026. Folding is unchanged: the 29 Sep
+          decision is that the record stays under the lead. */}
+      <div className="armada-verdict__record-card armada-glass">
+        {folded ? (
+          <>
+            <button
+              type="button"
+              className="armada-verdict__fold"
+              aria-expanded={open}
+              onClick={() => setOpen((was) => !was)}
+            >
+              <Mark size={12} aria-hidden="true" />
+              <span className="armada-verdict__label">The Job&apos;s record</span>
+            </button>
+            {/* `hidden`, not unmounted, on `DroneBrief`'s rule: a folded record stays in the page. */}
+            <div className="armada-verdict__record-body" hidden={!open}>
+              {record}
+            </div>
+          </>
+        ) : (
+          record
+        )}
+      </div>
 
       {note === undefined ? null : <p className="armada-verdict__said">{note}</p>}
 

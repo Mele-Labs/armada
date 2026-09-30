@@ -12,7 +12,7 @@ import type {
   StudioRunKept,
   StudioSummary,
 } from "@armada/protocol";
-import { STUDIO_EDGE_LABEL, STUDIO_NODE_KIND } from "@armada/components";
+import { STUDIO_NODE_KIND } from "@armada/components";
 
 import { runOutcomeOf } from "./rehearsal";
 import { span } from "./duration";
@@ -364,13 +364,18 @@ const isRelation = (kind: string): kind is Relation => (RELATIONS as readonly st
 /**
  * Every edge the whiteboard can draw. **An edge kind this build does not know is left off** rather
  * than drawn as one it does — a relation drawn as the wrong relation is a claim nobody made.
+ *
+ * A proposed relation carries who drew it, which its own label on the board says over its Accept
+ * and Reject.
  */
 export function whiteboardEdges(studio: Studio): StudioWhiteboardEdge[] {
   return studio.edges.flatMap((edge): StudioWhiteboardEdge[] => {
     const ends = { id: edge.id, source: edge.from, target: edge.to };
     if (edge.kind === "produced") return [{ ...ends, kind: "produced" }];
     if (!isRelation(edge.kind)) return [];
-    return [{ ...ends, kind: edge.kind, proposed: edge.standing === "proposed" }];
+    if (edge.standing !== "proposed") return [{ ...ends, kind: edge.kind, proposed: false }];
+    const proposer = edge.added_by === undefined ? undefined : PROPOSED_BY[edge.added_by];
+    return [{ ...ends, kind: edge.kind, proposed: true, ...(proposer === undefined ? {} : { proposer }) }];
   });
 }
 
@@ -389,44 +394,12 @@ export function nodeNamed(
 }
 
 /**
- * Who drew a relation, as the card says it. **The record's own field, never a
- * guess**: `added_by` is absent on an edge kept before it existed, and the row
- * says the bare fact rather than naming somebody the Studio does not know.
+ * Who drew a relation, as its label on the board says it. **The record's own
+ * field, never a guess**: `added_by` is absent on an edge kept before it
+ * existed, and the label says the bare fact rather than naming somebody the
+ * Studio does not know.
  */
 export const PROPOSED_BY: Readonly<Record<string, string>> = {
   helm: "Helm proposes",
   person: "You proposed",
 };
-
-/** What a row says where the record does not name who drew the relation. */
-export const PROPOSED_BY_SOMETHING = "Proposed";
-
-/** One proposed relation, waiting on a person, as it is read aloud. */
-export type ProposedRelation = {
-  id: string;
-  /** Who drew it, already said — `Helm proposes`, or the bare fact. */
-  proposer: string;
-  from: string;
-  relation: string;
-  to: string;
-};
-
-/** Every relation proposed and not yet accepted, oldest first — the order Fleet keeps them in. */
-export function proposedRelations(studio: Studio, jobs: readonly JobSummary[]): ProposedRelation[] {
-  return studio.edges.flatMap((edge) =>
-    edge.standing === "proposed" && isRelation(edge.kind)
-      ? [
-          {
-            id: edge.id,
-            proposer:
-              edge.added_by === undefined
-                ? PROPOSED_BY_SOMETHING
-                : (PROPOSED_BY[edge.added_by] ?? PROPOSED_BY_SOMETHING),
-            from: nodeNamed(studio, edge.from, jobs),
-            relation: STUDIO_EDGE_LABEL[edge.kind],
-            to: nodeNamed(studio, edge.to, jobs),
-          },
-        ]
-      : [],
-  );
-}
