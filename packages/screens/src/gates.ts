@@ -183,6 +183,20 @@ export function didNotPass(run: CheckRun): boolean {
 }
 
 /**
+ * A Check that ran and held — `CheckOutcome::passed`, and `check-outcomes.toml`
+ * is where *did it pass* and *may the step advance* are two questions.
+ *
+ * **Not `!didNotPass`.** `CHECK_ADVANCES` cannot tell a pass from a skip, so
+ * counting passes off `advances` reads a step that skipped every Check as one
+ * that verified itself — the vacuous pass `verification::mechanical` exists to
+ * make unreachable. An outcome this build has never seen answers `false` to
+ * both, rather than defaulting into either.
+ */
+export function didPass(run: CheckRun): boolean {
+  return run.outcome === "passed";
+}
+
+/**
  * What a tier the run has not got to stands at.
  *
  * **The registry's word, and `criterion_verdict_check` owns it**: the five
