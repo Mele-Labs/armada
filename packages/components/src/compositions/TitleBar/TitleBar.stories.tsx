@@ -204,40 +204,49 @@ export const RevealedShortcuts: Story = {
 };
 
 /**
- * At `--window-floor`, the narrowest the window goes, with every slot filled.
- * The side columns once had a zero minimum, so below ~1100px the picker slid
- * under search and Dispatch sat on Helm. The sides keep their content now and
- * search is what gives way.
+ * A slim window, with every slot filled: `--window-floor` and 528px under it, both
+ * under the compact width. The side columns once had a zero minimum, so below
+ * ~1100px the picker slid under search and Dispatch sat on Helm. The sides
+ * keep their content now, and search, Dispatch and Helm go to glyphs with the
+ * mark in place of the lockup.
  */
-export const AtTheWindowFloor: Story = {
+export const InASlimWindow: Story = {
   args: {
     ...Full.args,
     helm: { questions: 3, binding: "⌘J", onOpen: () => {} },
   },
   render: (args) => (
-    <div style={{ width: "var(--window-floor)" }}>
-      <TitleBar {...args} />
-    </div>
+    <>
+      <div style={{ width: "var(--window-floor)" }}>
+        <TitleBar {...args} />
+      </div>
+      <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
+        <TitleBar {...args} />
+      </div>
+    </>
   ),
   play: async ({ canvasElement }) => {
-    const bar = canvasElement.querySelector(".armada-title-bar")!.getBoundingClientRect();
-    const boxes = [
-      ".armada-title-bar__picker",
-      ".armada-title-bar__search",
-      ".armada-title-bar__dispatch",
-      ".armada-title-bar__helm",
-      ".armada-title-bar__end > svg",
-      ".armada-title-bar__fleet",
-    ].map((selector) => ({ selector, box: canvasElement.querySelector(selector)!.getBoundingClientRect() }));
+    for (const row of canvasElement.querySelectorAll(".armada-title-bar")) {
+      const bar = row.getBoundingClientRect();
+      const boxes = [
+        ".armada-title-bar__picker",
+        ".armada-title-bar__search",
+        ".armada-title-bar__dispatch",
+        ".armada-title-bar__helm",
+        ".armada-title-bar__mark",
+        ".armada-title-bar__fleet",
+      ].map((selector) => ({ selector, box: row.querySelector(selector)!.getBoundingClientRect() }));
 
-    for (const { box } of boxes) {
-      await expect(box.left).toBeGreaterThanOrEqual(bar.left);
-      await expect(box.right).toBeLessThanOrEqual(bar.right);
-    }
-    for (const [at, { selector, box }] of boxes.entries()) {
-      const next = boxes[at + 1];
-      if (next === undefined) continue;
-      await expect({ [selector]: box.right <= next.box.left }).toEqual({ [selector]: true });
+      await expect(row.querySelector(".armada-title-bar__lockup")!.getBoundingClientRect().width).toBe(0);
+      for (const { box } of boxes) {
+        await expect(box.left).toBeGreaterThanOrEqual(bar.left);
+        await expect(box.right).toBeLessThanOrEqual(bar.right);
+      }
+      for (const [at, { selector, box }] of boxes.entries()) {
+        const next = boxes[at + 1];
+        if (next === undefined) continue;
+        await expect({ [selector]: box.right <= next.box.left }).toEqual({ [selector]: true });
+      }
     }
   },
 };

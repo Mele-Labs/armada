@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import tokens from "@armada/tokens/tokens.json";
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
@@ -110,12 +109,6 @@ function wearTheMark(): void {
   app.dock.setIcon(icon);
 }
 
-/** The hard window floor, from the token that exists to be read here. */
-function floor(name: string): number {
-  const found = tokens.tokens.find((token) => token.name === name);
-  return found === undefined ? 0 : Number.parseInt(found.value, 10);
-}
-
 /**
  * Write pasted or picked bytes to a fresh staging directory, before any Job
  * exists to key storage on. One directory per file rather than one per
@@ -192,9 +185,6 @@ function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 800,
-    // Every layout is designed for resize rather than for the size it was built
-    // at, and the floor is where that stops being the layout's problem.
-    minWidth: floor("--window-floor"),
     show: false,
     // Frameless: the title row Bridge draws itself — #1087 — replaces macOS's
     // grey bar, which said only "Armada" while the app's own controls sat

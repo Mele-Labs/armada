@@ -1,6 +1,6 @@
 import { MessageSquare, Plus, Search } from "lucide-react";
 import type { ReactNode } from "react";
-import { ArmadaLockupHorizontal } from "@armada/brand";
+import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
@@ -85,10 +85,12 @@ export function TitleBar({
 
       <div className="armada-title-bar__center">
         {onSearch === undefined ? null : (
-          <button type="button" className="armada-title-bar__search" onClick={onSearch}>
+          <button type="button" className="armada-title-bar__search" onClick={onSearch} title="Search — ⌘K">
             <Search size={16} strokeWidth={2} aria-hidden />
             <span className="armada-title-bar__search-label">Search jobs, commands, settings…</span>
-            <KbdCmd shortcut="⌘K" />
+            <span className="armada-title-bar__search-kbd">
+              <KbdCmd shortcut="⌘K" />
+            </span>
           </button>
         )}
 
@@ -97,9 +99,9 @@ export function TitleBar({
           // carry a title-bar-only no-drag hook on, same reasoning as the
           // picker below. #1156.
           <div className="armada-title-bar__dispatch">
-            <Button variant="tonal" size="sm" onClick={onDispatch} disabled={dispatchDisabled}>
+            <Button variant="tonal" size="sm" onClick={onDispatch} disabled={dispatchDisabled} title="Dispatch">
               <Plus size={16} strokeWidth={2} aria-hidden />
-              Dispatch
+              <span className="armada-title-bar__label">Dispatch</span>
             </Button>
           </div>
         )}
@@ -114,7 +116,7 @@ export function TitleBar({
             title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
           >
             <MessageSquare size={16} strokeWidth={2} aria-hidden />
-            <span>Helm</span>
+            <span className="armada-title-bar__label">Helm</span>
             {helm.questions > 0 ? (
               <span className="armada-title-bar__helm-count">{helm.questions}</span>
             ) : null}
@@ -129,7 +131,13 @@ export function TitleBar({
           </button>
         )}
 
-        <ArmadaLockupHorizontal height={20} title="Armada" />
+        {/* Both drawn; the stylesheet shows one by the bar's width. */}
+        <span className="armada-title-bar__lockup">
+          <ArmadaLockupHorizontal height={20} title="Armada" />
+        </span>
+        <span className="armada-title-bar__mark">
+          <ArmadaMark size={20} title="Armada" />
+        </span>
 
         {/* Last, on the bar's own trailing edge — where the owner put it on
             17 Sep 2026. The dot is `--dot`, the same 6px the panel and the

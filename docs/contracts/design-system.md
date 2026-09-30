@@ -1030,16 +1030,17 @@ line of facts beneath.
 
 ### Responsive behaviour
 
-**A floor per client.** The desktop window floors at 768px, half of a
-1536px display and a normal way to run something you glance at beside an
-editor; with the rail at 48px that leaves 720px of content. The touch client
-floors at 390px, which leaves 358px between its gutters.
+**The desktop window has no minimum width.** A person keeps Bridge in a slim
+window beside the work they are doing, and a floor refused them that (the
+owner, 30 Sep 2026). `--window-floor`, 768px, is the narrowest tier a layout
+is drawn for: at it and below, sheets go flush and closes go icon-only. The
+touch client floors at 390px, which leaves 358px between its gutters.
 
-> **Rule.** `--window-floor` is the desktop window's minimum, and the touch
-> client never reads it.
-> Why: the main process sets the window's `minWidth` from it and
-> `packages/shell/src/floor.ts` answers whether the window is at it, and a
-> touch client has no window to bound.
+> **Rule.** The main process sets no `minWidth`. `--window-floor` is a layout
+> tier, and the touch client never reads it.
+> Why: a floor on the window decides for the person how much of their screen
+> Bridge takes. `packages/shell/src/floor.ts` answers whether the window is at
+> or under the tier, and a touch client has no window to bound.
 
 **One breakpoint at ~1100px, and one client boundary at the desktop floor:**
 
@@ -1057,9 +1058,9 @@ floors could not both be paid for and the left column went to its rail. The
 dock costs the layout nothing now, so that band reads as the first and the
 table is shorter by a column.
 
-The last column is a client and not a window width. Nothing between 390px and
-768px is drawn, because the desktop window cannot get there and the touch
-client is not resized into it.
+The last column is a client and not a window width. A desktop window under
+768px keeps the < 1100px column's layout, with the floor tier's flush sheets,
+and each surface that crowds there fits itself (the title row goes to glyphs).
 
 The stacked row is the status grammar's own shape: headline sentence on
 line one (`Job 12 stalled at step 3`), labelled field run on line two

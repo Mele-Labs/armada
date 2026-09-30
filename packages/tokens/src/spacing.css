@@ -90,7 +90,7 @@
      corrected that on 18 Sep — where the column collapses it is *this*, not
      absent. --layout-breakpoint is the one place it collapses now (#1583). */
   --sidebar-rail: 48px;
-  --window-floor: 768px;  /* the desktop window's minWidth */
+  --window-floor: 768px;  /* the narrowest tier a layout is drawn for; the window has no minimum */
   --touch-floor: 390px;   /* the narrowest the touch client is drawn for */
   /* The collapse points, and no others. --layout-breakpoint is where a
      two-column split stops fitting: the job detail spine beside its step pane,
@@ -99,8 +99,8 @@
      three-up goes one-up and the Job row stacks its badge, body and actions.
      Below --window-floor is the touch client, which has no window, and
      --layout-breakpoint-desktop is where it ends. It carries the floor's value
-     on purpose: the window never goes below it, so `max-desktop:` only ever
-     matches the touch client and `desktop:` matches every window.
+     on purpose. The window has no minimum (the owner, 30 Sep 2026), so a slim
+     window matches `max-desktop:` too; nothing spells that variant yet.
 
      A media query cannot read a custom property, so a drawing repeats the
      literal and names the token beside it — and so does the theme. The

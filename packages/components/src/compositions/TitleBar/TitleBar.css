@@ -28,6 +28,7 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
   background: var(--bg-sunken);
   -webkit-app-region: drag;
+  container-type: inline-size;
 }
 
 /* Every interactive child opts out of the drag region by hand — nothing
@@ -100,7 +101,6 @@
   gap: var(--space-2);
   min-width: 0;
   width: var(--sidebar-max);
-  container-type: inline-size;
   height: var(--h-control-sm);
   padding-inline: var(--space-3);
   border: var(--border-width) solid var(--border-default);
@@ -132,18 +132,6 @@
   text-align: left;
 }
 
-/* At the window floor the field shrinks past its label; a clipped "S" reads
-   as a typo, so the label goes and the glass and ⌘K stay.
-
-   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
-   Measured in the mock at --window-floor — docs/contracts/design-system.md
-   The field is 95px there and the label shows one letter; at 160px it still
-   reads "Search j…". */
-@container (max-width: 160px) {
-  .armada-title-bar__search-label {
-    visibility: hidden;
-  }
-}
 
 /* The right region: Helm's reopen control, drawn only while the caller says
  * the dock is closed, and the logo. */
@@ -242,4 +230,54 @@
 .armada-title-bar > svg,
 .armada-title-bar > [aria-hidden="true"] {
   flex: none;
+}
+
+/* Only one of the two brand drawings shows; compact below swaps them. */
+.armada-title-bar__lockup,
+.armada-title-bar__mark {
+  display: flex;
+  flex: none;
+}
+
+.armada-title-bar__mark {
+  display: none;
+}
+
+/* Compact: search, Dispatch and Helm as glyphs, and the mark in place of the
+   lockup. The labels leave the eye but not the button's name, and each
+   button's `title` says what it is.
+
+   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
+   Measured in the mock — docs/contracts/design-system.md
+   The full row's sides measure 279px and 266px, and search stops reading
+   below about 160px, so the full row needs about 860px. */
+@container (max-width: 900px) {
+  .armada-title-bar__label,
+  .armada-title-bar__search-label,
+  .armada-title-bar__search-kbd {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .armada-title-bar__search,
+  .armada-title-bar__helm,
+  .armada-title-bar__dispatch .armada-button {
+    position: relative;
+    justify-content: center;
+    width: auto;
+    min-width: var(--h-control-sm);
+    padding-inline: var(--space-2);
+  }
+
+  .armada-title-bar__lockup {
+    display: none;
+  }
+
+  .armada-title-bar__mark {
+    display: flex;
+  }
 }
