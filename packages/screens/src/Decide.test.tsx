@@ -96,6 +96,18 @@ function confirmMerge() {
   return page.getByRole("dialog").getByRole("button", { name: "Merge and take the work" });
 }
 
+/**
+ * Approve and Reject sit behind a caret each — the owner's arrangement of
+ * 30 Sep 2026 — so reaching either is two presses rather than one.
+ */
+async function chooseBehindCaret(caret: string, act: string): Promise<void> {
+  await userEvent.click(page.getByRole("button", { name: caret }));
+  await userEvent.click(page.getByRole("menuitem", { name: act }));
+}
+
+const TAKE_WORK = "The other way to take this work";
+const END_REVIEW = "The other way to end this review";
+
 test("pressing merge asks rather than merging", async () => {
   const sent = gate();
 
@@ -146,13 +158,13 @@ test("confirming merges once, and names the job it was asked about", async () =>
 test("approve and request changes send on the press, with no dialog", async () => {
   const sent = gate();
 
-  await userEvent.click(page.getByRole("button", { name: "Approve the work" }));
+  await chooseBehindCaret(TAKE_WORK, "Approve the work");
   expect(sent.approved).toEqual([JOB.id]);
 
   // Requesting changes is refused while the note is blank, which is what Fleet
   // would answer — so it is written before it is pressed.
   await userEvent.fill(
-    page.getByRole("textbox", { name: "What should change" }),
+    page.getByRole("textbox", { name: "Notes" }),
     "The gate arm is missing from config's loader.",
   );
   await userEvent.click(page.getByRole("button", { name: "Request changes" }));
@@ -164,7 +176,10 @@ test("approve and request changes send on the press, with no dialog", async () =
 test("Approve's tooltip says the pull request stays open, with one open", async () => {
   gate();
 
-  await userEvent.hover(page.getByRole("button", { name: "Approve the work" }));
+  // Behind the caret, and the sentence went with the act: it is the only place
+  // left on the surface where what Approve costs can be read.
+  await userEvent.click(page.getByRole("button", { name: TAKE_WORK }));
+  await userEvent.hover(page.getByRole("menuitem", { name: "Approve the work" }));
 
   await expect
     .element(page.getByText("Takes the work without merging — the pull request stays open."))
@@ -224,7 +239,7 @@ test("a fresh remarks reading keeps a picked comment and a typed note", async ()
 
   await userEvent.click(page.getByRole("checkbox", { name: "Act on this" }));
   await userEvent.fill(
-    page.getByRole("textbox", { name: "What should change" }),
+    page.getByRole("textbox", { name: "Notes" }),
     "The gate arm is missing from config's loader.",
   );
 
@@ -248,14 +263,14 @@ test("a fresh remarks reading keeps a picked comment and a typed note", async ()
   await expect.element(boxes.nth(0)).toBeChecked();
   await expect.element(boxes.nth(1)).not.toBeChecked();
   await expect
-    .element(page.getByRole("textbox", { name: "What should change" }))
+    .element(page.getByRole("textbox", { name: "Notes" }))
     .toHaveValue("The gate arm is missing from config's loader.");
 });
 
 test("reject still asks, and merging is not what it asks about", async () => {
   const sent = gate();
 
-  await userEvent.click(page.getByRole("button", { name: "Reject the work" }));
+  await chooseBehindCaret(END_REVIEW, "Reject the work");
 
   // One question at a time: the two confirmations share a state, and a shape
   // that let both stand would put two layers over one gate.
@@ -430,17 +445,19 @@ test("merge is drawn and disabled while the branch conflicts, and the other thre
     .element(page.getByText("This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."))
     .toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Approve the work" }));
+  // The dead face's own caret still opens, which is what keeps Approve
+  // reachable on the one screen a person most wants it from.
+  await chooseBehindCaret(TAKE_WORK, "Approve the work");
   expect(approved).toEqual([JOB.id]);
 
   await userEvent.fill(
-    page.getByRole("textbox", { name: "What should change" }),
+    page.getByRole("textbox", { name: "Notes" }),
     "Rebase and drop the stray import.",
   );
   await userEvent.click(page.getByRole("button", { name: "Request changes" }));
   expect(changed).toEqual([JOB.id]);
 
-  await userEvent.click(page.getByRole("button", { name: "Reject the work" }));
+  await chooseBehindCaret(END_REVIEW, "Reject the work");
 
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.click(page.getByRole("dialog").getByRole("button", { name: "Reject the work" }));
