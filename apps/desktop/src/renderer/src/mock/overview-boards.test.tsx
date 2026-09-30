@@ -57,7 +57,7 @@ describe("the train — Overview for a Job whose members are Jobs", () => {
 
     // Above the order, not under it: the whole complaint was that a person
     // had to look for what was waiting on them.
-    expect(boxOf(".armada-train__lead").bottom).toBeLessThanOrEqual(
+    expect(boxOf(".armada-lead").bottom).toBeLessThanOrEqual(
       boxOf(".armada-members").top,
     );
   });
@@ -157,12 +157,19 @@ describe("the proposal — Overview at and just past the approval gate", () => {
     expect(settings.top).toBeLessThan(request.bottom);
   });
 
-  // **Read on the frozen board, because that is where a setting is read.**
-  // Every value on an open proposal is a control now and a control brings its
-  // own box — the last value that was not one was `Workflow — 4 steps`, and
-  // it became the picker when the gates folded under it (`2b4j`, 28 Sep).
+  // **Read on Settings, because that is where a frozen setting is read.**
+  // Overview drew the frozen proposal until 29 Sep 2026; it leads with the one
+  // thing now, and what froze at the gate is Settings'. Every value on an open
+  // proposal is a control and a control brings its own box — the last value
+  // that was not one was `Workflow — 4 steps`, and it became the picker when
+  // the gates folded under it (`2b4j`, 28 Sep).
   test("a setting's value sits in a box of its own, and its label does not", async () => {
-    await drawn("arc/approved-frozen", ".armada-proposal__field-value");
+    mount("arc/approved-frozen");
+    await onScreen();
+    await page.getByRole("tab", { name: /^Settings/ }).click();
+    await expect
+      .poll(() => document.querySelectorAll(".armada-proposal__field-value").length)
+      .toBeGreaterThan(0);
 
     const value = document.querySelector(
       ".armada-proposal__field-value:not([data-bare])",

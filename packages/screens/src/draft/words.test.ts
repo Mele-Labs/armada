@@ -132,7 +132,8 @@ describe("the list #1545 reads", () => {
   it("names every map in this module, so none is promoted by being forgotten", () => {
     expect(DRAFT_VOCABULARIES.map((entry) => entry.vocabulary)).toEqual([
       "task_state",
-      "group_state",
+      // `group_state` was here until 29 Sep 2026, when it was promoted so it
+      // could carry a glyph. Its absence is what this claim is for.
       "case_run_outcome",
       "case_state",
       "job_status",

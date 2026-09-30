@@ -254,10 +254,12 @@ describe("approved", () => {
       expect(page.getByRole("button", { name: "Add a criterion" }).all()).toHaveLength(0);
       expect(page.getByRole("button", { name: /^Remove criterion/ }).all()).toHaveLength(0);
 
-      // And the words the Job is held to are still read somewhere: Plan's lead.
+      // And the words the Job is held to are still read somewhere: Plan's
+      // lead. **Not `Done when`** — that region belongs to the proposal, and
+      // the proposal is Settings' once a Job is approved.
       await page.getByRole("tab", { name: /^Plan/ }).click();
       await expect
-        .element(heldTo())
+        .element(page.getByRole("tabpanel", { name: "Plan" }))
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
     },
   );

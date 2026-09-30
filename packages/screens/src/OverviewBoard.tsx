@@ -24,6 +24,7 @@ import {
 } from "@armada/components";
 import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
 import { JobLead, type JobLeadProps } from "./JobLead";
@@ -64,6 +65,17 @@ export type OverviewPlan = {
 
 export type OverviewBoardProps = {
   lead: JobLeadProps;
+  /**
+   * The thing the lead is about, where a person answers it: a Drone's question
+   * and its answers, or the Allow / Always allow / Reject choice for a command
+   * it was not given.
+   *
+   * **Directly under the lead, because the lead is its sentence.** The two
+   * were a screen apart until 29 Sep 2026 — the lead on Overview and the
+   * controls in a step panel — and then the panel came off and the lead was
+   * left offering an act with nowhere to do it.
+   */
+  waiting?: ReactNode;
   workflow?: OverviewWorkflow;
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
@@ -80,6 +92,7 @@ export type OverviewBoardProps = {
 
 export function OverviewBoard({
   lead,
+  waiting,
   workflow,
   workflowAbsent,
   plan,
@@ -94,6 +107,7 @@ export function OverviewBoard({
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
       <JobLead {...lead} />
+      {waiting}
 
       <div className="armada-overview-board__cards">
         {/* **What the Job is for, before what it is doing.** It took the

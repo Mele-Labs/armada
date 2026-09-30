@@ -20,7 +20,10 @@ export function JobLead({ said, because, tone, act }: JobLeadProps) {
   return (
     <div className="armada-lead" data-tone={tone}>
       <div className="armada-lead__said">
-        <p className="armada-lead__headline">{said}</p>
+        {/* **A heading, because it leads the destination.** Everything under
+            it is subordinate to the one thing it names, and a reader moving by
+            headings should land here first. */}
+        <h2 className="armada-lead__headline">{said}</h2>
         {because === "" ? null : <p className="armada-lead__because">{because}</p>}
       </div>
       {act}

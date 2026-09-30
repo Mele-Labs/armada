@@ -443,7 +443,12 @@ export function arcDetail(
     // both drew nothing on every arc moment. Its own numbers rather than
     // `spend()`'s defaults: the every-state Job is a few turns old and this
     // one is most of the way through four groups.
-    spend: spend({ cost_micros: 7_400_000, turns: 571, turn_cap: 3_000, ran_ms: 3_840_000, drones: 4 }),
+    // **The same figures the landed board derives from the tasks**, so the
+    // Job's own totals and the per-task arithmetic tell one story: ten agents
+    // for eight tasks, because group three retried and its two ran twice.
+    // Numbers that disagreed would make `arc/landed` say `4 Drones` over a
+    // row that says a group ran again.
+    spend: spend({ cost_micros: 7_530_000, turns: 135, turn_cap: 3_000, ran_ms: 7_320_000, drones: 10 }),
     ...over,
   };
 }

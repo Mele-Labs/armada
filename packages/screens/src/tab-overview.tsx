@@ -56,7 +56,8 @@ import { TrainBoard } from "./TrainBoard";
 import { landedOf } from "./landed";
 import { span } from "./duration";
 import { ordered } from "./facts";
-import { holdingOf, lookOf, turnsOf } from "./mine";
+import { holdingOf, logOf, lookOf, turnsOf } from "./mine";
+import { verdictSlotOf } from "./verdict-answered";
 import { useDiffAgain } from "./produced";
 import { checkEntryId, useRunSheet } from "./rehearsal";
 // Which Check's output `o` opens. **The same call the Checks chapter's own act
@@ -65,6 +66,7 @@ import { checksOf, outputOf } from "./gates";
 import { openKept } from "./phases";
 import { CHECKS_CHAPTER } from "./checks";
 import { runOf, whyNoSteps } from "./run";
+import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
 import { taskGroupsOf } from "./draft/group";
 import { entriesOf, hideUnread, whyNotWatching } from "./story";
 import {
@@ -182,6 +184,10 @@ export function OverviewTab(props: OverviewTabProps) {
     stale,
     now,
     acting,
+    actingAct,
+    onAnswer,
+    onAnswerCommand,
+    onExplainCommand,
     observed,
     resources,
     examination,
@@ -266,6 +272,7 @@ export function OverviewTab(props: OverviewTabProps) {
   // (`whole` itself was read above, before `job` was reconciled to it.)
   // What the Board's own row already answers, while this Job's read is out.
   const watching = turnsOf(observed, job.id);
+  const noted = logOf(props.journalled, job.id);
   // The open sheet's own reading of the patch, taken again as the Job writes.
   useDiffAgain(onReadDiff, job.id, sheet, watching?.rows ?? [], job.assigned_drone !== undefined);
   const holding = holdingOf(resources, job.id);
@@ -302,6 +309,17 @@ export function OverviewTab(props: OverviewTabProps) {
   // The strip's rows carry the three records a person reads because a verdict
   // went against them, and each opens. The Job id and the toast are the panel's,
   // so they are handed down rather than reached for; `phases.tsx` says why.
+  // What this step's Drone claimed it did, and the documents the Judge tier
+  // points at. Read off the same `evidence` the verdict slot is built from
+  // rather than fetched again — one call, drawn once. A read that has not
+  // arrived is not a step that claimed nothing.
+  const claimed = useMemo(
+    () =>
+      recorded.evidence.state === "read"
+        ? recorded.evidence.steps.find((one) => one.step_id === open?.step_id)
+        : undefined,
+    [recorded.evidence, open?.step_id],
+  );
   const opensRecords = useMemo(
     () => ({ jobId: job.id, open: onOpenArtifact, onSaid }),
     [job.id, onSaid],
@@ -550,6 +568,49 @@ export function OverviewTab(props: OverviewTabProps) {
   // The verdict sheet's slot: `Decide`'s place at the gate, and the finished
   // Job's own place, whichever of the three arrangements the render is —
   // `verdictSlotOf`, in `verdict-answered.tsx`.
+  //
+  // **Under the lead, with the Drone's question and the command.** The owner's
+  // call of 29 Sep 2026, on a screen whose lead read *Delivery is waiting on
+  // you to approve it* over a button that reached nothing: an approval is
+  // rank 1 in *Overview leads with what releases the most*, and rank 1 is
+  // answered where it is said. The diff and the pull request's comments stay
+  // where they were — Record reads the Job, this decides it.
+  const verdictSlot = verdictSlotOf({
+    job,
+    whole,
+    open,
+    render,
+    recorded,
+    opensRecords,
+    now,
+    claimed,
+    frames,
+    onNeedMaterial: props.onNeedMaterial,
+    onNeedRemarks: props.onNeedRemarks,
+    stale,
+    acting,
+    actingAct,
+    answered: props.answered,
+    deciding: props.deciding,
+    decidingAct: props.decidingAct,
+    onMergePullRequest: props.onMergePullRequest,
+    onRerunFailedChecks: props.onRerunFailedChecks,
+    onInvestigateFailedChecks: props.onInvestigateFailedChecks,
+    onQueueAfterFinding: props.onQueueAfterFinding,
+    onFileFindingIssue: props.onFileFindingIssue,
+    onOpenFindingIssue: props.onOpenFindingIssue,
+    onApproveReview: props.onApproveReview,
+    onRequestChanges: props.onRequestChanges,
+    onReject: props.onReject,
+    onTakeUpRemarks: props.onTakeUpRemarks,
+    onOpenRemarkLink: props.onOpenRemarkLink,
+    onOpenPullRequest,
+    onSaid,
+    onAnswerJudge,
+    onOpenDiff: () => openSheet("diff"),
+    onDismissFinding: props.onDismissFinding,
+    notes: noted?.notes ?? [],
+  });
 
 
   // Read once: `plan` gates both the region and its own eyebrow act, and a
@@ -666,12 +727,32 @@ export function OverviewTab(props: OverviewTabProps) {
           />
         );
 
+  // **What the lead is about, under the lead.** A Drone's question and its
+  // answers, and the Allow / Always allow / Reject choice for a command it was
+  // not given. These were the step panel's until 29 Sep 2026; the reframe took
+  // the panel off Overview and took them with it, so `Answer it` and
+  // `Decide it` named acts with nowhere to happen. The owner put them back
+  // here rather than at a destination: the lead says a thing is waiting, and
+  // the thing waiting is what a person came to answer.
+  const answering = answeringOf(job.id, stale, acting, onAnswerCommand, actingAct);
+  // Bound to the Job being read, so nothing downstream carries an id back.
+  const explain =
+    onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
+  const waiting = waitingOf(
+    questionOf(whole, job.id, now, stale, acting, onAnswer, actingAct),
+    commandOf(whole, now, answering, explain),
+    verdictSlot,
+  );
+
   // **What leads the screen, before the run a person would have to read to
   // find it.** The owner's 29 September call: Overview shows what needs you,
   // and it leads with one thing. `lead.ts` holds the rank and its costs.
   const lead = leadOf(job, whole, now);
+  // **No act where the thing to act on is already under the lead.** A button
+  // named `Decide it` over the Allow / Reject choice it scrolls to is a press
+  // that moves nothing.
   const leadAct =
-    lead.act === undefined || open === undefined ? undefined : (
+    lead.act === undefined || open === undefined || waiting !== undefined ? undefined : (
       <Button
         onClick={() => {
           // Selecting the step is what opens the inspector on it, which is
@@ -694,6 +775,7 @@ export function OverviewTab(props: OverviewTabProps) {
   const inside = (
     <OverviewBoard
       lead={{ ...lead, act: leadAct }}
+      waiting={waiting}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
         : {
@@ -762,7 +844,17 @@ export function OverviewTab(props: OverviewTabProps) {
   // A Job that has finished is read for what it came to, not for the run that
   // is over: the board takes this destination and the run is the Workflow
   // tab's, the plan the Plan tab's, the ledger the Record tab's. #1542.
-  if (landed === undefined) return inside;
+  // **The sheet layer goes with every arrangement, not only the two boards.**
+  // It was dropped from this return when `InsideAJob` came off, and `r`, `L`
+  // and `f` each opened nothing on an ordinary Job — the keys were still
+  // bound, and there was no layer for what they opened to be drawn in.
+  if (landed === undefined)
+    return (
+      <>
+        {inside}
+        {sheetSlot}
+      </>
+    );
   return (
     <>
       <LandBoard

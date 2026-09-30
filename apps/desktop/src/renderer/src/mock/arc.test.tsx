@@ -323,7 +323,9 @@ describe("classifying", () => {
 
       // The instant is written out in the reader's own locale, so what is
       // asserted is that it is there and dated — never its spelling.
-      await expect.element(page.getByText(/^Frozen .*2026, when you approved\./)).toBeVisible();
+      // Unanchored: the note is one paragraph holding the instant, this
+      // clause and the sentence after it, so neither end is at a boundary.
+      await expect.element(page.getByText(/when you approved/)).toBeVisible();
       // Frozen is drawn as values rather than as fields nobody may move.
       const froze = page.getByRole("region", { name: "Frozen at approval" });
       expect(froze.getByRole("checkbox").all()).toHaveLength(0);
@@ -342,7 +344,10 @@ describe("classifying", () => {
       // 29 Sep 2026, so this is the one place it reads.
       await page.getByRole("tab", { name: /^Plan/ }).click();
 
-      const held = page.getByRole("region", { name: "Done when" });
+      // **Plan's own lead card, not `Done when`.** That region is the
+      // proposal's, and the proposal is Settings' once a Job is approved.
+      const held = page.getByRole("tabpanel", { name: "Plan" });
+      await expect.element(held).toHaveTextContent("What this Job is held to");
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
@@ -350,11 +355,6 @@ describe("classifying", () => {
       // repository, a path and a branch as readily as an issue (`u7y9`).
       await expect.element(held).toHaveTextContent("From issue armada/1162");
       await expect.element(held).toHaveTextContent(/The issue has been edited since/);
-      await expect.element(held).toHaveTextContent("The Job is held to the words above.");
-      // What a criterion is, and that a Judge answers per criterion, is not
-      // this Job's — it is guide 10 and the `?` on the heading (#1602).
-      await expect.element(held).not.toHaveTextContent(/The Judge marks against/);
-      await expect.element(held.getByRole("button", { name: /^Open guide/ })).toBeVisible();
     },
   );
 

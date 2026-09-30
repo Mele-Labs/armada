@@ -118,10 +118,17 @@ test("the board's own name carries a `?`, and it opens what Pulse is", async () 
  * one fact inside the tab rather than what the tab is.
  *
  * **Met everything but Pulse, rather than nothing.** A window that has met
- * nothing opens its one self-opened card over the run and spends the session's
- * only card there, which would make this pass for the wrong reason.
+ * nothing spends the session's one self-opened card on whatever it meets
+ * first, which would make this pass for the wrong reason.
+ *
+ * **Raised on the Job, not on the tab, since 29 Sep 2026.** Overview draws a
+ * Pulse card and the card carries `GUIDE_PULSE`, so the piece is met on
+ * arrival at the Job — a person meets what Pulse is beside the reading that
+ * sent them there, one press before the destination. The second half of the
+ * claim is untouched: the guide about disk is a fact inside Pulse and is
+ * never what a person is handed on the way in.
  */
-test("arriving at Pulse raises what Pulse is, and never the guide about disk", async () => {
+test("the Pulse card raises what Pulse is, and never the guide about disk", async () => {
   window.localStorage.setItem(
     KEY,
     JSON.stringify({
@@ -131,7 +138,6 @@ test("arriving at Pulse raises what Pulse is, and never the guide about disk", a
     }),
   );
   mount(onJob(running()));
-  await onPulse();
 
   await expect
     .element(page.getByRole("dialog", { name: `Guide ${GUIDE_PULSE.number}, ${GUIDE_PULSE.title}` }))
