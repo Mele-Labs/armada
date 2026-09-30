@@ -10,6 +10,10 @@
 // the way `gating.ts`'s two-Check step is, so nothing else in the roster
 // changes shape.
 //
+// **Two moments at that gate**, since the lead counts the whole Job's evidence:
+// a clean one, and `reviewAfterAnOverrule` — the only Job on any roster with a
+// retried Check and an overruled criterion behind a branch that is out.
+//
 // **`WithNoPullRequest` is not a fixture here.** `review()` already is that
 // state — `awaiting_review`, mid-workflow, `whole.delivery` absent — and the
 // same absence that keeps its own gate un-mergeable is what keeps `land`
@@ -21,6 +25,7 @@ import type { Remark, Remarks, StepDetail } from "@armada/protocol";
 import {
   advancedStep,
   BUILD_CHECK,
+  buildRun,
   detail,
   diffRead,
   droneEnded,
@@ -40,6 +45,7 @@ import {
   resources,
   rootCauseStep,
   said,
+  verdict,
   watchedRead,
   workflow,
 } from "./base";
@@ -193,6 +199,120 @@ export function reviewAtDelivery(): JobFixture {
       ),
       remarks: remarksRead(PULL_REQUEST, REMARKS),
     }),
+    calls: {},
+    checkOutputs: {},
+    frames: {},
+    now: NOW,
+  };
+}
+
+/**
+ * `fix`, worked twice — the build Check failed on attempt 1 and passed on
+ * attempt 2. **One Check that passed**, which is what the lead's count has to
+ * read off it: the gate records a row per declared Check per attempt, so
+ * attempt 1's failure is history rather than a second Check.
+ */
+function fixRetried(): StepDetail {
+  return {
+    ...advancedStep("fix", "Fix", 3, [BUILD_CHECK]),
+    check_runs: [
+      buildRun({
+        attempt: 1,
+        outcome: "failed",
+        expected: "cargo build --workspace --locked exits 0",
+        produced: "error[E0432]: unresolved import `crate::settings::selectors`",
+        output_path: ".armada/checks/77-split-the-settings-reducer/fix.1.cargo_build.log",
+      }),
+      buildRun({ attempt: 2 }),
+    ],
+    attempts: [
+      { attempt: 1, outcome: "retrying", why: "gate_failure", started_at: "2026-09-10T14:16:07Z", ended_at: "2026-09-10T14:19:02Z" },
+      { attempt: 2, outcome: "advanced", started_at: "2026-09-10T14:19:02Z", ended_at: "2026-09-10T14:22:18Z" },
+    ],
+    verdicts: [verdict(1, "failed", "gate_failure"), verdict(2, "passed")],
+    last_verdict: verdict(2, "passed"),
+  };
+}
+
+/**
+ * `regression_verify`, refused by its Judge and advanced by a person —
+ * `fleet::overruling`, admitted on `gate_failure` and refused where a Check
+ * failed, so every Check here passed and `c1` is still `not_met`.
+ */
+function regressionOverruled(): StepDetail {
+  return {
+    ...advancedStep("regression_verify", "Regression check", 4, [NEXTEST_CHECK]),
+    judge_checks: [{ criteria: 2, gaming_check: true }],
+    judged: [
+      {
+        attempt: 1,
+        criterion_id: "c1",
+        verdict: "not_met",
+        expected: "packages/settings/src/selectors.ts imports no store type",
+        produced: "The module still imports RootState, which is declared in the store's own file.",
+        consequence: "The selectors cannot be tested without the store's types being constructible.",
+      },
+      { attempt: 1, criterion_id: "c2", verdict: "met" },
+    ],
+    overridden: true,
+    verdicts: [verdict(1, "failed", "gate_failure")],
+    last_verdict: verdict(1, "failed", "gate_failure"),
+  };
+}
+
+/**
+ * The same delivering gate over a record a person has already argued with: one
+ * Check retried, one criterion refused and overruled.
+ *
+ * **Its own fixture rather than a variant of `reviewAtDelivery`.** That one is
+ * the clean sign-off and its whole value is being clean; what the lead's count
+ * has to survive is a Job whose evidence is not, and folding the two together
+ * would lose whichever of them is not being read.
+ */
+export function reviewAfterAnOverrule(): JobFixture {
+  const theJob = job("awaiting_review", { current_step_id: "land" });
+  const steps = [
+    reproStep(),
+    rootCauseStep(),
+    fixRetried(),
+    regressionOverruled(),
+    advancedStep("consumers", "Check the consumers still compile", 5, [BUILD_CHECK]),
+    landAtTheGate(),
+  ];
+  const whole = detail(theJob, steps, {
+    delivery: { commit: "3c07a94", pushed: "origin/fix/settings-split-selectors", pull_request: PULL_REQUEST },
+  });
+
+  const rows = [
+    instructed("land", "2026-09-10T14:26:56Z", 6, "the branch is pushed and a pull request is open", "Land"),
+    said("land", "2026-09-10T14:27:05Z", "Pushing the branch and opening a pull request against main."),
+    droneEnded("land", "2026-09-10T14:27:12Z", 3, 60_000),
+  ];
+
+  return {
+    name: "awaiting_review — a Check was retried and a refusal overruled behind the branch that is out",
+    job: theJob,
+    watched: watchedRead(whole),
+    workflows: [workflow()],
+    manifests: [manifest()],
+    observed: observedEnded(rows, "drone_ended"),
+    journalled: journalledWatching([
+      note("2026-09-10T14:19:02Z", "cargo_build failed on attempt 1 of 3. The step was handed back.", {
+        level: "warn",
+        step: "fix",
+      }),
+      note(
+        "2026-09-10T14:24:50Z",
+        "Regression check's Judge refused criterion 01. Overruled: RootState is a type, not the store.",
+        { step: "regression_verify" },
+      ),
+      note("2026-09-10T14:27:03Z", "Pull request opened against main.", { step: "land" }),
+    ]),
+    resources: holdsRead(resources("none", { processes: [], wrote_last_at: "2026-09-10T14:27:12.000Z" })),
+    // **A read holding no remark**, not an absent read: this pull request has
+    // no comments on it, and leaving the read out draws *Reading what people
+    // wrote* over a fetch nothing is doing.
+    recorded: foldedReads({ diff: diffRead(FILES), remarks: remarksRead(PULL_REQUEST, []) }),
     calls: {},
     checkOutputs: {},
     frames: {},

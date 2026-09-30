@@ -14,9 +14,10 @@
 import { CHECK_ADVANCES, ESCALATION_REASON, JOB_LIFECYCLE } from "@armada/components";
 import type { CheckRun, Criterion, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 
-import { panelsOf } from "./gates";
+import { didNotPass, didPass, panelsOf } from "./gates";
 
 import { elapsedSince, span } from "./duration";
+import { onlyCurrentAttempt } from "./facts";
 
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
@@ -99,21 +100,80 @@ function met(n: number): string {
 }
 
 /**
- * What the gate found, on a step waiting to be approved. **The positive is
- * what makes a sign-off a sign-off** — without it the line says a step is
- * waiting and nothing about whether the work is any good.
+ * What every gate on this Job found, on a Job waiting to be approved. **The
+ * positive is what makes a sign-off a sign-off** — without it the line says a
+ * step is waiting and nothing about whether the work is any good.
+ *
+ * **The whole Job's evidence, never the waiting step's alone**, because what is
+ * being signed off is the branch and not the step: the delivering step verifies
+ * nothing of its own, so the step-local reading left this empty on the one Job
+ * a person is most likely to be approving. The owner, 30 Sep 2026, and what
+ * honest counting costs is *the lead counts the whole Job's evidence* in the
+ * decisions register.
+ *
+ * **Empty stays empty.** A Job whose steps ran no Check and answered no
+ * criterion draws no second line rather than a sentence saying so.
  */
-function metSaid(step: StepDetail | undefined, whole: JobWhole | null): string {
-  if (step === undefined) return "";
-  const panels = panelsOf(step, whole?.acceptance_criteria ?? []);
-  const checks = (step.check_runs ?? []).filter((run) => CHECK_ADVANCES[run.outcome] !== false).length;
-  const said = [
-    checks === 0 ? "" : `${checks === 1 ? "Its Check" : `All ${checks} Checks`} passed`,
-    panels.length === 0
-      ? ""
-      : `the Judge met ${met(panels.length)}`,
-  ].filter((part) => part !== "");
+function metSaid(whole: JobWhole | null): string {
+  if (whole === null) return "";
+  const said = [checksSaid(whole.steps), criteriaSaid(whole)].filter((part) => part !== "");
   return said.join(" and ");
+}
+
+/**
+ * Every Check this Job measured, and how many held.
+ *
+ * **One step's latest attempt each**, the reading `checksOf` and
+ * `checkThatFailed` take: a Check that failed on attempt 1 and passed on
+ * attempt 2 is one Check that passed, and the gate records a row per declared
+ * Check per attempt, so the latest is a whole answer.
+ *
+ * **A skip is out of both figures**, and so is an outcome neither predicate
+ * owns — `didPass` says why. A step that never ran needs no filter: it has no
+ * runs, and a declared Check nothing ran is not evidence.
+ */
+function checksSaid(steps: readonly StepDetail[]): string {
+  const measured = steps
+    .flatMap((step) => onlyCurrentAttempt(step.check_runs))
+    .filter((run) => didPass(run) || didNotPass(run));
+  const passed = measured.filter(didPass).length;
+  if (measured.length === 0) return "";
+  // **Nothing Fleet serves today reaches the partial** — a human gate opens
+  // only once every tier has held, and an override is refused where a Check
+  // failed — and *All 11 Checks passed* over one that did not is the single
+  // thing this clause must never be able to say.
+  if (passed < measured.length) {
+    return `${passed} of ${measured.length} ${measured.length === 1 ? "Check" : "Checks"} passed`;
+  }
+  return `${passed === 1 ? "Its Check" : passed === 2 ? "Both Checks" : `All ${passed} Checks`} passed`;
+}
+
+/**
+ * Every criterion this Job's Judges answered, and how many they met.
+ *
+ * **Criteria, not panels**: `panelsOf` answers per step, and a criterion asked
+ * on two steps would otherwise be counted twice.
+ *
+ * **One refusal anywhere refuses it**, which is the conservative direction and
+ * also what keeps an overruled step honest without reading `overridden` — an
+ * override leaves the Judge's `not_met` row exactly as it was, so the criterion
+ * a person overruled can never count as one the Judge met.
+ */
+function criteriaSaid(whole: JobWhole): string {
+  const answered = new Map<string, boolean>();
+  for (const step of whole.steps) {
+    for (const panel of panelsOf(step, whole.acceptance_criteria)) {
+      // A criterion still being asked is not one the Judge met, either.
+      const held = panel.verdict === "met";
+      answered.set(panel.criterionId, (answered.get(panel.criterionId) ?? true) && held);
+    }
+  }
+  if (answered.size === 0) return "";
+  const held = [...answered.values()].filter((one) => one).length;
+  if (held < answered.size) {
+    return `the Judge met ${held} of ${answered.size} ${answered.size === 1 ? "criterion" : "criteria"}`;
+  }
+  return `the Judge met ${met(held)}`;
 }
 
 /**
@@ -318,7 +378,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     }
     return {
       said: "Waiting for your review",
-      because: because(metSaid(step, whole), holdsUp(whole, step)),
+      because: because(metSaid(whole), holdsUp(whole, step)),
       tone: "awaiting-review",
       act: "Review it",
     };
