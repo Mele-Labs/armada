@@ -21,7 +21,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::checkouts::Checkout;
 use crate::daemon::Fleet;
-use crate::ports::{BindConnectProbe, PortProbe, PortRange};
+use crate::ports::{detect_ceiling, BindConnectProbe, PortProbe, PortRange};
 use crate::servers::{Place, Unservable};
 use crate::slots::Concurrency;
 use crate::tests::admitted::dispatched;
@@ -77,39 +77,50 @@ fn a_fleet_holding(
     Arc::new(Fleet::assembled(fittings))
 }
 
-/// How many ports a fixture's range holds, and how many bases to try before
-/// giving up on finding a free one.
+/// How many ports a fixture's range holds, and the floor of the band they are
+/// taken from.
 const SPAN: u16 = 20;
-const TRIES: u8 = 32;
+const BAND_FLOOR: u16 = 20_000;
 
 /// A range no other test is claiming from. **Each test is a process of its
 /// own with a store of its own**, so two claiming from one range could be
 /// handed one span, and the second server would find its port taken — which
 /// one store per Fleet rules out everywhere but here.
 ///
-/// **Every port in the span is probed, not only the base.** Until 30 Sep 2026
-/// this bound `127.0.0.1:0`, took the port the kernel handed back, dropped the
-/// listener and claimed twenty ports on the strength of that one — so
-/// `base + 1 ..= base + 19` were never checked at all. `tests::preview::
-/// two_checkouts_of_one_repository_serve_at_once_on_their_own_spans` starts two
-/// servers and asserts they take different ports, so it is the test that reads
-/// the second one; it failed the merge line twice in a row on 30 Sep with
-/// `it ended before serving … exit 1` and `Something else is answering on port
-/// 59053 now`, and passed alone every time. 3,833 tests run in parallel here
-/// and the machine has Vite and mock servers on it besides.
+/// **Below the platform's ephemeral floor, which is the rule Armada already
+/// follows in production.** `settings.port-range-ceiling` defaults to *the
+/// platform's ephemeral port floor minus one*, and `detect_ceiling` is what
+/// reads it, "so nothing here hands out a port the kernel will also hand out".
+/// This fixture did the exact opposite until 30 Sep 2026: it bound
+/// `127.0.0.1:0`, took the ephemeral port the kernel handed back, and built
+/// its range there — inside the band every other test's `bind(:0)` is served
+/// from. It then dropped the listener, so even that one port was released
+/// before use, and `base + 1 ..= base + 19` were never looked at at all.
 ///
-/// **The listeners are held until the whole span is proven free**, then
-/// dropped together. The window between that drop and a server binding is
-/// still a window — the kernel will not reserve a range for us — but it is one
-/// window for twenty ports rather than nineteen ports never looked at.
+/// `tests::preview::two_checkouts_of_one_repository_serve_at_once_on_their_own_spans`
+/// starts two servers and asserts they take different ports, so it is the one
+/// that reaches for the second: it refused the merge line three times on
+/// 30 Sep with `it ended before serving … exit 1` and `Something else is
+/// answering on port <n> now`, on ports 59053, 64669 and one before them —
+/// every one of them above 49152, this machine's `net.inet.ip.portrange.first`.
+/// It passed alone every time. 3,835 tests run in parallel here.
+///
+/// **The slot is picked from the process id and then walked.** Each test is
+/// its own process, pids rise, and two live at once are rarely congruent —
+/// so the first slot tried is usually free, and the walk settles the rest
+/// without two processes racing from the same starting point.
 fn a_range_of_its_own() -> PortRange {
-    for _ in 0..TRIES {
-        let Some(base) = a_free_base() else { continue };
+    let top = detect_ceiling().saturating_sub(SPAN);
+    let slots = top.saturating_sub(BAND_FLOOR) / SPAN;
+    assert!(slots > 0, "no room for a span below {top}");
+    let first = u16::try_from(std::process::id() % u32::from(slots)).unwrap_or(0);
+    for step in 0..slots {
+        let base = BAND_FLOOR + ((first + step) % slots) * SPAN;
         if a_span_is_free(base) {
             return PortRange::of(base, base + SPAN - 1, 1);
         }
     }
-    panic!("no run of {SPAN} free ports in {TRIES} tries");
+    panic!("no run of {SPAN} free ports in {slots} slots below {top}");
 }
 
 /// Whether every port from `base` up holds nothing right now.
@@ -122,15 +133,6 @@ fn a_span_is_free(base: u16) -> bool {
         .map(|step| std::net::TcpListener::bind(("127.0.0.1", base + step)))
         .collect();
     held.iter().all(Result::is_ok)
-}
-
-/// A base the kernel will hand out, with room for the whole span above it.
-fn a_free_base() -> Option<u16> {
-    let base = std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|listener| listener.local_addr())
-        .map(|bound| bound.port())
-        .expect("a port the kernel will hand out");
-    base.checked_add(SPAN - 1).map(|_| base)
 }
 
 /// A Job whose worktree is cut and whose span is claimed, with a Drone on it.
@@ -648,13 +650,23 @@ fn a_span_holding_one_taken_port_is_not_free() {
     // And the same span once it is released, so this is measuring the port
     // rather than something else about the range.
     drop(taken);
-    assert!(a_span_is_free(base), "the span is free once {port} is let go");
+    assert!(
+        a_span_is_free(base),
+        "the span is free once {port} is let go"
+    );
 }
 
-/// Every port in a range this hands out binds, at the moment it hands it out.
+/// Every port in a range this hands out binds, and every one of them sits
+/// below the floor the kernel hands ephemeral ports out from — which is the
+/// half that stops another test's `bind(:0)` landing inside this span.
 #[test]
-fn a_range_of_its_own_hands_out_a_span_that_is_free() {
+fn a_range_of_its_own_hands_out_a_free_span_below_the_ephemeral_floor() {
     let range = a_range_of_its_own();
+    assert!(
+        range.ceiling() <= detect_ceiling(),
+        "{} is not below the ephemeral floor",
+        range.ceiling()
+    );
     for port in range.base()..=range.ceiling() {
         std::net::TcpListener::bind(("127.0.0.1", port))
             .unwrap_or_else(|why| panic!("{port} in the handed-out range is taken: {why}"));
