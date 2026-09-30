@@ -133,7 +133,7 @@
    (the app suite's), the mock Setup tests that open a proposal sheet failed
    three full runs in five with presses that never landed, and none in five
    with the blur off. */
-:root:has(.armada-sheet-scrim:not([data-docked]), .armada-dialog-scrim)
+:root:has(.armada-sheet-scrim, .armada-dialog-scrim)
   :is(
     .armada-glass,
     .armada-card:not(:where([data-flat], .armada-glass *, .armada-sheet *, .armada-dialog *)),

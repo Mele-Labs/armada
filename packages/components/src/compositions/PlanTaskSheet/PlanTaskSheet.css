@@ -188,8 +188,7 @@
 
 /* Close stays in the head's trailing corner at every width — the owner's note
    on this sheet, 28 Sep 2026. A task's title is a sentence and the sheet's own
-   one-line title clipped it under the close; here it wraps instead. Docked,
-   `Sheet.css` already does this for the dock. */
+   one-line title clipped it under the close; here it wraps instead. */
 .armada-sheet:has(> .armada-sheet__body > .armada-task-sheet__body) .armada-sheet__head {
   flex-wrap: nowrap;
   align-items: flex-start;
@@ -226,11 +225,12 @@
   background: var(--surface-row-selected);
 }
 
-/* The file diff docked beside the task: `--w-dialog-wide`, the widest
-   reading width the tokens hold, and never past the container's leading edge,
-   which the scrim's own box already bounds. */
-.armada-sheet[data-docked]:has(> .armada-sheet__body > .armada-task-diff) {
-  width: var(--w-dialog-wide);
+/* The file diff beside the task: up to `--w-dialog-wide`, the widest reading
+   width the tokens hold, and never past the work area's leading margin, which
+   the scrim's own box already bounds. At the floor it is flush, as every
+   floating sheet is there. */
+.armada-sheet[data-floating]:not([data-floor]):has(> .armada-sheet__body > .armada-task-diff) {
+  max-width: var(--w-dialog-wide);
 }
 
 /* The path is the panel's title, so it wraps rather than clips, in the mono

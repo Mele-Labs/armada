@@ -1,6 +1,7 @@
 /* A dock's leading edge (`dock-handle.tsx`), drawn only where a resize is
    wired — an edge that looks grabbable and does nothing would be worse than
-   none. Helm's dock and a docked `Sheet` draw this one handle.
+   none. Helm's dock and a floating `Sheet` that resizes draw this one
+   handle.
 
    The hit area is the whole 16px gap the dock's own margin would spend alone;
    a short handlebar grip at its vertical centre is visible at rest —
@@ -11,7 +12,7 @@
    line the hit area's own `align-self: stretch` would otherwise suggest.
 
    Only the inline margin is the handle's: where it sits vertically is the
-   dock's, so each layout sets its own block margin. */
+   layout's, so each sets its own block margin. */
 .armada-dock-handle {
   flex: none;
   align-self: stretch;

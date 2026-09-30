@@ -235,8 +235,8 @@
      whole window either way and this is what keeps the dock from swallowing
      the thing a person opened it to ask about. `dockWidthRange`
      (packages/components, `dock-handle.tsx`) is the one reader, for Helm's
-     dock and for a docked Sheet that resizes — Plan's task panel, where it is
-     what stays uncovered of the Job screen rather than of the window. Both
+     dock and for a floating Sheet that resizes — Plan's task panel, where it
+     is what stays uncovered of the work area under the title row. Both
      take --w-dock-min above as their floor. */
   --w-work-min: 380px;
   /* **--window-fold-left is gone, with the dock's claim on the layout** (#1583).

@@ -4,8 +4,8 @@
 // `localStorage` key, this window's own layout rather than a Fleet preference.
 //
 // **Stored as dragged, and clamped where it draws.** Helm's is clamped here
-// against `window.innerWidth`; the panel's ceiling is the Job screen's width,
-// which only the docked `Sheet` measures, so the clamp is its.
+// against `window.innerWidth`; the panel's ceiling is the work area the
+// floating `Sheet` covers, which only it measures, so the clamp is its.
 
 import { useState } from "react";
 

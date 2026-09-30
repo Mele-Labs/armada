@@ -26,7 +26,7 @@
 @import "./primitives/Dialog/Dialog.css";
 @import "./primitives/DropdownMenu/DropdownMenu.css";
 @import "./primitives/Popover/Popover.css";
-/* A dock's leading-edge resize handle, one for Helm's dock and a docked Sheet.
+/* A dock's leading-edge resize handle, one for Helm's dock and a floating Sheet.
    Ahead of both, so each lays it out over the shared look. */
 @import "./dock-handle.css";
 @import "./primitives/Sheet/Sheet.css";

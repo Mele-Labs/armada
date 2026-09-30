@@ -1,10 +1,11 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 /**
- * A dock's leading-edge resize handle, and the range it drags in. **One handle
- * for every dock**: Helm's (`TheShell`) and a docked `Sheet` (Plan's task
- * panel, the owner's note of 30 Sep 2026 — "resize it with the resize handle
- * we have") draw this one, so the two edges look and answer alike.
+ * A panel's leading-edge resize handle, and the range it drags in. **One
+ * handle for every panel that resizes**: Helm's dock (`TheShell`) and a
+ * floating `Sheet` (Plan's task panel, the owner's note of 30 Sep 2026 —
+ * "resize it with the resize handle we have") draw this one, so the two edges
+ * look and answer alike.
  *
  * A drag or an arrow key moves it; both read the same clamp so neither can
  * push the dock past what a mouse could reach.

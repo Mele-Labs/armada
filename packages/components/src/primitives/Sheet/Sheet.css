@@ -302,91 +302,58 @@
   border-top: var(--armada-hairline) solid var(--border-subtle);
 }
 
-/* Docked: Helm's dock (`TheShell.css`, `.armada-shell__dock`), for a reading a
-   person works beside. The scrim stays as the positioned box that lays the
-   panel out, but it dims nothing and takes no press, so the content under it
-   stays live. `--space-4` off the container's bottom; the top and trailing
-   edges already sit `--space-4` in from the window, which is where Helm's own
-   dock sits, so the two line up. The glass is `armada-glass` beside this
-   class, and a sheet's own --bg-overlay would paint under it.
-
-   `--z-dock`, Helm's own, not `--z-modal`: at `--z-modal` it covered Helm
-   opened after it. At the same step Helm's layer, later in the document,
-   lies over it, and menus and dialogs lie over both. */
-.armada-sheet-scrim[data-docked] {
-  z-index: var(--z-dock);
-  background: none;
-  pointer-events: none;
-  padding-bottom: var(--space-4);
-  animation: none;
-  overflow: visible;
+/* A resizing floating sheet's leading edge: Helm's handle
+   (`src/dock-handle.css`), in the `--space-4` gap the sheet's own margin would
+   have spent. It takes the sheet's place at the trailing end, so the sheet
+   sits flush to it, and it is held off the top and bottom as the sheet is.
+   The width is `Sheet`'s, inline. */
+.armada-sheet-scrim[data-floating] > .armada-dock-handle {
+  margin-left: auto;
+  margin-block: var(--space-4);
 }
 
-.armada-sheet[data-docked] {
-  pointer-events: auto;
+.armada-sheet-scrim[data-floating] > .armada-dock-handle + .armada-sheet[data-floating] {
   flex: none;
-  width: var(--w-dock);
-  max-width: 100%;
-  margin-left: auto;
-  border-radius: var(--radius-lg);
-  background: none;
-  overflow: clip;
-  overflow-clip-margin: var(--border-width);
-  /* No travel in, as Helm's dock has none. Starting its own width past the
-     trailing edge, the panel overflowed the screen, and the screen scrolled
-     sideways to follow it (owner, 29 Sep 2026). */
-  animation: none;
-}
-
-/* The head never wraps its close away from the trailing corner — the owner's
-   second note. The title wraps instead, and the close stays on its first line. */
-.armada-sheet[data-docked] .armada-sheet__head {
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  padding: var(--space-3) var(--space-4);
-  border-bottom-color: var(--border-subtle);
-}
-
-.armada-sheet[data-docked] .armada-sheet__title {
-  white-space: normal;
-  text-wrap: pretty;
-}
-
-.armada-sheet[data-docked] .armada-sheet__body {
-  padding: var(--space-4);
-}
-
-/* Beside another dock: the file diff to the left of Plan's task panel. The
-   scrim keeps the trailing dock's width and a `--space-4` gap clear, and the
-   panel stops at the container's leading edge rather than past it. Its width
-   is the caller's, since only the caller knows what the reading needs.
-   `--armada-sheet-beside` is the other dock's width as drawn, set by `Sheet`
-   where that dock resizes; absent, it is at rest. */
-.armada-sheet-scrim[data-beside] {
-  padding-right: calc(var(--armada-sheet-beside, var(--w-dock)) + var(--space-4));
-}
-
-/* A resizing dock's leading edge: Helm's handle (`src/dock-handle.css`), in
-   the gap to the dock's left. It takes the dock's place at the trailing end,
-   so the dock sits flush to it, and the scrim's own padding already holds it
-   to the dock's height. It takes presses where the scrim takes none. */
-.armada-sheet-scrim[data-docked] > .armada-dock-handle {
-  margin-left: auto;
-  pointer-events: auto;
-}
-
-.armada-sheet-scrim[data-docked] > .armada-dock-handle + .armada-sheet[data-docked] {
+  max-width: none;
   margin-left: 0;
 }
 
-.armada-sheet-scrim[data-beside] > .armada-sheet[data-docked] {
+/* Beside another floating sheet: the file diff to the left of Plan's task
+   panel. **One dim, not two** — the sheet it sits beside already dims the
+   screen and takes the presses, so this scrim paints nothing, takes nothing,
+   and does not fade in. It keeps the other sheet's width, that sheet's
+   trailing margin and the `--space-4` gap between them clear, and the panel
+   stops at the work area's leading margin rather than past it.
+   `--armada-sheet-beside` is the other sheet's width as drawn, set by `Sheet`
+   where that sheet resizes; absent, it is at rest. No travel in either: it
+   would slide across the sheet it sits beside. */
+.armada-sheet-scrim[data-beside] {
+  background: none;
+  pointer-events: none;
   animation: none;
+}
+
+.armada-sheet-scrim[data-beside] > .armada-sheet {
+  pointer-events: auto;
+  animation: none;
+}
+
+/* The leading `--space-4` is padding rather than the panel's own margin: the
+   panel fills what is left, and a filling flex item's `auto` margin is 0. */
+.armada-sheet-scrim[data-beside]:not(:has(> .armada-sheet[data-floor])) {
+  padding-left: var(--space-4);
+  padding-right: calc(var(--armada-sheet-beside, var(--w-dock)) + 2 * var(--space-4));
+}
+
+.armada-sheet-scrim[data-beside] > .armada-sheet[data-floating]:not([data-floor]) {
+  margin-right: 0;
 }
 
 /* The way back, where a press elsewhere opened this sheet: its own first line
    of the head, with the close at its trailing end, so the title keeps the
-   whole width under it. The head wraps for it even docked, where the close
-   still holds the first line's trailing corner. The ghost's own inline padding
+   whole width under it. The head wraps for it even where a sheet holds its
+   head to one line, and the close still takes the first line's trailing
+   corner. The ghost's own inline padding
    is pulled back so its label starts on the title's edge.
    `[role]` and the `:has` are weight, not meaning: the task sheet holds its
    own head to one line at 0,4,0, and a way back has to win over that. */

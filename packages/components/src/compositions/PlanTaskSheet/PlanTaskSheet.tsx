@@ -105,13 +105,11 @@ export type PlanTaskSheetProps = {
   onFile?: (path: string | null) => void;
   /** The window is at `--window-floor`. */
   floor?: boolean;
-  /** Beside the content, as Helm's dock. Below `--layout-breakpoint` it is a sheet over it. */
-  docked?: boolean;
   /**
-   * The docked panel's width, where a person has dragged it — `Sheet`'s own
-   * pair (owner, 30 Sep 2026: "I should be able to resize it with the resize
-   * handle we have"). Absent draws `--w-dock` and no handle. The file diff
-   * beside it follows whatever width this is.
+   * The panel's width, where a person has dragged it — `Sheet`'s own pair
+   * (owner, 30 Sep 2026: "I should be able to resize it with the resize
+   * handle we have"). Absent draws `--w-dock`; no `onResize` draws no handle.
+   * The file diff beside it follows whatever width this is.
    */
   width?: number;
   onResize?: (width: number) => void;
@@ -229,7 +227,6 @@ export function PlanTaskSheet({
   file,
   onFile,
   floor = false,
-  docked = false,
   width,
   onResize,
   onClose,
@@ -237,10 +234,11 @@ export function PlanTaskSheet({
 }: PlanTaskSheetProps) {
   return (
     <>
+    {/* **The floating sheet Record and Drones open** (owner, 30 Sep 2026):
+        over the work area, dimming it, so a press behind it lands nowhere. */}
     <Sheet
       open={open}
-      contained
-      docked={docked}
+      floating
       {...(onResize === undefined ? {} : { width, onResize })}
       floor={floor}
       title={title}
@@ -370,14 +368,13 @@ export function PlanTaskSheet({
       </div>
     </Sheet>
     {file === undefined ? null : (
-      /* **Beside the task where there is room, over it where there is not.**
-         Docked, it is a second dock to the left, so the task and the file
-         read together. Below the breakpoint two panels do not fit, and it
-         is a sheet over the task sheet: closing it lands back on the task. */
+      /* **Beside the task, under the one dim.** A second floating sheet to
+         the task's left, so the task and the file read together; its own
+         scrim dims nothing. At the floor the task is flush to both edges and
+         this lies over it: closing it lands back on the task. */
       <Sheet
         open
-        contained
-        docked={docked}
+        floating
         beside
         {...(onResize === undefined ? {} : { besideWidth: width })}
         floor={floor}

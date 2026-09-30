@@ -121,41 +121,34 @@ export type SheetProps = {
    */
   contained?: boolean;
   /**
-   * Helm's dock, for a reading a person works beside rather than through —
-   * the owner's note on the task sheet, 28 Sep 2026. Held off the top,
-   * trailing and bottom edges of its container, rounded, on the card glass,
-   * and **no scrim and no `aria-modal`**: the content under it stays live, so
-   * pressing another row changes what the dock reads. Only beside the content;
-   * below `--layout-breakpoint` the caller drops it and the sheet is a sheet.
-   */
-  docked?: boolean;
-  /**
-   * Docked to the leading side of another dock rather than to the trailing
-   * edge — the file diff beside Plan's task panel (owner, 29 Sep 2026). The
-   * same dock, `--space-4` from the one it sits beside.
+   * Beside another floating sheet rather than at the trailing edge — the file
+   * diff to the left of Plan's task panel (owner, 29 Sep 2026), `--space-4`
+   * from it. **Its scrim dims nothing and takes no press**: the sheet it sits
+   * beside already dims the screen once, and a second dim would darken it
+   * again. Read only with `floating`; at `floor` it lies over that sheet.
    */
   beside?: boolean;
   /**
-   * A docked sheet's width in px, where a person has resized it. Absent draws
-   * `--w-dock`. Read only with `onResize`, and clamped to what the container
-   * leaves before it draws — a width remembered from a wider window never
-   * draws past today's.
+   * A floating sheet's width in px, where a person has resized it. Absent
+   * draws `--w-dock`. Read only with `onResize`, and clamped to what the work
+   * area leaves before it draws — a width remembered from a wider window
+   * never draws past today's.
    */
   width?: number;
   /**
-   * Drags and arrow-key nudges the docked sheet's leading edge — Helm's own
-   * handle (`dock-handle.tsx`), in the gap beside the dock. Clamped between
-   * `--w-dock-min` and what the container leaves once the handle's gap and
-   * `--w-work-min` of the content under it are kept uncovered. **Absent draws
-   * no handle** and a fixed `--w-dock`; so does a sheet that is not docked.
-   * Remembering the result is the caller's.
+   * Drags and arrow-key nudges the floating sheet's leading edge — Helm's own
+   * handle (`dock-handle.tsx`), in the gap beside it. Clamped between
+   * `--w-dock-min` and what the work area leaves once the sheet's margin, the
+   * handle's gap and `--w-work-min` under it are kept uncovered. **Absent
+   * draws no handle**, and neither does a sheet that is not floating or one
+   * at `floor`. Remembering the result is the caller's.
    */
   onResize?: (width: number) => void;
   /**
-   * With `beside`: the width of the dock this one sits beside, where that dock
-   * resizes — its `width`, as given. Clamped here the way that dock clamps
-   * it, against the same container, so the `--space-4` between the two holds
-   * at whatever width the other is dragged to. Absent assumes `--w-dock`.
+   * With `beside`: the width of the sheet this one sits beside, where that
+   * one resizes — its `width`, as given. Clamped here the way that sheet
+   * clamps it, against the same work area, so the `--space-4` between the two
+   * holds at whatever width the other is dragged to. Absent assumes `--w-dock`.
    */
   besideWidth?: number;
   /**
@@ -207,7 +200,6 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
-  docked = false,
   beside = false,
   width,
   onResize,
@@ -223,15 +215,16 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
 
-  // A resizing dock, or one beside it, reads its container's width: the
-  // ceiling is what that container leaves, and both docks sit in the same one,
-  // so each computes the same clamp from the same figure.
-  const resizes = docked && onResize !== undefined;
-  const follows = docked && beside && besideWidth !== undefined;
+  // A resizing sheet, or one beside it, reads the work area's width: the
+  // ceiling is what that area leaves, and both scrims cover the same one, so
+  // each computes the same clamp from the same figure. At the floor the sheet
+  // is flush to both edges, and there is nothing to resize.
+  const resizes = floating && !floor && onResize !== undefined;
+  const follows = floating && !floor && beside && besideWidth !== undefined;
   const room = useWidthOf(scrimRef, open && (resizes || follows));
-  // The handle's gap is the one piece of chrome beside a docked sheet: the
-  // container already sits `--space-4` in from the window.
-  const range = dockWidthRange(room - tokenPx("--space-4"));
+  // The chrome beside a floating sheet: its own `--space-4` off the trailing
+  // edge, and the handle's `--space-4` gap on its leading one.
+  const range = dockWidthRange(room - 2 * tokenPx("--space-4"));
   const drawn = (wanted: number | undefined): number => {
     const at = wanted ?? defaultDockWidth();
     // Not measured yet (a first render, or no layout at all): as given.
@@ -239,8 +232,8 @@ export function Sheet({
   };
 
   useEffect(() => {
-    // `preventScroll`: a docked sheet sits in the screen's own scroller, and
-    // focusing its close scrolled the whole screen sideways to reach it.
+    // `preventScroll`: a sheet that is still travelling in sits past the
+    // edge, and focusing its close scrolls whatever holds it to reach it.
     if (open) closeRef.current?.focus({ preventScroll: true });
   }, [open]);
 
@@ -274,13 +267,12 @@ export function Sheet({
 
   const close = labelled ? (
     /* A secondary on an overlay is filled one surface step from its
-       ground, which is what `ground="sunken"` spells. Docked it is
-       on the glass, where Helm's own Close takes `card`. */
+       ground, which is what `ground="sunken"` spells. */
     <Button
       ref={closeRef}
       variant="secondary"
       size="sm"
-      ground={docked ? "card" : "sunken"}
+      ground="sunken"
       title={tooltip}
       onClick={onClose}
     >
@@ -307,27 +299,27 @@ export function Sheet({
       style={follows ? ({ "--armada-sheet-beside": `${drawn(besideWidth)}px` } as CSSProperties) : undefined}
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
-      data-docked={docked || undefined}
-      data-beside={(docked && beside) || undefined}
+      data-beside={(floating && beside) || undefined}
     >
       {resizes ? <DockHandle width={drawn(width)} {...range} label={title} onResize={onResize} /> : null}
       <div
-        className={docked ? "armada-sheet armada-glass" : "armada-sheet"}
+        className="armada-sheet"
         style={resizes ? { width: `${drawn(width)}px` } : undefined}
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
-        data-floor={(floor && !docked) || undefined}
-        data-docked={docked || undefined}
+        data-floor={floor || undefined}
         role="dialog"
-        aria-modal={docked ? undefined : "true"}
+        // Beside another sheet, the pair is the one modal layer: marking both
+        // modal would hide each from the other.
+        aria-modal={floating && beside ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
           {back === undefined ? null : (
             /* The way back and the way out share the head's first line, and
                the title takes the whole of the line under them: beside the
-               title, a docked panel's head had room for neither. */
+               title, a narrow panel's head had room for neither. */
             <div className="armada-sheet__way">
               <Button
                 variant="ghost"
