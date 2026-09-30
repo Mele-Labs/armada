@@ -151,6 +151,10 @@ function waitingOnSaid(
   mine: readonly Outstanding[],
   needs: ReadonlySet<string>,
 ): string | undefined {
+  // A Job of the proposed wave waits on the plan's gate, not on its own
+  // answer: Approve the plan releases every one of them, so a line each would
+  // ask for an approval nobody gives one Job at a time.
+  if (job.status === "awaiting_approval") return undefined;
   const asked = mine.filter((one) => one.kind !== "helm" && one.job_id === job.job);
   if (asked.some((one) => one.kind === "judge")) return "your answer to the Judge";
   if (asked.some((one) => one.kind === "command")) return "you to allow a command";

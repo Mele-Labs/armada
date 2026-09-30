@@ -20,6 +20,10 @@ const DROP_SAID =
   "The Job ends at killed, which is terminal and carries no verdict. Nothing resumes it, " +
   "anything its Drone wrote stays on its branch, and the rest of the wave carries on.";
 
+/** The same, for a Job of the proposed wave, which has not run. */
+const DROP_PROPOSED_SAID =
+  "The Job ends at killed before it runs. Approving the plan releases the rest of the wave without it.";
+
 export type WavePlanProps = WaveRegionProps & {
   /** The window is at `--window-floor`, so the panel goes flush. */
   floor: boolean;
@@ -175,7 +179,7 @@ function JobSheet({
           {JOB_LIFECYCLE[job.status]?.terminal !== false ? null : (
             <HoldButton
               askLabel="Drop from the wave"
-              description={DROP_SAID}
+              description={job.status === "awaiting_approval" ? DROP_PROPOSED_SAID : DROP_SAID}
               disabled={region.stale || region.acting}
               onAsk={onDrop}
               onCommit={onDrop}

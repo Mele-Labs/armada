@@ -479,11 +479,17 @@ const WAVE_CHILDREN: WaveChild[] = [
   },
 ];
 
-/** Each child as a Board fixture, dispatched by the wave's parent. */
-function waveChildren(): { child: WaveChild; fixture: JobFixture }[] {
-  return WAVE_CHILDREN.map((child, at) => {
+/**
+ * Each child as a Board fixture, dispatched by the wave's parent. **A child at
+ * `awaiting_approval` has not run**: no step entered, no start, no branch.
+ */
+function waveChildren(
+  children: readonly WaveChild[] = WAVE_CHILDREN,
+): { child: WaveChild; fixture: JobFixture }[] {
+  return children.map((child, at) => {
     const { id, handle, title, status, round } = child;
     const done = status === "completed_success" || status === "superseded";
+    const proposed = status === "awaiting_approval";
     const created = round === 1 ? "2026-09-22T05:20:00Z" : "2026-09-22T07:20:00Z";
     const started = round === 1 ? "2026-09-22T05:22:00Z" : "2026-09-22T07:22:00Z";
     const ended = round === 1 ? "2026-09-22T06:40:00Z" : "2026-09-22T09:05:00Z";
@@ -496,7 +502,7 @@ function waveChildren(): { child: WaveChild; fixture: JobFixture }[] {
           title,
           status,
           workflow: featureWorkflow(),
-          at: done || status === "awaiting_review" ? "handoff" : "implement",
+          at: proposed ? "plan" : done || status === "awaiting_review" ? "handoff" : "implement",
           steps: [
             arcStep("plan", "Plan the change", 1),
             arcStep("implement", "Implement", 2),
@@ -505,22 +511,26 @@ function waveChildren(): { child: WaveChild; fixture: JobFixture }[] {
           ],
           says: `${status} — one Job of the wave`,
           created_at: created,
-          started_at: started,
+          started_at: proposed ? undefined : started,
           ended_at: done ? ended : undefined,
-          branch: `armada/${handle}`,
+          branch: proposed ? undefined : `armada/${handle}`,
           row: {
             origin: "sub_dispatched",
             dispatched_by: WAVE_ID,
             ...(child.landed === undefined ? {} : { landed: child.landed }),
             // The flag that lifts a row into Needs you, and what tells a running
             // Job with a Drone inside a call apart from one simply working.
-            ...(id === WAVE_IDS.e ? { asking: true } : {}),
+            ...(id === WAVE_IDS.e && !proposed ? { asking: true } : {}),
           },
-          detail: {
-            ...(id === WAVE_IDS.c ? { judge_question: GATE_REFUSAL } : {}),
-            ...(id === WAVE_IDS.d ? { judge_question: BLOCKED_REFUSAL } : {}),
-            ...(id === WAVE_IDS.e ? { command_waiting: UNCLEARED, when_blocked: "ask_me" } : {}),
-          },
+          // A proposed child has asked nothing: it shares its id with the Job
+          // it becomes, not with what that Job ran into.
+          detail: proposed
+            ? {}
+            : {
+                ...(id === WAVE_IDS.c ? { judge_question: GATE_REFUSAL } : {}),
+                ...(id === WAVE_IDS.d ? { judge_question: BLOCKED_REFUSAL } : {}),
+                ...(id === WAVE_IDS.e ? { command_waiting: UNCLEARED, when_blocked: "ask_me" } : {}),
+              },
         },
         ARC_NOW + at,
       ),
@@ -626,23 +636,47 @@ function waveParentAtItsGate(): JobFixture {
 }
 
 /**
+ * The second pass's split as the gate holds it: the same five Jobs, each a
+ * real Job at `awaiting_approval` dispatched by the Epic, carrying its brief,
+ * what it expects and what it waits on — and nothing it has spent, landed or
+ * done, because none of them has run.
+ * `.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`.
+ */
+function proposedWave(): WaveChild[] {
+  return WAVE_CHILDREN.filter((child) => child.round === 2).map(
+    ({ landed: _landed, cost_micros: _spent, tasks: _tasks, ...child }) => ({
+      ...child,
+      status: "awaiting_approval",
+    }),
+  );
+}
+
+/**
  * An Epic Job whose plan step waits on a person, after one wave: what
- * Overview's plan gate draws for a wave rather than a task board.
+ * Overview's plan gate draws for a wave rather than a task board. **The split
+ * being approved is drawn**: wave 2's Jobs exist at `awaiting_approval`, so
+ * the Board lists them too, and Approve the plan releases every one (#1694).
  */
 export function epicPlanReview(): ArcMoment {
   const firsts = waveChildren().filter(({ child }) => child.round === 1);
+  const proposed = waveChildren(proposedWave());
+  const all = [...firsts, ...proposed];
   return {
     name: "planReview",
     says: "A wave — the first rolled up, and the second pass's split waiting on your review",
-    fixtures: [waveParentAtItsGate(), ...firsts.map((one) => one.fixture)],
+    fixtures: [waveParentAtItsGate(), ...all.map((one) => one.fixture)],
     opens: WAVE_ID,
     draft: {
       wave: {
         job: WAVE_ID,
         title: "Carry the error contract through every surface",
-        rounds: [{ round: 1, says: "the seam", live: false }],
+        // The proposed split is the live one: it is what the gate approves.
+        rounds: [
+          { round: 1, says: "the seam", live: false },
+          { round: 2, says: "every surface", live: true },
+        ],
         judged_by: "haiku",
-        jobs: firsts.map(({ child }) => ({
+        jobs: all.map(({ child }) => ({
           job: child.id,
           title: child.title,
           status: child.status,
