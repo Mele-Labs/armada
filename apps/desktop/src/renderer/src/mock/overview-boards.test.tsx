@@ -40,6 +40,13 @@ function saidBy(selector: string): string {
   return found.childNodes[0]?.textContent ?? "";
 }
 
+/** How many of the Record's rows name this in their What cell. */
+function rowsSaying(what: string): number {
+  return [...document.querySelectorAll("table tbody tr td.armada-ledger__what")].filter((cell) =>
+    (cell.textContent ?? "").includes(what),
+  ).length;
+}
+
 /** One element's box, or a failure naming what was not on screen. */
 function boxOf(selector: string): DOMRect {
   const found = document.querySelector(selector);
@@ -252,6 +259,71 @@ describe("the strip, and the header above it", () => {
     // The whole of it is still here: it is the name, the hover and the copy.
     const id = document.querySelector(".armada-job-head__id [data-copies]");
     expect(id?.getAttribute("aria-label")).toBe("3-show-what-s-running-in-the-drones-stat");
+  });
+});
+
+// **Where the lead's one act lands.** Until 29 Sep 2026 every act on this lead
+// selected a step — the state `InsideAJob` read and the reframe deleted — so
+// all four of them were a press that changed nothing on screen. The owner
+// pressed `Read what it produced` and said so. A claim here is that the press
+// arrives somewhere: the destination, and the row it was sent to open.
+describe("the lead's act — what the press reaches", () => {
+  test(
+    "arc/group-failed: Read what it produced opens the Record on the failed Check's own row",
+    async () => {
+      mount("arc/group-failed");
+      await onScreen();
+      await page.getByRole("button", { name: "Read what it produced" }).click();
+
+      await expect.element(page.getByRole("tabpanel", { name: "Record" })).toBeVisible();
+      // The row is open, not merely the destination: its heading and the lines
+      // the Check printed are what a person came for.
+      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+      await expect
+        .element(page.getByText("AssertionError: expected 'board' to be 'job'"))
+        .toBeVisible();
+    },
+  );
+
+  // The same act on a Job with no plan under it. **The Check's step is carried
+  // and not inferred** — a group boundary's Checks run on the step that works
+  // the groups, and this one ran on `regression_verify`, which no plan names.
+  test(
+    "job/retryingCheckFailure: Read what it produced opens the row of the Check that failed " +
+      "on the step it ran on",
+    async () => {
+      mount("job/retryingCheckFailure");
+      await onScreen();
+      await page.getByRole("button", { name: "Read what it produced" }).click();
+
+      await expect.element(page.getByRole("tabpanel", { name: "Record" })).toBeVisible();
+      await expect.element(page.getByRole("heading", { name: "cargo_nextest" })).toBeVisible();
+    },
+  );
+
+  test("job/escalatedGateFailure: Read what stopped it opens the Record, newest first", async () => {
+    mount("job/escalatedGateFailure");
+    await onScreen();
+    await page.getByRole("button", { name: "Read what stopped it" }).click();
+
+    await expect.element(page.getByRole("tabpanel", { name: "Record" })).toBeVisible();
+    // Unfiltered: no one row is why a Job stopped, so the whole record is the
+    // reading and the Check that failed is in it.
+    await expect.poll(() => rowsSaying("cargo_nextest")).toBeGreaterThan(0);
+  });
+
+  // **The review gate keeps its own arrangement.** What `Review it` would point
+  // at is already under the lead, so the lead offers no button over it — the
+  // suppression that has held since the gate was given a home.
+  test("job/reviewAtDelivery: the decision is under the lead, and no act is offered over it", async () => {
+    mount("job/reviewAtDelivery");
+    await onScreen();
+    await expect
+      .element(page.getByRole("region", { name: "Comments on the pull request" }))
+      .toBeVisible();
+
+    expect(page.getByRole("button", { name: "Review it" }).query()).toBeNull();
+    await expect.element(page.getByRole("tabpanel", { name: "Overview" })).toBeVisible();
   });
 });
 

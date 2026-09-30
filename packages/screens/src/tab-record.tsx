@@ -62,16 +62,24 @@ export type RecordTabProps = {
   opensCheck?: CheckAt;
 };
 
-/** A Check's run, as a boundary names it: its name, and the step attempt that ran it. */
-export type CheckAt = { name: string; stepAttempt: number };
+/**
+ * A Check's run, as a boundary names it: its name, and the step attempt that
+ * ran it.
+ *
+ * **The step, where the caller knows one.** A group boundary's Checks all run
+ * on the step that works the groups, so the Plan names none; Overview's lead
+ * names a Check that failed on whichever step it was found on, and a Job with
+ * no plan has no step that works the groups to fall back to.
+ */
+export type CheckAt = { name: string; stepAttempt: number; step?: string };
 
 /**
- * The Record row a Check's run is: `checked`, that name, on the step the groups
- * are worked at, at that attempt. **Nothing where the Record holds no such
- * row.**
+ * The Record row a Check's run is: `checked`, that name, on the step the caller
+ * named or the one the groups are worked at, at that attempt. **Nothing where
+ * the Record holds no such row.**
  */
 function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: CheckAt): string | undefined {
-  const step = detail === null ? undefined : stepThatWorksTheGroups(detail);
+  const step = at.step ?? (detail === null ? undefined : stepThatWorksTheGroups(detail));
   if (step === undefined) return undefined;
   const row = rows.find(
     (one) =>
