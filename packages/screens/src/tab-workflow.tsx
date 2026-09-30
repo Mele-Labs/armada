@@ -27,7 +27,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
 import { DRONE_SAYS } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
-import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
+import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
 import { ordered } from "./facts";
 import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
@@ -219,9 +219,9 @@ export function WorkflowTab({
           ? {}
           : {
               stop: {
-                children: HOLD_LABEL.kill_drone,
-                askLabel: ACT_LABEL.kill_drone,
-                description: HOLD_SAID.kill_drone,
+                children: STEP_STOP.label,
+                askLabel: STEP_STOP.ask,
+                description: STEP_STOP.said,
                 disabled: acting && actingAct !== "kill_drone",
                 pending: acting && actingAct === "kill_drone",
                 onAsk: () => onAct("kill_drone", job.id),
