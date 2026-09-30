@@ -3,7 +3,7 @@
 
 import { StrictMode, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Button, Card, Select } from "@armada/components";
+import { Button, Card, Select, type WorkflowStepCardDesign } from "@armada/components";
 import type { KeyboardEvent, PointerEvent } from "react";
 
 import "./mock.css";
@@ -36,6 +36,12 @@ function grouped(): [string, Scenario[]][] {
   }
   return [...groups.entries()];
 }
+
+/**
+ * The step-card designs the owner is comparing (30 Sep 2026), as `?cards=`
+ * takes them. Goes when he has picked one.
+ */
+export const CARD_DESIGNS: readonly WorkflowStepCardDesign[] = ["progress", "needs", "compact"];
 
 /** One `--space-4` per arrow press, the step `TheShell`'s own handle takes. */
 const STEP = 16;
@@ -87,7 +93,7 @@ const CHIP_HINT = `Press to expand. ${MOVE_HINT}`;
  * chip rather than a smaller card**: one small control tall, the name, and the
  * whole of it presses to reopen.
  */
-export function Picker({ current }: { current: string }) {
+export function Picker({ current, cards }: { current: string; cards?: WorkflowStepCardDesign | undefined }) {
   const frame = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<Spot | null>(() => readSpot());
   const [collapsed, setCollapsed] = useState(() => readCollapsed());
@@ -289,6 +295,25 @@ export function Picker({ current }: { current: string }) {
                 )}
               </Select>
             </div>
+            <div className="armada-mock-picker__field">
+              <Select
+                aria-label="Step cards"
+                value={cards ?? ""}
+                onChange={(event) => {
+                  const url = new URL(window.location.href);
+                  if (event.target.value === "") url.searchParams.delete("cards");
+                  else url.searchParams.set("cards", event.target.value);
+                  window.location.assign(url);
+                }}
+              >
+                <option value="">cards: today</option>
+                {CARD_DESIGNS.map((one) => (
+                  <option key={one} value={one}>
+                    cards: {one}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Button variant="ghost" size="sm" aria-expanded onClick={toggle}>
               Minimize
             </Button>
@@ -303,11 +328,11 @@ export function Picker({ current }: { current: string }) {
  * The picker on its own root, in `host` — the mock's own mount, so the page and
  * a test put up the same card with the same stylesheet behind it.
  */
-export function mountPicker(current: string, host: HTMLElement): () => void {
+export function mountPicker(current: string, host: HTMLElement, cards?: WorkflowStepCardDesign): () => void {
   const root = createRoot(host);
   root.render(
     <StrictMode>
-      <Picker current={current} />
+      <Picker current={current} cards={cards} />
     </StrictMode>,
   );
   return () => root.unmount();

@@ -105,6 +105,8 @@ export * from "./tab-workflow";
 export * from "./workflow-canvas";
 export * from "./workflow-inspector";
 export * from "./workflow-view";
+// The step-card designs the owner is comparing, provided by the mock alone.
+export * from "./step-card-design";
 // Plan — the same plan as a graph or as a list, the graph taken off Workflow.
 export * from "./plan-canvas";
 export * from "./plan-view";

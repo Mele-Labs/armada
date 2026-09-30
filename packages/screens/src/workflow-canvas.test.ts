@@ -73,7 +73,6 @@ describe("every shipped workflow draws", () => {
       // the steps alone.
       expect(run.nodes.every((node) => node.id.startsWith("step:"))).toBe(true);
       expect(run.rows.every((row) => row.id.startsWith("step:"))).toBe(true);
-      expect(run.edges.map((edge) => edge.kind)).not.toContain("made");
     });
   }
 });

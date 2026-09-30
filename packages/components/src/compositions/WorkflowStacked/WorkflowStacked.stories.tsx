@@ -18,27 +18,12 @@ export default meta;
 
 type Story = StoryObj<typeof WorkflowStacked>;
 
-/** The one Plan row, indented under the step that recorded it. */
-const plan: WorkflowStackedRow = {
-  id: "plan",
-  under: "step:plan",
-  depth: 1,
-  card: {
-    kind: "plan",
-    name: "Plan",
-    activity: "running",
-    said: "running",
-    facts: [{ value: "4 groups" }, { value: "8 tasks" }],
-    onOpen: fn(),
-  },
-};
-
+/** The run's steps, one per row, as the Workflow tab hands them in. */
 const rows: WorkflowStackedRow[] = [
-  { id: "step:plan", card: { kind: "step", name: "Plan the change", activity: "advanced", said: "advanced", ordinal: 1, facts: [{ value: "4 groups" }, { value: "2 criteria" }], onOpen: fn() } },
-  plan,
-  { id: "step:implement", card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, facts: [{ value: "4 groups" }, { value: "11 checks" }], onOpen: fn() } },
-  { id: "step:tests", card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, facts: [{ value: "7 checks" }], onOpen: fn() } },
-  { id: "step:handoff", card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, gate: "a person answers", onOpen: fn() } },
+  { id: "step:plan", card: { kind: "step", name: "Plan the change", activity: "advanced", said: "advanced", ordinal: 1, line: "6m 00s · advanced", onOpen: fn() } },
+  { id: "step:implement", card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 4 groups", onOpen: fn() } },
+  { id: "step:tests", card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, line: "not started", onOpen: fn() } },
+  { id: "step:handoff", card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, line: "not started", gate: "will ask you", onOpen: fn() } },
 ];
 
 /** The same feature run the canvas draws, as a column. */
@@ -60,8 +45,8 @@ export const WithALoop: Story = {
  * The claim the toggle rests on: the two arrangements say the same thing.
  *
  * **A `play`, because a still cannot say it.** The column carries the same
- * cards the canvas places, the Plan node among them — a column that dropped
- * one would make the toggle a change of subject.
+ * cards the canvas places — a column that dropped one would make the toggle a
+ * change of subject.
  */
 export const SaysWhatTheCanvasSays: Story = {
   args: { label: "The run", rows },
@@ -71,9 +56,5 @@ export const SaysWhatTheCanvasSays: Story = {
     for (const name of ["Plan the change, advanced", "Implement, running", "Write tests, not started"]) {
       await expect(canvas.getByRole("button", { name })).toBeVisible();
     }
-    // The plan is one row, under the step that recorded it, saying what it holds.
-    const node = canvas.getByRole("button", { name: "Plan, running" });
-    await expect(node).toHaveTextContent("4 groups");
-    await expect(node).toHaveTextContent("8 tasks");
   },
 };

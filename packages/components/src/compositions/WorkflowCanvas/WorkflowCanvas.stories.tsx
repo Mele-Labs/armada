@@ -19,48 +19,33 @@ export default meta;
 
 type Story = StoryObj<typeof WorkflowCanvas>;
 
-// The four steps `feature.json` declares, with one Plan node under the step
-// that recorded the plan. The placement is the caller's, and the caller here
-// writes the numbers `workflow-canvas.ts` computes.
-const STEP_X = 320;
-const PLAN_Y = 150;
+// The four steps `feature.json` declares, one under the last, as the Workflow
+// tab draws them. The placement is the caller's, and the caller here writes
+// the number `workflow-canvas.ts` computes.
+const STEP_APART = 112;
 
 const steps: WorkflowCanvasNode[] = [
   {
     id: "step:plan",
     position: { x: 0, y: 0 },
-    card: { kind: "step", name: "Plan the change", activity: "advanced", said: "advanced", ordinal: 1, facts: [{ value: "4 groups" }, { value: "2 criteria" }], onOpen: fn() },
+    card: { kind: "step", name: "Plan the change", activity: "advanced", said: "advanced", ordinal: 1, line: "6m 00s · advanced", onOpen: fn() },
   },
   {
     id: "step:implement",
-    position: { x: STEP_X, y: 0 },
-    card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, facts: [{ value: "4 groups" }, { value: "11 checks" }], onOpen: fn() },
+    position: { x: 0, y: STEP_APART },
+    card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 4 groups", onOpen: fn() },
   },
   {
     id: "step:tests",
-    position: { x: STEP_X * 2, y: 0 },
-    card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, facts: [{ value: "7 checks" }], onOpen: fn() },
+    position: { x: 0, y: STEP_APART * 2 },
+    card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, line: "not started", onOpen: fn() },
   },
   {
     id: "step:handoff",
-    position: { x: STEP_X * 3, y: 0 },
-    card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, gate: "a person answers", onOpen: fn() },
+    position: { x: 0, y: STEP_APART * 3 },
+    card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, line: "not started", gate: "will ask you", onOpen: fn() },
   },
 ];
-
-/** The plan, as the one node the run draws of it. */
-const planNode: WorkflowCanvasNode = {
-  id: "plan",
-  position: { x: 16, y: PLAN_Y },
-  card: {
-    kind: "plan",
-    name: "Plan",
-    activity: "running",
-    said: "running",
-    facts: [{ value: "4 groups" }, { value: "8 tasks" }],
-    onOpen: fn(),
-  },
-};
 
 const spine: WorkflowCanvasEdge[] = [
   { id: "plan>implement", source: "step:plan", target: "step:implement", kind: "leads" },
@@ -68,11 +53,8 @@ const spine: WorkflowCanvasEdge[] = [
   { id: "tests>handoff", source: "step:tests", target: "step:handoff", kind: "leads" },
 ];
 
-const nodes: WorkflowCanvasNode[] = [...steps, planNode];
-const edges: WorkflowCanvasEdge[] = [
-  ...spine,
-  { id: "step:plan>plan", source: "step:plan", target: "plan", kind: "made" },
-];
+/** The run as the tab lays it out: a spine running down, hung from the top. */
+const RUNS_DOWN = { runsDown: true, hangsFromTop: true } as const;
 
 /**
  * Where one edge runs, in the window's own coordinates — sampled along the
@@ -87,42 +69,18 @@ function pointsAlong(path: SVGPathElement, samples = 60): DOMPoint[] {
 }
 
 /**
- * A feature Job mid-implement: the four steps its workflow file declares, and
- * the one Plan node hanging off the step that recorded the plan.
+ * A feature Job mid-implement: the four steps its workflow file declares, one
+ * under the last.
  *
  * **A `play`, because a still cannot say which line is which.** An edge's
  * accessible name is where the graph says what it joins, and it is the only
  * place a reader who cannot see it is told at all.
- *
- * **And because a still cannot say which line runs *under* a card.** The
- * owner's note of 28 Sep 2026: *the connecting line that connects this node to
- * the planning step runs behind the node.* Every edge is drawn in one SVG
- * below the node layer, so an edge that crosses a card is simply invisible
- * there — no assertion on what is rendered can see it, and the geometry is the
- * only thing that can.
  */
 export const AFeatureRun: Story = {
-  args: { nodes, edges, label: "The run", running: "step:implement", onFollowing: fn() },
-  play: async ({ canvas, canvasElement }) => {
-    await waitFor(() => expect(canvas.getByLabelText("Plan the change made Plan")).toBeInTheDocument());
-    // One node for the plan, and nothing of what is inside it on this canvas.
-    expect(canvas.getByRole("button", { name: "Plan, running" })).toHaveTextContent("4 groups");
-    expect(canvas.queryByRole("button", { name: /^Group 1, / })).toBeNull();
-
-    const drop = canvasElement.querySelector<SVGPathElement>('path[id="step:plan>plan"]')!;
-    expect(drop).not.toBeNull();
-    const card = canvas.getByRole("button", { name: "Plan, running" }).getBoundingClientRect();
-    // The arrowhead lands on the card's own edge, so the box is taken in by
-    // more than a line's width before anything is asked of it.
-    const INSIDE = 6;
-    const behind = pointsAlong(drop).filter(
-      (at) =>
-        at.x > card.left + INSIDE &&
-        at.x < card.right - INSIDE &&
-        at.y > card.top + INSIDE &&
-        at.y < card.bottom - INSIDE,
-    );
-    expect(behind).toHaveLength(0);
+  args: { nodes: steps, edges: spine, label: "The run", running: "step:implement", onFollowing: fn(), ...RUNS_DOWN },
+  play: async ({ canvas }) => {
+    await waitFor(() => expect(canvas.getByLabelText("Plan the change leads to Implement")).toBeInTheDocument());
+    expect(canvas.getByLabelText("Write tests leads to Review the change")).toBeInTheDocument();
   },
 };
 
@@ -191,12 +149,19 @@ export const APlan: Story = {
 };
 
 /**
- * A step that sends the run back to an earlier one — dashed, and arcing above
- * the spine.
+ * A step that sends the run back to an earlier one — dashed, and returning
+ * along the spine's right side.
  *
  * **No shipped workflow declares one today.** `verdict_routing_target` is on
  * the wire and none of the eight files under `.armada/workflows/` sets it, so
  * this is the state drawn ahead of the data rather than a reading of it.
+ *
+ * **A `play`, because a still cannot say which line runs *under* a card.** The
+ * owner's note of 28 Sep 2026, about the Plan node's edge then: *the connecting
+ * line runs behind the node.* Every edge is drawn in one SVG below the node
+ * layer, so an edge that crosses a card is simply invisible there — and the
+ * loop passes the step between the two it joins, so the geometry is the only
+ * thing that can say it went round rather than through.
  */
 export const WithALoop: Story = {
   args: {
@@ -206,13 +171,30 @@ export const WithALoop: Story = {
       { id: "tests>plan", source: "step:tests", target: "step:plan", kind: "returns", label: "up to 5 passes" },
     ],
     label: "The run",
+    ...RUNS_DOWN,
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(canvas.getByLabelText("Write tests returns to Plan the change")).toBeInTheDocument());
+    const loop = canvasElement.querySelector<SVGPathElement>('path[id="tests>plan"]')!;
+    expect(loop).not.toBeNull();
+    const card = canvas.getByRole("button", { name: "Implement, running" }).getBoundingClientRect();
+    // An edge landing on a card's own side is on its border, so the box is
+    // taken in by more than a line's width before anything is asked of it.
+    const INSIDE = 6;
+    const behind = pointsAlong(loop).filter(
+      (at) =>
+        at.x > card.left + INSIDE &&
+        at.x < card.right - INSIDE &&
+        at.y > card.top + INSIDE &&
+        at.y < card.bottom - INSIDE,
+    );
+    expect(behind).toHaveLength(0);
   },
 };
 
 /**
- * Narrow opens on the step a person is on, its neighbours and the plan those
- * steps hold, rather than fitting a whole run no one can read (`#1539`,
- * revision of 22 Sep).
+ * Narrow opens on the step a person is on and its neighbours, rather than
+ * fitting a whole run no one can read (`#1539`, revision of 22 Sep).
  *
  * **A `play`, because a still cannot say what the canvas was fitted to.** What
  * has to hold is that the step it opened on is legible — which is the whole
@@ -220,11 +202,12 @@ export const WithALoop: Story = {
  */
 export const OpensOnWhereYouAre: Story = {
   args: {
-    nodes,
-    edges,
+    nodes: steps,
+    edges: spine,
     label: "The run",
     running: "step:implement",
-    opensOn: [["step:plan", "step:implement", "step:tests", "plan"], ["step:implement", "plan"]],
+    opensOn: [["step:plan", "step:implement", "step:tests"], ["step:implement"]],
+    ...RUNS_DOWN,
   },
   play: async ({ canvas }) => {
     await waitFor(() => {
@@ -246,12 +229,13 @@ export const OpensOnWhereYouAre: Story = {
  */
 export const FollowsTheRun: Story = {
   args: {
-    nodes,
-    edges,
+    nodes: steps,
+    edges: spine,
     label: "The run",
     running: "step:implement",
     following: false,
     onFollowing: () => undefined,
+    ...RUNS_DOWN,
   },
   play: async ({ canvas }) => {
     const follows = canvas.getByRole("group", { name: "What the view follows" });

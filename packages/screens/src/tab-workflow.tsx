@@ -16,7 +16,7 @@
 // is the caller's: this package holds no storage.
 
 import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -29,6 +29,7 @@ import { DRONE_SAYS } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
+import { StepCardDesign } from "./step-card-design";
 import { ordered } from "./facts";
 import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf, workflowReadingOf } from "./workflow-inspector";
@@ -121,6 +122,8 @@ export function WorkflowTab({
   // **Off until it is asked for**: it wins over the fit, and a run opened
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
+  // Which card design the mock asked for, while the owner compares three.
+  const design = useContext(StepCardDesign);
   const openStep = setOpen;
   // Which step is open, told to the trail, so a jump out of it can come back
   // here with the same step open. Its id is the step's, which is what
@@ -159,7 +162,13 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({ whole, groups, selected: open, onOpen: openStep });
+  const run = workflowRunOf({
+    whole,
+    groups,
+    selected: open,
+    onOpen: openStep,
+    ...(design === undefined ? {} : { design }),
+  });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was

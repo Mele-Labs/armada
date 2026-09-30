@@ -48,13 +48,12 @@ export type WorkflowCanvasNode = {
  * told apart by what they join, which is the reading itself, and a second dash
  * pattern would be a vocabulary nobody asked for.
  */
-export type WorkflowCanvasEdgeKind = "leads" | "returns" | "made" | "holds";
+export type WorkflowCanvasEdgeKind = "leads" | "returns" | "holds";
 
 /** What each kind is read as to somebody who cannot see the line. */
 const SAYS: Record<WorkflowCanvasEdgeKind, string> = {
   leads: "leads to",
   returns: "returns to",
-  made: "made",
   holds: "holds",
 };
 
@@ -134,16 +133,17 @@ function NodeView({ data }: NodeProps<CanvasNode>) {
 
 /**
  * How far an edge stands off a card before it turns. React Flow's own default
- * is 20, which on a plan hanging 150 under its step puts the turn inside the
- * gap rather than on top of a card.
+ * is 20, which puts the turn inside the gap between two cards rather than on
+ * top of one.
  */
 const CLEARS_THE_CARD = 20;
 
 /**
- * **A bezier ran behind the Plan node** (owner, 28 Sep 2026). The plan hangs 150
+ * **A bezier ran behind the Plan node** (owner, 28 Sep 2026). The plan hung 150
  * below its step and 16 to its right, so a curve from the step's bottom to the
  * plan's left crossed the plan's own top-left corner — and React Flow draws
- * every edge in one SVG under the node layer.
+ * every edge in one SVG under the node layer. The Plan node went on 29 Sep; a
+ * loop returning beside the spine is the edge that could cross a card now.
  *
  * A smooth step turns in the space between two cards and so stays outside both
  * by construction — **React Flow's own path type, never routing written here**.
@@ -187,13 +187,6 @@ const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${P
 
 /** The same, on a spine that runs down: out of the right edge and back into it. */
 const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
-
-/**
- * The plan drops out of the step that recorded it: down off the step's own
- * bottom edge and in at the plan's left, so the drop clears the spine rather
- * than running down the middle of the card it leaves.
- */
-const WAS_MADE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Left}` };
 
 /** What the follow toggle is called. Its name, and what its tooltip reads. */
 const STAY_ON_THE_RUN = "Stay on the running step";
@@ -372,9 +365,7 @@ export function WorkflowCanvas({
           ? runsDown
             ? BESIDE_THE_SPINE
             : OVER_THE_SPINE
-          : edge.kind === "made"
-            ? WAS_MADE
-            : facingSides(placed.get(edge.source), placed.get(edge.target));
+          : facingSides(placed.get(edge.source), placed.get(edge.target));
       return {
         id: edge.id,
         source: edge.source,
