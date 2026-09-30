@@ -4,7 +4,7 @@ import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
 import { Sidebar, type SidebarItem } from "../Sidebar/Sidebar";
 import { StatsPanel, type StatsPanelProps } from "../StatsPanel/StatsPanel";
-import { TitleBar } from "../TitleBar/TitleBar";
+import { TitleBar, type TitleBarProps } from "../TitleBar/TitleBar";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
@@ -35,6 +35,8 @@ export type TheShellProps = {
    * the traffic lights. Absent draws none.
    */
   repositoryPicker?: ReactNode;
+  /** The picker's entries, for the title row's narrow menu. */
+  repositoryMenu?: TitleBarProps["repositoryMenu"];
   /** Opens the command palette from the title row's search field. Absent draws no field. */
   onSearch?: () => void;
   /** Opens the composer from the title row's Dispatch control. Absent draws no control. */
@@ -158,6 +160,7 @@ export type TheShellDock = {
 export function TheShell({
   railHeader,
   repositoryPicker,
+  repositoryMenu,
   onSearch,
   onDispatch,
   dispatchDisabled,
@@ -183,6 +186,7 @@ export function TheShell({
       <div className="armada-shell">
         <TitleBar
           repositoryPicker={repositoryPicker}
+          {...(repositoryMenu === undefined ? {} : { repositoryMenu })}
           onSearch={onSearch}
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}

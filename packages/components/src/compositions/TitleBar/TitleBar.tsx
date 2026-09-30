@@ -1,8 +1,9 @@
-import { Menu, MessageSquare, Plus, Search } from "lucide-react";
+import { Check, Menu, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
+import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { actionOf } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
@@ -26,6 +27,16 @@ import { useShortcutReveal } from "../../shortcut-reveal";
 export type TitleBarProps = {
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
+  /**
+   * The picker's own entries, drawn flat in the narrow menu rather than as a
+   * list opening inside it (the owner, 30 Sep 2026). Absent draws none there.
+   */
+  repositoryMenu?: {
+    entries: DropdownMenuEntry[];
+    onSelect: (id: string) => void;
+    /** The Manifest button beside the picker in the full row. */
+    manifest?: { label: string; icon: LucideIcon; disabled?: boolean; onOpen: () => void };
+  };
   /** Opens the command palette. The same surface ⌘K opens; this is the other way in. */
   onSearch?: () => void;
   /**
@@ -70,6 +81,7 @@ export type TitleBarProps = {
 
 export function TitleBar({
   repositoryPicker,
+  repositoryMenu,
   onSearch,
   onDispatch,
   dispatchDisabled = false,
@@ -176,16 +188,12 @@ export function TitleBar({
             {(close) => (
               <div
                 className="armada-title-bar__menu-panel"
-                // Any act closes the panel; the picker's own trigger opens its
-                // list and leaves the panel up.
+                // Any act closes the panel.
                 onClick={(event) => {
-                  const pressed = (event.target as Element).closest("button");
-                  if (pressed !== null && !pressed.hasAttribute("aria-haspopup")) close();
+                  if ((event.target as Element).closest("button:not(:disabled)") !== null) close();
                 }}
               >
-                {repositoryPicker === undefined ? null : (
-                  <div className="armada-title-bar__menu-picker">{repositoryPicker}</div>
-                )}
+                {repositoryMenu === undefined ? null : <RepositoryRows {...repositoryMenu} />}
                 {onSearch === undefined ? null : (
                   <button type="button" className="armada-title-bar__menu-item" onClick={onSearch}>
                     <Search size={16} strokeWidth={2} aria-hidden />
@@ -220,6 +228,47 @@ export function TitleBar({
           </Popover>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The picker's list, flat: the same entries its dropdown draws, one row each. */
+function RepositoryRows({ entries, onSelect, manifest }: NonNullable<TitleBarProps["repositoryMenu"]>) {
+  return (
+    <div className="armada-title-bar__menu-repositories" role="group" aria-label="Repositories">
+      {entries.map((entry) =>
+        entry.kind === "separator" ? (
+          <div key={entry.id} className="armada-title-bar__menu-rule" aria-hidden />
+        ) : entry.kind === "label" ? (
+          <div key={entry.id} className="armada-title-bar__menu-label">
+            {entry.label}
+          </div>
+        ) : (
+          <button
+            key={entry.id}
+            type="button"
+            className="armada-title-bar__menu-item"
+            aria-pressed={entry.selected === true}
+            onClick={() => onSelect(entry.id)}
+          >
+            <span className="armada-title-bar__menu-check" aria-hidden>
+              {entry.selected === true ? <Check size={16} strokeWidth={2} /> : null}
+            </span>
+            <span>{entry.label}</span>
+          </button>
+        ),
+      )}
+      {manifest === undefined ? null : (
+        <button
+          type="button"
+          className="armada-title-bar__menu-item"
+          disabled={manifest.disabled}
+          onClick={manifest.onOpen}
+        >
+          <manifest.icon size={16} strokeWidth={2} aria-hidden />
+          <span>{manifest.label}</span>
+        </button>
+      )}
     </div>
   );
 }

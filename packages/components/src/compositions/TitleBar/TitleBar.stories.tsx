@@ -213,6 +213,14 @@ export const InASlimWindow: Story = {
   args: {
     ...Full.args,
     helm: { questions: 3, binding: "⌘J", onOpen: fn() },
+    repositoryMenu: {
+      entries: [
+        { kind: "item", id: "all", label: "All repositories", selected: true },
+        { kind: "separator", id: "rule" },
+        { kind: "item", id: "/code/armada", label: "armada" },
+      ],
+      onSelect: fn(),
+    },
   },
   render: (args) => (
     <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
@@ -231,10 +239,18 @@ export const InASlimWindow: Story = {
     await userEvent.click(menu);
     const panel = canvas.getByRole("dialog", { name: "Menu" });
     await expect(panel).toBeVisible();
+    // The repositories are rows in the panel, not a second list opening in it.
+    await expect(within(panel).queryByRole("button", { expanded: false })).toBeNull();
+    await expect(within(panel).getByRole("button", { name: "All repositories", pressed: true })).toBeVisible();
     const dispatch = within(panel).getByRole("button", { name: "Dispatch" });
     await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^n$/);
     await userEvent.click(canvas.getByRole("button", { name: /^Helm/ }));
     await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
+    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await userEvent.click(canvas.getByRole("button", { name: "armada" }));
+    await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
   },
 };

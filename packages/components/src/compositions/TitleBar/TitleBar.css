@@ -256,13 +256,38 @@
   gap: var(--space-1);
 }
 
-.armada-title-bar__menu-picker {
+/* The repositories, then a rule, then the row's own acts. */
+.armada-title-bar__menu-repositories {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
   padding-bottom: var(--space-2);
   margin-bottom: var(--space-1);
   border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-title-bar__menu-rule {
+  height: var(--border-width);
+  margin: var(--space-1) 0;
+  background: var(--border-subtle);
+}
+
+.armada-title-bar__menu-label {
+  display: flex;
+  align-items: center;
+  height: var(--h-control-sm);
+  padding-inline: var(--space-2);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* Holds the tick's width on every row, so the names line up whichever is picked. */
+.armada-title-bar__menu-check {
+  display: flex;
+  flex: none;
+  width: var(--space-4);
+  color: var(--accent);
 }
 
 .armada-title-bar__menu-item {
@@ -282,7 +307,7 @@
   cursor: pointer;
 }
 
-.armada-title-bar__menu-item > span:first-of-type {
+.armada-title-bar__menu-item > span:not([class]) {
   flex: 1;
   text-align: left;
 }
