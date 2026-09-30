@@ -51,11 +51,11 @@ test("the Workflow canvas stays where it was panned when a press renders the tab
   const surface = ".armada-workflow-tab .armada-workflow-canvas";
   const after = await panned(/^Workflow/, surface);
 
-  // A press on a step card opens the inspector, which is a render of the tab.
-  // Nothing about it resizes the canvas: the inspector is a layer over the run
-  // rather than a column beside it, so no honest re-fit is owed.
+  // A press on a step card opens its panel, which is a render of the tab.
+  // Nothing about it resizes the canvas: the panel is the app's own, over the
+  // work area rather than a column beside the run, so no honest re-fit is owed.
   await page.getByRole("button", { name: /^Implement, running/ }).click();
-  await expect.element(page.getByRole("region", { name: /^Implement/ }).first()).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: "Implement" }).first()).toBeVisible();
 
   expect(viewportOf(surface)).toBe(after);
 });
