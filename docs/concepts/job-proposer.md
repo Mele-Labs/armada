@@ -128,20 +128,22 @@ Skipping it where the answer looks obvious would cost the Job its entry zero, wh
 | --- | --- |
 | 1 | A person opens Dispatch a Job |
 | 2 | They describe the work — typed, or a link to a ticket or a Notion document |
-| 3 | They dispatch. The proposer reads the request and every Job it became is created |
-| 4 | The wait says what the call is doing, and offers the stop |
-| 5 | The person approves. That is what starts the work |
+| 3 | They dispatch. **The press leaves the composer**, and the request is a row |
+| 4 | The proposer reads it. The row's own page says how far the call has got, and offers the stop |
+| 5 | The person comes back to the row and approves. That is what starts the work |
 
-At step 3 the proposer works out what kind of work it is and which workflow it runs under. **Declared, not yet built:** it does that in a status of its own, `proposing`, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed — #1159. The status, its three edges out and its word are in `crates/core-model/domain/job-statuses.toml` at `in_code = "Not yet"`; nothing here creates a Job at dispatch, and this call still answers with the Jobs the request became. What it proposes is editable until step 5, and step 5 is what freezes it, never step 3. See [Job](job.md), Reading the request is a status, and approval is what locks.
+At step 3 the proposer works out what kind of work it is and which workflow it runs under. It does that in a status of its own, `proposing`, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed — #1159. **Declared and not served:** the status, its three edges out and its word are in `crates/core-model/domain/job-statuses.toml` at `in_code = "Not yet"`, so nothing in Fleet creates a Job at dispatch and this call still answers with the Jobs the request became. Bridge draws the status, against the mock. What the proposer proposes is editable until step 5, and step 5 is what freezes it, never step 3. See [Job](job.md), Reading the request is a status, and approval is what locks.
 
-**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress — how far it has reached, how long it has been out against Fleet's budget, which model is reading it — and past a mark the surface says so and offers the stop. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
+**Step 4 is a row somebody comes back to, never a screen they sit on.** The owner, 30 Sep 2026: *"I want it to be like a job. Something where I can propose multiple things at once and they go off and get proposed. I dont need to sit on the screen and watch it."* So the press takes the composer away and opens nothing — several requests go off at once, and each has an address. The wait is `ProposerWait` inside Overview's lead on the Job's own page: how far the call has reached, how long it has been out against Fleet's budget, which model is reading it, and the stop. *A dispatched request is a job*, 30 Sep 2026, in the decisions register.
+
+**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress alone. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
 
 **Every Job exists before any of them is approved.** Step 3 creates each at `awaiting_approval` and step 5 dispatches the one it is pressed on — see [Job Board](job-board.md), Job status on the Board.
 
 **Approving a Job dispatches that Job, and it is the only approval act on this path.**
 Why: every Job the request became already stands at `awaiting_approval`, so a plan-level act would have nothing left to create.
 
-**Step 5 happens on the proposal, not on Job detail.** The head of the proposal carries its own approval control, beside the Review that opens it. Everything the gate approves — the workflow, the name and the split — is already on the screen the proposal is drawn on, so sending a person to detail to say yes to what they are reading is a second surface for no second fact. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
+**Step 5 happens on the Job's own page, and it is still one press from the row.** Settled 2026-09-08 from the owner's complaint — *"I would love if I didn't need to click Review just to get to the approval button"* — and the surface that answered it was the composer holding the proposal after the press. That surface is gone with step 3's ruling of 30 Sep 2026: the press leaves, so there is nowhere else for the proposal to be drawn. What holds the complaint instead is that the proposal **is** Overview on a Job that has not been approved — `ProposalTab` in `packages/screens` draws it in Overview's place — and `Approve dispatch` is on the header above it. Nothing is behind a Review.
 
 **Only the head of a proposal is approvable, and Review is still there.** A chained Job is not at its gate until the one before it completes, so the rows under the first offer no approval. Review opens any of them, for the case where the title is not enough to decide on.
 

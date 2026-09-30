@@ -92,6 +92,12 @@ import { originReading } from "./origin";
 import { leading, readingOf } from "./reading";
 import type { Recent } from "./recent";
 
+/**
+ * The status a dispatched request stands at until the proposer answers — a wire
+ * value, spelled once here for the three cells it empties.
+ */
+const BEING_PROPOSED = "proposing";
+
 /** Whether the Job is over, from the registry that says so. */
 export function isTerminal(job: JobSummary): boolean {
   return JOB_LIFECYCLE[job.status]?.terminal === true;
@@ -208,6 +214,14 @@ export function Row({
   const workflowValue =
     workflow === undefined ? job.workflow_id : `${workflow.name}, ${steps.length} steps`;
   const freeze = rowFreezeOf(job);
+  // **A dispatched request has nothing for three of the four columns.**
+  // `job-statuses.toml` says `proposing` is the one status with no frozen
+  // workflow at all, so there is no workflow to name, no step machine to place
+  // a bar in and nothing that has run. Each cell stays — the columns are the
+  // list's and a dropped field shifts every one behind it — and each is empty:
+  // an em dash standing in for a fact that does not exist reads as a value that
+  // failed to load, which is the Spend argument three comments up.
+  const beingProposed = job.status === BEING_PROPOSED;
   const elapsedNow = elapsedOf(job, now);
   const createdAt = absoluteOf(job.created_at) ?? undefined;
   // **When it ended, preferred over when it was created.** `ended_at` is what
@@ -242,16 +256,18 @@ export function Row({
   // so the column says Workflow and carries the workflow. The branch is a fact
   // the detail holds.
   const facts: JobRowField[] = [
-    {
-      label: "Workflow",
-      icon: ScrollText,
-      value: workflowValue,
-      mono: workflow === undefined,
-      copyValue: job.workflow_id,
-    },
+    beingProposed
+      ? { label: "Workflow", value: undefined }
+      : {
+          label: "Workflow",
+          icon: ScrollText,
+          value: workflowValue,
+          mono: workflow === undefined,
+          copyValue: job.workflow_id,
+        },
     {
       label: "Progress",
-      value: (
+      value: beingProposed ? undefined : (
         <>
           {bar}
           <span className="armada-row-step">
@@ -276,7 +292,9 @@ export function Row({
       // for approval or a slot has never run at all, and a date in this column
       // would read as a run that happened. `endedAt` already falls back to
       // `createdAt` itself, for a row older still — see where it is computed.
-      value: elapsedNow ?? (isTerminal(job) ? endedAt : undefined) ?? "—",
+      value: beingProposed
+        ? undefined
+        : (elapsedNow ?? (isTerminal(job) ? endedAt : undefined) ?? "—"),
       mono: true,
       quiet: elapsedNow === undefined,
     },

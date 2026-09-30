@@ -36,6 +36,7 @@ import type {
   ModelChoices,
   Observed,
   Outcome,
+  ProposalInFlight,
   RepositorySummary,
   Watched,
   WhenBlocked,
@@ -416,4 +417,24 @@ export type JobDetailProps = {
    * is promoted and arrives on the Job's own reads.
    */
   draft?: JobDraft;
+  /**
+   * The proposer call this window has out, or `null`. **What the lead's wait
+   * region reads** on a Job at `proposing` — `since`, the budget, how far the
+   * call has got and how much the model has thought all come from here, because
+   * `crates/ipc/src/proposing.rs` is the one thing that says any of it.
+   *
+   * **Nothing on the wire links a proposal to its Job**, and `#1159` leaves
+   * that open until Fleet serves the status: `ProposalInFlight` carries no Job
+   * id and `JobSummary` carries no proposal id. So this is the call *this
+   * window* made, and the wait is drawn on the proposing Job it has open.
+   * Absent draws the wait with no reading, which is also a window reopened on
+   * somebody else's dispatch.
+   */
+  proposing?: ProposalInFlight | null;
+  /**
+   * Stop the proposer reading this request. **Kills the call rather than
+   * stopping the wait** — a wait abandoned leaves the proposer running inside
+   * Fleet and spending. Absent draws no control.
+   */
+  onStopProposer?: () => void;
 };

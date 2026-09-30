@@ -556,6 +556,14 @@ export type Proposed =
    */
   | { ok: false; why: "faulted"; request: string; outcome: Outcome }
   /**
+   * Somebody stopped the call. **Its own arm and not the fault above**, because
+   * nothing failed: they pressed a control Armada offered them, nothing was
+   * created, and `request` is what to ask with. Drawing this as a fault would
+   * tell them Armada broke, which is what `refusing.rs` gives the code its own
+   * name to prevent.
+   */
+  | { ok: false; why: "stopped"; request: string; outcome: Outcome }
+  /**
    * Nothing was proposed and neither of the two above says why: Bridge's own
    * refusal before anything was sent, or a refusal of Fleet's that is neither
    * of the named two. The outcome carries the whole of it, and the surface

@@ -538,9 +538,14 @@ export function activityOf(state: string): StepActivity {
  */
 export function whyNoSteps(watched: Watched, jobId: string): string | undefined {
   if (watched.state === "read" && watched.jobId === jobId) {
-    return watched.detail.steps.length === 0
-      ? "This Job's frozen workflow has no steps."
-      : undefined;
+    if (watched.detail.steps.length > 0) return undefined;
+    // **Not yet, rather than empty.** A Job being proposed has no frozen
+    // workflow at all — `job-statuses.toml` says this is the one status where
+    // that is the answer — so *this Job's frozen workflow has no steps* would
+    // name a workflow nobody has chosen and read as a Job that arrived broken.
+    return watched.detail.job.status === "proposing"
+      ? "The proposer has not chosen a workflow yet."
+      : "This Job's frozen workflow has no steps.";
   }
   if (watched.state === "failed" && watched.jobId === jobId) {
     return "Fleet did not answer";

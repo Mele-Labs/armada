@@ -39,6 +39,7 @@ import {
   retryingCheckFailure,
   runningAtGate,
   gateChecksStreaming,
+  proposing,
 } from "@armada/screens/src/fixtures/build/index";
 import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
@@ -192,6 +193,7 @@ export const BUILDERS = {
   retryingCheckFailure,
   runningAtGate,
   gateChecksStreaming,
+  proposing,
 } satisfies Record<string, () => JobFixture>;
 
 /** One builder's export name. `satisfies` above is what keeps this a union. */
@@ -241,6 +243,7 @@ const EVERY_STATE_TITLES: Record<Builder, string> = {
   retryingCheckFailure: "Trim the brief to the files the step touched",
   runningAtGate: "Hold the composer's draft while a job is open",
   gateChecksStreaming: "Let the palette open on an empty Job Board",
+  proposing: "Let a Job’s settings sheet remember which section was open",
 };
 
 const BUILT: [Builder, JobFixture][] = Object.entries(BUILDERS).map(([name, make]) => [

@@ -185,28 +185,10 @@ describe("what froze at approval", () => {
   );
 });
 
+// The moment before this one — a request dispatched and not yet read — is a Job
+// on the Board rather than a form waiting on it, so what a person sees there is
+// `proposing.test.tsx`'s to claim.
 describe("classifying", () => {
-  test(
-    "arc/proposing-reading: the form says the proposer is thinking, how long it has been out " +
-      "and how long it may take — and offers to stop it",
-    async () => {
-      mount("arc/proposing-reading");
-
-      const wait = page.getByRole("status").filter({ hasText: "thinking" }).first();
-      await expect.element(wait).toBeVisible();
-      // What it is doing, how long it has been doing it, and how long it may
-      // take. The elapsed figure is against the window's own clock, so it is
-      // read as a shape rather than as a string.
-      await expect.element(wait).toHaveTextContent(/\d+[ms]/);
-      await expect.element(wait).toHaveTextContent("left");
-      await expect.element(wait).toHaveTextContent("sonnet");
-
-      await expect
-        .element(page.getByRole("button", { name: "Stop the proposer" }))
-        .toBeVisible();
-    },
-  );
-
   test(
     "arc/proposing-review: the workflow the proposer chose is named with its four steps, and " +
       "every one of them has a gate row a person can still change",

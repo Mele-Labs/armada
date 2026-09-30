@@ -85,9 +85,17 @@ test.for(JOBS)("$handle's title names work rather than a state", namesWorkRather
 
 test.for(NEW_ROSTERS)("$handle's title names work rather than a state", namesWorkRatherThanAState);
 
-test("the arc's Job keeps the issue's own words", () => {
-  const arc = SCENARIOS.flatMap((one) => one.state.jobs).find((job) => job.id === ARC_JOB_ID);
-  expect(arc?.title).toBe(ARC_TITLE);
+test("the arc's Job keeps the issue's own words once the proposer has answered", () => {
+  const every = SCENARIOS.flatMap((one) => one.state.jobs).filter((job) => job.id === ARC_JOB_ID);
+  // **Two titles, and which one it carries is a fact about the status.** Before
+  // the proposer answers the title is the request as it was typed, because
+  // nobody wrote one; from `awaiting_approval` on it is the issue's own words.
+  for (const job of every) {
+    if (job.status === "proposing") expect(job.title).not.toBe(ARC_TITLE);
+    else expect(job.title).toBe(ARC_TITLE);
+  }
+  expect(every.some((job) => job.status === "proposing")).toBe(true);
+  expect(every.some((job) => job.title === ARC_TITLE)).toBe(true);
 });
 
 test("no two rows carry the same title", () => {
