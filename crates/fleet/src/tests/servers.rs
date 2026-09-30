@@ -77,17 +77,60 @@ fn a_fleet_holding(
     Arc::new(Fleet::assembled(fittings))
 }
 
+/// How many ports a fixture's range holds, and how many bases to try before
+/// giving up on finding a free one.
+const SPAN: u16 = 20;
+const TRIES: u8 = 32;
+
 /// A range no other test is claiming from. **Each test is a process of its
 /// own with a store of its own**, so two claiming from one range could be
 /// handed one span, and the second server would find its port taken — which
-/// one store per Fleet rules out everywhere but here. A base the kernel has
-/// just handed out is one no concurrent test was handed too.
+/// one store per Fleet rules out everywhere but here.
+///
+/// **Every port in the span is probed, not only the base.** Until 30 Sep 2026
+/// this bound `127.0.0.1:0`, took the port the kernel handed back, dropped the
+/// listener and claimed twenty ports on the strength of that one — so
+/// `base + 1 ..= base + 19` were never checked at all. `tests::preview::
+/// two_checkouts_of_one_repository_serve_at_once_on_their_own_spans` starts two
+/// servers and asserts they take different ports, so it is the test that reads
+/// the second one; it failed the merge line twice in a row on 30 Sep with
+/// `it ended before serving … exit 1` and `Something else is answering on port
+/// 59053 now`, and passed alone every time. 3,833 tests run in parallel here
+/// and the machine has Vite and mock servers on it besides.
+///
+/// **The listeners are held until the whole span is proven free**, then
+/// dropped together. The window between that drop and a server binding is
+/// still a window — the kernel will not reserve a range for us — but it is one
+/// window for twenty ports rather than nineteen ports never looked at.
 fn a_range_of_its_own() -> PortRange {
+    for _ in 0..TRIES {
+        let Some(base) = a_free_base() else { continue };
+        if a_span_is_free(base) {
+            return PortRange::of(base, base + SPAN - 1, 1);
+        }
+    }
+    panic!("no run of {SPAN} free ports in {TRIES} tries");
+}
+
+/// Whether every port from `base` up holds nothing right now.
+///
+/// **Bound all at once and released all at once.** Taking each and releasing
+/// it before taking the next is how the span comes back part-claimed by
+/// somebody else while this is still counting.
+fn a_span_is_free(base: u16) -> bool {
+    let held: Vec<_> = (0..SPAN)
+        .map(|step| std::net::TcpListener::bind(("127.0.0.1", base + step)))
+        .collect();
+    held.iter().all(Result::is_ok)
+}
+
+/// A base the kernel will hand out, with room for the whole span above it.
+fn a_free_base() -> Option<u16> {
     let base = std::net::TcpListener::bind("127.0.0.1:0")
         .and_then(|listener| listener.local_addr())
         .map(|bound| bound.port())
         .expect("a port the kernel will hand out");
-    PortRange::of(base, base.saturating_add(19), 1)
+    base.checked_add(SPAN - 1).map(|_| base)
 }
 
 /// A Job whose worktree is cut and whose span is claimed, with a Drone on it.
@@ -584,4 +627,36 @@ async fn a_job_with_no_readable_snapshot_finds_its_servers_in_the_live_file() {
         .await
         .expect("offered from the live file");
     fleet.stopped_server(&started.id).await.expect("it stops");
+}
+
+/// **The span is what is probed, not the base alone.** This is the fixture's
+/// own claim rather than a Fleet one, and it exists because the old version of
+/// `a_range_of_its_own` bound one port and claimed twenty: a port taken
+/// anywhere above the base was invisible to it, and the server that later
+/// reached for that port exited with `exit 1` in the middle of somebody else's
+/// merge. Deterministic, unlike the failure it is for — the occupied port is
+/// held here rather than waited for.
+#[test]
+fn a_span_holding_one_taken_port_is_not_free() {
+    let taken = std::net::TcpListener::bind("127.0.0.1:0").expect("a port to hold");
+    let port = taken.local_addr().expect("its own address").port();
+
+    // Above the base and inside the span, which is exactly what went unchecked.
+    let base = port.checked_sub(SPAN / 2).expect("room below it");
+    assert!(!a_span_is_free(base), "a span holding {port} is not free");
+
+    // And the same span once it is released, so this is measuring the port
+    // rather than something else about the range.
+    drop(taken);
+    assert!(a_span_is_free(base), "the span is free once {port} is let go");
+}
+
+/// Every port in a range this hands out binds, at the moment it hands it out.
+#[test]
+fn a_range_of_its_own_hands_out_a_span_that_is_free() {
+    let range = a_range_of_its_own();
+    for port in range.base()..=range.ceiling() {
+        std::net::TcpListener::bind(("127.0.0.1", port))
+            .unwrap_or_else(|why| panic!("{port} in the handed-out range is taken: {why}"));
+    }
 }
