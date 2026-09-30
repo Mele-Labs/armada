@@ -24,6 +24,7 @@ import type { WorkflowView } from "./workflow-view";
 
 import type {
   CommandAnswer,
+  EditJob,
   EditTask,
   MovePlan,
   Examination,
@@ -121,6 +122,11 @@ export type JobDetailProps = {
    * Fleet. Ahead of its route (#1685), so the answer is `Not implemented`.
    */
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
+  /**
+   * Edit this Job, on a Job of an Epic's proposed wave, with only what
+   * changed. Ahead of its route (#1699), so the answer is `Not implemented`.
+   */
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

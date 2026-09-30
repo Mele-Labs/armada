@@ -146,6 +146,9 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // An Epic's plan approved with its wave, #1694 — answered as the move is.
     approveWave: async (jobId, wave) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, "/approve_wave"), sent: sentOf(wave) }),
+    // One Job of the proposed wave edited, #1699 — answered as the approve is.
+    editJob: async (jobId, edit) =>
+      refusedWith(404, "", { method: "POST", path: path(jobId, "/edit"), sent: sentOf(edit) }),
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));

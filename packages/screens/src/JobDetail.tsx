@@ -209,6 +209,7 @@ function OneJob(props: JobDetailProps) {
     onOpenJob: openJob,
     onAnswerJudge: props.onAnswerJudge,
     onAnswerCommand: props.onAnswerCommand,
+    ...(props.onEditJob === undefined ? {} : { onEditJob: props.onEditJob }),
   };
 
   // The Job header, and everything that goes in it. `heading.tsx` holds what

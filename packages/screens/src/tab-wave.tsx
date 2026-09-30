@@ -26,9 +26,11 @@ import { useCallback, useMemo, useState } from "react";
 
 import type {
   CommandAnswer,
+  EditJob,
   JobDetail as JobWhole,
   JobSummary,
   JudgeAnswer,
+  Outcome,
   RepositorySummary,
   StepDetail,
 } from "@armada/protocol";
@@ -76,6 +78,12 @@ export type WaveRegionProps = {
   ) => void;
   /** The step that recorded the split, where one did. Its Judge is read off it. */
   planStep?: StepDetail;
+  /**
+   * Edit one Job of the proposed wave, directly through Fleet. Absent draws no
+   * Edit this Job. **Only a Job at `awaiting_approval` offers it** — the owner,
+   * 30 Sep 2026: a proposed Job is edited in its panel, never by opening it.
+   */
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
 };
 
 /**

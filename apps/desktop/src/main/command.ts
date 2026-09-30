@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveWave, CapRaise, ChosenAnswer, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -911,6 +911,18 @@ export class JobCommands {
   async approveWave(jobId: string, wave: ApproveWave): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "approve_wave"), wave),
+    );
+  }
+
+  /**
+   * Edit one Job of an Epic's proposed wave before the wave is approved —
+   * the same decision record. **Ahead of its route** (#1699), with only the
+   * fields a person changed as the body. The review's lock, as `approveWave`,
+   * since it is an answer at the same gate.
+   */
+  async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+    return this.act(jobId, this.deciding, "already_deciding", (port) =>
+      ask(port, "POST", route(jobId, "edit"), edit),
     );
   }
 

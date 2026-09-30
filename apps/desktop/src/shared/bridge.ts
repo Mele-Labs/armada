@@ -481,6 +481,7 @@ export const CHANNELS = {
   editTask: "bridge:edit-task",
   movePlan: "bridge:move-plan",
   approveWave: "bridge:approve-wave",
+  editJob: "bridge:edit-job",
   clearTerminalJobs: "bridge:clear-terminal-jobs",
   forgetTerminalJobs: "bridge:forget-terminal-jobs",
   reclaimWorktree: "bridge:reclaim-worktree",
