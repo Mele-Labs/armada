@@ -61,7 +61,7 @@ test("pressing the step in a Drone's sheet lands on Workflow with that step's pa
   await droneOnT5();
   await page.getByRole("dialog", { name: "Drone on T5" }).last().getByRole("button", { name: "Implement", exact: true }).click();
   await expect.element(page.getByRole("tab", { name: /^Workflow/, selected: true }).last()).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Implement, step" }).last()).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: "Implement" }).last()).toBeVisible();
 });
 
 // The owner's note of 29 Sep: *a drone will now be running against a step and a

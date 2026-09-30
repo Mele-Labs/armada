@@ -107,6 +107,7 @@ function OneJob(props: JobDetailProps) {
     setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
     setOpensDrone(to.tab === "drones" ? to.open?.id : undefined);
     setOpensRow(to.tab === "record" ? to.open?.id : undefined);
+    setOpensStep(to.tab === "workflow" ? to.open?.id : undefined);
     setOpensCheck(undefined);
     setOpensProposal(false);
     setTab(to.tab);
@@ -341,10 +342,21 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
-          // Where the Plan node goes. The strip is this screen's, so the run
-          // asks for the destination rather than moving one itself.
-          onOpenPlan={() => toTab("plan")}
+          // Where a step panel's plan card goes. The strip is this screen's,
+          // so the run asks for the destination rather than moving one itself,
+          // and the jump leaves a way back to the step (`trail.ts`).
+          onOpenPlan={() => {
+            trail.push("workflow");
+            setOpensTask(undefined);
+            setTab("plan");
+          }}
+          onOpenDrone={(droneId) => {
+            trail.push("workflow");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
           {...(opensStep === undefined ? {} : { opensStep })}
+          trail={trail.of("workflow")}
         />
       ) : tab === "plan" ? (
         <PlanTab
@@ -423,6 +435,7 @@ function OneJob(props: JobDetailProps) {
           {...(props.draft?.cases === undefined ? {} : { cases: props.draft.cases })}
           onSaid={props.onSaid}
           onOpenStep={(stepId) => {
+            trail.push("record");
             setOpensStep(stepId);
             setTab("workflow");
           }}
@@ -445,6 +458,7 @@ function OneJob(props: JobDetailProps) {
           onAct={props.onAct}
           onActHeld={props.onActHeld}
           onOpenStep={(stepId) => {
+            trail.push("drones");
             setOpensStep(stepId);
             setTab("workflow");
           }}
