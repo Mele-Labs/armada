@@ -74,6 +74,35 @@ test("Propose a change on a task opened from Overview sends the planning Drone a
   expect(instruction).toContain("on T5: Keep running-rows.tsx in T5");
 });
 
+test("Request changes to the entire plan sends what was typed to the planning Drone", async () => {
+  const app = mount(PLAN_REVIEW);
+  const redirect = vi.spyOn(app.api, "redirectDrone");
+  const plan = await thePlan();
+  const send = plan.getByRole("button", { name: "Send", exact: true });
+  await expect.element(send).toBeDisabled();
+  expect(plan.getByRole("button", { name: "Redirect drone" }).query()).toBeNull();
+  await userEvent.type(plan.getByRole("textbox", { name: "Request changes to the entire plan" }), "Put the Rust work last");
+  await send.click();
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  expect(redirect).toHaveBeenCalledWith(ARC_JOB_ID, "Put the Rust work last");
+});
+
+// The owner's, 30 Sep 2026: how a group's tasks run is drawn, not said; the
+// root it writes under carries no count; an unrun task's turns and cost are
+// empty rather than a dash; and a Check strip says nothing about where it runs.
+test("a group's head draws its shape and says no count, and a task nothing has run shows no dash", async () => {
+  mount(PLAN_REVIEW);
+  const plan = await thePlan();
+  await plan.getByRole("tab", { name: "List" }).click();
+  const first = plan.getByRole("listitem", { name: "Group 1" });
+  await expect.element(first.getByRole("img", { name: "2 tasks, one after another" })).toBeVisible();
+  const head = first.element().querySelector(".armada-plan-board__group-head")!;
+  expect(head.textContent).not.toContain("one after another");
+  expect(head.querySelector(".armada-plan-board__scope")?.textContent).toBe("crates/**");
+  await expect.element(plan.getByRole("listitem", { name: /^T1 / })).not.toHaveTextContent("—");
+  await expect.element(first).not.toHaveTextContent("at this boundary");
+});
+
 const NOT_A_PLAN: Record<string, Evidence> = {
   "a document": {
     state: "read",

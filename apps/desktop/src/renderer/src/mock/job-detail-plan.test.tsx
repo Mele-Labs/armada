@@ -194,14 +194,58 @@ async function groupThreeOnTheGraph() {
   return { api: app.api, panel };
 }
 
-test("a group's panel on the graph offers the asks its card on the list does", async () => {
+test("a group's panel on the graph offers Remove and Propose a change, as its card on the list does, and no Move up", async () => {
   const { panel } = await groupThreeOnTheGraph();
   const asks = panel.getByRole("group", { name: "Ask about group 3" });
-  for (const name of ["Move up", "Move down", "Remove", "Propose a change"]) {
+  for (const name of ["Remove", "Propose a change"]) {
     await expect.element(asks.getByRole("button", { name })).toBeVisible();
   }
-  await asks.getByRole("button", { name: "Move up" }).click();
-  await expect.element(page.getByRole("dialog", { name: /run group 3 before group 2/ })).toBeVisible();
+  expect(asks.getByRole("button", { name: "Move up" }).query()).toBeNull();
+  expect(asks.getByRole("button", { name: "Move down" }).query()).toBeNull();
+});
+
+// The owner's, 30 Sep 2026: *edits to the plan should just be made directly
+// through fleet*. A move is a drop, or ⌥↑ / ⌥↓ on the focused row; Fleet has
+// no route for it yet, so it says so, and the plan stays as it was.
+test("⌥↓ on a task row sends the move to Fleet, which says it is not built, naming #1685 and the move, and the order stays", async () => {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+  });
+  const app = mount("arc/plan-review");
+  const movePlan = vi.spyOn(app.api, "movePlan");
+  await onThePlanList();
+  const row = page.getByRole("listitem", { name: /^T3 / }).getByRole("button");
+  (row.element() as HTMLElement).focus();
+  await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+  await expect.poll(() => movePlan.mock.calls.length).toBe(1);
+  expect(movePlan).toHaveBeenCalledWith(ARC_JOB_ID, { group: "g2", task: "T3", to: 1 });
+  await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+  const second = page.getByRole("list", { name: "Group 2 tasks" }).element();
+  expect([...second.children].map((one) => one.getAttribute("aria-label")?.split(" ")[0])).toEqual(["T3", "T4"]);
+  await page.getByRole("button", { name: "Copy debug info" }).click();
+  await expect.poll(() => written).toHaveLength(1);
+  const pasted = written[0]!;
+  expect(pasted).toContain("bridge.not_implemented");
+  expect(pasted).toContain(issueLink(1685));
+  expect(pasted).toContain("POST /jobs/{job_id}/plan/move");
+  expect(pasted).toContain("T3");
+  expect(pasted).toContain("g2");
+});
+
+test("Remove on a group asks one reason in place and drops each of its tasks with it", async () => {
+  const app = mount("arc/plan-review");
+  const dropTask = vi.spyOn(app.api, "dropTask");
+  await onThePlanList();
+  const fourth = page.getByRole("listitem", { name: "Group 4" });
+  await fourth.getByRole("button", { name: "Remove" }).click();
+  const form = fourth.getByRole("region", { name: "Remove group 4" });
+  await userEvent.type(form.getByLabelText("Reason"), "Out of scope for this Job.");
+  await form.getByRole("button", { name: "Remove" }).click();
+  await expect.poll(() => dropTask.mock.calls.length).toBe(2);
+  expect(dropTask).toHaveBeenNthCalledWith(1, ARC_JOB_ID, { task: "T7", reason: "Out of scope for this Job." });
+  expect(dropTask).toHaveBeenNthCalledWith(2, ARC_JOB_ID, { task: "T8", reason: "Out of scope for this Job." });
 });
 
 test("a task opened from a group's panel closes back to that group, and one opened from the plan closes to the plan", async () => {
