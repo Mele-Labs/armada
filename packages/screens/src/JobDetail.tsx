@@ -44,10 +44,11 @@ import { RecordTab, type CheckAt } from "./tab-record";
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
-import { WaveRegion, type WaveRegionProps } from "./tab-wave";
+import { type WaveRegionProps } from "./tab-wave";
+import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { FIRST_PLAN_VIEW } from "./plan-view";
-import { FIRST_WORKFLOW_VIEW, type WorkflowView } from "./workflow-view";
+import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
 import { useTrail } from "./trail";
 
@@ -182,10 +183,6 @@ function OneJob(props: JobDetailProps) {
   // workflow two different reasons.
   const absent = whyNoSteps(props.watched, props.job.id);
 
-  // Whether the wave is drawn as the graph or the list. **Held here and not on
-  // a tab**: Overview and Plan draw the same wave, and a toggle that reset on
-  // the way between them would be two readings of one thing.
-  const [waveView, setWaveView] = useState<WorkflowView>(FIRST_WORKFLOW_VIEW);
   // Stable across a tick of `now`, which is what keeps the wave's canvas from
   // rebuilding its nodes every second.
   const opens = props.onOpenJob;
@@ -201,8 +198,11 @@ function OneJob(props: JobDetailProps) {
     now: props.now,
     stale: props.stale,
     acting: props.acting,
-    view: waveView,
-    onView: setWaveView,
+    // Graph or List, **Plan's own remembered choice**: on an Epic Job the wave
+    // is what Plan draws, and Overview draws the same wave, so one toggle
+    // reads it one way everywhere (owner, 30 Sep 2026).
+    view: props.planView ?? FIRST_PLAN_VIEW,
+    onView: (view) => props.onPlanView?.(view),
     // A wave whose caller offers no way to open a Job draws its cards inert
     // rather than pressing into nothing — `onOpenJob` is the shell's, and
     // optional for that reason.
@@ -292,8 +292,9 @@ function OneJob(props: JobDetailProps) {
         <>
         {/* The wave this Job dispatched, above the run — what it dispatched is
             the product of an Epic Job, and the run is how it got there. A Job
-            that dispatched nothing draws nothing. #1544. */}
-        <WaveRegion {...wave} />
+            that dispatched nothing draws nothing. #1544. A Job pressed opens
+            its panel, with what it asks of you at the top — Plan's own. */}
+        <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
         <OverviewTab
           {...props}
           job={job}
