@@ -441,11 +441,15 @@ export function taskSheetOf(
   const owed: PlanTaskTest[] = cases
     .filter((one) => one.tasks.includes(task.id) || task.cases.includes(one.id))
     .map(testOf);
+  // The flag the plan list carries as `touched later · T7`, back in the panel
+  // (owner, 30 Sep 2026) after it left with the old brief field.
+  const later = touchedByOf(groups).get(task.id);
   return {
     id: task.id,
     title: task.title,
     state: markOf(task.state),
     scope: task.scope,
+    ...(later === undefined ? {} : { overlap: `${later} edited a file this task had already finished` }),
     tier: task.tier,
     model: task.model,
     beside: task.concurrent_with,

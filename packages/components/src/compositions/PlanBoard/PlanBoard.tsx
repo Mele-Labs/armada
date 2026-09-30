@@ -87,6 +87,28 @@ export type PlanBoardOverlap = {
   paths: readonly string[];
 };
 
+/**
+ * One overlap warning, in the caution treatment — a group's card, and Plan's
+ * task panel under its Files, where a later task edited a file this one had
+ * already finished. **One drawing for both**, so the two read as the same
+ * kind of warning. No `paths` draws the sentence alone.
+ */
+export function PlanOverlap({ says, paths = [] }: { says: string; paths?: readonly string[] }) {
+  return (
+    <div className="armada-plan-board__overlap" role="note">
+      <TriangleAlert size={12} strokeWidth={2} aria-hidden />
+      <span className="armada-plan-board__overlap-says">{says}</span>
+      {paths.length === 0 ? null : (
+        <ul className="armada-plan-board__overlap-paths">
+          {paths.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export type PlanBoardGroup = {
   id: string;
   /** Its position in the step, counted from one. */
@@ -295,15 +317,7 @@ function GroupCard({
         </CardHeader>
         <CardContent>
           {(group.overlaps ?? []).map((overlap) => (
-            <div className="armada-plan-board__overlap" key={overlap.says} role="note">
-              <TriangleAlert size={12} strokeWidth={2} aria-hidden />
-              <span className="armada-plan-board__overlap-says">{overlap.says}</span>
-              <ul className="armada-plan-board__overlap-paths">
-                {overlap.paths.map((path) => (
-                  <li key={path}>{path}</li>
-                ))}
-              </ul>
-            </div>
+            <PlanOverlap key={overlap.says} says={overlap.says} paths={overlap.paths} />
           ))}
           <ul className="armada-plan-board__tasks" aria-label={`Group ${group.ordinal} tasks`}>
             {group.tasks.map((task) => (

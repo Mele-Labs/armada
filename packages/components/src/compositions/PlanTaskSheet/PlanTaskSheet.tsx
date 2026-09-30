@@ -5,6 +5,7 @@ import { Input } from "../../primitives/Input/Input";
 import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
+import { PlanOverlap } from "../PlanBoard/PlanBoard";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -41,6 +42,12 @@ export type PlanTaskSheetProps = {
   note?: string;
   /** The repository-relative paths the task names, in the order it named them. */
   scope?: readonly string[];
+  /**
+   * `T7 edited a file this task had already finished`, the caller's own
+   * sentence, drawn under Files as the plan list draws a group's overlap.
+   * Absent draws nothing.
+   */
+  overlap?: string;
   /**
    * Which of `scope` the work actually reached, and what it reached that
    * `scope` never named. **Absent is not empty**: absent is a Job whose turns
@@ -234,6 +241,7 @@ export function PlanTaskSheet({
   reason,
   note,
   scope = [],
+  overlap,
   touched,
   expects,
   shown,
@@ -338,6 +346,7 @@ export function PlanTaskSheet({
               open={file?.path}
               onFile={onFile}
             />
+            {overlap === undefined ? null : <PlanOverlap says={overlap} />}
           </TaskField>
         )}
         {(expects ?? "") === "" && (shown ?? "") === "" ? null : (
