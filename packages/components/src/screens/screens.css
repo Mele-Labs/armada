@@ -2331,10 +2331,13 @@
 
 
 /* What leads the screen. The edge carries the tone, so a reader looking for
-   the thing outstanding finds it before reading a word. */
+   the thing outstanding finds it before reading a word.
+
+   A column, because what the lead is about is answered inside it — the owner,
+   30 Sep 2026, on a lead and a question box that said the same thing twice. */
 .armada-lead {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-4);
   flex: none;
   min-width: 0;
@@ -2351,6 +2354,30 @@
 
 .armada-lead[data-tone="completed-failed"] {
   border-inline-start-color: var(--status-completed-failed);
+}
+
+/* The sentence, the elapsed and the act. `flex-start`, so the elapsed reads
+   on the headline's line rather than between it and the line under it. */
+.armada-lead__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Mono and set back: a machine reading, and the caller has already aged it. */
+.armada-lead__elapsed {
+  flex: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-lg);
+  color: var(--fg-muted);
+}
+
+/* The question, the command and the review gate are the lead's own contents
+   now, so their own rule would be a second edge inside one panel. */
+.armada-lead .armada-question {
+  padding-inline-start: 0;
+  border-inline-start: none;
 }
 
 .armada-lead__said {

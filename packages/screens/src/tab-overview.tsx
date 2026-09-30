@@ -121,6 +121,12 @@ export type OverviewTabProps = JobDetailProps & {
    * Plan's group boundary.
    */
   onOpenCheck: (at: CheckAt) => void;
+  /**
+   * Draw the proposal this Job is waiting to have approved. **Absent where
+   * there is no proposal read to draw**, and then the lead offers no act —
+   * a dead press is what `#1675` was filed against.
+   */
+  onOpenProposal?: () => void;
 };
 
 /**
@@ -746,8 +752,8 @@ export function OverviewTab(props: OverviewTabProps) {
   const explain =
     onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
   const waiting = waitingOf(
-    questionOf(whole, job.id, now, stale, acting, onAnswer, actingAct),
-    commandOf(whole, now, answering, explain),
+    questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
+    commandOf(whole, answering, explain),
     verdictSlot,
   );
 
@@ -764,9 +770,16 @@ export function OverviewTab(props: OverviewTabProps) {
   // Sep 2026 every one of them selected a step instead, and nothing has read
   // that selection since `InsideAJob` was deleted — four buttons, four dead
   // presses, which is what the owner pressed and reported.
+  //
+  // **And no act where the route cannot land.** The approval act reaches
+  // `ProposalTab`, which draws nothing without a proposal read, so the screen
+  // hands `onOpenProposal` down only where it has one.
   const opens = lead.opens;
+  const openProposal = props.onOpenProposal;
+  const reaches =
+    opens === undefined || !("proposal" in opens) || openProposal !== undefined;
   const leadAct =
-    lead.act === undefined || open === undefined || waiting !== undefined ? undefined : (
+    lead.act === undefined || open === undefined || waiting !== undefined || !reaches ? undefined : (
       <Button
         onClick={() => {
           if (opens === undefined) {
@@ -776,6 +789,7 @@ export function OverviewTab(props: OverviewTabProps) {
             return;
           }
           if ("check" in opens) props.onOpenCheck(opens.check);
+          else if ("proposal" in opens) openProposal?.();
           else props.onOpenTab(opens.tab);
         }}
       >

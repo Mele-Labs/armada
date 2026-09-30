@@ -26,8 +26,12 @@ export type DroneQuestionProps = {
    * was not given. **A node rather than a string** so a command can sit in
    * mono inside the sentence around it — it is what the drone sent, and mono
    * is how a surface says a value is the machine's.
+   *
+   * **Absent where something above has already said it**, which is Overview's
+   * lead since the two became one panel: a restatement under the sentence it
+   * restates is the duplication that merge exists to remove.
    */
-  question: ReactNode;
+  question?: ReactNode;
   /** The answers it will take. Two to four, each label distinct. */
   options: readonly DroneAnswer[];
   /** How long it has been waiting, already rendered. `12m`, `2h`. */
@@ -56,7 +60,10 @@ export type DroneQuestionProps = {
    * disables, the way `disabled` alone already does. #1117.
    */
   pending?: boolean;
-  /** The line over the question. Sentence case, no Wh- opener. */
+  /**
+   * The line over the question. Sentence case, no Wh- opener. **`null` draws
+   * no head at all**, for a box inside a panel whose own headline is this.
+   */
   label?: ReactNode;
   /**
    * The sentence under the control: where the words go when none of the
@@ -212,19 +219,21 @@ export function DroneQuestion({
   // waiting notice takes and which means "needs you, not urgent".
   return (
     <section className="armada-question" aria-label="A question from the drone">
-      <div className="armada-question__head">
-        <span className="armada-question__label">{label}</span>
-        {/* Aged by the caller and never here. The instant crosses once and
-            nothing on the wire ticks, so a surface that formatted its own
-            elapsed would be a second reading of one fact. */}
-        {waiting === undefined ? null : (
-          <span className="armada-question__waiting mono">{waiting}</span>
-        )}
-      </div>
+      {label === null && waiting === undefined ? null : (
+        <div className="armada-question__head">
+          {label === null ? null : <span className="armada-question__label">{label}</span>}
+          {/* Aged by the caller and never here. The instant crosses once and
+              nothing on the wire ticks, so a surface that formatted its own
+              elapsed would be a second reading of one fact. */}
+          {waiting === undefined ? null : (
+            <span className="armada-question__waiting mono">{waiting}</span>
+          )}
+        </div>
+      )}
 
       {/* The drone's own sentence, quoted rather than framed. Fleet adds no
           wording to it and neither does this. */}
-      <p className="armada-question__asked">{question}</p>
+      {question === undefined ? null : <p className="armada-question__asked">{question}</p>}
 
       {/* Above the answers and never among them: reading is what a person does
           before deciding, and a control in the list would read as a fourth
