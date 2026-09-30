@@ -8,4 +8,4 @@ The same day every job-detail panel was made to dim (`2026-09-30-every-panel-dim
 
 **Cost he took, stated in the question:** while a step is open the canvas is dimmed, so reading another step means closing this one first, and the slide that kept the open step in view goes, because it no longer helps.
 
-**Where it landed:** `workflow/board-pass`. Supersedes the no-scrim half of the 25 Sep Workflow layer decision recorded in `tab-workflow.tsx`.
+**Where it landed:** `workflow/board-pass`, #1691. Supersedes the no-scrim half of the 25 Sep Workflow layer decision recorded in `tab-workflow.tsx`.
