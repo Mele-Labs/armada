@@ -50,7 +50,21 @@ async function panned(tab: RegExp, surface: string): Promise<string> {
     sourcePosition: from,
     targetPosition: { x: from.x + DRAGGED.x, y: from.y + DRAGGED.y },
   });
-  const after = viewportOf(surface);
+  // **Settled, not snapshotted.** React Flow fits again whenever its
+  // container resizes, and on a busy machine the layout can settle after the
+  // drag rather than before it — so the transform read on the line after the
+  // drop is one a pending fit is about to overwrite, and every assertion
+  // downstream compares against a value that was never the resting one. Two
+  // equal reads a frame apart is what makes it the resting one.
+  let after = viewportOf(surface);
+  await expect
+    .poll(() => {
+      const now = viewportOf(surface);
+      const still = now === after;
+      after = now;
+      return still;
+    })
+    .toBe(true);
   expect(after).not.toBe("none");
   return after;
 }
