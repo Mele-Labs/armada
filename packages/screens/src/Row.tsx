@@ -217,10 +217,18 @@ export function Row({
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
   // workflow at all, so there is no workflow to name, no step machine to place
-  // a bar in and nothing that has run. Each cell stays — the columns are the
-  // list's and a dropped field shifts every one behind it — and each is empty:
-  // an em dash standing in for a fact that does not exist reads as a value that
-  // failed to load, which is the Spend argument three comments up.
+  // a bar in and nothing that has run.
+  //
+  // **The track stays and the heading goes with the value.** The columns are
+  // the list's, so a dropped field shifts every one behind it; but a heading
+  // over a blank is the placeholder *an empty slot stays empty* refuses, and
+  // the owner applied that rule here by eye on 30 Sep 2026 once he could see
+  // the row. An em dash would be worse again — it reads as a value that failed
+  // to load, which is the Spend argument three comments up.
+  //
+  // **Cost he took:** scanning down the list, a proposing row's cells sit where
+  // its neighbours' do with nothing naming them. The table view is unaffected,
+  // since there the header names each column once for the whole list.
   const beingProposed = job.status === BEING_PROPOSED;
   const elapsedNow = elapsedOf(job, now);
   const createdAt = absoluteOf(job.created_at) ?? undefined;
@@ -257,7 +265,7 @@ export function Row({
   // the detail holds.
   const facts: JobRowField[] = [
     beingProposed
-      ? { label: "Workflow", value: undefined }
+      ? { value: undefined }
       : {
           label: "Workflow",
           icon: ScrollText,
@@ -266,7 +274,7 @@ export function Row({
           copyValue: job.workflow_id,
         },
     {
-      label: "Progress",
+      ...(beingProposed ? {} : { label: "Progress" }),
       value: beingProposed ? undefined : (
         <>
           {bar}
@@ -285,7 +293,7 @@ export function Row({
       ),
     },
     {
-      label: "Run time",
+      ...(beingProposed ? {} : { label: "Run time" }),
       // **A Job that has never run draws nothing here, not `endedAt`.** The
       // fallback is for a Job from a Fleet that served no `ended_at`, which
       // leaves `elapsedOf` with nothing to stop against; a Job still waiting

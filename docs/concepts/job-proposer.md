@@ -143,9 +143,11 @@ At step 3 the proposer works out what kind of work it is and which workflow it r
 **Approving a Job dispatches that Job, and it is the only approval act on this path.**
 Why: every Job the request became already stands at `awaiting_approval`, so a plan-level act would have nothing left to create.
 
-**Step 5 happens on the Job's own page, and it is still one press from the row.** Settled 2026-09-08 from the owner's complaint — *"I would love if I didn't need to click Review just to get to the approval button"* — and the surface that answered it was the composer holding the proposal after the press. That surface is gone with step 3's ruling of 30 Sep 2026: the press leaves, so there is nowhere else for the proposal to be drawn. What holds the complaint instead is that the proposal **is** Overview on a Job that has not been approved — `ProposalTab` in `packages/screens` draws it in Overview's place — and `Approve dispatch` is on the header above it. Nothing is behind a Review.
+**Step 5 happens on the proposal, not at a gate of its own.** Everything the gate approves — the workflow, the name and the split — is already on the screen the proposal is drawn on, so sending a person somewhere else to say yes to what they are reading is a second surface for no second fact. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
 
-**Only the head of a proposal is approvable, and Review is still there.** A chained Job is not at its gate until the one before it completes, so the rows under the first offer no approval. Review opens any of them, for the case where the title is not enough to decide on.
+**30 Sep 2026: the surface that answered it is gone, and the rule is held another way.** What carried the proposal in 2026-09-08 was the composer, after the press. The ruling at step 3 takes the press out of the composer, so there is nowhere in that flow for a proposal to be drawn at all. What holds the complaint instead is that a Job which has not been approved draws its **proposal in Overview's own place** — `ProposalTab` in `packages/screens`, reached by opening the row — with `Approve dispatch` on the header above it. So it is still one press off the Board and nothing sits behind a Review. What it costs is that the proposal is now read one press later than it was: the row has to be opened first, where before the answer arrived on the screen the request was typed on.
+
+**Only the head of a proposal is approvable, and the rest are still openable.** A chained Job is not at its gate until the one before it completes, so those rows carry no approval. Each is a row on the [Job Board](job-board.md) like any other and opens like one, for the case where the title is not enough to decide on — they were rows in the composer's own list until 30 Sep 2026, and a request becoming several Jobs is read off `dispatched_by` now.
 
 | What was proposed | What step 5 dispatches | What is left at the gate |
 | --- | --- | --- |
@@ -156,9 +158,9 @@ Why: every Job the request became already stands at `awaiting_approval`, so a pl
 
 **It is the dispatch gate, not a gate of its own.** A proposal is approved where a mid-flight scope revision is approved, so the things called approval on a Job's path stay two — this gate, and a workflow's own human gate over finished work.
 
-**Cost accepted:** one tap for a Job whose proposal is obvious — the approval sits on the proposal, so nobody opens a Job in order to agree with what is already on screen. What is given up is that the reading and the release are one gesture apart rather than two; the [Job Board](job-board.md) keeps the stricter arrangement, because there the proposal is not on screen.
+**Cost accepted:** the reading and the release are one gesture apart rather than two — the approval sits on the proposal, so nobody reads it in one place and agrees to it in another. Since 30 Sep 2026 the proposal is drawn on the Job rather than in the composer, which puts one press in front of both halves and none between them.
 
-**The surface is drawn.** It is `DispatchRequest` in `packages/components`, whose own note carries what it decided and why; Dispatch a Job is design order 1 and everything else reuses its approval pattern.
+**The surface is drawn.** The composer is `DispatchRequest` in `packages/components` and the proposal is `ProposalTab` in `packages/screens`, each carrying its own note; Dispatch a Job is design order 1 and everything else reuses its approval pattern.
 
 ## What is recorded
 

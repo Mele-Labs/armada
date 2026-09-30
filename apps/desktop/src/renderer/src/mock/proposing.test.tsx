@@ -22,9 +22,14 @@ function proposingRows(): HTMLElement[] {
   return rows().filter((row) => row.textContent?.includes("proposing") === true);
 }
 
+/** Every cell of one row's field run, in the order the columns name them. */
+function cells(row: HTMLElement): HTMLElement[] {
+  return [...row.querySelectorAll<HTMLElement>(".armada-job-row__field")];
+}
+
 /** One row's own cell under a named column, by the label the card stacks over it. */
 function cell(row: HTMLElement, label: string): HTMLElement | undefined {
-  return [...row.querySelectorAll<HTMLElement>(".armada-job-row__field")].find(
+  return cells(row).find(
     (field) => field.querySelector(".armada-job-row__field-label")?.textContent === label,
   );
 }
@@ -51,17 +56,30 @@ describe("a dispatched request is a row", () => {
     expect(badge?.querySelector("svg"), "the badge drew its verb with no glyph").not.toBeNull();
   });
 
-  test("the three columns it has nothing for are empty, not filled in", async () => {
+  test("the three columns it has nothing for are empty, heading and all", async () => {
     mount("arc/proposing-dispatched");
     await listed();
     const row = proposingRows()[0]!;
-    for (const label of ["Workflow", "Progress", "Run time"]) {
-      const under = cell(row, label);
-      expect(under, `the row lost its ${label} cell, which shifts every column behind it`).toBeDefined();
-      const value = under?.querySelector(".armada-job-row__field-value")?.textContent ?? "";
-      expect(value.trim(), `${label} invented a value for a fact this Job has none of`).toBe("");
+    const running = rows().find((one) => one.textContent?.includes("running") === true)!;
+
+    // **Every cell is still there**, because the columns are the list's and a
+    // dropped field shifts every one behind it.
+    expect(cells(row), "the row lost a cell, which shifts every column behind it").toHaveLength(
+      cells(running).length,
+    );
+    // **And the three it has no fact for say nothing at all** — no value, and
+    // no heading standing over the blank. Read by position, since the label
+    // that used to name each is exactly what is gone.
+    for (const at of [0, 1, 2]) {
+      const under = cells(row)[at]!;
+      const named = cells(running)[at]?.querySelector(".armada-job-row__field-label")?.textContent;
+      expect(under.textContent?.trim(), `${named ?? at} said something about a fact this Job has none of`).toBe("");
+      expect(
+        under.querySelector(".armada-job-row__field-label"),
+        `${named ?? at} left its heading over a blank`,
+      ).toBeNull();
     }
-    // And the one it does have a fact for still says it.
+    // And the one it does have a fact for still says it, under its own name.
     expect(cell(row, "Dispatched by")?.textContent).toContain("Dispatched by");
   });
 });
