@@ -35,10 +35,9 @@ async function panned(tab: RegExp, surface: string): Promise<string> {
   //
   // **Waited for, not read.** The press above renders the tab and React Flow
   // mounts inside that render, so a `querySelector` on the line after it is a
-  // race the test loses whenever the machine is busy — which is every time
-  // the merge line runs the whole suite at once. It refused two approved
-  // branches on 30 Sep 2026 on `expected null not to be null`, and passed
-  // alone every time after.
+  // race against that render. The wait is right either way; what was actually
+  // refusing the merge line was the remembered view above, which left no
+  // canvas to find at all.
   await expect.poll(() => document.querySelector(`${surface} .react-flow__pane`)).not.toBeNull();
   const pane = document.querySelector<HTMLElement>(`${surface} .react-flow__pane`);
   expect(pane).not.toBeNull();

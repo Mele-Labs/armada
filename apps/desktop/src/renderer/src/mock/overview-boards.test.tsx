@@ -325,6 +325,88 @@ describe("the lead's act — what the press reaches", () => {
     expect(page.getByRole("button", { name: "Review it" }).query()).toBeNull();
     await expect.element(page.getByRole("tabpanel", { name: "Overview" })).toBeVisible();
   });
+
+  // **Nothing to press where nothing is built.** Fleet serves neither status,
+  // so the sentence is all there is — `#1675` found four buttons reaching
+  // nothing and the owner kept one route of the four.
+  test("job/awaitingRepair and job/awaitingAttestation offer a sentence and no act", async () => {
+    await drawn("job/awaitingRepair", ".armada-lead");
+    await expect.element(page.getByRole("heading", { name: "Out of retries" })).toBeVisible();
+    expect(document.querySelectorAll(".armada-lead button")).toHaveLength(0);
+
+    await drawn("job/awaitingAttestation", ".armada-lead");
+    await expect
+      .element(page.getByRole("heading", { name: "A criterion needs your attestation" }))
+      .toBeVisible();
+    expect(document.querySelectorAll(".armada-lead button")).toHaveLength(0);
+  });
+});
+
+// **One panel, not two.** The owner, 30 Sep 2026, on a lead that said *A Drone
+// wants to run a command it was not given / pnpm add -D reselect@5.1.1* over a
+// box that said *The drone is waiting on you / The drone wants to run pnpm add
+// -D reselect@5.1.1*: *"This panel duplicates what is shown in the panel
+// below. Why can't we just have one panel?"*
+//
+// Measured by containment and by box, never off a sentence: the copy can be
+// right while the controls are still a sibling of the panel that names them.
+describe("the lead and what it is about are one panel", () => {
+  test("job/runningWaitingOnACommand: the answers are inside the lead, not beside it", async () => {
+    await drawn("job/runningWaitingOnACommand", ".armada-question");
+
+    const lead = document.querySelector(".armada-lead");
+    const answers = document.querySelector(".armada-question");
+    expect(lead, "no lead on screen").not.toBeNull();
+    expect(lead?.contains(answers as Node)).toBe(true);
+    // One panel: nothing answering sits outside the one that says why.
+    expect(document.querySelectorAll(".armada-overview-board > .armada-question")).toHaveLength(0);
+    // And the radios themselves, not merely the section around them.
+    const radio = page.getByRole("radio", { name: "Allow for this job" });
+    await expect.element(radio).toBeVisible();
+    expect(lead?.contains(await radio.element())).toBe(true);
+    // Inside the panel's border, which is what a reader sees as one thing.
+    const box = boxOf(".armada-lead");
+    const send = boxOf(".armada-question button[type='button']:last-of-type");
+    expect(send.bottom).toBeLessThanOrEqual(box.bottom);
+  });
+
+  test("job/runningWaitingOnACommand: the box no longer restates what the lead said", async () => {
+    await drawn("job/runningWaitingOnACommand", ".armada-question");
+
+    expect(page.getByText("The drone is waiting on you").query()).toBeNull();
+    expect(page.getByText(/^The drone wants to run/).query()).toBeNull();
+    // The command is said once, on the lead's own second line.
+    expect(saidBy(".armada-lead__because")).toContain("pnpm add -D reselect@5.1.1");
+  });
+
+  test("job/runningWaitingOnACommand: the elapsed is the lead's, at its top right", async () => {
+    await drawn("job/runningWaitingOnACommand", ".armada-lead__elapsed");
+
+    expect(document.querySelectorAll(".armada-question__waiting")).toHaveLength(0);
+    const elapsed = boxOf(".armada-lead__elapsed");
+    const headline = boxOf(".armada-lead__headline");
+    expect(elapsed.left).toBeGreaterThanOrEqual(headline.right);
+    expect(elapsed.top).toBeLessThan(headline.bottom);
+  });
+
+  test("job/reviewAtDelivery: the review gate is inside the lead, and its record stays folded", async () => {
+    await drawn("job/reviewAtDelivery", ".armada-verdict");
+
+    const lead = document.querySelector(".armada-lead");
+    expect(lead?.contains(document.querySelector(".armada-verdict") as Node)).toBe(true);
+    // **The face, not the entry.** `Approve the work` was a button of its own
+    // until the review gate took two split buttons on 30 Sep 2026; it is
+    // behind Merge's caret now and is not in the document until the caret is
+    // opened. What this claim is about is where the decision sits, and the
+    // face is the part of it a person sees without pressing anything.
+    const merge = await page.getByRole("button", { name: "Merge and take the work" }).element();
+    expect(lead?.contains(merge)).toBe(true);
+    // Folded, per `the-review-gate-sits-under-the-lead`: unfolding it to make
+    // the merge tidier is not this change's to do.
+    expect(
+      document.querySelector(".armada-verdict__fold")?.getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
 });
 
 describe("the Land board — Overview for a Job that finished", () => {
