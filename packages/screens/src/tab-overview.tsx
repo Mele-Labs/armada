@@ -87,6 +87,8 @@ import { whyNoBrief } from "./work";
 
 import type { JobDetailProps } from "./detail-props";
 import type { Render } from "./render";
+import type { TrailProps } from "./trail";
+import { FIRST_PLAN_VIEW } from "./plan-view";
 
 /**
  * What the screen hands its first tab: everything the caller handed it, plus
@@ -127,7 +129,18 @@ export type OverviewTabProps = JobDetailProps & {
    * a dead press is what `#1675` was filed against.
    */
   onOpenProposal?: () => void;
+  /**
+   * What a plan at the review gate takes that only the screen holds: a Drone
+   * opened from a task's peek, the task to land on, and the way back —
+   * `PlanTab`'s own three. Absent, the peek draws no Open.
+   */
+  onOpenDrone?: (droneId: string) => void;
+  opensTask?: string;
+  trail?: TrailProps;
 };
+
+/** What `Decide` is handed for the claims' read, which this tab holds itself. */
+const HELD_ABOVE = () => {};
 
 /**
  * The Settings card's one line: where the work lands, and whether anybody has
@@ -333,6 +346,17 @@ export function OverviewTab(props: OverviewTabProps) {
         : undefined,
     [recorded.evidence, open?.step_id],
   );
+  // **The claims are held open by this tab for as long as a gate is drawn,
+  // not by `Decide`.** The gate chooses what it draws off `claimed` — a plan
+  // is Plan's review, which has no `Decide` in it — so a read opened and
+  // closed by `Decide` closed itself the moment it said "plan", and the gate
+  // flipped between the two for as long as the Job was open.
+  const needMaterial = props.onNeedMaterial;
+  useEffect(() => {
+    if (render !== "reviewing") return;
+    needMaterial(job.id);
+    return () => needMaterial(null);
+  }, [job.id, render]);
   const opensRecords = useMemo(
     () => ({ jobId: job.id, open: onOpenArtifact, onSaid }),
     [job.id, onSaid],
@@ -598,7 +622,8 @@ export function OverviewTab(props: OverviewTabProps) {
     now,
     claimed,
     frames,
-    onNeedMaterial: props.onNeedMaterial,
+    // Held above, so `Decide` neither opens nor closes it.
+    onNeedMaterial: HELD_ABOVE,
     onNeedRemarks: props.onNeedRemarks,
     stale,
     acting,
@@ -623,6 +648,33 @@ export function OverviewTab(props: OverviewTabProps) {
     onOpenDiff: () => openSheet("diff"),
     onDismissFinding: props.onDismissFinding,
     notes: noted?.notes ?? [],
+    // A plan at this gate is Plan's own review, off the same props the Plan
+    // destination hands it — and the same Graph/List choice, so the plan reads
+    // one way in both. The patch's read is this tab's already.
+    plan: {
+      job,
+      whole,
+      ...(props.draft === undefined ? {} : { draft: props.draft }),
+      floor,
+      view: props.planView ?? FIRST_PLAN_VIEW,
+      onView: (view) => props.onPlanView?.(view),
+      stale,
+      acting,
+      deciding: props.deciding,
+      onApproveReview: props.onApproveReview,
+      onRedirect,
+      ...(props.onTaskAct === undefined ? {} : { onTaskAct: props.onTaskAct }),
+      models: props.models?.models ?? [],
+      onAddTask: props.onAddTask,
+      onDropTask: props.onDropTask,
+      onSaid,
+      diff: recorded.diff,
+      ...(props.opensTask === undefined ? {} : { opensTask: props.opensTask }),
+      ...(props.onOpenDrone === undefined ? {} : { onOpenDrone: props.onOpenDrone }),
+      now,
+      onOpenCheck: (name, stepAttempt) => props.onOpenCheck({ name, stepAttempt }),
+      ...(props.trail === undefined ? {} : { trail: props.trail }),
+    },
   });
 
 

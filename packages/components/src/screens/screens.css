@@ -2560,3 +2560,13 @@
 .armada-plan-tab__fold-first[data-empty] {
   color: var(--fg-subtle);
 }
+
+/* Plan's review, drawn whole at Overview's gate where the waiting step claimed
+   a plan (owner, 30 Sep 2026). The gate's acts, then the plan under them, a
+   step apart: on Plan the lead card holds the gate and the wave sits between. */
+.armada-plan-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}

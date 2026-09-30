@@ -245,6 +245,32 @@ export function plannedMoment(): ArcMoment {
 }
 
 /**
+ * The Job with the plan step's own submission read. **`evidence_type: "plan"`
+ * is what Overview's gate switches on** to draw Plan's review rather than the
+ * work's (owner, 30 Sep 2026) — Fleet's word off the frozen step, never its name.
+ */
+function claimingAPlan(fixture: JobFixture): JobFixture {
+  return {
+    ...fixture,
+    recorded: {
+      ...fixture.recorded,
+      evidence: {
+        state: "read",
+        jobId: ARC_JOB_ID,
+        steps: [
+          {
+            step_id: "plan",
+            evidence_type: "plan",
+            claimed: "Four groups and eight tasks, each with a tier and an agent of its own.",
+            shown_by: ".armada/deliverables/3-show-what-s-running/plan.1.md",
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
  * The plan waiting on a person, reviewed for the first time. **What every
  * review act is drawn on** (owner, 30 Sep 2026): add, edit and drop a task,
  * and propose a change to a group or a task.
@@ -253,7 +279,7 @@ export function planReview(): ArcMoment {
   return {
     name: "planReview",
     says: "Plan — recorded and waiting on your review before the groups start",
-    fixtures: [planned("awaiting_review", planAwaiting())],
+    fixtures: [claimingAPlan(planned("awaiting_review", planAwaiting()))],
     opens: ARC_JOB_ID,
     draft: {
       groups: arcGroups(),

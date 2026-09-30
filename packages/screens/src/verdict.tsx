@@ -48,6 +48,7 @@ import { elapsedSince } from "./duration";
 import { sitting } from "./held";
 import { checkRow, judgeRow, saidOf, iconOf } from "./checks";
 import { Decide } from "./Decide";
+import { PlanReview, type PlanReviewProps } from "./plan-review";
 import { checksOf, didNotPass, mechanicalRunsOf, panelsOf } from "./gates";
 import { basename, keptOf, type Opens } from "./phases";
 import type { Render } from "./render";
@@ -544,6 +545,12 @@ export type VerdictSlotAtGateArgs = {
   onOpenDiff?: () => void;
   /** Dismisses a finding the review raised, with the reason. #907. */
   onDismissFinding?: (jobId: string, finding: string, reason: string) => void;
+  /**
+   * What Plan's own review takes, drawn where the waiting step claimed a plan.
+   * **Built by the host and passed whole** — `PlanReview` reads nothing of
+   * this gate's own acts or pending state beyond what is in here.
+   */
+  plan: PlanReviewProps;
 };
 
 /**
@@ -586,6 +593,7 @@ export function verdictSlotAtGate({
   onAnswerJudge,
   onOpenDiff,
   onDismissFinding,
+  plan,
 }: VerdictSlotAtGateArgs): ReactNode {
   // A judge question outranks the rest of this slot: the gate is a human
   // boundary either way, but this step is answered before it is reviewed.
@@ -614,6 +622,13 @@ export function verdictSlotAtGate({
       />
     );
   }
+  // **What the step claimed decides what is reviewed**, never its label, id
+  // or place in the workflow — `evidence_type` is Fleet's word off the frozen
+  // step. A plan is reviewed as Plan reviews it, open, in place of the folded
+  // work record (owner, 30 Sep 2026): a record about work that has not
+  // started asked for approval without showing what was being approved. No
+  // claim yet keeps the work review below.
+  if (claimed?.evidence_type === "plan") return <PlanReview {...plan} />;
   const address = whole?.delivery?.pull_request;
   const detail = whole?.delivery?.pull_request_detail;
   const unpushed = whole?.delivery?.unpushed;
