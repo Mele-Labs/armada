@@ -186,10 +186,10 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
    * Drawn in the app's own panel rather than a frame of its own (owner, 29
    * Sep 2026: *all of our panels open to the full height of the app. This one
    * should be no different*). The `Sheet` draws the head: the name, its state
-   * under it, where it sits, the way back and Close. Beside the content it is
-   * docked, as Plan's task panel is; narrow, it is a sheet over it.
+   * under it, where it sits, the way back and Close. **It dims what is under
+   * it**, as Record's, Drones' and Plan's do (owner, 30 Sep 2026).
    */
-  sheet?: { docked: boolean; floor?: boolean; back?: SheetBack | undefined };
+  sheet?: { floor?: boolean; back?: SheetBack | undefined };
 };
 
 function Region({ name, children }: { name: string; children: React.ReactNode }) {
@@ -518,8 +518,7 @@ export function WorkflowInspector({
     return (
       <Sheet
         open
-        contained
-        docked={sheet.docked}
+        floating
         floor={sheet.floor ?? false}
         title={name}
         {...(pill === null ? {} : { subtitle: pill })}

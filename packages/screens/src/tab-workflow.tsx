@@ -16,7 +16,7 @@
 // is the caller's: this package holds no storage.
 
 import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -122,18 +122,6 @@ export function WorkflowTab({
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
   const openStep = setOpen;
-  // How much of the canvas's right side the open panel covers, so the canvas
-  // can slide the step being read clear of it. Measured, because the panel's
-  // width is a token and its gutter the layer's, and neither reaches here.
-  const frame = useRef<HTMLDivElement>(null);
-  const [covered, setCovered] = useState(0);
-  useLayoutEffect(() => {
-    // The panel is the Sheet's, drawn where the screen puts it, so it is found
-    // by its own mark rather than by a ref this tab cannot hand it.
-    const over = open === null ? undefined : document.querySelector(".armada-sheet[data-docked]")?.getBoundingClientRect();
-    const under = frame.current?.getBoundingClientRect();
-    setCovered(over === undefined || under === undefined ? 0 : Math.max(0, under.right - over.left));
-  }, [open, view, narrow]);
   // Which step is open, told to the trail, so a jump out of it can come back
   // here with the same step open. Its id is the step's, which is what
   // `opensStep` lands on.
@@ -205,15 +193,15 @@ export function WorkflowTab({
   const activityOf = (one: DroneView) =>
     one.state === "running" ? ("running" as const) : one.state === "done" ? ("advanced" as const) : ("stopped" as const);
 
-  // Nothing until a press, and then **the app's own panel**: the Sheet Plan's
-  // task panel is drawn in, docked beside the content as Helm's dock is, with
-  // the way back in its head after a jump here (owner, 29 Sep 2026: *all of
-  // our panels open to the full height of the app*).
+  // Nothing until a press, and then **the app's own panel**: the floating
+  // Sheet Record, Drones and Plan draw theirs in, over the work area and
+  // dimming it (owner, 29 and 30 Sep 2026), with the way back in its head after
+  // a jump here. So a second step is read by closing this one first.
   const layer =
     reading === undefined ? null : (
       <WorkflowInspector
         {...reading}
-        sheet={{ docked: !narrow, back: trail?.back }}
+        sheet={{ back: trail?.back }}
         onClose={() => openStep(null)}
         // The redirect box went (owner, 29 Sep 2026, `losq`): a person never
         // knows which Drone to message. The step's Drones take its place.
@@ -259,7 +247,7 @@ export function WorkflowTab({
           <div className="armada-workflow-tab__modes">{toggle}</div>
           {view === "canvas" ? (
             <div className="armada-workflow-tab__stage">
-              <div className="armada-workflow-tab__canvas" ref={frame}>
+              <div className="armada-workflow-tab__canvas">
                 <div className="armada-workflow-tab__where">
                   <Tooltip label="The workflow this Job froze">
                     <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
@@ -281,7 +269,6 @@ export function WorkflowTab({
                   opensOn={run.opensOn}
                   hangsFromTop
                   runsDown
-                  keepsClear={open === null ? null : { id: open, right: covered }}
                 />
               </div>
             </div>
