@@ -51,21 +51,23 @@ function gate(answered: ActAnswer | undefined, decidingAct?: DecidingAct, put: t
   );
 }
 
+// **A control carries a pair now**, the owner's arrangement of 30 Sep 2026, so
+// the answer lands on the control the act belongs to and the face is where it
+// is drawn — a menu that has already closed has no surface to draw on.
+const MERGING = "Merge and take the work";
+const SENDING_BACK = "Request changes";
+
 test("a refused merge answers on merge alone", async () => {
   gate({ act: "merge", answer: "refused" });
+  await expect.element(page.getByRole("button", { name: MERGING })).toHaveAttribute("data-answer", "refused");
   await expect
-    .element(page.getByRole("button", { name: "Merge and take the work" }))
-    .toHaveAttribute("data-answer", "refused");
-  await expect
-    .element(page.getByRole("button", { name: "Approve the work" }))
+    .element(page.getByRole("button", { name: SENDING_BACK }))
     .not.toHaveAttribute("data-answer");
 });
 
 test("an accepted approve answers accepted, and the next press clears it", async () => {
   gate({ act: "approve", answer: "accepted" });
-  await expect
-    .element(page.getByRole("button", { name: "Approve the work" }))
-    .toHaveAttribute("data-answer", "accepted");
+  await expect.element(page.getByRole("button", { name: MERGING })).toHaveAttribute("data-answer", "accepted");
   gate(undefined, "approve", rerender);
   await expect
     .element(page.getByRole("button", { name: "Approving…" }))
@@ -74,7 +76,7 @@ test("an accepted approve answers accepted, and the next press clears it", async
 
 test("an answer to an act away from the four marks none of them", async () => {
   gate({ act: "take_up_remarks", answer: "refused" });
-  for (const name of ["Merge and take the work", "Approve the work", "Reject the work"]) {
+  for (const name of [MERGING, SENDING_BACK]) {
     await expect.element(page.getByRole("button", { name })).not.toHaveAttribute("data-answer");
   }
 });

@@ -75,7 +75,17 @@ export const NothingSentYet: Story = {
    * "everything visible" would look right on a list where all three were
    * wanted, which is the list this surface exists because people do not have.
    */
-  play: async ({ args, canvas, userEvent }) => {
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    // **The panel is on each comment, not around the list.** The owner asked
+    // for one per comment so they are easy to tell apart, 30 Sep 2026, and a
+    // single frame around the whole list is the regression that reads almost
+    // the same in a screenshot and answers nothing he asked.
+    const edge = (el: Element) => Number.parseFloat(getComputedStyle(el).borderTopWidth);
+    await expect(edge(canvasElement.querySelector("ul")!)).toBe(0);
+    for (const one of canvas.getAllByRole("listitem")) {
+      await expect(edge(one)).toBeGreaterThan(0);
+    }
+
     const send = canvas.getByRole("button", { name: "Send to a drone" });
     await expect(send).toBeDisabled();
 

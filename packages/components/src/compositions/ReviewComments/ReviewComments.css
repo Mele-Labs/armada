@@ -1,19 +1,16 @@
 /* Review comments — what people wrote on the pull request, and the ones a
  * drone should act on.
  *
- * **No border and no fill.** It sits inside the decision block, which is
- * already the framed region on that surface; a second frame under it would make
- * one loop read as two. The rule on the left is the tie, which is what the
- * drone's question does one surface over.
- *
- * The tone is `--step-waiting` for that surface's reason: a job holding at a
- * human gate needs somebody, and nothing mechanical failed. */
+ * **The section itself is no longer framed, and the comments in it are.** The
+ * left tie and its inset put the whole list one step in from the decision's
+ * card above it; now each comment is a card of its own, that inset would leave
+ * two column edges on one surface. The section is a caps label over a stack.
+ * The tie was read as "part of the gate"; sitting directly under the decision
+ * with nothing between them says the same thing and costs no edge. */
 .armada-remarks {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-inline-start: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--step-waiting);
   color: var(--fg-default);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
@@ -27,10 +24,17 @@
   min-width: 0;
 }
 
+/* The caps label the record's own blocks take, so the stack under it reads as
+   a section of this page rather than as a sentence above a list. */
 .armada-remarks__label {
   flex: 1;
   min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
 }
 
 /* What is true about the surface rather than about one comment. */
@@ -45,19 +49,23 @@
 .armada-remarks__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 
-/* One comment: who and when, then the words, then the one control. */
+/* One comment: who and when, then the words, then the one control. A card on
+   the canvas, so `armada-glass` in the markup carries the gradient, the edge
+   and the shadow and this owns only the corner and the padding. */
 .armada-remarks__one {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--radius-lg);
 }
 
 .armada-remarks__who {
@@ -128,6 +136,11 @@
   color: var(--fg-default);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+}
+
+/* The one send, at its own width under the stack. */
+.armada-remarks__send {
+  display: flex;
 }
 
 /* A comment a drone has already been handed. Drawn rather than hidden — a list

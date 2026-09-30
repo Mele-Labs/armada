@@ -177,11 +177,25 @@
   border-radius: var(--radius-sm);
 }
 
-/* The record folded under Armada's review: one line that opens it. */
+/* The record's card. Glass is `armada-glass`'s; this owns the corner every
+   card on the canvas takes, the padding, and the column the blocks sit in. */
+.armada-verdict__record-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--radius-lg);
+}
+
+/* The record folded under Armada's review: one line that opens it. It fills
+   the card's width so the whole row is the press, not the words alone — the
+   card is otherwise a single line and a hit area narrower than it reads as. */
 .armada-verdict__fold {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
   padding: 0;
   border: 0;
   background: none;
@@ -189,6 +203,11 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.armada-verdict__fold:hover .armada-verdict__label {
+  color: var(--fg-default);
 }
 
 .armada-verdict__fold:focus-visible {
