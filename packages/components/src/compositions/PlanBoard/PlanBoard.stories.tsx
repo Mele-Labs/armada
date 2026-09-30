@@ -309,7 +309,8 @@ export const WaitingAtItsGate: Story = {
     await expect(args.move?.onMove).toHaveBeenCalledWith({ group: "g1", to: 1 });
     canvas.getByRole("button", { name: /T2 Send an event/ }).focus();
     await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
-    await expect(args.move?.onMove).toHaveBeenCalledWith({ group: "g2", task: "T2", to: 0 });
+    // T2 is group one's last task, so ⌥↓ crosses it into the next group's top.
+    await expect(args.move?.onMove).toHaveBeenCalledWith({ group: "g3", task: "T2", to: 0 });
   },
 };
 
