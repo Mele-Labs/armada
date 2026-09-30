@@ -11,14 +11,15 @@
 //! limit in force, so a Check wider than it still takes every place there is.
 //!
 //! A heavy run outside `crate::checking::ran` holds one through [`Room::place`].
-//! A join of identical runs (#338) would sit in front of the ask.
+//! A join of identical runs (#338) would sit in front of the ask. A place then
+//! takes the machine's Check slots too, which `armada check` shares: `CheckSlots`.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tokio::sync::Notify;
 
-use checks_runner::CheckWidth;
+use checks_runner::{CheckSlots, CheckWidth};
 
 use crate::headroom::{Bytes, Headroom, Machine, Reading, Spare};
 use crate::ordering::Past;
@@ -98,6 +99,8 @@ struct Shared {
     state: Mutex<State>,
     /// Told when a place frees or is taken, an ask leaves, or the limit moves.
     changed: Notify,
+    /// Every process's slots, taken after a place. `None` in a test.
+    slots: Option<CheckSlots>,
 }
 
 struct State {
@@ -161,6 +164,15 @@ impl Places {
     /// A line of places at a width, which is what a Fleet serving several Jobs
     /// at once builds. #1444.
     pub fn sized(at_once: ChecksAtOnce, width: CheckWidth) -> Places {
+        Places::on_the_machine(at_once, width, None)
+    }
+
+    /// [`Places::sized`], each place also taking the machine's `slots`.
+    pub fn on_the_machine(
+        at_once: ChecksAtOnce,
+        width: CheckWidth,
+        slots: Option<CheckSlots>,
+    ) -> Places {
         Places(Arc::new(Shared {
             state: Mutex::new(State {
                 at_once,
@@ -171,6 +183,7 @@ impl Places {
                 waiting: Vec::new(),
             }),
             changed: Notify::new(),
+            slots,
         }))
     }
 
@@ -220,6 +233,7 @@ impl Places {
             seq,
             short_at: None,
             wants,
+            taken: None,
         }
     }
 
@@ -238,6 +252,9 @@ pub(crate) struct Ask {
     short_at: Option<u64>,
     /// How many places this ask takes, clamped at [`Places::ask`]. #1102.
     wants: usize,
+    /// The place, kept here while the machine's slots are waited for, so an
+    /// ask dropped mid-wait and granted again does not lose it.
+    taken: Option<Place>,
 }
 
 enum Turn {
@@ -282,6 +299,31 @@ impl Ask {
         headroom: Headroom,
         mut waiting: impl FnMut(usize),
     ) -> Place {
+        if self.taken.is_none() {
+            self.taken = Some(self.in_turn(machine, headroom, &mut waiting).await);
+        }
+        let held = match &self.places.0.slots {
+            None => None,
+            // Said on the Checks waiting, as a place is. A filesystem that
+            // refuses runs the Check without; `armada::serve` tried it at start.
+            Some(slots) => slots
+                .take(self.wants, |in_use| waiting(in_use.in_use))
+                .await
+                .ok(),
+        };
+        let Some(mut place) = self.taken.take() else {
+            unreachable!("the place was taken above and nothing between gives it back")
+        };
+        place.slots = held;
+        place
+    }
+
+    async fn in_turn(
+        &mut self,
+        machine: &Arc<dyn Machine>,
+        headroom: Headroom,
+        waiting: &mut impl FnMut(usize),
+    ) -> Place {
         // Its own handle, so the wake can be held while the turn is taken.
         let places = self.places.clone();
         loop {
@@ -315,6 +357,7 @@ impl Ask {
         Place {
             places: self.places.clone(),
             holds: self.wants,
+            slots: None,
         }
     }
 }
@@ -339,10 +382,14 @@ impl Drop for Ask {
 pub struct Place {
     places: Places,
     holds: usize,
+    /// The machine's slots, given back first so a waiter woken below finds
+    /// them free.
+    slots: Option<checks_runner::Held>,
 }
 
 impl Drop for Place {
     fn drop(&mut self) {
+        drop(self.slots.take());
         {
             let mut state = self.places.state();
             state.held = state.held.saturating_sub(self.holds);
@@ -435,6 +482,16 @@ impl Room {
             Arc::new(Unread),
             Headroom::of(Spare::percent(0), Bytes::gibibytes(0)),
         )
+    }
+
+    /// `env` for what a place here starts: where the place holds the machine's
+    /// slots, a Check inside it runs under them. `checks_runner::HELD_ENV`.
+    pub(crate) fn handing_down(&self, env: &[(String, String)]) -> Vec<(String, String)> {
+        let mut env = env.to_vec();
+        if self.places.0.slots.is_some() {
+            env.push((checks_runner::HELD_ENV.to_string(), String::from("1")));
+        }
+        env
     }
 
     /// Join the line for a place.

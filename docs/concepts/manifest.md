@@ -304,6 +304,20 @@ Rules that follow:
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` keeps it for `places`' reason: the machine is no wider for the merge having happened.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check a Drone is measured by. It reads the shipped Jobs bound rather than a saved one, and where those differ the gate is the authority.
 
+### How many Checks run at once
+
+**Every process that runs a Check takes the machine's Check slots first**: `armada check`, the merge line through it, and Fleet's gate. A Check takes as many as its `places`, and one that finds too few free waits and says so on stderr once — `waiting for a Check slot: 4 of 4 in use`.
+
+Decided 30 Sep 2026. `places` and `${width}` bound what one Fleet starts and nothing else, so several agent sessions each running suites beside a Fleet took the load average to 19 on 18 cores, and a different test timed out on every run.
+
+Rules that follow:
+
+- **There are `checks-at-once`'s machine number of them**, half the cores from one to eight. A saved `checks-at-once` still bounds Fleet's own line, which orders a Drone's run ahead of a gate; the slots bound the machine.
+- **A slot is an `flock` on one of that many files in `~/Library/Application Support/Armada/check-slots/`**, beside `fleet.json`, so every clone and worktree shares them. The kernel lets go when the holder dies; there is nothing to reclaim.
+- **All or none, and no queue.** A Check wanting three takes three or holds nothing while it waits, so two wide Checks never deadlock on halves; a narrow Check can pass a wide one that waits.
+- **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
+- **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
+
 ### Running one test by name
 
 **A Check may declare `one_test`, and it is what Fleet runs against a checkout of main before a Drone's `draft_fix` drafts anything.** The Configuration contract holds the syntax.
@@ -324,6 +338,7 @@ Rules that follow:
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
 - **The name is the Drone's.** It gets the guard a narrowed value gets: a name that cannot be one argument runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
+- **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
 
 ### Proving what merged

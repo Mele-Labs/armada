@@ -389,6 +389,13 @@ here either. The command's own exit code comes back out.
 **Output is captured and printed when the command ends, not streamed.** A long
 Check prints nothing while it runs, which reads as a hang and is not one.
 
+**A Check waits for one of the machine's Check slots**, shared with every other
+session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
+use`. `../concepts/manifest.md`, *How many Checks run at once*.
+
+**`armada check <name> <test>` runs one test** through the Check's `one_test`.
+A name that matched nothing exits 1.
+
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
 
