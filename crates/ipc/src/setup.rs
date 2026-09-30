@@ -182,6 +182,19 @@ pub struct ManifestSummary {
     pub version: u32,
     /// The Checks it declares, by name. What gates a Job here.
     pub checks: Vec<String>,
+    /// `never`, `checks-pass` or `always`, as `armada.yml` writes it. Empty
+    /// from a Fleet older than the field.
+    ///
+    /// **Reported, not resolved.** This is one file's word, which is what a
+    /// person reading a gate that defers to it needs; the answer across a
+    /// Job's several gating Manifests is `core_model::AutoMerge::across`, and
+    /// `fleet::policy` folds it at the gate.
+    #[serde(default)]
+    pub auto_merge: String,
+    /// `human_always` or `auto_if_judge_passes`, for
+    /// [`auto_merge`](ManifestSummary::auto_merge)'s reasons.
+    #[serde(default)]
+    pub review_gate: String,
 }
 
 /// The models a Job may name, and the one it gets when it names none.

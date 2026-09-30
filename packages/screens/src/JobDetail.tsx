@@ -166,6 +166,9 @@ function OneJob(props: JobDetailProps) {
   // arrived it stands in for the board row the prop carries, which can lag a
   // `job.state_changed` event that missed or has not yet applied.
   const job = whole?.job ?? props.job;
+  // Read once: the proposal and the frozen reading both draw a gate that
+  // defers to this repository's policies.
+  const manifest = props.manifests.find((one) => one.id === job.owner_manifest_id);
   const render = renderFor(job);
 
   // Whether the inspector has a column of its own, and whether a folded sheet
@@ -283,7 +286,7 @@ function OneJob(props: JobDetailProps) {
           models={props.models?.models ?? []}
           workflows={props.workflows}
           stale={props.stale}
-          manifest={props.manifests.find((one) => one.id === job.owner_manifest_id)}
+          manifest={manifest}
         />
       ) : tab === "overview" ? (
         <>
@@ -388,7 +391,12 @@ function OneJob(props: JobDetailProps) {
           // setup is settings — the owner's 29 September call.
           frozen={
             edits === undefined || edits.proposal.approved_at === undefined ? undefined : (
-              <FrozenAtApproval landing={edits.landing} proposal={edits.proposal} whole={whole} />
+              <FrozenAtApproval
+                landing={edits.landing}
+                proposal={edits.proposal}
+                whole={whole}
+                manifest={manifest}
+              />
             )
           }
           models={props.models ?? null}
