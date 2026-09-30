@@ -316,10 +316,16 @@ export function PlanTab({
   // The group whose panel is open, pressed on the graph. **One panel at a
   // time**: opening a task closes it, and opening it closes the task.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // The group whose panel the open task was pressed in, so Close and Back on
+  // the task land on that group again (owner, 30 Sep 2026). **This tab's own
+  // one step back**, not the trail: the trail is for a jump between
+  // destinations, and this never leaves Plan.
+  const [fromGroup, setFromGroup] = useState<string | null>(null);
   const openTaskAt = (id: string | null) => {
     setOpenTask(id);
     setOpenFile(null);
     setOpenGroup(null);
+    setFromGroup(null);
   };
   const openGroupAt = (id: string) => {
     openTaskAt(null);
@@ -374,6 +380,15 @@ export function PlanTab({
   // that opened a different surface from each view would be two screens.
   const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask, onOpenGroup: openGroupAt, openGroup });
   const group = openGroup === null ? undefined : board?.groups.find((one) => one.id === openGroup);
+  const cameFrom = fromGroup === null ? undefined : board?.groups.find((one) => one.id === fromGroup);
+  const toGroup =
+    cameFrom === undefined
+      ? undefined
+      : {
+          label: `Back to Group ${cameFrom.ordinal}`,
+          tooltip: `Back to Group ${cameFrom.ordinal}`,
+          onBack: () => openGroupAt(cameFrom.id),
+        };
   const revisions = revisionsOf(whole, draft, step);
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
   useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
@@ -580,9 +595,11 @@ export function PlanTab({
         {...(patched === undefined ? {} : { patched })}
         {...(file === undefined ? {} : { file })}
         onFile={setOpenFile}
-        back={trail?.back}
+        back={toGroup ?? trail?.back}
         onClose={
-          // Jumped to, Close goes back — `trail.ts`.
+          // Opened from a group's panel, Close goes back to it; jumped to
+          // from another destination, back there — `trail.ts`.
+          toGroup?.onBack ??
           trail?.close ??
           (() => {
             openTaskAt(null);
@@ -595,7 +612,11 @@ export function PlanTab({
       <PlanGroupSheet
         open
         group={group}
-        onOpenTask={openTaskAt}
+        onOpenTask={(taskId) => {
+          const from = group.id;
+          openTaskAt(taskId);
+          setFromGroup(from);
+        }}
         {...(onAddTask === undefined
           ? {}
           : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
