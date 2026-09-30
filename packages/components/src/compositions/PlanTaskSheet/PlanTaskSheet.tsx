@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../primitives/Badge/Badge";
-import { Button } from "../../primitives/Button/Button";
+import { Button, type ButtonAnswer } from "../../primitives/Button/Button";
+import { Input } from "../../primitives/Input/Input";
+import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
@@ -71,6 +73,12 @@ export type PlanTaskSheetProps = {
    */
   acts?: PlanTaskActs;
   /**
+   * Dropping the task from the plan, with a reason (owner, 30 Sep 2026).
+   * **Absent draws nothing**, which is a task that is done or already
+   * dropped: the first has nothing left to drop, the second already is one.
+   */
+  drop?: PlanTaskDrop;
+  /**
    * Asking the Drone that wrote the plan to write this task differently.
    *
    * **Absent draws nothing**, which is every plan past its gate: once a plan
@@ -134,6 +142,21 @@ export type PlanTaskActs = {
   onPilot: () => void;
   onRestart: () => void;
   onEdit: () => void;
+  /** Nothing is live to send it over. */
+  disabled?: boolean;
+};
+
+/**
+ * Dropping a task. **The reason is asked for in place**, under the acts: a
+ * drop is a short act on the task being read, and a dialog over the panel
+ * would hide the very task the reason is about.
+ */
+export type PlanTaskDrop = {
+  /**
+   * Sends the drop. Resolves to `null` where it was taken, or to what the
+   * refusal says where it was not — and the reason typed stays.
+   */
+  onDrop: (reason: string) => Promise<string | null>;
   /** Nothing is live to send it over. */
   disabled?: boolean;
 };
@@ -220,6 +243,7 @@ export function PlanTaskSheet({
   tests = [],
   failedReason,
   acts,
+  drop,
   rewrite,
   redirect,
   drone,
@@ -261,18 +285,10 @@ export function PlanTaskSheet({
         {failedReason === undefined ? null : (
           <TaskField label="Why it stopped">{failedReason}</TaskField>
         )}
-        {acts === undefined ? null : (
-          <div className="armada-task-sheet__acts">
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
-              Pilot
-            </Button>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
-              Restart this task
-            </Button>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onEdit}>
-              Edit this task
-            </Button>
-          </div>
+        {acts === undefined && drop === undefined ? null : (
+          /* Keyed apart from the peek, which is keyed by the task too: two
+             siblings on one key leave a stale copy behind. */
+          <Acts key={`${id}-acts`} acts={acts} drop={drop} />
         )}
         {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
         {/* **What a person reads and what they send are one place**, under
@@ -388,6 +404,118 @@ export function PlanTaskSheet({
         </div>
       </Sheet>
     )}
+    </>
+  );
+}
+
+/**
+ * A task's acts, and the drop's reason under them once Drop this task is
+ * pressed. A failed task's three come first; Drop this task is last.
+ */
+function Acts({ acts, drop }: { acts?: PlanTaskActs; drop?: PlanTaskDrop }) {
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [dropping, setDropping] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
+  // Only a refusal is drawn on the control: a drop that is taken closes the form.
+  const [answer, setAnswer] = useState<ButtonAnswer>();
+  // **A blank field is a hint until a drop is tried with it**, and an error
+  // from then on: a red field nobody has typed in reads as a mistake already made.
+  const [triedBlank, setTriedBlank] = useState(false);
+  const tap = useHaptics();
+  const blank = reason.trim() === "";
+
+  function close(): void {
+    setAsking(false);
+    setReason("");
+    setRefused(null);
+    setAnswer(undefined);
+    setTriedBlank(false);
+  }
+
+  async function send(): Promise<void> {
+    if (drop === undefined) return;
+    if (blank) {
+      setTriedBlank(true);
+      return;
+    }
+    setDropping(true);
+    setRefused(null);
+    setAnswer(undefined);
+    try {
+      const said = await drop.onDrop(reason.trim());
+      // The tap answers the press: a drop that is taken closes the form, with
+      // no control left to draw the answer on. #1326.
+      tap(patternFor(said === null ? "accepted" : "refused"));
+      if (said === null) {
+        close();
+        return;
+      }
+      setRefused(said);
+      setAnswer("refused");
+    } finally {
+      setDropping(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="armada-task-sheet__acts">
+        {acts === undefined ? null : (
+          <>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
+              Pilot
+            </Button>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
+              Restart this task
+            </Button>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onEdit}>
+              Edit this task
+            </Button>
+          </>
+        )}
+        {drop === undefined || asking ? null : (
+          <Button size="sm" ground="sunken" disabled={drop.disabled} onClick={() => setAsking(true)}>
+            Drop this task
+          </Button>
+        )}
+      </div>
+      {drop === undefined || !asking ? null : (
+        <section className="armada-task-sheet__drop" aria-label="Drop this task">
+          <Input
+            label="Reason"
+            value={reason}
+            invalid={triedBlank && blank}
+            disabled={dropping}
+            onChange={(event) => setReason(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void send();
+            }}
+          />
+          {blank ? (
+            <span className="armada-task-sheet__hint" data-tone={triedBlank ? "error" : "muted"}>
+              A reason is needed.
+            </span>
+          ) : null}
+          {refused === null ? null : <span className="armada-task-sheet__refused">{refused}</span>}
+          <div className="armada-task-sheet__drop-acts">
+            <Button variant="secondary" size="sm" ground="sunken" disabled={dropping} onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              ground="sunken"
+              pending={dropping}
+              answer={answer}
+              disabled={blank || drop.disabled}
+              onClick={() => void send()}
+            >
+              {dropping ? "Dropping…" : "Drop"}
+            </Button>
+          </div>
+        </section>
+      )}
     </>
   );
 }

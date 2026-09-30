@@ -126,6 +126,17 @@ export type PlanBoardAsk = {
   disabled?: boolean;
 };
 
+/**
+ * Adding a task from a group's head (owner, 30 Sep 2026). **The label is the
+ * caller's**, like every other word on this board.
+ */
+export type PlanBoardAdd = {
+  label: string;
+  onAdd: () => void;
+  /** Nothing is live to send it over. */
+  disabled?: boolean;
+};
+
 export type PlanBoardProps = {
   /** The plan's own approach line, as the step recorded it. */
   approach: string;
@@ -142,6 +153,8 @@ export type PlanBoardProps = {
   /** A group ask was pressed and nothing has answered — every ask is off. */
   askPending?: boolean;
   onAsk?: (groupId: string, askId: string) => void;
+  /** Absent draws no add in any group's head. */
+  add?: PlanBoardAdd;
 };
 
 /** What a column holds where the record holds nothing yet. */
@@ -242,12 +255,14 @@ function GroupCard({
   onOpenTask,
   askPending,
   onAsk,
+  add,
 }: {
   group: PlanBoardGroup;
   openTaskId?: string;
   onOpenTask?: (taskId: string) => void;
   askPending: boolean;
   onAsk?: (groupId: string, askId: string) => void;
+  add?: PlanBoardAdd;
 }) {
   return (
     // **Named, because a card now carries other groups' ordinals.** An overlap
@@ -266,6 +281,17 @@ function GroupCard({
             <span className="armada-plan-board__scope-root">{group.scope.root}</span>
             <span className="armada-plan-board__scope-count">{group.scope.count}</span>
           </span>
+          {add === undefined ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              ground="card"
+              disabled={add.disabled}
+              onClick={add.onAdd}
+            >
+              {add.label}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {(group.overlaps ?? []).map((overlap) => (
@@ -307,6 +333,7 @@ export function PlanBoard({
   askable = false,
   askPending = false,
   onAsk,
+  add,
 }: PlanBoardProps) {
   return (
     <div className="armada-plan-board">
@@ -331,6 +358,7 @@ export function PlanBoard({
               {...(openTaskId === undefined ? {} : { openTaskId })}
               {...(onOpenTask === undefined ? {} : { onOpenTask })}
               {...(onAsk === undefined ? {} : { onAsk })}
+              {...(add === undefined ? {} : { add })}
             />
           ))}
         </ol>

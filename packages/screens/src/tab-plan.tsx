@@ -54,6 +54,9 @@ import {
 } from "./tab-drones-read";
 import type { PlanAskKind, PlanRevisionView } from "./draft/revision";
 import type { TrailProps } from "./trail";
+import { ADD_TASK_LABEL } from "./copy";
+import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
+import { AddTaskDialog, refusalSaid } from "./PlanWell";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
 const PLAN_RECORDED = "plan_recorded";
@@ -93,6 +96,16 @@ export type PlanTabProps = {
    * hands this through.
    */
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
+  /**
+   * Add a task to the plan, from a group's head, and drop one, from its
+   * panel, with a reason (owner, 30 Sep 2026) — `PlanWell`'s own two routes.
+   * **Absent draws neither.** `after` is always the end: reordering is not in
+   * this milestone, the owner's call on #897.
+   */
+  onAddTask?: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
+  onDropTask?: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
+  /** What an add or a drop that was taken says, once. */
+  onSaid?: (sentence: string) => void;
   /**
    * The Job's patch, which a file in the task panel opens to (owner, 29 Sep
    * 2026). **Absent draws no file as a press**, which is what a host that has
@@ -260,6 +273,9 @@ export function PlanTab({
   onRedirect,
   onActHeld,
   onTaskAct,
+  onAddTask,
+  onDropTask,
+  onSaid,
   diff,
   onReadDiff,
   opensTask,
@@ -276,6 +292,9 @@ export function PlanTab({
   // ask that survived leaving the destination would be a dialog opening over
   // a plan somebody has stopped reading.
   const [asking, setAsking] = useState<PlanAskInFlight | null>(null);
+  // Whether the add-task dialog is open. One for the plan: every group's
+  // Add task adds at the end.
+  const [adding, setAdding] = useState(false);
   // What has been typed at the open task's Drone and not sent. This tab's own
   // state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
@@ -346,6 +365,21 @@ export function PlanTab({
           onPilot: () => onTaskAct?.("pilot_task", job.id, reading.id),
           onRestart: () => onTaskAct?.("restart_task", job.id, reading.id),
           onEdit: () => onTaskAct?.("edit_task", job.id, reading.id),
+          disabled: stale,
+        };
+  // **Offered on a task that can still be dropped**: not done, which has
+  // nothing left to drop, and not dropped, which already is one. A failed
+  // task is still on the plan, so it can be.
+  const drop =
+    reading === undefined || onDropTask === undefined || reading.state === "done" || reading.state === "dropped"
+      ? undefined
+      : {
+          onDrop: async (reason: string) => {
+            const answer = await onDropTask(job.id, { task: reading.id, reason });
+            if (!answer.ok) return refusalSaid(answer.outcome);
+            onSaid?.("Dropped");
+            return null;
+          },
           disabled: stale,
         };
   const rewrite =
@@ -489,6 +523,9 @@ export function PlanTab({
               {...board}
               askPending={acting}
               onAsk={(group, ask) => setAsking({ group, ask: ask as PlanAskKind })}
+              {...(onAddTask === undefined
+                ? {}
+                : { add: { label: ADD_TASK_LABEL, onAdd: () => setAdding(true), disabled: stale } })}
             />
           )}
         </>
@@ -503,6 +540,7 @@ export function PlanTab({
         {...reading}
         beside={beside}
         {...(acts === undefined ? {} : { acts })}
+        {...(drop === undefined ? {} : { drop })}
         open
         floor={floor}
         {...(taskWidth === undefined ? {} : { width: taskWidth })}
@@ -518,6 +556,14 @@ export function PlanTab({
           openTaskAt(null);
           setInstruction("");
         }}
+      />
+    )}
+    {onAddTask === undefined ? null : (
+      <AddTaskDialog
+        open={adding}
+        onAddTask={(title, note) => onAddTask(job.id, { title, note, scope: [], expects: "", after: "" })}
+        onClose={() => setAdding(false)}
+        {...(onSaid === undefined ? {} : { onSaid })}
       />
     )}
     <PlanAskDialog

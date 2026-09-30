@@ -55,12 +55,47 @@
   text-wrap: pretty;
 }
 
-/* A failed task's own acts, under why it stopped. */
+/* A task's own acts: a failed one's three under why it stopped, and Drop
+   this task. */
 .armada-task-sheet__acts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* The drop's reason, asked in place under the acts. A column: the hint and
+   a refusal sit under the field, and the two buttons under them at the end,
+   where the rewrite ask puts its own. */
+.armada-task-sheet__drop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-task-sheet__drop-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* A hint while nobody has tried to drop with the field blank, `Input`'s own
+   invalid colour once they have. */
+.armada-task-sheet__hint {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-task-sheet__hint[data-tone="error"],
+.armada-task-sheet__refused {
+  color: var(--status-completed-failed);
+}
+
+.armada-task-sheet__refused {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 /* Each task it runs beside, as the Plan graph's own card. */

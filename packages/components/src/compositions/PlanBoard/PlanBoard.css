@@ -61,7 +61,7 @@
 }
 
 /* One line, wrapping: the ordinal, the shape, where it stands, where it
-   writes. The filler between the third and the fourth is what pins the scope
+   writes, and Add task where it is offered. The filler between the third and the fourth is what pins the scope
    to the trailing edge at any width. */
 .armada-plan-board__group-head {
   flex-wrap: wrap;

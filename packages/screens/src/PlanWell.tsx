@@ -31,7 +31,7 @@ import type { PlanEditAnswer } from "./plan-edits";
  * notice elsewhere — and a dialog that stays open on a refusal has nowhere
  * else to put Fleet's own sentence. `ReportControl` reads the same way.
  */
-function refusalSaid(outcome: Outcome): string {
+export function refusalSaid(outcome: Outcome): string {
   if (outcome.ok) return "";
   return outcome.why === "refused" ? outcome.error.message : said(outcome);
 }
@@ -53,13 +53,43 @@ function AddTaskControl({
   onSaid?: (sentence: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="armada-screen__eyebrow-act" onClick={() => setOpen(true)}>
+        {ADD_TASK_LABEL}
+      </button>
+      <AddTaskDialog
+        open={open}
+        onAddTask={onAddTask}
+        onClose={() => setOpen(false)}
+        {...(onSaid === undefined ? {} : { onSaid })}
+      />
+    </>
+  );
+}
+
+/**
+ * The add-task dialog alone, for a caller that draws its own way in — each
+ * group's head on Plan (owner, 30 Sep 2026).
+ */
+export function AddTaskDialog({
+  open,
+  onAddTask,
+  onClose,
+  onSaid,
+}: {
+  open: boolean;
+  onAddTask: (title: string, detail: string) => Promise<PlanEditAnswer>;
+  onClose: () => void;
+  onSaid?: (sentence: string) => void;
+}) {
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [adding, setAdding] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
 
   function close(): void {
-    setOpen(false);
+    onClose();
     setTitle("");
     setDetail("");
     setRefused(null);
@@ -82,42 +112,37 @@ function AddTaskControl({
   }
 
   return (
-    <>
-      <button type="button" className="armada-screen__eyebrow-act" onClick={() => setOpen(true)}>
-        {ADD_TASK_LABEL}
-      </button>
-      <Dialog
-        open={open}
-        tone="neutral"
-        title="Add a task to this job's plan?"
-        confirmLabel={adding ? "Adding…" : ADD_TASK_LABEL}
-        confirmDisabled={title.trim() === "" || adding}
-        // Refuses a second press: the confirm is already out, so nothing
-        // here abandons it. #1117.
-        onCancel={adding ? undefined : close}
-        onConfirm={() => void add()}
-      >
-        {/* One column at the dialog's own rhythm — `--space-4`, `.armada-dialog`'s
-            own top-level gap — because a `<p>` carries no margin under this app's
-            reset and would otherwise run straight into the field below it. */}
-        <div className="armada-plan-add-task-body">
-          <p>
-            The task goes at the end of the plan. If a drone is working on this job, it&rsquo;s
-            told now; otherwise the next drone sees it in the plan.
-          </p>
-          {/* No `autoFocus`: the dialog's own contract puts initial focus on
-              Cancel, and a second claim on it here would only lose to it. */}
-          <Input label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <Textarea
-            label="Detail — optional"
-            rows={3}
-            value={detail}
-            onChange={(event) => setDetail(event.target.value)}
-          />
-          {refused === null ? null : <p>{refused}</p>}
-        </div>
-      </Dialog>
-    </>
+    <Dialog
+      open={open}
+      tone="neutral"
+      title="Add a task to this job's plan?"
+      confirmLabel={adding ? "Adding…" : ADD_TASK_LABEL}
+      confirmDisabled={title.trim() === "" || adding}
+      // Refuses a second press: the confirm is already out, so nothing
+      // here abandons it. #1117.
+      onCancel={adding ? undefined : close}
+      onConfirm={() => void add()}
+    >
+      {/* One column at the dialog's own rhythm — `--space-4`, `.armada-dialog`'s
+          own top-level gap — because a `<p>` carries no margin under this app's
+          reset and would otherwise run straight into the field below it. */}
+      <div className="armada-plan-add-task-body">
+        <p>
+          The task goes at the end of the plan. If a drone is working on this job, it&rsquo;s
+          told now; otherwise the next drone sees it in the plan.
+        </p>
+        {/* No `autoFocus`: the dialog's own contract puts initial focus on
+            Cancel, and a second claim on it here would only lose to it. */}
+        <Input label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
+        <Textarea
+          label="Detail — optional"
+          rows={3}
+          value={detail}
+          onChange={(event) => setDetail(event.target.value)}
+        />
+        {refused === null ? null : <p>{refused}</p>}
+      </div>
+    </Dialog>
   );
 }
 

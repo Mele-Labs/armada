@@ -9,12 +9,13 @@ import { running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/
 import { JOB_ID, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { WAITING_CALL } from "@armada/screens/src/fixtures/build/running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/screens/src/fixtures/plans";
 
 import type { BridgeApi } from "../../../shared/api";
 import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";
 import type { FleetHandle, Scenario } from "./scenario";
 import { onJob } from "./scenario";
-import { mount, openHelm, unmountAfterEach } from "./testing";
+import { entered, mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -31,17 +32,125 @@ async function opened(fixture: JobFixture, behaves?: Scenario["behaves"], whereO
 
 
 
-// **The Plan region came off Overview on 29 Sep 2026**, and with it eleven
-// claims made here: a plan partway done with its count and its rows, a
-// dropped task reading its reason, the Working area folding what is done,
-// the files each task changed, `Add task` and the four `Drop…` claims, and
-// the sentence naming which step records a plan.
+// **The Plan region came off Overview on 29 Sep 2026**, and with it the
+// claims about its rows: a plan partway done with its count, the Working
+// area folding what is done, the files each task changed, and the sentence
+// naming which step records a plan. Overview's Plan card makes its own claims
+// in `overview-boards`.
 //
-// **Overview draws a Plan card**, whose own claims are `overview-boards`' —
-// what a group holds, how it runs, and where it stands. The rows and the
-// acts belong to the Plan destination, which is being rebuilt; `PlanWell`
-// has no renderer until it lands, so `Drop…` and `Add task` are unreachable
-// and the claims about them are made nowhere rather than made wrongly here.
+// **Drop and Add task came back on Plan** (owner, 30 Sep 2026): Drop this
+// task in a task's panel, asking its reason in place, and Add task in each
+// group's head on the list. The claims below are the ones the region made,
+// moved to where the acts now are.
+
+/** The Plan destination, on the list, where a group's head carries Add task. */
+async function onThePlanList(): Promise<void> {
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "List" }).click();
+  await expect.element(page.getByRole("list", { name: "Groups, in the order they run" })).toBeVisible();
+}
+
+/** A task's panel, opened from its row on the list. */
+async function panelOf(id: string, title: string) {
+  await onThePlanList();
+  await page.getByRole("listitem", { name: `${id} ${title}` }).getByRole("button").click();
+  const panel = page.getByRole("dialog", { name: title });
+  await entered(panel);
+  return panel;
+}
+
+const OPEN_TASK = { id: "T3", title: "Add a unit test that does not construct the store" };
+const DONE_TASK = { id: "T1", title: "Extract selectColumnOrder into its own module" };
+
+/** A Fleet that cannot be reached for a plan edit. */
+const planUnreachable: Scenario["behaves"] = () => ({
+  addTask: async () => ({ ok: false, outcome: NOT_CONNECTED }),
+  dropTask: async () => ({ ok: false, outcome: NOT_CONNECTED }),
+});
+
+test("a dropped task's panel reads its reason, and offers no second drop", async () => {
+  await opened(withPlan(PLAN_WITH_A_DROPPED_TASK));
+  const panel = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await expect.element(panel.getByText("The existing integration test already exercises this path.")).toBeVisible();
+  expect(panel.getByRole("button", { name: "Drop this task" }).query()).toBeNull();
+});
+
+test("Drop this task is on an open task's panel, and not on a done one's", async () => {
+  await opened(withPlan(PLAN_PARTWAY));
+  const open = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await expect.element(open.getByRole("button", { name: "Drop this task" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+  const done = await panelOf(DONE_TASK.id, DONE_TASK.title);
+  expect(done.getByRole("button", { name: "Drop this task" }).query()).toBeNull();
+});
+
+test("a drop reason not typed yet is a hint, and Drop waits for one", async () => {
+  await opened(withPlan(PLAN_PARTWAY));
+  const panel = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await panel.getByRole("button", { name: "Drop this task" }).click();
+  await expect.element(panel.getByText("A reason is needed.")).toHaveAttribute("data-tone", "muted");
+  await expect.element(panel.getByRole("button", { name: "Drop", exact: true })).toBeDisabled();
+});
+
+test("a drop tried with no reason turns the hint into an error", async () => {
+  await opened(withPlan(PLAN_PARTWAY));
+  const panel = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await panel.getByRole("button", { name: "Drop this task" }).click();
+  await panel.getByLabelText("Reason").click();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(panel.getByText("A reason is needed.")).toHaveAttribute("data-tone", "error");
+});
+
+test("a drop sends this Job's id, the task and the reason typed", async () => {
+  const api = await opened(withPlan(PLAN_PARTWAY));
+  const dropTask = vi.spyOn(api, "dropTask");
+  const panel = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await panel.getByRole("button", { name: "Drop this task" }).click();
+  await userEvent.type(panel.getByLabelText("Reason"), "Already covered elsewhere.");
+  await panel.getByRole("button", { name: "Drop", exact: true }).click();
+  await expect.poll(() => dropTask.mock.calls.length).toBe(1);
+  expect(dropTask).toHaveBeenCalledWith(JOB_ID, { task: OPEN_TASK.id, reason: "Already covered elsewhere." });
+});
+
+test("a refused drop says nothing was sent, keeps the reason typed, and taps", async () => {
+  const api = await opened(withPlan(PLAN_PARTWAY), planUnreachable);
+  const tap = vi.spyOn(api, "tap");
+  const panel = await panelOf(OPEN_TASK.id, OPEN_TASK.title);
+  await panel.getByRole("button", { name: "Drop this task" }).click();
+  await userEvent.type(panel.getByLabelText("Reason"), "Already covered elsewhere.");
+  await panel.getByRole("button", { name: "Drop", exact: true }).click();
+  await expect.element(panel.getByText("Fleet is not connected. Nothing was sent.")).toBeVisible();
+  await expect.element(panel.getByLabelText("Reason")).toHaveValue("Already covered elsewhere.");
+  // From the panel that holds its own answer, rather than from a toast. #1326.
+  await expect.poll(() => tap.mock.calls.length).toBe(1);
+  expect(tap).toHaveBeenCalledWith("level_change");
+});
+
+test("Add task is in each group's head, and opens with a title, an optional detail, and nothing to add until titled", async () => {
+  await opened(withPlan(PLAN_PARTWAY));
+  await onThePlanList();
+  const groups = page.getByRole("list", { name: "Groups, in the order they run" });
+  const heads = groups.getByRole("button", { name: "Add task" }).all();
+  expect(heads.length).toBe(PLAN_PARTWAY.tasks.length);
+  await heads[0]!.click();
+  const dialog = page.getByRole("dialog");
+  await expect.element(dialog.getByLabelText("Title")).toBeVisible();
+  await expect.element(dialog.getByLabelText("Detail — optional")).toBeVisible();
+  await expect.element(dialog.getByRole("button", { name: "Add task" })).toBeDisabled();
+});
+
+test("a refused Add task says nothing was sent, and keeps the title typed", async () => {
+  await opened(withPlan(PLAN_PARTWAY), planUnreachable);
+  await onThePlanList();
+  await page.getByRole("button", { name: "Add task" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await entered(dialog);
+  await userEvent.type(dialog.getByLabelText("Title"), "Add a regression test");
+  await dialog.getByRole("button", { name: "Add task" }).click();
+  await expect.element(dialog.getByText("Fleet is not connected. Nothing was sent.")).toBeVisible();
+  await expect.element(dialog.getByLabelText("Title")).toHaveValue("Add a regression test");
+});
 
 // The one claim that is Overview's own: a Job whose workflow records no plan
 // draws a Plan card that says so, rather than a card of nothing.
