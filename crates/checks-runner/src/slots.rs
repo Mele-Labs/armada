@@ -111,21 +111,14 @@ impl CheckSlots {
 
     /// Take `wants` slots, waiting as long as it takes.
     ///
-    /// **Says so once on stderr**, the first time it waits, so a pause reads
-    /// as a queue rather than a hang. `waiting` hears every look. Safe to drop
-    /// while waiting: nothing is held until it returns.
+    /// `waiting` hears every look that found too few free, so a caller can say
+    /// a pause is a queue rather than a hang. Safe to drop while waiting:
+    /// nothing is held until it returns.
     pub async fn take(&self, wants: usize, mut waiting: impl FnMut(InUse)) -> io::Result<Held> {
-        let mut said = false;
         loop {
             match self.try_take(wants)? {
                 Ok(held) => return Ok(held),
-                Err(in_use) => {
-                    if !said {
-                        eprintln!("{in_use}");
-                        said = true;
-                    }
-                    waiting(in_use);
-                }
+                Err(in_use) => waiting(in_use),
             }
             tokio::time::sleep(LOOK_AGAIN).await;
         }

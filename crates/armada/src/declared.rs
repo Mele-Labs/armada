@@ -146,7 +146,14 @@ pub async fn execute(
             let places = manifest
                 .check(name)
                 .map_or(1, |check| check.places().get() as usize);
-            match slots.take(places, |_| {}).await {
+            // Said once, so a pause reads as a queue rather than a hang.
+            let mut said = false;
+            let waiting = |in_use: checks_runner::InUse| {
+                if !std::mem::replace(&mut said, true) {
+                    eprintln!("{in_use}");
+                }
+            };
+            match slots.take(places, waiting).await {
                 Ok(held) => Some(held),
                 Err(why) => {
                     eprintln!("running without a Check slot, which could not be taken: {why}");
@@ -198,6 +205,19 @@ pub fn machine_slots() -> Option<CheckSlots> {
         runtime_file.parent()?.join("check-slots"),
         crate::serve::provisional_checks_at_once().get(),
     ))
+}
+
+/// [`machine_slots`], for Fleet: tried once at start, and a filesystem that
+/// refuses them said here, since `fleet::places` has no stderr to say it on.
+pub fn machine_slots_for_fleet() -> Option<CheckSlots> {
+    let slots = machine_slots()?;
+    match slots.try_take(1) {
+        Ok(_) => Some(slots),
+        Err(why) => {
+            eprintln!("Fleet runs Checks without the machine's Check slots, which could not be taken: {why}");
+            None
+        }
+    }
 }
 
 /// Every Check the Manifest in `root` would run on a change to `changed`, in

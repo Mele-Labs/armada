@@ -11,11 +11,8 @@
 //! limit in force, so a Check wider than it still takes every place there is.
 //!
 //! A heavy run outside `crate::checking::ran` holds one through [`Room::place`].
-//! A join of identical runs (#338) would sit in front of the ask.
-//!
-//! **A place also holds the machine's Check slots** where the composition root
-//! gave some, taken after the place so `armada check` in a terminal and a
-//! Job's gate share one budget. `checks_runner::CheckSlots`.
+//! A join of identical runs (#338) would sit in front of the ask. A place then
+//! takes the machine's Check slots too, which `armada check` shares: `CheckSlots`.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -307,18 +304,12 @@ impl Ask {
         }
         let held = match &self.places.0.slots {
             None => None,
-            Some(slots) => match slots
+            // Said on the Checks waiting, as a place is. A filesystem that
+            // refuses runs the Check without; `armada::serve` tried it at start.
+            Some(slots) => slots
                 .take(self.wants, |in_use| waiting(in_use.in_use))
                 .await
-            {
-                Ok(held) => Some(held),
-                Err(why) => {
-                    eprintln!(
-                        "a Check runs without a machine slot, which could not be taken: {why}"
-                    );
-                    None
-                }
-            },
+                .ok(),
         };
         let Some(mut place) = self.taken.take() else {
             unreachable!("the place was taken above and nothing between gives it back")

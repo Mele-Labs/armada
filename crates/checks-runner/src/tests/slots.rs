@@ -5,7 +5,7 @@
 //! with the process holding it is the operating system's promise, and a fake
 //! would assert that the test author knows what the kernel does.
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -114,7 +114,10 @@ fn holds_a_slot_until_killed() {
         .try_take(1)
         .expect("writable")
         .expect("nothing else holds it");
-    println!("held");
+    let mut out = std::io::stdout();
+    writeln!(out, "held")
+        .and_then(|()| out.flush())
+        .expect("said");
     std::thread::sleep(Duration::from_secs(60));
 }
 

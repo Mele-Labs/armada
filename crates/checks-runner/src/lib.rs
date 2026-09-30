@@ -21,8 +21,7 @@
 //! `${width}` a Manifest writes it into — a number handed to a runner, never a
 //! cap imposed on one. #1444.
 //!
-//! [`CheckSlots`] is how many Checks run at once across every process on the
-//! machine — an `flock` on one of N shared files, freed when its holder dies.
+//! [`CheckSlots`] bounds how many Checks run at once across every process.
 //!
 //! [`split`] is the one splitter in the workspace and is public for that
 //! reason. `fleet::drifting` asks whether what a `run` line names is still in

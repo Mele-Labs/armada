@@ -790,7 +790,7 @@ fn assemble(
         copy_on_write: Arc::new(TheVolume),
         headroom: PROVISIONAL_HEADROOM,
         checks_at_once: provisional_checks_at_once(),
-        check_slots: crate::declared::machine_slots(),
+        check_slots: crate::declared::machine_slots_for_fleet(),
         polling: PROVISIONAL_RESOURCE_POLL,
         noticing: PROVISIONAL_MERGE_NOTICE,
         reclaiming: PROVISIONAL_RECLAIM_SWEEP,
