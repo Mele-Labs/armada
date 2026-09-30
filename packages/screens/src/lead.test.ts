@@ -23,6 +23,34 @@ function named(starts: string): JobFixture {
   return found;
 }
 
+/** A Job on some arc moment's Board, by the sentence it renders. */
+function arcNamed(starts: string): JobFixture {
+  const every = ARC_MOMENTS.flatMap((moment) => moment.fixtures);
+  const found = every.find((one) => one.name.startsWith(starts));
+  if (found === undefined) throw new Error(`no arc fixture named ${starts}`);
+  return found;
+}
+
+/** The same Job with one step's Check answering differently. */
+function withOutcome(one: JobFixture, stepId: string, outcome: string): JobFixture {
+  if (one.watched.state !== "read") throw new Error(`${one.name} serves no detail`);
+  const detail = one.watched.detail;
+  return {
+    ...one,
+    watched: {
+      ...one.watched,
+      detail: {
+        ...detail,
+        steps: detail.steps.map((step) =>
+          step.step_id === stepId
+            ? { ...step, check_runs: step.check_runs.map((run) => ({ ...run, outcome })) }
+            : step,
+        ),
+      },
+    },
+  };
+}
+
 /** The Job an arc moment is about — the one whose id the moment opens. */
 function arcJobAt(moment: string): JobFixture {
   const found = arcMoment(moment);
@@ -46,7 +74,7 @@ describe("the headline names the thing and stops", () => {
     const lead = leadFor(named("awaiting_review — every Check passed"));
     expect(lead.said).toBe("Waiting for your review");
     expect(lead.because).toBe(
-      "Its Check passed and the Judge met both criteria · " +
+      "Both Checks passed and the Judge met both criteria · " +
         "Check the consumers still compile and 1 more do not start until you answer",
     );
     expect(lead.act).toBe("Review it");
@@ -87,9 +115,13 @@ describe("the headline names the thing and stops", () => {
 
 describe("the second line carries a fact or it is empty", () => {
   it("nothing behind a step is nothing, not a sentence saying so", () => {
-    // `Land` is last, so nothing waits on the answer — and the slot is empty
-    // rather than reading *Nothing in this workflow is behind it.*
-    expect(leadFor(named("awaiting_review — the branch is pushed")).because).toBe("");
+    // `Land` is last, so nothing waits on the answer — and the clause is
+    // absent rather than reading *Nothing in this workflow is behind it.*
+    // What the line does carry is what the gates found, which is the claim
+    // below.
+    expect(leadFor(named("awaiting_review — the branch is pushed")).because).not.toContain(
+      "do not start until you answer",
+    );
   });
 
   it("a plan nobody has started is planned, not `0 of 8`", () => {
@@ -113,6 +145,49 @@ describe("the second line carries a fact or it is empty", () => {
     for (const name of ["escalated · silent", "rejected", "killed"]) {
       expect(leadFor(named(name)).because).toBe("");
     }
+  });
+});
+
+// **What is being signed off is the branch, not the step** — the owner, 30 Sep
+// 2026, in `the-lead-counts-the-whole-jobs-evidence`. One claim per counting
+// rule, because the counting is the part that can lie.
+describe("what the gate found is the whole Job's evidence", () => {
+  it("the delivering gate counts every step's Checks, not the step that is waiting", () => {
+    // `Land` pushed a branch and verified nothing of its own, which is why the
+    // step-local reading left this line empty on the Job most likely to be open.
+    expect(leadFor(named("awaiting_review — the branch is pushed")).because).toBe(
+      "All 3 Checks passed and the Judge met both criteria",
+    );
+  });
+
+  it("a Check that failed and was retried is one Check that passed", () => {
+    // `Fix` ran `cargo_build` twice. Four rows, three Checks, all of them
+    // passed — attempt 1's failure is history and not a fourth Check.
+    expect(leadFor(named("awaiting_review — a Check was retried")).because).toContain(
+      "All 3 Checks passed",
+    );
+  });
+
+  it("a criterion a person overruled is not one the Judge met", () => {
+    // `regression_verify` advanced because somebody disagreed with the Judge.
+    // The refusal is still on the wire, so the count cannot launder it.
+    expect(leadFor(named("awaiting_review — a Check was retried")).because).toContain(
+      "the Judge met 1 of 2 criteria",
+    );
+  });
+
+  it("a skipped Check is counted neither as a pass nor as a failure", () => {
+    // **Not a fixture**: `skipped` needs a Check declaring paths the step did
+    // not touch, and this narrative's Manifest declares two Checks that cover
+    // everything — so the outcome is moved here rather than a Manifest bent
+    // around one row.
+    const one = named("awaiting_review — the branch is pushed");
+    const lead = leadFor(withOutcome(one, "consumers", "skipped"));
+    expect(lead.because).toBe("Both Checks passed and the Judge met both criteria");
+  });
+
+  it("a Job at review whose steps found nothing draws no second line", () => {
+    expect(leadFor(arcNamed("awaiting_review — a second Job holding")).because).toBe("");
   });
 });
 

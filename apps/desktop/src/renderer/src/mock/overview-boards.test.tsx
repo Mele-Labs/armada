@@ -409,6 +409,38 @@ describe("the lead and what it is about are one panel", () => {
   });
 });
 
+// **The second line is a line or it is not there**, which is the part only the
+// screen can say: `job/reviewAtDelivery` drew the headline over nothing at all
+// until the lead counted the whole Job, and an element with an empty string in
+// it would have passed every sentence claim in `lead.test.ts`.
+describe("what the gates found, on the lead's own second line", () => {
+  test("job/reviewAtDelivery: the review gate says what the whole Job's evidence came to", async () => {
+    await drawn("job/reviewAtDelivery", ".armada-lead__because");
+
+    expect(saidBy(".armada-lead__because")).toBe(
+      "All 3 Checks passed and the Judge met both criteria",
+    );
+    // Under the headline it belongs to, and inside the one panel.
+    const because = boxOf(".armada-lead__because");
+    expect(because.top).toBeGreaterThanOrEqual(boxOf(".armada-lead__headline").top);
+    expect(because.bottom).toBeLessThanOrEqual(boxOf(".armada-lead").bottom);
+  });
+
+  test("job/reviewAfterAnOverrule: a refusal somebody overruled is counted, not laundered", async () => {
+    await drawn("job/reviewAfterAnOverrule", ".armada-lead__because");
+
+    expect(saidBy(".armada-lead__because")).toBe(
+      "All 3 Checks passed and the Judge met 1 of 2 criteria",
+    );
+  });
+
+  test("job/awaitingApproval: a lead with no fact under it draws no second line", async () => {
+    await drawn("job/awaitingApproval", ".armada-lead");
+
+    expect(document.querySelectorAll(".armada-lead__because")).toHaveLength(0);
+  });
+});
+
 describe("the Land board — Overview for a Job that finished", () => {
   test("how it was answered leads, and what it produced reads beside what it cost", async () => {
     await drawn("arc/landed", ".armada-land__cost");
