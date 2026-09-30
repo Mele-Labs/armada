@@ -26,7 +26,48 @@ export type PendingRoute = {
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/processes/{pid}/kill", act: "kill_process", issue: 1647 },
   { method: "POST", path: "/jobs/{job_id}/processes/kill", act: "kill_processes", issue: 1647 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
+  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
+  { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
 ];
+
+/**
+ * What Edit this task sends to `edit_task` (#1657). **Only the fields a person
+ * changed.** Fleet has not agreed a body for the route yet, so this is what
+ * Bridge sends and the debug info carries, not a wire type.
+ */
+export type EditTask = {
+  title?: string;
+  note?: string;
+  scope?: string[];
+  expects?: string;
+  model?: string;
+};
+
+/**
+ * What a drop on the plan sends to `move_plan` (#1685): a group to a new place
+ * among the groups, or, with `task`, that task into `group` at `to`. `to`
+ * counts from zero, in the order after the move. Fleet has not agreed a body
+ * yet, so this is what Bridge sends and the debug info carries.
+ */
+export type MovePlan = {
+  group: string;
+  task?: string;
+  to: number;
+};
+
+/**
+ * A request body as the debug info carries it: each top-level field, a string
+ * as itself and anything else as JSON. Anything that is not an object carries
+ * nothing.
+ */
+export function sentOf(body: unknown): Record<string, string> {
+  if (body === null || typeof body !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(body).map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)]),
+  );
+}
 
 /** Where an issue number opens. The debug info carries the whole link, so a paste opens from anywhere. */
 export function issueLink(issue: number): string {

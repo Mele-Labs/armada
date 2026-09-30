@@ -14,9 +14,9 @@
 import type {
   GroupBoundaryCheck,
   GroupBoundaryProps,
-  PlanBoardAsk,
   PlanBoardGroup,
   PlanBoardProps,
+  PlanMove,
   PlanBoardTask,
 } from "@armada/components";
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
@@ -26,9 +26,7 @@ import type { JobDraft } from "./draft/held";
 import type { GroupState, GroupView } from "./draft/group";
 import type { TaskView } from "./draft/task";
 import {
-  asksOf,
   besideSaid,
-  boundaryClause,
   caseReads,
   casesOf,
   costSaid,
@@ -41,7 +39,6 @@ import {
   retrySaid,
   runBySaid,
   scopeRootOf,
-  testsClause,
   touchedByOf,
   turnsSaid,
 } from "./tab-plan-read";
@@ -203,9 +200,7 @@ export function boundaryOf(
     spec: one.spec,
     reads: droppedSaid(one) ?? caseReads(one),
   }));
-  const testsSay = testsClause(group.state, tests.length);
   return {
-    clause: boundaryClause(group.state),
     checks,
     checksAbsent: "No Check runs at this group's end.",
     ...(verdict === undefined ? {} : { verdictSays: verdict }),
@@ -216,7 +211,6 @@ export function boundaryOf(
         : {}),
     ...(retry === undefined ? {} : { retrySays: retry }),
     ...(group.commit === undefined ? {} : { commit: group.commit }),
-    ...(testsSay === undefined ? {} : { testsClause: testsSay }),
     ...(tests.length === 0 ? {} : { tests }),
   };
 }
@@ -233,7 +227,6 @@ export function groupCardOf(
   cases: readonly CaseView[],
   touchedBy: Map<string, string>,
   whole: JobWhole | null,
-  asks: readonly PlanBoardAsk[] = [],
   step?: StepDetail,
   overlaps: readonly { says: string; paths: readonly string[] }[] = [],
   onOpenCheck?: (name: string, stepAttempt: number) => void,
@@ -243,12 +236,12 @@ export function groupCardOf(
     ordinal: group.ordinal,
     state: group.state,
     says: groupSaid(group.state),
+    concurrent: group.concurrent,
     shapeSays: shapeSaid(group),
     scope: scopeRootOf(group.scope),
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
     boundary: boundaryOf(group, cases, whole, step, onOpenCheck),
     ...(overlaps.length === 0 ? {} : { overlaps }),
-    ...(asks.length === 0 ? {} : { asks }),
   };
 }
 
@@ -276,13 +269,12 @@ export function planBoardOf(
   const overlaps = overlapsOf(groups);
   return {
     approach: whole?.work_plan?.approach ?? "",
-    groups: groups.map((group, at) =>
+    groups: groups.map((group) =>
       groupCardOf(
         group,
         cases,
         touchedBy,
         whole,
-        revisable ? asksOf(groups, at) : [],
         step,
         overlaps.get(group.id) ?? [],
         onOpenCheck,
@@ -292,4 +284,26 @@ export function planBoardOf(
     ...(openTaskId === undefined ? {} : { openTaskId }),
     onOpenTask,
   };
+}
+
+/**
+ * The groups with one move applied — where a person dropped a group or a
+ * task, drawn while the move is out. **Ordinals stay the plan's**: a group is
+ * named by the number it was planned with until Fleet says otherwise.
+ */
+export function movedGroups(groups: readonly PlanBoardGroup[], move: PlanMove): PlanBoardGroup[] {
+  if (move.task === undefined) {
+    const from = groups.findIndex((one) => one.id === move.group);
+    if (from < 0) return [...groups];
+    const rest = groups.filter((one) => one.id !== move.group);
+    rest.splice(move.to, 0, groups[from]!);
+    return rest;
+  }
+  const task = groups.flatMap((one) => one.tasks).find((one) => one.id === move.task);
+  if (task === undefined) return [...groups];
+  return groups.map((group) => {
+    const tasks = group.tasks.filter((one) => one.id !== move.task);
+    if (group.id === move.group) tasks.splice(move.to, 0, task);
+    return tasks.length === group.tasks.length && group.id !== move.group ? group : { ...group, tasks };
+  });
 }

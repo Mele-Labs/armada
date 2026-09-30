@@ -500,6 +500,12 @@ export type TransportFault = {
   method: string;
   /** The route asked, with ids already encoded into it. */
   path: string;
+  /**
+   * What the request carried, field by field — **only on a route
+   * `PENDING_ROUTES` names**, so the debug info a person copies says what the
+   * act would have done (`sentOf`).
+   */
+  sent?: Record<string, string>;
 } & (
   | {
       why: "timed_out";

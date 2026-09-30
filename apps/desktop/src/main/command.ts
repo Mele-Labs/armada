@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { CapRaise, ChosenAnswer, FileReport, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { CapRaise, ChosenAnswer, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -446,6 +446,45 @@ export class JobCommands {
   async killProcesses(jobId: string): Promise<Outcome> {
     return this.act(jobId, this.killing, "already_killing", (port) =>
       ask(port, "POST", route(jobId, "processes/kill")),
+    );
+  }
+
+  /**
+   * A plan task's own acts, from its panel — a failed task's Pilot and
+   * Restart, and Edit on an open or failed one. **Each is ahead of its
+   * route** — #250 pilots, #1656 restarts, #1657 edits, with the fields it
+   * changed as the body — so the answer is
+   * `bridge.not_implemented` until each ships. Restart shares the step's
+   * restart lock; Pilot and Edit share the redirect's, since both change what
+   * the Job's Drone is doing. The task id is encoded, as a pid is.
+   */
+  async pilotTask(jobId: string, taskId: string): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/pilot`)),
+    );
+  }
+
+  async restartTask(jobId: string, taskId: string): Promise<Outcome> {
+    return this.act(jobId, this.restarting, "already_restarting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/restart`)),
+    );
+  }
+
+  async editTask(jobId: string, taskId: string, edit: EditTask): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, `tasks/${encodeURIComponent(taskId)}/edit`), edit),
+    );
+  }
+
+  /**
+   * A person's move on the plan, direct rather than asked of the Drone —
+   * the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
+   * **Ahead of its route** (#1685), with the move as the body. Edit's lock,
+   * since both change the plan the Drone is held to.
+   */
+  async movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
+    return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
+      ask(port, "POST", route(jobId, "plan/move"), move),
     );
   }
 

@@ -112,3 +112,28 @@ export const Leading: Story = {
     await expect(canvas.getByRole("dialog", { name: "Helm" })).toBeVisible();
   },
 };
+
+/**
+ * **The way back**, where a press in another panel opened this one — Plan's
+ * task panel sending a person to its Drone. It takes the head's first line
+ * with the close, so the title keeps the width under it.
+ */
+export const Back: Story = {
+  args: {
+    open: true,
+    floating: true,
+    size: "wide",
+    title: "Drone on T6",
+    subtitle: "Implement · T6 · running",
+    back: { label: "Back to T6", tooltip: "Back to Plan · T6", binding: "⌘[", onBack: fn() },
+    closeLabel: "Close",
+    closeBinding: "Esc",
+    children: "The Drone's turns.",
+    onClose: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: /Back to T6/ }));
+    await expect(args.back?.onBack).toHaveBeenCalled();
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};

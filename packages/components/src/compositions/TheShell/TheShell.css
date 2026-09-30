@@ -150,50 +150,15 @@
 
 /* The handle supplies its own margin in the gap it now occupies — #1094's
    dock kept the whole 16px as its own left margin because nothing sat in it. */
-.armada-shell__work:has(.armada-shell__dock-handle) .armada-shell__dock {
+.armada-shell__work:has(.armada-dock-handle) .armada-shell__dock {
   margin-left: 0;
 }
 
-/* The dock's leading edge, drawn only where `onResize` is wired — an edge
-   that looks grabbable and does nothing would be worse than none. The hit
-   area is the whole 16px gap the dock's own margin used to spend alone; a
-   short handlebar grip at its vertical centre is visible at rest —
-   `--border-default`, one step up from a divider's own `--border-subtle`
-   since this is a control rather than a rule — and brightens to
-   `--border-strong` on hover, focus or drag, never appearing from nothing.
-   `--space-8` and `top: 50%` keep it a short pill rather than the full-height
-   line the hit area's own `align-self: stretch` would otherwise suggest. */
-.armada-shell__dock-handle {
-  flex: none;
-  align-self: stretch;
-  position: relative;
-  width: var(--space-2);
-  margin: var(--space-4) var(--space-1);
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.armada-shell__dock-handle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--border-width);
-  height: var(--space-8);
-  border-radius: var(--radius-sm);
-  background: var(--border-default);
-  transform: translateY(-50%);
-}
-
-.armada-shell__dock-handle:hover::before,
-.armada-shell__dock-handle:focus-visible::before,
-.armada-shell__dock-handle[data-dragging="true"]::before {
-  background: var(--border-strong);
-}
-
-.armada-shell__dock-handle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--border-width) * -2);
+/* The dock's leading edge — the shared handle (`src/dock-handle.css`), which
+   carries the look; here it takes the dock's own `--space-4` off the top and
+   bottom, so the grip centres on the dock and not on the window. */
+.armada-shell__dock-layer > .armada-dock-handle {
+  margin-block: var(--space-4);
 }
 
 .armada-shell__dock-head {

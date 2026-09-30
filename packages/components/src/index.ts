@@ -58,6 +58,7 @@ export * from "./compositions/JobLogReference/JobLogReference";
 export * from "./compositions/JobOutcome/JobOutcome";
 export * from "./compositions/JobLedger/JobLedger";
 export * from "./compositions/JobDrones/JobDrones";
+export * from "./compositions/DronePeek/DronePeek";
 export * from "./compositions/JobRowStacked/JobRowStacked";
 export * from "./compositions/Panel/Panel";
 export * from "./compositions/ReviewComments/ReviewComments";
@@ -272,6 +273,7 @@ export * from "./compositions/PlanTaskSheet/PlanTaskSheet";
 
 // The plan read as the groups it will run in, and the boundary each ends at.
 export * from "./compositions/PlanBoard/PlanBoard";
+export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 
 // Every setting a person can change on a running Job, on the same layer, and
 // the header's way into it.

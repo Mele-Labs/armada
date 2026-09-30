@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import {
   Table,
   TableBody,
@@ -141,6 +141,8 @@ export type JobLedgerProps = {
   floor?: boolean;
   /** Controls beside the filter menu — the panel's own, not filters. */
   controls?: ReactNode;
+  /** The way back, where a press elsewhere opened the sheet. `Sheet`'s slot. */
+  back?: SheetBack | undefined;
 };
 
 /** A whole Job's worth of reading, without the list becoming the cost. */
@@ -162,6 +164,7 @@ export function JobLedger({
   kindMarks = false,
   floor = false,
   controls,
+  back,
 }: JobLedgerProps) {
   const drawn = rows.slice(0, bound);
   const leftOut = rows.length - drawn.length;
@@ -297,6 +300,7 @@ export function JobLedger({
         floating
         floor={floor}
         title={inspectorTitle ?? "This row"}
+        back={back}
         closeLabel="Close"
         closeBinding="Esc"
         bleed

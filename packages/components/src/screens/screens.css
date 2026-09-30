@@ -2509,3 +2509,70 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* Plan's lead, shut (owner, 29 Sep 2026): the band on its own line and the
+   first criterion cut to fit under it, the whole block the press. The mark
+   holds the leading column beside the band; the criterion shares the band's
+   column. The band keeps its eyebrow register; the criterion keeps the open
+   list's. */
+.armada-plan-tab__fold {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-plan-tab__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-plan-tab__fold .armada-screen__eyebrow {
+  grid-column: 2;
+}
+
+.armada-plan-tab__fold-mark {
+  grid-column: 1;
+  color: var(--fg-muted);
+}
+
+.armada-plan-tab__fold-first {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--fg-default);
+}
+
+/* Nothing held: the open card's own muted sentence, not a criterion. */
+.armada-plan-tab__fold-first[data-empty] {
+  color: var(--fg-subtle);
+}
+
+/* Plan's review, drawn whole at Overview's gate where the waiting step claimed
+   a plan (owner, 30 Sep 2026). The gate's acts, then the plan under them, a
+   step apart: on Plan the lead card holds the gate and the wave sits between. */
+.armada-plan-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The plan gate's Send, at the end of the row Approve the plan leads. */
+.armada-plan-tab__gate > .armada-plan-tab__acts > .armada-button + .armada-button {
+  margin-inline-start: auto;
+}
+

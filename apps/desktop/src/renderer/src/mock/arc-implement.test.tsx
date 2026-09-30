@@ -114,7 +114,7 @@ describe("implement", () => {
       await planList("arc/executing-concurrent");
 
       await expect.element(groupCard(3)).toHaveTextContent("joining its work");
-      await expect.element(groupCard(3)).toHaveTextContent("2 tasks, at the same time");
+      await expect.element(groupCard(3).getByRole("img", { name: "2 tasks, at the same time" })).toBeVisible();
       // The Job's cap rode on that line until 28 Sep, and read as one number twice.
       await expect.element(groupCard(3)).not.toHaveTextContent("Drones at once");
       await expect.element(taskRow("T5")).toHaveTextContent("beside T6");
@@ -123,10 +123,11 @@ describe("implement", () => {
       // design board gives the row one column for the model, and a column
       // reading `its own agent` on all eight tasks is a column saying nothing.
       await expect.element(taskRow("T5")).not.toHaveTextContent("its own agent");
+      // Its own agent is the Drone card in its panel, named for the task.
       await taskRow("T5").getByRole("button").first().click();
       await expect
-        .element(page.getByRole("dialog").first())
-        .toHaveTextContent("Run by its own agent");
+        .element(page.getByRole("dialog").first().getByRole("group", { name: "Drone on T5" }))
+        .toBeVisible();
     },
   );
 
@@ -139,7 +140,6 @@ describe("implement", () => {
       await expect.element(taskRow("T5")).toHaveTextContent("~$1.90");
       await expect.element(taskRow("T6")).toHaveTextContent("~$0.72");
       // The boundary has not run, and the two costs are on screen anyway.
-      await expect.element(boundaryOf(3)).toHaveTextContent("will run at this boundary");
       await openChecks(3);
       await expect.element(boundaryOf(3)).toHaveTextContent("not run");
     },
@@ -235,19 +235,15 @@ describe("implement", () => {
       const sheet = page.getByRole("dialog").first();
       await expect.element(sheet).toBeVisible();
       await expect.element(sheet).toHaveTextContent("T5");
-      // Where its own agent has got to, which is turns while it is still working.
-      await expect.element(sheet).toHaveTextContent("Its agent is working");
-      await expect.element(sheet).toHaveTextContent("14 turns");
       // What it was told, what it may touch, and what it runs beside.
       await expect.element(sheet).toHaveTextContent("The panel lists Drones");
       await expect.element(sheet).toHaveTextContent("Running.tsx");
       await expect.element(sheet).toHaveTextContent("T6");
-      // **The redirect, addressed to this task's own Drone** — the second
-      // reading the owner kept the board for, and the only way to do it
-      // anywhere in the app.
-      const redirect = sheet.getByRole("region", { name: "Redirect" });
-      await expect.element(redirect).toHaveTextContent("Reaches Drone on T5");
-      await expect.element(redirect.getByRole("textbox").first()).toBeVisible();
+      // **The message, addressed to this task's own Drone** — the peek into
+      // it, with its state and the box at its foot (owner, 29 Sep 2026).
+      const peek = sheet.getByRole("group", { name: "Drone on T5" });
+      await expect.element(peek).toHaveTextContent("Running");
+      await expect.element(peek.getByRole("textbox").first()).toBeVisible();
     },
   );
 });

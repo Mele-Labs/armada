@@ -24,13 +24,15 @@ import type { TaskState, TaskView } from "./draft/task";
 /**
  * The layout, in the canvas's own coordinates.
  *
- * `TASK_ACROSS` is `--w-workflow-group-node` plus room for an arrowhead, so a
- * task column clears its group's card. `TASK_APART` is one task's pitch down
+ * `TASK_ACROSS` is `--w-workflow-group-node` (228) plus an 88 gap: room for a
+ * smooth step to turn twice, clearing each card by the canvas's 20, and still
+ * run straight between. At 28 the turns could not fit and each edge hooked
+ * back on itself (owner, 29 Sep 2026). `TASK_APART` is one task's pitch down
  * that column and `AFTER_GROUP` the gap to the group below. Numbers rather
  * than tokens because React Flow places by number and a `var()` cannot reach
  * it.
  */
-const TASK_ACROSS = 256;
+const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
 /** A group holding no task still takes a row of its own. */
@@ -139,7 +141,7 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
  * what there is to say before, and what it has taken is what there is to say
  * after.
  */
-function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+export function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
@@ -164,6 +166,14 @@ export type PlanGraphReading = {
   onOpenTask?: (taskId: string) => void;
   /** The task a person has open, so the card it came from says which one it is. */
   openTask?: string | null;
+  /**
+   * Opens a group in its own panel — its tasks, Checks and Tests, with Add
+   * task in the head (owner, 30 Sep 2026). Absent draws group cards that are
+   * not controls.
+   */
+  onOpenGroup?: (groupId: string) => void;
+  /** The group a person has open, drawn selected the way an open task is. */
+  openGroup?: string | null;
 };
 
 export type PlanGraph = {
@@ -184,14 +194,19 @@ export type PlanGraph = {
  * it; on this tab there is no step to hang from, so the plan is as many small
  * trees as it has groups.
  */
-export function planGraphOf({ groups, onOpenTask, openTask }: PlanGraphReading): PlanGraph {
+export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGroup }: PlanGraphReading): PlanGraph {
   const nodes: WorkflowCanvasNode[] = [];
   const edges: WorkflowCanvasEdge[] = [];
 
   let down = 0;
   for (const group of groups) {
     const groupId = groupNodeId(group.id);
-    nodes.push({ id: groupId, position: { x: 0, y: down }, card: groupCard(group, undefined) });
+    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id));
+    nodes.push({
+      id: groupId,
+      position: { x: 0, y: down },
+      card: group.id === openGroup ? { ...card, selected: true } : card,
+    });
 
     group.tasks.forEach((task, at) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);

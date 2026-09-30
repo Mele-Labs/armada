@@ -70,6 +70,8 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **Graph is what a person lands on, remembered per viewer rather than per Job**, on the Workflow toggle's own terms and through the same mechanism. A press on a task opens the same sheet in either view: a toggle that opened a different surface from each side would be two screens.
 
+**A press on a group in the Graph opens that group's panel**: the list's own card body — the overlap warning, its task rows, its Checks and its Tests — on the task panel's floating layer, with `Add task` in its head. Why: the owner, 30 September 2026, asking *So I can only add a task in list view?* He chose the panel over a second add control on the canvas, and **the cost he accepted is a new panel before the task dock lands.** A task pressed inside it opens in its place, one panel at a time; the List needs none, since its card already is the group.
+
 **The third view he asked for is not built and is not stood in for.** A diagram of the repository showing where a plan's groups and tasks fall and what overlaps is not designed, so there is no disabled tab and no placeholder — a strip that named a view nobody can open is a promise the screen cannot keep.
 
 ### A plan that is running, read in the List view

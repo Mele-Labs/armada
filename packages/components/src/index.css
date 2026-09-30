@@ -26,6 +26,9 @@
 @import "./primitives/Dialog/Dialog.css";
 @import "./primitives/DropdownMenu/DropdownMenu.css";
 @import "./primitives/Popover/Popover.css";
+/* A dock's leading-edge resize handle, one for Helm's dock and a floating Sheet.
+   Ahead of both, so each lays it out over the shared look. */
+@import "./dock-handle.css";
 @import "./primitives/Sheet/Sheet.css";
 @import "./primitives/Tabs/Tabs.css";
 @import "./primitives/Toast/Toast.css";
@@ -58,6 +61,7 @@
 @import "./compositions/JobOutcome/JobOutcome.css";
 @import "./compositions/JobLedger/JobLedger.css";
 @import "./compositions/JobDrones/JobDrones.css";
+@import "./compositions/DronePeek/DronePeek.css";
 @import "./compositions/UnifiedDiff/UnifiedDiff.css";
 @import "./compositions/ReviewComments/ReviewComments.css";
 @import "./compositions/ReviewDecision/ReviewDecision.css";
@@ -324,6 +328,7 @@
 @import "./compositions/CaptureBar/CaptureBar.css";
 /* The plan read as the groups it will run in, one card each. #1535. */
 @import "./compositions/PlanBoard/PlanBoard.css";
+@import "./compositions/PlanGroupSheet/PlanGroupSheet.css";
 /* A Job whose members are Jobs — pull requests landing in order. #1543. */
 @import "./compositions/JobMembers/JobMembers.css";
 /* The one member holding a question, in the column beside the order. */
