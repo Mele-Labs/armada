@@ -233,26 +233,25 @@ export const NotReadAgainstAnything: Story = {
 };
 
 /**
- * The plan is still a question, so the inspector can ask for this task to be
- * written differently. **The field is the confirmation**: an empty one sends
- * nothing, which is why the control is off until something is typed. Verified
- * against a sheet whose `rewrite` is absent, where neither is drawn at all.
+ * The plan is still a question, so the panel can propose a change to this
+ * task. **The field is the confirmation**: an empty one sends nothing, which
+ * is why Send is off until something is typed. Verified against a sheet whose
+ * `propose` is absent, where neither is drawn at all.
  */
-export const AskingForARewrite: Story = {
+export const ProposingAChange: Story = {
   args: {
     ...LONG,
     state: "open",
-    rewrite: {
-      label: "Rewrite this task",
-      lead: "Say what this task should be instead. The Drone that wrote the plan decides, and it may refuse.",
-      placeholder: "Take the panel's rows out of this one and give them a task of their own",
-      send: "Ask the Drone",
-      onAsk: fn(),
+    propose: {
+      label: "Propose a change",
+      send: "Send to the Drone",
+      onPropose: fn(),
     },
   },
   play: async ({ canvasElement, args }) => {
     const sheet = within(canvasElement);
-    const send = sheet.getByRole("button", { name: "Ask the Drone" });
+    await userEvent.click(sheet.getByRole("button", { name: "Propose a change" }));
+    const send = sheet.getByRole("button", { name: "Send to the Drone" });
     await expect(send).toBeDisabled();
     await userEvent.type(
       sheet.getByRole("textbox"),
@@ -260,21 +259,42 @@ export const AskingForARewrite: Story = {
     );
     await expect(send).toBeEnabled();
     await userEvent.click(send);
-    await expect(args.rewrite?.onAsk).toHaveBeenCalledWith(
+    await expect(args.propose?.onPropose).toHaveBeenCalledWith(
       "Split the rows out, so the tests have something smaller to hold",
     );
   },
 };
 
-/** The ask is out. The field and the control both refuse a second one. */
-export const TheRewriteIsOut: Story = {
+/** A change is out. The control refuses a second one until it is answered. */
+export const TheProposalIsOut: Story = {
   args: {
-    ...AskingForARewrite.args,
-    rewrite: { ...AskingForARewrite.args!.rewrite!, pending: true },
+    ...ProposingAChange.args,
+    propose: { ...ProposingAChange.args!.propose!, pending: true },
   } as Story["args"],
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByRole("textbox")).toBeDisabled();
+    await expect(sheet.getByRole("button", { name: "Propose a change" })).toBeDisabled();
+  },
+};
+
+/**
+ * Edit this task, filled from the task, sending only what changed. Save is
+ * off until something differs.
+ */
+export const EditingTheTask: Story = {
+  args: {
+    ...LONG,
+    state: "open",
+    edit: { models: ["opus", "sonnet", "haiku"], onEdit: fn(async () => false) },
+  },
+  play: async ({ canvasElement, args }) => {
+    const sheet = within(canvasElement);
+    await userEvent.click(sheet.getByRole("button", { name: "Edit this task" }));
+    const save = sheet.getByRole("button", { name: "Save" });
+    await expect(save).toBeDisabled();
+    await userEvent.selectOptions(sheet.getByLabelText("Model"), "haiku");
+    await userEvent.click(save);
+    await expect(args.edit?.onEdit).toHaveBeenCalledWith({ model: "haiku" });
   },
 };
 

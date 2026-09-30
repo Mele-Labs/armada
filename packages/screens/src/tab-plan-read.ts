@@ -278,19 +278,18 @@ export const ASK_LABEL: Record<PlanAskKind, string> = {
   move_up: "Move up",
   move_down: "Move down",
   remove: "Remove",
-  rewrite: "Rewrite this task",
+  rewrite: "Propose a change",
 };
 
 /**
- * The rewrite ask's own words. **Prose, because a rewrite is not a field** —
- * what a task should be instead is a sentence the Drone reads, and a picker
- * for each of a task's parts would be editing the record.
+ * Proposing a change, on a group or on a task — **one verb for both** (owner,
+ * 30 Sep 2026). Prose the Drone reads and may refuse; Edit this task is the
+ * form that changes a task's fields. No placeholder: an empty field stays
+ * empty.
  */
-export const REWRITE_ASK = {
+export const PROPOSE_ASK = {
   label: ASK_LABEL.rewrite,
-  lead: "Say what this task should be instead. The Drone that wrote the plan decides, and it may refuse.",
-  placeholder: "Take the panel's rows out of this one and give them a task of their own",
-  send: "Ask the Drone",
+  send: "Send to the Drone",
 } as const;
 
 /**

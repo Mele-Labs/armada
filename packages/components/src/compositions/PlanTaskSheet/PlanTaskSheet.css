@@ -55,8 +55,9 @@
   text-wrap: pretty;
 }
 
-/* A task's own acts: a failed one's three under why it stopped, and Drop
-   this task. */
+/* A task's own acts: a failed one's two under why it stopped, Edit this
+   task, Propose a change while the plan waits on a person, and Drop this
+   task. */
 .armada-task-sheet__acts {
   display: flex;
   flex-wrap: wrap;
@@ -66,11 +67,20 @@
 
 /* The drop's reason, asked in place under the acts. A column: the hint and
    a refusal sit under the field, and the two buttons under them at the end,
-   where the rewrite ask puts its own. */
+   where the proposal puts its own. */
 .armada-task-sheet__drop {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Edit this task: the five fields down one column, and Cancel and Save
+   under them at the end, the drop's own buttons. */
+.armada-task-sheet__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -211,14 +221,6 @@
 
 .armada-task-sheet__unplanned {
   color: var(--fg-subtle);
-}
-
-/* The rewrite ask's own control, on its own line under the field it sends.
-   End-aligned, so the sheet's one act sits where a sheet's acts always do. */
-.armada-task-sheet__rewrite-act {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
 }
 
 /* Close stays in the head's trailing corner at every width — the owner's note

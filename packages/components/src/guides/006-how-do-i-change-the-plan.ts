@@ -13,8 +13,8 @@ export const GUIDE_PLAN_ASKS: Guide = {
   concept: "docs/concepts/plan.md",
   steps: [
     "The plan is the Drone's record of how it means to work.",
-    "Nothing on this screen edits it.",
-    "Move up, Move down, Remove and Rewrite this task are requests.",
+    "Add task, Edit this task and Drop this task change it directly.",
+    "Move up, Move down, Remove and Propose a change are requests.",
     "Each one reaches the Drone that wrote the plan, and it may refuse.",
     "A refusal is drawn under the ask, in the Drone's own words, and the plan below stays as it was.",
     "The asks are offered while the step that recorded the plan is waiting on a person.",

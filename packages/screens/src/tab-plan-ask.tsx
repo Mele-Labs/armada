@@ -104,6 +104,21 @@ export function rewriteInstruction(taskId: string, note: string): string {
 }
 
 /**
+ * A proposed change to one group, on the same terms. **It names the tasks
+ * the group holds**, so the Drone reads the change against what it wrote
+ * rather than against an ordinal it may have renumbered since.
+ */
+export function proposeInstruction(groups: readonly GroupView[], id: string, note: string): string {
+  const group = groupOf(groups, id);
+  const ids = group?.tasks.map((task) => task.id).join(", ") ?? "";
+  const on = group === undefined ? "on a group" : `on group ${group.ordinal}${ids === "" ? "" : ` (${ids})`}`;
+  return [
+    `A change to the plan you recorded, ${on}: ${note}`,
+    "This is a request about the split, not about the code. Where the group is split the way it is for a reason the plan does not give, refuse it and say what that reason is.",
+  ].join("\n\n");
+}
+
+/**
  * The dialog a group ask is confirmed in.
  *
  * **The dialog is the confirmation**, `RedirectControl`'s rule: sending is the

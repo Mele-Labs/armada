@@ -5,7 +5,8 @@ import { Input } from "../../primitives/Input/Input";
 import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
-import { PlanOverlap } from "../PlanBoard/PlanBoard";
+import { PlanOverlap, PlanProposeForm, type PlanPropose } from "../PlanBoard/PlanBoard";
+import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -59,9 +60,9 @@ export type PlanTaskSheetProps = {
   /** What the work said proved it, written by whoever did it. */
   shown?: string;
   /**
-   * How hard the planner thought it was, and the model that tier resolved to.
-   * **The planner picks the tier and the model follows** (`#1530`, 22 Sep), so
-   * the pair is drawn in that order and never the model alone.
+   * How hard the planner thought it was, and the model the task runs on —
+   * the tier's, unless a person picked one in Edit this task (owner, 30 Sep
+   * 2026, reversing the model half of `#1530`'s 22 Sep call).
    */
   tier?: string;
   model?: string;
@@ -80,18 +81,25 @@ export type PlanTaskSheetProps = {
    */
   acts?: PlanTaskActs;
   /**
+   * Changing the task itself — its title, brief, files, done-when and model
+   * (owner, 30 Sep 2026). **Absent draws nothing**, which is a task that is
+   * working, done or dropped.
+   */
+  edit?: PlanTaskEdit;
+  /**
    * Dropping the task from the plan, with a reason (owner, 30 Sep 2026).
    * **Absent draws nothing**, which is a task that is done or already
    * dropped: the first has nothing left to drop, the second already is one.
    */
   drop?: PlanTaskDrop;
   /**
-   * Asking the Drone that wrote the plan to write this task differently.
+   * Proposing a change to this task to the Drone that wrote the plan — the
+   * group's own Propose a change, on one task.
    *
    * **Absent draws nothing**, which is every plan past its gate: once a plan
    * is approved it is a record, and a record takes no requests.
    */
-  rewrite?: PlanTaskRewrite;
+  propose?: PlanTaskPropose;
   /**
    * Telling this task's Drone something while it works.
    *
@@ -141,14 +149,39 @@ export type PlanTaskDrone = Omit<DronePeekProps, "message">;
 
 /**
  * A failed task's own acts — the owner's decision of 29 Sep 2026, *a failed
- * task offers four acts*. The fourth is the message box. **Each is on screen
- * ahead of its Fleet route** (#250, #1656, #1657), so a press answers
- * `Not implemented` naming the issue until the route ships.
+ * task offers four acts*: these two, Edit this task, and the message box.
+ * **Each is on screen ahead of its Fleet route** (#250, #1656), so a press
+ * answers `Not implemented` naming the issue until the route ships.
  */
 export type PlanTaskActs = {
   onPilot: () => void;
   onRestart: () => void;
-  onEdit: () => void;
+  /** Nothing is live to send it over. */
+  disabled?: boolean;
+};
+
+/** What Edit this task changed. **Only the fields that differ** from the task as drawn. */
+export type PlanTaskEdited = {
+  title?: string;
+  note?: string;
+  scope?: string[];
+  expects?: string;
+  model?: string;
+};
+
+/**
+ * Editing a task, in a form under the acts, filled from the task as it
+ * stands. **Ahead of its route** (#1657), as a failed task's acts are.
+ */
+export type PlanTaskEdit = {
+  /** Every model the app knows, any of which the task may run on. */
+  models: readonly string[];
+  /**
+   * Sends what changed. Resolves `true` where it was taken, which closes the
+   * form, and `false` where it was not — the form stays with what was typed,
+   * and the refusal is the app's to draw.
+   */
+  onEdit: (edit: PlanTaskEdited) => Promise<boolean>;
   /** Nothing is live to send it over. */
   disabled?: boolean;
 };
@@ -169,27 +202,10 @@ export type PlanTaskDrop = {
 };
 
 /**
- * The rewrite ask, in the caller's own words.
- *
- * **Prose and not a form.** What a person wants a task to be instead is a
- * sentence the Drone reads, so the field is a `textarea` — a plan revision
- * with a picker for each field would be editing the record, which is the one
- * thing this is not.
+ * Proposing a change, in the caller's own words. **Prose and not a form**: it
+ * is a sentence the Drone reads and may refuse. Edit this task is the form.
  */
-export type PlanTaskRewrite = {
-  /** What the ask is, and that it may come back refused. */
-  lead: string;
-  /** The field's own label. */
-  label: string;
-  placeholder: string;
-  /** The control's word — `Ask the Drone`. */
-  send: string;
-  /** The ask is out and nothing has answered. */
-  pending?: boolean;
-  /** Nothing is live to send it over. */
-  disabled?: boolean;
-  onAsk: (instruction: string) => void;
-};
+export type PlanTaskPropose = PlanPropose & { onPropose: (instruction: string) => void };
 
 /** One case this task owes, and what it reads as. */
 export type PlanTaskTest = {
@@ -251,8 +267,9 @@ export function PlanTaskSheet({
   tests = [],
   failedReason,
   acts,
+  edit,
   drop,
-  rewrite,
+  propose,
   redirect,
   drone,
   patched,
@@ -293,10 +310,17 @@ export function PlanTaskSheet({
         {failedReason === undefined ? null : (
           <TaskField label="Why it stopped">{failedReason}</TaskField>
         )}
-        {acts === undefined && drop === undefined ? null : (
+        {acts === undefined && edit === undefined && drop === undefined && propose === undefined ? null : (
           /* Keyed apart from the peek, which is keyed by the task too: two
              siblings on one key leave a stale copy behind. */
-          <Acts key={`${id}-acts`} acts={acts} drop={drop} />
+          <Acts
+            key={`${id}-acts`}
+            acts={acts}
+            edit={edit}
+            drop={drop}
+            propose={propose}
+            task={{ title, note, scope, expects, model }}
+          />
         )}
         {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
         {/* **What a person reads and what they send are one place**, under
@@ -389,7 +413,6 @@ export function PlanTaskSheet({
             </ul>
           )}
         </TaskField>
-        {rewrite === undefined ? null : <Rewrite {...rewrite} />}
       </div>
     </Sheet>
     {file === undefined ? null : (
@@ -418,11 +441,182 @@ export function PlanTaskSheet({
 }
 
 /**
- * A task's acts, and the drop's reason under them once Drop this task is
- * pressed. A failed task's three come first; Drop this task is last.
+ * A task's acts, and whichever one is open under them — the edit form, the
+ * drop's reason, or the proposal. **One open at a time.** A failed task's two
+ * come first; while a plan waits on a person, Propose a change sits between
+ * Edit this task and Drop this task. Drop this task is always last.
  */
-function Acts({ acts, drop }: { acts?: PlanTaskActs; drop?: PlanTaskDrop }) {
-  const [asking, setAsking] = useState(false);
+function Acts({
+  acts,
+  edit,
+  drop,
+  propose,
+  task,
+}: {
+  acts?: PlanTaskActs;
+  edit?: PlanTaskEdit;
+  drop?: PlanTaskDrop;
+  propose?: PlanTaskPropose;
+  task: TaskAsDrawn;
+}) {
+  const [open, setOpen] = useState<"edit" | "drop" | "propose" | null>(null);
+  const shut = () => setOpen(null);
+  return (
+    <>
+      <div className="armada-task-sheet__acts">
+        {acts === undefined ? null : (
+          <>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
+              Pilot
+            </Button>
+            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
+              Restart this task
+            </Button>
+          </>
+        )}
+        {edit === undefined || open === "edit" ? null : (
+          <Button size="sm" ground="sunken" disabled={edit.disabled} onClick={() => setOpen("edit")}>
+            Edit this task
+          </Button>
+        )}
+        {propose === undefined || open === "propose" ? null : (
+          <Button
+            size="sm"
+            ground="sunken"
+            disabled={propose.disabled === true || propose.pending === true}
+            onClick={() => setOpen("propose")}
+          >
+            {propose.label}
+          </Button>
+        )}
+        {drop === undefined || open === "drop" ? null : (
+          <Button size="sm" ground="sunken" disabled={drop.disabled} onClick={() => setOpen("drop")}>
+            Drop this task
+          </Button>
+        )}
+      </div>
+      {edit === undefined || open !== "edit" ? null : <EditForm edit={edit} task={task} onClose={shut} />}
+      {propose === undefined || open !== "propose" ? null : (
+        <PlanProposeForm
+          label={propose.label}
+          send={propose.send}
+          {...(propose.pending === undefined ? {} : { pending: propose.pending })}
+          {...(propose.disabled === undefined ? {} : { disabled: propose.disabled })}
+          onCancel={shut}
+          onSend={(instruction) => {
+            shut();
+            propose.onPropose(instruction);
+          }}
+        />
+      )}
+      {drop === undefined || open !== "drop" ? null : <DropForm drop={drop} onClose={shut} />}
+    </>
+  );
+}
+
+/** The task as the panel draws it, which the edit form starts from. */
+type TaskAsDrawn = {
+  title: string;
+  note: string | undefined;
+  scope: readonly string[];
+  expects: string | undefined;
+  model: string | undefined;
+};
+
+/** One path per line, blank lines and stray spaces dropped. */
+function pathsOf(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+/**
+ * Edit this task: the five fields, filled from the task. **Cancel restores**
+ * by unmounting, so the next Edit starts from the task again. Save sends only
+ * what differs, and is off until something does.
+ */
+function EditForm({ edit, task, onClose }: { edit: PlanTaskEdit; task: TaskAsDrawn; onClose: () => void }) {
+  const [title, setTitle] = useState(task.title);
+  const [note, setNote] = useState(task.note ?? "");
+  const [files, setFiles] = useState(task.scope.join("\n"));
+  const [expects, setExpects] = useState(task.expects ?? "");
+  const [model, setModel] = useState(task.model ?? "");
+  const [saving, setSaving] = useState(false);
+  const tap = useHaptics();
+
+  const scope = pathsOf(files);
+  const changed: PlanTaskEdited = {
+    ...(title.trim() === task.title ? {} : { title: title.trim() }),
+    ...(note.trim() === (task.note ?? "") ? {} : { note: note.trim() }),
+    ...(scope.join("\n") === task.scope.join("\n") ? {} : { scope }),
+    ...(expects.trim() === (task.expects ?? "") ? {} : { expects: expects.trim() }),
+    ...(model === (task.model ?? "") ? {} : { model }),
+  };
+  const untitled = title.trim() === "";
+  const same = Object.keys(changed).length === 0;
+  // The task's own model leads the list even where the app does not know it,
+  // so the field never reads as a model the task is not on.
+  const models = task.model === undefined || edit.models.includes(task.model) ? edit.models : [task.model, ...edit.models];
+
+  async function save(): Promise<void> {
+    setSaving(true);
+    try {
+      const taken = await edit.onEdit(changed);
+      tap(patternFor(taken ? "accepted" : "refused"));
+      if (taken) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="armada-task-sheet__edit" aria-label="Edit this task">
+      <Input
+        label="Title"
+        value={title}
+        invalid={untitled}
+        disabled={saving}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <Textarea label="Brief" rows={3} value={note} disabled={saving} onChange={(event) => setNote(event.target.value)} />
+      <Textarea label="Files" rows={3} value={files} disabled={saving} onChange={(event) => setFiles(event.target.value)} />
+      <Textarea
+        label="Done when"
+        rows={2}
+        value={expects}
+        disabled={saving}
+        onChange={(event) => setExpects(event.target.value)}
+      />
+      <Select label="Model" value={model} disabled={saving} onChange={(event) => setModel(event.target.value)}>
+        {task.model === undefined ? <option value="" /> : null}
+        {models.map((one) => (
+          <option key={one} value={one}>
+            {one}
+          </option>
+        ))}
+      </Select>
+      <div className="armada-task-sheet__drop-acts">
+        <Button variant="secondary" size="sm" ground="sunken" disabled={saving} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="sunken"
+          pending={saving}
+          disabled={untitled || same || edit.disabled}
+          onClick={() => void save()}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** The drop's reason, asked in place once Drop this task is pressed. */
+function DropForm({ drop, onClose }: { drop: PlanTaskDrop; onClose: () => void }) {
   const [reason, setReason] = useState("");
   const [dropping, setDropping] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -434,16 +628,7 @@ function Acts({ acts, drop }: { acts?: PlanTaskActs; drop?: PlanTaskDrop }) {
   const tap = useHaptics();
   const blank = reason.trim() === "";
 
-  function close(): void {
-    setAsking(false);
-    setReason("");
-    setRefused(null);
-    setAnswer(undefined);
-    setTriedBlank(false);
-  }
-
   async function send(): Promise<void> {
-    if (drop === undefined) return;
     if (blank) {
       setTriedBlank(true);
       return;
@@ -457,7 +642,7 @@ function Acts({ acts, drop }: { acts?: PlanTaskActs; drop?: PlanTaskDrop }) {
       // no control left to draw the answer on. #1326.
       tap(patternFor(said === null ? "accepted" : "refused"));
       if (said === null) {
-        close();
+        onClose();
         return;
       }
       setRefused(said);
@@ -468,99 +653,37 @@ function Acts({ acts, drop }: { acts?: PlanTaskActs; drop?: PlanTaskDrop }) {
   }
 
   return (
-    <>
-      <div className="armada-task-sheet__acts">
-        {acts === undefined ? null : (
-          <>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
-              Pilot
-            </Button>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
-              Restart this task
-            </Button>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onEdit}>
-              Edit this task
-            </Button>
-          </>
-        )}
-        {drop === undefined || asking ? null : (
-          <Button size="sm" ground="sunken" disabled={drop.disabled} onClick={() => setAsking(true)}>
-            Drop this task
-          </Button>
-        )}
-      </div>
-      {drop === undefined || !asking ? null : (
-        <section className="armada-task-sheet__drop" aria-label="Drop this task">
-          <Input
-            label="Reason"
-            value={reason}
-            invalid={triedBlank && blank}
-            disabled={dropping}
-            onChange={(event) => setReason(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void send();
-            }}
-          />
-          {blank ? (
-            <span className="armada-task-sheet__hint" data-tone={triedBlank ? "error" : "muted"}>
-              A reason is needed.
-            </span>
-          ) : null}
-          {refused === null ? null : <span className="armada-task-sheet__refused">{refused}</span>}
-          <div className="armada-task-sheet__drop-acts">
-            <Button variant="secondary" size="sm" ground="sunken" disabled={dropping} onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              ground="sunken"
-              pending={dropping}
-              answer={answer}
-              disabled={blank || drop.disabled}
-              onClick={() => void send()}
-            >
-              {dropping ? "Dropping…" : "Drop"}
-            </Button>
-          </div>
-        </section>
-      )}
-    </>
-  );
-}
-
-/**
- * Asking for this task to be written differently.
- *
- * **Inline rather than behind a dialog.** A dialog and a sheet share
- * `--z-modal`, so one opened from inside the other is a stack the tokens do
- * not order — and the ask needs a sentence anyway, which is what a dialog
- * would have had to hold. The field is the confirmation: an empty one sends
- * nothing.
- */
-function Rewrite({ lead, label, placeholder, send, pending = false, disabled = false, onAsk }: PlanTaskRewrite) {
-  const [instruction, setInstruction] = useState("");
-  const empty = instruction.trim() === "";
-  return (
-    <section className="armada-task-sheet__field" aria-label={label}>
-      <h3 className="armada-task-sheet__label">{label}</h3>
-      <p className="armada-task-sheet__prose">{lead}</p>
-      <Textarea
-        rows={3}
-        value={instruction}
-        placeholder={placeholder}
-        disabled={disabled || pending}
-        onChange={(event) => setInstruction(event.target.value)}
+    <section className="armada-task-sheet__drop" aria-label="Drop this task">
+      <Input
+        label="Reason"
+        value={reason}
+        invalid={triedBlank && blank}
+        disabled={dropping}
+        onChange={(event) => setReason(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") void send();
+        }}
       />
-      <div className="armada-task-sheet__rewrite-act">
+      {blank ? (
+        <span className="armada-task-sheet__hint" data-tone={triedBlank ? "error" : "muted"}>
+          A reason is needed.
+        </span>
+      ) : null}
+      {refused === null ? null : <span className="armada-task-sheet__refused">{refused}</span>}
+      <div className="armada-task-sheet__drop-acts">
+        <Button variant="secondary" size="sm" ground="sunken" disabled={dropping} onClick={onClose}>
+          Cancel
+        </Button>
         <Button
+          variant="secondary"
           size="sm"
           ground="sunken"
-          pending={pending}
-          disabled={disabled || empty}
-          onClick={() => onAsk(instruction.trim())}
+          pending={dropping}
+          answer={answer}
+          disabled={blank || drop.disabled}
+          onClick={() => void send()}
         >
-          {send}
+          {dropping ? "Dropping…" : "Drop"}
         </Button>
       </div>
     </section>

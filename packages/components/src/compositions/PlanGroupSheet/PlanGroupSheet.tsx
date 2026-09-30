@@ -1,7 +1,12 @@
 import { Button } from "../../primitives/Button/Button";
 import { CardContent } from "../../primitives/Card/Card";
 import { Sheet } from "../../primitives/Sheet/Sheet";
-import { PlanGroupBody, type PlanBoardAdd, type PlanBoardGroup } from "../PlanBoard/PlanBoard";
+import {
+  PlanGroupBody,
+  type PlanBoardAdd,
+  type PlanBoardGroup,
+  type PlanBoardProps,
+} from "../PlanBoard/PlanBoard";
 
 /**
  * One plan group, pressed on the Plan graph — its task rows, its Checks and
@@ -12,6 +17,10 @@ import { PlanGroupBody, type PlanBoardAdd, type PlanBoardGroup } from "../PlanBo
  * the same drawing the list's card holds, laid out by the same `CardContent`;
  * the frame is the floating `Sheet` `PlanTaskSheet` opens, dimming the work
  * area and resizing by the same handle.
+ *
+ * **Everything the list's card can do, this can** (owner, 30 Sep 2026: "graph
+ * and list should offer the same features"): Add task, the group's asks, and
+ * Propose a change, each on the list's own terms.
  */
 export type PlanGroupSheetProps = {
   open: boolean;
@@ -20,6 +29,11 @@ export type PlanGroupSheetProps = {
   onOpenTask?: (taskId: string) => void;
   /** Absent draws no Add task. */
   add?: PlanBoardAdd;
+  /** The group's asks, as the list's card offers them. `group.asks` empty draws none. */
+  onAsk?: (groupId: string, askId: string) => void;
+  askPending?: boolean;
+  /** Proposing a change to this group, beside its asks. */
+  propose?: PlanBoardProps["propose"];
   floor?: boolean;
   /** `PlanTaskSheet`'s pair: absent draws `--w-dock`, no `onResize` no handle. */
   width?: number;
@@ -34,6 +48,9 @@ export function PlanGroupSheet({
   group,
   onOpenTask,
   add,
+  onAsk,
+  askPending = false,
+  propose,
   floor = false,
   width,
   onResize,
@@ -65,7 +82,14 @@ export function PlanGroupSheet({
       onClose={onClose}
     >
       <CardContent className="armada-plan-group-sheet__body">
-        <PlanGroupBody group={group} {...(onOpenTask === undefined ? {} : { onOpenTask })} />
+        <PlanGroupBody
+          group={group}
+          askPending={askPending}
+          guide
+          {...(onOpenTask === undefined ? {} : { onOpenTask })}
+          {...(onAsk === undefined ? {} : { onAsk })}
+          {...(propose === undefined ? {} : { propose })}
+        />
       </CardContent>
     </Sheet>
   );

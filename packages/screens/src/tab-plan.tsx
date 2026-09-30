@@ -24,7 +24,7 @@ import {
 } from "@armada/components";
 import { useEffect, useMemo, useState } from "react";
 
-import type { Diff, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
+import type { Diff, EditTask, JobDetail as JobWhole, JobSummary, Outcome, StepDetail } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
 import { Eyebrow } from "./InsideAJob";
@@ -35,7 +35,7 @@ import {
   criteriaOf,
   droneOfTask,
   groupsOf,
-  REWRITE_ASK,
+  PROPOSE_ASK,
   revisionsOf,
   taskSheetOf,
   tasksOf,
@@ -43,7 +43,7 @@ import {
 import { planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
-import { PlanAskDialog, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
+import { PlanAskDialog, proposeInstruction, rewriteInstruction, type PlanAskInFlight } from "./tab-plan-ask";
 import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { CHANGED_NOTHING, drawn } from "./review";
@@ -99,11 +99,16 @@ export type PlanTabProps = {
   /** Held, never pressed. What Drop from the wave sends, on that Job. */
   onActHeld: (act: HeldAct, jobId: string) => void;
   /**
-   * A failed task's Pilot, Restart or Edit. **The buttons are drawn without
-   * it**, so the owner can read them; a press does nothing until the host
-   * hands this through.
+   * A failed task's Pilot or Restart, and Edit this task with what it
+   * changed. **The buttons are drawn without it**, so the owner can read
+   * them; a press does nothing until the host hands this through.
    */
-  onTaskAct?: (act: TaskAct, jobId: string, taskId: string) => void;
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
+  /**
+   * Every model the app knows — `list_models` — which Edit this task picks
+   * from (owner, 30 Sep 2026). Absent offers the task's own model alone.
+   */
+  models?: readonly string[];
   /**
    * Add a task to the plan, from a group's head, and drop one, from its
    * panel, with a reason (owner, 30 Sep 2026) — `PlanWell`'s own two routes.
@@ -281,6 +286,7 @@ export function PlanTab({
   onRedirect,
   onActHeld,
   onTaskAct,
+  models = [],
   onAddTask,
   onDropTask,
   onSaid,
@@ -389,6 +395,15 @@ export function PlanTab({
           tooltip: `Back to Group ${cameFrom.ordinal}`,
           onBack: () => openGroupAt(cameFrom.id),
         };
+  // Proposing a change to one group, on the list's card and in its panel
+  // alike — the group asks' own gate and pending.
+  const propose = revisable
+    ? {
+        ...PROPOSE_ASK,
+        onPropose: (groupId: string, instruction: string) =>
+          onRedirect(job.id, proposeInstruction(groups, groupId, instruction)),
+      }
+    : undefined;
   const revisions = revisionsOf(whole, draft, step);
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
   useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
@@ -401,14 +416,27 @@ export function PlanTab({
           .filter((one) => reading.beside.includes(one.id))
           .map((one) => taskCard(one, () => openTaskAt(one.id)));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
-  // below, and these three, each ahead of its route.
+  // below, these two, and Edit this task, each ahead of its route.
   const acts =
     reading === undefined || reading.state !== "failed"
       ? undefined
       : {
-          onPilot: () => onTaskAct?.("pilot_task", job.id, reading.id),
-          onRestart: () => onTaskAct?.("restart_task", job.id, reading.id),
-          onEdit: () => onTaskAct?.("edit_task", job.id, reading.id),
+          onPilot: () => void onTaskAct?.("pilot_task", job.id, reading.id),
+          onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id),
+          disabled: stale,
+        };
+  // **Edit this task, on a task nothing is working on yet or any more**: open
+  // or failed. A working task's Drone is mid-way through what the fields say,
+  // and a done or dropped one has nothing left to change (owner, 30 Sep 2026).
+  const edit =
+    reading === undefined || (reading.state !== "open" && reading.state !== "failed")
+      ? undefined
+      : {
+          models,
+          onEdit: async (changed: EditTask) => {
+            const answer = await onTaskAct?.("edit_task", job.id, reading.id, changed);
+            return answer?.ok === true;
+          },
           disabled: stale,
         };
   // **Offered on a task that can still be dropped**: not done, which has
@@ -426,19 +454,20 @@ export function PlanTab({
           },
           disabled: stale,
         };
-  const rewrite =
+  const proposeTask =
     reading === undefined || !revisable
       ? undefined
       : {
-          ...REWRITE_ASK,
+          ...PROPOSE_ASK,
           pending: acting,
-          onAsk: (instruction: string) =>
+          onPropose: (instruction: string) =>
             onRedirect(job.id, rewriteInstruction(reading.id, instruction)),
         };
   // **Telling this task's own Drone something, in the surface the task is read
   // in** — review and reply are one loop (`#1536`). Drawn only past the gate: a
   // plan still waiting on a person offers the rewrite ask above instead, and two
   // boxes about one task would be two ways to say the same thing to nobody.
+  // (`proposeTask` is that ask.)
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
   // **The task's own Drone, off the list the Drones destination reads**, so
   // the peek and that sheet show one Drone the same way.
@@ -567,6 +596,7 @@ export function PlanTab({
               {...board}
               askPending={acting}
               onAsk={(group, ask) => setAsking({ group, ask: ask as PlanAskKind })}
+              {...(propose === undefined ? {} : { propose })}
               {...(onAddTask === undefined
                 ? {}
                 : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
@@ -584,12 +614,13 @@ export function PlanTab({
         {...reading}
         beside={beside}
         {...(acts === undefined ? {} : { acts })}
+        {...(edit === undefined ? {} : { edit })}
         {...(drop === undefined ? {} : { drop })}
         open
         floor={floor}
         {...(taskWidth === undefined ? {} : { width: taskWidth })}
         onResize={resizeTask}
-        {...(rewrite === undefined ? {} : { rewrite })}
+        {...(proposeTask === undefined ? {} : { propose: proposeTask })}
         {...(redirect === undefined ? {} : { redirect })}
         {...(peek === undefined ? {} : { drone: peek })}
         {...(patched === undefined ? {} : { patched })}
@@ -617,13 +648,16 @@ export function PlanTab({
           openTaskAt(taskId);
           setFromGroup(from);
         }}
+        askPending={acting}
+        onAsk={(groupId, ask) => setAsking({ group: groupId, ask: ask as PlanAskKind })}
+        {...(propose === undefined ? {} : { propose })}
         {...(onAddTask === undefined
           ? {}
           : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
         floor={floor}
         {...(taskWidth === undefined ? {} : { width: taskWidth })}
         onResize={resizeTask}
-        under={adding !== null}
+        under={adding !== null || asking !== null}
         onClose={() => setOpenGroup(null)}
       />
     )}

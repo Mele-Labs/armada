@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronRight, TriangleAlert } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
@@ -6,6 +7,7 @@ import { GroupBoundary, type GroupBoundaryProps } from "../GroupBoundary/GroupBo
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_GROUP_ORDER, GUIDE_PLAN_ASKS } from "../../guides";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
+import { Textarea } from "../../primitives/Textarea/Textarea";
 
 /**
  * Plan board — a plan read as the groups it will run in, one card each.
@@ -160,6 +162,66 @@ export type PlanBoardAdd = {
   disabled?: boolean;
 };
 
+/**
+ * Proposing a change to the plan's Drone in a person's own words (owner, 30
+ * Sep 2026) — on a group, here, and on a task, in `PlanTaskSheet`. **One
+ * verb for both**, and one form. The words are the caller's.
+ */
+export type PlanPropose = {
+  /** The control that opens the form, and the field's own name — `Propose a change`. */
+  label: string;
+  /** The form's send — `Send to the Drone`. */
+  send: string;
+  /** A change is out and nothing has answered. */
+  pending?: boolean;
+  /** Nothing is live to send it over. */
+  disabled?: boolean;
+};
+
+/**
+ * The proposal's field and its two buttons, opened in place under the acts
+ * that hold its control. **Sending closes it**, as a group ask's dialog
+ * closes on its confirm: what the Drone answers is drawn with the plan's
+ * revisions, not here. An empty field sends nothing.
+ */
+export function PlanProposeForm({
+  label,
+  send,
+  pending = false,
+  disabled = false,
+  onSend,
+  onCancel,
+}: PlanPropose & { onSend: (instruction: string) => void; onCancel: () => void }) {
+  const [instruction, setInstruction] = useState("");
+  const empty = instruction.trim() === "";
+  return (
+    <section className="armada-plan-propose" aria-label={label}>
+      <Textarea
+        label={label}
+        rows={3}
+        value={instruction}
+        disabled={disabled || pending}
+        onChange={(event) => setInstruction(event.target.value)}
+      />
+      <div className="armada-plan-propose__acts">
+        <Button variant="secondary" size="sm" ground="sunken" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="sunken"
+          pending={pending}
+          disabled={disabled || empty}
+          onClick={() => onSend(instruction.trim())}
+        >
+          {send}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export type PlanBoardProps = {
   /** The plan's own approach line, as the step recorded it. */
   approach: string;
@@ -176,6 +238,12 @@ export type PlanBoardProps = {
   /** A group ask was pressed and nothing has answered — every ask is off. */
   askPending?: boolean;
   onAsk?: (groupId: string, askId: string) => void;
+  /**
+   * Proposing a change to one group, beside its asks. **Drawn on a group
+   * that offers asks and on no other**: a plan past its gate takes no
+   * requests.
+   */
+  propose?: PlanPropose & { onPropose: (groupId: string, instruction: string) => void };
   /** Absent draws no add in any group's head. */
   add?: PlanBoardAdd;
 };
@@ -250,25 +318,56 @@ function GroupAsks({
   group,
   pending,
   onAsk,
+  propose,
+  guide,
 }: {
   group: PlanBoardGroup;
   pending: boolean;
   onAsk: (groupId: string, askId: string) => void;
+  propose?: PlanBoardProps["propose"];
+  guide: boolean;
 }) {
+  const [proposing, setProposing] = useState(false);
   return (
-    <div className="armada-plan-board__asks" aria-label={`Ask about group ${group.ordinal}`} role="group">
-      {group.asks?.map((ask) => (
-        <Button
-          key={ask.id}
-          size="sm"
-          ground="card"
-          disabled={pending || ask.disabled === true}
-          onClick={() => onAsk(group.id, ask.id)}
-        >
-          {ask.label}
-        </Button>
-      ))}
-    </div>
+    <>
+      <div className="armada-plan-board__asks" aria-label={`Ask about group ${group.ordinal}`} role="group">
+        {group.asks?.map((ask) => (
+          <Button
+            key={ask.id}
+            size="sm"
+            ground="card"
+            disabled={pending || ask.disabled === true}
+            onClick={() => onAsk(group.id, ask.id)}
+          >
+            {ask.label}
+          </Button>
+        ))}
+        {propose === undefined || proposing ? null : (
+          <Button
+            size="sm"
+            ground="card"
+            disabled={pending || propose.disabled === true}
+            onClick={() => setProposing(true)}
+          >
+            {propose.label}
+          </Button>
+        )}
+        {guide ? <GuideMark guide={GUIDE_PLAN_ASKS} /> : null}
+      </div>
+      {propose === undefined || !proposing ? null : (
+        <PlanProposeForm
+          label={propose.label}
+          send={propose.send}
+          pending={pending}
+          {...(propose.disabled === undefined ? {} : { disabled: propose.disabled })}
+          onCancel={() => setProposing(false)}
+          onSend={(instruction) => {
+            setProposing(false);
+            propose.onPropose(group.id, instruction);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -284,12 +383,20 @@ export function PlanGroupBody({
   onOpenTask,
   askPending = false,
   onAsk,
+  propose,
+  guide = false,
 }: {
   group: PlanBoardGroup;
   openTaskId?: string;
   onOpenTask?: (taskId: string) => void;
   askPending?: boolean;
   onAsk?: (groupId: string, askId: string) => void;
+  propose?: PlanBoardProps["propose"];
+  /**
+   * Guide 6's `?` at the end of the asks. **The group panel's**, where one
+   * group is read alone; the list draws it once above every card instead.
+   */
+  guide?: boolean;
 }) {
   return (
     <>
@@ -307,7 +414,13 @@ export function PlanGroupBody({
         ))}
       </ul>
       {onAsk === undefined || (group.asks ?? []).length === 0 ? null : (
-        <GroupAsks group={group} pending={askPending} onAsk={onAsk} />
+        <GroupAsks
+          group={group}
+          pending={askPending}
+          onAsk={onAsk}
+          guide={guide}
+          {...(propose === undefined ? {} : { propose })}
+        />
       )}
       <GroupBoundary {...group.boundary} />
     </>
@@ -320,6 +433,7 @@ function GroupCard({
   onOpenTask,
   askPending,
   onAsk,
+  propose,
   add,
 }: {
   group: PlanBoardGroup;
@@ -327,6 +441,7 @@ function GroupCard({
   onOpenTask?: (taskId: string) => void;
   askPending: boolean;
   onAsk?: (groupId: string, askId: string) => void;
+  propose?: PlanBoardProps["propose"];
   add?: PlanBoardAdd;
 }) {
   return (
@@ -365,6 +480,7 @@ function GroupCard({
             {...(openTaskId === undefined ? {} : { openTaskId })}
             {...(onOpenTask === undefined ? {} : { onOpenTask })}
             {...(onAsk === undefined ? {} : { onAsk })}
+            {...(propose === undefined ? {} : { propose })}
           />
         </CardContent>
       </Card>
@@ -380,6 +496,7 @@ export function PlanBoard({
   askable = false,
   askPending = false,
   onAsk,
+  propose,
   add,
 }: PlanBoardProps) {
   return (
@@ -405,6 +522,7 @@ export function PlanBoard({
               {...(openTaskId === undefined ? {} : { openTaskId })}
               {...(onOpenTask === undefined ? {} : { onOpenTask })}
               {...(onAsk === undefined ? {} : { onAsk })}
+              {...(propose === undefined ? {} : { propose })}
               {...(add === undefined ? {} : { add })}
             />
           ))}

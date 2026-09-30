@@ -573,12 +573,12 @@ describe("the plan", () => {
     await expect.element(dialog).not.toHaveTextContent("both claim");
   });
 
-  test("arc/plan-revision-refused: a task's inspector asks for a rewrite, and the control is off until something is typed", async () => {
+  test("arc/plan-revision-refused: a task's inspector proposes a change, and the control is off until something is typed", async () => {
     await planList("arc/plan-revision-refused");
     await taskRow("T6").getByRole("button").first().click();
     const sheet = page.getByRole("dialog").first();
-    await expect.element(sheet).toHaveTextContent("Rewrite this task");
-    const send = sheet.getByRole("button", { name: "Ask the Drone" });
+    await sheet.getByRole("button", { name: "Propose a change" }).click();
+    const send = sheet.getByRole("button", { name: "Send to the Drone" });
     await expect.element(send).toBeDisabled();
     await sheet.getByRole("textbox").first().fill("Split the rows out of this one");
     await expect.element(send).toBeEnabled();

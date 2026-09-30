@@ -347,3 +347,19 @@
   gap: var(--space-2);
   min-width: 0;
 }
+
+/* A proposed change, opened in place under the acts that hold its control —
+   a group's asks here, a task's acts in its panel. The field, then its two
+   buttons at the end, as the drop's reason puts its own. */
+.armada-plan-propose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-plan-propose__acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
