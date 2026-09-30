@@ -168,8 +168,6 @@ export function SettingsPanel({
   return (
     <>
       <JobSettings
-        open
-        frame="flat"
         costCap={
           spend === undefined
             ? undefined

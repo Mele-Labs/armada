@@ -908,29 +908,49 @@
   overflow-y: auto;
 }
 
-/* Settings, the sixth destination. A form reads at a measure and the window
-   is not one: --w-dialog-wide is ~85 characters at --text-sm, which is the top
-   of the comfortable measure and already the width the wide dialog takes for
-   exactly that reason. It was --w-sheet's 480px while this was a layer. */
+/* Settings, the sixth destination: a board of cards, like Overview two tabs
+   away. The measure is kept card by card rather than by capping the whole
+   destination at --w-dialog-wide, which left the trailing half of a 1600px
+   window empty — the owner, 29 Sep 2026. */
 .armada-settings-tab {
+  gap: var(--space-4);
   padding-block: var(--space-2);
 }
 
-/* What froze at approval, above the settings still open. **Only what no other
-   destination draws** — the request is the brief's, the criteria are Plan's
-   and the gates are Workflow's, so this is how it lands and the tiers alone.
-   The owner's call of 29 Sep 2026, against rendering the whole proposal here. */
-.armada-settings-tab__frozen {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: var(--w-dialog-wide);
-  padding-bottom: var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
+/* The destination scrolls, so nothing in it gives up height to fit: a card
+   that shrank kept its `overflow: hidden` and drew its head over a body it
+   had cut off. */
+.armada-settings-tab > * {
+  flex: none;
 }
 
-.armada-settings-tab .armada-job-settings {
-  max-width: var(--w-dialog-wide);
+/* What froze at approval, in one card. **Only what no other destination
+   draws** — the request is the brief's, the criteria are Plan's, so this is
+   the gates, how it lands and the tiers alone. The owner's call of 29 Sep
+   2026, against rendering the whole proposal here.
+
+   The gates take the row: each step carries a sentence, and three of them in
+   a third of the card came out four words a line. The two runs of settings
+   under them pair off on the card's own floor. */
+.armada-settings-tab__frozen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--w-proposal-settings)), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+.armada-settings-tab__frozen > :first-child {
+  grid-column: 1 / -1;
+}
+
+/* When the Job was approved, in the frozen card's head. Machine-derived, so
+   mono one step under the head's own sans. */
+.armada-settings-tab__frozen-at {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
 }
 
 /* Why there is nothing to change, where there is nothing. */

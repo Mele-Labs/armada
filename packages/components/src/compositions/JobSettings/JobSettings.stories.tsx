@@ -5,34 +5,24 @@ import { expect, fn } from "storybook/test";
 import { JobSettings, JobSettingsButton, type JobSettingsChoice } from "./JobSettings";
 
 /**
- * Every setting a person can change on a running Job, on the layer the log,
- * the patch and Pulse already use. Opened from the Job header's `Job settings`.
+ * Every setting a person can change on a running Job, as the Settings
+ * destination draws it: a board of cards on the canvas.
  *
- * The sheet is laid out inside the nearest positioned ancestor, so every story
- * draws one: outside a screen there is nothing for it to be flush to. It is a
- * window high, as the run sheet's is, so the whole panel is read without
- * scrolling the layer.
+ * Every story draws the canvas's own ground, because that is what decides
+ * whether a card is glass — `glass.css` reads a card's ancestry, not its
+ * markup.
  */
 const meta: Meta<typeof JobSettings> = {
   title: "Compositions/Job settings",
   component: JobSettings,
   args: {
-    open: true,
-    jobId: "77-split-the-settings-reducer",
     onModel: fn(),
     onWhenBlocked: fn(),
     onRemove: fn(),
-    onClose: fn(),
   },
   decorators: [
     (Story) => (
-      <div
-        style={{
-          position: "relative",
-          height: "100vh",
-          background: "var(--bg-base)",
-        }}
-      >
+      <div style={{ padding: "var(--space-4)", background: "var(--bg-base)" }}>
         <Story />
       </div>
     ),
@@ -88,8 +78,41 @@ export const AtRest: Story = {
    * Fleet takes `allow_all`; a model goes by the name `list_models` gave it.
    * Broken once by handing `choice.label` to the callback, and once by
    * swapping the select's two answers so a named model went as `null`.
+   *
+   * **A section is a card, and a cap is a value in a box with its act beside
+   * it.** The destination read as one column of bold labels over hairlines
+   * until 29 September 2026, with `Raise` out at the trailing edge of the row.
+   *
+   * **And an empty slot stays empty** — the owner's standing rule. A Job
+   * nobody has allowed a command for draws no list and no sentence standing in
+   * for one, which is what the Commands section used to end on.
    */
-  play: async ({ args, canvas, userEvent }) => {
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    for (const name of ["Limits", "Model", "Commands"]) {
+      await expect(canvas.getByRole("region", { name })).toBeVisible();
+    }
+    await expect(canvas.queryByText("Allowed for this job")).toBeNull();
+    await expect(canvas.queryByText(/^Nothing allowed/)).toBeNull();
+    await expect(canvas.queryByText(/^Nothing always allowed/)).toBeNull();
+
+    const raising = canvasElement.querySelector<HTMLElement>('[data-ceiling="cost"]');
+    const row = raising?.closest(".armada-proposal__field");
+    const value = row?.querySelector(".armada-proposal__field-value");
+    const label = row?.querySelector(".armada-proposal__field-label");
+    // The box carries the figure and the label carries none, which is the
+    // claim `overview-boards` makes of the frozen reading.
+    await expect(value).toHaveTextContent("$60.00");
+    await expect(getComputedStyle(label as Element).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    // `Raise` against the box rather than across the row: one gap, read off
+    // the token the cell is laid out with.
+    const gap = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--space-2"),
+    );
+    await expect(
+      (raising as HTMLElement).getBoundingClientRect().left -
+        (value as Element).getBoundingClientRect().right,
+    ).toBeLessThanOrEqual(gap + 1);
+
     await userEvent.click(canvas.getByRole("radio", { name: "Run it" }));
     await expect(args.onWhenBlocked).toHaveBeenCalledWith("allow_all");
 
@@ -212,6 +235,17 @@ export const WithARepositoryAllow: Story = {
     allowed: [],
     repositoryAllowed: ["gh issue view"],
   },
+  /**
+   * **One list is drawn and the other is not.** Nothing is allowed for this
+   * job, so that slot stays empty rather than carrying a sentence saying so —
+   * and the repository's own list is still here, with no Remove on it.
+   */
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Allowed for every job in this repository")).toBeVisible();
+    await expect(canvas.getByText("gh issue view")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: /^Remove/ })).toBeNull();
+    await expect(canvas.queryByText("Allowed for this job")).toBeNull();
+  },
 };
 
 /**
@@ -245,8 +279,6 @@ function Pressing() {
   const [pending, setPending] = useState(false);
   return (
     <JobSettings
-      open
-      jobId="77-split-the-settings-reducer"
       models={MODELS}
       model={null}
       choices={CHOICES}
@@ -257,7 +289,6 @@ function Pressing() {
       onModel={() => {}}
       onWhenBlocked={() => {}}
       onRemove={() => setPending(true)}
-      onClose={() => {}}
     />
   );
 }
