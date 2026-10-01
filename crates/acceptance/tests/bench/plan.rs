@@ -342,6 +342,7 @@ fn no_judge() -> Judging {
         environment: Environment::nothing(),
         marking: Marking::detached(),
         asked: Asked::nowhere(),
+        standing: verification::Standing::unstated(),
     }
 }
 

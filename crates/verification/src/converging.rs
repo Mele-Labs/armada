@@ -30,6 +30,7 @@ use core_model::{DeclaredPaths, RepoPath, StepCheck, Timestamp};
 
 use crate::judge::{field, Unreadable};
 use crate::product::Delivered;
+use crate::standing::Standing;
 
 /// The three words the look may answer with, and the citation the last owes.
 ///
@@ -177,6 +178,7 @@ impl ConvergenceBrief {
         off_plan: &[RepoPath],
         held: Option<&str>,
         precedent: &[StepCheck],
+        standing: &Standing,
     ) -> ConvergenceBrief {
         let mut question = String::new();
         question.push_str(
@@ -184,6 +186,7 @@ impl ConvergenceBrief {
              Answer only the question at the end.\n\n",
         );
         question.push_str(&format!("Step: {}\n\n", step.label()));
+        question.push_str(&standing.told());
         question.push_str("Where the step said its work would be:\n");
         match declared {
             Some(paths) if !paths.is_empty() => {

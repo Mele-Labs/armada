@@ -144,6 +144,18 @@ Evidence bundle under judgment. `baseline_ref`'s Evidence where
 the yardstick, kept separate from `context_paths` as the target. One
 criterion's question.
 
+**Told what the repository requires of every change**, where `armada.yml`'s
+`standing_rules` names a file. Fleet reads it from the repository's own
+checkout, never the Job's worktree, so a Drone cannot rewrite it, and
+`verification::Standing` carries it into every Judge brief: each criterion,
+drift, gaming and its second reading, convergence and widening. It sits after
+the original task text, labelled as a standard rather than the work, and is
+cut at the `judge-brief-standing-rules-cap` setting with the cut said in the
+brief. It is read from the repository and says nothing about how the step
+went, so rule 2 is unchanged. A Manifest without the key gives every brief
+exactly as before. Added after a Judge refused a plan for fixing the prose
+its change made wrong, calling it scope expansion.
+
 **Never told:** the Drone transcript or self-report, per constitutional
 rule 2. The other panel members' verdicts under `panel_size` > 1, per
 rule 5.

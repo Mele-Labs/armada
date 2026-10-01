@@ -46,7 +46,7 @@ The Judge occupies the middle: machine cost, semantic reach. Measured in v1 at r
 **1. Veto-only, never a vote.** The Judge runs only after the mechanical check holds, and may only refuse; it can never grant advancement the mechanical tier did not already earn.
 Why: there is no such thing as a Judge pass — only a mechanical pass the Judge declined to refuse, and a model that can grant is a model that can be talked into granting.
 
-**2. Blind to the Drone, and shown the request.** The Judge never sees the Drone's transcript or self-report, and receives only the original task text, the diff, and the deterministic facts.
+**2. Blind to the Drone, and shown the request.** The Judge never sees the Drone's transcript or self-report, and receives only the original task text, the diff, the deterministic facts, and what the repository requires of every change where its Manifest names a file — [Manifest](manifest.md), *What every change here carries*.
 Why: a verifier that reads the defendant's testimony is not independent, so the Drone's own account is removed as a contamination source — and a verifier that cannot see what was asked for can only check whether a document agrees with itself, which passes a well-written answer to the wrong question.
 Enforced at prompt assembly — `../contracts/agent-prompt.md` section 7. Both halves are the signature of `verification::Brief::about`: it has no `submission` parameter and no `transcript` parameter, and its `request` parameter is not optional. The request is the Job's title, its facts and its `acceptance_criteria`, read off the Job row through a constructor that takes nothing else.
 

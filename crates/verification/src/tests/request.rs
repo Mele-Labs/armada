@@ -67,6 +67,7 @@ fn brief_of(workflow: &ResolvedWorkflow, job: &Job) -> String {
         step,
         &step.judge_checks()[0].criteria()[0],
         Request::of(job),
+        &crate::Standing::unstated(),
         &product,
         &[],
         Answered::of(&[], &[]),
