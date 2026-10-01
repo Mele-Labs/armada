@@ -25,7 +25,9 @@ export type DroneQuestionProps = {
    * What was asked: the drone's own words, or the command it wants to run and
    * was not given. **A node rather than a string** so a command can sit in
    * mono inside the sentence around it — it is what the drone sent, and mono
-   * is how a surface says a value is the machine's.
+   * is how a surface says a value is the machine's. **The drone's own words
+   * arrive as `Prose`**, from the caller, which is the one that knows who
+   * wrote them; a command is not markdown.
    *
    * **Absent where something above has already said it**, which is Overview's
    * lead since the two became one panel: a restatement under the sentence it
@@ -104,8 +106,12 @@ export type DroneQuestionProps = {
 export type DroneAnswer = {
   /** What the person picks, and what the answer names. */
   label: string;
-  /** What the drone will do if it is picked. Never blank. */
-  consequence: string;
+  /**
+   * What the drone will do if it is picked. Never blank. **A drone's own
+   * answer arrives as `Prose`**, since the drone wrote it; Armada's answers
+   * to a command are its own sentences and arrive as strings.
+   */
+  consequence: ReactNode;
   /**
    * That this answer carries a person's words, and what the field is called.
    * **Drawn only while this answer is the chosen one** — a field under an
@@ -233,7 +239,7 @@ export function DroneQuestion({
 
       {/* The drone's own sentence, quoted rather than framed. Fleet adds no
           wording to it and neither does this. */}
-      {question === undefined ? null : <p className="armada-question__asked">{question}</p>}
+      {question === undefined ? null : <div className="armada-question__asked">{question}</div>}
 
       {/* Above the answers and never among them: reading is what a person does
           before deciding, and a control in the list would read as a fourth
@@ -288,7 +294,7 @@ export function DroneQuestion({
             {/* Under the label rather than beside it: this is what the choice
                 commits to, and a person reads it after the name and before the
                 press. */}
-            <p className="armada-question__means">{option.consequence}</p>
+            <div className="armada-question__means">{option.consequence}</div>
             {/* The field the answer reads, under the answer that reads it, so
                 nothing asks for words about a decision nobody has taken. */}
             {option.noteLabel !== undefined && chosen === option.label ? (
