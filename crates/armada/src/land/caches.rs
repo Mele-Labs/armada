@@ -67,6 +67,10 @@ pub fn base_foundations(
 ///
 /// **Only ever asked about a Check that just failed**, so the cost lands on
 /// a failing turn and on nothing else.
+///
+/// **A Check that timed out on `base` is `base`'s for this turn only, and is
+/// not cached.** A slow run is not a broken commit, and cached it would tell
+/// every branch after it that `base` is red.
 pub fn checks_on_the_base(
     repo: &Path,
     state: &StateDir,
@@ -83,6 +87,7 @@ pub fn checks_on_the_base(
         .iter()
         .filter(|name| !known.contains_key(*name))
         .collect();
+    let mut timed_out = Vec::new();
     if !unknown.is_empty() {
         let keep = env.keep_refs();
         let at = reused_keeping(repo, LandWorktree::Base, base, logs, &keep)
@@ -92,11 +97,20 @@ pub fn checks_on_the_base(
         for name in unknown {
             let log = logs.join(format!("{name}-on-{}.log", env.base));
             let ran = check(&env.armada, &at, name, &log, env.check_limit)?;
-            known.insert(name.clone(), ran.passed);
+            if ran.timed_out {
+                timed_out.push(name.clone());
+            } else {
+                known.insert(name.clone(), ran.passed);
+            }
         }
         codec::write(&cache_path, &known).map_err(|why| Stopped::stopped(why.to_string()))?;
     }
-    Ok(already_red_on_base(names, &known))
+    let already = already_red_on_base(names, &known);
+    Ok(names
+        .iter()
+        .filter(|name| already.contains(name) || timed_out.contains(name))
+        .cloned()
+        .collect())
 }
 
 fn exit_code(ran: &super::shell::Ran) -> i32 {

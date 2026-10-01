@@ -253,7 +253,7 @@ class LineFixture(unittest.TestCase):
             if os.path.exists(line) and os.environ.get("LAND_TEST_VERBOSE"):
                 print(open(line).read())
         # Only this test's runner, named by its own git directory.
-        subprocess.run(["pkill", "-f", f"--runner {self.repo}/.git"], capture_output=True)
+        subprocess.run(["pkill", "-f", "--", f"--runner {self.repo}/.git"], capture_output=True)
         shutil.rmtree(self.root, ignore_errors=True)
 
     # ------------------------------------------------------------ helpers
@@ -956,6 +956,34 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 7, done.stdout)
         self.assertIn("test timed out after 2 seconds", done.stdout)
         self.assertIn("already fails on main", done.stdout)
+
+    def test_a_check_past_its_limit_on_main_is_not_remembered_against_it(self):
+        # Main's run hangs once and passes after, as a slow machine would; the
+        # second branch on the same main commit is asked about again, not told
+        # main is broken.
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        once = os.path.join(self.root, "hung-once")
+        first = self.branch("fix/first-behind-a-slow-main", {"first.txt": "1\n"})
+        second = self.branch("fix/second-behind-a-slow-main", {"second.txt": "1\n"})
+        self.onto_main({"checks/test.sh": (
+            "{ [ -f first.txt ] || [ -f second.txt ]; } && exit 1\n"
+            f"[ -f {once} ] && exit 0\n"
+            f"touch {once}\n"
+            "sleep 600\n"
+        )}, "a test that hangs on main once")
+
+        self.land(first, "preflight")
+        self.land(first)
+        done = self.settle(first, "fix/first-behind-a-slow-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("already fails on main", done.stdout, "this turn still reads it as main's")
+
+        self.land(second, "preflight")
+        self.land(second)
+        done = self.settle(second, "fix/second-behind-a-slow-main")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("test failed", done.stdout)
+        self.assertNotIn("already fails", done.stdout, "main's timeout was not cached as red")
 
     def test_one_turn_says_the_branchs_red_and_mains_together(self):
         self.write(self.repo, {"checks/ui.sh": "! { [ -f ui/a ] && [ -f ui/b ]; }\n"})
