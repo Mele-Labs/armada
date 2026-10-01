@@ -1,5 +1,5 @@
-//! What `preflight` stamped about a tree: which pull request it is, and
-//! which Checks its combination with the base hits.
+//! What `preflight` stamped about a tree: its pull request, if it has one,
+//! and which Checks its combination with the base hits.
 
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,8 @@ pub struct PreflightStamp {
     pub head: String,
     pub tree: String,
     pub base: String,
-    pub pr: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr: Option<u64>,
     pub checks: Vec<String>,
 }
 
