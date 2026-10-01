@@ -490,6 +490,20 @@ pub fn resources(job_id: JobId) -> JobResources {
             measured_at: Some(Instant::carried("2026-09-04T04:06:41.120Z")),
         }),
         wrote_last_at: Some(Instant::carried("2026-09-04T04:06:12.001Z")),
+        logs: vec![
+            ipc::LogFile {
+                kind: ipc::LogKind::Job,
+                path: ".armada/logs/01JOB.jsonl".to_string(),
+                bytes: Some(18_204),
+                being_written: Some(true),
+            },
+            ipc::LogFile {
+                kind: ipc::LogKind::Transcript,
+                path: ".armada/transcripts/01JOB/01DRONE.jsonl".to_string(),
+                bytes: Some(912_377),
+                being_written: Some(true),
+            },
+        ],
     }
 }
 
