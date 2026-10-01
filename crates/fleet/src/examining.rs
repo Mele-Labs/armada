@@ -453,6 +453,7 @@ fn ends(status: JobStatus) -> &'static str {
         JobStatus::AwaitingReview => "waiting for a person to decide on the work",
         JobStatus::Escalated => "waiting for a person to decide",
         JobStatus::Piloted => "a person is working in this Job's worktree",
+        JobStatus::Proposing => "waiting for the Job proposer to read the request",
         JobStatus::Queued => "waiting for a Drone slot",
         JobStatus::Running => "waiting for the step to finish",
         JobStatus::CompletedFailed

@@ -186,6 +186,16 @@ at different points in a Job's life. Every dormant status renders grey. Rule
 4 below is what holds each group apart: human figure, eye, stamp and
 terminal box in amber; clock and lidded box in grey.
 
+**`proposing` shares `running`'s hue, and the glyph is what carries which
+point.** The hue is right — a request being read is Armada working, and the
+money is being spent while the row sits there — so the pair is this section's
+own rule met rather than an exception to it. The mark is `scan-line`, minted in
+`packages/icons/icons.toml` on 30 Sep 2026 (#1159) rather than borrowed:
+four corner brackets with a rule across, the only outline in the badge set that
+is not a closed shape, against `circle-dot`'s two concentric circles. It means a
+machine reading something a person handed it, and its row says what it may never
+be made to mean instead.
+
 ### `queued`'s reasons — icon differentiates
 
 `queued` renders grey whatever its reason, and a reader is meant to move past

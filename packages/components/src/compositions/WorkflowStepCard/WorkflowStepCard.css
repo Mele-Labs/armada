@@ -195,12 +195,48 @@ button.armada-wf-card:hover {
   color: var(--status-running);
 }
 
-/* Beside a line, the gate is the board's outlined chip — *will ask you* —
-   rather than a fragment under the facts. */
+/* On a step of the run, the gate is the board's outlined chip — *will ask
+   you* — rather than a fragment under the facts. */
 .armada-wf-card__gate[data-chip="true"] {
   align-self: flex-start;
   padding: 0 var(--space-1);
   border: var(--border-width) solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
+}
+
+/* The step at work: the plan's groups as the step bar's task segments, then
+   how long and how many Drones. The bar is `StepBar`'s own and sized by its
+   own sheet. */
+.armada-wf-card__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* What needs a person, or went wrong: one line per thing, in the hue of what
+   it is. A person's turn takes the waiting hue the mark takes; a failure takes
+   the failed one. */
+.armada-wf-card__needs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-wf-card__need {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-wf-card__need[data-tone="waiting"] {
+  color: var(--step-waiting);
+}
+
+.armada-wf-card__need[data-tone="failed"] {
+  color: var(--step-failed);
 }

@@ -63,22 +63,35 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            // **Three seconds, not Playwright's fifteen.** A file is one
-            // worker and its tests run in order, so a file with 38 failing
-            // tests spent 38 × 15s waiting for elements that were never
-            // going to appear — 570s in one file, which no number of cores
-            // shortens. Measured before choosing it: the slowest passing
-            // test in the five heaviest files is 1,573ms, and the whole mock
-            // suite went from 577s to 18s with no test changing colour.
+            // **Playwright's own fifteen seconds, restored 1 Oct 2026.**
             //
-            // **Reduced motion, emulated.** Every `--duration-*` a panel moves
-            // on is 0ms under it (`packages/tokens/src/motion.css`), so a sheet
-            // or dialog is in place on its first frame and a press cannot land
-            // on one still sliding in — `arc/plan-revision-refused` and a
-            // Workflow test each did, under load, on 30 Sep 2026. A test whose
-            // claim is the motion itself turns it back on with `motion()` in
-            // `src/renderer/src/mock/testing.ts`.
-            provider: playwright({ actionTimeout: 3_000, contextOptions: { reducedMotion: "reduce" } }),
+            // It was three for a day. The reason was good and it expired: on
+            // 30 Sep this suite had 93 failures, a file is one worker and its
+            // tests run in order, so `job-detail-width`'s 38 failures cost
+            // 38 x 15s inside one file — 570s that no number of cores
+            // shortens. Three seconds took the whole suite from 577s to 18s,
+            // and the slowest passing test in the five heaviest files
+            // measured 1,573ms, so the headroom was real when it was taken.
+            //
+            // **A day later the suite is green and twice the weight.** 571
+            // tests where there were 516, with the plan gate's canvas and the
+            // proposing fixtures in it, and the slowest passing test measures
+            // **8,240ms**. Three seconds stopped being headroom and started
+            // being the thing that fails: five `locator.click` calls timed out
+            // on the merge line waiting for elements that existed, on a branch
+            // that had not touched any of them.
+            //
+            // **A green suite spends nothing on this ceiling**, because a
+            // passing action returns the moment it is actionable — the 36s
+            // measured above is the same at three seconds and at fifteen. What
+            // the ceiling buys is only ever paid by a failure, and the way to
+            // stop paying it is to have none.
+            //
+            // So: no deviation without a live reason. If failures come back in
+            // numbers, lower it again and write the measurement down — and
+            // re-measure the slowest passing test first, which is the step
+            // this comment exists because I skipped.
+            provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
             commands: { motion },
             instances: [{ browser: "chromium" }],
             viewport: { width: 1440, height: 900 },
