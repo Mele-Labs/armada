@@ -1,4 +1,4 @@
-// What `proposeFromRequest` answered, and which of two places it lands in.
+// What `proposeFromRequest` answered, and whether anything is said about it.
 //
 // **Arithmetic, so it is tested as arithmetic.** Every case here is a function
 // of the wire — no DOM to start and no story to write — and the whole value of
@@ -6,50 +6,21 @@
 //
 // The three things worth pinning:
 //
-// - A refused request comes back. That claim is only true if the *echoed*
-//   string is what the field is told to hold, and two of the four answers echo.
-// - The two refusals are two drawings. One is a state on the surface and the
-//   other is an `Outcome` the app draws where it draws every command failure,
-//   and a regression here is silent — both look like "something went wrong".
-// - Nothing mints a workflow name or a status. Both come off the wire, and a
-//   proposal naming an id is a proposal nobody can check.
+// - The press leaves the composer, so a proposal that worked says nothing. The
+//   Jobs are rows on the Board and a toast over them would announce something
+//   somebody is already looking at.
+// - A person's own stop is not a failure. It was falling through to `refused`
+//   and drawing a red notice at somebody for pressing the button on offer.
+// - A decline and a fault are two drawings. One is told and one is raised, and
+//   a regression here is silent — both look like "something went wrong".
 
 import { expect, test } from "vitest";
-import type { BridgeIdentity, JobSummary, WireError, WorkflowSummary } from "@armada/protocol";
+import type { WireError } from "@armada/protocol";
 
-import { answeredAs } from "./proposal";
+import { answeredAs, watchOf } from "./proposal";
 import type { Proposed } from "./proposal";
 
-const BRIDGE: BridgeIdentity = { fleetProtocol: "5.2", auditPath: null };
-
-const WORKFLOWS: WorkflowSummary[] = [
-  { id: "wf_bug", name: "bug", version: 1, steps: [], manifest_id: "mf_1" },
-  { id: "wf_feature", name: "feature", version: 1, steps: [], manifest_id: "mf_1" },
-];
-
 const SENT = "The board flickers every time an event lands.";
-
-function seen() {
-  return { sent: SENT, workflows: WORKFLOWS, bridge: BRIDGE, at: "2026-09-02T22:14:03Z" };
-}
-
-/** The shape `board.test.ts` builds, cut to what a proposal reads. */
-function job(over: Partial<JobSummary> = {}): JobSummary {
-  return {
-    id: "job_1",
-    handle: "12-a-job",
-    title: "Stop the board flickering",
-    status: "awaiting_approval",
-    workflow_id: "wf_bug",
-    owner_manifest_id: "mf_1",
-    origin: "proposer",
-    urgency: "normal",
-    atomic: false,
-    model: "sonnet",
-    created_at: "2026-09-02T22:14:03Z",
-    ...over,
-  };
-}
 
 function error(over: Partial<WireError> = {}): WireError {
   return {
@@ -62,141 +33,137 @@ function error(over: Partial<WireError> = {}): WireError {
   };
 }
 
-test("a proposal names the workflow, never its id", () => {
-  const read = answeredAs({ ok: true, jobs: [job()] }, seen());
-  expect(read.proposal).toEqual({
-    at: "proposed",
+/**
+ * A proposal that worked says nothing at all. Every Job it named exists, the
+ * Board lists them, and the press already left the surface that asked.
+ */
+test("a proposal that answered says nothing", () => {
+  const read = answeredAs({ ok: true, jobs: [] });
+  expect(read).toEqual({ outcome: null, told: null });
+});
+
+/**
+ * **The claim `fleet.proposer_stopped` exists for.** `crates/fleet/src/
+ * refusing.rs` declares the code apart so a client does not draw a person's own
+ * press as Armada breaking, and nothing on Bridge's side matched it — so a stop
+ * drew a red failure notice on whatever surface was up.
+ */
+test("a stop a person pressed raises nothing and tells nothing", () => {
+  const answer: Proposed = {
+    ok: false,
+    why: "stopped",
     request: SENT,
-    jobs: [
-      {
-        id: "job_1",
-        title: "Stop the board flickering",
-        workflow: "bug",
-        status: "awaiting_approval",
-      },
-    ],
-  });
-  expect(read.outcome).toBeNull();
+    outcome: { ok: false, why: "refused", error: error({ code: "fleet.proposer_stopped" }) },
+  };
+  expect(answeredAs(answer)).toEqual({ outcome: null, told: null });
 });
 
 /**
- * A workflow Fleet no longer holds falls back to the id rather than to a blank.
- * A row naming nothing is a row that reads as a rendering bug.
+ * No workflow resolved is told, not raised: Fleet read the request and
+ * declined, which is Armada working. **It carries no `Outcome`**, so nothing
+ * draws the error treatment over it.
  */
-test("a workflow the roster does not hold falls back to its id", () => {
-  const read = answeredAs({ ok: true, jobs: [job({ workflow_id: "wf_gone" })] }, seen());
-  expect(read.proposal).toMatchObject({ jobs: [{ workflow: "wf_gone" }] });
-});
-
-/** The order the wire gave is the order drawn. It is the whole of the graph. */
-test("several jobs keep the order they arrived in", () => {
-  const read = answeredAs(
-    {
-      ok: true,
-      jobs: [job({ id: "a" }), job({ id: "b" }), job({ id: "c", workflow_id: "wf_feature" })],
-    },
-    seen(),
-  );
-  expect(read.proposal).toMatchObject({ jobs: [{ id: "a" }, { id: "b" }, { id: "c" }] });
-});
-
-/**
- * The status is the job's own. A hardcoded `awaiting_approval` would look right
- * on every proposal and be a lie the day Fleet drafts one anywhere else.
- */
-test("the badge reads the job's own status", () => {
-  const read = answeredAs({ ok: true, jobs: [job({ status: "queued" })] }, seen());
-  expect(read.proposal).toMatchObject({ jobs: [{ status: "queued" }] });
-});
-
-/**
- * No workflow resolved is a state on the surface, not an error. **It carries no
- * `Outcome`**, so the app draws nothing above it — Fleet answered and declined,
- * which is Armada working.
- */
-test("no workflow resolved is drawn on the surface and echoes the request", () => {
+test("no workflow resolved is told and never raised", () => {
   const answer: Proposed = {
     ok: false,
     why: "unresolved",
     request: SENT,
     outcome: { ok: false, why: "no_workflow" },
   };
-  const read = answeredAs(answer, seen());
-  expect(read.proposal).toEqual({ at: "unresolved" });
+  const read = answeredAs(answer);
   expect(read.outcome).toBeNull();
-  expect(read.request).toBe(SENT);
+  expect(read.told).toContain("No workflow");
+  // What to do next, in the sentence. A decline nobody can act on is a dead end.
+  expect(read.told).toContain("dispatch again");
 });
 
 /**
- * The fault is the error treatment, with the code and the message off the wire.
- * The instant is the one passed in, so a payload quoted an hour later says when
- * it was taken rather than when it was read.
+ * A fault is a failure and goes to the app's own pipeline, whole. `failing.ts`
+ * is what turns the `WireError` into a code, a message and something quotable.
  */
-test("a fault carrying a wire error is drawn inline, with its code", () => {
-  const answer: Proposed = {
-    ok: false,
-    why: "faulted",
-    request: SENT,
-    outcome: { ok: false, why: "refused", error: error() },
-  };
-  const read = answeredAs(answer, seen());
-  expect(read.proposal).toMatchObject({
-    at: "faulted",
-    code: "fleet.model.budget_exhausted",
-    message: "The proposer was not called: the model budget is spent.",
-  });
-  expect(read.outcome).toBeNull();
-  expect(read.request).toBe(SENT);
-  const faulted = read.proposal;
-  if (faulted.at !== "faulted") throw new Error("the fault was not drawn as one");
-  expect(faulted.payload?.at).toBe("2026-09-02T22:14:03Z");
-  expect(faulted.payload?.code).toBe("fleet.model.budget_exhausted");
-});
-
-/**
- * A fault with no code goes to the app's own failure pipeline. **Nothing here
- * mints one** — the `bridge.` namespace is declared beside the builder that
- * raises it, and a code invented at a call site is a second producer.
- */
-test("a fault with no code goes back as an outcome", () => {
-  const answer: Proposed = {
-    ok: false,
-    why: "faulted",
-    request: SENT,
-    outcome: {
-      ok: false,
-      why: "transport",
-      detail: "socket closed",
-      fault: { why: "unreachable", method: "POST", path: "/jobs/from_request" },
-    },
-  };
-  const read = answeredAs(answer, seen());
-  expect(read.proposal).toEqual({ at: "unasked" });
-  expect(read.outcome).toEqual({
-    ok: false,
-    why: "transport",
-    detail: "socket closed",
-    // Carried whole. The fault is what the app's failure surface builds its
-    // code, its route and its next step from, and a reading that dropped it
-    // would put the old one-line message back.
-    fault: { why: "unreachable", method: "POST", path: "/jobs/from_request" },
-  });
-  // Still echoed: the request survives a fault that said nothing about it.
-  expect(read.request).toBe(SENT);
+test("a fault goes back as an outcome, carrying its wire error", () => {
+  const outcome = { ok: false as const, why: "refused" as const, error: error() };
+  const read = answeredAs({ ok: false, why: "faulted", request: SENT, outcome });
+  expect(read.outcome).toEqual(outcome);
+  expect(read.told).toBeNull();
 });
 
 /**
  * A command refused before it was sent is not a proposer refusal at all, and it
  * reads exactly like an approval refused for the same reason.
  */
-test("a refusal before sending leaves the field alone", () => {
+test("a refusal before sending goes back as an outcome", () => {
   const answer: Proposed = {
     ok: false,
     why: "refused",
     outcome: { ok: false, why: "not_connected" },
   };
-  const read = answeredAs(answer, seen());
-  expect(read.proposal).toEqual({ at: "unasked" });
+  const read = answeredAs(answer);
   expect(read.outcome).toEqual({ ok: false, why: "not_connected" });
-  expect(read.request).toBeNull();
+  expect(read.told).toBeNull();
+});
+
+/** Nothing out is nothing to draw, rather than a wait with no numbers in it. */
+test("no call out reads as no wait", () => {
+  expect(watchOf(null, Date.parse("2026-09-30T10:00:00Z"))).toBeNull();
+});
+
+/**
+ * The elapsed is the caller's subtraction, and the budget comes off the wire —
+ * `ProposalInFlight` is the one thing that says either, so nothing here invents
+ * a second way to say how long the call has been out.
+ */
+test("the wait is elapsed against Fleet's own budget", () => {
+  const now = Date.parse("2026-09-30T10:05:00Z");
+  const watch = watchOf(
+    {
+      proposal_id: "01M2D3ZF41001PROPOSAL001",
+      model: "sonnet",
+      since: "2026-09-30T10:03:30Z",
+      budget_ms: 600_000,
+      reached: "thinking",
+      thinking_tokens: 1_840,
+    },
+    now,
+  );
+  expect(watch).toEqual({
+    reached: "thinking",
+    elapsedMs: 90_000,
+    budgetMs: 600_000,
+    model: "sonnet",
+    thinkingTokens: 1_840,
+  });
+});
+
+/**
+ * A clock a few milliseconds behind Fleet's must not draw a call that has not
+ * started yet.
+ */
+test("a call whose instant is ahead of the clock reads as no time at all", () => {
+  const watch = watchOf(
+    {
+      proposal_id: "01M2D3ZF41001PROPOSAL001",
+      model: "sonnet",
+      since: "2026-09-30T10:00:01Z",
+      budget_ms: 600_000,
+      reached: "starting",
+    },
+    Date.parse("2026-09-30T10:00:00Z"),
+  );
+  expect(watch?.elapsedMs).toBe(0);
+});
+
+/** An instant that will not read is a wait with nothing known about it. */
+test("an unreadable instant reads as no wait", () => {
+  const watch = watchOf(
+    {
+      proposal_id: "01M2D3ZF41001PROPOSAL001",
+      model: "sonnet",
+      since: "not an instant",
+      budget_ms: 600_000,
+      reached: "starting",
+    },
+    Date.parse("2026-09-30T10:00:00Z"),
+  );
+  expect(watch).toBeNull();
 });

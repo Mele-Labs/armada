@@ -21,6 +21,10 @@ pub struct Env {
     /// [`Env::seed`]'s paths, plus whatever `ARMADA_LAND_KEEP` adds — what
     /// survives `git clean -xdff` in a reused worktree.
     pub keep: Vec<String>,
+    /// Generators run on every candidate before the gate, `;`-separated in
+    /// `ARMADA_LAND_REGENERATE` — a stale output they write is committed
+    /// rather than refused.
+    pub regenerate: Vec<String>,
     pub head_wait: Duration,
     /// How long one Check in a turn runs before it is killed and read as red.
     pub check_limit: Duration,
@@ -30,6 +34,12 @@ pub struct Env {
 /// what does not port — kept honest by
 /// `crate::tests::land::the_setup_default_says_what_the_manifest_requires`.
 const DEFAULT_SETUP: &str = "bootstrap browsers";
+
+/// What writes `docs/OPEN.md` and the token output, which the gate's
+/// `every_open_question_is_collected` and
+/// `the_tokens_generate_what_is_checked_in` read.
+const DEFAULT_REGENERATE: &str =
+    "cargo xtask verify-docs --write; cargo xtask verify-tokens --write";
 
 /// Rounds of "the base moved again while this was gated" before a turn gives
 /// up.
@@ -61,6 +71,12 @@ impl Env {
             setup: words("ARMADA_LAND_SETUP", DEFAULT_SETUP),
             seed,
             keep,
+            regenerate: var("ARMADA_LAND_REGENERATE", DEFAULT_REGENERATE)
+                .split(';')
+                .map(str::trim)
+                .filter(|command| !command.is_empty())
+                .map(str::to_string)
+                .collect(),
             head_wait: Duration::from_secs_f64(
                 var("ARMADA_LAND_HEAD_WAIT", "120").parse().unwrap_or(120.0),
             ),

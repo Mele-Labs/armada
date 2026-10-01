@@ -117,6 +117,14 @@ export type PaletteSetting = { id: string; label: string; value?: string };
  */
 export type PaletteFilter = { id: string; label: string; shortcut: string };
 
+/**
+ * A row read or acted on across every Job, with no registry row and no rail
+ * row: Reported, and the two bulk sweeps. Drawn under Navigation beside the
+ * global acts, which reach no one Job either. The palette is the only place
+ * Reported is drawn — the owner's note of 1 Oct 2026.
+ */
+export type PaletteBoardRow = { id: string; label: string; destructive?: boolean; dormant?: string };
+
 /** What a chosen row was. The section it came from decides what happens. */
 export type PaletteChoice =
   | { of: "act"; id: string }
@@ -124,7 +132,8 @@ export type PaletteChoice =
   | { of: "surface"; id: string }
   | { of: "run"; id: string }
   | { of: "setting"; id: string }
-  | { of: "filter"; id: string };
+  | { of: "filter"; id: string }
+  | { of: "board"; id: string };
 
 export type PaletteProps = {
   open: boolean;
@@ -150,6 +159,8 @@ export type PaletteProps = {
    * surface that cannot show its output.
    */
   runnables?: readonly PaletteRunnable[];
+  /** Rows about every Job at once. Absent draws none. */
+  board?: readonly PaletteBoardRow[];
   jobs: readonly PaletteJob[];
   settings: readonly PaletteSetting[];
   /** Why an act cannot be chosen here, by action id. Absent means it can. */
@@ -223,6 +234,7 @@ export function Palette({
   surfaces,
   filters = [],
   runnables = [],
+  board = [],
   jobs,
   settings,
   dormant = {},
@@ -282,6 +294,13 @@ export function Palette({
     ...globalActs()
       .filter((action) => action.unbuilt !== null || !absent.includes(action.id))
       .map((action) => entryOf(action, NAVIGATION, dormant)),
+    ...board.map((row) => ({
+      id: `board:${row.id}`,
+      section: NAVIGATION,
+      label: row.label,
+      ...(row.destructive === true ? { destructive: true } : {}),
+      ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
+    })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
       section: RUN,
@@ -307,7 +326,10 @@ export function Palette({
       searched={searchedSentence(jobs.length, settings.length, runnables.length)}
       onClose={onClose}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
-      onConfirm={(entry) => onConfirmAct(bare(entry.id))}
+      // A destructive board row opens its own confirmation, so it is a choice.
+      onConfirm={(entry) =>
+        entry.id.startsWith("board:") ? onChoose(choiceOf(entry.id)) : onConfirmAct(bare(entry.id))
+      }
     />
   );
 }
@@ -348,6 +370,7 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("job:")) return { of: "job", id: rest };
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
+  if (id.startsWith("board:")) return { of: "board", id: rest };
   return { of: "setting", id: rest };
 }
 

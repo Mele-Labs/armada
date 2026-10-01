@@ -205,6 +205,13 @@ button.armada-wf-card:hover {
   color: var(--fg-muted);
 }
 
+/* A caller's own mark (`mark`), in the activity mark's slot. Its hue is the
+   status token the caller's registry row names, handed in as a custom
+   property, so no state's colour is written here. */
+.armada-wf-card__mark {
+  color: var(--armada-wf-card-mark);
+}
+
 /* The step at work: the plan's groups as the step bar's task segments, then
    how long and how many Drones. The bar is `StepBar`'s own and sized by its
    own sheet. */

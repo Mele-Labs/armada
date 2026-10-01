@@ -46,6 +46,7 @@ const EXPECTED_RENDER: Record<string, Render> = {
   "escalated · evidence_suspect — every Check passed, and the panel refused two criteria":
     "stopped",
   "running — before the first Drone turn, the worktree is being prepared": "working",
+  "proposing — dispatched, and the proposer has not answered yet": "working",
   "running — Fleet would not answer for this Job's own detail": "working",
   "running — this Job's own detail was asked for and has not come back": "working",
   "running — a Check failed and the Drone is retrying, attempt 2 of 3": "working",

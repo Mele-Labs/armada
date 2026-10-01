@@ -101,6 +101,14 @@ export const PROPOSER_UNREACHABLE = "fleet.proposer_unreachable";
 export const PROPOSER_UNREADABLE = "fleet.proposer_unreadable";
 
 /**
+ * Somebody watching the proposer stopped it. **Not a failure and never
+ * `PROPOSER_UNREACHABLE`**: `crates/fleet/src/refusing.rs` declares it apart
+ * so a client does not draw a person's own press as Armada breaking. Nothing
+ * was created and what they typed comes back.
+ */
+export const PROPOSER_STOPPED = "fleet.proposer_stopped";
+
+/**
  * Something under the daemon failed. 500, and read here for
  * `PROPOSER_UNREACHABLE`'s reason: it is Fleet's own name for a failure that is
  * not the caller's doing and that asking again is reasonable about, which is

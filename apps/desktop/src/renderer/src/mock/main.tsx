@@ -1,5 +1,7 @@
-// The mock's page: the app on `?scenario=<name>`, and the picker beside it; or
-// on `?walk=<name>`, the walk's own scenario with the walk played over it.
+// The mock's page: the app on `?scenario=<name>`, or on `?walk=<name>` the
+// walk's own scenario with the walk played over it — and the picker, a second
+// root whose own host stays empty because what it draws goes into the app's
+// left column through a portal.
 
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";

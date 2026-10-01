@@ -7,7 +7,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { Button, Card, CardContent, Textarea } from "@armada/components";
+import { Button, Card, CardContent, Skeleton, SkeletonText, Textarea } from "@armada/components";
 
 import type { JobSummary, StepDetail } from "@armada/protocol";
 
@@ -22,6 +22,12 @@ export type PlanLeadProps = {
    * same node Overview's gate draws, so the two cannot offer different acts.
    */
   gate: ReactNode;
+  /**
+   * Whether this Job's own read has yet to answer. The criteria stand in as
+   * bars until it has: "Nothing was written down" is the answer for a Job that
+   * was read and holds none.
+   */
+  reading?: boolean;
 };
 
 export type PlanGateProps = {
@@ -163,7 +169,7 @@ const NOTHING_HELD = "Nothing was written down for this Job to be held to.";
  * inspector. `#1274` is why the two are never one list: a Drone never chooses
  * the cases it is held to, and a task's `expects` is the planner's word.
  */
-export function PlanLead({ criteria, gate }: PlanLeadProps) {
+export function PlanLead({ criteria, gate, reading = false }: PlanLeadProps) {
   const [open, toggle] = useLeadOpen();
   const Mark = open ? ChevronDown : ChevronRight;
   const first = criteria[0]?.text ?? NOTHING_HELD;
@@ -183,7 +189,12 @@ export function PlanLead({ criteria, gate }: PlanLeadProps) {
             aria-hidden
           />
           <Eyebrow>What this Job is held to</Eyebrow>
-          {open ? null : (
+          {open ? null : reading ? (
+            // In the line's own column, which is what gives the bar a width.
+            <span className="armada-plan-tab__fold-first">
+              <Skeleton width="40%" />
+            </span>
+          ) : (
             <span
               className="armada-plan-tab__fold-first"
               data-empty={criteria.length === 0 || undefined}
@@ -192,7 +203,9 @@ export function PlanLead({ criteria, gate }: PlanLeadProps) {
             </span>
           )}
         </button>
-        {!open ? null : criteria.length === 0 ? (
+        {!open ? null : reading ? (
+          <SkeletonText />
+        ) : criteria.length === 0 ? (
           <p className="armada-plan-tab__criterion-origin">{NOTHING_HELD}</p>
         ) : (
           <ul className="armada-plan-tab__criteria">
