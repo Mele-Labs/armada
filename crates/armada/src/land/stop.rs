@@ -30,7 +30,7 @@ impl From<GitFailed> for Refused {
 /// Ends one branch's turn, once it is in the runner. Caught exactly once, in
 /// the runner loop, which is what turns this into a stored [`Outcome`](super::outcome::Outcome)
 /// via [`merge_outcome`](super::outcome::merge_outcome).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Stopped {
     pub state: OutcomeState,
     pub detail: String,

@@ -1,36 +1,107 @@
-//! One branch's turn: gate the commit it was queued at, merge it onto the
-//! base and push — retried up to [`ROUNDS`] times against a base that keeps
+//! One turn: a batch of waiting branches built into one candidate, gated
+//! once, and pushed onto the base — split in half on a red or a clash between
+//! members, and retried up to [`ROUNDS`] times against a base that keeps
 //! moving. `scripts/land`'s own `take_turn`.
 
+use std::collections::VecDeque;
 use std::path::Path;
 
+use super::batch::{build, halves, logs_for, tell, NotBuilt};
 use super::dir::StateDir;
 use super::env::{Env, ROUNDS};
 use super::gating::gate;
 use super::git::checked;
-use super::onto_main::{already_landed, landed, local_head, merge_commit, message, push, Pushed};
-use super::outcome::OutcomePatch;
-use super::outcome::OutcomeState;
-use super::queue::QueueEntry;
+use super::onto_main::{already_landed, landed, local_head, push, Pushed};
+use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
+use super::queue::{read_queue_entry, QueueEntry};
 use super::repo::{is_ancestor, remote_head};
 use super::say::say;
 use super::stop::Stopped;
 
-pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entry: &QueueEntry) -> Stopped {
-    let branch = entry.branch.as_str();
-    let logs = state.path().join("logs").join(super::dir::key(branch));
-    let recorded = super::outcome::read_outcome(state, branch)
-        .ok()
-        .flatten()
-        .and_then(|outcome| outcome.merge_commit);
+/// Take `entries`, in place order, and end every one of their turns.
+pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entries: &[QueueEntry]) {
+    let mut pending = VecDeque::from([entries.to_vec()]);
+    while let Some(group) = pending.pop_front() {
+        if let Some((first, second)) = land_group(repo, state, env, group) {
+            pending.push_front(second);
+            pending.push_front(first);
+        }
+    }
+}
+
+/// Say how one entry's turn ended, and take it out of the line — only if its
+/// nonce still matches: a `land` that resubmitted the branch while its turn
+/// ran wrote a fresh entry this must not delete.
+fn finish(state: &StateDir, entry: &QueueEntry, stopped: Stopped) {
+    let _ = say(
+        state,
+        &entry.branch,
+        stopped.state,
+        stopped.detail,
+        stopped.patch,
+    );
+    if let Ok(Some(current)) = read_queue_entry(state, &entry.branch) {
+        if current.nonce == entry.nonce {
+            let _ = std::fs::remove_file(state.queue_entry_path(&entry.branch));
+        }
+    }
+}
+
+/// End every member's turn the same way — unless it is a red on more than one
+/// member, which is split to find whose it is. `Some` is the two halves.
+fn end_all(
+    state: &StateDir,
+    group: Vec<QueueEntry>,
+    stopped: Stopped,
+) -> Option<(Vec<QueueEntry>, Vec<QueueEntry>)> {
+    if stopped.state == OutcomeState::Red && group.len() > 1 {
+        let _ = tell(
+            state,
+            &group,
+            OutcomeState::Gating,
+            "red together; splitting the batch to find which",
+            OutcomePatch::default(),
+        );
+        return Some(halves(group));
+    }
+    for entry in &group {
+        finish(state, entry, stopped.clone());
+    }
+    None
+}
+
+fn land_group(
+    repo: &Path,
+    state: &StateDir,
+    env: &Env,
+    mut group: Vec<QueueEntry>,
+) -> Option<(Vec<QueueEntry>, Vec<QueueEntry>)> {
+    // What a killed runner's turn recorded, read before this turn says anything.
+    let recorded: Vec<(String, Option<String>)> = group
+        .iter()
+        .map(|entry| {
+            let merge = read_outcome(state, &entry.branch)
+                .ok()
+                .flatten()
+                .and_then(|outcome| outcome.merge_commit);
+            (entry.branch.clone(), merge)
+        })
+        .collect();
+    let recorded_for = |branch: &str| {
+        recorded
+            .iter()
+            .find(|(name, _)| name == branch)
+            .and_then(|(_, merge)| merge.clone())
+    };
+    let logs = logs_for(state, &group);
     let _ = std::fs::remove_dir_all(&logs);
     if let Err(why) = std::fs::create_dir_all(&logs) {
-        return Stopped::stopped(format!("{} could not be created: {why}", logs.display()));
+        let detail = format!("{} could not be created: {why}", logs.display());
+        return end_all(state, group, Stopped::stopped(detail));
     }
-
-    if let Err(stopped) = say(
+    if let Err(stopped) = tell(
         state,
-        branch,
+        &group,
         OutcomeState::Gating,
         "reading the branch",
         OutcomePatch {
@@ -42,77 +113,120 @@ pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entry: &QueueEntry) -
             ..OutcomePatch::default()
         },
     ) {
-        return stopped;
+        return end_all(state, group, stopped);
     }
 
-    let head = entry.head.as_str();
-    for _ in 0..ROUNDS {
-        if local_head(repo, branch).as_deref() != Some(head) {
-            return Stopped::stopped(format!(
-                "{branch} moved since it was queued — preflight and land again"
-            ));
+    let mut rounds = 0;
+    while rounds < ROUNDS {
+        group.retain(|entry| {
+            let kept = local_head(repo, &entry.branch).as_deref() == Some(entry.head.as_str());
+            if !kept {
+                let detail = format!(
+                    "{} moved since it was queued — preflight and land again",
+                    entry.branch
+                );
+                finish(state, entry, Stopped::stopped(detail));
+            }
+            kept
+        });
+        if group.is_empty() {
+            return None;
         }
         if let Err(why) = checked(repo, &["fetch", "--quiet", &env.remote, &env.base]) {
-            return why.into();
+            return end_all(state, group, why.into());
         }
         let base = match remote_head(repo, &env.remote, &env.base) {
             Ok(Some(base)) => base,
             Ok(None) => {
-                return Stopped::stopped(format!("{}/{} does not exist", env.remote, env.base))
+                let detail = format!("{}/{} does not exist", env.remote, env.base);
+                return end_all(state, group, Stopped::stopped(detail));
             }
-            Err(why) => return Stopped::stopped(why.to_string()),
+            Err(why) => return end_all(state, group, Stopped::stopped(why.to_string())),
         };
-        // A runner killed after its push left the entry queued.
-        if is_ancestor(repo, head, &base) {
-            let merge = already_landed(repo, recorded.as_deref(), &base);
-            return landed(repo, state, env, entry, &base, &merge);
+        // A runner killed after its push left these queued.
+        group.retain(|entry| {
+            let on_base = is_ancestor(repo, &entry.head, &base);
+            if on_base {
+                let merge = already_landed(repo, recorded_for(&entry.branch).as_deref(), &base);
+                finish(state, entry, landed(repo, state, env, entry, &base, &merge));
+            }
+            !on_base
+        });
+        if group.is_empty() {
+            return None;
         }
 
-        let moved = !is_ancestor(repo, &base, head);
-        let candidate = match gate(repo, state, env, entry, head, &base, &logs, moved) {
-            Ok(candidate) => candidate,
-            Err(stopped) => return stopped,
+        let built = match build(repo, state, env, &group, &base, &logs) {
+            Ok(built) => built,
+            Err(NotBuilt::Conflict(index, stopped)) => {
+                let entry = group.remove(index);
+                finish(state, &entry, stopped);
+                if group.is_empty() {
+                    return None;
+                }
+                continue;
+            }
+            Err(NotBuilt::Between) => return Some(halves(group)),
+            Err(NotBuilt::Stopped(stopped)) => return end_all(state, group, stopped),
         };
-        if local_head(repo, branch).as_deref() != Some(head) {
-            return Stopped::stopped(format!(
-                "{branch} moved while it was gated — preflight and land again"
-            ));
+        if let Err(stopped) = gate(repo, state, env, &group, &base, &built, &logs) {
+            return end_all(state, group, stopped);
         }
-        let merge = match merge_commit(repo, &base, &candidate, &message(branch, entry.pr)) {
-            Ok(merge) => merge,
-            Err(stopped) => return stopped,
-        };
-
-        if let Err(stopped) = say(
-            state,
-            branch,
-            OutcomeState::Merging,
-            format!(
-                "pushing {} onto {} at {}",
-                short(&merge),
-                env.base,
-                short(&base)
-            ),
-            OutcomePatch {
-                gated_base: Some(base.clone()),
-                candidate: Some(candidate.clone()),
-                merge_commit: Some(merge.clone()),
-                ..OutcomePatch::default()
-            },
-        ) {
-            return stopped;
+        let before = group.len();
+        group.retain(|entry| {
+            let kept = local_head(repo, &entry.branch).as_deref() == Some(entry.head.as_str());
+            if !kept {
+                let detail = format!(
+                    "{} moved while it was gated — preflight and land again",
+                    entry.branch
+                );
+                finish(state, entry, Stopped::stopped(detail));
+            }
+            kept
+        });
+        if group.len() != before {
+            rounds += 1;
+            continue;
         }
 
-        match push(repo, env, &merge, &base, &logs.join("merge.log")) {
-            Ok(Pushed::Landed) => return landed(repo, state, env, entry, &base, &merge),
-            Ok(Pushed::Moved) => continue,
-            Err(stopped) => return stopped,
+        for (entry, merge) in group.iter().zip(&built.merges) {
+            let said = say(
+                state,
+                &entry.branch,
+                OutcomeState::Merging,
+                format!(
+                    "pushing {} onto {} at {}",
+                    short(&built.top),
+                    env.base,
+                    short(&base)
+                ),
+                OutcomePatch {
+                    gated_base: Some(base.clone()),
+                    candidate: Some(built.top.clone()),
+                    merge_commit: Some(merge.clone()),
+                    ..OutcomePatch::default()
+                },
+            );
+            if let Err(stopped) = said {
+                return end_all(state, group, stopped);
+            }
+        }
+        match push(repo, env, &built.top, &base, &logs.join("merge.log")) {
+            Ok(Pushed::Landed) => {
+                for (entry, merge) in group.iter().zip(&built.merges) {
+                    finish(state, entry, landed(repo, state, env, entry, &base, merge));
+                }
+                return None;
+            }
+            Ok(Pushed::Moved) => rounds += 1,
+            Err(stopped) => return end_all(state, group, stopped),
         }
     }
-    Stopped::stopped(format!(
+    let detail = format!(
         "{} moved during each of {ROUNDS} gates; land again when it is quieter",
         env.base
-    ))
+    );
+    end_all(state, group, Stopped::stopped(detail))
 }
 
 fn short(sha: &str) -> &str {
