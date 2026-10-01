@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -54,6 +55,21 @@ export type GraphCanvasRailAct = {
    */
   why?: string;
   onPress: () => void;
+  /**
+   * What the press opened, drawn as a card beside the button while it is here.
+   * **Beside the act that asked for it**, not in a panel across the canvas — the
+   * owner's note of 1 Oct 2026: he presses Note and the card is right next to
+   * the rail, already taking what he types.
+   */
+  card?: GraphCanvasRailCard;
+};
+
+export type GraphCanvasRailCard = {
+  /** Names the layer, read to somebody who cannot see where it opened. */
+  label: string;
+  children: ReactNode;
+  /** Esc, or a press outside it. The surface decides whether that closes it. */
+  onDismiss: (how: "escape" | "outside") => void;
 };
 
 export type GraphCanvasRailGroupProps = {
@@ -76,24 +92,36 @@ export function GraphCanvasRailGroup({ label, acts, disabled = false }: GraphCan
       {acts.map((act) => {
         const off = disabled || act.disabled === true;
         const Glyph = act.icon;
-        return (
-          <Tooltip
-            key={act.id}
-            label={off && act.why !== undefined ? act.why : act.name}
-            {...(act.shortcut === undefined ? {} : { shortcut: act.shortcut })}
+        const button = (
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={act.name}
+            {...(act.pressed === undefined ? {} : { "aria-pressed": act.pressed })}
+            disabled={off}
+            onClick={act.onPress}
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label={act.name}
-              {...(act.pressed === undefined ? {} : { "aria-pressed": act.pressed })}
-              disabled={off}
-              onClick={act.onPress}
+            {Glyph === undefined ? act.sign : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
+          </Button>
+        );
+        if (act.card === undefined) {
+          return (
+            <Tooltip
+              key={act.id}
+              label={off && act.why !== undefined ? act.why : act.name}
+              {...(act.shortcut === undefined ? {} : { shortcut: act.shortcut })}
             >
-              {Glyph === undefined ? act.sign : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
-            </Button>
-          </Tooltip>
+              {button}
+            </Tooltip>
+          );
+        }
+        // **No tooltip while its card is open.** The pointer is still on the
+        // button that opened it, so the bubble sat over the card's own label.
+        return (
+          <Popover key={act.id} open label={act.card.label} trigger={button} onDismiss={act.card.onDismiss}>
+            {act.card.children}
+          </Popover>
         );
       })}
     </div>

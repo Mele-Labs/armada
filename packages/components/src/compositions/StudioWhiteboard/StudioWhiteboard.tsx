@@ -299,7 +299,7 @@ function edgeLabel(edge: StudioWhiteboardEdge, titleOf: (id: string) => string):
  * looking at, in the board's own coordinates. `#1364`.
  *
  * **Only callable from inside the board**, since what it reads is the viewport
- * React Flow is holding — which is why the aside is a component of the
+ * React Flow is holding — which is why the add field is a component of the
  * caller's rather than markup passed down. A node placed at the origin on a
  * board panned somewhere else is a node a person has to go and find.
  */

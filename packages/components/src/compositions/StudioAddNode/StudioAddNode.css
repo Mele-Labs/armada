@@ -1,5 +1,6 @@
-/* The `+ Node` control and the field behind each kind — #1364. It sits on the
-   board's aside, at a node's own width, so it reads as one more card. */
+/* The `+ Node` control and the field behind each kind — #1364. On a Studio it
+   sits in the card beside the rail button that opened it; the card's width is
+   the rail's, in GraphCanvas.css. */
 
 .armada-studio-add-node {
   display: flex;
@@ -8,8 +9,8 @@
   min-width: 0;
 }
 
-/* Wraps, because a Link's row carries both choices and the card is a node's
-   width. A row that does not wrap clips Cancel, which is the overflow #1378
+/* Wraps, because a Link's row carries both choices and a card can be narrower
+   than them. A row that does not wrap clips Cancel, which is the overflow #1378
    is about arriving one control over. */
 .armada-studio-add-node__acts {
   display: flex;

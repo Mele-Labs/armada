@@ -1147,6 +1147,7 @@ measuring in JavaScript.
 | --- | --- | --- |
 | Dropdown menu | Below the trigger | Trailing edges flush, caller may set leading |
 | Popover | Below the trigger | Leading edges flush, caller may set trailing |
+| Popover on a canvas rail | Beside the rail act, on its trailing side | Top edges flush; flips up, never across the rail |
 | Tooltip | Below the element it wraps | Leading edges flush |
 | Split-button menu | Below the whole control, not the caret | Leading edges flush |
 

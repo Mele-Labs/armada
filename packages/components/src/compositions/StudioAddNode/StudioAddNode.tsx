@@ -50,6 +50,11 @@ export type StudioAddNodeProps = {
   refused?: string;
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
+  /**
+   * Whether anything is typed, told as it changes. A layer holding the field
+   * reads it to keep a stray press outside from throwing writing away.
+   */
+  onWritten?: (written: boolean) => void;
 };
 
 /** Each kind's act in the registry, which is the one place a binding is written. */
@@ -97,9 +102,14 @@ export function StudioAddNode({
   saving = false,
   refused,
   disabled = false,
+  onWritten,
 }: StudioAddNodeProps) {
   const [draft, setDraft] = useState("");
   const [line, setLine] = useState("");
+  const blank = draft.trim() === "" && line.trim() === "";
+  useEffect(() => {
+    onWritten?.(!blank);
+  }, [blank, onWritten]);
 
   // A new kind is a new field: what was half-typed for a Note is not a Link.
   // The field itself is keyed on the kind, so it mounts afresh and takes focus.

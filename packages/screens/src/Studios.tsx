@@ -10,7 +10,7 @@
 // **The whiteboard's selection is held here, not in `App`.** Clustering is of several nodes, and
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -616,7 +616,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             onSelectNode(ids[0] ?? null);
           }}
           rail={
-            editable ? <AddRail adding={adding} onAdding={setAdding} /> : undefined
+            editable ? (
+              <AddRail adding={adding} onAdding={setAdding} onAdd={add} saving={addingOut} />
+            ) : undefined
           }
           nodeBar={
             <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
@@ -632,22 +634,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             </GraphCanvasNodeBar>
           }
         >
-          {/* The field is drawn only while a kind is being written: the rail is
-              what asks for one now, so `StudioAddNode`'s own menu is a door
-              this screen no longer opens. */}
-          {editable && adding !== null ? (
-            <Card aria-label="Add a node">
-              <CardContent>
-                <AddNode
-                  adding={adding}
-                  onAdding={setAdding}
-                  onAdd={add}
-                  saving={addingOut}
-                  disabled={!editable}
-                />
-              </CardContent>
-            </Card>
-          ) : null}
           {editable && starts.length > 0 ? (
             <Card aria-label="Run">
               <CardContent>
@@ -697,14 +683,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 }
 
 /**
- * The `+ Node` control, drawn on the board's own aside.
- *
- * **A component and not markup**, because `useStudioPlacement` reads the
- * viewport React Flow is holding and only a component rendered inside the
- * board is inside that provider. What it buys is the rule: a node lands where
- * the person is looking rather than at the origin.
- */
-/**
  * The `Run` control, on the board's own aside — #1345.
  *
  * **`AddNode`'s shape for `AddNode`'s reason**: `useStudioPlacement` reads the
@@ -737,17 +715,29 @@ function StartRun(props: {
  * The rail's tool group: one icon per kind a person puts on a Studio by hand.
  *
  * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
- * 2026, which asked for a vertical bar of icons on the canvas's left. The field
- * behind a press is still drawn in the board's aside, where it has room for a
- * paragraph.
+ * 2026, which asked for a vertical bar of icons on the canvas's left. **The
+ * field behind a press opens as a card beside the button pressed**, not in the
+ * board's aside — his note of 1 Oct 2026: he presses Note and writes, with
+ * nothing to go and find in the far corner.
+ *
+ * **A stray press outside closes it only while it is blank.** Esc and Cancel
+ * are a person abandoning what they wrote; a press on the canvas may be a
+ * person looking for where it should go.
  */
 function AddRail({
   adding,
   onAdding,
+  onAdd,
+  saving,
 }: {
   adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind) => void;
+  onAdding: (kind: StudioNodeByHandKind | null) => void;
+  onAdd: (node: StudioNodeByHand, position: StudioPosition) => void;
+  saving: boolean;
 }) {
+  // Read when a press lands outside, never drawn — a ref, so typing does not
+  // redraw the rail.
+  const written = useRef(false);
   const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
@@ -755,16 +745,43 @@ function AddRail({
     pressed: adding === kind,
     ...(shortcut === undefined ? {} : { shortcut }),
     onPress: () => onAdding(kind),
+    ...(adding !== kind
+      ? {}
+      : {
+          card: {
+            label: "Add a node",
+            onDismiss: (how: "escape" | "outside") => {
+              if (how === "escape" || !written.current) onAdding(null);
+            },
+            children: (
+              <AddNode
+                adding={adding}
+                onAdding={onAdding}
+                onAdd={onAdd}
+                onWritten={(now) => (written.current = now)}
+                saving={saving}
+              />
+            ),
+          },
+        }),
   }));
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
 }
 
+/**
+ * The field behind a rail press, drawn in the card beside it.
+ *
+ * **A component and not markup**, because `useStudioPlacement` reads the
+ * viewport React Flow is holding and only a component rendered inside the
+ * board's provider — which the rail is — can reach it. What it buys is the
+ * rule: a node lands where the person is looking rather than at the origin.
+ */
 function AddNode(props: {
   adding: StudioNodeByHandKind | null;
   onAdding: (kind: StudioNodeByHandKind | null) => void;
   onAdd: (node: StudioNodeByHand, position: StudioPosition) => void;
+  onWritten: (written: boolean) => void;
   saving: boolean;
-  disabled: boolean;
 }) {
   const place = useStudioPlacement();
   return (
@@ -772,9 +789,9 @@ function AddNode(props: {
       adding={props.adding}
       onAdding={props.onAdding}
       onAdd={(node) => props.onAdd(node, place())}
+      onWritten={props.onWritten}
       readIn={READING_IN_UNBUILT}
       saving={props.saving}
-      disabled={props.disabled}
     />
   );
 }

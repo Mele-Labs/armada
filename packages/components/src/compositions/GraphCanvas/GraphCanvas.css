@@ -152,6 +152,32 @@
   }
 }
 
+/* A card a rail act opens sits beside it, tops aligned — the owner's note of
+   1 Oct 2026, which refused the field in the canvas's far corner. Beside for the
+   tooltip's reason: under is over the next control.
+
+   **Anchored, unlike the tooltip**, because a card is tall where a bubble is one
+   line: pressed low on a short canvas it has to climb, and `flip-block` is what
+   lets it. It never flips inline — the room is always on the trailing side.
+
+   A dialog's width, since what it holds is a field a paragraph is written in:
+   the corner panel drew a node's width, which was chosen for a node's card
+   rather than for writing in. */
+.armada-graph-rail .armada-popover__panel {
+  top: 0;
+  left: calc(100% + var(--space-2));
+  inline-size: var(--w-dialog);
+}
+
+@supports (anchor-name: --a) {
+  .armada-graph-rail .armada-popover__panel {
+    position-area: inline-end span-block-end;
+    position-try-fallbacks: flip-block;
+    inset: auto;
+    margin: 0 0 0 var(--space-2);
+  }
+}
+
 /* A sign is a character where every neighbour is a 16px glyph, so it is set at
    the size a glyph occupies rather than at the button's own text size. */
 .armada-graph-rail__group .armada-button {
