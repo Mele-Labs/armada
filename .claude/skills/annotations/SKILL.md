@@ -21,8 +21,12 @@ one note — a note with `sent` belongs to its Job.
 ### 1. Read the open notes
 
 ```
-ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
+setopt nullglob; ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
+
+**The shell is zsh, and a glob that matches nothing aborts the whole line.**
+Without `nullglob`, no worktree holding notes means `no matches found` and not
+even the main folder is listed. Confirmed 1 Oct 2026: it cost a second call.
 
 **Every worktree's folder, not only the main checkout's.** A mock started from
 a worktree writes its notes into that worktree, so a note pinned on a session's
