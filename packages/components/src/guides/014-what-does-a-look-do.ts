@@ -22,7 +22,7 @@ export const GUIDE_LOOK: Guide = {
     "It also says whether anything has gone quiet or is repeating itself.",
     "It costs no model call.",
     "Nothing about the job moves and nothing is spent, so there is no reason not to press it.",
-    "Every figure here is one instant.",
+    "Every figure here is one instant except a worktree's size, which carries its own age.",
     "A process can exit between the reading and this screen, which is why the age is drawn under " +
       "the tables.",
     "A look answers working, not working, or could not tell.",

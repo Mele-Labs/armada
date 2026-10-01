@@ -562,7 +562,7 @@ function pulseOf(
   const examined = looked?.state === "found" ? looked.examined : null;
   const nothing = nothingToAsk(props.resources);
   return {
-    reading: view === null ? null : pulseReadingOf(view, examined, whole),
+    reading: view === null ? null : pulseReadingOf(view, examined, whole, props.now),
     figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),

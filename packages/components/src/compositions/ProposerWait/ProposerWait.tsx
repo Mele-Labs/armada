@@ -29,6 +29,17 @@ export type ProposalWatch = {
   thinkingTokens?: number;
   /** How much of the answer has arrived, in characters. */
   answeredCharacters?: number;
+  /**
+   * What the proposer has decided so far, one row per field, in the order the
+   * fields settle.
+   *
+   * **Resolved by the caller, like every other value here.** What each field is
+   * called and how its value reads is Bridge's reading of
+   * `ProposalInFlight.settled`; this draws the rows it is handed and knows the
+   * names of none of them. Absent is a call that has settled nothing, which is
+   * every call before it starts writing.
+   */
+  settled?: readonly { label: string; said: string }[];
 };
 
 /**
@@ -89,7 +100,7 @@ export function ProposerWait({
     return (
       <div className="armada-proposer-wait" role="status">
         <p className="armada-proposer-wait__said">
-          The proposer is reading the request. It answers once, whole.
+          The proposer is reading the request. It fills this Job in as it writes.
         </p>
         {stop}
       </div>
@@ -123,6 +134,25 @@ export function ProposerWait({
         <p className="armada-proposer-wait__count">
           {watch.answeredCharacters.toLocaleString()} characters of answer so far
         </p>
+      )}
+      {/* What has been decided, as it is decided. **Inside the wait and not a
+          region of its own**: the wait is the one place on this Job's page whose
+          subject is the call, and each of these is already on the Job itself —
+          the row's Workflow column, the row's title, the Job's criteria, the
+          Job's urgency. This says which of them the proposer has got to, which
+          is the fact the wait is for.
+
+          Each row appears as its own line ends, so a field is drawn whole or
+          not at all. */}
+      {watch.settled === undefined || watch.settled.length === 0 ? null : (
+        <dl className="armada-proposer-wait__settled">
+          {watch.settled.map((one, at) => (
+            <div className="armada-proposer-wait__field" key={`${one.label}-${at}`}>
+              <dt>{one.label}</dt>
+              <dd>{one.said}</dd>
+            </div>
+          ))}
+        </dl>
       )}
       {/* **No `Keep waiting` control**, and the absence is the design: waiting
           is what happens if nothing is pressed, and a button for it would

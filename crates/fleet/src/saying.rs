@@ -23,6 +23,7 @@ use std::fmt;
 use core_model::JobId;
 
 use crate::adrift::Adrift;
+use crate::proposing::Unresolved;
 
 impl fmt::Display for Adrift {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -502,6 +503,21 @@ impl fmt::Display for Adrift {
                 out,
                 "{why}. Nothing was created and the request is unchanged — say it again                  differently, or name a workflow yourself with `propose_job`"
             ),
+            // **Never the sentence above.** Saying this again differently
+            // changes nothing: the request was read and the workflow was
+            // fine. What fixes it is a model this machine runs, or installing
+            // the one asked for. `Unresolved::ModelNotHeld` names both the
+            // model asked for and the set.
+            Adrift::ModelNotHeld { named, held, .. } => {
+                let why = Unresolved::ModelNotHeld {
+                    named: named.clone(),
+                    held: held.clone(),
+                };
+                write!(
+                    out,
+                    "{why}. Nothing was created and the request is unchanged — dispatch it                      again once a model it can run is available, or name one yourself with                      `propose_job`"
+                )
+            }
             Adrift::NotProposed { cause, .. } => write!(
                 out,
                 "the request could not be read: {cause}. Nothing was created and the                  request is unchanged — this is the call failing rather than the                  request being refused, so asking again is reasonable"
@@ -759,6 +775,7 @@ impl Adrift {
             | Adrift::ReadingNotDiscarded { .. }
             | Adrift::NotProposable(_)
             | Adrift::NoWorkflowFits { .. }
+            | Adrift::ModelNotHeld { .. }
             | Adrift::NotProposed { .. } => None,
         }
     }
@@ -891,6 +908,7 @@ impl Error for Adrift {
             | Adrift::NothingToPropose
             | Adrift::NoReadingWorktree(_)
             | Adrift::NoWorkflowFits { .. }
+            | Adrift::ModelNotHeld { .. }
             // `SpawnConfigRefused` is not an `Error` — it says what a value
             // cannot be rather than wrapping a failure — so it prints into the
             // message above and has nothing to chain to.

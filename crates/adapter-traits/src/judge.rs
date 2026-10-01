@@ -195,7 +195,12 @@ pub enum Heard {
 /// **The ordinary order is not guaranteed.** A model that does not think emits
 /// no `Thinking`, so what each one means is that it happened — never that the
 /// ones before it did.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// **Not `Copy` since [`Answering`](CallProgress::Answering) carries the frame's
+/// own text.** Every other reading here is a handful of bytes, and a `Copy` enum
+/// holding a `String` is not expressible. What it costs is that a reporter
+/// holding one clones it; neither of the two that do is in a loop that cares.
+#[derive(Clone, Debug, PartialEq)]
 pub enum CallProgress {
     /// The process started and announced itself. **This is the one that
     /// separates a hung harness from a slow model**: a call with no `Started`
@@ -211,13 +216,29 @@ pub enum CallProgress {
     /// harness's own estimate rather than a billed figure — which is why it
     /// renders as an approximation wherever it is shown.
     Thinking { tokens: u64 },
-    /// It is writing the answer, and this is how much of it has arrived.
+    /// It is writing the answer: how much of it has arrived, and the frame
+    /// that just did.
     ///
     /// Characters rather than tokens because that is what the stream carries
     /// here, and inventing a token count from a character count would be a
     /// second, worse answer to a question the `Thinking` arm already answers
     /// properly.
-    Answering { characters: u64 },
+    ///
+    /// **`text` is one frame and never the answer so far.** A reader that wants
+    /// the running text joins the frames itself, which keeps this arm the size
+    /// of what arrived rather than the size of what has arrived. The whole
+    /// answer still comes back as [`Heard::Answer`] and is still the call's
+    /// return value.
+    ///
+    /// **Why it is carried at all.** This arm was a count alone until 30 Sep
+    /// 2026, deliberately: `crates/adapters/src/watching.rs` argued that a
+    /// progress channel also carrying the answer would be a second copy of it
+    /// arriving before the answer, and while nothing existed until the answer
+    /// landed that was right. A dispatched request is a Job from the press now,
+    /// so a prefix is not a rival to the proposal — it is that Job's own fields
+    /// settling one at a time, and `crates/fleet/src/proposing.rs` is the one
+    /// reader that turns this into them. **Nothing puts this text on the wire.**
+    Answering { characters: u64, text: String },
     /// The call is over, and this is what it cost. **Not the answer** — the
     /// answer is the call's return value, and this says only that there will be
     /// no more progress.

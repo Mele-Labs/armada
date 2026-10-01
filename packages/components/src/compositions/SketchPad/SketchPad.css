@@ -120,3 +120,20 @@
 .armada-sketch-box[aria-current] {
   outline: var(--border-width) solid var(--edge-focus);
 }
+
+/* One pasted picture, at the size it landed at. The image is the whole of it:
+   no fill and no padding, because a frame round a screenshot reads as a box
+   holding one. Cornered like a box, so the two read as one vocabulary. */
+.armada-sketch-picture {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.armada-sketch-picture img {
+  display: block;
+}
+
+/* Selected, the way a box is. */
+.armada-sketch-picture[aria-current] {
+  outline: var(--border-width) solid var(--edge-focus);
+}

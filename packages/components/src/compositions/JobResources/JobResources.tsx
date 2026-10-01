@@ -17,6 +17,7 @@ import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "../../guides";
 import {
+  ago,
   ANY,
   CPU_USAGE,
   KillHold,
@@ -274,7 +275,7 @@ const STATS = "Stats";
 
 /** When the figures were true — `Updated 4s ago`, and nothing beside it. */
 function readAt(reading: PulseReading, age?: string): string {
-  return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${age} ago`;
+  return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${ago(age)}`;
 }
 
 /**

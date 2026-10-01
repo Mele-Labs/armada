@@ -24,7 +24,10 @@
 //! [`crate::headroom`]'s precedent and its argument: `ps` and `du` are one
 //! spelling on darwin and Linux, need no `unsafe` and no platform crate.
 
+use std::collections::BTreeMap;
+use std::future::Future;
 use std::path::Path;
+use std::sync::{Arc, PoisonError};
 use std::time::{Duration, UNIX_EPOCH};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -33,6 +36,7 @@ use tokio::process::Command;
 
 use crate::adrift::Adrift;
 use crate::clock::rfc3339_utc;
+use crate::converging::elapsed;
 use crate::daemon::Fleet;
 use crate::process::{holder_of, Holder};
 use crate::transcript::log_of;
@@ -50,6 +54,52 @@ use crate::transcript::log_of;
 /// install nobody had finished. Here the child *is* the measurement, and one
 /// that outlived its answer would be a `du` per press with nothing reading it.
 pub(crate) const LOOK: Duration = Duration::from_secs(3);
+
+/// How long a worktree's size is served before it is walked again: `du` on a
+/// 1–3 GB worktree is 1.1–1.9 s cold, and Bridge reads this every 10 s.
+pub(crate) const SIZED_FOR: Duration = Duration::from_secs(30);
+
+/// The last size each worktree walked to, and when, by path. Never written
+/// down: a size read back after a restart would be as old as the restart.
+#[derive(Default)]
+pub(crate) struct Sizes {
+    by_path: std::sync::Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<Option<(Timestamp, u64)>>>>>,
+}
+
+impl Sizes {
+    /// The size kept for `path` and when it was walked, if that is inside
+    /// [`SIZED_FOR`], or what `walk` finds now. A walk that finds nothing is
+    /// not kept, so the next read walks.
+    pub(crate) async fn of<F, Walk>(
+        &self,
+        path: &str,
+        now: &Timestamp,
+        walk: F,
+    ) -> Option<(Timestamp, u64)>
+    where
+        F: FnOnce() -> Walk,
+        Walk: Future<Output = Option<u64>>,
+    {
+        let kept = self
+            .by_path
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(path.to_string())
+            .or_default()
+            .clone();
+        // Held across the walk, so a second read of this path waits for the
+        // first one's `du` rather than starting its own.
+        let mut kept = kept.lock().await;
+        if let Some((at, _)) = &*kept {
+            if elapsed(at, now) < SIZED_FOR {
+                return kept.clone();
+            }
+        }
+        let bytes = walk().await?;
+        *kept = Some((now.clone(), bytes));
+        kept.clone()
+    }
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -122,8 +172,13 @@ where
     /// checkout to read.
     async fn sized_worktree(&self, job: &Job) -> Option<ipc::WorktreeOnDisk> {
         let worktree = self.worktree_of(job).ok().flatten()?;
+        let size = self
+            .sizes()
+            .of(worktree.path(), &self.now(), || taken(worktree.path()))
+            .await;
         Some(ipc::WorktreeOnDisk {
-            bytes: taken(worktree.path()).await,
+            measured_at: size.as_ref().map(|(at, _)| at.into()),
+            bytes: size.map(|(_, bytes)| bytes),
             path: worktree.path().to_string(),
             branch: worktree.branch().to_string(),
         })
