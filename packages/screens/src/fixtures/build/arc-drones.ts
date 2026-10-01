@@ -113,8 +113,9 @@ function transcriptOf(
 export function arcDrones(groups: readonly GroupView[]): DroneView[] {
   const tasks = new Map(groups.flatMap((group) => group.tasks).map((task) => [task.id, task]));
   const drones: DroneView[] = droneViewsOf(groups).map((drone) => {
-    const task = tasks.get(drone.task)!;
-    const time = TIMES[drone.task]!;
+    // Given no Job, every Drone here is one a task names.
+    const task = tasks.get(drone.task!)!;
+    const time = TIMES[drone.task!]!;
     const view: DroneView = { ...drone, since: time.since };
     if (drone.state !== "running" && time.ended !== undefined) view.ended_at = time.ended;
     const thoughts = new Map<number, DroneThought>();
