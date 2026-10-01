@@ -189,6 +189,9 @@ class LineFixture(unittest.TestCase):
             ARMADA_LAND_REGENERATE="",
             LAND_TEST_EVIDENCE=os.path.join(self.root, "evidence.txt"),
             ARMADA_LAND_PR_WAIT="10",
+            # One branch a turn, unless a test is about batching: most of
+            # these queue a branch while another gates and read its turn alone.
+            ARMADA_LAND_BATCH="1",
             STUB_ARMADA_LAND=stub_land,
             STUB_GH_STATE=self.prs,
             STUB_REMOTE=self.remote,
@@ -323,6 +326,44 @@ class LineFixture(unittest.TestCase):
         """)})
         self.env["LAND_TEST_MOVER"] = path
         return path
+
+    def blocked(self):
+        """A branch holding the turn on a Check that waits for a file, so the
+        next few can queue behind it and be taken as one batch. The same Check
+        holds that batch too, on a second file, where a member adds
+        `hold.txt`. Returns both files."""
+        gate = os.path.join(self.root, "gate-open")
+        held = os.path.join(self.root, "batch-open")
+        self.env["ARMADA_LAND_BATCH"] = "4"
+        blocker = self.branch("fix/blocker", {
+            "ui/block.ts": "1\n",
+            "checks/ui.sh": (
+                f"while [ ! -f {gate} ]; do sleep 0.1; done\n"
+                f"if [ -f hold.txt ]; then while [ ! -f {held} ]; do sleep 0.1; done; fi\n"
+            ),
+        })
+        self.land(blocker, "preflight")
+        self.land(blocker)
+        deadline = time.monotonic() + 30
+        while "running ui" not in self.outcome("fix/blocker").get("detail", ""):
+            self.assertLess(time.monotonic(), deadline, "the blocker never reached its Check")
+            time.sleep(0.1)
+        return gate, held
+
+    def queue(self, names_and_files):
+        """Branches cut, preflighted and queued in this order."""
+        made = []
+        for name, files in names_and_files:
+            where = self.branch(name, files)
+            self.land(where, "preflight")
+            self.land(where)
+            made.append(where)
+        return made
+
+    def candidate_runs(self):
+        """The `test` Check's runs in the candidate worktree, one line each."""
+        return [line for line in open(self.env["LAND_TEST_EVIDENCE"]).read().splitlines()
+                if line.startswith("check ") and "/land/candidate" in line]
 
     def outcome(self, branch):
         return load(self.state_file("outcomes", key(branch) + ".json"))
@@ -1110,6 +1151,97 @@ class Line(LineFixture):
         done = self.land(where, "preflight", check=False)
         self.assertEqual(done.returncode, 1)
         self.assertIn("stray.txt", done.stderr)
+
+
+class Batch(LineFixture):
+    def test_three_greens_land_in_one_turn(self):
+        gate, held = self.blocked()
+        before = len(self.candidate_runs())
+        names = ["fix/batch-a", "fix/batch-b", "fix/batch-c"]
+        wts = self.queue([
+            ("fix/batch-a", {"a.txt": "1\n", "hold.txt": "1\n"}),
+            ("fix/batch-b", {"b.txt": "1\n"}),
+            ("fix/batch-c", {"c.txt": "1\n"}),
+        ])
+        open(gate, "w").close()
+        self.assertEqual(self.settle(self.repo, "fix/blocker").returncode, 0)
+
+        deadline = time.monotonic() + 30
+        while "running ui" not in self.outcome("fix/batch-c").get("detail", ""):
+            self.assertLess(time.monotonic(), deadline, "the batch never reached its Check")
+            time.sleep(0.1)
+        status = self.land(wts[2], "--status", check=False).stdout
+        for name in names:
+            self.assertIn(f"{name}  #", status)
+        self.assertIn("together with fix/batch-a, fix/batch-b", status, "--status says who gates together")
+        open(held, "w").close()
+
+        for where, name in zip(wts, names):
+            done = self.settle(where, name)
+            self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(len(self.candidate_runs()) - before, 1, "one run for the three")
+        merges = [self.outcome(name)["merge_commit"] for name in names]
+        self.assertEqual(merges[-1], self.main_head(), "one push, of the last member's merge")
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        first_parents = self.git(self.repo, "log", "--first-parent", "--format=%H", "-n", "3", "origin/main").split()
+        self.assertEqual(first_parents, list(reversed(merges)), "a merge commit each, in place order")
+        for merge, name in zip(merges, names):
+            self.assertIn(f"Landed-from: {name}", self.git(self.repo, "log", "-1", "--format=%B", merge))
+
+    def test_one_red_among_three_lands_the_other_two(self):
+        gate, held = self.blocked()
+        names = ["fix/green-a", "fix/red-b", "fix/green-c"]
+        wts = self.queue([
+            ("fix/green-a", {"a.txt": "1\n"}),
+            ("fix/red-b", {"red.txt": "1\n", "checks/test.sh": "! [ -f red.txt ]\n"}),
+            ("fix/green-c", {"c.txt": "1\n"}),
+        ])
+        open(gate, "w").close()
+        open(held, "w").close()
+        codes = [self.settle(where, name).returncode for where, name in zip(wts, names)]
+        self.assertEqual(codes, [0, 4, 0])
+        self.assertIn("test failed", self.settle(wts[1], "fix/red-b").stdout, "reported red to its own agent")
+        on_main = self.main_files()
+        self.assertIn("a.txt", on_main)
+        self.assertIn("c.txt", on_main)
+        self.assertNotIn("red.txt", on_main)
+
+    def test_two_members_that_conflict_with_each_other_both_land_in_order(self):
+        gate, held = self.blocked()
+        a, b = self.queue([
+            ("fix/clash-a", {"shared.txt": "a\n"}),
+            ("fix/clash-b", {"shared.txt": "b\n"}),
+        ])
+        open(gate, "w").close()
+        open(held, "w").close()
+        self.assertEqual(self.settle(a, "fix/clash-a").returncode, 0)
+        done = self.settle(b, "fix/clash-b")
+        self.assertEqual(done.returncode, 5, done.stdout)
+        self.assertIn("shared.txt", done.stdout)
+
+        self.git(b, "fetch", "--quiet", "origin")
+        sh("git", "merge", "origin/main", cwd=b, env=self.env, check=False)
+        self.commit(b, {"shared.txt": "a and b\n"}, "resolve", push=False)
+        self.land(b, "preflight")
+        self.land(b)
+        self.assertEqual(self.settle(b, "fix/clash-b").returncode, 0)
+        first, second = self.outcome("fix/clash-a")["merge_commit"], self.outcome("fix/clash-b")["merge_commit"]
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        sh("git", "merge-base", "--is-ancestor", first, second, cwd=self.repo, env=self.env)
+
+    def test_a_member_that_conflicts_with_main_goes_back_and_the_rest_land(self):
+        gate, held = self.blocked()
+        clash, green = self.queue([
+            ("fix/clash-main", {"ui/block.ts": "mine\n"}),
+            ("fix/beside-it", {"beside.txt": "1\n"}),
+        ])
+        open(gate, "w").close()
+        open(held, "w").close()
+        done = self.settle(clash, "fix/clash-main")
+        self.assertEqual(done.returncode, 5, done.stdout)
+        self.assertIn("ui/block.ts", done.stdout)
+        self.assertEqual(self.settle(green, "fix/beside-it").returncode, 0)
+        self.assertIn("beside.txt", self.main_files())
 
 
 if __name__ == "__main__":
