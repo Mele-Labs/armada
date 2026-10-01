@@ -25,6 +25,7 @@ import type {
   RequestMode,
   SketchBox,
   SketchLine,
+  SketchPicture,
   SketchStroke,
 } from "@armada/components";
 import type { LeftOutWorkflow, StagedAttachment, WorkflowSummary } from "@armada/protocol";
@@ -36,9 +37,11 @@ import type { LandingRule } from "./draft/landing";
 import {
   drawingOf,
   isDrawn,
+  nextPictureId,
   nextShapeId,
   withBody,
   withJoin,
+  withPicture,
   withPlace,
   withShape,
   withStroke,
@@ -117,8 +120,9 @@ export type DispatchJobProps = {
    * Sketch on a blank pad**, which is every dispatch somebody starts here.
    *
    * **Nothing stages it yet.** The wire takes a staged path and a filename, so
-   * what goes out with the request is unchanged until #1545 promotes the shape;
-   * the pad is the surface, and staging the PNG is that pull request's.
+   * what goes out with the request is unchanged until #1545 promotes the shape.
+   * `draft/sketch-png.ts` already writes the PNG; staging it and sending it
+   * are that pull request's.
    */
   sketch?: SketchAttachment;
   /**
@@ -235,12 +239,16 @@ export function DispatchJob({
           boxes={drawing.shapes.map(asBox)}
           lines={drawing.joins.map(asLine)}
           strokes={drawing.strokes.map(asStroke)}
+          pictures={drawing.pictures.map(asPicture)}
           said={said}
           onSaid={setSaid}
           {...(sketch?.produced_by === undefined ? {} : { from: sketch.produced_by })}
-          onAdd={(at) =>
+          onAdd={(at, body) =>
+            setDrawing((one) => withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body }))
+          }
+          onPicture={(picture, at) =>
             setDrawing((one) =>
-              withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body: "" }),
+              withPicture(one, { id: nextPictureId(one), x: at.x, y: at.y, ...picture }),
             )
           }
           onBody={(id, body) => setDrawing((one) => withBody(one, id, body))}
@@ -305,7 +313,8 @@ function asDrafted(chosen: DispatchSettingsValue): DispatchSettingsView {
 }
 
 /**
- * The draft's boxes, joins and strokes as the pad holds them, and nothing else.
+ * The draft's boxes, joins, strokes and pictures as the pad holds them, and
+ * nothing else.
  *
  * **Two spellings of one shape, mapped in one function each** — the same seam
  * `asChosen` is, and for the same reason: the draft is wire-shaped because
@@ -321,4 +330,9 @@ function asLine(join: Drawing["joins"][number]): SketchLine {
 
 function asStroke(stroke: Drawing["strokes"][number]): SketchStroke {
   return { id: stroke.id, points: stroke.points };
+}
+
+function asPicture(picture: Drawing["pictures"][number]): SketchPicture {
+  const { id, x, y, width, height, src } = picture;
+  return { id, x, y, width, height, src };
 }
