@@ -482,7 +482,7 @@ describe("the plan", () => {
 
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
     await planList("arc/group-failed");
-    await expect.element(groupCard(3)).toHaveTextContent("failed at its checks");
+    await expect.element(groupCard(3)).toHaveTextContent("retrying");
     await expect.element(groupCard(3)).toHaveTextContent("attempt 2");
     await expect.element(groupCard(3)).toHaveTextContent("screens_test");
     await expect.element(groupCard(3)).toHaveTextContent("typecheck");

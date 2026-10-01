@@ -21,7 +21,7 @@ const meta: Meta<typeof PlanGroupSheet> = {
       id: "g3",
       ordinal: 3,
       state: "failed",
-      says: "failed at its checks",
+      says: "failed",
       scope: { root: "packages/screens/src/**" },
       shapeSays: "2 tasks, at the same time",
       concurrent: true,
