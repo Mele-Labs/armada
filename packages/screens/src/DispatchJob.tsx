@@ -174,8 +174,9 @@ export type DispatchJobProps = {
    * Sketch on a blank pad**, which is every dispatch somebody starts here.
    *
    * **Nothing stages it yet.** The wire takes a staged path and a filename, so
-   * what goes out with the request is unchanged until #1545 promotes the shape;
-   * the pad is the surface, and staging the PNG is that pull request's.
+   * what goes out with the request is unchanged until #1545 promotes the shape.
+   * `draft/sketch-png.ts` already writes the PNG; staging it and sending it
+   * are that pull request's.
    */
   sketch?: SketchAttachment;
   /**

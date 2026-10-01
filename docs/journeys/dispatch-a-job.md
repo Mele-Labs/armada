@@ -138,10 +138,14 @@ zooms, so nothing is lost, but Fit does not promise to find it.
 **The picture is draft and the wire is unchanged** —
 `packages/screens/src/draft/sketch.ts`, which names the `crates/ipc` module it
 is meant for. An attachment on the wire carries a staged path, a filename and a
-type and no provenance, so where a sketch was made is a draft field. Nothing
-stages the pad yet either: pressing Dispatch sends the words, and staging the
-PNG belongs with the schema lock. Whatever writes that PNG owes the pasted
-pictures too, each at its own place and size.
+type and no provenance, so where a sketch was made is a draft field.
+
+**Bridge can write the pad as a PNG, and nothing sends it yet.**
+`packages/screens/src/draft/sketch-png.ts` paints boxes, joins, strokes and
+pasted pictures at their own place and size, in the pad's own tokens. The
+owner had it built ahead of the wire on 1 October 2026, knowing it waits.
+Pressing Dispatch still sends the words; staging the PNG and putting it on
+the wire belong with the schema lock (#1545).
 
 ## Approval Rules
 
