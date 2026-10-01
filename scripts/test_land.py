@@ -834,6 +834,56 @@ class Line(LineFixture):
         self.assertIn("not this branch's", done.stdout)
         self.assertNotIn("after.txt", self.main_files(), "nothing merges either way")
 
+    def test_a_check_past_its_limit_is_red_and_gives_the_turn_up(self):
+        # The grandchild leads a group of its own, as `armada check` puts a
+        # Check's command in one, so killing only the runner's child would miss it.
+        pid_file = os.path.join(self.root, "hung.pid")
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        mover = self.branch("fix/moves-hung", {"moved.txt": "1\n"})
+        hung = self.branch("fix/hung", {"checks/test.sh": (
+            "python3 -c 'import os, time; os.setpgid(0, 0); "
+            f"open(\"{pid_file}\", \"w\").write(str(os.getpid())); time.sleep(600)' &\n"
+            "sleep 600\n"
+        )})
+        self.land(mover, "preflight")
+        self.land(mover)
+        self.assertEqual(self.settle(mover, "fix/moves-hung").returncode, 0)
+        behind = self.branch("fix/behind-hung", {"behind.txt": "1\n"})
+        for where in (hung, behind):
+            self.land(where, "preflight")
+            self.land(where)
+
+        done = self.settle(hung, "fix/hung")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("test timed out after 2 seconds", done.stdout)
+        self.assertNotIn("already fails", done.stdout, "main's own run of it passed")
+        pid = int(open(pid_file).read())
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                break
+            self.assertLess(time.monotonic(), deadline, "the Check's own process group outlived its limit")
+            time.sleep(0.1)
+        self.assertEqual(self.settle(behind, "fix/behind-hung").returncode, 0,
+                         "the next entry gets its turn")
+
+    def test_a_check_past_its_limit_on_main_too_is_mains(self):
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        broken = self.branch("fix/hangs-test-on-main", {"checks/test.sh": "sleep 600\n"})
+        after = self.branch("fix/behind-a-hung-main", {"after.txt": "1\n"})
+        self.land(broken, "preflight")
+        self.land(broken)
+        self.assertEqual(self.settle(broken, "fix/hangs-test-on-main").returncode, 0)
+
+        self.land(after, "preflight")
+        self.land(after)
+        done = self.settle(after, "fix/behind-a-hung-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("test timed out after 2 seconds", done.stdout)
+        self.assertIn("already fails on main", done.stdout)
+
     def test_one_turn_says_the_branchs_red_and_mains_together(self):
         self.write(self.repo, {"checks/ui.sh": "! { [ -f ui/a ] && [ -f ui/b ]; }\n"})
         self.git(self.repo, "add", "-A")
