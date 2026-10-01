@@ -138,13 +138,41 @@ test("an image file copied in Finder lands as a File, since the picture beside i
   expect(await landed(before)).toEqual({ kind: "file", path: COVER });
 });
 
-test("a screenshot is a picture with no path, and lands nothing until a wordless Note is decided", async () => {
+/** A screenshot as the clipboard hands it over: a PNG called `image.png`, on no disk. */
+async function screenshot(): Promise<File> {
+  const canvas = new OffscreenCanvas(320, 200);
+  const ink = canvas.getContext("2d")!;
+  ink.fillStyle = "darkslategray";
+  ink.fillRect(0, 0, 320, 200);
+  return new File([await canvas.convertToBlob({ type: "image/png" })], "image.png", { type: "image/png" });
+}
+
+test("a screenshot lands at once as a Picture under the pointer, drawn and opened full size", async () => {
   await openEditable();
   const before = kept().length;
-  await pressBoard(5);
-  const shot = new File([new Uint8Array([137, 80, 78, 71])], "image.png", { type: "image/png" });
-  expect(paste({ files: [shot] })).toBe(false);
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  const at = await pressBoard(5);
+  expect(paste({ files: [await screenshot()] })).toBe(true);
+  await expect.poll(() => kept().length).toBe(before + 1);
+  expect(kept().at(-1)).toMatchObject({ kind: "picture", frame: { width: 320, height: 200 } });
+  await expect.element(node(/^Picture$/)).toBeVisible();
+  atPress(/^Picture$/, at);
+  await expect.element(node(/^Picture$/).getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+
+  // Opened full size, as a Note's frame is.
+  node(/^Picture$/).element().focus();
+  await userEvent.keyboard("{Enter}");
+  await page.getByRole("group", { name: "What is picked" }).getByRole("button", { name: "Open frame", exact: true }).click();
+  await expect.element(page.getByRole("dialog").getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+});
+
+test("a picture over Fleet's 4 MiB is refused, and the board says why", async () => {
+  await openEditable();
+  const before = kept().length;
+  await pressBoard(6);
+  const heavy = new File([new Uint8Array(4 * 1024 * 1024 + 1)], "image.png", { type: "image/png" });
+  expect(paste({ files: [heavy] })).toBe(true);
+  await expect.element(page.getByText("Fleet did not take that", { exact: true })).toBeVisible();
+  await expect.element(page.getByText(/^a frame weighs at most 4194304 bytes and this one weighs 4194305$/)).toBeVisible();
   expect(kept()).toHaveLength(before);
 });
 

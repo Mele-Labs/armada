@@ -541,6 +541,8 @@ const api: BridgeApi = {
   addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position),
   pathOfFile: (file: File): string => webUtils.getPathForFile(file),
+  addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioPicture, studioId, bytes, position),
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position),
   // The frame is main's: this hands over what was pointed at and nothing else,

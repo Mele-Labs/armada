@@ -98,8 +98,11 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A person adds a Note, an address, a Sketch and a File by hand, and no other kind. Every other kind is made by the act that earns it.
-> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File with him on 1 Oct 2026.
+> **Rule.** A person adds a Note, an address, a Sketch, a File and a Picture by hand, and no other kind. Every other kind is made by the act that earns it.
+> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026.
+
+> **Rule.** A Picture is a picture and nothing else. It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
+> Why: a screenshot pasted onto the board has no words, and a Note is never wordless. The owner chose a kind of its own over a Note made to carry it. `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
 
 > **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
 > Why: the path is what the person meant to point at, and a File that rewrote it, or refused one not yet on disk, would be Fleet deciding what they meant. Decided with the owner, 1 Oct 2026.
@@ -128,7 +131,7 @@ flowchart LR
 > **Rule.** Pasting an address into a Link's field offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
 > Why: a node that appears and offers nothing is the surface saying the person's paste did not matter.
 
-> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Note carrying it, and other text is a Note. It lands under the pointer, or in the middle of the view where the pointer is off the board. A paste into a field is that field's.
+> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Picture, and other text is a Note. It lands under the pointer, or in the middle of the view where the pointer is off the board. A paste into a field is that field's.
 > Why: the owner asked to paste whatever is on his clipboard, and a field opening first is the panel he had just asked to be rid of. A file copied in Finder is a File, since what Chromium is handed beside it is its icon. Decided with him, 1 Oct 2026; `.claude/decisions/2026-10-01-a-paste-lands-at-once.md`.
 
 > **Rule.** A node lands where the person is looking, not at the origin.

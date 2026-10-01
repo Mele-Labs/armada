@@ -18,6 +18,7 @@ import { Boundary } from "@armada/shell";
 import type { BridgeState } from "../../shared/bridge";
 import {
   addStudioNode,
+  addStudioPicture,
   createStudio,
   decideStudioEdge,
   moveStudioNode,
@@ -146,6 +147,7 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onRename={(studioId, name) => renameStudio(studioId, name)}
         onAddNode={(node, position) => addStudioNode(openId ?? "", node, position)}
         pathOfFile={pathOfFile}
+        onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
         onMoveNode={(nodeId, position) => moveStudioNode(openId ?? "", nodeId, position)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}

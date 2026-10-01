@@ -26,6 +26,7 @@ import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition } fro
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { CaptureWindows } from "./capture/windows";
+import { stagePng, stagedPicture } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
@@ -165,13 +166,7 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  stage: async (png, width, height) => {
-    const dir = join(app.getPath("temp"), "armada-frames", randomUUID());
-    await mkdir(dir, { recursive: true });
-    const staged = join(dir, "frame.png");
-    await writeFile(staged, png);
-    return { staged_path: staged, width, height };
-  },
+  stage: stagePng,
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -971,7 +966,7 @@ void app.whenReady().then(() => {
       ? { x: at.x as number, y: at.y as number }
       : null;
   };
-  /** One of the four kinds a person adds by hand, with its own field filled. */
+  /** One of the four kinds a person writes by hand. Never a Picture, whose staged file only main names. */
   const byHand = (value: unknown): value is StudioNodeByHand => {
     const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; body?: unknown; path?: unknown };
     if (node.kind === "note") return text(node.said);
@@ -1000,6 +995,14 @@ void app.whenReady().then(() => {
     const at = whole(position);
     if (!text(studioId) || at === null || !byHand(node)) return undefined;
     return (await connection?.studios.addNode(studioId, node, at)) ?? unsent;
+  });
+  // A pasted picture — 1 Oct 2026. Bytes in; main stages them (`staging.ts`).
+  ipcMain.handle(CHANNELS.addStudioPicture, async (_event, studioId: unknown, bytes: unknown, position: unknown) => {
+    const at = whole(position);
+    if (!text(studioId) || at === null || !(bytes instanceof Uint8Array)) return undefined;
+    const staged = await stagedPicture(bytes);
+    if (staged === null) return undefined;
+    return (await connection?.studios.addNode(studioId, { kind: "picture", staged }, at)) ?? unsent;
   });
   ipcMain.handle(CHANNELS.moveStudioNode, async (_event, studioId: unknown, nodeId: unknown, position: unknown) => {
     const at = whole(position);

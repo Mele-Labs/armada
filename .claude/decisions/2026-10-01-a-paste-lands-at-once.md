@@ -7,7 +7,7 @@ His annotation `20261001-123631-62n3`: *"I would love if when I am focused on a 
 **Chosen:** a paste lands at once as a finished node, sent to Fleet straight away, with no draft and no field opening first.
 
 - Under the pointer where it is over the board, otherwise in the middle of the view.
-- An address is a Link. A file path is a File (`2026-10-01-a-pasted-path-is-a-file.md`). A picture is a Note carrying it, through the door capture already uses. Any other text is a Note.
+- An address is a Link. A file path is a File (`2026-10-01-a-pasted-path-is-a-file.md`). A picture is a Picture. Any other text is a Note.
 - A paste into a field, a draft's or the Studio's name, is that field's.
 - A picture wins over text beside it, unless the picture is only Finder's icon for a copied file. Then it is the file's path.
 - Focused on a Studio means the board has focus, and pressing the empty board gives it focus.
@@ -27,6 +27,6 @@ Finder's icon never reaches the page. So "only the icon" comes down to whether t
 
 **Cost he took:** a paste offers no line beside an address and no choice to read it in. That offer stays on a Link written in its own field.
 
-**Not built:** the picture. Its Note has no words, and Fleet refuses a Note whose `said` is blank. A screenshot lands nothing until he says what such a Note holds.
+**Changed the same day:** a picture is not a Note. Its Note would have had no words, and Fleet refuses a Note with none. He chose a kind of its own, the Picture (`2026-10-01-a-pasted-picture-is-a-picture.md`).
 
 **Where it landed:** `studios/paste`.

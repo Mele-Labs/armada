@@ -159,6 +159,8 @@ export type StudiosProps = {
   onAddNode: (node: StudioNodeByHand, position: StudioPosition) => Promise<Outcome>;
   /** Where a pasted file is on disk, or `""` for one that is not — a screenshot. Main's to know. */
   pathOfFile: (file: File) => string;
+  /** Put a pasted picture on the open Studio, as a Picture. Main stages the bytes; Fleet keeps them. */
+  onAddPicture: (bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
@@ -461,7 +463,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   useEffect(() => void frames.want([...drawn]), [drawn, frames]);
   const frameOf = (nodeId: string) =>
     drawn.has(nodeId) ? (frames.of(nodeId) ?? {}) : { why: PAST_THE_BOUND };
-  const openedNote = studio.nodes.find((node) => node.id === opened && node.kind === "note");
+  const openedNote = studio.nodes.find(
+    (node) => node.id === opened && (node.kind === "note" || node.kind === "picture"),
+  );
   const editable = open.editable && live;
   const onBoard = picked.filter((id) => studio.nodes.some((node) => node.id === id));
   const selected = onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
@@ -479,8 +483,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   // read — and the node draws its id, which is what says so.
   const openable = selected?.kind === "job" ? jobs.find((job) => job.id === selected.job_id) : undefined;
 
+  // A refusal says Fleet's own why, as other surfaces' do: `said` leaves a refused one blank.
   function answered(outcome: Outcome): void {
-    setRefused(outcome.ok ? null : said(outcome));
+    setRefused(outcome.ok ? null : outcome.why === "refused" ? outcome.error.message : said(outcome));
   }
 
   const promotion = useStudioPromotion({
@@ -534,13 +539,18 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 
   /**
    * ⌘V on the board — the owner, 1 Oct 2026: it **lands at once**, with no
-   * draft and no field. A picture is not taken yet (`studio-paste.ts`), so
-   * the browser keeps it.
+   * draft and no field. A refusal — a picture over Fleet's bound — is said
+   * over the board, as every refusal here is.
    */
   function pasted(clipboard: DataTransfer, at: StudioPosition): boolean {
     const landing = landingOf(pastedOf(clipboard, props.pathOfFile));
-    if (landing === null || landing.kind === "picture") return false;
-    void props.onAddNode(landing, at).then(answered);
+    if (landing === null) return false;
+    if (landing.kind === "picture") {
+      void landing.bytes
+        .arrayBuffer()
+        .then((read) => props.onAddPicture(new Uint8Array(read), at))
+        .then(answered);
+    } else void props.onAddNode(landing, at).then(answered);
     return true;
   }
 
@@ -571,7 +581,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected !== undefined && keepsAnAddress(selected)
       ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
       : []),
-    ...(selected?.kind === "note" && selected.capture?.frame !== undefined
+    ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
     ...(openable === undefined
@@ -755,10 +765,10 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside
           its own subtree, so a layer drawn in there is read through the Notes it is about. */}
       {editable ? promotion.dialog : null}
-      {openedNote === undefined || openedNote.kind !== "note" ? null : (
+      {openedNote === undefined ? null : (
         <StudioFrameSheet
           open
-          said={openedNote.said}
+          {...(openedNote.kind === "note" ? { said: openedNote.said } : { picture: true })}
           frame={frameOf(openedNote.id)}
           onClose={() => setOpened(null)}
         />

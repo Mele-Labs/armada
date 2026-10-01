@@ -845,6 +845,12 @@ export type BridgeApi = {
    * name, and this reads no file.
    */
   pathOfFile: (file: File) => string;
+  /**
+   * Put a pasted picture on a Studio as a Picture, where the person is looking.
+   * **Bytes in, never a path**: main stages them and names the staged file to
+   * Fleet, so the renderer cannot point Fleet at a file of its choosing.
+   */
+  addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
   /** Save where a person put a node down. Position only: nothing else about a node is written. */
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition) => Promise<Outcome>;
   /**

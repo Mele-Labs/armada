@@ -78,6 +78,8 @@ export type StudioNodeOf =
   | { kind: "link"; address: string }
   /** A path a person pasted, kept as pasted. The card's title is the path. */
   | { kind: "file"; path: string }
+  /** A picture pasted onto the board, and nothing else: no words, so no title is drawn. */
+  | { kind: "picture"; frame: StudioNodeFrame }
   /**
    * The three kinds a forge address makes — `#1394`. Each draws its address
    * the way a Link does; what it holds besides is a fact, not a sentence.
@@ -119,6 +121,7 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
   sketch: "Sketch",
   link: "Link",
   file: "File",
+  picture: "Picture",
   issue: "Issue",
   pull_request: "Pull request",
   epic: "Epic",
@@ -201,12 +204,16 @@ export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
 /** The node's accessible name: kind, title, then state. */
 export function studioNodeLabel(node: StudioNodeOf & { title: string }): string {
   const { words } = studioNodeReading(node);
-  const head = `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
+  // A Picture has no words, and is named by its kind alone.
+  const head = node.title === "" ? STUDIO_NODE_KIND[node.kind] : `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
   return words === null ? head : `${head}, ${words}`;
 }
 
 /** What a frame is called where it is read aloud. The Note's own words are already above it. */
 export const STUDIO_FRAME_LABEL = "The screen this Note was captured from";
+
+/** What a Picture's image is called where it is read aloud. */
+export const STUDIO_PICTURE_LABEL = "The picture pasted onto this Studio";
 
 /**
  * The picture on the card: what was on screen when the Note was made.
@@ -219,7 +226,7 @@ export const STUDIO_FRAME_LABEL = "The screen this Note was captured from";
  * board does not jump as the pictures arrive — `FramesShown`'s rule, and the
  * same reason: a reflow is how a person loses the node they were reading.
  */
-function Frame({ frame }: { frame: StudioNodeFrame }) {
+function Frame({ frame, alt }: { frame: StudioNodeFrame; alt: string }) {
   if (frame.src === undefined) {
     return (
       <span className="armada-studio-node__frame" data-empty>
@@ -232,7 +239,7 @@ function Frame({ frame }: { frame: StudioNodeFrame }) {
   }
   return (
     <span className="armada-studio-node__frame">
-      <img className="armada-studio-node__image" src={frame.src} alt={STUDIO_FRAME_LABEL} />
+      <img className="armada-studio-node__image" src={frame.src} alt={alt} />
     </span>
   );
 }
@@ -275,21 +282,25 @@ export function StudioNode(props: StudioNodeProps) {
       </div>
       {/* One box for what the card says, sized by the kind rather than by the
           words — see `StudioNode.css`. */}
-      <div className="armada-studio-node__said">
-        <p
-          className="armada-studio-node__title"
-          data-clipped={untitled || undefined}
-          title={whole}
-        >
-          {title}
-        </p>
-        {address === null || untitled ? null : (
-          <p className="armada-studio-node__address" title={address}>
-            {address}
+      {/* A Picture says nothing, so it has no box for words — default to no text. */}
+      {props.kind === "picture" ? null : (
+        <div className="armada-studio-node__said">
+          <p
+            className="armada-studio-node__title"
+            data-clipped={untitled || undefined}
+            title={whole}
+          >
+            {title}
           </p>
-        )}
-      </div>
-      {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} />}
+          {address === null || untitled ? null : (
+            <p className="armada-studio-node__address" title={address}>
+              {address}
+            </p>
+          )}
+        </div>
+      )}
+      {props.kind === "picture" ? <Frame frame={props.frame} alt={STUDIO_PICTURE_LABEL} /> : null}
+      {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} alt={STUDIO_FRAME_LABEL} />}
       {facts.length === 0 ? null : (
         <ul className="armada-studio-node__facts">
           {facts.map((fact) => (

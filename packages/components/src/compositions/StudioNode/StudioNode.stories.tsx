@@ -135,6 +135,24 @@ export const NoteFrames: Story = {
   },
 };
 
+/**
+ * A picture pasted onto the board — the owner, 1 Oct 2026. **The picture and
+ * nothing else**: no words were pasted with it, so no title is drawn and the
+ * node is named by its kind.
+ */
+export const Picture: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="picture" title="" frame={{ src: shot("darkslategray", "Job Board") }} />
+      <StudioNode kind="picture" title="" frame={{}} />
+    </Row>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+    await expect(canvas.getByText("reading…")).toBeVisible();
+  },
+};
+
 export const Cluster: Story = {
   args: { kind: "cluster", title: "The Board's legend is illegible", facts: ["3 notes"] },
   play: async ({ canvas }) => {

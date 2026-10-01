@@ -13,6 +13,7 @@
 
 import type {
   EpicTake,
+  Outcome,
   Studio,
   StudioCapture,
   StudioEdge,
@@ -43,6 +44,22 @@ export function onDisk(file: File, path: string): File {
 /** `pathOfFile`, as main answers it: the path of a file on disk, and `""` for a screenshot. */
 export const pathOnDisk = (file: File): string => ON_DISK.get(file) ?? "";
 
+/** Fleet's bound on a kept frame, `MOST_A_FRAME_MAY_WEIGH` in `crates/fleet/src/studios.rs`. */
+export const MOST_A_FRAME_MAY_WEIGH = 4 * 1024 * 1024;
+
+/** What Fleet answers a picture over that bound with, in Fleet's own words. */
+const tooLarge = (weighs: number): Outcome => ({
+  ok: false,
+  why: "refused",
+  error: {
+    code: "fleet.studio_frame_too_large",
+    message: `a frame weighs at most ${MOST_A_FRAME_MAY_WEIGH} bytes and this one weighs ${weighs}`,
+    run_id: "mock",
+    fields: {},
+    chain: [],
+  },
+});
+
 /**
  * Every Studio call a mock Fleet answers. **Named one by one**, so a Studio capability added to
  * `BridgeApi` fails typecheck here rather than going unanswered at runtime — `fake.ts`'s own rule.
@@ -53,6 +70,7 @@ export type StudioRoutes = Pick<
   | "watchStudio"
   | "createStudio"
   | "pathOfFile"
+  | "addStudioPicture"
   | "renameStudio"
   | "addStudioNode"
   | "captureStudioNote"
@@ -191,6 +209,8 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   }
 
   const browsed: string[] = [];
+  /** Each Picture's bytes, by node, so its frame reads back as what was pasted. */
+  const pictures = new Map<string, Uint8Array>();
 
   const routes = (handle: FleetHandle): StudioRoutes => {
     fleet = handle;
@@ -221,6 +241,8 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
       // refuses the rest from Bridge: a mock that took a Finding here would let
       // a test pass against a door that would not open.
       addStudioNode: async (studioId, node: StudioNodeByHand, position) => {
+        // Main refuses this from a renderer: a Picture names a file only main stages.
+        if (node.kind === "picture") throw new Error("a Picture is added with its bytes, by addStudioPicture");
         const answer = write(studioId, (studio) => {
           const added: StudioNode = {
             ...node,
@@ -255,7 +277,30 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
       // The bytes of one Note's picture. A node that kept none is refused the
       // way Fleet refuses it, so the surface draws its sentence rather than an
       // image that never arrives.
+      // Fleet's own bound and refusal, so the board says why as it would on Bridge.
+      addStudioPicture: async (studioId, bytes, position) => {
+        if (bytes.byteLength > MOST_A_FRAME_MAY_WEIGH) return tooLarge(bytes.byteLength);
+        const id = mint("picture-");
+        const size = await createImageBitmap(new Blob([bytes as BlobPart])).catch(() => null);
+        const frame = {
+          filename: `${id}.png`,
+          byte_size: bytes.byteLength,
+          width: size?.width ?? 0,
+          height: size?.height ?? 0,
+        };
+        const answer = write(studioId, (studio) => ({
+          ...studio,
+          nodes: [
+            ...studio.nodes,
+            { kind: "picture", frame, id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
+          ],
+        }));
+        if (answer.ok) pictures.set(id, bytes);
+        return answer.ok ? OK : answer.outcome;
+      },
       readStudioFrame: async (studioId, nodeId) => {
+        const picture = pictures.get(nodeId);
+        if (picture !== undefined) return { ok: true, bytes: picture, type: "image/png" };
         const node = store.get(studioId)?.nodes.find((one) => one.id === nodeId);
         if (node?.kind !== "note" || node.capture?.frame === undefined) {
           return { ok: false, outcome: unanswered(`/studios/${studioId}/frames/${nodeId}`) };

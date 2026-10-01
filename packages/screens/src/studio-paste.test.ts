@@ -7,6 +7,7 @@ import { isPath, landingOf, type Pasted } from "./studio-paste";
 const text = (said: string): Pasted => ({ text: said, files: [] });
 const ADDRESS = "https://example.invalid/armada/pull/1721";
 const ON_DISK = "/Users/user/Development/armada/crates/fleet/src/briefing.rs";
+const bytes = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
 
 describe("what a real paste lands as", () => {
   test("an address from the address bar, or Copy Link, is a Link", () => {
@@ -29,25 +30,26 @@ describe("what a real paste lands as", () => {
   });
 
   test("a file copied in Finder is a File at its path on disk, and carries no text", () => {
-    expect(landingOf({ text: "", files: [{ type: "", path: ON_DISK }] })).toEqual({ kind: "file", path: ON_DISK });
+    expect(landingOf({ text: "", files: [{ type: "", path: ON_DISK, bytes }] })).toEqual({ kind: "file", path: ON_DISK });
   });
 
   test("an image file copied in Finder is still a File: what is on the clipboard beside it is its icon", () => {
     const png = "/Users/user/Development/armada/packages/brand/covers/armada-cover-hero.png";
-    expect(landingOf({ text: "", files: [{ type: "image/png", path: png }] })).toEqual({ kind: "file", path: png });
+    expect(landingOf({ text: "", files: [{ type: "image/png", path: png, bytes }] })).toEqual({ kind: "file", path: png });
   });
 
-  test("a screenshot is a picture: an image with no path on disk", () => {
-    expect(landingOf({ text: "", files: [{ type: "image/png", path: "" }] })).toEqual({ kind: "picture" });
+  test("a screenshot is a Picture, carrying its bytes: an image with no path on disk", () => {
+    expect(landingOf({ text: "", files: [{ type: "image/png", path: "", bytes }] })).toEqual({ kind: "picture", bytes });
   });
 
   test("a picture wins over text beside it", () => {
-    expect(landingOf({ text: "a caption", files: [{ type: "image/png", path: "" }] })).toEqual({ kind: "picture" });
+    const pasted: Pasted = { text: "a caption", files: [{ type: "image/png", path: "", bytes }] };
+    expect(landingOf(pasted)).toEqual({ kind: "picture", bytes });
   });
 
   test("nothing on the clipboard lands nothing", () => {
     expect(landingOf(text("  \n"))).toBeNull();
-    expect(landingOf({ text: "", files: [{ type: "", path: "" }] })).toBeNull();
+    expect(landingOf({ text: "", files: [{ type: "", path: "", bytes }] })).toBeNull();
   });
 });
 

@@ -208,7 +208,7 @@ export const MOST_FRAMES_DRAWN = 24;
 
 /** Whether this node kept a picture, which is what decides that a plate is drawn at all. */
 function keptAFrame(node: StudioNode): boolean {
-  return node.kind === "note" && node.capture?.frame !== undefined;
+  return node.kind === "picture" || (node.kind === "note" && node.capture?.frame !== undefined);
 }
 
 /** The Notes whose frames this window asks for: the first `MOST_FRAMES_DRAWN`, and the selected one. */
@@ -308,6 +308,8 @@ function cardOf(
       return { kind: "link", address: node.address, title: node.said ?? node.named ?? node.address };
     case "file":
       return { kind: "file", path: node.path, title: node.path };
+    case "picture":
+      return { kind: "picture", title: "", frame: frameOf(node.id) };
     // The three kinds a forge address makes — #1394. The title follows a
     // Link's rule, with what the forge calls it where a read-in learned one;
     // everything else the kind holds is a fact rather than a sentence.
