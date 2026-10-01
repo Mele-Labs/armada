@@ -12,7 +12,7 @@
 // one is listed in `GAPS` so a surface can say what it could not render instead
 // of inventing copy for it.
 
-import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileQuestionMark, Flag, Link, Megaphone, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
+import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileQuestionMark, Flag, Link, Megaphone, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** How one variant reads. `null` where the registry carries no answer. */
@@ -42,6 +42,7 @@ export const JOB_STATUS: Readonly<Record<string, Rendering | undefined>> = {
   "escalated": { verb: "needs you", icon: Megaphone, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "killed": { verb: "killed", icon: Power, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
   "piloted": { verb: "piloted", icon: Terminal, badgeStatus: "piloted", statusToken: "--status-piloted", hint: null },
+  "proposing": { verb: "proposing", icon: ScanLine, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "queued": { verb: "queued", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "rejected": { verb: "rejected", icon: Ban, badgeStatus: "rejected", statusToken: "--status-rejected", hint: null },
   "running": { verb: "running", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
@@ -280,6 +281,7 @@ export const JOB_LIFECYCLE: Readonly<Record<string, Lifecycle | undefined>> = {
   "escalated": { terminal: false, mode: "Waited on", whoIsActing: "Person" },
   "killed": { terminal: true, mode: "N/A", whoIsActing: "None" },
   "piloted": { terminal: false, mode: "Working", whoIsActing: "Person" },
+  "proposing": { terminal: false, mode: "Working", whoIsActing: "None" },
   "queued": { terminal: false, mode: "Waited on", whoIsActing: "Drone" },
   "rejected": { terminal: true, mode: "N/A", whoIsActing: "None" },
   "running": { terminal: false, mode: "Working", whoIsActing: "Drone" },

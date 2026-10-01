@@ -6,7 +6,7 @@
 //!
 //! # The set is the registry's, not this file's
 //!
-//! The thirteen variants are the thirteen keys of `domain/job-statuses.toml`,
+//! The fourteen variants are the fourteen keys of `domain/job-statuses.toml`,
 //! spelled exactly as that file spells them, because the key *is* the wire
 //! value — a rule comparing the two needs a set lookup and no mapping in
 //! between. Issue #92 is that rule; [`JobStatus::ALL`] and
@@ -23,7 +23,7 @@
 
 use crate::job::transition::EDGES;
 
-/// Where a Job is. Thirteen, from `domain/job-statuses.toml`.
+/// Where a Job is. Fourteen, from `domain/job-statuses.toml`.
 ///
 /// Ordered as the registry orders its tables, alphabetically by wire value, so
 /// that reading the two side by side is a line-for-line comparison.
@@ -74,6 +74,17 @@ pub enum JobStatus {
     /// engineer, and Fleet must not reclaim it. Distinguished from
     /// [`Escalated`](Self::Escalated) by who holds the worktree.
     Piloted,
+    /// A request has been dispatched and the Job proposer is reading it. **The
+    /// third entry status**, beside [`AwaitingApproval`](Self::AwaitingApproval)
+    /// and [`Queued`](Self::Queued), and the only one whose Job has no frozen
+    /// workflow yet — so it holds no `job_steps` rows at all, and
+    /// [`StepState::seen_under`] answers with every status but this one.
+    ///
+    /// Nothing arrives here: a Job is created in it and leaves for
+    /// [`AwaitingApproval`](Self::AwaitingApproval) when the proposer answers,
+    /// [`Escalated`](Self::Escalated) where it declined or the call faulted, or
+    /// [`Killed`](Self::Killed) where a person stopped waiting.
+    Proposing,
     /// Approved, waiting for a Drone — on headroom, or on a dependency. Its
     /// reason is computed at read time and never stored, because a held port
     /// span never self-clears. The entry status of a sub-dispatched Job.
@@ -102,6 +113,7 @@ impl JobStatus {
         JobStatus::Escalated,
         JobStatus::Killed,
         JobStatus::Piloted,
+        JobStatus::Proposing,
         JobStatus::Queued,
         JobStatus::Rejected,
         JobStatus::Running,
@@ -122,6 +134,7 @@ impl JobStatus {
             JobStatus::Escalated => "escalated",
             JobStatus::Killed => "killed",
             JobStatus::Piloted => "piloted",
+            JobStatus::Proposing => "proposing",
             JobStatus::Queued => "queued",
             JobStatus::Rejected => "rejected",
             JobStatus::Running => "running",
@@ -130,7 +143,7 @@ impl JobStatus {
     }
 
     /// Read a stored column back. `None` where the value is not one of the
-    /// thirteen, which is a row written by something that did not share this
+    /// fourteen, which is a row written by something that did not share this
     /// enum — the caller decides what that means rather than getting a default.
     pub fn from_wire(value: &str) -> Option<JobStatus> {
         JobStatus::ALL
@@ -167,8 +180,31 @@ impl JobStatus {
     }
 }
 
+/// Every status but `proposing`, which is the one status a Job holds before it
+/// has a workflow and therefore before it has a step at all.
+///
+/// **What `advanced` answers, where it answered [`JobStatus::ALL`].** No guard
+/// narrows this one: no edge arrives at `proposing`, so nothing is carried in,
+/// and no step row exists to be in any state. Written out for
+/// [`NOT_UNDER_COMPLETED_SUCCESS`]'s reason.
+const NOT_UNDER_PROPOSING: &[JobStatus] = &[
+    JobStatus::AwaitingApproval,
+    JobStatus::AwaitingAttestation,
+    JobStatus::AwaitingRepair,
+    JobStatus::AwaitingReview,
+    JobStatus::CompletedFailed,
+    JobStatus::CompletedSuccess,
+    JobStatus::Escalated,
+    JobStatus::Killed,
+    JobStatus::Piloted,
+    JobStatus::Queued,
+    JobStatus::Rejected,
+    JobStatus::Running,
+    JobStatus::Superseded,
+];
+
 /// Every status but `completed_success`, which is guarded against every step
-/// state except `advanced`.
+/// state except `advanced` — and but `proposing`, which holds no step at all.
 ///
 /// Written out rather than filtered from [`JobStatus::ALL`], because
 /// `seen_under` returns a `&'static [JobStatus]` and the gate reads these arms
@@ -190,7 +226,8 @@ const NOT_UNDER_COMPLETED_SUCCESS: &[JobStatus] = &[
 ];
 
 /// The same list without `awaiting_repair`, which is the second status a guard
-/// narrows and the only one that narrows against `running`.
+/// narrows and the only one that narrows against `running`. `proposing` is out
+/// of it for the reason it is out of the list above.
 ///
 /// `running -> awaiting_repair` is guarded on
 /// [`NoStepRunning`](crate::Guard::NoStepRunning), so a step still being worked
@@ -296,9 +333,16 @@ impl StepState {
     /// it rather than where a walk found it. It is now as wide as the rest bar
     /// `completed_success`, which is the whole point of reaching it — a Job
     /// whose last step is a human gate cannot end while the gate is open.
+    ///
+    /// **And nothing at all is seen under `proposing`**, which is why
+    /// `advanced` no longer answers [`JobStatus::ALL`]. That status is a
+    /// request dispatched and being read, before a workflow has been resolved,
+    /// so the Job has no `job_steps` rows for a state to be the state of. It is
+    /// the one status narrowed by the absence of an inbound edge rather than by
+    /// a [`Guard`](crate::Guard).
     pub fn seen_under(&self) -> &'static [JobStatus] {
         match self {
-            StepState::Advanced => JobStatus::ALL,
+            StepState::Advanced => NOT_UNDER_PROPOSING,
             StepState::AwaitingHuman => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::NotStarted => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::Retrying => NOT_UNDER_COMPLETED_SUCCESS,
