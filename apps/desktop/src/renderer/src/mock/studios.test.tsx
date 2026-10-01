@@ -45,8 +45,22 @@ const bar = () => page.getByRole("group", { name: "What is picked" });
  * `aria-label` and the glyph is what a reader sees.
  */
 const offered = (name: string) => bar().getByRole("button", { name, exact: true });
-/** Reach one act. **One press, never two** — there is no menu to open first. */
+/**
+ * Reach one act. **One press, never two** — there is no menu to open first.
+ *
+ * **Only where a pointer reaches it.** Playwright scrolls a press into view,
+ * and a bar past the board's edge sits in a wrapper React Flow scrolls straight
+ * back, so the press landed or not by which scroll won: a flake, and a bar a
+ * person could not reach. Now it fails every time, and names the act.
+ */
 async function act(name: string): Promise<void> {
+  await expect.element(offered(name)).toBeVisible();
+  const press = offered(name).element();
+  await expect
+    .poll(() => document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button") === press, {
+      message: `${name} is where a pointer reaches it`,
+    })
+    .toBe(true);
   await offered(name).click();
 }
 const asked = (name: string) => page.getByRole("dialog").getByRole("button", { name, exact: true });
@@ -592,6 +606,11 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await expect.element(node(/^Issue draft: Counts go stale after what they count changes/)).toBeVisible();
 
   // Edited before it is sent: what is dispatched is what the person left.
+  // **Fitted first, as a person would.** The draft lands hanging off the
+  // board's right edge, so the bar centred over it put "Edit draft" past the
+  // frame — pressed only when Playwright's scroll beat React Flow's scroll
+  // back, which lost on the merge line on 1 Oct 2026.
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
   await pick(/^Issue draft: Counts go stale after what they count changes/);
   await act("Edit draft");
   await page.getByRole("textbox", { name: "Body" }).fill("Both counts are read off a row that is stale.");
@@ -975,14 +994,9 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   await pickEvery();
   // Counted, never named, and the single-node act is not what is offered here.
   await expect.element(offered("Delete 18 nodes")).toBeVisible();
-  // **Where a pointer reaches it**, not past the board's bottom edge: picked
-  // whole, a fitted board leaves no room above the nodes or below them, and a
-  // bar outside the frame was clicked only by Playwright scrolling a wrapper
-  // React Flow scrolls straight back — 1 run in 3 under a loaded machine.
-  const press = offered("Delete 18 nodes").element();
-  expect(document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button")).toBe(press);
-
-  await offered("Delete 18 nodes").click();
+  // Picked whole, a fitted board leaves no room above the nodes or below them,
+  // and the bar sat past the bottom edge until it learned to sit over them.
+  await act("Delete 18 nodes");
   const confirm = page.getByRole("dialog");
   await entered(confirm);
   await expect.element(page.getByRole("button", { name: "Cancel" })).toHaveFocus();
