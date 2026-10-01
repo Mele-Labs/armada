@@ -219,6 +219,31 @@ export const HeaderHoldsItsHeight: Story = {
   },
 };
 
+/** A sentence written in markdown: a paragraph, then a list, emphasis and code. */
+const IN_MARKDOWN =
+  "Checking **settling** first:\n\n- `held_slot` is read twice\n- the second read is stale";
+
+/**
+ * The Drone's sentence in markdown, between calls.
+ *
+ * **Its markdown is kept and so is its one line.** Emphasis and code draw; the
+ * paragraph and the list run on along the line rather than stacking, so the
+ * clip still ends in an ellipsis. The header's height is held by the line's
+ * own box whatever is in it, so no play measures it — the line is looked at.
+ */
+export const BetweenCallsInMarkdown: Story = {
+  name: "Between calls, in markdown",
+  args: {
+    label: "Where this step is",
+    attempts: [summarised(IN_MARKDOWN)],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("settling").tagName).toBe("STRONG");
+    await expect(canvas.getByText("held_slot").tagName).toBe("CODE");
+    await expect(canvas.getByText("the second read is stale").tagName).toBe("LI");
+  },
+};
+
 /** `PhaseGoesLive`'s own attempt, built for whichever phase is live. */
 function liveAttempt(live: "working" | "checks"): StepTimelineAttempt {
   return {
