@@ -33,7 +33,7 @@ import { Standing } from "./Standing";
 import { CopiedToast, SaidToast, useCopied, useSaid } from "@armada/shell";
 import { FailureBlock } from "@armada/shell";
 import { jobFailure } from "@armada/shell";
-import { OverviewActions } from "@armada/shell";
+import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { BridgeSettings } from "@armada/screens";
@@ -42,6 +42,7 @@ import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
+import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
@@ -192,6 +193,9 @@ export function App({ draft }: AppProps = {}) {
   // the Board would put a control nobody can act on beside rows that exist to
   // be acted on.
   const [clearing, setClearing] = useState(false);
+  // Which bulk sweep is asking to be confirmed. Here rather than on Cleanup,
+  // because the palette can ask for one from any surface.
+  const [sweep, setSweep] = useState<Sweep | null>(null);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
   const [settingsShowing, setSettingsShowing] = useState(false);
@@ -570,23 +574,21 @@ export function App({ draft }: AppProps = {}) {
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
-  // Overview's own menu, at the top of its content. It was the Board's, and
-  // Reported, Refresh and the two bulk sweeps had no other entrance in the
-  // app — so it came here rather than going with that page.
-  const surfaceActions = (
-    <OverviewActions
-      jobs={boardJobs}
-      live={live}
-      refreshing={commands.refreshing}
-      onRefresh={() => void commands.refresh()}
-      onReadReports={() => setAuditing(true)}
-      onReadWorktrees={() => setClearing(true)}
-      onOpenSettings={() => goTo(SURFACE.settings)}
-      onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
-      onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
-      sweeping={commands.sweeping}
-    />
-  );
+  // Refresh is a key and a palette row, and nothing on screen.
+  useRefreshKey(() => {
+    if (live) void commands.refresh();
+  });
+  // What the Overview menu carried and nothing else did, now in the palette:
+  // Reported is drawn there and nowhere else.
+  const busy = live ? (commands.sweeping === null ? undefined : "waiting on Fleet") : FLEET_DOWN;
+  const boardRows = [
+    { id: "reports", label: "Reported" },
+    ...sweepsOf(boardJobs).map((one) => ({
+      ...one,
+      ...(one.id === "forget" ? { destructive: true } : {}),
+      ...(busy === undefined ? {} : { dormant: busy }),
+    })),
+  ];
 
   return (
     /* The guidance system, over the whole window — #1602, #1603. It holds what
@@ -903,6 +905,9 @@ export function App({ draft }: AppProps = {}) {
                 now={now}
                 onClose={() => setClearing(false)}
                 onCopied={setCopied}
+                actions={
+                  <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
+                }
               />
             </Boundary>
           ) : manifesting && all ? (
@@ -1077,7 +1082,6 @@ export function App({ draft }: AppProps = {}) {
                 onCompose={() => setComposing(true)}
                 onCopied={setCopied}
                 onCursor={setCursor}
-                actions={surfaceActions}
                 land={landing}
                 onLanded={() => setLanding(null)}
               />
@@ -1113,6 +1117,15 @@ export function App({ draft }: AppProps = {}) {
         onConfirm={confirmed}
       />
 
+      <SweepDialogs
+        jobs={boardJobs}
+        asking={sweep}
+        sweeping={commands.sweeping}
+        onDone={() => setSweep(null)}
+        onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
+        onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
+      />
+
       <Locate locating={locate} />
 
       <PaletteMount
@@ -1126,6 +1139,8 @@ export function App({ draft }: AppProps = {}) {
         checkoutRunSheet={state.checkoutRunSheet}
         cursor={cursor}
         failing={failing}
+        live={live}
+        board={boardRows}
         acts={{
           openJob: setOpenJob,
           closeJob: close,
@@ -1141,6 +1156,13 @@ export function App({ draft }: AppProps = {}) {
           confirm: (what, jobId) => setConfirming({ act: what, jobId }),
           openSetting: (id) => {
             if (id === "fleet_settings") goTo(SURFACE.settings);
+          },
+          refresh: () => void commands.refresh(),
+          board: (id) => {
+            if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
+            // Reports close back to Overview, so that is where they open over.
+            goTo(SURFACE.overview);
+            setAuditing(true);
           },
         }}
         onConfirmAct={(id, jobId) => {

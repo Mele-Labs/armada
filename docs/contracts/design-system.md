@@ -1285,6 +1285,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 Esc      close an overlay, or return to the list from a detail route
+⇧⌘R      refresh, re-reading everything Fleet holds
 ```
 
 **`⌘Enter` is the one Global binding that needs a focused field**, and it is
