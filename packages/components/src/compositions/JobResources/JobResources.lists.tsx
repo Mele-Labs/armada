@@ -26,7 +26,7 @@ export type PulseReading = {
    * leaving the row blank.
    */
   held: string;
-  /** When every figure here was read. */
+  /** When every figure here was read, except a worktree's size, which has its own `age`. */
   readAt: string;
   /** The recorded process and everything descended from it, that one first. */
   processes: PulseProcessRow[];
@@ -73,6 +73,12 @@ export type PulseWorktreeRow = {
   state: string;
   /** What it takes on disk. **Absent is a walk that ran past its bound, never zero.** */
   bytes?: number;
+  /**
+   * How old `bytes` is, as a phrase — `25s`. Formatted by the caller, from the
+   * size's own instant: Fleet keeps a size between reads, so it is not the
+   * reading's age.
+   */
+  age?: string;
   /** Whether the state is a fault. Draws it in `--error`. */
   wrong?: boolean;
   /** Whether a Drone is working in it now. Draws the dot in the running hue. */
@@ -303,9 +309,16 @@ export function Worktrees({
               {one.state}
             </span>
           </span>
-          <Tooltip label={SIZE_ON_DISK} asChild>
-            <span className="armada-holds__weight">{one.bytes === undefined ? NOT_WALKED : sized(one.bytes)}</span>
-          </Tooltip>
+          <span className="armada-holds__sized">
+            <Tooltip label={SIZE_ON_DISK} asChild>
+              <span className="armada-holds__weight">{one.bytes === undefined ? NOT_WALKED : sized(one.bytes)}</span>
+            </Tooltip>
+            {one.age === undefined ? null : (
+              <Tooltip label={LAST_MEASURED} asChild>
+                <span className="armada-holds__read-at">{ago(one.age)}</span>
+              </Tooltip>
+            )}
+          </span>
           <Opens open={one.open} onOpen={onOpen} />
         </li>
       ))}
@@ -416,6 +429,13 @@ const NOT_WALKED = "not measured";
 
 /** What a worktree row's figure is, and what the card head's total is. */
 const SIZE_ON_DISK = "Size on disk";
+/** What the age under a worktree's size is. */
+const LAST_MEASURED = "Last measured";
+
+/** An age as the board spells it — `4s ago`. */
+export function ago(age: string): string {
+  return `${age} ago`;
+}
 export const TOTAL_SIZE_ON_DISK = "Total size on disk";
 
 /**

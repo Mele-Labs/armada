@@ -544,6 +544,9 @@ where
     pub(crate) fn servers(&self) -> &crate::servers::Servers {
         &self.servers
     }
+    pub(crate) fn sizes(&self) -> &crate::resources::Sizes {
+        &self.sizes
+    }
     pub(crate) fn noticing(&self) -> Noticing {
         self.noticing
     }

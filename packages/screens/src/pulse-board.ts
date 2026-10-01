@@ -7,6 +7,7 @@
 import type { Figure, PulseLogRow, PulseReading, PulseWorktreeRow } from "@armada/components";
 import type { JobDetail as JobWhole, JobExamined, StepDetail } from "@armada/protocol";
 import type { PulseView } from "./draft/pulse";
+import { span } from "./duration";
 import { ordered, spent } from "./facts";
 import { cap } from "./RaiseCap";
 import { checksOf, isRunning } from "./gates";
@@ -23,11 +24,13 @@ import { checksOf, isRunning } from "./gates";
  * each one a step's criteria were asked with, and the host opens it by that
  * path. `whole` is optional because the job sheet draws this board from a
  * caller that does not pass it; that board lists the Job's own log alone.
+ * A size's age is off its own `measured_at`: Fleet keeps a size between reads.
  */
 export function pulseReadingOf(
   view: PulseView,
   examined: JobExamined | null,
   whole?: JobWhole | null,
+  now?: number,
 ): PulseReading {
   const one = view.worktrees.length === 1;
   return {
@@ -46,6 +49,7 @@ export function pulseReadingOf(
       branch: worktree.branch,
       path: worktree.path,
       ...(worktree.bytes === undefined ? {} : { bytes: worktree.bytes }),
+      ...sizeAge(worktree.measured_at, now),
       ...(one ? { ...standing(view.held, examined), open: "worktree" as const } : { state: ON_DISK }),
     })),
     logs: [
@@ -59,6 +63,11 @@ export function pulseReadingOf(
       ...briefsOf(whole ?? null),
     ],
   };
+}
+
+function sizeAge(measuredAt: string | undefined, now: number | undefined): { age?: string } {
+  const age = measuredAt === undefined || now === undefined ? null : span(measuredAt, now);
+  return age === null ? {} : { age };
 }
 
 /** A checkout nobody found anything wrong with, and no Drone is in. */

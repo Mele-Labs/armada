@@ -59,7 +59,7 @@ function reading(over: Partial<PulseReading> = {}): PulseReading {
         path: "/Users/user/armada/.armada/worktrees/01JOBHOLDS001",
         branch: BRANCH,
         state: "on disk",
-        bytes: 1_073_741_824,
+        bytes: 1_073_741_824, age: "21s",
       },
     ],
     logs: [{ kind: "job", owner: null, writing: true }],
