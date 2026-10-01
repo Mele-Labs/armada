@@ -38,7 +38,7 @@ import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
 import { ordered } from "./facts";
-import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
+import { placeOf, stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf, workflowReadingOf } from "./workflow-inspector";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
@@ -301,7 +301,7 @@ export function WorkflowTab({
                   {on === undefined ? null : (
                     <>
                       <span className="armada-workflow-tab__rule" aria-hidden="true" />
-                      <span className="armada-workflow-tab__on">step {on.ordinal}</span>
+                      <span className="armada-workflow-tab__on">step {placeOf(on)}</span>
                     </>
                   )}
                 </div>

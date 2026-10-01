@@ -135,6 +135,7 @@ fn verify_foundations() -> ExitCode {
         rules_bundled::no_workspace_package_is_left_for_node(&root),
         rules_node::the_pinned_node_satisfies_the_declared_floor(&root),
         rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads(&root),
+        rules_stylesheets::claims::no_two_compositions_claim_one_class(&root),
         rules_tests::every_test_file_is_declared(&root),
         rules_transcripts::no_bare_transcript_read_in_a_test(&root),
         rules_protocol::the_router_serves_what_the_inventory_names(&root),

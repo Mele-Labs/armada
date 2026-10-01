@@ -265,7 +265,12 @@ where
         // row may be answered with is the Manifest's and the harness's.
         detail.when_blocked = Some(self.when_blocked_of(job.id()).await);
         detail.command_waiting = self.command_awaited(job.id()).await;
-        detail.judge_question = self.judge_question_of(job.id()).await;
+        // **Not on a terminal Job**, which nobody can answer: the row stays
+        // as the record, and the step stays `awaiting_human` because
+        // `[statuses.killed]` freezes it where it stood.
+        if !job.status().is_terminal() {
+            detail.judge_question = self.judge_question_of(job.id()).await;
+        }
         detail.when_refused = Some(self.when_refused_of(job.id()).await);
         detail.allowed_commands = self
             .allowed_of(job.id())

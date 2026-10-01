@@ -584,6 +584,7 @@ export const CHANNELS = {
   startServer: "bridge:start-server",
   stopServer: "bridge:stop-server",
   openServerLink: "bridge:open-server-link",
+  openLink: "bridge:open-link",
   examineJob: "bridge:examine-job",
   readDiff: "bridge:read-diff",
   readRemarks: "bridge:read-remarks",
