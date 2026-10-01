@@ -79,6 +79,11 @@ export type OverviewBoardProps = {
    * just have one panel?"*
    */
   waiting?: ReactNode;
+  /**
+   * What the lead's Approve dispatch approves, under it and over the Brief —
+   * `approving.tsx`. Absent on every Job not waiting to be dispatched.
+   */
+  approving?: ReactNode;
   workflow?: OverviewWorkflow;
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
@@ -102,6 +107,7 @@ export type OverviewBoardProps = {
 export function OverviewBoard({
   lead,
   waiting,
+  approving,
   workflow,
   workflowAbsent,
   plan,
@@ -117,6 +123,7 @@ export function OverviewBoard({
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
       <JobLead {...lead} waiting={waiting} />
+      {approving}
 
       <div className="armada-overview-board__cards">
         {/* **What the Job is for, before what it is doing.** It took the

@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Prose } from "../../primitives/Prose/Prose";
+
 /**
  * Evidence trail — one entry per step, in submission order, with the Check
  * that let it pass.
@@ -21,8 +23,8 @@ import type { ReactNode } from "react";
  * would read as no answer, which is the reading the field exists to rule out.
  *
  * Hedge by source: `shown_by` names an artifact the system can point at, so it
- * is mono. `claimed` and `not_claimed` are the Drone's own words and render as
- * prose.
+ * is mono. `claimed` and `not_claimed` are the Drone's own words, drawn through
+ * `Prose` so the markdown a Drone writes in them reads as its structure.
  */
 export type EvidenceTrailEntry = {
   /** The step's name, in sans. A step is a unit of work with a name. */
@@ -39,15 +41,15 @@ export type EvidenceTrailEntry = {
   icon?: LucideIcon;
   /** The accessible name for the glyph. */
   iconLabel?: string;
-  /** What the work now does, as an observable. */
-  claimed: ReactNode;
+  /** What the work now does, as an observable. The Drone's own markdown. */
+  claimed: string;
   /** The artifact demonstrating it — a diff, a command, a set of paths. Mono. */
   shownBy: ReactNode;
   /**
-   * What the submission does not claim. Required, and may be empty — an empty
-   * one renders the word rather than a dash.
+   * What the submission does not claim, in the Drone's markdown. Required, and
+   * may be empty — an empty one renders the word rather than a dash.
    */
-  notClaimed?: ReactNode;
+  notClaimed?: string;
 };
 
 export type EvidenceTrailProps = {
@@ -78,7 +80,9 @@ export function EvidenceTrail({ entries, emptyNotClaimed = "Nothing" }: Evidence
             </div>
             <div className="armada-evidence-trail__field">
               <span className="armada-evidence-trail__label">Claimed</span>
-              <span className="armada-evidence-trail__value">{entry.claimed}</span>
+              <div className="armada-evidence-trail__value">
+                <Prose text={entry.claimed} />
+              </div>
             </div>
             <div className="armada-evidence-trail__field">
               <span className="armada-evidence-trail__label">Shown by</span>
@@ -90,9 +94,9 @@ export function EvidenceTrail({ entries, emptyNotClaimed = "Nothing" }: Evidence
                 claims, and only one of them is a Drone saying "nothing". */}
             <div className="armada-evidence-trail__field">
               <span className="armada-evidence-trail__label">Not claimed</span>
-              <span className="armada-evidence-trail__value">
-                {entry.notClaimed ? entry.notClaimed : emptyNotClaimed}
-              </span>
+              <div className="armada-evidence-trail__value">
+                {entry.notClaimed ? <Prose text={entry.notClaimed} /> : emptyNotClaimed}
+              </div>
             </div>
           </div>
         </li>
