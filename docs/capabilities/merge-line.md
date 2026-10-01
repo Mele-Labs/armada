@@ -31,7 +31,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | The merge goes through GitHub, pinned to the gated commit | `gh pr merge --merge --match-head-commit` |
 | `main` is read again right before merging | `git ls-remote`; a move gates again |
 | An ungated combination landing is said | Merge commit's first parent against the gated base |
-| An agent still asks the owner before landing | The agent's own brief; nothing here asks |
+| An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
 
 ## One turn
 

@@ -11,11 +11,12 @@
 // **Placement is computed here, from plan order.** The canvas holds none, so
 // the numbers below are the layout and they are unit-tested in this package.
 
-import type {
-  WorkflowCanvasEdge,
-  WorkflowCanvasNode,
-  WorkflowStepCardProps,
-  StepActivity,
+import {
+  GROUP_STATE,
+  type WorkflowCanvasEdge,
+  type WorkflowCanvasNode,
+  type WorkflowStepCardProps,
+  type StepActivity,
 } from "@armada/components";
 
 import type { GroupState, GroupView } from "./draft/group";
@@ -53,23 +54,11 @@ export function plural(count: number, one: string, many = `${one}s`): string {
 }
 
 /**
- * A group's state mapped to the nearest step activity, for the mark alone.
- *
- * **The group's own word is kept and printed beside it**, so nothing is lost:
- * `joining` and `checking` are not step states and the step machine has no
- * mark for either. This is a drawing decision, which is why it is here and not
- * in the card.
+ * The group states that are still working, so the card sweeps. **The sweep is
+ * all a group's activity decides**: its glyph, hue and word are `GROUP_STATE`'s
+ * row, the one the list's group head reads, handed to the card as `mark`.
  */
-const GROUP_ACTIVITY: Record<GroupState, StepActivity> = {
-  pending: "not_started",
-  running: "running",
-  joining: "running",
-  checking: "running",
-  passed: "advanced",
-  failed: "failed",
-  retrying: "retrying",
-  landed: "advanced",
-};
+const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "checking"]);
 
 /**
  * A task's state mapped the same way. `dropped` takes `stopped`, the step
@@ -84,8 +73,9 @@ const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   dropped: "stopped",
 };
 
-/** One group's card. Its own word, with the nearest step mark behind it. */
+/** One group's card. Its registry row's glyph, hue and verb — what the list says. */
 function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+  const row = GROUP_STATE[group.state];
   const facts = [{ value: plural(group.tasks.length, "task") }];
   if (group.checks_selected.length > 0) facts.push({ value: plural(group.checks_selected.length, "check") });
   if (group.concurrent) facts.push({ value: "at the same time" });
@@ -93,8 +83,9 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
   return {
     kind: "group",
     name: `Group ${group.ordinal}`,
-    activity: GROUP_ACTIVITY[group.state],
-    said: group.state,
+    activity: GROUP_WORKING.has(group.state) ? "running" : "not_started",
+    ...(row?.icon && row.statusToken ? { mark: { icon: row.icon, token: row.statusToken } } : {}),
+    said: row?.verb ?? group.state,
     facts,
     ...(onOpen === undefined ? {} : { onOpen }),
   };

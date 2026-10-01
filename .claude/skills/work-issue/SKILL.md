@@ -1,14 +1,14 @@
 ---
 name: work-issue
-description: How to work one GitHub issue the way a Job works a workflow — worktree, plan, implement, test, commit, merge. Load before starting any issue, and before dispatching agents at several.
+description: How to work one GitHub issue the way a Job works a workflow — worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
 ---
 
 # Working one issue
 
 **This is the `bug` workflow, run by hand.** Armada dispatches a Drone into its
 own worktree, gates each step, and holds the work at `awaiting_review` before it
-lands. When Fleet is not the one dispatching, that shape still applies, and this
-skill is it.
+lands. When Fleet is not the one dispatching, that shape still applies up to the
+hold, and this skill is it. Here green work lands without waiting (step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
 close it. **This skill owns where the work happens and how it lands** — the two
@@ -73,18 +73,23 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 4, and it is not optional because the change looks small.
 
-**Run what your change can affect, once.** The Checks this repository gates on
-are in `armada.yml`, and each one's `when:` list names the files that make it
-apply. Confirmed 13 Sep 2026: a session ran every row of the old table on every
-branch and again after every rebase, beside another session's test run, and the
-owner's machine was unusable.
+**A quick self-check, once: build, typecheck, and the tests of what you
+changed.** The merge line is the full run: `scripts/land` runs the Checks the
+merged tree hits against the real `main`, and a red there comes back to you
+(step 6). Where `main` has not moved since the branch was cut it runs only the
+gate (`docs/practices/running-locally.md`, *Landing a branch*).
+
+**Never every Check the branch touches, and never twice.** Confirmed 13 Sep
+2026: a session ran every row of the old table on every branch and again after
+every rebase, beside another session's test run, and the owner's machine was
+unusable.
 
 | You changed | Run |
 |---|---|
 | A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
 | Any Rust | `cargo fmt --all --check`, and `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
-| `apps/` or `packages/` | `armada check typecheck`, and `armada check <name> <test>` for each test and story you touched. **A story is in `components_test`**, a screen's test through `App` in `desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `bridge_build` and `storybook` only where their `when:` matches |
+| `apps/` or `packages/` | `armada check typecheck`, and `armada check <name>` for the package you changed. **A story is in `components_test`**, a screen's test through `App` in `desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx` |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
 | Anything | `cargo xtask verify-foundations` once, before the PR — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
 
@@ -114,21 +119,13 @@ with ten unformatted hunks and an unused import. `format` is a Check in
 `armada.yml`, so the next Job cut from `main` would have failed on work that
 was not its own.
 
-**A shared primitive or hook runs the whole suite of every package that draws
-it, not the tests beside it.** Confirmed 17 Sep 2026: #1227 moved the hold into
-`useHold`, which subscribes to the reduced-motion query, and ran only its own
-stories and `Acts` tests. A row test in `packages/screens` faked that query as
-`{ matches: true }` and threw once a row's Kill held. The merge left `main` red
-until #1229.
-
 **Verify it yourself rather than on a report.** An agent's claim of green has
 been wrong here.
 
-**The app suite passes twice in a row before a merge.** `desktop_test` on the
-branch, two full runs back to back. When a run fails, compare the branch with
-`main` in alternating runs, several of each, never a block of runs on one tree:
-machine load drifts across a block and makes one tree look clean and the other
-broken. Confirmed 17 Sep 2026: runs alternated between `main` and a branch
+**When a `desktop_test` failure may not be yours, compare alternately.** Run
+the branch and `main` in alternating runs, several of each, never a block of runs
+on one tree: machine load drifts across a block and makes one tree look clean and
+the other broken. Confirmed 17 Sep 2026: runs alternated between `main` and a branch
 failed 3 of 10 on each, where blocks had blamed the branch.
 
 **A filtered Check that prints nothing did not pass.** `armada check` reads
@@ -150,20 +147,25 @@ write.** Stage by name, or read `git status` first and know every entry. That is
 how someone else's uncommitted work ended up inside a commit about something
 else.
 
-### 6. Merge, and let it be reviewed
+### 6. Land it, and let it be read afterwards
 
-The commit lands on the branch. **Whether it merges is not the agent's call** —
-which is exactly `human_always` on `handoff`, and the reason six of the seven
-shipped workflows now stop before landing.
+**Green work lands without asking.** Once the work is committed and step 4's
+self-check passes, push, open a PR (`scripts/land` needs one), and run
+`scripts/land` straight away. The merge line is the guard. The owner reviews
+afterwards by reading what landed, for example
+`git log --merges --first-parent main --since=yesterday`.
 
-**Once the owner says merge, `scripts/land` is how it merges** — never
-`gh pr merge`, never a push to `main`, and a hook refuses both.
+**`scripts/land` is how it merges**: never `gh pr merge`, never a push to
+`main`, and a hook refuses both.
 
 ```
-scripts/land preflight   # once step 4's Checks pass, on a clean tree
+scripts/land preflight   # once step 4's self-check passes, on a clean tree
 scripts/land             # joins the line and returns at once
 scripts/land --status    # poll in short foreground calls
 ```
+
+**A red turn comes back to you.** Read the logs it names, fix on the branch,
+then preflight and land again.
 
 **The line exists because a branch's Checks measure a `main` that moves.** The
 gate reads the merged tree, and a branch and `main` can each sit under a limit
@@ -182,9 +184,10 @@ plain push carries the result — which is the same reason Fleet stopped rebasin
 in #1131. `docs/capabilities/merge-line.md` is the design, and
 `docs/practices/running-locally.md` has what each exit code means.
 
-Open a PR or hand back the branch, and say what you would want looked at
-closely. Then `milestone-step` steps 5, 6 and 7: close the issue with what
-contradicted the plan, give every open item an owner, report.
+Say in the PR what you would want looked at closely, because that is where the
+owner reads it. Then `milestone-step` steps 5, 6 and 7: close the issue with what
+contradicted the plan, give every open item an owner, report. **The report names
+the merge commit the branch landed as.**
 
 ## Dispatching several agents at once
 

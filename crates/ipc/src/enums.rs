@@ -96,7 +96,11 @@ wire_enum! {
     Side, core_model::Side, "a side"
 }
 wire_enum! {
-    /// Where a Job is. Twelve, from `domain/job-statuses.toml`.
+    /// Where a Job is. Fourteen, from `domain/job-statuses.toml`.
+    ///
+    /// **Strict, and Bridge picks a screen from it** — `docs/practices/protocol.md`
+    /// names this set as the one whose growth is a major bump for exactly that
+    /// reason, which is why `proposing` moved the major to 19.
     JobStatus, core_model::JobStatus, "a Job status"
 }
 wire_enum! {

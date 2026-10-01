@@ -6,6 +6,7 @@
 // a toast, and this is the one implementation of it: the root fallback needs
 // the same confirmation as the app, and two copies of a timer drift.
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Toast } from "@armada/components";
 
@@ -30,11 +31,7 @@ export function useCopied(): [string | null, (value: string) => void] {
  */
 export function CopiedToast({ copied }: { copied: string | null }) {
   if (copied === null) return null;
-  return (
-    <div className="armada-app__toasts">
-      <Toast>{`${copied} is on the clipboard.`}</Toast>
-    </div>
-  );
+  return <Toast>{`${copied} is on the clipboard.`}</Toast>;
 }
 
 /**
@@ -68,9 +65,17 @@ export function useSaid(): [string | null, (sentence: string) => void] {
  */
 export function SaidToast({ said }: { said: string | null }) {
   if (said === null) return null;
-  return (
-    <div className="armada-app__toasts">
-      <Toast>{said}</Toast>
-    </div>
-  );
+  return <Toast>{said}</Toast>;
+}
+
+/**
+ * Where every toast in the window stands: one column in the bottom trailing
+ * corner, over every layer but the palette.
+ *
+ * **One region, so two toasts never sit on one spot.** A copy confirmation and
+ * a failure each pinned their own box to the same corner, and the second hid
+ * the first — which is the failure a person was about to copy.
+ */
+export function ToastRegion({ children }: { children: ReactNode }) {
+  return <div className="armada-app__toasts">{children}</div>;
 }

@@ -68,6 +68,7 @@ import { openKept } from "./phases";
 import { CHECKS_CHAPTER } from "./checks";
 import { runOf, whyNoSteps } from "./run";
 import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
+import { proposerWaitOf } from "./proposing";
 import { taskGroupsOf } from "./draft/group";
 import { entriesOf, hideUnread, whyNotWatching } from "./story";
 import {
@@ -81,7 +82,7 @@ import { pulseViewOf } from "./draft/pulse";
 import { jobMembersOf } from "./draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
-import { whyNoBrief } from "./work";
+import { stillReading, whyNoBrief } from "./work";
 
 
 
@@ -814,6 +815,9 @@ export function OverviewTab(props: OverviewTabProps) {
     questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
     commandOf(whole, answering, explain),
     verdictSlot,
+    // The proposer's own call, on the one status where the thing the lead names
+    // is a model reading rather than anything a step holds. #1159.
+    proposerWaitOf(job, props.proposing ?? null, now, props.onStopProposer),
   );
 
   // **What leads the screen, before the run a person would have to read to
@@ -866,7 +870,9 @@ export function OverviewTab(props: OverviewTabProps) {
 
   const inside = (
     <OverviewBoard
-      lead={{ ...lead, act: leadAct }}
+      // The quiet line stands in while the read is out; any other lead is
+      // the Board row's to say at once (owner, 1 Oct 2026).
+      lead={{ ...lead, act: leadAct, reading: lead.quiet === true && stillReading(watched, job.id) }}
       waiting={waiting}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
@@ -909,13 +915,21 @@ export function OverviewTab(props: OverviewTabProps) {
       // Totals rather than counts: the owner replaced Pulse's process count
       // with CPU and memory on 29 Sep 2026 — *"I would prefer to use this
       // space for total CPU/memory instead of a number of processes."*
-      pulse={pulseCard(holding === null ? null : pulseViewOf(holding), examinedNow, whole)}
+      // **A Job being proposed is on no machine at all**, so `0 Checks running`
+      // would be a measurement of something that cannot exist yet rather than a
+      // reading of nothing. The card says nothing was read instead.
+      pulse={
+        job.status === "proposing"
+          ? []
+          : pulseCard(holding === null ? null : pulseViewOf(holding), examinedNow, whole)
+      }
       pulseAbsent={whyNoReading(resources)}
       {...(whole === null ? {} : { brief: whole.facts })}
       briefAbsent={whyNoBrief(watched, job.id)}
       // What froze, and whether anybody has moved a setting since. `changedOf`
       // is the same count the strip's own Settings tab carries.
       settings={settingsSaid(props.draft?.landing, changedOf(whole))}
+      reading={stillReading(watched, job.id)}
       onOpenTab={props.onOpenTab}
     />
   );

@@ -107,6 +107,32 @@ it(
 );
 
 /**
+ * A person's own press is told apart from a failure. **Its own arm**, because
+ * `fleet.proposer_stopped` falling through to a bare refusal drew somebody
+ * pressing a control Armada offered them as a red failure notice — which is
+ * exactly what `refusing.rs` declares the code apart to prevent.
+ */
+it("reads a stopped proposal as stopped, with the request back", async () => {
+  const port = await fleetThat((response) => {
+    response.writeHead(409, { "content-type": "application/json" });
+    response.end(
+      JSON.stringify({
+        code: "fleet.proposer_stopped",
+        message: "The proposer was stopped.",
+        fields: { request: "Make the parser take it" },
+      }),
+    );
+  });
+
+  const answered = await proposeFromRequest(boardOn(port), "Make the parser take it");
+
+  expect(answered.ok).toBe(false);
+  if (answered.ok) return;
+  expect(answered.why).toBe("stopped");
+  expect(answered.why === "stopped" && answered.request).toBe("Make the parser take it");
+});
+
+/**
  * A socket that fails names the route it failed on. **`unreachable` and not
  * `timed_out`**: nothing waited, and the two take different next steps — a
  * timeout may have been carried out and this was never read.
