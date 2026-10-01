@@ -1213,11 +1213,21 @@ order is the order a person meets them.
 | `--z-menu` | Dropdown, popover, split-button menu | Opens over the surface |
 | `--z-tooltip` | Tooltip | Explains the thing a menu is over |
 | `--z-modal` | Dialog, sheet | Interrupts both |
-| `--z-toast` | Toast | Reports on the dialog just dismissed |
+| `--z-toast` | Toast | Over every panel, its scrim and every dialog, so a failure raised from inside one is pressable where it appears |
 | `--z-palette` | Command palette | The way out of anything |
 
 A number meaning "above my sibling" means "under every other layer" the moment
 its layer resolves against the window rather than its parent.
+
+**The palette stays over a toast.** A person summons it, it takes the keyboard
+while it is open, and it closes on `Esc`, so a toast is never under it for
+longer than one command. Its own *Copy debug info* acts on the newest failure
+toast, so nothing a toast offers is out of reach while the palette is up.
+
+**Esc belongs to the toast while focus is inside it.** There it dismisses that
+toast and nothing else; the panel under it stays. From anywhere else, `Esc`
+closes the top panel as it always has. A dialog opened from a toast (File an
+issue) takes `Esc` itself.
 
 **`--z-dock` is the layer a person works beside rather than through**, so it is
 the one with no scrim and the only one under `--z-menu`. Two things take it, for
@@ -2236,7 +2246,7 @@ nothing but the edge.
 | Placement | Where | Rule |
 | --- | --- | --- |
 | Inline | In the row, or beside the act | Contained to the thing you touched |
-| Toast | Bottom trailing, inset `--space-6`, shadowed | The only one that may carry no act |
+| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed |
 | Banner | Above the surface, inside it | Persistent. The surface works beneath |
 | Full-surface | Replaces the surface | The one placement that takes the screen |
 
@@ -2246,8 +2256,24 @@ red-serious and affects one row, so it renders in that row and nowhere else.
 **Rows around an inline error are undisturbed.** Same height, same badges, and
 the pulse continues.
 
-**Every placement names the failure and the act.** A toast is the one
-exception, because it reports something already over.
+**A press that failed is a toast; a state is a banner.** A command Fleet
+refused or did not answer, a route it does not serve yet, and a throw no
+boundary saw each pop up as a toast over every layer, because they come from a
+press and a panel may be open over the surface. Fleet unreachable, a stale
+window and every other standing condition stay banners above the surface:
+they are true until something changes, not something that happened.
+
+**A press the form would not send is a toast as well.** "Fleet is not
+connected. Nothing was sent." and the rest of the form's guidance pop up the
+same way, with the sentence and Dismiss and no Copy debug info, since there is
+no code to hand on. One stands per kind, so a press repeated replaces it.
+
+**Several failure toasts stack, newest nearest the corner, and none is on a
+timer.** A failure is evidence, and one that expired while somebody read the
+panel it came from is one they cannot get back.
+
+**Every placement names the failure and the act.** A confirmation toast is the
+one exception, because it reports something already over.
 
 **A toast used to clear the status bar rather than cover it**, because the
 bar spanned the window's bottom edge and a bottom-right toast could
@@ -2266,7 +2292,7 @@ again, not a second decision.
 | Placement | Form |
 | --- | --- |
 | Inline | Ghost control, copying directly. A row has no room for an expanded view |
-| Toast | Its one action. Copies and dismisses in one press, because a toast is often the only sighting |
+| Toast | A failure toast carries the notice whole: Copy debug info, the fold, File an issue and Dismiss. It stays until dismissed, so it is read as well as quoted |
 | Banner | Copy, plus **Details** opening the expanded view. A standing condition gets read, not only quoted |
 | Full-surface | Shown rather than offered. Nothing else is on the screen |
 
@@ -2320,9 +2346,11 @@ one press and **File an issue** opens a dialog first, naming every item that
 would go, showing its text, and offering a control to take it out. **Send is
 never one press from an error.**
 
-**It appears on the full-surface state and in the expanded view, and nowhere
-else.** A review needs the artifact legible in full; an inline error has no room
-for one and a toast is gone before it would be read.
+**It appears on the full-surface state, in the expanded view and on a failure
+toast, and nowhere else.** A review needs the artifact legible in full; an
+inline error has no room for one. A failure toast stays until it is dismissed
+and its review opens over it, so it offers one; a confirmation toast is gone
+before a review would be read, and offers none.
 
 **Armada makes no scrub claim, and the dialog says what it does not do.** Every
 row carries a sentence naming what is unbounded about that item — which is the

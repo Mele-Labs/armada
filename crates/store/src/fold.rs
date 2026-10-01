@@ -300,6 +300,12 @@ fn unqualified(status: JobStatus) -> Option<Target> {
         | JobStatus::Piloted
         | JobStatus::AwaitingAttestation
         | JobStatus::Queued => None,
+        // **Not a destination at all.** No edge arrives at `proposing` — a Job
+        // is created in it — so there is no `Target` for it and a recorded row
+        // moving a Job *to* it is one nothing in this workspace wrote. It
+        // answers `None` and reaches `ReasonDoesNotFitStatus`, which is the
+        // refusal a history the machine would not admit is owed.
+        JobStatus::Proposing => None,
     }
 }
 

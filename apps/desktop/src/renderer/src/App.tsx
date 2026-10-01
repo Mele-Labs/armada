@@ -30,7 +30,7 @@ import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
 import { Boundary } from "@armada/shell";
 import { Standing } from "./Standing";
-import { CopiedToast, SaidToast, useCopied, useSaid } from "@armada/shell";
+import { useCopied, useSaid } from "@armada/shell";
 import { FailureBlock } from "@armada/shell";
 import { jobFailure } from "@armada/shell";
 import { OverviewActions } from "@armada/shell";
@@ -52,7 +52,8 @@ import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
 import { JobDetail } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
-import { failingIn } from "./failing";
+import { failingIn, raisedFailure } from "./failing";
+import { Toasts, useRaised } from "./raised";
 import {
   examine,
   openArtifact,
@@ -136,8 +137,6 @@ import { copyDebugInfoFor } from "@armada/shell";
 import { Shell } from "@armada/shell";
 import { SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
 import { useAtFloor, useNarrow } from "@armada/shell";
-import { watchUncaught } from "@armada/shell";
-import type { Uncaught } from "@armada/shell";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -167,7 +166,6 @@ export function App({ draft }: AppProps = {}) {
   const [telling, setTelling] = useSaid();
   // What a boundary could never catch: a throw in a handler, and a rejected
   // promise from a `void`-ed preload call.
-  const [uncaught, setUncaught] = useState<Uncaught | null>(null);
   // **The whole of navigation.** A list and a detail need one piece of state,
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
@@ -371,8 +369,6 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  useEffect(() => watchUncaught(setUncaught), []);
-
   // **Where a pressed notification says to go, and it always goes somewhere.**
   // A press that raised the window and left it on whatever it was last showing
   // is a press that did nothing, which is the one outcome that teaches somebody
@@ -435,12 +431,13 @@ export function App({ draft }: AppProps = {}) {
   const live = state.connection.state === "connected";
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { statement, fleet, commandFailure, failing } = failingIn({
+  const { raised, lower } = useRaised(commands.outcome);
+  const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
     readAt: state.readAt,
     outcome: commands.outcome,
-    uncaught,
+    raised: raised.flatMap((one) => raisedFailure(one, state.bridge) ?? []),
     now,
   });
   const guarded = { bridge: state.bridge, onCopied: setCopied };
@@ -697,18 +694,12 @@ export function App({ draft }: AppProps = {}) {
             }
             readingSeen={readingSeen}
             onReadingSeen={setReadingSeen}
-            uncaught={uncaught}
-            onUncaught={setUncaught}
-            bridge={state.bridge}
             onCopied={setCopied}
             missed={state.missed}
             acknowledged={acknowledged}
             onAcknowledged={setAcknowledged}
             givenBack={commands.givenBack}
             onGivenBack={commands.setGivenBack}
-            commandFailure={commandFailure}
-            outcome={commands.outcome}
-            onOutcome={commands.setOutcome}
             taken={commands.taken}
             located={<LocatedNotice locating={locate} repositories={repositories} />}
           />
@@ -825,6 +816,7 @@ export function App({ draft }: AppProps = {}) {
                 onAddTask={commands.addTask}
                 onDropTask={commands.dropTask}
                 onMovePlan={commands.movePlan}
+                onEditJob={commands.editJob}
                 onShowAgain={showAgain}
                 onApprove={(jobId) => void commands.approve(jobId)}
                 onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
@@ -833,6 +825,7 @@ export function App({ draft }: AppProps = {}) {
                 onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}
                 onFileFindingIssue={(jobId, finding, title, body) => void commands.fileFindingIssue(jobId, finding, title, body)}
                 onApproveReview={(jobId) => void commands.decide(jobId, "approve")}
+                onApproveWave={(jobId, jobs) => void commands.approveWave(jobId, { jobs })}
                 onRequestChanges={(jobId, note) => void commands.decide(jobId, "changes", note)}
                 onReject={(jobId) => void commands.decide(jobId, "reject")}
                 onTakeUpRemarks={(jobId, remarks) => void commands.takeUpRemarks(jobId, remarks)}
@@ -1146,8 +1139,14 @@ export function App({ draft }: AppProps = {}) {
         }}
       />
 
-      <CopiedToast copied={copied} />
-      <SaidToast said={telling} />
+      <Toasts
+        raised={raised}
+        bridge={state.bridge}
+        onLower={lower}
+        copied={copied}
+        said={telling}
+        onCopied={setCopied}
+      />
     </GuidanceProvider>
   );
 }

@@ -355,6 +355,42 @@ and `mountTwo` sets two windows on one main. `onBoard(jobs, …)` in
 Storybook `play` asserts what `App` does with a press — the dialog, the
 composer, the file written — rather than that a callback was called.
 
+### Walks
+
+**To show the owner something, write a walk and send him the link, or capture
+it and send him the pictures.** Not a list of what to open and press: a walk is
+those steps, played in the real app, from one definition.
+
+```ts
+// apps/desktop/src/renderer/src/mock/walks/back-from-a-drone.ts
+export const backFromADrone = walk("arc/executing-sequential", [
+  { press: tab("Workflow"), say: "The run, top to bottom" },
+  { press: card("Implement"), say: "Its panel lists every Drone on the step" },
+  { look: button("Back to Implement"), say: "The way back is in its head" },
+]);
+```
+
+A step **presses**, **looks**, or **types** into a field, at a target found the
+way the mock tests find one: `tab`, `button`, `card`, `dialog`, `row`, `region`,
+`text`, or `role(kind, name)` for any other, and `inside(scope, target)` to look
+in one place only. A name is matched anywhere in the accessible name, in any
+case, unless it is a pattern or `{ exact: true }`; of several matches the last
+is taken, as the tests take `.last()`. The walk is named by its export.
+`walk.ts` beside the walks is the whole vocabulary.
+
+| | |
+|---|---|
+| **The link** | `?walk=<name>` on a running mock, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
+| **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
+| **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
+
+**A walk stops on the step whose target never came.** After five seconds its
+card says which step and what it looked for, the capture photographs the stop
+and exits 1, and the test fails with the same sentence. A throw while it plays
+fails the capture and the test as well, since Bridge draws one as a banner and
+carries on. That stop is what makes a walk evidence rather than a tour.
+
 ## Annotating Bridge
 
 **⌥⌘A turns the annotation layer on** in Bridge under `pnpm dev` and in the mock

@@ -666,6 +666,8 @@ export function OverviewTab(props: OverviewTabProps) {
       acting,
       deciding: props.deciding,
       onApproveReview: props.onApproveReview,
+      ...(props.onApproveWave === undefined ? {} : { onApproveWave: props.onApproveWave }),
+      board: props.board ?? [],
       onRedirect,
       ...(props.onTaskAct === undefined ? {} : { onTaskAct: props.onTaskAct }),
       ...(props.onMovePlan === undefined ? {} : { onMovePlan: props.onMovePlan }),

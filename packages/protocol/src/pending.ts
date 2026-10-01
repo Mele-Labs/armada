@@ -30,6 +30,8 @@ export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
   { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
+  { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
+  { method: "POST", path: "/jobs/{job_id}/edit", act: "edit_job", issue: 1699 },
 ];
 
 /**
@@ -55,6 +57,28 @@ export type MovePlan = {
   group: string;
   task?: string;
   to: number;
+};
+
+/**
+ * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan
+ * gate: every Job of the proposed wave, each at `awaiting_approval` and
+ * dispatched by the Epic, released together. Fleet has not agreed a body yet,
+ * so this is what Bridge sends and the debug info carries.
+ */
+export type ApproveWave = {
+  jobs: readonly string[];
+};
+
+/**
+ * What Edit this Job sends to `edit_job` (#1699), on a Job of an Epic's
+ * proposed wave, still at `awaiting_approval`. **Only the fields a person
+ * changed**; `expects` is the whole list, one line each. Fleet has not agreed
+ * a body yet, so this is what Bridge sends and the debug info carries.
+ */
+export type EditJob = {
+  title?: string;
+  brief?: string;
+  expects?: string[];
 };
 
 /**

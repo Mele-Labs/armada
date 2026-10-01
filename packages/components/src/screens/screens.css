@@ -1848,10 +1848,10 @@
   height: var(--h-workflow-canvas);
 }
 
-/* The taller frame went with the group nodes (owner, 25 Sep 2026). A run is a
-   spine with one Plan node under it now, which is exactly what
-   `--h-workflow-canvas` is measured for; `--h-workflow-run-canvas` draws the
-   plan itself, on the Plan tab. */
+/* The taller frame went with the group nodes (owner, 25 Sep 2026), and the
+   Plan node with them on 29 Sep: a run is a spine and nothing under it, and
+   the canvas's height is set below; `--h-workflow-run-canvas` draws the plan
+   itself, on the Plan tab. */
 
 /* No board under the run any more (owner, 28 Sep 2026: *I dont think we need
    the groups/plan info on the workflow view*). The tab is the run, the toggle
@@ -2601,3 +2601,63 @@
   margin-inline-start: auto;
 }
 
+
+/* The wave's passes and the loop's reach, on one line opposite Graph / List —
+   the strip is what the graph below draws, so it sits where the toggle does.
+   Appended. #1544. */
+.armada-wave__passes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* JUDGED: the criteria the split was read against, each a chip in its
+   verdict's hue, and the model that read it. */
+.armada-wave__judged {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.armada-wave__judged-by {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+/* What the split expects of one Job, in its panel: sentences, so the task
+   panel's own list — mono, for paths — is the wrong type for them. */
+.armada-wave__expects {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: disc;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+/* Waits for and Blocks in a wave Job's panel: one `RowLink` per Job. */
+.armada-wave__related {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Overview's one scroller: the wave an Epic Job dispatched and the board under
+   it scroll as one, the way Plan's destination holds its wave. The board keeps
+   its own class and stops scrolling itself — inside this box it takes the
+   height it needs rather than giving it up to the wave's graph. */
+.armada-overview-scroll > .armada-overview-board {
+  flex: none;
+  overflow-y: visible;
+}
