@@ -23,19 +23,15 @@ import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
 
 /**
- * Where an act sends a person: a destination, one Check's row on the Record,
- * or the proposal. **The Record's own route** for the second — the same
+ * Where an act sends a person: a destination, or one Check's row on the
+ * Record. **The Record's own route** for the second — the same
  * `RecordTabProps.opensCheck` the Plan's group boundary presses through.
- *
- * **The proposal is its own arm because it is not a destination**:
- * `ProposalTab` is what `JobDetail` draws in Overview's place at the approval
- * gate, so there is no tab to select.
  *
  * **Absent where the thing the act names is already under the lead.** A
  * Drone's question and a command it was not given are answered in the lead's
  * own region, not at a destination.
  */
-export type LeadOpens = { tab: DetailTab } | { check: CheckAt } | { proposal: true };
+export type LeadOpens = { tab: DetailTab } | { check: CheckAt };
 
 /**
  * The line that leads Overview. `waiting` colours the edge, exactly as it does
@@ -59,6 +55,12 @@ export type JobLead = {
   act?: string;
   /** Where that act goes, where it goes somewhere rather than answering here. */
   opens?: LeadOpens;
+  /**
+   * The act is approving the dispatch, and its control is the header's own:
+   * the same split button, the same handler, the same menu. **One act reached
+   * two ways** — the owner, 1 Oct 2026: *"It should be in both places."*
+   */
+  approves?: true;
   /**
    * The lead found nothing to name and fell through to its quiet line. **With
    * the read still out that line is a guess**, so the screen stands in for it;
@@ -384,15 +386,17 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       return { said: "A criterion needs your attestation", because: owed, tone: "awaiting-review" };
     }
     // **No branch is a Job that has never run**, which is the dispatch itself
-    // waiting — `JobSummary.branch` is absent until a worktree exists. The
-    // proposal is where it is answered, and `ProposalTab` is what draws it.
+    // waiting — `JobSummary.branch` is absent until a worktree exists. The act
+    // is the approval itself. It was `Read the proposal`, which reached
+    // `ProposalTab` — drawn only off a draft, and no real Fleet serves one
+    // until #1545 — so on the owner's own Job the lead offered nothing at all.
     if (job.branch === undefined) {
       return {
         said: "Waiting for your approval",
         because: "",
         tone: "awaiting-review",
-        act: "Read the proposal",
-        opens: { proposal: true },
+        act: "Approve dispatch",
+        approves: true,
       };
     }
     // **Nothing is being approved here.** A step spent its gate-failure retry

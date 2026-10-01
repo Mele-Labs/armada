@@ -49,10 +49,19 @@
 # It was ported wider than the designed file -- *anything the plan did not
 # describe* -- and refused a diff that fixed the cause and also moved a helper.
 # #190 decided it should not, so the question is the designed one again.
+#
+# **Every definition here declares `for_requests`, and each line is read off
+# that workflow's own Judge criteria and steps.** The owner's call, 1 Oct 2026:
+# a request to retire a guide was proposed as `refactor`, whose Judge then
+# refused the plan for changing what a person sees -- correctly, since nothing
+# but step labels had told the proposer what a refactor promises. Each line
+# says what separates it from its nearest neighbour. The key stays optional to
+# the parser; `fleet`'s `tests::proposing` refuses a definition here without one.
 {
   "version": 1,
   "workflow_id": "bug",
   "name": "bug",
+  "for_requests": "Something that is broken: it used to work, or is meant to work, and does not, and what is wanted is the cause found and fixed. Taking a change that already landed back out whole is a revert, and adding or changing what the software does on purpose is a feature.",
   "structure": "linear",
   "steps": [
     {
