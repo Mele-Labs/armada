@@ -41,6 +41,9 @@ use crate::daemon::Fleet;
 use crate::process::{holder_of, Holder};
 use crate::transcript::log_of;
 
+/// A Job's log files, and which of them a writer holds.
+pub(crate) mod logs;
+
 /// How long a reading of the machine may take before it is given up on.
 ///
 /// **A bound on the answer, not on the walk.** A 1.0 GB worktree is the case
@@ -137,13 +140,16 @@ where
                 Ok(Holder::Held(_)) => (ipc::Held::Running, self.below(process.pid).await),
             },
         };
+        let records_root = self.served_by(job)?.records_root().to_string();
+        let tree: Vec<u32> = processes.iter().map(|process| process.pid).collect();
         Ok(ipc::JobResources {
             job_id: job.id().into(),
             read_at: (&self.now()).into(),
             held,
-            processes,
             worktree: self.sized_worktree(job).await,
-            wrote_last_at: wrote_last(&log_of(self.served_by(job)?.records_root(), &job.handle())),
+            wrote_last_at: wrote_last(&log_of(&records_root, &job.handle())),
+            logs: logs::of(&records_root, &job.handle(), &tree).await,
+            processes,
         })
     }
 
