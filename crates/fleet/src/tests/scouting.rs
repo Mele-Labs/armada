@@ -147,19 +147,20 @@ fn state(node: &StudioNode) -> &'static str {
     node.state.map(|state| state.as_wire()).unwrap_or("none")
 }
 
-/// The node once it is Frozen, read the way Bridge reads a Studio.
-async fn frozen(fleet: &Scouted, studio: &Studio, node: usize) -> StudioNode {
+/// The node once its scout has ended — no state — read the way Bridge reads
+/// a Studio.
+async fn ended(fleet: &Scouted, studio: &Studio, node: usize) -> StudioNode {
     for _ in 0..1000 {
         let read = fleet
             .get_studio(studio.id.clone(), None)
             .await
             .expect("reads");
-        if let Some(node) = read.nodes.get(node).filter(|node| state(node) == "frozen") {
+        if let Some(node) = read.nodes.get(node).filter(|node| state(node) == "none") {
             return node.clone();
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("the Finding never froze");
+    panic!("the Finding never ended");
 }
 
 fn code(refusal: &Refusal) -> &str {
@@ -172,11 +173,11 @@ fn code(refusal: &Refusal) -> &str {
 }
 
 /// `#1292`'s definition of done, first half: **a person asks, a Finding
-/// appears Gathering, then Frozen with the files it read and the commit.** A
+/// appears Gathering, then ends with the files it read and the commit.** A
 /// read the agent refused is not listed, a file read twice is listed once, and
 /// what the scout said last is kept.
 #[tokio::test]
-async fn an_ask_gathers_then_freezes_with_every_file_read_and_the_commit() {
+async fn an_ask_gathers_then_ends_with_every_file_read_and_the_commit() {
     let home = TempDir::new();
     let fleet = scouted(&home);
     let studio = a_studio(&fleet).await;
@@ -188,11 +189,11 @@ async fn an_ask_gathers_then_freezes_with_every_file_read_and_the_commit() {
         .expect("asked");
     let started = &asked.nodes[0];
     assert!(
-        matches!(state(started), "gathering" | "frozen"),
+        matches!(state(started), "gathering" | "none"),
         "answered once started: {started:?}"
     );
 
-    let node = frozen(&fleet, &studio, 0).await;
+    let node = ended(&fleet, &studio, 0).await;
     let StudioNodeContent::Finding {
         asked,
         checkout,
@@ -275,7 +276,7 @@ async fn a_scout_stopped_from_its_node_ends_stopped_with_its_cost() {
         .await
         .expect("stopped");
 
-    let node = frozen(&fleet, &studio, 0).await;
+    let node = ended(&fleet, &studio, 0).await;
     let StudioNodeContent::Finding { read, ended, .. } = node.content else {
         panic!("a Finding");
     };
@@ -333,9 +334,9 @@ async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
         .await
         .expect_err("already started");
     assert_eq!(code(&twice), "fleet.scout_not_proposed");
-    assert_eq!(state(&frozen(&fleet, &studio, 0).await), "frozen");
+    assert_eq!(state(&ended(&fleet, &studio, 0).await), "none");
 
-    let StudioNodeContent::Finding { ended, .. } = frozen(&fleet, &studio, 0).await.content else {
+    let StudioNodeContent::Finding { ended, .. } = ended(&fleet, &studio, 0).await.content else {
         panic!("a Finding");
     };
     let claimed = StudioNodeContent::Finding {
@@ -363,7 +364,7 @@ async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
     assert_eq!(code(&refused), "fleet.studio_finding_is_the_scouts");
 }
 
-/// **A restart settles a Finding nobody is reading for**: frozen as failed,
+/// **A restart settles a Finding nobody is reading for**: ended as failed,
 /// keeping what it read, rather than pulsing Gathering forever. Planted in the
 /// store, as the Fleet before this one left it.
 #[tokio::test]
@@ -399,7 +400,7 @@ async fn a_finding_left_gathering_by_a_restart_freezes_as_failed() {
     }
 
     fleet.reconcile().await.expect("reconciled");
-    let node = frozen(&fleet, &studio, 0).await;
+    let node = ended(&fleet, &studio, 0).await;
     let StudioNodeContent::Finding { read, ended, .. } = node.content else {
         panic!("a Finding");
     };

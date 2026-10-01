@@ -69,7 +69,8 @@ pub struct StudioNode {
     pub id: StudioNodeId,
     #[serde(flatten)]
     pub content: StudioNodeContent,
-    /// Absent on a kind with no states, and always on a Run or a Job, whose
+    /// Absent on a kind with no states, on a Finding whose scout has ended
+    /// (since 21.0, where it was `frozen`), and always on a Run or a Job, whose
     /// state is read off the run or the Job and never copied here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<StudioNodeState>,

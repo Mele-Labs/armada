@@ -21,7 +21,7 @@ use adapter_traits::{AgentHarness, Delivery, LookupCall, Vcs, WorkProduct};
 use adapters::{Fetch, MilestoneRead, Source};
 use api::{Redirector, Refusal};
 use core_model::{
-    EpicTake, FrozenFinding, ScoutSource, ScoutSourceKind, StudioAuthor, StudioEdge, StudioEdgeId,
+    EndedFinding, EpicTake, ScoutSource, ScoutSourceKind, StudioAuthor, StudioEdge, StudioEdgeId,
     StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId, StudioPosition,
     StudioRelation,
 };
@@ -290,9 +290,9 @@ where
         &self,
         studio: &StudioId,
         link: &StudioNodeId,
-        frozen: &FrozenFinding,
+        ended: &EndedFinding,
     ) {
-        let StudioNodeContent::Finding(finding) = frozen.node().content() else {
+        let StudioNodeContent::Finding(finding) = ended.node().content() else {
             return;
         };
         let Some(learned) = finding.learned() else {
@@ -305,7 +305,7 @@ where
             return;
         }
         let at = self.now();
-        let from = frozen.node().position();
+        let from = ended.node().position();
         let mut made: Vec<(StudioNode, StudioEdgeId)> = Vec::new();
         let mut by_handle: Vec<(String, StudioNodeId)> = Vec::new();
         let mut placed = 0i64;
@@ -317,7 +317,7 @@ where
                 at.clone(),
                 // A scout runs on a person's ask, and a Studio records a
                 // person or Helm: whoever asked owns what came back.
-                frozen.node().added_by().unwrap_or(StudioAuthor::Person),
+                ended.node().added_by().unwrap_or(StudioAuthor::Person),
             );
             placed += 1;
             if let Some(handle) = handle {
@@ -358,7 +358,7 @@ where
                 .find(|(given, _)| given == handle)
                 .map(|(_, id)| id.clone())
         };
-        let author = frozen.node().added_by().unwrap_or(StudioAuthor::Person);
+        let author = ended.node().added_by().unwrap_or(StudioAuthor::Person);
         let mut edges: Vec<StudioEdge> = Vec::new();
         for relation in &read.relations {
             let (Some(from), Some(to)) = (named(&relation.from), named(&relation.to)) else {

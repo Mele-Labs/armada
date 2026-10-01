@@ -161,7 +161,8 @@ export type StudioPosition = { x: number; y: number };
 export type StudioNode = StudioNodeContent & {
   id: string;
   /**
-   * Absent on a kind with no states, and always on a Run or a Job: their state
+   * Absent on a kind with no states, on a Finding whose scout has ended (since
+   * 21.0, where it was `frozen`), and always on a Run or a Job: their state
    * is read off the run or the Job.
    */
   state?: string;
@@ -482,7 +483,7 @@ export type StartScout = { node_id: string };
 
 /**
  * `POST /studios/:studio_id/stop_scout`. Answers the Studio before the Finding
- * freezes; the frozen one arrives on `studio.changed`.
+ * ends; the ended one, with no state, arrives on `studio.changed`.
  */
 export type StopScout = { node_id: string };
 
