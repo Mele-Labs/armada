@@ -102,7 +102,11 @@ fn every_edge_in_the_table_is_admitted() {
 /// the move cannot be spelled rather than being spelled and turned down.
 #[test]
 fn every_pair_the_table_does_not_name_is_refused() {
-    let walkable = || JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing);
+    let walkable = || {
+        JobStatus::ALL
+            .iter()
+            .filter(|s| **s != JobStatus::Proposing)
+    };
     for from in walkable() {
         for to in walkable() {
             if EDGES.iter().any(|e| e.from == *from && e.to == *to) {
@@ -136,7 +140,10 @@ fn every_pair_the_table_does_not_name_is_refused() {
 /// self-edge to spell.
 #[test]
 fn no_status_transitions_to_itself() {
-    for status in JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing) {
+    for status in JobStatus::ALL
+        .iter()
+        .filter(|s| **s != JobStatus::Proposing)
+    {
         let job = reach(*status);
         assert!(job
             .transition(
@@ -612,7 +619,10 @@ fn a_transition_moves_the_status_and_nothing_else() {
 fn a_terminal_job_goes_nowhere_at_all() {
     for terminal in JobStatus::ALL.iter().filter(|s| s.is_terminal()) {
         let job = reach(*terminal);
-        for to in JobStatus::ALL.iter().filter(|s| **s != JobStatus::Proposing) {
+        for to in JobStatus::ALL
+            .iter()
+            .filter(|s| **s != JobStatus::Proposing)
+        {
             assert_eq!(
                 job.transition(
                     target_for(*to, None),
