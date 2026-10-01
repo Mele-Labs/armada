@@ -145,7 +145,7 @@ export const WithAView: Story = {
       ],
       needs_you: [
         {
-          finding: "A busy CPU no longer delays a Job",
+          finding: "A **busy** CPU no longer delays `admit_job`",
           why: "People may rely on the old behaviour",
           view: [
             {
@@ -166,9 +166,10 @@ export const WithAView: Story = {
     const views = canvas.getAllByRole("button", { name: "View" });
     await expect(views).toHaveLength(2);
     await userEvent.click(views[1]!);
+    // The title is plain words for the View's head; the finding stays as written.
     await expect(args.onView).toHaveBeenCalledWith({
-      title: "A busy CPU no longer delays a Job",
-      finding: "A busy CPU no longer delays a Job",
+      title: "A busy CPU no longer delays admit_job",
+      finding: "A **busy** CPU no longer delays `admit_job`",
       steps: [
         {
           file: "crates/fleet/src/admitting.rs",
