@@ -100,9 +100,9 @@ function digitOf(id: SurfaceId): string | undefined {
  * a registered binding nothing answers. So the digits skip: `⌘4` and `⌘5` are
  * owed to Alerts and Doctor and reach nothing today.
  *
- * `held disk` is an alias because that is the word on the control this screen
- * has been reached by since it shipped, and a person who learned it should not
- * have to learn a second.
+ * `held disk` is an alias because that was the word on the Overview menu's
+ * item for this screen until the menu went, and a person who learned it should
+ * not have to learn a second.
  */
 export const SURFACES: readonly PaletteSurface[] = [
   {
