@@ -183,13 +183,17 @@ export const FillingIn: Story = {
         { label: "Title", said: "Say which of the two a clear gave back" },
         {
           label: "Done when",
-          said: "The Cleared tab names the branch on every row whose worktree is gone",
+          said: "The `Cleared` tab names the branch on every row whose worktree is **gone**",
+          prose: true,
         },
       ],
     },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("feature")).toBeVisible();
+    // A criterion is the model's own free text, so its markdown is drawn.
+    await expect(canvas.getByText("gone", { selector: "strong" })).toBeVisible();
+    await expect(canvas.getByText("Cleared", { selector: "code" })).toBeVisible();
     await expect(canvas.getByText("Say which of the two a clear gave back")).toBeVisible();
     // The fourth has not landed, and nothing stands in for it: an empty slot
     // stays empty (29 Sep 2026).

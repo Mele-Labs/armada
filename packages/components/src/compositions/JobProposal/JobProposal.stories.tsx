@@ -202,7 +202,16 @@ export const ApprovedAndFrozen: Story = {
             does: "It holds at awaiting_review for you to answer, with nothing run before you read it.",
           },
     ),
-    criteria: [{ ...CRITERIA[0]!, movedSince: "22 Sep 2026 at 10:02" }, CRITERIA[1]!],
+    // The request and a criterion in markdown, as a model writes them: read
+    // after approval, both are drawn through `Prose`.
+    request: {
+      ...COMMON.request,
+      said: `${COMMON.request.said}\n\n- show **which** Drone\n- keep it live`,
+    },
+    criteria: [
+      { ...CRITERIA[0]!, movedSince: "22 Sep 2026 at 10:02" },
+      { ...CRITERIA[1]!, text: "Pressing the stat lists the Drone's `Job` and step" },
+    ],
     frozenAt: "22 Sep 2026 at 09:14",
   },
   // **A rule about what does not happen.** Frozen is the absence of every
@@ -219,5 +228,10 @@ export const ApprovedAndFrozen: Story = {
     // Nothing here can be pressed, so nothing here says what pressing would
     // change: the line beside the button is the button's, not the row's.
     expect(canvas.queryAllByText(/hands this step to the three boxes/)).toHaveLength(0);
+    // What was asked and what done means, read as the markdown they were
+    // written in.
+    expect(canvas.getByText("which", { selector: "strong" })).toBeVisible();
+    expect(canvas.getByText("keep it live", { selector: "li" })).toBeVisible();
+    expect(canvas.getByText("Job", { selector: "code" })).toBeVisible();
   },
 };

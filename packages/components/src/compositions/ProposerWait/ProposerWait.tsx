@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { Prose } from "../../primitives/Prose/Prose";
 
 /**
  * What the call is doing, while it does it.
@@ -38,8 +39,12 @@ export type ProposalWatch = {
    * `ProposalInFlight.settled`; this draws the rows it is handed and knows the
    * names of none of them. Absent is a call that has settled nothing, which is
    * every call before it starts writing.
+   *
+   * **`prose` marks a value the model wrote as free text** — a criterion —
+   * and draws it through `Prose`. The rest are typed values, a workflow id or
+   * a model name, and a markdown reading of `my_flow_v2` is a mangled id.
    */
-  settled?: readonly { label: string; said: string }[];
+  settled?: readonly { label: string; said: string; prose?: boolean }[];
 };
 
 /**
@@ -149,7 +154,7 @@ export function ProposerWait({
           {watch.settled.map((one, at) => (
             <div className="armada-proposer-wait__field" key={`${one.label}-${at}`}>
               <dt>{one.label}</dt>
-              <dd>{one.said}</dd>
+              <dd>{one.prose === true ? <Prose text={one.said} /> : one.said}</dd>
             </div>
           ))}
         </dl>
