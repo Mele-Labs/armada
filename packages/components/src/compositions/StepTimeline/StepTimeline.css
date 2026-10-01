@@ -167,15 +167,15 @@
 }
 
 /* The Drone's sentence, as markdown, held to the line above. Prose draws
-   blocks; here every element it draws runs inline and keeps the line's
-   nowrap, so emphasis and code survive and the clip still ends in an
-   ellipsis. Elements rather than Prose's classes, which are its own to rename,
-   and under `__now` so this outweighs Prose's own rules whatever order the
-   two sheets load in. A block after a block takes a space, where its line
-   break was. */
-.armada-steps__now .armada-steps__now-said,
-.armada-steps__now .armada-steps__now-said * {
+   blocks; here they run inline, unindented, and keep the line's nowrap, so
+   emphasis and code survive and the clip still ends in an ellipsis. Elements
+   rather than Prose's classes, which are its own to rename, and under `__now`
+   so this outweighs Prose's own rules whatever order the two sheets load in.
+   A block after a block takes a space, where its line break was. */
+.armada-steps__now .armada-steps__now-said :is(div, p, ul, ol, li, pre, h1, h2, h3, h4, h5, h6, blockquote) {
   display: inline;
+  margin: 0;
+  padding: 0;
   white-space: inherit;
 }
 
