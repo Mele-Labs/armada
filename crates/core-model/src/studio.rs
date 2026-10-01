@@ -22,7 +22,7 @@ use alloc::string::String;
 
 pub use edge::{EdgeRefused, StudioEdge, ToItself};
 pub use finding::{
-    FrozenFinding, GatheringFinding, NotScoutable, ScoutCheckout, ScoutEnded, ScoutLook,
+    EndedFinding, GatheringFinding, NotScoutable, ScoutCheckout, ScoutEnded, ScoutLook,
     ScoutOutcome, ScoutSource, Scouted, StudioFinding,
 };
 pub use forge::{EpicRead, ForgeFacts, Recognised};
@@ -167,7 +167,6 @@ spelled! {
     StudioNodeState {
         Proposed => "proposed",
         Gathering => "gathering",
-        Frozen => "frozen",
         Reported => "reported",
         IssueDraft => "issue_draft",
         Deferral => "deferral",
@@ -308,7 +307,7 @@ impl StudioNodeKind {
             | StudioNodeKind::PullRequest
             | StudioNodeKind::Epic
             | StudioNodeKind::Job => &[],
-            StudioNodeKind::Finding => &[S::Proposed, S::Gathering, S::Frozen],
+            StudioNodeKind::Finding => &[S::Proposed, S::Gathering],
             StudioNodeKind::Contradiction => &[
                 S::Reported,
                 S::IssueDraft,
@@ -317,16 +316,18 @@ impl StudioNodeKind {
                 S::ResolvedHere,
             ],
             StudioNodeKind::Deferral => &[S::Open, S::Answered],
-            StudioNodeKind::Outline => &[S::Draft, S::Frozen],
+            StudioNodeKind::Outline => &[S::Draft],
             StudioNodeKind::IssueDraft => &[S::Draft],
         }
     }
 
-    /// Whether `state` is one this kind holds. `None` fits only a kind with no
-    /// states, so a Finding never reads back stateless.
+    /// Whether `state` is one this kind holds. `None` fits a kind with no
+    /// states, and a Finding whose scout has ended — which its content has to
+    /// say, [`StudioFinding::fits`]. There is no `frozen` to end in: the owner,
+    /// 1 Oct 2026.
     pub fn admits(&self, state: Option<StudioNodeState>) -> bool {
         match state {
-            None => self.states().is_empty(),
+            None => self.states().is_empty() || *self == StudioNodeKind::Finding,
             Some(state) => self.states().contains(&state),
         }
     }

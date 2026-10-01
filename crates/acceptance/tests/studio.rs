@@ -32,14 +32,14 @@ use ipc::{HelmStudioAct, StudioNodeContent};
 
 use bench::studio::{
     a_capture_sent, a_failed_run, a_long_log, a_server_that_fell_over, a_studio_promoted_to_a_job,
-    a_studio_with_a_captured_note, a_studio_with_a_frozen_finding,
-    a_studio_with_a_node_of_each_forge_kind, a_studio_with_a_run_started_from_a_note,
-    a_studio_with_a_server_started_from_a_note, a_studio_with_sources_read_in,
-    a_studio_with_two_notes, an_issue_draft, held, helms_manifest, one_job_under, received_event,
-    received_request, received_studio, ASKED, A_PAGE, COMMIT, COMPONENT, COST, CUT, DRAFT_TITLE,
-    FIRST_NOTE, FRAME_BYTES, FRAME_FILE, LEFT_AT, MARKUP, OWNERS, READ, READ_IN_NOTE, REPOSITORY,
-    SCREEN, SECOND_NOTE, SELECTOR, SIDES, SOURCES, STYLES, THE_COMMAND, THE_FAILURE, THE_RUN,
-    THE_SERVE, THE_SERVER,
+    a_studio_with_a_captured_note, a_studio_with_a_node_of_each_forge_kind,
+    a_studio_with_a_run_started_from_a_note, a_studio_with_a_server_started_from_a_note,
+    a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes,
+    an_issue_draft, held, helms_manifest, one_job_under, received_event, received_request,
+    received_studio, ASKED, A_PAGE, COMMIT, COMPONENT, COST, CUT, DRAFT_TITLE, FIRST_NOTE,
+    FRAME_BYTES, FRAME_FILE, LEFT_AT, MARKUP, OWNERS, READ, READ_IN_NOTE, REPOSITORY, SCREEN,
+    SECOND_NOTE, SELECTOR, SIDES, SOURCES, STYLES, THE_COMMAND, THE_FAILURE, THE_RUN, THE_SERVE,
+    THE_SERVER,
 };
 
 /// Step 5 of the claim, `#1394`: **a pasted address is the thing it names.**
@@ -569,7 +569,7 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
     }
 }
 
-/// Step 4, the checkout's half: **a scout's Finding arrives Frozen, listing
+/// Step 4, the checkout's half: **a scout's Finding arrives ended, listing
 /// every file it read, the commit it read and that uncommitted changes were
 /// there, and what it cost.** `docs/concepts/scout.md`.
 ///
@@ -578,17 +578,15 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
 /// on the way out, or a clean checkout reported where there were changes
 /// would each send a person to read different code than the scout read.
 #[test]
-fn a_scouts_finding_arrives_frozen_with_every_file_it_read_its_commit_and_its_cost() {
-    let graph = a_studio_with_a_frozen_finding();
+fn a_scouts_finding_arrives_ended_with_every_file_it_read_its_commit_and_its_cost() {
+    let graph = a_studio_with_an_ended_finding();
     let studio = received_studio(&graph);
     assert_eq!(studio, ipc::Studio::of(&graph), "nothing lost on the wire");
 
     let finding = studio.nodes.last().expect("the Finding");
-    assert_eq!(
-        finding.state.map(|state| state.as_wire()),
-        Some("frozen"),
-        "done reading"
-    );
+    // No state: how it ended is its own field, below. The owner dropped
+    // `frozen`, 1 Oct 2026.
+    assert_eq!(finding.state, None, "done reading");
     let StudioNodeContent::Finding {
         asked,
         checkout,

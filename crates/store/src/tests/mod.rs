@@ -58,6 +58,7 @@ mod studio_files;
 mod studio_forge;
 mod studio_runs;
 mod studio_sketches;
+mod studio_unfrozen;
 mod timings;
 mod tmp;
 mod tracing;

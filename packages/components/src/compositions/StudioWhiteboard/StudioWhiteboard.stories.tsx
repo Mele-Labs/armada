@@ -28,7 +28,7 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "note-width", position: { x: 340, y: 260 }, node: { kind: "note", title: "The legend wraps at 720 wide", facts: ["Board"] } },
   { id: "contradiction", position: { x: 340, y: 520 }, node: { kind: "contradiction", state: "reported", title: "bridge.md and react.md disagree on the pulse", facts: ["2 sources"] } },
   { id: "finding-colours", position: { x: 680, y: -260 }, node: { kind: "finding", state: "gathering", title: "Where the legend's colours come from", facts: ["$0.12", "14 files read"] } },
-  { id: "finding-file", position: { x: 680, y: 0 }, node: { kind: "finding", state: "frozen", title: "Fleet writes fleet.json once, at start", facts: ["$0.31"] } },
+  { id: "finding-file", position: { x: 680, y: 0 }, node: { kind: "finding", title: "Fleet writes fleet.json once, at start", facts: ["$0.31"] } },
   { id: "cluster", position: { x: 680, y: 260 }, node: { kind: "cluster", title: "The Board's legend is illegible", facts: ["2 notes"] } },
   { id: "sketch", position: { x: 680, y: 520 }, node: { kind: "sketch", title: "", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "The legend, redrawn" }], lines: [], strokes: [], pictures: [] } } },
   { id: "picture", position: { x: 1020, y: 520 }, node: { kind: "picture", title: "", frame: {} } },

@@ -106,6 +106,6 @@ A Finding lists a file when the agent answered the read, so a read refused as ou
 | `start_scout` | Helm on a person's ask, or a person | Starts a Proposed Finding |
 | `stop_scout` | A person, on Bridge | The stop on its node |
 
-A Finding whose Fleet stopped while its scout was reading is frozen as failed when Fleet next starts, keeping what it read.
+A Finding whose Fleet stopped while its scout was reading ends as failed when Fleet next starts, keeping what it read.
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

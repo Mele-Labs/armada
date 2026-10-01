@@ -3,12 +3,14 @@
 //!
 //! **The one node whose content changes after it is added, and only its
 //! scout changes it.** A Note is fixed because nothing offers a write; a
-//! Finding moves through [`GatheringFinding`] and [`FrozenFinding`], which only
+//! Finding moves through [`GatheringFinding`] and [`EndedFinding`], which only
 //! [`StudioNode::scouting`] makes, so no call can rewrite any other kind.
 //!
 //! **Its content says which state it is in**, checked on the way back out of
 //! the store: a Proposed Finding has read nothing, a Gathering one has
-//! recorded its checkout, and a Frozen one says how it ended.
+//! recorded its checkout, and an ended one holds no state and says how it
+//! ended. **No `frozen`**: the owner, 1 Oct 2026 — *"I hate this frozen shit.
+//! Its overcomplicating it."*
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -167,7 +169,7 @@ impl StudioFinding {
                 self.checkout.is_none() && self.ended.is_none() && untouched
             }
             Some(StudioNodeState::Gathering) => self.checkout.is_some() && self.ended.is_none(),
-            Some(StudioNodeState::Frozen) => self.checkout.is_some() && self.ended.is_some(),
+            None => self.checkout.is_some() && self.ended.is_some(),
             _ => false,
         }
     }
@@ -178,8 +180,9 @@ impl StudioFinding {
 pub enum NotScoutable {
     /// The node is not a Finding.
     NotAFinding,
-    /// It is a Finding, and not Proposed: already gathering, or frozen.
-    NotProposed(StudioNodeState),
+    /// It is a Finding, and not Proposed: already gathering, or ended — where
+    /// the state is `None`.
+    NotProposed(Option<StudioNodeState>),
 }
 
 /// A Finding its scout is reading for. Made only by [`StudioNode::scouting`],
@@ -191,7 +194,7 @@ pub struct GatheringFinding {
 
 /// A Finding its scout has finished with, however it ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FrozenFinding {
+pub struct EndedFinding {
     node: StudioNode,
 }
 
@@ -203,8 +206,7 @@ impl StudioNode {
         };
         match self.state {
             Some(StudioNodeState::Proposed) => {}
-            Some(other) => return Err(NotScoutable::NotProposed(other)),
-            None => return Err(NotScoutable::NotAFinding),
+            other => return Err(NotScoutable::NotProposed(other)),
         }
         let mut finding = finding.clone();
         finding.checkout = Some(checkout);
@@ -271,21 +273,22 @@ impl GatheringFinding {
         true
     }
 
-    /// Frozen, with what the scout said last and how it ended.
-    pub fn frozen(mut self, learned: Option<String>, ended: ScoutEnded) -> FrozenFinding {
+    /// Ended, with what the scout said last and how. **No state**: `ended`
+    /// says how it ended, and a Gathering one would claim a scout still reads.
+    pub fn end(mut self, learned: Option<String>, ended: ScoutEnded) -> EndedFinding {
         let finding = self.finding();
         finding.learned = learned.filter(|said| !said.trim().is_empty());
         finding.ended = Some(ended);
-        FrozenFinding {
+        EndedFinding {
             node: StudioNode {
-                state: Some(StudioNodeState::Frozen),
+                state: None,
                 ..self.node
             },
         }
     }
 }
 
-impl FrozenFinding {
+impl EndedFinding {
     pub fn node(&self) -> &StudioNode {
         &self.node
     }
@@ -294,7 +297,7 @@ impl FrozenFinding {
 mod sealed {
     pub trait Sealed {}
     impl Sealed for super::GatheringFinding {}
-    impl Sealed for super::FrozenFinding {}
+    impl Sealed for super::EndedFinding {}
 }
 
 /// A Finding its scout moved, which is the one node a store may rewrite.
@@ -309,7 +312,7 @@ impl Scouted for GatheringFinding {
     }
 }
 
-impl Scouted for FrozenFinding {
+impl Scouted for EndedFinding {
     fn scouted(&self) -> &StudioNode {
         &self.node
     }

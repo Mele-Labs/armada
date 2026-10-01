@@ -77,12 +77,12 @@ not_called = []
 [nodes.finding]
 name = "Finding"
 holds = "What a scout learned, and everything it read"
-states = ["proposed", "gathering", "frozen"]
+states = ["proposed", "gathering"]
 status_colour = false
 added_by_hand = false
 dispatches = false
 not_called = []
-notes = "The one kind that starts `proposed`, which is what Helm may add unasked."
+notes = "The one kind that starts `proposed`, which is what Helm may add unasked. **Ended, it holds no state**: how its scout ended is its own field, and `gathering` would say a scout still reads. It was `frozen` until the owner, 1 Oct 2026: *\"I hate this frozen shit. Its overcomplicating it.\"* Store V86 cleared it."
 
 [nodes.contradiction]
 name = "Contradiction"
@@ -176,12 +176,12 @@ notes = "Question is a Drone's question on the dock, and an open question in `do
 [nodes.outline]
 name = "Outline"
 holds = "An ordered reading of the nodes feeding it"
-states = ["draft", "frozen"]
+states = ["draft"]
 status_colour = false
 added_by_hand = false
 dispatches = false
 not_called = ["Plan"]
-notes = "Plan is a Job's own Plan. The order of an Outline is the order of its `produced` edges."
+notes = "Plan is a Job's own Plan. The order of an Outline is the order of its `produced` edges. It stays `draft`: `frozen` gated nothing, and went with the owner's answer of 1 Oct 2026. Store V86 moved every frozen Outline back to `draft`."
 
 [nodes.issue_draft]
 name = "Issue draft"
@@ -217,9 +217,6 @@ means = "Suggested and not started. Carries its cost where it can be run"
 
 [states.gathering]
 means = "Working, and spending"
-
-[states.frozen]
-means = "Done changing. Still promotable"
 
 [states.reported]
 means = "Two sources that disagree, recorded and not yet ended"

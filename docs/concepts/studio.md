@@ -52,6 +52,9 @@ flowchart LR
 
 **The kinds are `crates/core-model/domain/studio-kinds.toml`** — each with what it holds, the states it may take, whether it draws in Job colours, whether a person adds one by hand and whether it offers Dispatch. The rules below are what the gate holds that file and its three readers to.
 
+> **Rule.** No node is frozen. A Finding whose scout has ended holds no state, and says how it ended; an Outline stays a draft.
+> Why: *frozen*, done changing, gated nothing, and the owner cut it: *"I hate this frozen shit. Its overcomplicating it."* A Finding cannot stay *gathering*, because that says a scout still reads. `.claude/decisions/2026-10-01-no-studio-node-is-frozen.md`.
+
 > **Rule.** Run and Job nodes are the only nodes that take status colour, and each Run state aliases a Job status in `packages/tokens/src/status.css`.
 > Why: a run reads the same on a Studio, on the Manifest surface and on a Job's run sheet. See [Run and edit a Manifest](../journeys/run-and-edit-a-manifest.md).
 
