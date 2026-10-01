@@ -4,7 +4,9 @@
 // Drones, drones that are completed or have been killed, and I can peek into
 // the entire transcript for that drone."* One Drone per task is the redesign
 // (his decision of 22 Sep 2026, its own agent per task), and the list is read
-// from the draft until Fleet serves it.
+// from the draft until Fleet serves it. A Drone on a step that works no task —
+// a plan step's — is the Job's own, `assigned_drone`, and is listed too.
+// Finished and killed Drones are not: Fleet serves live ones only.
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
@@ -32,7 +34,7 @@ import {
   type DronesOrder,
 } from "./tab-drones-read";
 import type { ActingAct } from "./pending";
-import { droneOfTask } from "./tab-plan-read";
+import { droneOfTask, jobDroneOf } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 import type { TrailProps } from "./trail";
 
@@ -105,17 +107,20 @@ export function DronesTab({
     () => givenGroups ?? (whole === null ? [] : taskGroupsOf(whole)),
     [givenGroups, whole],
   );
-  const drones = useMemo(() => given ?? droneViewsOf(groups), [given, groups]);
+  const drones = useMemo(() => given ?? droneViewsOf(groups, whole ?? undefined), [given, groups, whole]);
   const tasks = useMemo(() => new Map(groups.flatMap((group) => group.tasks).map((task) => [task.id, task])), [groups]);
   const shown = useMemo(() => dronesUnder(drones, filter, order), [drones, filter, order]);
 
   const labelOf = (drone: DroneView): string => {
+    // A Drone on the step itself is the Job's own, and named as Plan names it.
+    if (drone.task === undefined) return jobDroneOf(whole)?.label ?? drone.id;
     const task = tasks.get(drone.task);
     return task === undefined
       ? `Drone on ${drone.task}`
       : (droneOfTask(whole, { ...task, drone_id: drone.id })?.label ?? `Drone on ${drone.task}`);
   };
-  const whereOf = (drone: DroneView): string => `${stepOf(whole, drone.step).label} · ${drone.task}`;
+  const whereOf = (drone: DroneView): string =>
+    [stepOf(whole, drone.step).label, drone.task].filter((part) => part !== undefined).join(" · ");
   const ranFor = (drone: DroneView): string | undefined => ranForOf(drone, now);
   // The sheet's where, as ways to it: the step opens its panel in Workflow and
   // the task its sheet in Plan — the Record's eyebrow act, so the app has one
@@ -124,6 +129,7 @@ export function DronesTab({
   // one.
   const whereLinksOf = (drone: DroneView) => {
     const step = stepOf(whole, drone.step);
+    const task = drone.task;
     return (
       <>
         {step.labelIsAnIdentifier === true ? (
@@ -136,15 +142,15 @@ export function DronesTab({
             </button>{" "}
           </>
         )}
-        {tasks.has(drone.task) ? (
+        {task === undefined ? null : tasks.has(task) ? (
           <>
-            <button type="button" className="armada-screen__eyebrow-act" onClick={() => onOpenTask(drone.task)}>
-              {drone.task}
+            <button type="button" className="armada-screen__eyebrow-act" onClick={() => onOpenTask(task)}>
+              {task}
               <ChevronRight size={12} strokeWidth={2} aria-hidden />
             </button>{" "}
           </>
         ) : (
-          `${drone.task} · `
+          `${task} · `
         )}
       </>
     );

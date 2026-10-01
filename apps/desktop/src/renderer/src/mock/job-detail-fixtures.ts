@@ -10,6 +10,7 @@ import type {
   PlanTask,
   Refusal,
   StepDetail,
+  WorkflowSummary,
 } from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 import { escalatedEvidenceSuspect, review } from "@armada/screens/src/fixtures/build/index";
@@ -313,22 +314,23 @@ export function refactorAtApproval(): JobFixture {
     model: "sonnet",
     current_step_id: "plan",
   };
+  const steps: StepDetail[] = [
+    {
+      ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
+      checks: [{ kind: "plan_recorded" }],
+      judge_checks: [{ criteria: 1, gaming_check: false }],
+    },
+    {
+      ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
+      judge_checks: [{ criteria: 4, gaming_check: true }],
+    },
+    { ...step("handoff", "Review the change", 2, "human_always"), delivers: true },
+  ];
   const detail = {
     ...base.watched.detail,
     job,
-    steps: [
-      {
-        ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
-        checks: [{ kind: "plan_recorded" }],
-        judge_checks: [{ criteria: 1, gaming_check: false }],
-      },
-      {
-        ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
-        checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
-        judge_checks: [{ criteria: 4, gaming_check: true }],
-      },
-      { ...step("handoff", "Review the change", 2, "human_always"), delivers: true },
-    ],
+    steps,
     acceptance_criteria: [
       { criterion_id: "c1", text: "Guide 8 is removed from the catalogue", source: "judge" },
       {
@@ -338,8 +340,42 @@ export function refactorAtApproval(): JobFixture {
       },
     ],
   };
-  return { ...base, job, watched: watchedRead(detail) };
+  // `refactor` as `GET /workflows` lists it since 21.1, with the line its
+  // definition declares — and the same id under another repository, whose
+  // line is not this Job's to read.
+  const refactor = (manifest_id: string, for_requests: string): WorkflowSummary => ({
+    id: "refactor",
+    name: "refactor",
+    version: 1,
+    manifest_id,
+    steps: steps.map((one) => ({
+      step_id: one.step_id,
+      label: one.label,
+      checks: one.checks ?? [],
+      judge_checks: one.judge_checks ?? [],
+      advance_gate: one.advance_gate ?? "human_always",
+      delivers: one.delivers ?? false,
+    })),
+    for_requests,
+  });
+  return {
+    ...base,
+    job,
+    watched: watchedRead(detail),
+    workflows: [
+      ...base.workflows,
+      refactor(job.owner_manifest_id, REFACTOR_FOR_REQUESTS),
+      refactor("elsewhere", "Another repository's refactor, for another kind of request."),
+    ],
+  };
 }
+
+/** `.armada/workflows/refactor.json`'s `for_requests`, as that file declares it. */
+export const REFACTOR_FOR_REQUESTS =
+  "Reorganising code without changing what it does: moving, renaming, splitting or tidying, " +
+  "where nothing anyone can see or use changes -- no screen, no output, no behaviour. A " +
+  "request that adds, removes or changes anything a person sees or can do, however small, is " +
+  "a feature and not a refactor.";
 
 /**
  * `implement`'s Checks, as `GET /jobs/2` served them on 1 Oct 2026, commands

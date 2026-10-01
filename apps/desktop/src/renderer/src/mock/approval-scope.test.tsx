@@ -3,12 +3,13 @@
 // Overview's lead on 1 Oct 2026 with the request, the workflow's name and the
 // title in front of him and nothing else; the proposer had picked `refactor`
 // for a visible change, and the Judge refused the plan for it. What counts as
-// done and how each step gates now read under the lead, while it waits.
+// done, what the workflow promises and how each step gates now read under the
+// lead, while it waits.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { refactorAtApproval, withRow } from "./job-detail-fixtures";
+import { REFACTOR_FOR_REQUESTS, refactorAtApproval, withRow } from "./job-detail-fixtures";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 
@@ -66,4 +67,24 @@ test("once the Job is running nothing draws: the approval is behind it", async (
   );
   await expect.element(page.getByRole("region", { name: "Brief" })).toBeVisible();
   expect(approving().all()).toHaveLength(0);
+});
+
+test("the workflow's promise reads under its name, from this repository's row of the list", async () => {
+  mount(onJob(refactorAtApproval()));
+  const workflow = approving().getByRole("region", { name: "Workflow" });
+  await expect.element(workflow.getByText(REFACTOR_FOR_REQUESTS)).toBeVisible();
+  expect(workflow.getByText("Another repository's refactor", { exact: false }).all()).toHaveLength(0);
+});
+
+test("a workflow that declares no promise draws nothing under its name", async () => {
+  const fixture = refactorAtApproval();
+  mount(
+    onJob({
+      ...fixture,
+      workflows: fixture.workflows.map(({ for_requests: _none, ...row }) => row),
+    }),
+  );
+  const workflow = approving().getByRole("region", { name: "Workflow" });
+  await expect.element(workflow.getByText("refactor", { exact: true })).toBeVisible();
+  expect(document.querySelector(".armada-proposal__workflow-promise")).toBeNull();
 });
