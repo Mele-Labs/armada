@@ -2,6 +2,8 @@ import { createContext, useContext, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 
 /**
  * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
@@ -122,3 +124,27 @@ const DRAWN: Components = {
     <Link href={typeof src === "string" ? src : undefined}>{alt || src}</Link>
   ),
 };
+
+/** The parts of an mdast node `proseText` reads. */
+type Node = { type: string; value?: string; alt?: string | null; children?: Node[] };
+
+const PARSER = unified().use(remarkParse).use(remarkGfm);
+
+/** Nodes whose end is a gap between words: blocks, cells, and a hard line break. */
+const APART = new Set(["paragraph", "heading", "listItem", "tableCell", "code", "break"]);
+
+/**
+ * Model-written markdown as the plain words `Prose` would draw, for a place that
+ * holds a string rather than a rendering, such as a title. Read by the same
+ * parser, so an underscore inside a name stays and a link keeps its text.
+ */
+export function proseText(text: string): string {
+  const words: string[] = [];
+  const walk = (node: Node) => {
+    words.push(node.type === "image" ? (node.alt ?? "") : (node.value ?? ""));
+    node.children?.forEach(walk);
+    if (APART.has(node.type)) words.push(" ");
+  };
+  walk(PARSER.parse(text) as Node);
+  return words.join("").replace(/\s+/g, " ").trim();
+}

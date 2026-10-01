@@ -341,6 +341,44 @@ impl Store {
                 LoadJobError::Unreadable(RowError::Database(fault("reading what a Job spent")(why)))
             })
     }
+
+    /// What each Drone of this Job spent, one row per Drone, in no order.
+    ///
+    /// **[`Store::spend_for`] before the sum.** A Drone with no row is a Drone
+    /// whose run nothing has written down yet — one still working, or one
+    /// that ran before version 23 — and is absent here rather than zero.
+    pub fn drone_spends_for(
+        &self,
+        job_id: &core_model::JobId,
+    ) -> Result<Vec<(core_model::DroneId, DroneSpend)>, LoadJobError> {
+        let unreadable = |why| {
+            LoadJobError::Unreadable(RowError::Database(fault(
+                "reading what each of a Job's Drones spent",
+            )(why)))
+        };
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT drone_id, cost_micros, turns, ran_ms \
+                 FROM job_drone_spend WHERE job_id = ?1",
+            )
+            .map_err(unreadable)?;
+        let rows = statement
+            .query_map((job_id.as_str(),), |row| {
+                Ok((
+                    core_model::DroneId::carried(core_model::Ulid::carried(
+                        row.get::<_, String>(0)?,
+                    )),
+                    DroneSpend {
+                        cost_micros: row.get::<_, Option<i64>>(1)?.map(|micros| micros as u64),
+                        turns: row.get::<_, i64>(2)? as u64,
+                        ran_ms: row.get::<_, i64>(3)? as u64,
+                    },
+                ))
+            })
+            .map_err(unreadable)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(unreadable)
+    }
 }
 
 /// What one Manifest's Jobs have cost, at most — the Manifest surface's budget

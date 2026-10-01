@@ -393,6 +393,23 @@ describe("the lead and what it is about are one panel", () => {
     expect(saidBy(".armada-lead__because")).toContain("pnpm add -D reselect@5.1.1");
   });
 
+  test("markdown/agent-text: the Drone's question draws as markdown, and Armada's line stays plain", async () => {
+    await drawn("markdown/agent-text", ".armada-lead__asked");
+
+    await expect
+      .element(page.getByRole("heading", { name: "A Drone asked you something" }))
+      .toBeVisible();
+    const said = document.querySelector(".armada-lead__said") as HTMLElement;
+    // Weight, a list and a name in code, drawn rather than spelled.
+    expect(said.querySelector("strong")?.textContent).toBe("heading");
+    expect([...said.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
+      "RunningList hides it today",
+      "the plan's brief says draw it",
+    ]);
+    expect(said.querySelector("code")?.textContent).toBe("RunningList");
+    expect(said.textContent).not.toMatch(/\*\*|`/);
+  });
+
   test("job/runningWaitingOnACommand: the elapsed is the lead's, at its top right", async () => {
     await drawn("job/runningWaitingOnACommand", ".armada-lead__elapsed");
 

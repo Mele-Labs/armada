@@ -352,6 +352,42 @@ async fn what_a_job_holds_is_read_and_examined_under_the_job() {
     }
 }
 
+/// Every Drone a Job has had is read under the Job, the exited ones with
+/// them, and an id naming nothing is a 404 rather than a Job with no Drones.
+#[tokio::test]
+async fn a_jobs_drones_are_read_under_the_job_exited_ones_too() {
+    let events = Broadcaster::new();
+    let daemon = FakeDaemon::new(events.clone());
+    at(&daemon, "01HAD", "running");
+    let app = wired(daemon, events);
+
+    let (status, body) = call(&app, "GET", "/jobs/01HAD/drones", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let had: ipc::JobDrones = ipc::decode("a Job's Drones", &body).expect("a list");
+    assert_eq!(had.job_id.as_str(), "01HAD");
+    let states: Vec<ipc::DroneState> = had.drones.iter().map(|drone| drone.state).collect();
+    assert_eq!(
+        states,
+        [
+            ipc::DroneState::Killed,
+            ipc::DroneState::Done,
+            ipc::DroneState::Running
+        ]
+    );
+    let json = String::from_utf8_lossy(&body);
+    assert!(
+        json.contains(r#""state":"killed""#),
+        "the state crosses as its word: {json}"
+    );
+    assert!(
+        !json.contains("null"),
+        "a running Drone's stop is left out, not sent as null: {json}"
+    );
+
+    let (status, _) = call(&app, "GET", "/jobs/01NOSUCH/drones", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 /// `#1041`. The route Helm's approval-card ask answers off: the id and handle
 /// back, a 404 on a Job that names nothing, and the Job itself untouched —
 /// still `awaiting_approval`. There is no daemon method behind this route for
