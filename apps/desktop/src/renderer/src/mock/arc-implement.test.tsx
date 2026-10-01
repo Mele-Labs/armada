@@ -64,7 +64,7 @@ async function openChecks(ordinal: number) {
 describe("implement", () => {
   test(
     "arc/executing-sequential: groups one and two read passed with the commit each left, " +
-      "group three is working, and group four has not started",
+      "group three is running, and group four has not started",
     async () => {
       await planList("arc/executing-sequential");
 
@@ -72,7 +72,7 @@ describe("implement", () => {
       await expect.element(groupCard(1)).toHaveTextContent("4c1b9d2");
       await expect.element(groupCard(2)).toHaveTextContent("passed");
       await expect.element(groupCard(2)).toHaveTextContent("7a2f0c5");
-      await expect.element(groupCard(3)).toHaveTextContent("working");
+      await expect.element(groupCard(3)).toHaveTextContent("running");
       await expect.element(groupCard(4)).toHaveTextContent("not started");
     },
   );
@@ -113,7 +113,7 @@ describe("implement", () => {
     async () => {
       await planList("arc/executing-concurrent");
 
-      await expect.element(groupCard(3)).toHaveTextContent("joining its work");
+      await expect.element(groupCard(3)).toHaveTextContent("joining");
       await expect.element(groupCard(3).getByRole("img", { name: "2 tasks, at the same time" })).toBeVisible();
       // The Job's cap rode on that line until 28 Sep, and read as one number twice.
       await expect.element(groupCard(3)).not.toHaveTextContent("Drones at once");
@@ -146,12 +146,12 @@ describe("implement", () => {
   );
 
   test(
-    "arc/group-failed: group three reads failed with the one Check that failed named, and " +
+    "arc/group-failed: group three reads retrying with the one Check that failed named, and " +
       "says this is its second attempt",
     async () => {
       await planList("arc/group-failed");
 
-      await expect.element(groupCard(3)).toHaveTextContent("failed at its checks");
+      await expect.element(groupCard(3)).toHaveTextContent("retrying");
       // Its own row says it; the head, open, does not say it again.
       await expect.element(boundaryOf(3).getByRole("button", { name: "screens_test, failed" })).toBeVisible();
       await expect.element(boundaryOf(3)).not.toHaveTextContent("screens_test failed");
