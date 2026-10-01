@@ -363,7 +363,8 @@ composer, the file written — rather than that a callback was called.
 
 **To show the owner something, write a walk and send him the link, or capture
 it and send him the pictures.** Not a list of what to open and press: a walk is
-those steps, played in the real app, from one definition.
+those steps, played in the real app, from one definition. A walk is also how a
+visual change is shown to him before it lands, and it waits there for his OK.
 
 ```ts
 // apps/desktop/src/renderer/src/mock/walks/back-from-a-drone.ts

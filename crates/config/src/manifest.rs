@@ -8,8 +8,8 @@
 //! `setup.requires` and `setup.seed`, [`seed`]; the three keys [`drone`] reads, the one section here that
 //! is a dial rather than a registry; and the two policies a
 //! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`; and
-//! `freeze`, [`freeze`]. Every other section the concept page describes is
-//! refused: permissions, secrets, skills, budget.
+//! `freeze`, [`freeze`]; `standing_rules`, [`standing`]. Every other section
+//! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
 //! **A key nothing reads is worse than a key that is not there.** A `budget:
 //! 40` nothing consumes reads as a budget that is set, and refusing it keeps
@@ -51,6 +51,7 @@ use serde_yaml_ng::Value;
 mod drone;
 mod freeze;
 mod policies;
+mod standing;
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::live::{Cell, InForce, Reloads};
@@ -73,6 +74,7 @@ const TOP_LEVEL: &[&str] = &[
     "auto_merge",
     "review_gate",
     "freeze",
+    "standing_rules",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -154,6 +156,8 @@ pub struct Manifest {
     /// resolved against it at daemon start, so a save that moves it is
     /// reported as needing a restart rather than adopted. See [`crate::live`].
     exclude_paths: Vec<RepoPath>,
+    /// See [`standing`].
+    standing_rules: Option<String>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
     /// See [`crate::live`] for why these and not the whole file.
     live: Cell,
@@ -517,6 +521,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
     };
     let (auto_merge, review_gate) = policies::read(&mut top, out);
     let freeze = freeze::read(&mut top, out);
+    let standing_rules = standing::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
@@ -552,6 +557,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
         harness,
         proved_after_a_merge,
         exclude_paths: drone.exclude_paths,
+        standing_rules,
         live: Cell::holding(InForce {
             dials: drone.dials,
             auto_merge,

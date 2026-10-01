@@ -55,7 +55,8 @@ pub(crate) async fn gaming(
         flags.extend(verification::in_the_diff(patch, gaming.flag_if()));
         let model = model_for(check, &judging.default_model)?;
         for pattern in verification::judged_patterns(gaming.flag_if()) {
-            let Some(brief) = GamingBrief::about(step, pattern, patch, baseline) else {
+            let Some(brief) = GamingBrief::about(step, pattern, patch, baseline, &judging.standing)
+            else {
                 continue;
             };
             // Before the call, on `Asked::kept`'s rule: a call that times out

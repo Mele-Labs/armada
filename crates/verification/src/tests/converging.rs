@@ -56,6 +56,7 @@ fn brief_with_precedent(off_plan: &[&str], precedent: &[StepCheck]) -> Convergen
             .collect::<Vec<RepoPath>>(),
         None,
         precedent,
+        &crate::Standing::unstated(),
     )
 }
 
@@ -70,6 +71,7 @@ fn about_the_file(held: Option<&str>) -> String {
         &[],
         held,
         &[],
+        &crate::Standing::unstated(),
     )
     .question()
     .to_string()
