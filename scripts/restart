@@ -219,7 +219,11 @@ else
       -not -path "$root/apps/desktop/out/*" \
       -not -path "$root/apps/desktop/release/*" \
       -not -name '*.tsbuildinfo' \
-      -newer "$bridge_stamp" -print 2>/dev/null | head -n 1)
+      -newer "$bridge_stamp" -print 2>/dev/null | head -n 1 || true)
+  # **`|| true`, because `head` closing the pipe is the point.** With more than
+  # one file changed, `find` dies of SIGPIPE once `head` has its line, and under
+  # `pipefail` that is exit 141: `set -e` then ended the whole restart right
+  # after the install, silently, with Fleet untouched. Confirmed 30 Sep 2026.
   [[ -n "$changed" ]] && bridge_rebuilt=true
 fi
 

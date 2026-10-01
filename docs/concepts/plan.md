@@ -70,7 +70,7 @@ overwritten.
 | --- | --- |
 | The step that records the plan | Record it whole, while its step runs. A retry, or a loop's return to that step, replaces the plan |
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
-| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs |
+| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, while the plan waits on its review — Fleet does not serve the move yet (#1685) |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind
@@ -143,3 +143,7 @@ step's declared file scope — what `declare_plan_at: step_start` and the
 paths a Drone said it would touch, unrelated to this Plan's tasks. The two
 must not collide in name: this document's Plan and Task are the Job's own
 record of its work, not a file-scope declaration.
+
+## Open questions
+
+- **[case-waits-for-last-group]** When a later group edits a file an earlier group's task wrote, should that task's cases still wait for the later group's boundary, and is the overlap worth drawing? Today a case runs at the boundary of the last group holding a task it covers, and again at handoff (#1530): if group 3's T6 writes `running-rows.tsx` and group 4's T7 edits it again, T6's case is skipped at group 3's boundary and runs at group 4's. Nothing runs at the same time, since groups still run one at a time. The cost is timing: a break T6 made surfaces a group late, after T7 has changed the same file. Plan draws the overlap as an amber callout on the later group ("Group 4 writes these files too") and as a line in the earlier task's panel ("T7 edited a file this task had already finished"). Neither says the consequence, and a later task editing an earlier one's file is not a fault in itself. What decides it: once Fleet runs groups, whether a break found a group late costs more than running a case twice, and whether a person reading the plan needs to know which boundary a case waits for. Groups are not yet built in Fleet, so there is nothing to measure yet.

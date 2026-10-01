@@ -16,7 +16,8 @@ import { Check, CircleDashed, CircleDot, Minus, X, type LucideIcon } from "lucid
  */
 export type TaskMarkState = "open" | "working" | "done" | "failed" | "dropped";
 
-const GLYPH: Record<TaskMarkState, LucideIcon> = {
+/** The glyph for each state — the mark's own, and the Plan task sheet's tag. */
+export const TASK_GLYPH: Record<TaskMarkState, LucideIcon> = {
   open: CircleDashed,
   working: CircleDot,
   done: Check,
@@ -43,7 +44,7 @@ export type TaskMarkProps = {
 
 /** Never pulses — the pulse stays scoped to the running step's own mark. */
 export function TaskMark({ state }: TaskMarkProps) {
-  const Icon = GLYPH[state];
+  const Icon = TASK_GLYPH[state];
   return (
     <span className="armada-task-mark" data-state={state}>
       <Icon size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />

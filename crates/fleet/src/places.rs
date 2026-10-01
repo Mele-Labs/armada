@@ -11,17 +11,20 @@
 //! limit in force, so a Check wider than it still takes every place there is.
 //!
 //! A heavy run outside `crate::checking::ran` holds one through [`Room::place`].
-//! A join of identical runs (#338) would sit in front of the ask.
+//! A join of identical runs (#338) would sit in front of the ask. A place then
+//! takes the machine's Check slots too, which `armada check` shares: `CheckSlots`.
 
-use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tokio::sync::Notify;
 
-use checks_runner::CheckWidth;
+use checks_runner::{CheckSlots, CheckWidth};
 
-use crate::headroom::{Bytes, Headroom, Machine, Reading, Spare};
-use crate::ordering::Past;
+use crate::headroom::{Headroom, Machine};
+
+pub use room::Room;
+
+mod room;
 
 /// How many later asks may take a place ahead of one already waiting, before
 /// it goes next whoever else asks. Four Drones' Checks, each cut short at its
@@ -98,6 +101,8 @@ struct Shared {
     state: Mutex<State>,
     /// Told when a place frees or is taken, an ask leaves, or the limit moves.
     changed: Notify,
+    /// Every process's slots, taken after a place. `None` in a test.
+    slots: Option<CheckSlots>,
 }
 
 struct State {
@@ -161,6 +166,15 @@ impl Places {
     /// A line of places at a width, which is what a Fleet serving several Jobs
     /// at once builds. #1444.
     pub fn sized(at_once: ChecksAtOnce, width: CheckWidth) -> Places {
+        Places::on_the_machine(at_once, width, None)
+    }
+
+    /// [`Places::sized`], each place also taking the machine's `slots`.
+    pub fn on_the_machine(
+        at_once: ChecksAtOnce,
+        width: CheckWidth,
+        slots: Option<CheckSlots>,
+    ) -> Places {
         Places(Arc::new(Shared {
             state: Mutex::new(State {
                 at_once,
@@ -171,6 +185,7 @@ impl Places {
                 waiting: Vec::new(),
             }),
             changed: Notify::new(),
+            slots,
         }))
     }
 
@@ -220,6 +235,7 @@ impl Places {
             seq,
             short_at: None,
             wants,
+            taken: None,
         }
     }
 
@@ -238,6 +254,9 @@ pub(crate) struct Ask {
     short_at: Option<u64>,
     /// How many places this ask takes, clamped at [`Places::ask`]. #1102.
     wants: usize,
+    /// The place, kept here while the machine's slots are waited for, so an
+    /// ask dropped mid-wait and granted again does not lose it.
+    taken: Option<Place>,
 }
 
 enum Turn {
@@ -282,6 +301,31 @@ impl Ask {
         headroom: Headroom,
         mut waiting: impl FnMut(usize),
     ) -> Place {
+        if self.taken.is_none() {
+            self.taken = Some(self.in_turn(machine, headroom, &mut waiting).await);
+        }
+        let held = match &self.places.0.slots {
+            None => None,
+            // Said on the Checks waiting, as a place is. A filesystem that
+            // refuses runs the Check without; `armada::serve` tried it at start.
+            Some(slots) => slots
+                .take(self.wants, |in_use| waiting(in_use.in_use))
+                .await
+                .ok(),
+        };
+        let Some(mut place) = self.taken.take() else {
+            unreachable!("the place was taken above and nothing between gives it back")
+        };
+        place.slots = held;
+        place
+    }
+
+    async fn in_turn(
+        &mut self,
+        machine: &Arc<dyn Machine>,
+        headroom: Headroom,
+        waiting: &mut impl FnMut(usize),
+    ) -> Place {
         // Its own handle, so the wake can be held while the turn is taken.
         let places = self.places.clone();
         loop {
@@ -315,6 +359,7 @@ impl Ask {
         Place {
             places: self.places.clone(),
             holds: self.wants,
+            slots: None,
         }
     }
 }
@@ -339,124 +384,20 @@ impl Drop for Ask {
 pub struct Place {
     places: Places,
     holds: usize,
+    /// The machine's slots, given back first so a waiter woken below finds
+    /// them free.
+    slots: Option<checks_runner::Held>,
 }
 
 impl Drop for Place {
     fn drop(&mut self) {
+        drop(self.slots.take());
         {
             let mut state = self.places.state();
             state.held = state.held.saturating_sub(self.holds);
             state.given_back += 1;
         }
         self.places.0.changed.notify_waiters();
-    }
-}
-
-/// What a run asks before each command it starts: one or more of the
-/// machine's places, and the memory and disk for it. #284, #1063, #1102.
-///
-/// **The first on the machine always starts**, so a short machine slows Checks
-/// and never stops them. The headroom is taken when the run begins.
-#[derive(Clone)]
-pub struct Room {
-    places: Places,
-    asking: Asking,
-    machine: Arc<dyn Machine>,
-    headroom: Headroom,
-    /// How long each Check took before, which decides which starts first.
-    past: Past,
-    /// How wide one command in this batch may run.
-    ///
-    /// **Here rather than threaded beside it**, because it is the same fact
-    /// this type already carries: what of the machine a batch may take. The
-    /// places bound how many run at once; this bounds what one of them spawns
-    /// once it is running. A caller holding one already holds the other. #1444.
-    width: CheckWidth,
-}
-
-impl Room {
-    /// A gate's room with places of its own, sharing the machine with nothing.
-    pub fn of(at_once: ChecksAtOnce, machine: Arc<dyn Machine>, headroom: Headroom) -> Room {
-        Room::sharing(
-            &Places::of(at_once),
-            Asking::Gate,
-            machine,
-            headroom,
-            // Sharing with nothing, so nothing divides it.
-            CheckWidth::read(1),
-        )
-    }
-
-    /// A room in `places`, asking as `asking`.
-    pub(crate) fn sharing(
-        places: &Places,
-        asking: Asking,
-        machine: Arc<dyn Machine>,
-        headroom: Headroom,
-        width: CheckWidth,
-    ) -> Room {
-        Room {
-            places: places.clone(),
-            asking,
-            machine,
-            headroom,
-            past: Past::default(),
-            width,
-        }
-    }
-
-    /// The same room, starting the Checks this repository has timed fastest
-    /// first. #1062.
-    pub(crate) fn knowing(self, past: Past) -> Room {
-        Room { past, ..self }
-    }
-
-    /// How wide one command in this batch may run, before any Check's own
-    /// declaration lowers it. #1444.
-    pub(crate) fn width(&self) -> CheckWidth {
-        self.width
-    }
-
-    /// The same room, at a width a test can name. [`Room::knowing`]'s shape.
-    #[cfg(test)]
-    pub(crate) fn wide(self, width: CheckWidth) -> Room {
-        Room { width, ..self }
-    }
-
-    pub(crate) fn past(&self) -> &Past {
-        &self.past
-    }
-
-    /// Bounded by `at_once` and nothing else: the machine is never read. For a
-    /// caller with no machine to ask, such as a test or the acceptance bench.
-    pub fn ignoring_the_machine(at_once: ChecksAtOnce) -> Room {
-        Room::of(
-            at_once,
-            Arc::new(Unread),
-            Headroom::of(Spare::percent(0), Bytes::gibibytes(0)),
-        )
-    }
-
-    /// Join the line for a place.
-    pub(crate) fn ask(&self) -> Ask {
-        self.places.ask(self.asking, 1)
-    }
-
-    /// Join the line for a Check's own `places`. #1102.
-    pub(crate) fn ask_for(&self, places: std::num::NonZeroU32) -> Ask {
-        self.places.ask(self.asking, places.get() as usize)
-    }
-
-    /// The place `ask` waits for. `waiting` is told how many places are held
-    /// each time it waits. **Safe to drop and call again.**
-    pub(crate) async fn granted(&self, ask: &mut Ask, waiting: impl FnMut(usize)) -> Place {
-        ask.granted(&self.machine, self.headroom, waiting).await
-    }
-
-    /// Wait in line and hold a place, for a heavy run of any kind.
-    pub async fn place(&self) -> Place {
-        let mut ask = self.ask();
-        self.granted(&mut ask, |_| {}).await
     }
 }
 
@@ -469,17 +410,4 @@ impl Room {
 /// still run alone rather than wait for room that will never be free. #1102.
 pub(crate) fn may_start(held: usize, wants: usize, at_once: ChecksAtOnce, short: bool) -> bool {
     held == 0 || (held + wants <= at_once.get() && !short)
-}
-
-/// A machine that never answers, so it never holds a Check back.
-struct Unread;
-
-impl Machine for Unread {
-    fn read(&self) -> Option<Reading> {
-        None
-    }
-
-    fn disk_free_at(&self, _path: &Path) -> Option<Bytes> {
-        None
-    }
 }

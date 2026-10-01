@@ -313,7 +313,6 @@ export function DetailSheet({
         title={task.title}
         state={task.state}
         reason={task.reason}
-        note={task.note}
         scope={task.scope}
         {...(taskTouched === undefined ? {} : { touched: taskTouched })}
         expects={task.expects}

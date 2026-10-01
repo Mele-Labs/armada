@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { JobDetail, Turn } from "@armada/protocol";
 
 import type { DroneThought, DroneView } from "./draft/drone";
-import { clock } from "./duration";
+import { clock, elapsedSince } from "./duration";
 import { entriesOf, type LogRow } from "./story";
 
 export type DronesFilter = "all" | JobDroneState;
@@ -19,6 +19,34 @@ export const DRONE_SAYS: Record<JobDroneState, string> = {
   failed: "Failed",
   killed: "Killed",
 };
+
+/** What one Drone's transcript says with no rows: Fleet serves none, or it has none yet. */
+export const TRANSCRIPT_UNSERVED = "Fleet does not serve one Drone's transcript yet.";
+export const TRANSCRIPT_EMPTY = "This Drone has written nothing yet.";
+
+/**
+ * How long a Drone has run, on the header's own `Run time` terms: to now while
+ * it runs, to when it stopped once it has. A stopped Drone with no end draws
+ * nothing, as a Job does.
+ */
+export function ranForOf(drone: DroneView, now: number): string | undefined {
+  return drone.ended_at !== undefined
+    ? elapsedSince(drone.since, drone.ended_at)
+    : drone.state === "running"
+      ? elapsedSince(drone.since, now)
+      : undefined;
+}
+
+/**
+ * The Drone a task has now: its latest, where one task has had two — the first
+ * ended by hand and the second finishing it. Undefined for a task none has run.
+ */
+export function droneOnTask(drones: readonly DroneView[], taskId: string): DroneView | undefined {
+  return drones
+    .filter((drone) => drone.task === taskId)
+    .sort((a, b) => (a.since ?? "").localeCompare(b.since ?? ""))
+    .at(-1);
+}
 
 export const ORDER_SAYS: Record<DronesOrder, string> = {
   running: "Running first",

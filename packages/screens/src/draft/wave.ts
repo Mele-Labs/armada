@@ -39,12 +39,23 @@ export type WaveJobView = {
   waits_on: readonly string[];
   /** Where its pull request settled, where it has. `Settled` on the wire. */
   landed?: Settled;
+  /**
+   * What its Drone was handed, and what the split expects of it — the plan's
+   * own brief for this piece. `plan.md` records both and the Board carries
+   * neither, so today they are the mock's.
+   */
+  brief?: string;
+  expects?: readonly string[];
+  /** What it has cost so far, in millionths of a dollar. Absent until it has spent. */
+  cost_micros?: number;
+  /** How far through its own plan it is. Absent for a Job with no tasks yet. */
+  tasks?: { done: number; of: number };
 };
 
 /** One pass of plan, dispatch and roll up, and what its split was for. */
 export type WaveRoundView = {
   round: number;
-  /** What this pass split the work into, one line. */
+  /** What this pass split the work into, a few words — the strip's label. */
   says: string;
   /**
    * Whether this is the plan the Job is running now. Every earlier round is
@@ -62,6 +73,12 @@ export type WaveView = {
   rounds: readonly WaveRoundView[];
   /** Every Job the wave dispatched, in the order the plan listed them. */
   jobs: readonly WaveJobView[];
+  /**
+   * The model that read the live split for its Judge. `StepDetail.judged`
+   * carries each criterion's verdict and not who gave it, so this is the
+   * mock's until Fleet stamps it.
+   */
+  judged_by?: string;
 };
 
 /**

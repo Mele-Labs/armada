@@ -23,9 +23,9 @@ import { GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/Gr
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
 /**
- * A Job's graph: the run as the workflow it froze — the steps, the one Plan
- * node hanging off the step that recorded it, and a loop returning above — or
- * the plan itself, a group and the tasks it holds. `#1539`.
+ * A Job's graph: the run as the workflow it froze — the steps, and a loop
+ * returning above — or the plan itself, a group and the tasks it holds.
+ * `#1539`.
  *
  * **Placement is the caller's**, computed from step order, which is the whole
  * difference between this surface and a Studio's whiteboard. Nothing here
@@ -100,6 +100,19 @@ export type WorkflowCanvasProps = {
    * with a whole plan hanging off it clips on every side rather than shrinking.
    */
   opensOn?: readonly (readonly string[])[];
+  /**
+   * Whether a fit hangs the run from the top of the frame rather than centring
+   * it — the Workflow board's spine, a row along the top with the frame's room
+   * under it. **The Job's run asks for it; the plan's graph does not**, since a
+   * plan is a column and centres the way a fit does.
+   */
+  hangsFromTop?: boolean;
+  /**
+   * Whether the spine runs top to bottom rather than left to right (owner,
+   * 29 Sep 2026). A loop then returns along the column's right side instead
+   * of arcing above the row, for the same reason: beside the spine, never on it.
+   */
+  runsDown?: boolean;
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps }, "workflow">;
@@ -172,6 +185,9 @@ const EDGE_TYPES = { workflow: EdgeView };
 /** A returning edge leaves and arrives on the top edge, which is what puts its arc above the spine. */
 const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Top}` };
 
+/** The same, on a spine that runs down: out of the right edge and back into it. */
+const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
+
 /**
  * The plan drops out of the step that recorded it: down off the step's own
  * bottom edge and in at the plan's left, so the drop clears the spine rather
@@ -199,6 +215,9 @@ const ROOM_TO_BREATHE = 0.9;
 /** The same room, as canvas units, where the viewport is set rather than fitted. */
 const INSET = 16;
 
+/** Where a run that hangs from the top sits under the frame's edge — the board's. */
+const HUNG_BELOW = 80;
+
 /**
  * What a fit depends on, said as a value. **The whole of the pan defect**: the
  * tab rebuilds `opensOn` every render, so an effect keyed on the array re-fitted
@@ -223,10 +242,12 @@ function FitsTheFrame({
   options,
   opensOn,
   following,
+  hangsFromTop,
 }: {
   options: FitViewOptions;
   opensOn: readonly (readonly string[])[] | undefined;
   following: boolean;
+  hangsFromTop: boolean;
 }) {
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
@@ -248,15 +269,27 @@ function FitsTheFrame({
       const scale = Math.min(width / bounds.width, height / bounds.height) * ROOM_TO_BREATHE;
       return scale >= SMALLEST_READABLE;
     };
+    // A fit centres; a run that hangs from the top keeps the fit's zoom and
+    // x, and moves its top row up under the frame's edge.
+    const fit = (nodes?: readonly { id: string }[]) => {
+      const fitted = flow.fitView(nodes === undefined ? options : { ...options, nodes: [...nodes] });
+      if (!hangsFromTop) return;
+      void fitted.then(() => {
+        const shown = (nodes ?? flow.getNodes()).map((one) => placed.get(one.id)).filter((one) => one !== undefined);
+        if (shown.length === 0) return;
+        const { x, zoom } = flow.getViewport();
+        void flow.setViewport({ x, y: HUNG_BELOW - getNodesBounds(shown).y * zoom, zoom });
+      });
+    };
     const all = flow.getNodes();
     if (opens === undefined || reads(all)) {
-      void flow.fitView(options);
+      fit();
       return;
     }
     const narrower = opens.map((ids) => ids.map((id) => ({ id })));
     const fits = narrower.find(reads);
     if (fits !== undefined) {
-      void flow.fitView({ ...options, nodes: fits });
+      fit(fits);
       return;
     }
     // Nothing narrow enough reads in this frame. **Open at the top of the
@@ -276,7 +309,7 @@ function FitsTheFrame({
       y: INSET - bounds.y * SMALLEST_READABLE,
       zoom: SMALLEST_READABLE,
     });
-  }, [flow, following, options, opens, width, height]);
+  }, [flow, following, options, opens, width, height, hangsFromTop]);
   return null;
 }
 
@@ -305,6 +338,8 @@ export function WorkflowCanvas({
   following = false,
   onFollowing,
   opensOn,
+  hangsFromTop = false,
+  runsDown = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -334,7 +369,9 @@ export function WorkflowCanvas({
       const to = named.get(edge.target) ?? edge.target;
       const sides =
         edge.kind === "returns"
-          ? OVER_THE_SPINE
+          ? runsDown
+            ? BESIDE_THE_SPINE
+            : OVER_THE_SPINE
           : edge.kind === "made"
             ? WAS_MADE
             : facingSides(placed.get(edge.source), placed.get(edge.target));
@@ -349,7 +386,7 @@ export function WorkflowCanvas({
         data: { returning, ...(edge.label === undefined ? {} : { label: edge.label }) },
       };
     });
-  }, [given, givenEdges, nodes]);
+  }, [given, givenEdges, nodes, runsDown]);
 
   const fitViewOptions = useMemo(
     () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),
@@ -388,7 +425,7 @@ export function WorkflowCanvas({
       railBelow={stay}
       fitViewOptions={fitViewOptions}
     >
-      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} />
+      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} />
       <Follows running={running} following={following} />
     </GraphCanvas>
   );

@@ -32,10 +32,31 @@ describe("a step", () => {
     selected: stepNodeId(whole.steps[1]!.step_id),
   })!;
 
-  it("names the step, what it is doing, and how many groups it opens into", () => {
+  it("names the step, where it sits and its state, and the plan as a card of its groups", () => {
     expect(reading.kind).toBe("step");
     expect(reading.name).toBe(whole.steps[1]!.label);
-    expect(reading.doing).toContain(`${groups.length} group`);
+    expect(reading.eyebrow).toBe(`Step ${whole.steps[1]!.ordinal}`);
+    expect(reading.state?.activity).toBe("running");
+    // The step that works the plan links to it and lists none of its tasks
+    // (owner, 28 and 29 Sep 2026, `25i2`, `nm0h`, `dco5`).
+    expect(reading.plan?.groups.map((group) => group.name)).toEqual(groups.map((group) => `Group ${group.ordinal}`));
+    expect(reading.plan?.groups.map((group) => group.tasks)).toEqual(
+      groups.map((group) => `${group.tasks.length} ${group.tasks.length === 1 ? "task" : "tasks"}`),
+    );
+    expect(reading.tasks ?? []).toEqual([]);
+  });
+
+  it("hands the plan card the way to Plan, where it is given one", () => {
+    let opened = 0;
+    const linked = workflowReadingOf({
+      whole,
+      groups,
+      groupsUnder,
+      selected: stepNodeId(whole.steps[1]!.step_id),
+      onOpenPlan: () => (opened += 1),
+    })!;
+    linked.plan?.onOpen?.();
+    expect(opened).toBe(1);
   });
 
   it("draws every Check the step declares, once each, whichever glob selected it", () => {
@@ -46,12 +67,36 @@ describe("a step", () => {
     expect(reading.checks?.map((check) => check.name)).toEqual([...new Set(declared)]);
   });
 
-  // It said why there were none until 28 Sep, and the sentence named Fleet
-  // and what Fleet does not serve yet. The owner cut that sentence where the
-  // group's boundary drew it, and this drew the same one.
-  it("draws no case, and no sentence about why there is none", () => {
+  // It said *Fleet does not serve the cases a boundary owes yet* until 28 Sep,
+  // and the owner asked what was missing and how it gets fixed (`frpl`).
+  it("says what is missing where no case runs, and links the issue that builds it", () => {
     expect(reading.tests).toEqual([]);
+    expect(reading.testsAbsent?.says).toContain("COVERS");
+    expect(reading.testsAbsent?.issue?.href).toMatch(/\/issues\/1274$/);
     expect(JSON.stringify(reading)).not.toContain("does not serve the cases");
+  });
+
+  it("reads a Check the gate is running as running, and one waiting its turn as waiting", () => {
+    const step = whole.steps[1]!;
+    const [first, second] = [...new Set((step.checks ?? []).map((check) => check.name ?? check.kind))];
+    const started = "2026-09-22T10:00:00Z";
+    const live = {
+      ...whole,
+      steps: whole.steps.map((one, at) =>
+        at === 1
+          ? { ...one, checking: { attempt: 1, checks: [{ name: first!, started_at: started }, { name: second! }] } }
+          : one,
+      ),
+    };
+    const checks = workflowReadingOf({
+      whole: live,
+      groups,
+      groupsUnder,
+      selected: stepNodeId(step.step_id),
+      now: Date.parse(started) + 42_000,
+    })!.checks!;
+    expect(checks.find((check) => check.name === first)).toMatchObject({ live: "running", outcome: "42s" });
+    expect(checks.find((check) => check.name === second)).toMatchObject({ live: "waiting", outcome: "waiting" });
   });
 });
 
@@ -78,7 +123,7 @@ describe("a group", () => {
 });
 
 describe("a Job with no plan", () => {
-  it("says no plan was recorded rather than drawing an empty list", () => {
+  it("draws no plan and no task list, rather than an empty one", () => {
     const bare = KIND_FIXTURES.map((fixture) => fixture.watched)
       .filter((one) => one.state === "read")
       .map((one) => one.detail)
@@ -89,7 +134,7 @@ describe("a Job with no plan", () => {
       groups: [],
       selected: stepNodeId(bare.steps[0]!.step_id),
     })!;
-    expect(reading.tasks).toEqual([]);
-    expect(reading.tasksAbsent).toContain("No plan has been recorded");
+    expect(reading.plan).toBeUndefined();
+    expect(reading.tasks ?? []).toEqual([]);
   });
 });

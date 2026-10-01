@@ -3,13 +3,12 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import tokens from "@armada/tokens/tokens.json";
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome, StudioPromotion } from "@armada/protocol";
 import type { HelmContext, StagedAttachment } from "@armada/protocol";
-import type { AddTask, DropTask, FileReport } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type {
   Artifact,
   CommandAnswer,
@@ -110,12 +109,6 @@ function wearTheMark(): void {
   app.dock.setIcon(icon);
 }
 
-/** The hard window floor, from the token that exists to be read here. */
-function floor(name: string): number {
-  const found = tokens.tokens.find((token) => token.name === name);
-  return found === undefined ? 0 : Number.parseInt(found.value, 10);
-}
-
 /**
  * Write pasted or picked bytes to a fresh staging directory, before any Job
  * exists to key storage on. One directory per file rather than one per
@@ -192,9 +185,6 @@ function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 800,
-    // Every layout is designed for resize rather than for the size it was built
-    // at, and the floor is where that stops being the layout's problem.
-    minWidth: floor("--window-floor"),
     show: false,
     // Frameless: the title row Bridge draws itself — #1087 — replaces macOS's
     // grey bar, which said only "Armada" while the app's own controls sat
@@ -526,6 +516,28 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.killProcesses, (_event, jobId: string) =>
     connection?.commands.killProcesses(jobId),
+  );
+  // A failed plan task's own acts — #250, #1656, #1657.
+  ipcMain.handle(CHANNELS.pilotTask, (_event, jobId: string, taskId: string) =>
+    connection?.commands.pilotTask(jobId, taskId),
+  );
+  ipcMain.handle(CHANNELS.restartTask, (_event, jobId: string, taskId: string) =>
+    connection?.commands.restartTask(jobId, taskId),
+  );
+  ipcMain.handle(CHANNELS.editTask, (_event, jobId: string, taskId: string, edit: EditTask) =>
+    connection?.commands.editTask(jobId, taskId, edit),
+  );
+  // A group or a task dropped somewhere new on the plan — #1685.
+  ipcMain.handle(CHANNELS.movePlan, (_event, jobId: string, move: MovePlan) =>
+    connection?.commands.movePlan(jobId, move),
+  );
+  // An Epic's plan approved, releasing every Job of its wave — #1694.
+  ipcMain.handle(CHANNELS.approveWave, (_event, jobId: string, wave: ApproveWave) =>
+    connection?.commands.approveWave(jobId, wave),
+  );
+  // One Job of an Epic's proposed wave, edited before the wave is approved — #1699.
+  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
+    connection?.commands.editJob(jobId, edit),
   );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person

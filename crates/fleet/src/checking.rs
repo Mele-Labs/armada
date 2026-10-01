@@ -456,6 +456,7 @@ pub(crate) async fn ran(
     // lowers it. Carried on the room for `crate::places::Room::width`'s
     // reason. #1444.
     let width = room.width();
+    let env = &room.handing_down(env);
     let trusted = reuse::trusted(dry_run, attempt, footprint_now);
     let mut planned: Vec<Planned> = checks
         .iter()

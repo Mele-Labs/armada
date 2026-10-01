@@ -51,13 +51,12 @@ export type GroupBoundaryTest = {
   named?: FactChipNamed;
 };
 
+/**
+ * **No clause about where it runs** (owner, 30 Sep 2026: *just fluff*). The
+ * strip sits at the boundary, so `will run at this boundary` said where it
+ * already was. What stays is a fact: the verdict, the attempt, the commit.
+ */
 export type GroupBoundaryProps = {
-  /**
-   * The strip's trailing clause while nothing has run — `will run at this
-   * boundary`. **The clause, not the sentence**: the bar draws how many, and
-   * `7 checks will run` beside seven segments is one number said twice.
-   */
-  clause: string;
   checks: readonly GroupBoundaryCheck[];
   /** Why no Check runs here. Drawn instead of the strip, never beside an empty one. */
   checksAbsent?: string;
@@ -68,8 +67,6 @@ export type GroupBoundaryProps = {
   retrySays?: string;
   /** The commit the group left. Absent until it left one. */
   commit?: string;
-  /** `run at this boundary`. Absent where no case does. */
-  testsClause?: string;
   tests?: readonly GroupBoundaryTest[];
 };
 
@@ -163,7 +160,7 @@ function Strip({
   guide?: ReactNode;
   count?: number;
   segments?: readonly TaskBarSegment[];
-  trailing: ReactNode;
+  trailing?: ReactNode;
   chips?: ReactNode;
   open?: boolean;
   onToggle?: () => void;
@@ -195,7 +192,7 @@ function Strip({
         )}
         <span className="armada-boundary__gap" />
         {chips}
-        {sums ? <span className="armada-boundary__trailing">{trailing}</span> : null}
+        {sums && trailing !== undefined ? <span className="armada-boundary__trailing">{trailing}</span> : null}
         {onToggle === undefined ? null : (
           <ChevronDown className="armada-boundary__chevron" size={12} strokeWidth={2} aria-hidden />
         )}
@@ -208,14 +205,12 @@ function Strip({
 }
 
 export function GroupBoundary({
-  clause,
   checks,
   checksAbsent,
   verdictSays,
   verdictNamed,
   retrySays,
   commit,
-  testsClause,
   tests = [],
 }: GroupBoundaryProps) {
   const failed = checks.some((check) => check.reads === "failed");
@@ -245,15 +240,15 @@ export function GroupBoundary({
                 {commit === undefined ? null : <FactChip title={commit}>{commit}</FactChip>}
               </>
             }
-            trailing={
-              verdictSays === undefined ? (
-                clause
-              ) : (
-                <span className="armada-boundary__verdict" data-named={verdictNamed}>
-                  {verdictSays}
-                </span>
-              )
-            }
+            {...(verdictSays === undefined
+              ? {}
+              : {
+                  trailing: (
+                    <span className="armada-boundary__verdict" data-named={verdictNamed}>
+                      {verdictSays}
+                    </span>
+                  ),
+                })}
             open={checksOpen}
             onToggle={() => setChecksOpen((was) => !was)}
           >
@@ -270,12 +265,11 @@ export function GroupBoundary({
 
       {/* Apart from the Checks above, and never folded into them. Absent
           where there is no case, rather than empty under a heading. */}
-      {tests.length === 0 || testsClause === undefined ? null : (
+      {tests.length === 0 ? null : (
         <section className="armada-boundary__region" aria-label="Tests at this boundary">
           <Strip
             label="Tests"
             count={tests.length}
-            trailing={testsClause}
             open={testsOpen}
             onToggle={() => setTestsOpen((was) => !was)}
           >

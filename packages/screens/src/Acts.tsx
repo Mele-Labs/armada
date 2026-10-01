@@ -79,6 +79,12 @@ export type ConfirmableAct = Exclude<
  */
 export type HeldAct = Extract<ConfirmableAct, "kill_drone" | "kill_job">;
 
+/**
+ * A failed plan task's own acts, on its panel. **Not Job acts**: each names a
+ * task, and each is on screen ahead of its Fleet route — `PENDING_ROUTES`.
+ */
+export type TaskAct = "pilot_task" | "restart_task" | "edit_task";
+
 function isHeldAct(act: ConfirmableAct): act is HeldAct {
   return act === "kill_drone" || act === "kill_job";
 }

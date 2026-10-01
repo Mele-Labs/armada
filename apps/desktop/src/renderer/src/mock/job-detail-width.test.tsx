@@ -149,9 +149,9 @@ test.each([2000, 1512, 1440, 1280, 1101])(
   },
 );
 
-// Below the breakpoint the dock is a sheet rather than a panel, and the strip
-// that opens it is drawn whether or not it is open — so the claim holds there
-// too, and for a different reason worth measuring separately.
+// Below the breakpoint the dock is a sheet rather than a panel, over the work
+// rather than in its flow — so the claim holds there too, and for a different
+// reason worth measuring separately.
 test.each([1000, 768])("at %i the content is the same width with the sheet shut and open", async (width) => {
   await atWidth(width);
   const shut = panelWidth();

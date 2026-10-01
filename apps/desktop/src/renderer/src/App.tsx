@@ -776,6 +776,9 @@ export function App({ draft }: AppProps = {}) {
                   setConfirming({ act: "kill_process", jobId, pid, command })
                 }
                 onKillProcesses={(jobId, count) => setConfirming({ act: "kill_processes", jobId, count })}
+                // A plan task's own acts, straight through: each is ahead of
+                // its route, so the answer is Not implemented naming the issue.
+                onTaskAct={(act, jobId, taskId, edit) => commands.taskAct(act, jobId, taskId, edit)}
                 recorded={{
                   footprint: state.footprint,
                   handed: state.handed,
@@ -821,6 +824,8 @@ export function App({ draft }: AppProps = {}) {
                 onReport={commands.report}
                 onAddTask={commands.addTask}
                 onDropTask={commands.dropTask}
+                onMovePlan={commands.movePlan}
+                onEditJob={commands.editJob}
                 onShowAgain={showAgain}
                 onApprove={(jobId) => void commands.approve(jobId)}
                 onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
@@ -829,6 +834,7 @@ export function App({ draft }: AppProps = {}) {
                 onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}
                 onFileFindingIssue={(jobId, finding, title, body) => void commands.fileFindingIssue(jobId, finding, title, body)}
                 onApproveReview={(jobId) => void commands.decide(jobId, "approve")}
+                onApproveWave={(jobId, jobs) => void commands.approveWave(jobId, { jobs })}
                 onRequestChanges={(jobId, note) => void commands.decide(jobId, "changes", note)}
                 onReject={(jobId) => void commands.decide(jobId, "reject")}
                 onTakeUpRemarks={(jobId, remarks) => void commands.takeUpRemarks(jobId, remarks)}

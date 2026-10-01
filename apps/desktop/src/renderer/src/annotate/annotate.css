@@ -150,8 +150,11 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
+  width: max-content;
   max-width: calc(100vw - var(--space-6));
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--border-default);
@@ -161,6 +164,12 @@
   color: var(--fg-muted);
   font-size: var(--text-xs);
   pointer-events: auto;
+}
+
+/* Each piece wraps whole: a narrow window moves a piece to the next line
+   rather than breaking the count into one word per line. */
+.armada-annotate__bar > * {
+  white-space: nowrap;
 }
 
 .armada-annotate__bar > :first-child {

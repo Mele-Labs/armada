@@ -1,4 +1,4 @@
-/* Helm's dock, the edge strip and sheet it folds to, and the left column's own handle.
+/* Helm's dock, the sheet it folds to, and the left column's own handle.
    The frame around them is screens.css's. */
 
 /* The canvas under Depth: --bg-base under two faint pools of light, so a quiet
@@ -45,16 +45,9 @@
    were siblings in the flow supplying the gap themselves. **Nothing follows
    the panel in the flow any more** (#1583) — the dock and its handle are on
    a layer over it — so the gutter is unconditional, and the panel measures
-   the same with Helm open and shut.
-
-   The folded strip is the one thing still in the flow beside it, and it
-   carries its own leading border flush to the panel. */
+   the same with Helm open and shut. */
 .armada-shell__work > .armada-shell__panel {
   margin-right: var(--space-4);
-}
-
-.armada-shell__work:has(.armada-shell__strip) > .armada-shell__panel {
-  margin-right: 0;
 }
 
 /* Helm's dock, on a layer over the work rather than a track beside it. #1583:
@@ -150,50 +143,15 @@
 
 /* The handle supplies its own margin in the gap it now occupies — #1094's
    dock kept the whole 16px as its own left margin because nothing sat in it. */
-.armada-shell__work:has(.armada-shell__dock-handle) .armada-shell__dock {
+.armada-shell__work:has(.armada-dock-handle) .armada-shell__dock {
   margin-left: 0;
 }
 
-/* The dock's leading edge, drawn only where `onResize` is wired — an edge
-   that looks grabbable and does nothing would be worse than none. The hit
-   area is the whole 16px gap the dock's own margin used to spend alone; a
-   short handlebar grip at its vertical centre is visible at rest —
-   `--border-default`, one step up from a divider's own `--border-subtle`
-   since this is a control rather than a rule — and brightens to
-   `--border-strong` on hover, focus or drag, never appearing from nothing.
-   `--space-8` and `top: 50%` keep it a short pill rather than the full-height
-   line the hit area's own `align-self: stretch` would otherwise suggest. */
-.armada-shell__dock-handle {
-  flex: none;
-  align-self: stretch;
-  position: relative;
-  width: var(--space-2);
-  margin: var(--space-4) var(--space-1);
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.armada-shell__dock-handle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--border-width);
-  height: var(--space-8);
-  border-radius: var(--radius-sm);
-  background: var(--border-default);
-  transform: translateY(-50%);
-}
-
-.armada-shell__dock-handle:hover::before,
-.armada-shell__dock-handle:focus-visible::before,
-.armada-shell__dock-handle[data-dragging="true"]::before {
-  background: var(--border-strong);
-}
-
-.armada-shell__dock-handle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--border-width) * -2);
+/* The dock's leading edge — the shared handle (`src/dock-handle.css`), which
+   carries the look; here it takes the dock's own `--space-4` off the top and
+   bottom, so the grip centres on the dock and not on the window. */
+.armada-shell__dock-layer > .armada-dock-handle {
+  margin-block: var(--space-4);
 }
 
 .armada-shell__dock-head {
@@ -291,40 +249,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-4);
-}
-
-/* The rail's width on the opposite edge. The whole strip is the control. */
-.armada-shell__strip {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  width: var(--sidebar-rail);
-  padding: var(--space-3) 0;
-  border: 0;
-  border-left: var(--border-width) solid var(--border-subtle);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.armada-shell__strip:hover {
-  background: var(--bg-hover);
-  color: var(--fg-default);
-}
-
-.armada-shell__strip:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--border-width) * -2);
-}
-
-.armada-shell__strip-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-default);
 }
 
 /* The left column's own handle — one drag for Navigation, Stats and Fleet

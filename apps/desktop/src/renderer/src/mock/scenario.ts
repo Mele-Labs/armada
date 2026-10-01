@@ -43,7 +43,7 @@ import {
 import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
-import { epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
+import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
@@ -72,7 +72,10 @@ function distinct<T>(items: T[], key: (item: T) => string): T[] {
 function servedFrom(manifest: ManifestSummary): RepositorySummary {
   return manifest.id === repository().manifest?.id
     ? repository()
-    : { root: `/Users/user/${manifest.id}`, records_root: manifest.records_root, manifest };
+    // Named for its repository, not its id: the recording's Manifest has the
+    // id `armada`, which put it on the base repository's own folder and ticked
+    // both in the picker.
+    : { root: `/Users/user/${manifest.repository}`, records_root: manifest.records_root, manifest };
 }
 
 /**
@@ -435,6 +438,7 @@ export const SCENARIOS: readonly Scenario[] = [
   moment("members", membersStacked()),
   moment("members", membersMerged()),
   moment("epic", epicWave()),
+  moment("epic", epicPlanReview()),
   // One Job per workflow kind, on one Board and then one at a time.
   holding("kinds", "One Job per workflow kind, each on the steps its own file declares", [
     ...KIND_FIXTURES,

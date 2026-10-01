@@ -30,8 +30,17 @@ fn the_four_verbs_parse() {
     assert_eq!(
         asked("check build"),
         Ok(Verb::Check {
-            name: "build".to_string()
+            name: "build".to_string(),
+            test: None
         })
+    );
+    assert_eq!(
+        asked("check test a_test"),
+        Ok(Verb::Check {
+            name: "test".to_string(),
+            test: Some("a_test".to_string())
+        }),
+        "a second name is one test, through the Check's `one_test`"
     );
     assert_eq!(
         asked("run fmt"),

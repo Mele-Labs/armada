@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WaveJobView, WaveView } from "./draft/wave";
 import { waveReadingOf } from "./tab-wave";
-import { waveDepths, waveNeedOf, waveNodeId, waveRunOf, waveSaid, waveStandingOf } from "./wave";
+import { waveDepths, waveNeedOf, waveNodeId, waveRunOf, waveStandingOf } from "./wave";
 
 function job(over: Partial<WaveJobView> & Pick<WaveJobView, "job">): WaveJobView {
   return {
@@ -113,12 +113,17 @@ describe("the wave, placed", () => {
     expect(edges).toEqual([]);
   });
 
-  it("says a merged Job merged, and how many each still-out Job waits on", () => {
-    const { nodes } = waveRunOf(view);
+  // The edge draws what a Job waits on, so the card carries no count of it;
+  // a bare figure carries its name, for the tooltip.
+  it("says a merged Job merged, and names what it spent and how far its tasks are", () => {
+    const priced = wave([
+      job({ job: "a", landed: "merged", cost_micros: 2_140_000, tasks: { done: 4, of: 4 } }),
+      job({ job: "b", waits_on: ["a"], tasks: { done: 2, of: 7 } }),
+    ]);
+    const { nodes } = waveRunOf(priced);
     const facts = (id: string) => nodes.find((node) => node.id === waveNodeId(id))!.card.facts;
-    expect(facts("a")).toEqual(["merged"]);
-    expect(facts("b")).toEqual(["waits on 1"]);
-    expect(facts("d")).toEqual(["waits on 2"]);
+    expect(facts("a")).toEqual(["merged", { said: "~$2.14", name: "Spent" }]);
+    expect(facts("b")).toEqual([{ said: "2/7", name: "Tasks done" }]);
   });
 
   it("opens a frame too small for the whole wave on the Jobs still out", () => {
@@ -165,18 +170,6 @@ describe("where each Job stands", () => {
     const standing = waveStandingOf(wave([job({ job: "a", status: "completed_success" })]));
     expect(standing.landed).toEqual([]);
     expect(standing.out.map((one) => one.job)).toEqual(["a"]);
-  });
-
-  it("counts both halves in the sentence", () => {
-    expect(waveSaid(waveStandingOf(view))).toBe(
-      "5 Jobs under one plan — 2 merged, 3 still out.",
-    );
-  });
-
-  it("says Job rather than Jobs where the wave dispatched one", () => {
-    expect(waveSaid(waveStandingOf(wave([job({ job: "a" })])))).toBe(
-      "1 Job under one plan — 0 merged, 1 still out.",
-    );
   });
 });
 

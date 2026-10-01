@@ -22,8 +22,9 @@ pub enum Verb {
     /// The daemon. Everything below it needs a port, a store and a process.
     /// `repository` is added at start; none given serves what Fleet remembers.
     Serve { repository: Option<PathBuf> },
-    /// One Check the Manifest declares, by name.
-    Check { name: String },
+    /// One Check the Manifest declares, by name — or one test in it, through
+    /// the Check's `one_test`.
+    Check { name: String, test: Option<String> },
     /// One Command the Manifest declares, by name.
     Run { name: String },
     /// The Checks a change hits, from the paths read on stdin.
@@ -63,7 +64,10 @@ const VERBS: &[(&str, &str)] = &[
         "serve",
         "run Fleet against a repository until it is signalled",
     ),
-    ("check", "run one Check the Manifest declares, by name"),
+    (
+        "check",
+        "run one Check the Manifest declares, by name; a second name runs one test in it",
+    ),
     ("run", "run one Command the Manifest declares, by name"),
     (
         COVERS,
@@ -117,9 +121,15 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         }
         "check" | "run" => {
             let positional = positionals(rest, &[], &mut faults);
-            at_most_one(verb, &positional, &mut faults);
+            match verb.as_str() {
+                "check" => at_most_one(verb, positional.get(1..).unwrap_or(&[]), &mut faults),
+                _ => at_most_one(verb, &positional, &mut faults),
+            }
             match positional.first() {
-                Some(name) if verb == "check" => Some(Verb::Check { name: name.clone() }),
+                Some(name) if verb == "check" => Some(Verb::Check {
+                    name: name.clone(),
+                    test: positional.get(1).cloned(),
+                }),
                 Some(name) => Some(Verb::Run { name: name.clone() }),
                 None => {
                     faults.push(Fault::NoName { verb: verb.clone() });

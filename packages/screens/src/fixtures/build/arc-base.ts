@@ -1,4 +1,4 @@
-// The Job the arc is twelve moments of, and the parts every arc builder shares.
+// The Job the arc is thirteen moments of, and the parts every arc builder shares.
 //
 // **One narrative, the way `base.ts` is one narrative.** That one is the Bug
 // Job the roster of states is cut from; this one is the Feature Job the new
