@@ -128,8 +128,16 @@ fn drive(job: &Job, path: &[Target]) -> Job {
 }
 
 /// A canonical target for a status, carrying whatever that status stores.
+///
+/// **Every status but `proposing`**, and that is the machine rather than a gap
+/// here: no edge arrives at `proposing`, so [`Target`] has no variant naming it
+/// and nothing can ask a Job to move there. Callers that walk
+/// [`JobStatus::ALL`] skip it and say so.
 fn target_for(status: JobStatus, trigger: Option<EscalationTrigger>) -> Target {
     match status {
+        JobStatus::Proposing => {
+            unreachable!("no `Target` names `proposing`: a Job is created in it, never moved to it")
+        }
         JobStatus::AwaitingApproval => Target::AwaitingApproval,
         JobStatus::Queued => Target::Queued,
         JobStatus::Running => Target::Running,
@@ -206,6 +214,15 @@ fn reach_with_every_step_advanced(status: JobStatus) -> Job {
 
 /// A Job standing in `status`, arrived at by walking edges from the entry
 /// status. There is no other way to get one.
+///
+/// **`proposing` cannot be got at all yet, and that is what `in_code = "Not
+/// yet"` means on its registry row.** A Job is created in that status and
+/// nothing arrives there, so no walk of targets reaches it; and no constructor
+/// makes one, because a Job dispatched from a request has no frozen
+/// `WorkflowDef` and [`Job`] requires one. Its three edges are in `EDGES` and
+/// are asserted by the gate that compares the table with the registry, which
+/// needs no Job. Whoever teaches Fleet to create one writes the walk in the
+/// same change.
 fn reach(status: JobStatus) -> Job {
     let queued = [Target::Queued];
     let running = [Target::Queued, Target::Running];
@@ -259,6 +276,8 @@ fn reach(status: JobStatus) -> Job {
         JobStatus::Killed => vec![Target::Killed],
         // Taken above: it is the one status no path of targets alone reaches.
         JobStatus::CompletedSuccess => unreachable!("handled before the match"),
+        // See this function's own note: nothing creates one.
+        JobStatus::Proposing => unreachable!("no Job stands at `proposing` yet"),
     };
     let reached = drive(&job, &path);
     assert_eq!(
