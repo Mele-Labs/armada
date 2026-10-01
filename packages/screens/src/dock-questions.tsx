@@ -1,7 +1,7 @@
 // Every question waiting on a person, as the dock's cards (#935). Main gathers them from every
 // repository Fleet serves; this decides what each card says.
 
-import { JUDGE_ANSWER, type DockAnswer, type DockQuestion } from "@armada/components";
+import { JUDGE_ANSWER, Prose, type DockAnswer, type DockQuestion } from "@armada/components";
 import type { JobSummary, JudgeAnswer, Outcome, RepositorySummary } from "@armada/protocol";
 import { manifestLabel } from "@armada/shell/src/repository-label";
 import { helmOfferedOf, offeredOf, said } from "./copy";
@@ -132,13 +132,20 @@ export function dockQuestionsOf(
     });
 }
 
-/** What the card says was asked, and the answers its kind offers, in Fleet's order. */
+/**
+ * What the card says was asked, and the answers its kind offers, in Fleet's order.
+ *
+ * **What an agent wrote is drawn through `Prose`**: the Drone's question and the
+ * Judge's consequence. The criterion's question was fixed before the Judge ran
+ * and is not its writing; a command and Helm's rule are machine values; so those
+ * stay as they are.
+ */
 function askedOf(question: Outstanding): Pick<DockQuestion, "label" | "asked" | "detail" | "answers"> {
   switch (question.kind) {
     case "drone":
       return {
         label: "The drone asked a question",
-        asked: question.asking.question,
+        asked: <Prose text={question.asking.question} />,
         answers: question.asking.options.map(({ label, consequence }) => ({ id: label, label, consequence })),
       };
     case "command": {
@@ -163,7 +170,7 @@ function askedOf(question: Outstanding): Pick<DockQuestion, "label" | "asked" | 
       return {
         label: "Judge refused a criterion and is asking you",
         asked: question.question.question,
-        detail: question.question.consequence,
+        detail: <Prose text={question.question.consequence} />,
         answers: (Object.keys(JUDGE_ANSWER) as JudgeAnswer[]).map(
           (answer): DockAnswer => ({ id: answer, label: JUDGE_ANSWER[answer].label, consequence: JUDGE_ANSWER[answer].means }),
         ),

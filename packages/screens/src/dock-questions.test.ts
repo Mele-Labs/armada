@@ -1,11 +1,18 @@
 // The dock's cards, from what main gathered: each names its repository and Job, and offers the
 // answers its kind does, in Fleet's order.
 
+import { isValidElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Prose, type ProseProps } from "@armada/components";
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
 import { dockCardsOf, dockQuestionsOf, jobNumber } from "./dock-questions";
 import type { Outstanding } from "./outstanding";
+
+/** The text a slot hands to `Prose`, or `undefined` where it draws something else. */
+function prose(slot: ReactNode): string | undefined {
+  return isValidElement<ProseProps>(slot) && slot.type === Prose ? slot.props.text : undefined;
+}
 
 function job(over: Partial<JobSummary> = {}): JobSummary {
   return {
@@ -90,7 +97,14 @@ describe("the dock's cards", () => {
     expect(drone?.answers.map((answer) => answer.id)).toEqual(["Yes", "No"]);
     expect(command?.answers.map((answer) => answer.id)).toEqual(["allow_for_job", "reject"]);
     expect(judge?.answers.map((answer) => answer.id)).toEqual(["agree", "disagree_once", "disagree_always"]);
-    expect(judge?.detail).toBe("The discount is still ignored.");
+    expect(prose(judge?.detail)).toBe("The discount is still ignored.");
+  });
+
+  it("draw what an agent wrote as markdown, and a command as its characters", () => {
+    const [judge, drone, command] = dockQuestionsOf([DRONE, COMMAND, JUDGE], JOBS, REPOSITORIES, NOW);
+    expect(prose(drone?.asked)).toBe("Count exited drones?");
+    expect(prose(judge?.detail)).toBe("The discount is still ignored.");
+    expect(prose(command?.asked)).toBeUndefined();
   });
 
   it("leave out a question on a Job the Board does not hold", () => {
