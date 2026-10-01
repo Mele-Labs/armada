@@ -1,6 +1,6 @@
 //! The detached runner's own loop: hold the turn, sweep what an older
-//! script left, then take one branch's turn at a time until the line is
-//! empty. `scripts/land`'s own `runner`.
+//! script left, then take a turn — the first [`Env::batch`] entries in line —
+//! until the line is empty. `scripts/land`'s own `runner`.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -8,8 +8,7 @@ use std::process::ExitCode;
 use super::dir::StateDir;
 use super::env::Env;
 use super::lock::TurnLock;
-use super::queue::{queued, read_queue_entry};
-use super::say::say;
+use super::queue::queued;
 use super::turn::take_turn;
 use super::worktree::{drop_worktree, main_tree};
 
@@ -49,24 +48,8 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
             continue;
         }
 
-        let entry = line[0].clone();
-        let stopped = take_turn(repo, &state, env, &entry);
-        let _ = say(
-            &state,
-            &entry.branch,
-            stopped.state,
-            stopped.detail,
-            stopped.patch,
-        );
-
-        // Removed only if this entry's nonce still matches: a `land` call
-        // that resubmitted the branch while its turn ran wrote a fresh
-        // entry this must not delete.
-        if let Ok(Some(current)) = read_queue_entry(&state, &entry.branch) {
-            if current.nonce == entry.nonce {
-                let _ = std::fs::remove_file(state.queue_entry_path(&entry.branch));
-            }
-        }
+        let batch = &line[..line.len().min(env.batch)];
+        take_turn(repo, &state, env, batch);
     }
 }
 
