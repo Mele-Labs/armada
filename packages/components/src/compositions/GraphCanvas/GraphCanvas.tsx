@@ -78,8 +78,18 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    */
   railBelow?: ReactNode;
   /**
-   * What the surface is asking for right now, over the top-right corner — the
-   * field a rail press opened, and nothing else.
+   * A press on empty canvas, at that point in the graph's own coordinates —
+   * where a person puts down a kind they armed on the rail. **A press and not
+   * a drag**: React Flow reports no click for a pan, so dragging the canvas
+   * while a kind is armed still pans.
+   */
+  onPanePress?: (at: { x: number; y: number }) => void;
+  /** A kind is armed: the canvas draws a crosshair, which says the next press puts it down. */
+  placing?: boolean;
+  /**
+   * A surface's own control over the top-right corner — a Studio's Run.
+   * **Never the field behind a rail press**: that is put down on the canvas
+   * itself (the owner, 1 Oct 2026).
    *
    * **It drew two things until 28 Sep 2026 and said which it was for neither**,
    * which is the whole of the owner's *why is this showing when I have nothing
@@ -202,9 +212,17 @@ function Surface<N extends Node, E extends Edge>({
   fitView = true,
   fitViewOptions,
   minZoom,
+  onPanePress,
+  placing = false,
   aside,
   children,
 }: GraphCanvasProps<N, E>) {
+  const flow = useReactFlow();
+  const onPaneClick = useCallback(
+    (event: { clientX: number; clientY: number }) =>
+      onPanePress?.(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
+    [flow, onPanePress],
+  );
   const onPicked = useCallback(
     ({ nodes: picked }: { nodes: N[] }) => onSelectionChange?.(picked.map((node) => node.id)),
     [onSelectionChange],
@@ -222,6 +240,7 @@ function Surface<N extends Node, E extends Edge>({
   return (
     <ReactFlow<N, E>
       className={`armada-graph-canvas ${surface}`}
+      data-placing={placing || undefined}
       aria-label={label}
       colorMode="dark"
       nodes={nodes}
@@ -230,6 +249,7 @@ function Surface<N extends Node, E extends Edge>({
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onSelectionChange={onPicked}
+      {...(onPanePress === undefined ? {} : { onPaneClick })}
       nodesConnectable={false}
       nodesDraggable={nodesDraggable}
       multiSelectionKeyCode={multiSelectionKeyCode}

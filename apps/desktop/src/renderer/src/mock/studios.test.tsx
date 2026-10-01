@@ -75,6 +75,26 @@ function drag(element: Element, dx: number, dy: number): void {
   window.dispatchEvent(new MouseEvent("mouseup", at(dx, dy)));
 }
 
+/**
+ * Press the whiteboard where nothing is drawn — the `nth` such point, so two
+ * presses land apart — and say where, in the window's coordinates. **React
+ * Flow's pane has no role**, so it is found by its class, and each point is
+ * checked to be the pane itself rather than a node over it.
+ */
+async function pressBoard(nth: number): Promise<{ x: number; y: number }> {
+  const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
+  const box = pane.getBoundingClientRect();
+  const free: { x: number; y: number }[] = [];
+  for (let y = box.top + 40; y < box.bottom - 240; y += 60) {
+    for (let x = box.left + 40; x < box.right - 280; x += 60) {
+      if (document.elementFromPoint(x, y) === pane) free.push({ x, y });
+    }
+  }
+  const at = free[nth * 7]!;
+  await userEvent.click(page.elementLocator(pane), { position: { x: at.x - box.left, y: at.y - box.top } });
+  return at;
+}
+
 test("a Studio started, laid out, closed, reopened read-only, continued, and a relation accepted", async () => {
   const fleet = studying([]);
   const first = open(fleet.scenario);
@@ -148,6 +168,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   // menu in a panel over the board until the owner asked for a rail of icons
   // down the canvas's left on 28 Sep 2026.
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await pressBoard(0);
   // A single key is suppressed while a field holds focus: the `V` in this note
   // stays in the note rather than opening a Link beside it.
   await userEvent.fill(page.getByLabelText("Note", { exact: true }), "The legend is unreadable in View");
@@ -156,12 +177,13 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   await expect.element(node(/^Note: The legend is unreadable in View/)).toBeVisible();
 
   await userEvent.keyboard("V");
+  await pressBoard(1);
   await userEvent.fill(page.getByLabelText("Link", { exact: true }), "docs/contracts/design-system.md");
   await page.getByRole("button", { name: "Keep the link" }).click();
   await expect.element(node(/^Link: docs\/contracts\/design-system\.md/)).toBeVisible();
 
-  // Both are a person's, and neither landed at the origin: a node goes where
-  // the person is looking, and two at one point would read as one node.
+  // Both are a person's, and each landed where the board was pressed, so two
+  // pressed apart are two places.
   const [kept] = fleet.studios();
   expect(kept!.nodes.map((one) => one.added_by)).toEqual(["person", "person"]);
   expect(kept!.nodes[0]!.position).not.toEqual(kept!.nodes[1]!.position);
@@ -323,60 +345,116 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
 });
 
 /**
- * The owner's note of 1 Oct 2026, option 2: *when I click one of the new node
- * options in the vertical toolbar, it immediately places the node on the
- * canvas with it focused so that I can type in the details.* It replaced the
- * panel the field stood in over the board's far corner.
+ * The owner's notes of 1 Oct 2026, option 2 and his answer to it: *when I
+ * select the item in the vertical toolbar, it just becomes a selection. Then I
+ * can click anywhere on the canvas to add it to where I clicked*, and *I should
+ * be able to drag the node around. Right now its very sensitive that if I click
+ * anywhere on the node or outside of it, the node goes away.*
  *
  * **A mock test rather than a story, because the claim is about where the
- * field is** and what reaches Fleet: nothing until the node is written, and
- * nothing at all for one abandoned.
+ * node lands** and what reaches Fleet: nothing until it is sent, and nothing at
+ * all for one abandoned.
  */
-test("a rail press puts the node on the board with its field focused, and only a written one reaches Fleet", async () => {
+test("a rail press arms a kind, a press on the board puts it there, and it goes only by Esc or by being sent", async () => {
   const fleet = studying();
   open(fleet.scenario);
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
+  const kept = () => fleet.studios().find((one) => one.name === "The Board's legend")!.nodes;
+  const before = kept().length;
+  const drafted = (kind: string) => page.getByRole("group", { name: `New ${kind}`, exact: true });
+  const railNote = page.getByRole("button", { name: "Add a Note", exact: true });
+
+  // Armed, and nothing is on the board yet.
+  await railNote.click();
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "true");
+  expect(drafted("Note").query()).toBeNull();
+  // The same press again puts it away, and Esc does too.
+  await railNote.click();
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  await userEvent.keyboard("N");
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "true");
+  await userEvent.keyboard("{Escape}");
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  // Disarmed, a press on the board puts nothing down.
+  await pressBoard(0);
+  expect(drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before);
+
+  // Armed, the press lands the draft's corner where it was made, with the caret in its field.
+  await railNote.click();
+  const at = await pressBoard(0);
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  const box = drafted("Note").element().getBoundingClientRect();
+  expect(Math.abs(box.left - at.x)).toBeLessThan(3);
+  expect(Math.abs(box.top - at.y)).toBeLessThan(3);
+  // One-shot: the rail is back to normal, and the corner the panel stood in holds no field.
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  expect(document.querySelector(".armada-graph-canvas__aside textarea, .armada-graph-canvas__aside input")).toBeNull();
+  expect(kept()).toHaveLength(before);
+
+  // A press inside it, and a press on the board, both leave it where it is.
+  await drafted("Note").getByText("Note", { exact: true }).click();
+  await pressBoard(1);
+  await expect.element(drafted("Note")).toBeVisible();
+  expect(kept()).toHaveLength(before);
+
+  // Dragged by its head, it goes where it is dropped, and what is sent lands there.
+  drag(drafted("Note").getByText("Note", { exact: true }).element(), 120, 80);
+  await expect.poll(() => drafted("Note").element().getBoundingClientRect().left).toBeGreaterThan(box.left + 60);
+  const dropped = drafted("Note").element().getBoundingClientRect();
+  expect(dropped.top).toBeGreaterThan(box.top + 40);
+  await drafted("Note").getByLabelText("Note", { exact: true }).click();
+  await userEvent.keyboard("Dragged here");
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(node(/^Note: Dragged here/)).toBeVisible();
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+  const landed = node(/^Note: Dragged here/).element().getBoundingClientRect();
+  expect(Math.abs(landed.left - dropped.left)).toBeLessThan(3);
+  expect(Math.abs(landed.top - dropped.top)).toBeLessThan(3);
+
+  // Esc takes a draft off with nothing sent.
+  await userEvent.keyboard("N");
+  await pressBoard(2);
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+});
+
+/**
+ * Putting a second draft down while one is open — Option 2's own call, not the
+ * owner's: a written one is sent, a blank one is dropped.
+ */
+test("putting a draft down sends the written one already open, and drops a blank one", async () => {
+  const fleet = studying();
+  open(fleet.scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
   const kept = () => fleet.studios().find((one) => one.name === "The Board's legend")!.nodes;
   const before = kept().length;
   const drafted = (kind: string) => page.getByRole("group", { name: `New ${kind}`, exact: true });
 
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
-  await expect.element(drafted("Note")).toBeVisible();
-  // Typed straight into the node: the field is in it, and has the caret.
+  await pressBoard(0);
   await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
-  // And nowhere else: the corner the panel stood in holds no field.
-  expect(document.querySelector(".armada-graph-canvas__aside textarea, .armada-graph-canvas__aside input")).toBeNull();
-  // Nothing is sent for a node nobody has written yet.
+  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
+  await pressBoard(1);
+  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
+  expect(drafted("Note").query()).toBeNull();
   expect(kept()).toHaveLength(before);
 
-  await userEvent.keyboard("The legend is unreadable in View");
-  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-  await expect.element(node(/^Note: The legend is unreadable in View/)).toBeVisible();
-  await expect.poll(() => drafted("Note").query()).toBeNull();
-  expect(kept()).toHaveLength(before + 1);
-
-  // The key puts one down the same way, and Esc takes it off with nothing sent.
-  await userEvent.keyboard("N");
-  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => drafted("Note").query()).toBeNull();
-  expect(kept()).toHaveLength(before + 1);
-
-  // A press off the node: blank is gone, written is sent.
-  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
-  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
-  await page.getByRole("heading", { name: "The Board's legend" }).click();
-  await expect.poll(() => drafted("Sketch").query()).toBeNull();
-  expect(kept()).toHaveLength(before + 1);
-
-  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
-  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
   await userEvent.keyboard("Board -> Legend -> View");
-  await page.getByRole("heading", { name: "The Board's legend" }).click();
-  await expect.poll(() => kept().length).toBe(before + 2);
-  await expect.poll(() => drafted("Sketch").query()).toBeNull();
+  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await pressBoard(2);
+  await expect.poll(() => kept().length).toBe(before + 1);
+  await expect.element(drafted("Note")).toBeVisible();
+  expect(drafted("Sketch").query()).toBeNull();
 });
 
 /**

@@ -74,11 +74,3 @@
 .armada-studio-whiteboard .armada-graph-canvas__aside {
   width: var(--w-studio-node);
 }
-
-/* A node still being written takes presses, though it is neither picked nor
-   dragged — React Flow turns pointer events off on a node that is neither, so
-   the field and its buttons sat under the pane. The proposal card above takes
-   them back the same way. */
-.armada-studio-whiteboard .react-flow__node-draft > * {
-  pointer-events: all;
-}

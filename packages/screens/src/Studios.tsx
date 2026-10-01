@@ -10,7 +10,7 @@
 // **The whiteboard's selection is held here, not in `App`.** Clustering is of several nodes, and
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -419,15 +419,38 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   /** Every node picked on the whiteboard. A cluster is of several, and `App` keeps one. */
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [naming, setNaming] = useState(false);
-  // The node being written on the board, whether it is out to Fleet, and why
-  // Fleet did not take it — #1364, and the owner's note of 1 Oct 2026. Held
-  // here rather than in the node, because `N`, `V` and `S` put one down too.
-  // **Bridge's alone until it is sent**: Fleet never holds a blank node.
+  // The kind armed on the rail, the node being written where it was put down,
+  // which draft is out to Fleet, and why Fleet did not take one — #1364, and
+  // the owner's notes of 1 Oct 2026. Held here rather than in the rail, because
+  // `N`, `V` and `S` arm a kind too. **A draft is Bridge's alone until it is
+  // sent**: Fleet never holds a blank node.
+  const [arming, setArming] = useState<StudioNodeByHandKind | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [addingOut, setAddingOut] = useState(false);
-  const [addRefused, setAddRefused] = useState<string | undefined>(undefined);
+  const [out, setOut] = useState<string | null>(null);
+  const [addRefused, setAddRefused] = useState<{ id: string; said: string } | null>(null);
+  /** What the open draft would send now, so a second placement can send it. */
+  const written = useRef<StudioNodeByHand | null>(null);
+  const onWritten = useCallback((node: StudioNodeByHand | null) => void (written.current = node), []);
+  /** The draft on the board as of the last render, which an answer from Fleet is read against. */
+  const showing = useRef<string | null>(null);
+  showing.current = draft?.id ?? null;
   /** A start is out to Fleet: the menu does not send a second — #1345. */
   const [starting, setStarting] = useState(false);
+  /** One press arms a kind, the same press again puts it away, and another kind takes its place. */
+  const arm = useCallback(
+    (kind: StudioNodeByHandKind) => setArming((held) => (held === kind ? null : kind)),
+    [],
+  );
+  useAddNodeKeys(open.editable && live, arm);
+  // Esc puts an armed kind away. A draft's own Esc stops at its field.
+  useEffect(() => {
+    if (arming === null) return;
+    const away = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setArming(null);
+    };
+    window.addEventListener("keydown", away);
+    return () => window.removeEventListener("keydown", away);
+  }, [arming]);
   // The pictures the Notes kept, and the `blob:` each one becomes — #1352.
   const frames = useStudioFrames(props.onReadFrame, open.id);
   const drawn = framesDrawn(studio, selectedNode);
@@ -473,29 +496,36 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   }
 
   /**
-   * Put a draft down. **A fresh id every time**, so the field mounts empty.
-   * One already down has heard the press on the rail as a press off it, so it
-   * was sent or dropped before this one lands.
+   * Put the armed kind down where the board was pressed, and disarm: the tool
+   * is one-shot. **A fresh id every time**, so the field mounts empty.
+   *
+   * A draft already open goes first — written, it is sent; blank, it is
+   * dropped. Two open at once would be two fields with one caret.
    */
-  function putDown(kind: StudioNodeByHandKind, position: StudioPosition): void {
+  function place(at: { x: number; y: number }): void {
+    if (arming === null) return;
+    if (draft !== null && out !== draft.id && written.current !== null) add(draft, written.current);
     drafted += 1;
-    setAddRefused(undefined);
-    setDraft({ id: `${DRAFT}-${drafted}`, kind, position });
+    written.current = null;
+    setAddRefused(null);
+    setDraft({ id: `${DRAFT}-${drafted}`, kind: arming, position: { x: Math.round(at.x), y: Math.round(at.y) } });
+    setArming(null);
   }
 
   /**
-   * Send the draft. **Its refusal is drawn on the node**, which is where the
-   * person is looking. The draft is only taken off once Fleet has the node, and
-   * only if it is still the one sent: a press off it onto the rail sends this
-   * one and puts the next down before the answer lands.
+   * Send a draft. **Its refusal is drawn on the node**, which is where the
+   * person is looking. It is only taken off once Fleet has the node, and only
+   * if it is still the one on the board; one a placement already replaced has
+   * no node left to say it was refused on, so it says so over the board.
    */
   function add(sent: Draft, node: StudioNodeByHand): void {
-    setAddingOut(true);
-    setAddRefused(undefined);
+    setOut(sent.id);
+    setAddRefused(null);
     void props.onAddNode(node, sent.position).then((outcome) => {
-      setAddingOut(false);
+      setOut((held) => (held === sent.id ? null : held));
       if (outcome.ok) setDraft((held) => (held?.id === sent.id ? null : held));
-      else setAddRefused(said(outcome));
+      else if (showing.current === sent.id) setAddRefused({ id: sent.id, said: said(outcome) });
+      else answered(outcome);
     });
   }
 
@@ -647,26 +677,32 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             onSelectNode(ids[0] ?? null);
           }}
           rail={
-            editable ? <AddRail adding={draft?.kind ?? null} onAdding={putDown} /> : undefined
+            editable ? <AddRail armed={arming} onArm={arm} /> : undefined
           }
+          placing={editable && arming !== null}
+          {...(editable && arming !== null ? { onPanePress: place } : {})}
           draft={
             editable && draft !== null
               ? {
                   id: draft.id,
                   kind: draft.kind,
                   position: draft.position,
-                  pending: addingOut,
+                  pending: out === draft.id,
+                  onMoved: (at) =>
+                    setDraft((held) =>
+                      held?.id === draft.id ? { ...held, position: { x: Math.round(at.x), y: Math.round(at.y) } } : held,
+                    ),
                   field: (
                     <StudioAddNode
                       inPlace
                       adding={draft.kind}
-                      onAdding={(kind) =>
-                        kind === null ? setDraft(null) : putDown(kind, draft.position)
-                      }
+                      // Esc. The menu that would name another kind is never drawn here.
+                      onAdding={(kind) => (kind === null ? setDraft(null) : undefined)}
+                      onWritten={onWritten}
                       onAdd={(node) => add(draft, node)}
                       readIn={READING_IN_UNBUILT}
-                      saving={addingOut}
-                      {...(addRefused === undefined ? {} : { refused: addRefused })}
+                      saving={out === draft.id}
+                      {...(addRefused?.id === draft.id ? { refused: addRefused.said } : {})}
                     />
                   ),
                 }
@@ -737,10 +773,10 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 /**
  * The `Run` control, on the board's own aside — #1345.
  *
- * **`AddRail`'s shape for `AddRail`'s reason**: `useStudioPlacement` reads the
+ * **A component and not markup**, because `useStudioPlacement` reads the
  * viewport React Flow holds, and only a component drawn inside the board is
- * inside that provider. What it buys is the same rule — the Run node lands
- * where the person is looking rather than at the origin.
+ * inside that provider. What it buys is the rule: the Run node lands where the
+ * person is looking rather than at the origin.
  */
 function StartRun(props: {
   starts: readonly StudioStart[];
@@ -768,34 +804,24 @@ function StartRun(props: {
  *
  * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
  * 2026, which asked for a vertical bar of icons on the canvas's left. **A press
- * puts the node itself down**, where the person is looking, with its field in
- * it — the owner's note of 1 Oct 2026, which refused the panel the field was
- * drawn in on the board's far side.
- *
- * **The keys are bound here and not on the screen**, because a key puts a node
- * down too and only a component inside the board can ask `useStudioPlacement`
- * where.
+ * arms the kind and puts nothing down**: the next press on empty board puts it
+ * there — the owner's notes of 1 Oct 2026, which refused the panel the field
+ * was written in, and then a node that landed wherever placement chose.
  */
 function AddRail({
-  adding,
-  onAdding,
+  armed,
+  onArm,
 }: {
-  adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind, position: StudioPosition) => void;
+  armed: StudioNodeByHandKind | null;
+  onArm: (kind: StudioNodeByHandKind) => void;
 }) {
-  const place = useStudioPlacement();
-  const putDown = useCallback(
-    (kind: StudioNodeByHandKind) => onAdding(kind, place()),
-    [onAdding, place],
-  );
-  useAddNodeKeys(true, putDown);
   const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
     icon,
-    pressed: adding === kind,
+    pressed: armed === kind,
     ...(shortcut === undefined ? {} : { shortcut }),
-    onPress: () => putDown(kind),
+    onPress: () => onArm(kind),
   }));
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import { keyFor } from "../../actions";
@@ -51,13 +51,16 @@ export type StudioAddNodeProps = {
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
   /**
-   * The field inside the node it makes — the owner's note of 1 Oct 2026, which
-   * asked that a rail press put the node on the board rather than open a panel.
+   * The field inside the node it makes — the owner's notes of 1 Oct 2026, which
+   * asked that a kind be put down on the board rather than written in a panel.
    * The node's head names the kind, so the label is read aloud and not drawn.
-   * **No Cancel: a press off the node is the answer** — written, it is sent;
-   * blank, it is gone.
+   * **No Cancel, and no press off the node does anything**: Esc is the way out,
+   * since a draft that went with a stray press was what he called too
+   * sensitive.
    */
   inPlace?: boolean;
+  /** What a send would carry now, or `null` while blank — for a caller that sends it on another press. */
+  onWritten?: (node: StudioNodeByHand | null) => void;
 };
 
 /** Each kind's act in the registry, which is the one place a binding is written. */
@@ -106,13 +109,10 @@ export function StudioAddNode({
   refused,
   disabled = false,
   inPlace = false,
+  onWritten,
 }: StudioAddNodeProps) {
   const [draft, setDraft] = useState("");
   const [line, setLine] = useState("");
-  const here = useRef<HTMLDivElement>(null);
-  // What a press off the node does, read at the press rather than bound to a
-  // render: the listener is registered once and the field changes under it.
-  const away = useRef<() => void>(() => undefined);
 
   // A new kind is a new field: what was half-typed for a Note is not a Link.
   // The field itself is keyed on the kind, so it mounts afresh and takes focus.
@@ -121,26 +121,9 @@ export function StudioAddNode({
     setLine("");
   }, [adding]);
 
-  // **Off the node is a pointer pressed outside it, or focus leaving it for
-  // something else on the page.** Blur alone would also fire on a press on the
-  // node's own text, and on the window losing focus to another app.
   useEffect(() => {
-    if (!inPlace) return;
-    const outside = (target: EventTarget | null) =>
-      target instanceof Node && here.current !== null && !here.current.contains(target);
-    const pressed = (event: PointerEvent) => {
-      if (outside(event.target)) away.current();
-    };
-    const left = (event: FocusEvent) => {
-      if (outside(event.target)) away.current();
-    };
-    document.addEventListener("pointerdown", pressed, true);
-    document.addEventListener("focusin", left);
-    return () => {
-      document.removeEventListener("pointerdown", pressed, true);
-      document.removeEventListener("focusin", left);
-    };
-  }, [inPlace]);
+    if (adding !== null) onWritten?.(written(adding, draft, line));
+  }, [adding, draft, line, onWritten]);
 
   if (adding === null) {
     return (
@@ -165,12 +148,6 @@ export function StudioAddNode({
     if (node !== null) onAdd(node);
   }
 
-  away.current = () => {
-    if (saving || adding === null) return;
-    if (node === null) onAdding(null);
-    else onAdd(node);
-  };
-
   // Enter sends a line; a field a person writes prose in takes ⌘Enter, so a
   // paragraph break does not send the note. Esc abandons it either way.
   function keyed(event: KeyboardEvent<HTMLElement>): void {
@@ -186,7 +163,7 @@ export function StudioAddNode({
   }
 
   return (
-    <div className="armada-studio-add-node" ref={here}>
+    <div className="armada-studio-add-node">
       {adding === "link" ? (
         <Input
           key={adding}

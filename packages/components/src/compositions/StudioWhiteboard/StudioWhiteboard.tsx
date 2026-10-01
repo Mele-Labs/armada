@@ -53,9 +53,10 @@ export type StudioWhiteboardNode = {
 };
 
 /**
- * A node still being written, drawn where it will land — the owner's note of
- * 1 Oct 2026. **Bridge's and nobody else's** until the caller sends it: it is
- * never reported as moved or selected, and the field is the caller's.
+ * A node still being written, drawn where it will land — the owner's notes of
+ * 1 Oct 2026. **Bridge's and nobody else's** until the caller sends it: its
+ * moves go to `onMoved` rather than `onNodeMoved`, it is never reported as
+ * selected, and the field is the caller's.
  */
 export type StudioWhiteboardDraft = {
   /** A fresh id per draft, so a second draft is a fresh field rather than the first one re-kinded. */
@@ -65,6 +66,8 @@ export type StudioWhiteboardDraft = {
   /** The field. Focused once the board has drawn the card. */
   field: ReactNode;
   pending?: boolean;
+  /** Dragged somewhere else, so what is sent lands where it was dropped. */
+  onMoved?: (position: { x: number; y: number }) => void;
 };
 
 export type StudioEdgeRelation = "same_as" | "blocks" | "answers";
@@ -112,12 +115,16 @@ export type StudioWhiteboardProps = {
   onDecide?: (edgeId: string, accepted: boolean) => void;
   /** The relation whose answer is out to Fleet. Its Accept spins, and every answer waits. */
   deciding?: string | null;
-  /** The node a rail press put down, with its field in it. Absent is none. */
+  /** The node a press on the canvas put down, with its field in it. Absent is none. */
   draft?: StudioWhiteboardDraft | null;
+  /** A press on empty board, where a kind armed on the rail goes. `GraphCanvas`'s rule. */
+  onPanePress?: (at: { x: number; y: number }) => void;
+  /** A kind is armed, and the board draws a crosshair. */
+  placing?: boolean;
   /**
    * What sits over the board's top-right corner — a Studio's Run control.
-   * **Never the field behind a rail press**: that is the draft, on the board
-   * where the node will land (the owner, 1 Oct 2026). Nor the relations
+   * **Never the field behind a rail press**: that is the draft, put down where
+   * the person pressed (the owner, 1 Oct 2026). Nor the relations
    * waiting on a person — a panel doing two jobs with neither of them named is
    * what the owner read on 28 Sep 2026 as a card showing when nothing was
    * selected. What waits on a person is answered on its own edge.
@@ -193,9 +200,9 @@ function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio
  * a node is drawn `visibility: hidden` until its size is known, and focus on a
  * hidden field does nothing — so `autoFocus` alone left the caret nowhere.
  *
- * **And brought into view when it is not.** A placement that steps off a
- * taken spot can land a field half under the board's edge, and a caret below
- * the fold is not typing straight in. The focus takes no scroll of its own:
+ * **And brought into view when it is not.** A press near the board's edge, or
+ * a Link's offer arriving under its address, can put the field half past it,
+ * and a caret below the fold is not typing straight in. The focus takes no scroll of its own:
  * the browser would scroll React Flow's clipped pane, which nothing pans back.
  */
 function DraftNodeView({
@@ -352,7 +359,9 @@ function toDraftNode({ id, kind, position, field, pending = false }: StudioWhite
     ariaLabel: `New ${STUDIO_NODE_KIND[kind]}`,
     // Named as every node is, though it takes no focus stop of its own: the field inside is the stop.
     ariaRole: "group",
-    draggable: false,
+    // Dragged by its head and its edge; the field inside is `nodrag`, so a
+    // press there is a press on the text.
+    draggable: true,
     selectable: false,
     focusable: false,
   };
@@ -428,6 +437,8 @@ function Board({
   onDecide,
   deciding = null,
   draft = null,
+  onPanePress,
+  placing = false,
   children,
   rail,
   nodeBar,
@@ -451,7 +462,8 @@ function Board({
       for (const change of changes) {
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
-          if (change.id !== draft?.id) onNodeMoved?.(change.id, change.position);
+          if (change.id === draft?.id) draft.onMoved?.(change.position);
+          else onNodeMoved?.(change.id, change.position);
         }
       }
     },
@@ -494,6 +506,8 @@ function Board({
       nodesDraggable={!readOnly}
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
+      {...(onPanePress === undefined ? {} : { onPanePress })}
+      placing={placing}
       aside={children}
     >
       {nodeBar}

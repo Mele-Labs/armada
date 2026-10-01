@@ -315,14 +315,15 @@ export type StudioNodeDraftProps = {
  * as it heads every node, so what is being written reads as what it will be.
  *
  * **Bridge's alone until it is sent.** Nothing here is on the Studio yet, so
- * it is drawn selected but never reported as a selection, and it takes no
- * drag: a press inside it is a press on the field. `nodrag nopan nowheel` are
- * React Flow's own words for that.
+ * it is drawn selected but never reported as a selection. **It drags by its
+ * head and its edge, never by its field**: the field is `nodrag`, React
+ * Flow's own word, so a press there selects text. `nowheel` lets a long field
+ * scroll rather than zoom the board.
  */
 export function StudioNodeDraft({ kind, children, pending = false }: StudioNodeDraftProps) {
   return (
     <Card
-      className="armada-studio-node armada-glass nodrag nopan nowheel"
+      className="armada-studio-node armada-glass nowheel"
       data-kind={kind}
       data-selected
       aria-busy={pending || undefined}
@@ -330,7 +331,7 @@ export function StudioNodeDraft({ kind, children, pending = false }: StudioNodeD
       <div className="armada-studio-node__head">
         <span className="armada-studio-node__kind">{STUDIO_NODE_KIND[kind]}</span>
       </div>
-      {children}
+      <div className="nodrag">{children}</div>
     </Card>
   );
 }
