@@ -195,7 +195,7 @@ function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio
  */
 function DraftNodeView({ data, width }: NodeProps<Node<DraftNodeData, "draft">>) {
   const at = useRef<HTMLDivElement>(null);
-  const shown = width > 0;
+  const shown = (width ?? 0) > 0;
   useEffect(() => {
     if (shown) at.current?.querySelector<HTMLElement>("textarea, input")?.focus();
   }, [shown]);
