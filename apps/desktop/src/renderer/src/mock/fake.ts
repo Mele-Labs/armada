@@ -113,13 +113,18 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       return () => listeners.delete(onState);
     },
 
-    // Accepted, and no Job appears: one Fleet made would carry an id and a plan invented here.
-    proposeFromRequest: async (request) => ({
-      ok: false,
-      why: "faulted",
-      request,
-      outcome: unanswered("/jobs/propose"),
-    }),
+    // **The row appears and the call never answers.** A dispatched request is a
+    // Job from the press — `job-statuses.toml`, `proposing` — and that Job is
+    // the only thing the mock can honestly mint: no workflow, no steps and no
+    // plan, so there is nothing here to invent. The promise is left out because
+    // the proposer never answers in the mock, which is what `in_code = "Not
+    // yet"` means; nothing is waiting on it, since the press left the composer.
+    proposeFromRequest: (request) => {
+      const at = new Date().toISOString();
+      const row = proposingRow(request, at, state.jobs);
+      publish({ jobs: [...state.jobs, row] });
+      return new Promise(() => {});
+    },
     stopProposal: async () => OK,
     stageAttachment: async (_bytes, filename) => ({ path: filename }),
     searchFiles: async () => [],
@@ -375,4 +380,29 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     },
   });
   return fake;
+}
+
+/**
+ * The row a press on Dispatch mints: the request as the title, no workflow, no
+ * step and nothing that has run.
+ *
+ * **The manifest is the first Job's**, so the new row belongs to a repository
+ * the Board is already listing rather than to one nothing serves. A scenario
+ * with no Job at all mints none of its own either — there is nowhere to put it.
+ */
+function proposingRow(request: string, at: string, jobs: readonly JobSummary[]): JobSummary {
+  const ordinal = jobs.length + 1;
+  return {
+    id: `01M2E0DISPATCHED${String(ordinal).padStart(2, "0")}MOCK`,
+    handle: `${ordinal}-dispatched-from-the-composer`,
+    title: request,
+    status: "proposing",
+    workflow_id: "",
+    owner_manifest_id: jobs[0]?.owner_manifest_id ?? "",
+    origin: "manual",
+    urgency: "normal",
+    atomic: false,
+    model: "sonnet",
+    created_at: at,
+  };
 }

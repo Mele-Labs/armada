@@ -719,6 +719,12 @@ export function App({ draft }: AppProps = {}) {
                 // by this one is still its member while the rail is filtered.
                 board={state.jobs}
                 {...(draft === undefined ? {} : { draft })}
+                // The proposer call this window has out, and the one act on it.
+                // **Read by the lead's wait region on a Job at `proposing`** —
+                // nothing on the wire links a call to a Job, so this is the
+                // window's own and `detail-props.ts` says what that costs.
+                proposing={state.proposing}
+                onStopProposer={() => void commands.stopProposal()}
                 onReadDiff={readDiff}
                 onOpenArtifact={openArtifact}
                 onOpenPullRequest={openPullRequest}
@@ -964,14 +970,13 @@ export function App({ draft }: AppProps = {}) {
             <Composing
               state={state}
               commands={commands}
-              now={now}
               live={live}
               all={all}
               repositories={repositories}
               scoped={scoped}
               onPick={pick}
-              onOpen={setOpenJob}
               onClose={() => setComposing(false)}
+              onSaid={setTelling}
               onCopied={setCopied}
             />
           ) : studying ? (

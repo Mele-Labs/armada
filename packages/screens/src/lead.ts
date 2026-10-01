@@ -261,6 +261,15 @@ function stoppedBecause(job: JobSummary): string | undefined {
 
 
 /**
+ * The status a dispatched request stands at until the proposer answers.
+ *
+ * **A wire value and not a token**, `render.ts`'s `awaiting_repair` rule: the
+ * registry key is what Fleet sends, and a token is a rendering choice somebody
+ * thinking about colour could rename. `proposing` shares `running`'s hue.
+ */
+const BEING_PROPOSED = "proposing";
+
+/**
  * Two facts at most, divided rather than punctuated. **A middot and no full
  * stops**: `CheckRun.produced` is a log line and a command is a command, so
  * ending each with a period was the surface writing prose over Fleet's words.
@@ -296,6 +305,22 @@ function owedSaid(job: JobSummary, whole: JobWhole | null): string | undefined {
  */
 export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): JobLead {
   const step = currentStep(whole);
+
+  // A dispatched request the proposer has not answered. **First, and keyed on
+  // the status**: this Job has no workflow, no step, no plan and no Drone, so
+  // every rule below reads a thing it does not have and the quiet line at the
+  // bottom said `Nothing needs you` over a model call that is spending money.
+  if (job.status === BEING_PROPOSED) {
+    return {
+      said: "A model is reading the request",
+      // **Empty, and the wait is under the lead instead.** `ProposerWait` draws
+      // how far the call has got, what is left of Fleet's budget and how much
+      // the model has thought; a clause here restating any of it is the
+      // duplication the owner took out of this region on 30 Sep 2026.
+      because: "",
+      act: "Stop the proposer",
+    };
+  }
 
   // Waiting on you, **named by the thing itself and not by the step it is on**
   // — the owner's call of 29 Sep 2026, after three different situations drew
