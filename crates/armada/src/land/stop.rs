@@ -69,8 +69,7 @@ impl Stopped {
 
     /// A `Stopped` in a state neither [`stopped`](Stopped::stopped),
     /// [`red`](Stopped::red) nor [`conflict`](Stopped::conflict) covers —
-    /// `prove`'s own `ungated` and `landed`, which are constructed nowhere
-    /// else.
+    /// `landed`, which only [`super::onto_main::landed`] constructs.
     pub fn of(state: OutcomeState, detail: impl Into<String>, patch: OutcomePatch) -> Stopped {
         Stopped {
             state,

@@ -40,7 +40,7 @@ fn a_git_repository() -> TempDir {
 fn a_queue_entry(branch: &str, place: i64) -> QueueEntry {
     QueueEntry {
         branch: branch.to_string(),
-        pr: 7,
+        pr: Some(7),
         head: "a".repeat(40),
         tree: "b".repeat(40),
         place,
@@ -86,7 +86,7 @@ fn a_stamp_round_trips_exactly() {
         head: "c".repeat(40),
         tree: "d".repeat(40),
         base: "e".repeat(40),
-        pr: 9,
+        pr: None,
         checks: vec!["build".to_string(), "typecheck".to_string()],
     };
     write_stamp(&state, &stamp).expect("written");
@@ -246,7 +246,6 @@ fn every_outcome_state_maps_to_the_exit_code_running_locally_names() {
         (OutcomeState::Merging, 3),
         (OutcomeState::Red, 4),
         (OutcomeState::Conflict, 5),
-        (OutcomeState::Ungated, 6),
         (OutcomeState::Stopped, 7),
     ];
     for (state, code) in table {

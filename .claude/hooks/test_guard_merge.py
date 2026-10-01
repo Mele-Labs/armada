@@ -66,6 +66,16 @@ class Refuses(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(decide(command), "deny")
 
+    def test_a_command_claiming_to_be_the_runner(self) -> None:
+        # The runner's own push never reaches this hook, so nothing typed
+        # here can be it, however it is dressed.
+        for command in (
+            "ARMADA_LAND_RUNNER=1 git push origin main",
+            "env ARMADA_LAND_RUNNER=1 git push origin HEAD:main",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(decide(command), "deny")
+
     def test_the_refusal_says_what_to_run_instead(self) -> None:
         run = subprocess.run(
             [sys.executable, str(HOOK)],
@@ -90,9 +100,12 @@ class Allows(unittest.TestCase):
                 self.assertIsNone(decide(command))
 
     def test_the_line_itself_and_reading_a_pull_request(self) -> None:
+        # The runner pushes main from a process this starts, not from here.
         for command in (
             "scripts/land",
             "scripts/land --status",
+            "armada land preflight",
+            "armada land",
             "gh pr view 1327 --json state",
             "gh pr list --state merged",
             "gh pr create --fill",

@@ -91,7 +91,7 @@ unusable.
 | What a milestone's claim reads | `armada check acceptance` |
 | `apps/` or `packages/` | `armada check typecheck`, and `armada check <name>` for the package you changed. **A story is in `components_test`**, a screen's test through `App` in `desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx` |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
-| Anything | `cargo xtask verify-foundations` once, before the PR — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
+| Anything | `cargo xtask verify-foundations` once, before landing — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
 
 **Through `armada check`, never `vitest` or `nextest` bare.** A Check waits
 for one of the machine's Check slots and hands its runner `${width}`; a bare run
@@ -150,10 +150,13 @@ else.
 ### 6. Land it, and let it be read afterwards
 
 **Green work lands without asking.** Once the work is committed and step 4's
-self-check passes, push, open a PR (`scripts/land` needs one), and run
-`scripts/land` straight away. The merge line is the guard. The owner reviews
+self-check passes, run `scripts/land` straight away. Pushing the branch and
+opening a PR are optional: open one when there is something you want the owner
+to read before it lands, and the line closes it as merged when it lands. The
+merge line is the guard, and it pushes `main` itself. The owner reviews
 afterwards by reading what landed, for example
-`git log --merges --first-parent main --since=yesterday`.
+`git log --merges --first-parent main --since=yesterday`; each merge carries a
+`Landed-from:` trailer naming its branch.
 
 **`scripts/land` is how it merges**: never `gh pr merge`, never a push to
 `main`, and a hook refuses both.
@@ -180,14 +183,14 @@ is near a threshold, leave headroom rather than sitting on it.
 
 **Bring a moved `main` in by merging it, never by rebasing.** One pass meets
 every conflict at once, the commits already reviewed keep their ids, and a
-plain push carries the result — which is the same reason Fleet stopped rebasing
+plain commit carries the result — which is the same reason Fleet stopped rebasing
 in #1131. `docs/capabilities/merge-line.md` is the design, and
 `docs/practices/running-locally.md` has what each exit code means.
 
-Say in the PR what you would want looked at closely, because that is where the
-owner reads it. Then `milestone-step` steps 5, 6 and 7: close the issue with what
-contradicted the plan, give every open item an owner, report. **The report names
-the merge commit the branch landed as.**
+Say in the commit message what you would want looked at closely, because with
+no PR that is where the owner reads it. Then `milestone-step` steps 5, 6 and 7:
+close the issue with what contradicted the plan, give every open item an owner,
+report. **The report names the merge commit the branch landed as.**
 
 ## Dispatching several agents at once
 

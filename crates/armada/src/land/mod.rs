@@ -11,7 +11,8 @@
 //!
 //! State stays JSON, decoded and encoded only through
 //! [`ipc::decode`]/[`ipc::encode`] (gate rule five) — [`shell::gh_view`]
-//! reads `gh`'s own JSON answer through the same doorway.
+//! reads `gh`'s own JSON answer through the same doorway. A turn ends in
+//! [`onto_main`], which pushes the base itself.
 
 mod armada_cli;
 mod caches;
@@ -24,10 +25,10 @@ mod gating;
 pub mod git;
 pub mod lock;
 mod merge_in;
+mod onto_main;
 pub mod outcome;
 mod preflight;
 mod prepare;
-mod prove;
 pub mod queue;
 mod repo;
 pub mod runner;
