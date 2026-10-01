@@ -71,7 +71,7 @@ export const DroneMarkdown: Story = {
     at: "14:26:35",
     actor: "drone",
     message: (
-      <Prose text={"Splitting the reducer. **The public signature** stays put:\n\n- `selectSettings` keeps its name\n- the tests move with it"} />
+      <Prose text={"## The split\nSplitting the reducer.\n**The public signature** stays put:\n\n- `selectSettings` keeps its name\n- the tests move with it"} />
     ),
     onToggle: () => {},
     payloadId: "entry-drone-markdown",

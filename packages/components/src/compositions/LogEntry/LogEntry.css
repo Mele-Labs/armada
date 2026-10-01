@@ -105,20 +105,31 @@ button.armada-entry:focus-visible {
 }
 
 /* The Drone's sentence, as markdown, held to the row's one line. Prose draws
-   blocks; here they run inline, unindented, and keep the line's nowrap, so
+   blocks; here they run inline, unframed, at the line's own size and nowrap, so
    emphasis and code survive and the clip still ends in an ellipsis. Elements rather than
    Prose's classes, which are its own to rename, and under `__msg` so this
    outweighs Prose's own rules whatever order the two sheets load in. A block
    after a block takes a space, where its line break was. */
-.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, h1, h2, h3, h4, h5, h6, blockquote) {
+.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td) {
   display: inline;
   margin: 0;
   padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
   white-space: inherit;
 }
 
-.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, h1, h2, h3, h4, h5, h6, blockquote)
-  + :is(div, p, ul, ol, li, pre, h1, h2, h3, h4, h5, h6, blockquote)::before {
+/* A line break is the space it stands for, and a rule is nothing. */
+.armada-entry__msg .armada-entry__line :is(br, hr) {
+  display: none;
+}
+
+.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td)
+  + :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td)::before {
   content: " ";
 }
 

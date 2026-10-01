@@ -219,9 +219,9 @@ export const HeaderHoldsItsHeight: Story = {
   },
 };
 
-/** A sentence written in markdown: a paragraph, then a list, emphasis and code. */
+/** A sentence written in markdown: a heading, a paragraph with a line break, a list, emphasis and code. */
 const IN_MARKDOWN =
-  "Checking **settling** first:\n\n- `held_slot` is read twice\n- the second read is stale";
+  "## The slot\nChecking **settling** first,\nthen the reducer:\n\n- `held_slot` is read twice\n- the second read is stale";
 
 /**
  * The Drone's sentence in markdown, between calls.
