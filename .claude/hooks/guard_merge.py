@@ -8,6 +8,11 @@ through it — so this refuses the two commands that reach `main` around it.
 
 Reads the hook payload on stdin and answers `deny` or nothing at all.
 `docs/capabilities/merge-line.md` is the design.
+
+The line's own push of `main` is the one allowed, and it never reaches this
+hook: the detached runner makes it, not the Bash tool. So no command typed
+here is the runner's, and nothing in one, an environment variable included,
+lets it through.
 """
 import json
 import shlex
@@ -115,9 +120,12 @@ def main() -> None:
         commands.extend(inner(words))
 
     for words in commands:
-        # `NAME=value git push …` runs git with an environment, and the
-        # assignments sit where the program name would be.
-        while words and "=" in words[0].split("/")[0] and not words[0].startswith("-"):
+        # `NAME=value git push …` and `env NAME=value git push …` run git with
+        # an environment, and the assignments sit where the program name would be.
+        while words and (
+            words[0].rsplit("/", 1)[-1] == "env"
+            or ("=" in words[0].split("/")[0] and not words[0].startswith("-"))
+        ):
             words = words[1:]
         bare = [w for w in words if not w.startswith("-")]
         if len(bare) >= 2 and bare[0].endswith("git"):
