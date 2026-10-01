@@ -10,13 +10,16 @@
 //! there on 4 Sep 2026 and the four `spend` figures all read zero — and a
 //! fixture that spawned `/bin/cat` would prove the easy half and not that one.
 
+use std::future::Future;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use core_model::{JobStatus, RepoPath, StepId, Timestamp};
 use ipc::{Asked, Finding, Held};
 use testkit::{FakeWorkProduct, Gate, Sketch};
 
 use crate::daemon::Fleet;
 use crate::examining::folded;
-use crate::resources::{descended, measured};
+use crate::resources::{descended, measured, Sizes};
 use crate::tests::admitted::dispatched;
 use crate::tests::daemon::{
     a_fleet_holding, a_proposal, diff_evidence, fittings, worktree_directory,
@@ -124,6 +127,83 @@ fn the_last_line_is_the_total_however_many_lines_du_printed() {
 #[test]
 fn a_du_that_printed_nothing_measures_nothing_rather_than_zero() {
     assert_eq!(measured(""), None);
+}
+
+const WORKTREE: &str = "/repo/.armada/worktrees/1-a-checkout-exists";
+
+fn at(seconds: u32) -> Timestamp {
+    Timestamp::from_rfc3339(format!("2026-10-01T00:00:{seconds:02}.000Z"))
+}
+
+/// A walk that counts itself and comes back with `found`.
+fn a_walk(walks: &AtomicUsize, found: Option<u64>) -> impl Future<Output = Option<u64>> + '_ {
+    walks.fetch_add(1, Ordering::SeqCst);
+    async move {
+        tokio::task::yield_now().await;
+        found
+    }
+}
+
+#[tokio::test]
+async fn a_second_read_inside_the_window_does_not_walk_again() {
+    let sizes = Sizes::default();
+    let walks = AtomicUsize::new(0);
+
+    sizes
+        .of(WORKTREE, &at(0), || a_walk(&walks, Some(4096)))
+        .await;
+    let again = sizes
+        .of(WORKTREE, &at(29), || a_walk(&walks, Some(8192)))
+        .await;
+
+    assert_eq!(walks.load(Ordering::SeqCst), 1);
+    assert_eq!(again, Some(4096));
+}
+
+#[tokio::test]
+async fn a_read_after_the_window_walks_again() {
+    let sizes = Sizes::default();
+    let walks = AtomicUsize::new(0);
+
+    sizes
+        .of(WORKTREE, &at(0), || a_walk(&walks, Some(4096)))
+        .await;
+    let again = sizes
+        .of(WORKTREE, &at(30), || a_walk(&walks, Some(8192)))
+        .await;
+
+    assert_eq!(walks.load(Ordering::SeqCst), 2);
+    assert_eq!(again, Some(8192));
+}
+
+#[tokio::test]
+async fn a_walk_that_did_not_finish_is_not_kept() {
+    let sizes = Sizes::default();
+    let walks = AtomicUsize::new(0);
+
+    let first = sizes.of(WORKTREE, &at(0), || a_walk(&walks, None)).await;
+    let again = sizes
+        .of(WORKTREE, &at(1), || a_walk(&walks, Some(4096)))
+        .await;
+
+    assert_eq!(first, None);
+    assert_eq!(walks.load(Ordering::SeqCst), 2);
+    assert_eq!(again, Some(4096));
+}
+
+#[tokio::test]
+async fn two_reads_while_a_walk_is_out_share_it() {
+    let sizes = Sizes::default();
+    let walks = AtomicUsize::new(0);
+    let now = at(0);
+
+    let (one, two) = tokio::join!(
+        sizes.of(WORKTREE, &now, || a_walk(&walks, Some(4096))),
+        sizes.of(WORKTREE, &now, || a_walk(&walks, Some(8192))),
+    );
+
+    assert_eq!(walks.load(Ordering::SeqCst), 1);
+    assert_eq!((one, two), (Some(4096), Some(4096)));
 }
 
 fn look(asked: Asked, found: Finding) -> ipc::Look {

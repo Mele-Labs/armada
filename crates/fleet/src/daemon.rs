@@ -210,6 +210,9 @@ pub struct Fleet<H, V, W> {
     /// of each that ended. Never written down, for `rehearsals`' reason —
     /// `crate::servers`.
     servers: crate::servers::Servers,
+    /// The last size each Job's worktree walked to. Never written down, for
+    /// `servers`' reason — `crate::resources`.
+    sizes: crate::resources::Sizes,
     /// What one Job may spend. **Held rather than read** — like every other
     /// dial here, the composition root resolves it and nothing below Fleet
     /// reads configuration.
