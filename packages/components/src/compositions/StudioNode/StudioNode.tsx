@@ -74,7 +74,7 @@ export type StudioNodeOf =
    * The pad's drawing, drawn read-only in the card's picture plate — the
    * owner's call of 1 Oct 2026. No words of its own, so no title is drawn.
    */
-  | { kind: "sketch"; state: "frozen"; drawing: StudioNodeDrawing }
+  | { kind: "sketch"; drawing: StudioNodeDrawing }
   /**
    * A Link keeps its address, whatever is typed beside it — `#1378`. The
    * card's title is the person's own line, and this is drawn under it; where

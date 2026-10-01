@@ -101,8 +101,10 @@ different question and still has its draft — `packages/screens/src/draft/peers
 
 ### The sketch, and what of it reaches Fleet
 
-A sketch attaches to the prompt as a chip reading *From a Studio · sketch 1*,
-and the words typed under Write stay where they are while it is drawn. The chip
+A sketch attaches to the prompt as a chip reading *sketch 1* — its name
+alone, because the pad's own line says which Studio node it was made from
+(the owner, 28 September 2026) — and the words typed under Write stay where
+they are while it is drawn. The chip
 takes no removal control: a picture is taken back on the pad, where the boxes
 going are visible.
 

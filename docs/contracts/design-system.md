@@ -128,6 +128,10 @@ is allowed only as that light, and never where a person reads a state.
    drawing tool and adds nothing to `GraphCanvas`, which every other
    graph draws on. A surface that wants a pen mounts its own through the
    canvas's `children`, or it does without one.
+   **The pad is as tall as where it opens.** Beside a prompt it is
+   `--h-sketch-pad`, because it shares its card; opened over a Studio it
+   fills its sheet, with that height as its floor — the owner's call of
+   1 Oct 2026. Filling is layout, never a second fixed height.
 7. **No aggregate count beside what it counts.** A number saying how many
    rows, Checks or items a list holds, drawn next to that list, repeats what
    the reader can already see and teaches the eye to skip numbers. Draw the

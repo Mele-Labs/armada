@@ -303,6 +303,7 @@ impl StudioNodeKind {
             | StudioNodeKind::Link
             | StudioNodeKind::File
             | StudioNodeKind::Picture
+            | StudioNodeKind::Sketch
             | StudioNodeKind::Issue
             | StudioNodeKind::PullRequest
             | StudioNodeKind::Epic
@@ -315,7 +316,6 @@ impl StudioNodeKind {
                 S::NotAProblem,
                 S::ResolvedHere,
             ],
-            StudioNodeKind::Sketch => &[S::Frozen],
             StudioNodeKind::Deferral => &[S::Open, S::Answered],
             StudioNodeKind::Outline => &[S::Draft, S::Frozen],
             StudioNodeKind::IssueDraft => &[S::Draft],

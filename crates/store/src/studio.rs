@@ -233,7 +233,9 @@ DROP TABLE studio_edges_parked;
 ///
 /// **Every Sketch written as text becomes one box holding it**, at the pad's
 /// origin, so nothing a person wrote is lost and the node opens on the pad
-/// like any other. No `CHECK` changes and no other kind is touched.
+/// like any other. **And every Sketch loses its state**: a drawing is drawn
+/// on whenever it is opened, so `frozen` stopped being true of one — the
+/// owner, 1 Oct 2026. No `CHECK` changes and no other kind is touched.
 pub(crate) const V85: &str = r#"
 UPDATE studio_nodes
 SET content = json_object(
@@ -243,6 +245,8 @@ SET content = json_object(
     'strokes', json_array(),
     'pictures', json_array())
 WHERE kind = 'sketch' AND json_extract(content, '$.body') IS NOT NULL;
+
+UPDATE studio_nodes SET state = NULL WHERE kind = 'sketch';
 "#;
 
 /// Why a Studio read or write did not happen.

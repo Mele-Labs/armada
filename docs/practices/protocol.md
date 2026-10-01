@@ -1909,7 +1909,9 @@ cost of a field nothing new reads, and Armada has no Bridge in the field to keep
 `core_model::Drawing::drawn`: an id on two parts, a blank id, a join to nothing or to itself, a
 stroke of fewer than two points and a picture at no size do not decode, and nor does an unknown
 field anywhere in it. Fleet's store holds a row to the same rule on read. Every Sketch written as
-text is migrated by store V85 to one box, `b1` at the origin, holding the old body.
+text is migrated by store V85 to one box, `b1` at the origin, holding the old body. **A Sketch
+carries no `state`**, where it carried `frozen`: it is drawn on whenever its pad is opened, and V85
+clears the state on every Sketch row. Finding's and Outline's `frozen` are untouched.
 
 **Written, a picture is its staged file or nothing**, the way a Picture is written (19.3). `add_node`
 takes `{ "kind": "sketch", "drawing": … }` with each picture carrying `staged`, decoded apart from

@@ -197,12 +197,12 @@ export const Contradiction: Story = {
 
 /**
  * The pad's drawing, drawn in the plate a Picture uses, and no title: a Sketch
- * says nothing in words of its own beyond what is in its boxes.
+ * says nothing in words of its own beyond what is in its boxes. **No state
+ * either** — it is drawn on whenever it is opened (the owner, 1 Oct 2026).
  */
 export const Sketch: Story = {
   args: {
     kind: "sketch",
-    state: "frozen",
     title: "",
     drawing: {
       boxes: [
@@ -216,7 +216,7 @@ export const Sketch: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Sketch")).toBeVisible();
-    await expect(canvas.getByText("frozen")).toBeVisible();
+    await expect(canvas.queryByText("frozen")).toBeNull();
     await expect(canvas.getByRole("img", { name: "The sketch drawn on this Studio" })).toBeVisible();
     await expect(canvas.getByText("The rail")).toBeInTheDocument();
   },

@@ -313,7 +313,6 @@ function cardOf(
       // The drawing, and no title: a Sketch's words are in its boxes — 1 Oct 2026.
       return {
         kind: "sketch",
-        state: "frozen",
         title: "",
         drawing: {
           boxes: node.drawing.boxes,

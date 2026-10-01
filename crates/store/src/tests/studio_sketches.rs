@@ -5,8 +5,8 @@
 
 use core_model::{
     CaptureFrame, SketchBox, SketchDrawing, SketchJoin, SketchPicture, SketchPoint, SketchStroke,
-    StudioAuthor, StudioId, StudioNode, StudioNodeContent, StudioNodeId, StudioNodeState,
-    StudioPosition, Timestamp, Ulid,
+    StudioAuthor, StudioId, StudioNode, StudioNodeContent, StudioNodeId, StudioPosition, Timestamp,
+    Ulid,
 };
 use rusqlite::Connection;
 
@@ -40,8 +40,8 @@ fn at() -> Timestamp {
     Timestamp::from_rfc3339(AT)
 }
 
-/// **A Sketch written as text opens as one box holding it**, and keeps its
-/// place and its state. Nothing a person wrote is dropped on the way.
+/// **A Sketch written as text opens as one box holding it**, at its place and
+/// with no state: `frozen` went with the text. Nothing a person wrote is lost.
 #[test]
 fn a_sketch_written_as_text_migrates_to_one_box_holding_it() {
     let dir = TempDir::new();
@@ -58,7 +58,7 @@ fn a_sketch_written_as_text_migrates_to_one_box_holding_it() {
             )),
         }
     );
-    assert_eq!(sketch.state(), Some(StudioNodeState::Frozen));
+    assert_eq!(sketch.state(), None, "a Sketch holds no state");
     assert_eq!(sketch.position(), StudioPosition { x: 40, y: 80 });
 }
 

@@ -168,6 +168,7 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
           onDraw={(points) => draw((one) => withStroke(one, points))}
           onUndo={() => draw(withoutLastStroke)}
           disabled={!editable || saving}
+          fills
         />
       </Sheet>
     );

@@ -14,6 +14,10 @@ He asked why a Studio Sketch and the dispatch composer's "Sketch pad" were two d
 
 **Saved on close, not as it is drawn.** One write when the pad closes is the whole drawing, so a Studio is never left holding half a stroke, and a refusal is said once, on the pad, where the person still is. The cost is that closing the window with the pad open loses what was drawn since it opened.
 
+**No state.** Asked whether a Sketch drawn on after placing should still be `frozen` (*done changing*), he answered: *"I hate this frozen shit. Its overcomplicating it."* A Sketch holds no state, V85 clears it on every Sketch already kept, and the card draws no state tag. Finding's and Outline's `frozen` are a separate question.
+
+**The pad fills its sheet.** He chose "Fill the sheet": opened over a Studio, the pad grows to the sheet's height, with the composer's `--h-sketch-pad` as its floor. The composer's pad keeps that height exactly.
+
 **Protocol 20.0, a major.** The read shape lost `body`, and the version file's own table calls a removed field major. A derived `body` kept beside the drawing would have bought a minor for a Bridge that does not exist.
 
 **Where it landed:** `studios/one-sketch`.

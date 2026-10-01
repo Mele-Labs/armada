@@ -90,6 +90,8 @@ export type SketchPadProps = {
   from?: string;
   /** Nothing may be drawn while the connection is not live. */
   disabled?: boolean;
+  /** Fill its box, `--h-sketch-pad` the floor: a Studio's Sketch in its sheet, 1 Oct 2026. */
+  fills?: boolean;
 };
 
 /** One box: where a person put it, and the words in it. */
@@ -429,7 +431,7 @@ export function SketchPad(props: SketchPadProps) {
   }, [lines, boxes, pictures]);
 
   return (
-    <div className="armada-sketch-pad">
+    <div className="armada-sketch-pad" data-fills={props.fills || undefined}>
       <div className="armada-sketch-pad__canvas" ref={frame} tabIndex={-1}>
         <GraphCanvas<PadNode, PadEdge>
           surface="armada-sketch-pad__graph"

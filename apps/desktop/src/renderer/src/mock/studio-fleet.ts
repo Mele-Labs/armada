@@ -353,7 +353,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           ...studio,
           nodes: [
             ...studio.nodes,
-            { kind: "sketch", drawing: kept.drawing, state: "frozen", id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
+            { kind: "sketch", drawing: kept.drawing, id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
           ],
         }));
         if (answer.ok) for (const [key, bytes] of kept.bytes) pictures.set(key, bytes);
@@ -620,7 +620,7 @@ export function everyKind(jobId: string): Studio {
       created_at: MADE,
     },
     // A Sketch written as text before 1 Oct 2026, as V85 left it: one box holding the words.
-    { id: "every-sketch", kind: "sketch", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "Legend on its own row\nunder the step bar" }], joins: [], strokes: [], pictures: [] }, state: "frozen", position: place(1, 3), created_at: MADE },
+    { id: "every-sketch", kind: "sketch", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "Legend on its own row\nunder the step bar" }], joins: [], strokes: [], pictures: [] }, position: place(1, 3), created_at: MADE },
     { id: "every-deferral", kind: "deferral", what: "Whether the legend collapses under 720", state: "open", position: place(2, 4), created_at: MADE },
     { id: "every-outline", kind: "outline", body: "Give the legend its own row\nThen fix the contrast", state: "draft", position: place(1, 4), created_at: MADE },
     { id: "every-draft", kind: "issue_draft", title: "The Board's legend is illegible", body: "…", state: "draft", position: place(0, 4), created_at: MADE },
