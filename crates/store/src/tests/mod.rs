@@ -54,6 +54,7 @@ mod showing;
 mod spend;
 mod studio;
 mod studio_authors;
+mod studio_files;
 mod studio_forge;
 mod studio_runs;
 mod timings;

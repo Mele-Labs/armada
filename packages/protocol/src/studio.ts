@@ -68,6 +68,12 @@ export type StudioNodeContent =
    */
   | { kind: "link"; address: string; said?: string; named?: string }
   /**
+   * A path to a file, kept as a person pasted it — absolute, under `~` or
+   * relative to the repository — and trimmed. Fleet neither resolves it nor
+   * checks that it exists. Since 18.5.
+   */
+  | { kind: "file"; path: string }
+  /**
    * An issue on a forge. Since 14.18, #1394.
    *
    * `address` and `number` were read off the address when the node was made;
@@ -214,7 +220,7 @@ export type AddStudioNode = StudioNodeContent & {
 
 /**
  * What a person puts on a Studio by hand — a Note typed, a Link pasted, a
- * Sketch placed. Since 14.12, #1364.
+ * Sketch placed, a File's path pasted. Since 14.12, #1364; a File since 18.5.
  *
  * **Narrower than `StudioNodeContent` on purpose.** Fleet refuses every other
  * kind from Bridge as `fleet.studio_node_not_a_persons`, because each is made
@@ -239,7 +245,9 @@ export type StudioNodeByHand =
    * and writes the kind that follows. #1394.
    */
   | { kind: "link"; address: string; said?: string }
-  | { kind: "sketch"; body: string };
+  | { kind: "sketch"; body: string }
+  /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 18.5. */
+  | { kind: "file"; path: string };
 
 /**
  * What a Note keeps of where a person pointed — the development annotation

@@ -134,6 +134,8 @@ spelled! {
         Contradiction => "contradiction",
         Sketch => "sketch",
         Link => "link",
+        /// A path to a file, as a person pasted it.
+        File => "file",
         /// An issue on a forge. **The concept, never the vendor** — which
         /// forge served the address is `adapters`' to know, and the node is an
         /// Issue whoever hosts it. `#1394`.
@@ -292,6 +294,7 @@ impl StudioNodeKind {
             | StudioNodeKind::Note
             | StudioNodeKind::Cluster
             | StudioNodeKind::Link
+            | StudioNodeKind::File
             | StudioNodeKind::Issue
             | StudioNodeKind::PullRequest
             | StudioNodeKind::Epic
@@ -326,7 +329,8 @@ impl StudioNodeKind {
     }
 
     /// A kind a person may put on a Studio by hand — `#1364`, decided with the
-    /// owner. A Note typed here, a Link pasted, a Sketch placed.
+    /// owner. A Note typed here, a Link pasted, a Sketch placed, a File's path
+    /// pasted.
     ///
     /// **Every other kind is made by the act that earns it**, and adding one by
     /// hand would be a claim nothing stands behind: a Finding comes from a
@@ -342,7 +346,10 @@ impl StudioNodeKind {
     pub fn added_by_hand(&self) -> bool {
         matches!(
             self,
-            StudioNodeKind::Note | StudioNodeKind::Link | StudioNodeKind::Sketch
+            StudioNodeKind::Note
+                | StudioNodeKind::Link
+                | StudioNodeKind::Sketch
+                | StudioNodeKind::File
         )
     }
 }
@@ -478,6 +485,10 @@ pub enum StudioNodeContent {
         said: Option<String>,
         named: Option<String>,
     },
+    /// A path to a file, kept exactly as a person pasted it — absolute, under
+    /// `~`, or relative to the repository. **Never resolved and never checked
+    /// for**: what it names is the person's to say.
+    File { path: String },
     /// An issue on a forge, made by pasting its address. `#1394`.
     ///
     /// **`address` and `number` are read off the address the moment the node
@@ -542,6 +553,13 @@ impl StudioNodeContent {
         }
     }
 
+    /// A File, its path trimmed of the space a paste carries around it.
+    pub fn file(path: &str) -> StudioNodeContent {
+        StudioNodeContent::File {
+            path: String::from(path.trim()),
+        }
+    }
+
     /// A Link a read-in made, carrying the issue's own address and the line
     /// naming it. **No `said`**: a person has not written one on a node that
     /// did not exist a moment ago. `#1293`.
@@ -562,6 +580,7 @@ impl StudioNodeContent {
             StudioNodeContent::Contradiction { .. } => StudioNodeKind::Contradiction,
             StudioNodeContent::Sketch { .. } => StudioNodeKind::Sketch,
             StudioNodeContent::Link { .. } => StudioNodeKind::Link,
+            StudioNodeContent::File { .. } => StudioNodeKind::File,
             StudioNodeContent::Issue { .. } => StudioNodeKind::Issue,
             StudioNodeContent::PullRequest { .. } => StudioNodeKind::PullRequest,
             StudioNodeContent::Epic { .. } => StudioNodeKind::Epic,
@@ -588,6 +607,7 @@ impl StudioNodeContent {
             // Neither `said` nor `named` is here: a Link with no line and no
             // name is a Link, and both are normalised to absent, never blank.
             StudioNodeContent::Link { address, .. } => &[("address", address)],
+            StudioNodeContent::File { path } => &[("path", path)],
             // Neither `title` nor `state` is here: what the forge says is
             // absent until the node is read in, never blank.
             StudioNodeContent::Issue {

@@ -98,8 +98,11 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A person adds a Note, an address and a Sketch by hand, and no other kind. Every other kind is made by the act that earns it.
-> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364.
+> **Rule.** A person adds a Note, an address, a Sketch and a File by hand, and no other kind. Every other kind is made by the act that earns it.
+> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File with him on 1 Oct 2026.
+
+> **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
+> Why: the path is what the person meant to point at, and a File that rewrote it, or refused one not yet on disk, would be Fleet deciding what they meant. Decided with the owner, 1 Oct 2026.
 
 > **Rule.** An address is pasted, and never named as a kind. What arrives is an address; what it becomes is the adapter's answer.
 > Why: nobody may say *this is an Issue* — the address earns the kind or it does not. See #1394.

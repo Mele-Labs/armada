@@ -1848,6 +1848,20 @@ now says every figure but this one, and Pulse draws the size's own age under it.
 **Present exactly where `bytes` is.** A walk that did not finish measured nothing, so there is no
 instant to put on it; an absent `measured_at` beside a present `bytes` is a Fleet older than 19.2.
 
+## Protocol 19.3: a pasted file path is a File
+
+`StudioNodeContent` gains `file`, `{ "kind": "file", "path": "…" }`, and `StudioNodeByHand` gains
+the same shape: a person adds one by hand. Decided with the owner, 1 Oct 2026.
+
+**The path and nothing else.** Kept as pasted — absolute, under `~` or relative to the repository —
+and trimmed on the way in; Fleet neither resolves it nor checks that it exists. A blank one is
+refused as `fleet.studio_node_blank`, and a body with no `path`, or one that is not text, does not
+decode.
+
+**Additive by 14.7's and 14.18's reading**, which added node kinds the same way. Nothing an older
+Bridge already parses changes; one meeting a File draws no card for it, which is `packages/screens`'
+`cardOf` default for a kind it does not know.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

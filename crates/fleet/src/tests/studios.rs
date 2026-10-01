@@ -721,3 +721,73 @@ fn said_on<'a>(studio: &'a Studio, node_id: &ipc::StudioNodeId) -> (&'a str, Opt
     };
     (address, said.as_deref())
 }
+
+fn a_file(path: &str) -> AddStudioNode {
+    AddStudioNode {
+        content: StudioNodeContent::File {
+            path: path.to_string(),
+        },
+        position: StudioPosition { x: 0, y: 0 },
+        produced_by: None,
+    }
+}
+
+/// **A path a person pastes lands as a File**, kept as pasted and trimmed of
+/// the space around it, and reads back so after Fleet is assembled again.
+/// Decided with the owner, 1 Oct 2026. Nothing resolves it: none of these
+/// three exists under the test's home.
+#[tokio::test]
+async fn a_pasted_path_is_a_file_and_reads_back_as_pasted() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    let pasted = [
+        "/Users/user/notes/plan.md",
+        "~/Desktop/legend.png",
+        "  crates/fleet/src/briefing.rs\n",
+    ];
+    for path in pasted {
+        fleet
+            .add_studio_node(studio.id.clone(), a_file(path), Redirector::Person, None)
+            .await
+            .expect("a person's own kind");
+    }
+    drop(fleet);
+
+    let fleet = a_fleet(&home);
+    let read = fleet
+        .get_studio(studio.id, None)
+        .await
+        .expect("still there");
+    let kept: Vec<String> = read
+        .nodes
+        .iter()
+        .map(|node| ipc::encode(&node.content).expect("plain data"))
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            r#"{"kind":"file","path":"/Users/user/notes/plan.md"}"#,
+            r#"{"kind":"file","path":"~/Desktop/legend.png"}"#,
+            r#"{"kind":"file","path":"crates/fleet/src/briefing.rs"}"#,
+        ]
+    );
+    assert!(read.nodes.iter().all(|node| node.state.is_none()));
+}
+
+/// A File with no path is no File: refused as blank, and nothing is written.
+#[tokio::test]
+async fn a_file_with_a_blank_path_is_refused_as_blank() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    for path in ["", "   \n"] {
+        let refused = fleet
+            .add_studio_node(studio.id.clone(), a_file(path), Redirector::Person, None)
+            .await
+            .expect_err("no path");
+        assert_eq!(code(&refused), "fleet.studio_node_blank");
+    }
+    let read = fleet.get_studio(studio.id, None).await.expect("read back");
+    assert!(read.nodes.is_empty(), "nothing refused was written");
+}

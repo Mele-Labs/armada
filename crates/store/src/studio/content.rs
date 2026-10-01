@@ -103,6 +103,7 @@ pub(super) fn written(content: &StudioNodeContent) -> String {
             }
             Value::Object(link)
         }
+        StudioNodeContent::File { path } => json!({ "path": path }),
         // **Each of the three writes what it holds and nothing more**, so a
         // node whose title and state no read-in has resolved reads back as one
         // that has not, rather than as one whose forge said nothing.
@@ -225,6 +226,9 @@ pub(super) fn read(kind: &str, stored: &str) -> Result<StudioNodeContent, Unread
                 .get("named")
                 .and_then(Value::as_str)
                 .map(str::to_string),
+        },
+        StudioNodeKind::File => StudioNodeContent::File {
+            path: text("path")?,
         },
         // **Read through `on_the_forge` and `resolved`**, the domain's own two
         // constructors, so this module never spells one of the three kinds'
