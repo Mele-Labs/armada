@@ -1969,6 +1969,26 @@
   grid-column: 1 / -1;
 }
 
+/* What the lead's Approve dispatch approves: what counts as done beside how
+   each step gates, one glass card the width of the lead. The two regions are
+   the proposal's own, and Done when's card surface comes off here — the glass
+   is the card, and a raised card on it would be a card in a card. */
+.armada-overview-board__approving {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--radius-lg);
+}
+
+.armada-overview-board__approving .armada-proposal__done-when {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 /* One column where two of these do not fit, which is a fact about the row's
    own width rather than the window's — so a container query, the form every
    other composition here uses. `packages/tokens/src/spacing.css` declares the
@@ -1978,7 +1998,8 @@
    armada-allow-off-contract: a container condition cannot read a custom property — the same escape BranchPicker.css takes, for the same reason
    760px is where two cards stop both fitting a group's row on one line — `1  2 tasks  sequential  passed` — read at 1100, 1280, 1440 and 1920 — docs/contracts/design-system.md */
 @container overview-board (max-width: 760px) {
-  .armada-overview-board__cards {
+  .armada-overview-board__cards,
+  .armada-overview-board__approving {
     grid-template-columns: minmax(0, 1fr);
   }
 }

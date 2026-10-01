@@ -315,7 +315,10 @@ describe("approved", () => {
     await page.getByRole("tab", { name: /^Settings/ }).click();
 
     const workflow = page.getByRole("region", { name: "Workflow" });
-    await expect.element(workflow).toHaveTextContent("feature — 4 steps");
+    // The name, and no count of the steps listed under it — hard rule 7.
+    await expect.element(workflow.getByText("feature", { exact: true })).toBeVisible();
+    await expect.element(workflow).not.toHaveTextContent("4 steps");
+    expect(workflow.getByRole("listitem").all()).toHaveLength(4);
     expect(workflow.getByRole("combobox").all()).toHaveLength(0);
   });
 });

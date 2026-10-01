@@ -114,10 +114,12 @@ export function ProposalGates({
       {/* The picker carries no label of its own: the heading above it is the
           label, and `Workflow — Workflow` is what a field under it would
           read. The steps beneath are what it brings with it. */}
+      {/* **The name alone, read.** Every step is listed under it, so a count
+          beside the name is the number beside the things it counts — hard
+          rule 7, `design-system.md`. The picker's options keep theirs: the
+          steps of a workflow not picked are drawn nowhere. */}
       {onWorkflow === undefined || workflowChoices.length === 0 ? (
-        <p className="armada-proposal__workflow-said">
-          {stepsSaid(named?.name ?? workflow, steps.length)}
-        </p>
+        <p className="armada-proposal__workflow-said">{named?.name ?? workflow}</p>
       ) : (
         <Select
           aria-label="Workflow"
@@ -191,9 +193,9 @@ export function ProposalGates({
 }
 
 /**
- * A workflow with how many steps it runs. **One spelling**, so the picker's
- * options and the frozen reading cannot drift apart. A workflow of one step
- * says `step`, because `1 steps` is how a screen reads as generated.
+ * A workflow with how many steps it runs, as the picker offers it. A workflow
+ * of one step says `step`, because `1 steps` is how a screen reads as
+ * generated.
  */
 function stepsSaid(name: string, steps: number): string {
   return `${name} — ${steps} ${steps === 1 ? "step" : "steps"}`;
