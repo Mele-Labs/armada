@@ -432,8 +432,10 @@ export function arcDetail(
     branch: ARC_BRANCH,
     steps,
     acceptance_criteria: ARC_CRITERIA,
+    // Backticked as a model writes a name, so the mock shows the brief drawn
+    // as markdown rather than as the characters.
     facts:
-      "The stat reads its two numbers off get_capacity, and nothing on it leads to the one " +
+      "The stat reads its two numbers off `get_capacity`, and nothing on it leads to the one " +
       "Drone that is running or to anything else the machine has out.",
     write_targets: ["crates/api/src/", "crates/fleet/src/", "packages/screens/src/"],
     dependencies: [],

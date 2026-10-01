@@ -73,7 +73,7 @@ describe("what a person may still change", () => {
       await expect
         .element(asked())
         .toHaveValue(
-          "The stat reads its two numbers off get_capacity, and nothing on it leads to the one " +
+          "The stat reads its two numbers off `get_capacity`, and nothing on it leads to the one " +
             "Drone that is running or to anything else the machine has out.",
         );
 
@@ -315,7 +315,10 @@ describe("approved", () => {
     await page.getByRole("tab", { name: /^Settings/ }).click();
 
     const workflow = page.getByRole("region", { name: "Workflow" });
-    await expect.element(workflow).toHaveTextContent("feature — 4 steps");
+    // The name, and no count of the steps listed under it — hard rule 7.
+    await expect.element(workflow.getByText("feature", { exact: true })).toBeVisible();
+    await expect.element(workflow).not.toHaveTextContent("4 steps");
+    expect(workflow.getByRole("listitem").all()).toHaveLength(4);
     expect(workflow.getByRole("combobox").all()).toHaveLength(0);
   });
 });

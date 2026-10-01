@@ -13,7 +13,7 @@ import type {
 } from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 import { escalatedEvidenceSuspect, review } from "@armada/screens/src/fixtures/build/index";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { awaitingApproval, running } from "@armada/screens/src/fixtures/build/index";
 import { advancedStep, BUILD_CHECK, diffRead, freshStep, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
@@ -274,6 +274,71 @@ export function refactorAtItsPlan(): JobFixture {
     },
   };
   return { ...base, job, watched: { ...base.watched, detail } };
+}
+
+/**
+ * The same Job one moment earlier, at its dispatch gate: `refactor`'s three
+ * steps with the gate each froze and the two criteria the proposer read out of
+ * the request, as `GET /jobs/1` served them — and no branch and no draft, which
+ * is every real Fleet until #1545.
+ */
+export function refactorAtApproval(): JobFixture {
+  const base = awaitingApproval();
+  if (base.watched.state !== "read") return base;
+  const created = "2026-10-01T18:29:37.596Z";
+  const step = (step_id: string, label: string, ordinal: number, advance_gate: string): StepDetail => ({
+    step_id,
+    label,
+    ordinal,
+    state: "not_started",
+    checks: [],
+    check_runs: [],
+    judge_checks: [],
+    advance_gate,
+    delivers: false,
+    overridden: false,
+    judged: [],
+    flagged: [],
+    attempts: [],
+    verdicts: [],
+    entered_at: created,
+    updated_at: created,
+  });
+  const job = {
+    ...base.job,
+    handle: "1-retire-guide-8-and-add-guide-validation-ru",
+    title: "Retire guide 8 and add guide validation rule",
+    workflow_id: "refactor",
+    origin: "auto_detected",
+    model: "sonnet",
+    current_step_id: "plan",
+  };
+  const detail = {
+    ...base.watched.detail,
+    job,
+    steps: [
+      {
+        ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
+        checks: [{ kind: "plan_recorded" }],
+        judge_checks: [{ criteria: 1, gaming_check: false }],
+      },
+      {
+        ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
+        checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
+        judge_checks: [{ criteria: 4, gaming_check: true }],
+      },
+      { ...step("handoff", "Review the change", 2, "human_always"), delivers: true },
+    ],
+    acceptance_criteria: [
+      { criterion_id: "c1", text: "Guide 8 is removed from the catalogue", source: "judge" },
+      {
+        criterion_id: "c2",
+        text: "A validation rule prevents guides without drawn pieces",
+        source: "judge",
+      },
+    ],
+  };
+  return { ...base, job, watched: watchedRead(detail) };
 }
 
 /** `implement`'s Checks, as `GET /jobs/2` served them on 1 Oct 2026, commands left out. */

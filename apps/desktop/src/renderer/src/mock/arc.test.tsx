@@ -177,7 +177,7 @@ describe("what froze at approval", () => {
       const settings = page.getByRole("tabpanel", { name: "Settings" });
       const froze = settings.getByRole("region", { name: "Frozen at approval" });
       await expect.element(froze).toHaveTextContent(/Nothing here changes while the Job runs\./);
-      await expect.element(froze).toHaveTextContent("feature — 4 steps");
+      await expect.element(froze).toHaveTextContent("feature");
       await expect.element(froze).toHaveTextContent("One branch for the whole Job");
       await expect.element(froze).toHaveTextContent("Difficult");
       // Frozen is values, never fields a person could move.

@@ -7,7 +7,7 @@
 // `whole.delivery.pull_request` is present, which this fixture leaves absent
 // on purpose: the roster's escalated fixture is the one that reaches delivery.
 
-import type { JobConfidence } from "@armada/protocol";
+import type { JobConfidence, JobReview } from "@armada/protocol";
 import type { JobFixture } from "../fixture";
 import {
   answered,
@@ -108,7 +108,10 @@ const CONFIDENCE: JobConfidence = {
   areas: [
     {
       name: "Selectors",
-      what: "The selectors no longer import the store",
+      what:
+        "The selectors no longer import the **store**:\n\n" +
+        "- `selectors.ts` reads column order from its own module\n" +
+        "- `index.ts` exports them from the new path",
       files: ["packages/settings/src/selectors.ts", "packages/settings/src/index.ts"],
       view: [
         {
@@ -134,7 +137,7 @@ const CONFIDENCE: JobConfidence = {
   ],
   tests: {
     opened_because: { kind: "test_removed", name: "reruns_every_selector_on_write" },
-    proves: [{ area: "Selectors", what: "A settings write re-runs only the selectors that read it", tests: 3 }],
+    proves: [{ area: "Selectors", what: "A settings write re-runs **only** the selectors that read it", tests: 3 }],
     changed: [
       {
         name: "reruns_every_selector_on_write",
@@ -148,7 +151,7 @@ const CONFIDENCE: JobConfidence = {
   needs_you: [
     {
       finding: "`reruns_every_selector_on_write` was removed with no reason given",
-      why: "A test taken out or weakened is the reviewer's to explain",
+      why: "A test taken out or weakened is **the reviewer's** to explain",
     },
   ],
   small_fixes: [{ finding: "`selectors.ts` still exports a helper nothing calls", why: "In scope. Delete it with the split." }],
@@ -168,15 +171,31 @@ const CONFIDENCE: JobConfidence = {
   dismissed: [
     {
       finding: "The reducer test file is named after the old module",
-      reason: "It is renamed in the next step, which owns the tests.",
+      reason: "It is renamed in the next step, which **owns the tests**.",
     },
   ],
+};
+
+/**
+ * Fleet's own review of the split, as `get_job` serves it — the words the pull
+ * request's "Why" and "Risks" carry, in the Markdown they are written in.
+ */
+const REVIEW: JobReview = {
+  why:
+    "The selectors cannot be tested without constructing the whole **store**, so every " +
+    "settings test is an integration test.",
+  outcome: "",
+  risks:
+    "Nothing has checked the consumers yet:\n\n" +
+    "- `Check the consumers still compile` runs after this gate\n" +
+    "- the old import path still resolves through `index.ts`",
+  evidence: "",
 };
 
 export function review(): JobFixture {
   const theJob = job("awaiting_review", { current_step_id: "regression_verify" });
   const steps = [reproStep(), rootCauseStep(), fixStep(), regressionStep(), consumersStep(), landStep()];
-  const whole = { ...detail(theJob, steps), confidence: CONFIDENCE };
+  const whole = { ...detail(theJob, steps), confidence: CONFIDENCE, review: REVIEW };
 
   const rows = [
     instructed("repro", "2026-09-10T14:11:15Z", 1, "the reproduction fails on main", "Reproduction"),
@@ -240,7 +259,11 @@ export function review(): JobFixture {
         {
           step_id: "regression_verify",
           evidence_type: "test_suite_run",
-          claimed: "2034 of 2034 tests pass.",
+          claimed:
+            "**2034 of 2034** tests pass, among them:\n\n" +
+            "- `reruns_only_what_reads_the_write`, which replaces the removed test\n" +
+            "- every existing settings test",
+          not_claimed: "No test covers `useColumnSelectors` against a **filled** store.",
           shown_by: ".armada/checks/77-split-the-settings-reducer/regression_verify.1.cargo_nextest.log",
         },
       ]),
