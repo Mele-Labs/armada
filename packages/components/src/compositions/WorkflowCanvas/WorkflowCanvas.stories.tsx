@@ -21,8 +21,10 @@ type Story = StoryObj<typeof WorkflowCanvas>;
 
 // The four steps `feature.json` declares, one under the last, as the Workflow
 // tab draws them. The placement is the caller's, and the caller here writes
-// the number `workflow-canvas.ts` computes.
+// the numbers `workflow-canvas.ts` computes: a card with one row under its
+// name, then a card with none, which sits a row closer to the next.
 const STEP_APART = 112;
+const ROW = 28;
 
 const steps: WorkflowCanvasNode[] = [
   {
@@ -33,17 +35,17 @@ const steps: WorkflowCanvasNode[] = [
   {
     id: "step:implement",
     position: { x: 0, y: STEP_APART },
-    card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 4 groups", onOpen: fn() },
+    card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 2 Drones", bar: { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" }, onOpen: fn() },
   },
   {
     id: "step:tests",
     position: { x: 0, y: STEP_APART * 2 },
-    card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, line: "not started", onOpen: fn() },
+    card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, onOpen: fn() },
   },
   {
     id: "step:handoff",
-    position: { x: 0, y: STEP_APART * 3 },
-    card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, line: "not started", gate: "will ask you", onOpen: fn() },
+    position: { x: 0, y: STEP_APART * 3 - ROW },
+    card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, gate: "will ask you", onOpen: fn() },
   },
 ];
 

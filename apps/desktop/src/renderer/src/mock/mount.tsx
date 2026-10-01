@@ -7,8 +7,7 @@
 import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary } from "@armada/shell";
-import { HapticsProvider, type WorkflowStepCardDesign } from "@armada/components";
-import { StepCardDesign } from "@armada/screens";
+import { HapticsProvider } from "@armada/components";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
@@ -66,16 +65,8 @@ function Drafted({ draft }: { draft: LiveDraft }) {
 /**
  * Install a fake `window.armada` on `scenario` and mount the app into `host`.
  * **Throws on a name no scenario has**, so a test never passes against a default.
- *
- * `cards` is the step-card design the Workflow tab draws while the owner
- * compares three (30 Sep 2026). Absent draws today's, as the app does.
  */
-export function mountApp(
-  scenario: string | Scenario,
-  host: HTMLElement,
-  shared?: BridgeApi,
-  cards?: WorkflowStepCardDesign,
-): Mounted {
+export function mountApp(scenario: string | Scenario, host: HTMLElement, shared?: BridgeApi): Mounted {
   const chosen = typeof scenario === "string" ? scenarioNamed(scenario) : scenario;
   if (chosen === undefined) throw new Error(`no mock scenario named ${String(scenario)}`);
   // `shared` is a second window on the same main: both hear what either one's Fleet publishes.
@@ -95,9 +86,7 @@ export function mountApp(
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <StepCardDesign.Provider value={cards}>
-            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-          </StepCardDesign.Provider>
+          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

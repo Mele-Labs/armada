@@ -37,7 +37,7 @@ describe("every shipped workflow draws", () => {
       expect(run.rows.map((row) => row.id)).toEqual(expect.arrayContaining(steps));
     });
 
-    it(`places ${fixture.job.handle}'s steps top to bottom, evenly and in order`, () => {
+    it(`places ${fixture.job.handle}'s steps top to bottom, with even air between them and in order`, () => {
       const whole = wholeOf(fixture);
       const run = workflowRunOf({ whole, groups: taskGroupsOf(whole) });
       const spine = run.nodes.filter((node) => node.id.startsWith("step:"));
@@ -46,8 +46,14 @@ describe("every shipped workflow draws", () => {
       expect([...ys].sort((a, b) => a - b)).toEqual(ys);
       expect(new Set(ys).size).toBe(ys.length);
       expect(spine.every((node) => node.position.x === 0)).toBe(true);
-      const gaps = ys.slice(1).map((y, at) => y - ys[at]!);
-      expect(new Set(gaps).size).toBeLessThanOrEqual(1);
+      // Evenly means the same air between two cards, whatever each draws: a
+      // card leaves out a row it has nothing for (owner, 30 Sep 2026), so the
+      // step to the next one is its rows' height plus one constant.
+      const ROW = 28;
+      const rows = (card: (typeof spine)[number]["card"]) =>
+        (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
+      const air = ys.slice(1).map((y, at) => y - ys[at]! - rows(spine[at]!.card) * ROW);
+      expect(new Set(air).size).toBeLessThanOrEqual(1);
     });
 
     it(`joins ${fixture.job.handle}'s steps one to the next, and no further`, () => {
@@ -136,18 +142,53 @@ describe("twelve steps and a plan of four groups", () => {
 });
 
 describe("a step's card", () => {
-  it("says how long and where it has got to on one line, and the step at work counts its groups", () => {
+  // The owner's combination of 30 Sep 2026: what needs a person first, then
+  // where the work has got to.
+  it("draws the step at work's groups as its bar, with how long and its Drones beside it", () => {
     const { whole, groups } = arc("executingSequential");
     expect(groups.length).toBeGreaterThan(0);
     const run = workflowRunOf({ whole, groups, now: Date.parse(whole.job.started_at ?? whole.created_at) + 3_600_000 });
     const works = stepThatWorksTheGroups(whole)!;
     const card = run.nodes.find((node) => node.id === stepNodeId(works))!.card;
-    // The board's `55m · 4 groups`: running, so the groups stand in for the word.
     expect(card.activity).toBe("running");
-    expect(card.line).toMatch(new RegExp(`${groups.length} groups$`));
-    // A step nothing has entered says so and nothing else.
-    const idle = whole.steps.find((step) => step.state === "not_started")!;
-    expect(run.nodes.find((node) => node.id === stepNodeId(idle.step_id))!.card.line).toBe("not started");
+    expect(card.bar?.groups).toHaveLength(groups.length);
+    // The count is the bar's tooltip, never drawn beside the segments.
+    const done = groups.filter((group) => group.state === "passed" || group.state === "landed").length;
+    expect(card.bar?.label).toBe(`${done} of ${groups.length} groups done`);
+    expect(card.line).toMatch(/ · 1 Drone$/);
+    expect(card.needs).toBeUndefined();
+  });
+
+  it("draws a step nothing has entered as its name alone, and a finished one as how long and its state", () => {
+    const { whole, groups } = arc("executingSequential");
+    const card = (state: string) => {
+      const step = whole.steps.find((one) => one.state === state)!;
+      return workflowRunOf({ whole, groups }).nodes.find((node) => node.id === stepNodeId(step.step_id))!.card;
+    };
+    expect(card("not_started").line).toBeUndefined();
+    expect(card("not_started").bar).toBeUndefined();
+    expect(card("advanced").line).toMatch(/ · advanced$/);
+  });
+
+  it("leads with a failed Check, and then says only how long", () => {
+    const { whole, groups } = arc("groupFailed");
+    const works = stepThatWorksTheGroups(whole)!;
+    const card = workflowRunOf({ whole, groups }).nodes.find((node) => node.id === stepNodeId(works))!.card;
+    expect(card.needs).toEqual([{ says: "screens_test failed", tone: "failed" }]);
+    expect(card.bar?.groups).toContain("failed");
+    expect(card.line).not.toMatch(/Drone|running/);
+  });
+
+  it("says a step is waiting on you, and places the next card by the rows each one draws", () => {
+    const whole = KIND_FIXTURES.map(wholeOf).find((one) => one.steps.some((step) => step.state === "awaiting_human"))!;
+    const run = workflowRunOf({ whole, groups: [] });
+    const waiting = whole.steps.find((step) => step.state === "awaiting_human")!;
+    const card = run.nodes.find((node) => node.id === stepNodeId(waiting.step_id))!.card;
+    expect(card.needs?.[0]).toEqual({ says: "Waiting on you", tone: "waiting" });
+    // A card with fewer rows under its name sits closer to the next one.
+    const quiet = workflowRunOf({ whole: arc("executingSequential").whole, groups: [] });
+    const gaps = quiet.nodes.slice(1).map((node, at) => node.position.y - quiet.nodes[at]!.position.y);
+    expect(new Set(gaps).size).toBeGreaterThan(1);
   });
 
   it("draws the gate as a chip only where a person answers", () => {

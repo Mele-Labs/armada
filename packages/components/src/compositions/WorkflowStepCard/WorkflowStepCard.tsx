@@ -21,20 +21,6 @@ export type WorkflowStepFact = {
   named?: FactChipNamed;
 };
 
-/**
- * Which of the three step-card designs draws a step (owner, 30 Sep 2026: *show
- * me options*). **Exploration, not a setting**: he picks one by looking in the
- * mock, and the other two are removed before anything lands. Absent draws
- * today's card.
- *
- * - `progress` says how far the work has got.
- * - `needs` leads with what waits on a person or went wrong, and is otherwise
- *   the mark and the name alone.
- * - `compact` is the design board's: narrower, the name in mono, the state as
- *   a coloured second line.
- */
-export type WorkflowStepCardDesign = "progress" | "needs" | "compact";
-
 /** One thing waiting on a person, or gone wrong. A value, never a sentence. */
 export type WorkflowStepNeed = {
   says: string;
@@ -62,10 +48,10 @@ export type WorkflowStepCardProps = {
   ordinal?: number;
   facts?: readonly WorkflowStepFact[];
   /**
-   * The board's second row: how long, and where it has got to — `9m 38s ·
-   * advanced`. **A line rather than chips** on a step of the run, so the card
-   * reads the way the Workflow board draws it; a node that passes none draws
-   * its facts as chips instead.
+   * How long, then where it has got to — `9m 38s · advanced` on a finished
+   * step, `55m · 2 Drones` on the one at work. **Absent on a step nothing
+   * entered**, which is the mark and the name alone. A node that passes none
+   * draws its facts as chips instead.
    */
   line?: string;
   /** The step the Job is on. The card takes a stronger edge; what loops is `running`. */
@@ -76,18 +62,18 @@ export type WorkflowStepCardProps = {
   gate?: string;
   /** Opens it in the inspector. Absent draws a card that is not a control. */
   onOpen?: () => void;
-  /** Which design under comparison draws it. Absent draws today's card. */
-  design?: WorkflowStepCardDesign;
   /**
-   * `progress`'s second line on the step at work: one segment per group of the
-   * plan, coloured by the group's state, and the line beside it — how long,
-   * and how many Drones are on it now. `label` is the bar's tooltip, which is
-   * where the count lives: a count beside the segments it counts is the
+   * What waits on a person or went wrong, most pressing first (owner, 30 Sep
+   * 2026), each in its hue and **above everything else under the name**.
+   */
+  needs?: readonly WorkflowStepNeed[];
+  /**
+   * The plan's groups on the step at work, one segment each, coloured by the
+   * group's state, with `line` beside it. `label` is the bar's tooltip, which
+   * is where the count lives: a count beside the segments it counts is the
    * aggregate the owner ruled out on 29 Sep 2026.
    */
-  progress?: { groups: readonly TaskBarSegment[]; label: string; line?: string };
-  /** `needs`'s lines: what waits on a person or went wrong, most pressing first. */
-  needs?: readonly WorkflowStepNeed[];
+  bar?: { groups: readonly TaskBarSegment[]; label: string };
 };
 
 export function WorkflowStepCard({
@@ -103,9 +89,8 @@ export function WorkflowStepCard({
   selected = false,
   gate,
   onOpen,
-  design,
-  progress,
   needs = [],
+  bar,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -117,13 +102,12 @@ export function WorkflowStepCard({
   // wash, and one segment travelling the top edge at `--duration-pulse`.
   const working = activity === "running";
 
-  // The line under the name, as each design draws it. Today's and `compact`
-  // draw the one line they are handed; `compact`'s stylesheet colours it by
-  // the state.
-  const plain = line === undefined ? null : <span className="armada-wf-card__line">{line}</span>;
-  const second =
-    design === "needs" ? (
-      needs.length === 0 ? null : (
+  // Under the name: what needs a person first, then where the work has got
+  // to — the group bar beside the line on the step at work.
+  const timed = line === undefined ? null : <span className="armada-wf-card__line">{line}</span>;
+  const below = (
+    <>
+      {needs.length === 0 ? null : (
         <span className="armada-wf-card__needs">
           {needs.map((need) => (
             <span key={need.says} className="armada-wf-card__need" data-tone={need.tone}>
@@ -131,19 +115,17 @@ export function WorkflowStepCard({
             </span>
           ))}
         </span>
-      )
-    ) : design === "progress" ? (
-      progress !== undefined ? (
+      )}
+      {bar === undefined || bar.groups.length === 0 ? (
+        timed
+      ) : (
         <span className="armada-wf-card__progress">
-          {progress.groups.length === 0 ? null : <StepBar tasks={progress.groups} label={progress.label} />}
-          {progress.line === undefined ? null : <span className="armada-wf-card__line">{progress.line}</span>}
+          <StepBar tasks={bar.groups} label={bar.label} />
+          {timed}
         </span>
-      ) : activity === "not_started" ? null : (
-        plain
-      )
-    ) : (
-      plain
-    );
+      )}
+    </>
+  );
 
   const body = (
     <>
@@ -166,7 +148,7 @@ export function WorkflowStepCard({
           {name}
         </span>
       </span>
-      {second}
+      {below}
       {facts.length === 0 ? null : (
         <span className="armada-wf-card__facts">
           {facts.map((fact) => (
@@ -176,8 +158,10 @@ export function WorkflowStepCard({
           ))}
         </span>
       )}
-      {gate === undefined || design === "needs" ? null : (
-        <span className="armada-wf-card__gate" data-chip={line === undefined ? undefined : "true"}>
+      {/* The board's outlined chip on a step of the run, which draws no facts
+          and may draw no line; a fragment under the facts everywhere else. */}
+      {gate === undefined ? null : (
+        <span className="armada-wf-card__gate" data-chip={kind === "step" && facts.length === 0 ? "true" : undefined}>
           {gate}
         </span>
       )}
@@ -189,8 +173,6 @@ export function WorkflowStepCard({
     "data-kind": kind,
     "data-current": current || undefined,
     "data-working": working || undefined,
-    "data-design": design,
-    "data-activity": activity,
   };
 
   return onOpen === undefined ? (

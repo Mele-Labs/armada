@@ -21,9 +21,9 @@ type Story = StoryObj<typeof WorkflowStacked>;
 /** The run's steps, one per row, as the Workflow tab hands them in. */
 const rows: WorkflowStackedRow[] = [
   { id: "step:plan", card: { kind: "step", name: "Plan the change", activity: "advanced", said: "advanced", ordinal: 1, line: "6m 00s · advanced", onOpen: fn() } },
-  { id: "step:implement", card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 4 groups", onOpen: fn() } },
-  { id: "step:tests", card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, line: "not started", onOpen: fn() } },
-  { id: "step:handoff", card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, line: "not started", gate: "will ask you", onOpen: fn() } },
+  { id: "step:implement", card: { kind: "step", name: "Implement", activity: "running", said: "running", ordinal: 2, current: true, line: "55m · 2 Drones", bar: { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" }, onOpen: fn() } },
+  { id: "step:tests", card: { kind: "step", name: "Write tests", activity: "not_started", said: "not started", ordinal: 3, onOpen: fn() } },
+  { id: "step:handoff", card: { kind: "step", name: "Review the change", activity: "not_started", said: "not started", ordinal: 4, gate: "will ask you", onOpen: fn() } },
 ];
 
 /** The same feature run the canvas draws, as a column. */

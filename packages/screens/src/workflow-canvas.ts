@@ -18,7 +18,6 @@ import type {
   WorkflowCanvasEdge,
   WorkflowCanvasNode,
   WorkflowStackedRow,
-  WorkflowStepCardDesign,
   WorkflowStepCardProps,
   WorkflowStepNeed,
 } from "@armada/components";
@@ -44,34 +43,19 @@ import { activityOf, stateOf, took } from "./run";
 const STEP_APART = 112;
 
 /**
- * The board's tighter spine, for the `compact` card: its card is two lines of
- * `--text-2xs` under `--space-2` padding, so this is that card's height plus
- * `--space-8`, still room for an arrowhead.
- */
-const COMPACT_STEP_APART = 88;
-
-/**
- * One row under a card's name — a line, a need, or the gate's chip — with the
- * gap above it: `--leading-xs` and `--space-2`. **The `progress` and `needs`
- * cards leave a row out where there is nothing to say**, so their spine is
- * placed by what each card draws rather than one fixed step, or a quiet card
- * would sit in a gap twice the others.
+ * One row under a card's name — a need, the line, or the gate's chip — with
+ * the gap above it: `--leading-xs` and `--space-2`. **A card leaves a row out
+ * where there is nothing to say**, so the spine is placed by what each card
+ * draws rather than one fixed step, or a quiet card would sit in a gap twice
+ * the others.
  */
 const ROW = 28;
 
-/** How many rows a `progress` or `needs` card draws under its name. */
-function rowsUnder(card: WorkflowStepCardProps): number {
-  if (card.design === "needs") return card.needs?.length ?? 0;
-  const line = card.progress !== undefined || (card.activity !== "not_started" && card.line !== undefined);
-  return Number(line) + Number(card.gate !== undefined);
-}
-
-/** How far below this card the next one sits. */
+/** How far below this card the next one sits. `STEP_APART` is a card with one row. */
 function apartAfter(card: WorkflowStepCardProps): number {
-  if (card.design === "compact") return COMPACT_STEP_APART;
-  if (card.design === undefined) return STEP_APART;
-  // `STEP_APART` is a card with one row under its name.
-  return STEP_APART + (rowsUnder(card) - 1) * ROW;
+  const rows =
+    (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
+  return STEP_APART + (rows - 1) * ROW;
 }
 
 /** `step:`, so a node id is never mistaken for another kind in a join. */
@@ -103,16 +87,26 @@ function gateOf(gate: string | undefined): string | undefined {
 }
 
 /**
- * The card's one line: how long, then where it has got to — `9m 38s ·
- * advanced`, or `not started`. The step at work names the groups it works in
- * place of the word, as the board draws `55m · 4 groups`: its mark and its
- * hue already say running. A second attempt says so, since nothing else on
- * the card would.
+ * The card's line: how long, then where it has got to — `9m 38s · advanced`
+ * on a step that ran, `55m · 2 Drones` on the one at work, whose mark and hue
+ * already say running. **Time alone under a need**, which already says what
+ * the state is; nothing at all on a step nothing entered. A second attempt
+ * says so, since nothing else on the card would.
  */
-function lineOf(step: StepDetail, said: string, working: boolean, groups: number, lasted: string | undefined): string {
-  const parts = [lasted, working && groups > 0 ? plural(groups, "group") : said];
+function lineOf(
+  step: StepDetail,
+  said: string,
+  activity: WorkflowStepCardProps["activity"],
+  drones: number,
+  lasted: string | undefined,
+  needed: boolean,
+): string | undefined {
+  if (activity === "not_started") return undefined;
+  const where = needed ? undefined : activity === "running" ? (drones > 0 ? plural(drones, "Drone") : undefined) : said;
+  const parts = [lasted, where];
   if (step.attempts.length > 1) parts.push(`attempt ${step.attempts.length}`);
-  return parts.filter((part) => part !== undefined).join(" · ");
+  const line = parts.filter((part) => part !== undefined).join(" · ");
+  return line === "" ? undefined : line;
 }
 
 /**
@@ -135,29 +129,17 @@ function segmentOf(group: GroupView): TaskBarSegment {
 }
 
 /**
- * `progress`'s reading of the step at work: a segment per group, how many are
- * done in the bar's tooltip, and how long beside how many Drones are on it.
- * **The Drones are the plan's tasks' own**, as the step's panel lists them.
+ * The group bar on the step at work: a segment per group, and how many are
+ * done in its tooltip.
  */
-function progressOf(
-  step: StepDetail,
-  groups: readonly GroupView[],
-  lasted: string | undefined,
-): NonNullable<WorkflowStepCardProps["progress"]> {
+function barOf(groups: readonly GroupView[]): NonNullable<WorkflowStepCardProps["bar"]> {
   const done = groups.filter((group) => group.state === "passed" || group.state === "landed").length;
-  const drones = droneViewsOf(groups).filter((one) => one.step === step.step_id && one.state === "running").length;
-  const line = [lasted, drones > 0 ? plural(drones, "Drone") : undefined].filter((part) => part !== undefined).join(" · ");
-  return {
-    groups: groups.map(segmentOf),
-    label: `${done} of ${plural(groups.length, "group")} done`,
-    ...(line === "" ? {} : { line }),
-  };
+  return { groups: groups.map(segmentOf), label: `${done} of ${plural(groups.length, "group")} done` };
 }
 
 /**
- * `needs`'s lines: what waits on a person, then what went wrong, most pressing
- * first. **Empty on a step nothing needs a person at**, which draws the mark
- * and the name alone.
+ * What waits on a person, then what went wrong, most pressing first (owner,
+ * 30 Sep 2026). **Empty on a step nothing needs a person at.**
  */
 function needsOf(
   whole: JobWhole,
@@ -185,21 +167,26 @@ function needsOf(
   return needs;
 }
 
-/** One step's card, as the Workflow board draws it: a mark, the name, one line. */
+/**
+ * One step's card: a mark, the name, and under it what needs a person, then
+ * where the work has got to — the group bar and the line on the step at work.
+ * **The Drones are the plan's tasks' own**, as the step's panel lists them.
+ */
 function stepCard(
   whole: JobWhole,
   step: StepDetail,
   groups: readonly GroupView[],
   now: number,
   onOpen: (() => void) | undefined,
-  design: WorkflowStepCardDesign | undefined,
 ): WorkflowStepCardProps {
   const frozen = frozenBeneath(whole.job.status, step.state);
   const activity = frozen?.activity ?? activityOf(step.state);
   const said = frozen?.word ?? stateOf(step);
   const gate = gateOf(step.advance_gate);
-  const lasted = took(step, now, frozen !== undefined);
   const working = activity === "running";
+  const needs = needsOf(whole, step, activity, groups);
+  const drones = droneViewsOf(groups).filter((one) => one.step === step.step_id && one.state === "running").length;
+  const line = lineOf(step, said, activity, drones, took(step, now, frozen !== undefined), needs.length > 0);
   return {
     kind: "step",
     name: step.label,
@@ -207,13 +194,12 @@ function stepCard(
     activity,
     said,
     ordinal: step.ordinal,
-    line: lineOf(step, said, working, groups.length, lasted),
+    ...(line === undefined ? {} : { line }),
     current: step.step_id === whole.job.current_step_id && frozen === undefined,
     ...(gate === undefined ? {} : { gate }),
     ...(onOpen === undefined ? {} : { onOpen }),
-    ...(design === undefined ? {} : { design }),
-    ...(design === "progress" && working ? { progress: progressOf(step, groups, lasted) } : {}),
-    ...(design === "needs" ? { needs: needsOf(whole, step, activity, groups) } : {}),
+    ...(needs.length === 0 ? {} : { needs }),
+    ...(working && groups.length > 0 ? { bar: barOf(groups) } : {}),
   };
 }
 
@@ -255,15 +241,13 @@ export type WorkflowRunReading = {
   selected?: string | null;
   /** What a running step measures to. The caller's clock, so a test can hold it. */
   now?: number;
-  /** Which step-card design under comparison draws the run. Absent draws today's. */
-  design?: WorkflowStepCardDesign;
 };
 
 /**
  * The whole run, placed. **One derivation for both arrangements**, so the
  * toggle changes the shape of the page and never what a step says.
  */
-export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now(), design }: WorkflowRunReading): WorkflowRun {
+export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now() }: WorkflowRunReading): WorkflowRun {
   let y = 0;
   const steps = ordered(whole);
   const madeAt = stepTheGroupsWereMadeAt(whole);
@@ -279,10 +263,10 @@ export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now(
 
   steps.forEach((step, at) => {
     const id = stepNodeId(step.step_id);
-    // The step that works the groups counts them while it works them — the
-    // board's `55m · 4 groups`.
+    // The step that works the groups draws them as its bar while it works
+    // them, and reads its failed groups and its Drones off them.
     const worked = step.step_id === worksAt ? mine : [];
-    const card = read(id, stepCard(whole, step, worked, now, opener(id), design));
+    const card = read(id, stepCard(whole, step, worked, now, opener(id)));
     nodes.push({ id, position: { x: 0, y }, card });
     y += apartAfter(card);
 

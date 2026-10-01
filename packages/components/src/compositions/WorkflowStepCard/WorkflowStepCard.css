@@ -195,8 +195,8 @@ button.armada-wf-card:hover {
   color: var(--status-running);
 }
 
-/* Beside a line, the gate is the board's outlined chip — *will ask you* —
-   rather than a fragment under the facts. */
+/* On a step of the run, the gate is the board's outlined chip — *will ask
+   you* — rather than a fragment under the facts. */
 .armada-wf-card__gate[data-chip="true"] {
   align-self: flex-start;
   padding: 0 var(--space-1);
@@ -205,13 +205,9 @@ button.armada-wf-card:hover {
   color: var(--fg-muted);
 }
 
-/* --- Three designs under comparison (owner, 30 Sep 2026) -------------------
-
-   He asked to see options rather than one iteration, and picks by looking in
-   the mock. Two of these three sections go before anything lands. */
-
-/* Progress: the plan's groups as the step bar's task segments, then how long
-   and how many Drones. The bar is `StepBar`'s own and sized by its own sheet. */
+/* The step at work: the plan's groups as the step bar's task segments, then
+   how long and how many Drones. The bar is `StepBar`'s own and sized by its
+   own sheet. */
 .armada-wf-card__progress {
   display: flex;
   align-items: center;
@@ -219,8 +215,9 @@ button.armada-wf-card:hover {
   min-width: 0;
 }
 
-/* What needs you: one line per thing, in the hue of what it is. A person's
-   turn takes the waiting hue the mark takes; a failure takes the failed one. */
+/* What needs a person, or went wrong: one line per thing, in the hue of what
+   it is. A person's turn takes the waiting hue the mark takes; a failure takes
+   the failed one. */
 .armada-wf-card__needs {
   display: flex;
   flex-direction: column;
@@ -241,39 +238,5 @@ button.armada-wf-card:hover {
 }
 
 .armada-wf-card__need[data-tone="failed"] {
-  color: var(--step-failed);
-}
-
-/* Compact: the design board's step. Narrower — the board's 188px has no
-   token, and --w-workflow-task-node's 196px is the nearest — with the board's
-   tighter padding and gap, the name in mono, and the line in the state's hue
-   rather than only the running one. */
-.armada-wf-card[data-design="compact"] {
-  width: var(--w-workflow-task-node);
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-}
-
-.armada-wf-card[data-design="compact"] .armada-wf-card__name {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-body);
-}
-
-.armada-wf-card[data-design="compact"] .armada-wf-card__line {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-wf-card[data-design="compact"][data-activity="advanced"] .armada-wf-card__line {
-  color: var(--step-advanced);
-}
-
-.armada-wf-card[data-design="compact"][data-activity="awaiting_human"] .armada-wf-card__line {
-  color: var(--step-waiting);
-}
-
-.armada-wf-card[data-design="compact"][data-activity="failed"] .armada-wf-card__line {
   color: var(--step-failed);
 }
