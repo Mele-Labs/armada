@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { expect } from "storybook/test";
 
 import { JOB_STATUS } from "../../generated/vocabulary";
-import { StudioNode } from "./StudioNode";
+import { StudioAddNode } from "../StudioAddNode/StudioAddNode";
+import { StudioNode, StudioNodeDraft } from "./StudioNode";
 
 /**
  * One story per kind on `docs/concepts/studio.md`, each drawing every state the
@@ -339,6 +340,36 @@ export const RunAndJobNotRead: Story = {
     <Row>
       <StudioNode kind="run" title="01RUN00000000000000000000A" />
       <StudioNode kind="job" title="01JOB00000000000000000000B" />
+    </Row>
+  ),
+};
+
+/** What `Studios.tsx` passes while #1293 is unbuilt. */
+const READ_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+
+const noop = () => undefined;
+
+/**
+ * A node still being written, one per kind a person adds by hand — the owner's
+ * note of 1 Oct 2026. The field is the card's body, under the kind; the last is
+ * out to Fleet, and says so. The keys and the press off it are proved through
+ * `App`, in `mock/studios.test.tsx`.
+ */
+export const Draft: Story = {
+  render: () => (
+    <Row>
+      <StudioNodeDraft kind="note">
+        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+      </StudioNodeDraft>
+      <StudioNodeDraft kind="link">
+        <StudioAddNode inPlace adding="link" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+      </StudioNodeDraft>
+      <StudioNodeDraft kind="sketch">
+        <StudioAddNode inPlace adding="sketch" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+      </StudioNodeDraft>
+      <StudioNodeDraft kind="note" pending>
+        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} saving />
+      </StudioNodeDraft>
     </Row>
   ),
 };
