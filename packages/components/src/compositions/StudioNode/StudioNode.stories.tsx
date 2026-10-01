@@ -161,19 +161,24 @@ export const Cluster: Story = {
   },
 };
 
-/** Proposed, gathering and frozen. Gathering is the one that pulses — with no hue. */
+/**
+ * Proposed, gathering, and ended with no state. Gathering is the one that
+ * pulses — with no hue. **No `frozen`** (the owner, 1 Oct 2026).
+ */
 export const Finding: Story = {
   render: () => (
     <Row>
       <StudioNode kind="finding" state="proposed" title="What writes the runtime file?" facts={["about $0.40"]} />
       <StudioNode kind="finding" state="gathering" title="Where the legend's colours come from" facts={["$0.12", "14 files read"]} />
-      <StudioNode kind="finding" state="frozen" title="Fleet writes fleet.json once, at start" facts={["$0.31", "22 files read"]} />
+      <StudioNode kind="finding" title="Fleet writes fleet.json once, at start" facts={["$0.31", "22 files read"]} />
     </Row>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("gathering").closest("[aria-busy]")).not.toBeNull();
     await expect(canvas.getByText("proposed").closest("[aria-busy]")).toBeNull();
-    await expect(canvas.getByText("frozen").closest("[aria-busy]")).toBeNull();
+    const ended = canvas.getByText("Fleet writes fleet.json once, at start");
+    await expect(ended.closest("[aria-busy]")).toBeNull();
+    await expect(canvas.queryByText("frozen")).toBeNull();
   },
 };
 
@@ -353,12 +358,12 @@ export const Outline: Story = {
   render: () => (
     <Row>
       <StudioNode kind="outline" state="draft" title="Run colours, then the pulse" facts={["4 parts"]} />
-      <StudioNode kind="outline" state="frozen" title="Capture on Bridge" facts={["3 parts"]} />
     </Row>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("draft")).toBeVisible();
-    await expect(canvas.getByText("frozen")).toBeVisible();
+    // An Outline stays a draft: `frozen` went on 1 Oct 2026.
+    await expect(canvas.queryByText("frozen")).toBeNull();
   },
 };
 

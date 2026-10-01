@@ -804,7 +804,7 @@ test("an issue is read in and an epic fills the board, with each address node le
   await pick(/^Issue: Read a source a person already has/);
   await act("Read in");
   await asked("Read in").click();
-  await expect.element(node(/^Finding: Read in https:\/\/example\.invalid\/o\/r\/issues\/1293, frozen/)).toBeVisible();
+  await expect.element(node(/^Finding: Read in https:\/\/example\.invalid\/o\/r\/issues\/1293$/)).toBeVisible();
   await expect.element(node(/^Note: The issue wants Links read in/)).toBeVisible();
   await expect.element(node(/^Contradiction: The issue says Connections have no home yet/)).toBeVisible();
 
