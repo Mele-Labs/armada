@@ -244,8 +244,18 @@ checks:
     # One test by exact name, which Fleet runs against a checkout of main
     # before a Drone's `draft_fix` drafts anything — same shape as the two
     # Rust one_test lines above, `vitest -t` in place of `nextest -E`. #1203.
+    #
+    # **One worker, because `-t` still loads every file.** Vitest imports all
+    # 98 browser files to find the one test, about 650 modules each, and every
+    # request is an event on the one Playwright connection the running test's
+    # presses go through. Unbounded, the other workers' loading kept that test's
+    # first press from reaching the page for over three seconds: "reading an
+    # epic in" passed 3 runs in 10, and 4 in 10 at four workers. A failed file
+    # runs first the next time, in the thick of it, so one failure made the
+    # next. At one worker nothing loads while the test runs: 5 in 5, and in
+    # 12s rather than 20 to 30.
     one_test:
-      run: pnpm --dir apps/desktop exec vitest run -t {}
+      run: pnpm --dir apps/desktop exec vitest run --maxWorkers=1 -t {}
     # Lighter than the two browser suites below, but still node processes
     # against a real server: #1102.
     places: 2

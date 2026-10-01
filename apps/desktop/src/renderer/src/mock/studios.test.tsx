@@ -51,14 +51,23 @@ async function act(name: string): Promise<void> {
 }
 const asked = (name: string) => page.getByRole("dialog").getByRole("button", { name, exact: true });
 
+/** Chromium's, and not yet in TypeScript's DOM types. */
+const VISIBLY: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+
 /**
  * Pick one node, the way React Flow's own keyboard contract does. **Not a pointer click**: a node
  * the board has just drawn passes a visibility check before it has settled, and a click that lands
  * in that window selects nothing — which failed under a full parallel suite and nowhere else.
+ *
+ * **Focused as a keyboard focuses it**, so React Flow pans the node into the window as it does
+ * for a person tabbing to it. A bare `focus()` is not `:focus-visible` after a pointer press, so
+ * nothing panned: the Epic's third Issue was picked with its bar 44px below the window, and the
+ * press reached it only by Playwright scrolling the board's wrapper, which React Flow scrolls
+ * straight back. 1 run in 20, the pane was under the pointer by the time it landed.
  */
 async function pick(name: RegExp): Promise<void> {
   await expect.element(node(name)).toBeVisible();
-  node(name).element().focus();
+  node(name).element().focus(VISIBLY);
   await userEvent.keyboard("{Enter}");
 }
 const centre = (element: Element) => {

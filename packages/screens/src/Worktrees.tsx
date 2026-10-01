@@ -25,6 +25,11 @@
 // select-all, and adding one would be adding the act this surface exists to
 // replace.
 //
+// **The head's two sweeps are not that act.** Clear and Delete records reach
+// every finished Job and confirm on their own; they sit here because the owner
+// moved them off Overview's menu on 1 Oct 2026, and they never touch a row's
+// choices below.
+//
 // # The confirmation says what is lost, not how much disk comes back
 //
 // Bytes are not the decision. Which commits go, whether anything else has them,
@@ -34,7 +39,7 @@
 // by row. `held.ts` computes it and is unit-tested, because every sentence in
 // it is read immediately before something is destroyed.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -127,6 +132,8 @@ export type WorktreesProps = {
   now: number;
   /** A clipboard write is silent, so the surface confirms it. */
   onCopied: (value: string) => void;
+  /** Drawn in the head, across from the way out: the caller's bulk sweeps. */
+  actions?: ReactNode;
 };
 
 /**
@@ -148,6 +155,7 @@ export function Worktrees({
   now,
   onClose,
   onCopied,
+  actions,
 }: WorktreesProps) {
   useEffect(() => {
     onWant(true);
@@ -173,10 +181,11 @@ export function Worktrees({
   /** The way out, at the top of every state — #1090 moved it here from the
    *  page head that used to carry it. */
   const back = (
-    <div>
+    <div className="armada-screen__head-row">
       <Button variant="ghost" size="sm" onClick={onClose}>
         Back to the list
       </Button>
+      {actions === undefined ? null : <div className="armada-screen__actions">{actions}</div>}
     </div>
   );
 

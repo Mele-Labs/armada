@@ -7,6 +7,7 @@
 
 import type { PlanBoardTest } from "@armada/components";
 import type { PlanTaskSheetProps, PlanTaskTest, TaskMarkState } from "@armada/components";
+import { GROUP_STATE } from "@armada/components";
 import type { JobDetail, StepDetail } from "@armada/protocol";
 
 import { caseViewsOf, scopeRevisionsOf, type CaseView, type ScopeRevisionView } from "./draft/cases";
@@ -70,29 +71,11 @@ export function tasksOf(groups: readonly GroupView[]): TaskView[] {
 }
 
 /**
- * Where a group is, in words. **`failed` says what failed** — a group that
- * stopped at its boundary and one whose tasks broke are two different
- * readings, and the boundary is the one this word is about.
+ * Where a group is, in words: `GROUP_STATE`'s verb, from `enum-verbs.toml`, so
+ * the list, the panel, the graph and Overview say one word for one state.
  */
 export function groupSaid(state: GroupState): string {
-  switch (state) {
-    case "pending":
-      return "not started";
-    case "running":
-      return "working";
-    case "joining":
-      return "joining its work";
-    case "checking":
-      return "running its checks";
-    case "passed":
-      return "passed";
-    case "failed":
-      return "failed at its checks";
-    case "retrying":
-      return "failed at its checks, running again";
-    case "landed":
-      return "landed";
-  }
+  return GROUP_STATE[state]?.verb ?? state;
 }
 
 /**
