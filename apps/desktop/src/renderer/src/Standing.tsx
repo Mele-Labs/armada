@@ -5,9 +5,8 @@
 // surface working beneath it — which is the design contract's own definition of
 // a banner, and the reason none of it belongs in the status bar.
 //
-// **A press that failed, or that the form would not send, is not a standing
-// condition, so it is not here.** It pops up as a toast over everything,
-// panels included — `raised.tsx`.
+// **A press that failed or was not sent is not a standing condition, so it is
+// not here.** It pops up as a toast over everything — `raised.tsx`.
 //
 // # Why it is its own file
 //

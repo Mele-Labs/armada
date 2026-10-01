@@ -10,10 +10,7 @@
 // **Several stack, and none goes on a timer.** A failure is evidence; one that
 // expired while somebody read the panel it came from is one they cannot get
 // back. A copy confirmation still goes on its own, below them.
-//
-// **Guidance is one per kind.** A press the form would not send says the same
-// sentence every time, so pressing five times while Fleet is not connected
-// replaces one toast rather than stacking five.
+// A press the form would not send is one toast per kind, replaced, not five.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeIdentity, Outcome } from "@armada/protocol";

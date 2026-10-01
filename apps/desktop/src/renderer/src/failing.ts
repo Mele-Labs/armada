@@ -23,10 +23,9 @@
 //
 // A press that failed pops up as a toast, over every layer, and stays until it
 // is dismissed: a command Fleet refused or did not answer, a route it does not
-// serve yet, and a throw no boundary saw. So does a press the form would not
-// send — Fleet not connected, and the rest of its guidance — though it is not a
-// failure and carries nothing to copy. A state is not a press, so Fleet
-// unreachable stays a banner, and so do the board's unreadable rows.
+// serve yet, a throw no boundary saw, and a press the form would not send. A
+// state is not a press, so Fleet unreachable stays a banner, and so do the
+// board's unreadable rows.
 //
 // The board's own unreadable rows are not in this order and never were. Each is
 // drawn beside the row it is about, and there can be several at once.
