@@ -311,3 +311,32 @@ async fn answering_with_no_asked_at_trusts_whatever_is_open() {
 
     assert_eq!(answered.status(), JobStatus::Escalated);
 }
+
+/// **A killed Job is asking nobody anything.** `answer_judge` refuses every
+/// status but `awaiting_review`, so a question served on a terminal Job is one
+/// no client can act on — the owner's Job 1, 1 Oct 2026, killed while its plan
+/// step's refusal waited on him. The step stays `awaiting_human`:
+/// `[statuses.killed]` freezes the step machine where it stood.
+#[tokio::test]
+async fn a_killed_job_serves_no_judge_question() {
+    let home = TempDir::new();
+    let (fleet, job_id, _asked_at) = asking_a_question(&home).await;
+
+    let killed = fleet.kill_job(&job_id).await.expect("killed from the gate");
+    let detail = api::Queries::get_job(&fleet, ipc::JobId::from(&job_id))
+        .await
+        .expect("the Job reads");
+
+    assert_eq!(killed.status(), JobStatus::Killed);
+    assert!(
+        detail.judge_question.is_none(),
+        "{:?}",
+        detail.judge_question
+    );
+    let step = killed.step(&StepId::new(IMPLEMENT)).expect("the row");
+    assert_eq!(
+        step.state(),
+        StepState::AwaitingHuman,
+        "frozen where it stood"
+    );
+}

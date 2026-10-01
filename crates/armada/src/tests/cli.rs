@@ -160,3 +160,21 @@ fn covers_parses_and_refuses_a_path_given_as_an_argument() {
             given: "x".to_string()
         }),);
 }
+
+/// `--withdraw` names a branch the way `--status` does: the one checked out
+/// unless another is given.
+#[test]
+fn withdraw_takes_this_branch_or_the_one_named() {
+    use crate::cli::LandAct;
+    assert_eq!(
+        asked("land --withdraw"),
+        Ok(Verb::Land(LandAct::Withdraw { branch: None }))
+    );
+    assert_eq!(
+        asked("land --withdraw fix/one"),
+        Ok(Verb::Land(LandAct::Withdraw {
+            branch: Some("fix/one".to_string())
+        }))
+    );
+    assert!(said("land --withdrw").contains("`--withdraw`"));
+}

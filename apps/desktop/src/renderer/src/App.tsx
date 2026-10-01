@@ -17,14 +17,14 @@
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { dockCardsOf, jobNumber, ofPicked } from "@armada/screens";
+import { dockCardsOf, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { Outstanding } from "@armada/screens";
 import type { HelmContext, JobSummary } from "@armada/protocol";
 import { useDockAnswering } from "./dock-answering";
 import { HelmDock, helmReplying } from "./HelmDock";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, NO_CHIP, opened, screenOf } from "./helm-context";
 import type { ChipState } from "./helm-context";
-import { Button, GuidanceProvider, GuideCatalogue } from "@armada/components";
+import { Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -63,6 +63,7 @@ import {
   openFindingIssue,
   openRemarkLink,
   openServerLink,
+  openLink,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -166,6 +167,15 @@ export function App({ draft }: AppProps = {}) {
   // that is only an open that did not happen; a click ending in nothing on
   // screen is the defect the openable records were added against.
   const [telling, setTelling] = useSaid();
+  // A link in a model's text, for every Prose in the window. A refusal is said, never a dead click.
+  const openProseLink = useCallback(
+    (address: string) =>
+      void openLink(address).then((followed) => {
+        const why = whyNotOpenedLink(followed);
+        if (why !== null) setTelling(why);
+      }),
+    [setTelling],
+  );
   // What a boundary could never catch: a throw in a handler, and a rejected
   // promise from a `void`-ed preload call.
   // **The whole of navigation.** A list and a detail need one piece of state,
@@ -594,591 +604,593 @@ export function App({ draft }: AppProps = {}) {
     /* The guidance system, over the whole window — #1602, #1603. It holds what
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
-    <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
-      <Shell
-        connection={state.connection}
-        repositories={repositories}
-        listed={listed}
-        scope={state.repository}
-        onScope={pick}
-        onAddRepository={locate.onOpen}
-        onOpenManifest={() => goTo(SURFACE.manifest)}
-        onCompose={() => setComposing(true)}
-        onSearch={palette.onOpen}
-        questions={questions}
-        asking={asks.length}
-        helm={
-          <HelmDock
-            asks={asks}
-            helm={state.helm}
-            repositories={repositories}
-            jobs={state.jobs}
-            workflows={state.holds.workflows}
-            live={live}
-            chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
-            onRemoveChip={() => setChip(dismissed)}
-            onAsk={(text, context) => void askHelm(text, context)}
-            context={helmContext}
-            studio={
-              shownStudio === null
-                ? undefined
-                : {
-                    name: studioName(shownStudio),
-                    ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, state.jobs, {
-                          servers: state.servers.servers,
-                          now,
-                        }) }),
-                  }
-            }
-            onSwitch={(manifestId) => pointHelm(manifestId)}
-            onReadRecord={helmDebugInfo}
-            onCopied={setCopied}
-            onSaid={setTelling}
-            onApprove={commands.approve}
-          />
-        }
-        // The dock's head carries this, beside Close — the owner's note of
-        // 18 Sep 2026. It ends the conversation the whole dock is showing, so
-        // it belongs to the dock rather than to the row above the message box,
-        // where three controls wrapped onto a second line at the dock's width.
-        // Refused while a reply is being written: Fleet's own rule, read
-        // through the same helper the thread below reads it with.
-        helmAction={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void startHelmFresh()}
-            disabled={helmReplying(state.helm)}
-          >
-            Start fresh
-          </Button>
-        }
-        stats={{
-          rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
-          open: statsOpen,
-          onOpenChange: setStatsOpen,
-        }}
-        fleet={{
-          ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
-          open: fleetOpen,
-          onOpenChange: setFleetOpen,
-        }}
-        // Which row the rail marks. Overview is where a window with nothing
-        // else open is, so everything else — a Job, the composer, the reports
-        // — is Overview with something over it. That sentence was the Board's
-        // until the owner deleted that page.
-        showing={
-          clearing
-            ? SURFACE.worktrees
-            : manifesting
-              ? SURFACE.manifest
-              : settingsShowing
-                ? SURFACE.settings
-                : kitting
-                  ? SURFACE.kit
-                  : guiding
-                    ? SURFACE.guides
-                    : studying
-                      ? SURFACE.studios
-                      : SURFACE.overview
-        }
-        onSurface={goTo}
-      >
-        {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
-            this app, so the class that bounds this box lives in the app's own
-            stylesheet where it can be read, and in the components' one so a
-            story can check it. `.armada-screen__mounted` says why. */}
-        <div className="armada-screen__mounted">
-          <Standing
-            fleet={fleet}
-            // **Not while the file is on screen**, which draws the same
-            // reading beside the text it is about. Twice at once is two places
-            // to read one refusal and one to dismiss while the other stands.
-            manifestReading={
-              manifesting && editing.view === "file" ? null : state.manifestReading
-            }
-            readingSeen={readingSeen}
-            onReadingSeen={setReadingSeen}
-            onCopied={setCopied}
-            missed={state.missed}
-            acknowledged={acknowledged}
-            onAcknowledged={setAcknowledged}
-            givenBack={commands.givenBack}
-            onGivenBack={commands.setGivenBack}
-            taken={commands.taken}
-            located={<LocatedNotice locating={locate} repositories={repositories} />}
-          />
-
-          {/* One Job, read whole, in place of the board. Reviewing and deciding
-              is one loop, so the detail is not a panel beside the list — and the
-              list is what Escape and the rail's own Job Board row both return to. */}
-          {reading !== null ? (
-            // Keyed by the Job, so a render that threw on one Job is not the
-            // failure notice drawn over the next one opened.
-            <Boundary key={reading.id} region="the job detail" {...guarded}>
-              <JobDetail
-                job={reading}
-                // Every Job, not the picked repository's: a member dispatched
-                // by this one is still its member while the rail is filtered.
-                board={state.jobs}
-                {...(draft === undefined ? {} : { draft })}
-                // The proposer call this window has out, and the one act on it.
-                // **Read by the lead's wait region on a Job at `proposing`** —
-                // nothing on the wire links a call to a Job, so this is the
-                // window's own and `detail-props.ts` says what that costs.
-                proposing={state.proposing}
-                onStopProposer={() => void commands.stopProposal()}
-                onReadDiff={readDiff}
-                onOpenArtifact={openArtifact}
-                onOpenPullRequest={openPullRequest}
-                // The replacement opens over the board, the way a Studio's Job
-                // node does — the same state, so Escape still returns here.
-                onOpenJob={setOpenJob}
-                onOpenStudio={openStudioFrom}
-                onReadCall={readCall}
-                onReadCheckOutput={readCheckOutput}
-                onReadFrame={readFrame}
-                onFrameSrc={frameSrc}
-                onNeedMaterial={readEvidence}
-                onNeedRemarks={readRemarks}
-                onNeedPulse={watchPulse}
-                watched={state.watched}
-                workflows={state.holds.workflows}
-                manifests={state.holds.manifests}
-                // Every question waiting on a person. A Job that dispatched a
-                // wave answers its Jobs' where they are read — the Board's own
-                // rows, above, say which Jobs those are. #1544.
-                questions={state.questions}
-                repositories={repositories}
-                stale={!live}
-                now={now}
-                acting={commands.acting === reading.id}
-                actingAct={commands.acting === reading.id ? (commands.actingAct ?? undefined) : undefined}
-                rerunningChecks={commands.rerunningChecks === reading.id}
-                approving={state.approving.includes(reading.id)}
-                deciding={commands.deciding === reading.id}
-                decidingAct={
-                  commands.deciding === reading.id ? (commands.decidingAct ?? undefined) : undefined
-                }
-                answered={commands.answeredOn(reading.id)}
-                observed={state.observed}
-                journalled={state.journalled}
-                followed={state.followed}
-                onFollowCheckOutput={followCheckOutput}
-                resources={state.resources}
-                history={state.history}
-                examination={state.examination}
-                // The one act here that changes nothing. It costs no model
-                // call, and its answer arrives on the published state rather
-                // than coming back — so a window reloaded mid-look still draws
-                // what Fleet found.
-                onExamine={examine}
-                // Held on the row, then confirmed here: the owner asked for both.
-                onKillProcess={(jobId, { pid, command }) =>
-                  setConfirming({ act: "kill_process", jobId, pid, command })
-                }
-                onKillProcesses={(jobId, count) => setConfirming({ act: "kill_processes", jobId, count })}
-                // A plan task's own acts, straight through: each is ahead of
-                // its route, so the answer is Not implemented naming the issue.
-                onTaskAct={(act, jobId, taskId, edit) => commands.taskAct(act, jobId, taskId, edit)}
-                recorded={{
-                  footprint: state.footprint,
-                  handed: state.handed,
-                  evidence: state.evidence,
-                  diff: state.diff,
-                  remarks: state.remarks,
-                }}
-                onAct={(what, jobId) => setConfirming({ act: what, jobId })}
-                // Held on the header, so already confirmed: it sends what the dialog's own confirm sends.
-                onActHeld={(what, jobId) => void commands.act(what, jobId)}
-                onRedirect={(jobId, instruction) => void commands.redirect(jobId, instruction)}
-                onAnswer={(jobId, questionId, chose) =>
-                  void commands.answer(jobId, questionId, chose)
-                }
-                onAnswerCommand={(jobId, call, chose, note, rule) =>
-                  void commands.answerCommand(jobId, call, chose, note, rule)
-                }
-                // A read beside the act it informs. It moves nothing, so it
-                // goes straight through rather than under `acting`.
-                onExplainCommand={explainCommand}
-                onAnswerJudge={(jobId, askedAt, answer, note) =>
-                  void commands.answerJudge(jobId, askedAt, answer, note)
-                }
-                onSetWhenBlocked={(jobId, whenBlocked) =>
-                  void commands.setWhenBlocked(jobId, whenBlocked)
-                }
-                onSetWhenRefused={(jobId, whenRefused) =>
-                  void commands.setWhenRefused(jobId, whenRefused)
-                }
-                onSetModel={(jobId, model) => void commands.setModel(jobId, model)}
-                onSetReviewModel={(jobId, model) => void commands.setReviewModel(jobId, model)}
-                onRemoveAllowedCommand={(jobId, run) =>
-                  void commands.removeAllowedCommand(jobId, run)
-                }
-                models={state.holds.models}
-                onOverrule={(jobId, reason) => void commands.overrule(jobId, reason)}
-                // The card's Send it back: the restart act, with the note typed there.
-                onSendBack={(jobId, note) => void commands.act("restart_step", jobId, note)}
-                onRaiseCap={(jobId, micros) => void commands.raiseCap(jobId, micros)}
-                onRaiseTurnCap={(jobId, turns) => void commands.raiseTurns(jobId, turns)}
-                onRerun={(jobId) => void commands.rerun(jobId)}
-                onRerunChecks={(jobId) => void commands.rerunChecks(jobId)}
-                onReport={commands.report}
-                onAddTask={commands.addTask}
-                onDropTask={commands.dropTask}
-                onMovePlan={commands.movePlan}
-                onEditJob={commands.editJob}
-                onShowAgain={showAgain}
-                onApprove={(jobId) => void commands.approve(jobId)}
-                onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
-                onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
-                onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}
-                onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}
-                onFileFindingIssue={(jobId, finding, title, body) => void commands.fileFindingIssue(jobId, finding, title, body)}
-                onApproveReview={(jobId) => void commands.decide(jobId, "approve")}
-                onApproveWave={(jobId, jobs) => void commands.approveWave(jobId, { jobs })}
-                onRequestChanges={(jobId, note) => void commands.decide(jobId, "changes", note)}
-                onReject={(jobId) => void commands.decide(jobId, "reject")}
-                onTakeUpRemarks={(jobId, remarks) => void commands.takeUpRemarks(jobId, remarks)}
-                onDismissFinding={(jobId, finding, reason) => void commands.dismissFinding(jobId, finding, reason)}
-                onOpenRemarkLink={(jobId, remarkId) => void openRemarkLink(jobId, remarkId)}
-                onOpenFindingIssue={(jobId, finding) => void openFindingIssue(jobId, finding)}
-                onCopied={setCopied}
-                onSaid={setTelling}
-                whereOpen={whereOpen}
-                onOpenWhere={pressWhereOpen}
-                workflowView={workflowView}
-                onWorkflowView={pressWorkflowView}
-                planView={planView}
-                onPlanView={pressPlanView}
-                // `n` — the same composer every contextual surface opens.
-                onCompose={() => setComposing(true)}
-                // The run sheet — Journey 9 — and the servers it starts.
-                rehearsal={{
-                  runSheet: state.runSheet,
-                  runFollowed: state.runFollowed,
-                  servers: state.servers,
-                  onWatchRunSheet: watchRunSheet,
-                  onObserveRun: observeRun,
-                  onStartRun: startRun,
-                  onStopRun: stopRun,
-                  onUndoRun: undoRun,
-                  onListRuns: listRuns,
-                  onGetRunOutput: getRunOutput,
-                  onStartServer: startServer,
-                  onStopServer: stopServer,
-                  onOpenServerLink: openServerLink,
-                }}
-              />
-            </Boundary>
-          ) : auditing ? (
-            /* Read across every Job rather than through one. The rate is the
-               point, and a listing reached from a Job would show only the
-               reports somebody already had reason to open. */
-            <Boundary region="the filed reports" {...guarded}>
-              <Reports
-                reports={state.reports}
-                onWant={readReports}
-                onClose={() => setAuditing(false)}
-                onCopied={setCopied}
-              />
-            </Boundary>
-          ) : clearing ? (
-            /* What Fleet is holding disk for, read across every Job at once.
-               The half of the reclaim rule that is a person's: Fleet has
-               already taken back everything it could prove nobody needs, and
-               this is where the rest is chosen from, item by item. */
-            <Boundary region="Cleanup" {...guarded}>
-              <Worktrees
-                held={state.held}
-                // Read for the handle a `depended_on` reason names its
-                // blocker by — the only fact this screen borrows from the
-                // board rather than from `held` itself.
-                jobs={state.jobs}
-                onWant={readHeld}
-                // Each receipt is answered to the press that asked for it: a
-                // published notice would outlive the screen it was made on.
-                onReclaim={reclaimOne}
-                onDeleteBranch={deleteBranchOne}
-                onForget={forgetOne}
-                // The app's one `now`, because two clocks in one window drift.
-                now={now}
-                onClose={() => setClearing(false)}
-                onCopied={setCopied}
-                actions={
-                  <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
-                }
-              />
-            </Boundary>
-          ) : manifesting && all ? (
-            <AskRepository
+    <ProseLinks.Provider value={openProseLink}>
+      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
+        <Shell
+          connection={state.connection}
+          repositories={repositories}
+          listed={listed}
+          scope={state.repository}
+          onScope={pick}
+          onAddRepository={locate.onOpen}
+          onOpenManifest={() => goTo(SURFACE.manifest)}
+          onCompose={() => setComposing(true)}
+          onSearch={palette.onOpen}
+          questions={questions}
+          asking={asks.length}
+          helm={
+            <HelmDock
+              asks={asks}
+              helm={state.helm}
               repositories={repositories}
-              title="Pick a repository to open its Manifest"
-              next="The Board lists every repository's Jobs. A Manifest belongs to one, and picking it focuses the Board there."
-              onPick={pick}
-            />
-          ) : manifesting ? (
-            /* Everything this repository's Manifest declares, and one press
-               that runs one of them in the checkout as it is on disk. No Job
-               exists and none is created: the whole point of the surface is
-               that a person can run this project's lint without one. */
-            <Boundary region="the manifest" {...guarded}>
-              <Manifest
-                // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
-                key={state.repository ?? ""}
-                sheet={state.checkoutRunSheet}
-                followed={state.checkoutRunFollowed}
-                picked={picked}
-                now={now}
-                onSaid={setTelling}
-                editing={editing}
-                form={form}
-                onObserveRun={observeCheckoutRun}
-                onStartRun={startCheckoutRun}
-                drift={state.manifestDrift}
-                onStartVerify={startCheckoutVerify}
-                onStopRun={stopCheckoutRun}
-                onUndoRun={undoCheckoutRun}
-                onListRuns={listCheckoutRuns}
-                onGetRunOutput={getCheckoutRunOutput}
-                onGetRunDiff={getCheckoutRunDiff}
-                onListRepositoryAllowedCommands={listRepositoryAllowedCommands}
-                onRemoveRepositoryAllowedCommand={removeRepositoryAllowedCommand}
-                // The one call this surface shares with a Job's own sheet:
-                // `start_server` has taken an optional Job since it landed,
-                // and no Job means the main checkout.
-                onStartServer={(name) => startServer(name)}
-                onStopServer={stopServer}
-                onOpenServerLink={openServerLink}
-                settingUp={settingUp}
-                onSettingUp={setSettingUp}
-                setUp={repository === undefined || scoped !== undefined}
-                setup={
-                  <Setup
-                    setting={setting}
-                    now={now}
-                    sheet={state.checkoutRunSheet}
-                    onStartVerify={startCheckoutVerify}
-                    onStopRun={stopCheckoutRun}
-                    onOpenEdit={() => {
-                      setSettingUp(false);
-                      editing.onView("form");
-                    }}
-                    floor={floor}
-                  />
-                }
-              />
-            </Boundary>
-          ) : composing ? (
-            <Composing
-              state={state}
-              commands={commands}
+              jobs={state.jobs}
+              workflows={state.holds.workflows}
               live={live}
-              all={all}
-              repositories={repositories}
-              scoped={scoped}
-              onPick={pick}
-              onClose={() => setComposing(false)}
+              chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
+              onRemoveChip={() => setChip(dismissed)}
+              onAsk={(text, context) => void askHelm(text, context)}
+              context={helmContext}
+              studio={
+                shownStudio === null
+                  ? undefined
+                  : {
+                      name: studioName(shownStudio),
+                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, state.jobs, {
+                            servers: state.servers.servers,
+                            now,
+                          }) }),
+                    }
+              }
+              onSwitch={(manifestId) => pointHelm(manifestId)}
+              onReadRecord={helmDebugInfo}
+              onCopied={setCopied}
               onSaid={setTelling}
-              onCopied={setCopied}
-              sketch={composedFrom}
+              onApprove={commands.approve}
             />
-          ) : studying ? (
-            <StudiosSurface
-              state={state}
-              live={live}
-              repositories={repositories}
-              manifestId={scoped?.id}
-              all={all}
-              onPick={pick}
-              // Nothing set up anywhere: the Manifest surface is where a
-              // repository is picked, and `pick` opens Setup on one with no
-              // Manifest — so this hands over to that route rather than
-              // cutting a second one from here.
-              onSetUp={() => goTo(SURFACE.manifest)}
-              open={openStudio}
-              onOpenChange={setOpenStudio}
-              selectedNode={studioNode}
-              onSelectNode={setStudioNode}
-              // A Job node opens its Job over the Studio, the way a Board row
-              // opens one over the list — and Escape comes back here, because
-              // `close` clears the Job and leaves the surface alone.
-              onOpenJob={setOpenJob}
-              onDispatchSketch={(from, drawn) => (setComposedFrom({ said: "", produced_by: from, drawn }), setComposing(true))}
-              // A server node reads the live holder and counts its uptime on
-              // the clock the rest of the app already ticks on — #1345.
-              now={now}
+          }
+          // The dock's head carries this, beside Close — the owner's note of
+          // 18 Sep 2026. It ends the conversation the whole dock is showing, so
+          // it belongs to the dock rather than to the row above the message box,
+          // where three controls wrapped onto a second line at the dock's width.
+          // Refused while a reply is being written: Fleet's own rule, read
+          // through the same helper the thread below reads it with.
+          helmAction={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void startHelmFresh()}
+              disabled={helmReplying(state.helm)}
+            >
+              Start fresh
+            </Button>
+          }
+          stats={{
+            rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
+            open: statsOpen,
+            onOpenChange: setStatsOpen,
+          }}
+          fleet={{
+            ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            open: fleetOpen,
+            onOpenChange: setFleetOpen,
+          }}
+          // Which row the rail marks. Overview is where a window with nothing
+          // else open is, so everything else — a Job, the composer, the reports
+          // — is Overview with something over it. That sentence was the Board's
+          // until the owner deleted that page.
+          showing={
+            clearing
+              ? SURFACE.worktrees
+              : manifesting
+                ? SURFACE.manifest
+                : settingsShowing
+                  ? SURFACE.settings
+                  : kitting
+                    ? SURFACE.kit
+                    : guiding
+                      ? SURFACE.guides
+                      : studying
+                        ? SURFACE.studios
+                        : SURFACE.overview
+          }
+          onSurface={goTo}
+        >
+          {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
+              this app, so the class that bounds this box lives in the app's own
+              stylesheet where it can be read, and in the components' one so a
+              story can check it. `.armada-screen__mounted` says why. */}
+          <div className="armada-screen__mounted">
+            <Standing
+              fleet={fleet}
+              // **Not while the file is on screen**, which draws the same
+              // reading beside the text it is about. Twice at once is two places
+              // to read one refusal and one to dismiss while the other stands.
+              manifestReading={
+                manifesting && editing.view === "file" ? null : state.manifestReading
+              }
+              readingSeen={readingSeen}
+              onReadingSeen={setReadingSeen}
               onCopied={setCopied}
+              missed={state.missed}
+              acknowledged={acknowledged}
+              onAcknowledged={setAcknowledged}
+              givenBack={commands.givenBack}
+              onGivenBack={commands.setGivenBack}
+              taken={commands.taken}
+              located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
-          ) : kitting ? (
-            /* What a person already has, and then Kit's servers with both
-               tiers and what a Drone dispatched here resolves. #1275, #1491.
 
-               On All repositories the ask takes the servers' place and the
-               reading stays: what somebody already has is this machine's and
-               answers for every repository, so it needs no pick. */
-            <Boundary region="Kit" {...guarded}>
-              <Kit
-                // Another repository is another second tier. The machine-wide
-                // half is the same; what it resolves to is not.
-                key={state.repository ?? ""}
-                repository={
-                  all || pickedRepository === null
-                    ? null
-                    : repositoryLabel(pickedRepository, repositories)
-                }
-                ask={
-                  <AskRepository
-                    repositories={repositories}
-                    title="Pick a repository to see what its Drones are handed"
-                    next="Kit is this machine's, and the same set everywhere. Which servers a Drone gets is a repository's own word over it, so Kit is read against one."
-                    onPick={pick}
-                  />
-                }
-                onReadKitInventory={readKitInventory}
-                onListKitServers={listKitServers}
-                onAddKitServer={addKitServer}
-                onForgetKitServer={forgetKitServer}
-                onSetKitServerReach={setKitServerReach}
-                onSetManifestServerReach={setManifestServerReach}
-              />
-            </Boundary>
-          ) : guiding ? (
-            /* The list of guides and the one open beside it — the catalogue
-               half of #1602, rearranged. It draws off the guide table alone,
-               so it needs nothing from Fleet and works disconnected.
-               No pane: the two columns are the screen and each scrolls
-               itself, which is what lets the folded sheet be flush to it.
-               The list's width is the window's to remember, the same way the
-               shell's own left column is — the note of 25 Sep 2026. */
-            <Boundary region="Guides" {...guarded}>
-              <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
-            </Boundary>
-          ) : settingsShowing ? (
-            <Boundary region="Settings" {...guarded}>
-              <BridgeSettings
-                limits={state.limits}
-                live={live}
-                health={state.health}
-                onSave={commands.saveLimits}
-                onReadGuides={() => goTo(SURFACE.guides)}
-              />
-            </Boundary>
-          ) : (
-            <>
-              <Overview
-                state={state}
-                now={now}
-                live={live}
-                repositories={repositories}
-                disconnected={live ? null : statement.headline}
-                selected={openJob}
-                onOpen={setOpenJob}
-                onKill={(jobId) => setConfirming({ act: "kill_job", jobId })}
-                // Recently ended's own two, reusing the same confirmation
-                // `JobDetail`'s header already goes through for both acts —
-                // `reclaim_worktree` is that header's own word for Clear.
-                onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
-                onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
-                onCompose={() => setComposing(true)}
-                onCopied={setCopied}
-                onCursor={setCursor}
-                land={landing}
-                onLanded={() => setLanding(null)}
-              />
-
-              {/* Never merged into the lists as a placeholder: a surface that
-                  shows nine of ten Jobs and says so is honest, one that shows
-                  nine is not. One bad row is not a broken board, and hiding it
-                  is worse than drawing it broken. */}
-              {state.unreadable.map((row) => (
-                <FailureBlock
-                  key={row.job_id ?? row.fault}
-                  failure={jobFailure(row, state.bridge)}
+            {/* One Job, read whole, in place of the board. Reviewing and deciding
+                is one loop, so the detail is not a panel beside the list — and the
+                list is what Escape and the rail's own Job Board row both return to. */}
+            {reading !== null ? (
+              // Keyed by the Job, so a render that threw on one Job is not the
+              // failure notice drawn over the next one opened.
+              <Boundary key={reading.id} region="the job detail" {...guarded}>
+                <JobDetail
+                  job={reading}
+                  // Every Job, not the picked repository's: a member dispatched
+                  // by this one is still its member while the rail is filtered.
+                  board={state.jobs}
+                  {...(draft === undefined ? {} : { draft })}
+                  // The proposer call this window has out, and the one act on it.
+                  // **Read by the lead's wait region on a Job at `proposing`** —
+                  // nothing on the wire links a call to a Job, so this is the
+                  // window's own and `detail-props.ts` says what that costs.
+                  proposing={state.proposing}
+                  onStopProposer={() => void commands.stopProposal()}
+                  onReadDiff={readDiff}
+                  onOpenArtifact={openArtifact}
+                  onOpenPullRequest={openPullRequest}
+                  // The replacement opens over the board, the way a Studio's Job
+                  // node does — the same state, so Escape still returns here.
+                  onOpenJob={setOpenJob}
+                  onOpenStudio={openStudioFrom}
+                  onReadCall={readCall}
+                  onReadCheckOutput={readCheckOutput}
+                  onReadFrame={readFrame}
+                  onFrameSrc={frameSrc}
+                  onNeedMaterial={readEvidence}
+                  onNeedRemarks={readRemarks}
+                  onNeedPulse={watchPulse}
+                  watched={state.watched}
+                  workflows={state.holds.workflows}
+                  manifests={state.holds.manifests}
+                  // Every question waiting on a person. A Job that dispatched a
+                  // wave answers its Jobs' where they are read — the Board's own
+                  // rows, above, say which Jobs those are. #1544.
+                  questions={state.questions}
+                  repositories={repositories}
+                  stale={!live}
+                  now={now}
+                  acting={commands.acting === reading.id}
+                  actingAct={commands.acting === reading.id ? (commands.actingAct ?? undefined) : undefined}
+                  rerunningChecks={commands.rerunningChecks === reading.id}
+                  approving={state.approving.includes(reading.id)}
+                  deciding={commands.deciding === reading.id}
+                  decidingAct={
+                    commands.deciding === reading.id ? (commands.decidingAct ?? undefined) : undefined
+                  }
+                  answered={commands.answeredOn(reading.id)}
+                  observed={state.observed}
+                  journalled={state.journalled}
+                  followed={state.followed}
+                  onFollowCheckOutput={followCheckOutput}
+                  resources={state.resources}
+                  history={state.history}
+                  examination={state.examination}
+                  // The one act here that changes nothing. It costs no model
+                  // call, and its answer arrives on the published state rather
+                  // than coming back — so a window reloaded mid-look still draws
+                  // what Fleet found.
+                  onExamine={examine}
+                  // Held on the row, then confirmed here: the owner asked for both.
+                  onKillProcess={(jobId, { pid, command }) =>
+                    setConfirming({ act: "kill_process", jobId, pid, command })
+                  }
+                  onKillProcesses={(jobId, count) => setConfirming({ act: "kill_processes", jobId, count })}
+                  // A plan task's own acts, straight through: each is ahead of
+                  // its route, so the answer is Not implemented naming the issue.
+                  onTaskAct={(act, jobId, taskId, edit) => commands.taskAct(act, jobId, taskId, edit)}
+                  recorded={{
+                    footprint: state.footprint,
+                    handed: state.handed,
+                    evidence: state.evidence,
+                    diff: state.diff,
+                    remarks: state.remarks,
+                  }}
+                  onAct={(what, jobId) => setConfirming({ act: what, jobId })}
+                  // Held on the header, so already confirmed: it sends what the dialog's own confirm sends.
+                  onActHeld={(what, jobId) => void commands.act(what, jobId)}
+                  onRedirect={(jobId, instruction) => void commands.redirect(jobId, instruction)}
+                  onAnswer={(jobId, questionId, chose) =>
+                    void commands.answer(jobId, questionId, chose)
+                  }
+                  onAnswerCommand={(jobId, call, chose, note, rule) =>
+                    void commands.answerCommand(jobId, call, chose, note, rule)
+                  }
+                  // A read beside the act it informs. It moves nothing, so it
+                  // goes straight through rather than under `acting`.
+                  onExplainCommand={explainCommand}
+                  onAnswerJudge={(jobId, askedAt, answer, note) =>
+                    void commands.answerJudge(jobId, askedAt, answer, note)
+                  }
+                  onSetWhenBlocked={(jobId, whenBlocked) =>
+                    void commands.setWhenBlocked(jobId, whenBlocked)
+                  }
+                  onSetWhenRefused={(jobId, whenRefused) =>
+                    void commands.setWhenRefused(jobId, whenRefused)
+                  }
+                  onSetModel={(jobId, model) => void commands.setModel(jobId, model)}
+                  onSetReviewModel={(jobId, model) => void commands.setReviewModel(jobId, model)}
+                  onRemoveAllowedCommand={(jobId, run) =>
+                    void commands.removeAllowedCommand(jobId, run)
+                  }
+                  models={state.holds.models}
+                  onOverrule={(jobId, reason) => void commands.overrule(jobId, reason)}
+                  // The card's Send it back: the restart act, with the note typed there.
+                  onSendBack={(jobId, note) => void commands.act("restart_step", jobId, note)}
+                  onRaiseCap={(jobId, micros) => void commands.raiseCap(jobId, micros)}
+                  onRaiseTurnCap={(jobId, turns) => void commands.raiseTurns(jobId, turns)}
+                  onRerun={(jobId) => void commands.rerun(jobId)}
+                  onRerunChecks={(jobId) => void commands.rerunChecks(jobId)}
+                  onReport={commands.report}
+                  onAddTask={commands.addTask}
+                  onDropTask={commands.dropTask}
+                  onMovePlan={commands.movePlan}
+                  onEditJob={commands.editJob}
+                  onShowAgain={showAgain}
+                  onApprove={(jobId) => void commands.approve(jobId)}
+                  onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
+                  onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
+                  onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}
+                  onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}
+                  onFileFindingIssue={(jobId, finding, title, body) => void commands.fileFindingIssue(jobId, finding, title, body)}
+                  onApproveReview={(jobId) => void commands.decide(jobId, "approve")}
+                  onApproveWave={(jobId, jobs) => void commands.approveWave(jobId, { jobs })}
+                  onRequestChanges={(jobId, note) => void commands.decide(jobId, "changes", note)}
+                  onReject={(jobId) => void commands.decide(jobId, "reject")}
+                  onTakeUpRemarks={(jobId, remarks) => void commands.takeUpRemarks(jobId, remarks)}
+                  onDismissFinding={(jobId, finding, reason) => void commands.dismissFinding(jobId, finding, reason)}
+                  onOpenRemarkLink={(jobId, remarkId) => void openRemarkLink(jobId, remarkId)}
+                  onOpenFindingIssue={(jobId, finding) => void openFindingIssue(jobId, finding)}
+                  onCopied={setCopied}
+                  onSaid={setTelling}
+                  whereOpen={whereOpen}
+                  onOpenWhere={pressWhereOpen}
+                  workflowView={workflowView}
+                  onWorkflowView={pressWorkflowView}
+                  planView={planView}
+                  onPlanView={pressPlanView}
+                  // `n` — the same composer every contextual surface opens.
+                  onCompose={() => setComposing(true)}
+                  // The run sheet — Journey 9 — and the servers it starts.
+                  rehearsal={{
+                    runSheet: state.runSheet,
+                    runFollowed: state.runFollowed,
+                    servers: state.servers,
+                    onWatchRunSheet: watchRunSheet,
+                    onObserveRun: observeRun,
+                    onStartRun: startRun,
+                    onStopRun: stopRun,
+                    onUndoRun: undoRun,
+                    onListRuns: listRuns,
+                    onGetRunOutput: getRunOutput,
+                    onStartServer: startServer,
+                    onStopServer: stopServer,
+                    onOpenServerLink: openServerLink,
+                  }}
+                />
+              </Boundary>
+            ) : auditing ? (
+              /* Read across every Job rather than through one. The rate is the
+                 point, and a listing reached from a Job would show only the
+                 reports somebody already had reason to open. */
+              <Boundary region="the filed reports" {...guarded}>
+                <Reports
+                  reports={state.reports}
+                  onWant={readReports}
+                  onClose={() => setAuditing(false)}
                   onCopied={setCopied}
                 />
-              ))}
-            </>
-          )}
-        </div>
-      </Shell>
+              </Boundary>
+            ) : clearing ? (
+              /* What Fleet is holding disk for, read across every Job at once.
+                 The half of the reclaim rule that is a person's: Fleet has
+                 already taken back everything it could prove nobody needs, and
+                 this is where the rest is chosen from, item by item. */
+              <Boundary region="Cleanup" {...guarded}>
+                <Worktrees
+                  held={state.held}
+                  // Read for the handle a `depended_on` reason names its
+                  // blocker by — the only fact this screen borrows from the
+                  // board rather than from `held` itself.
+                  jobs={state.jobs}
+                  onWant={readHeld}
+                  // Each receipt is answered to the press that asked for it: a
+                  // published notice would outlive the screen it was made on.
+                  onReclaim={reclaimOne}
+                  onDeleteBranch={deleteBranchOne}
+                  onForget={forgetOne}
+                  // The app's one `now`, because two clocks in one window drift.
+                  now={now}
+                  onClose={() => setClearing(false)}
+                  onCopied={setCopied}
+                  actions={
+                    <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
+                  }
+                />
+              </Boundary>
+            ) : manifesting && all ? (
+              <AskRepository
+                repositories={repositories}
+                title="Pick a repository to open its Manifest"
+                next="The Board lists every repository's Jobs. A Manifest belongs to one, and picking it focuses the Board there."
+                onPick={pick}
+              />
+            ) : manifesting ? (
+              /* Everything this repository's Manifest declares, and one press
+                 that runs one of them in the checkout as it is on disk. No Job
+                 exists and none is created: the whole point of the surface is
+                 that a person can run this project's lint without one. */
+              <Boundary region="the manifest" {...guarded}>
+                <Manifest
+                  // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
+                  key={state.repository ?? ""}
+                  sheet={state.checkoutRunSheet}
+                  followed={state.checkoutRunFollowed}
+                  picked={picked}
+                  now={now}
+                  onSaid={setTelling}
+                  editing={editing}
+                  form={form}
+                  onObserveRun={observeCheckoutRun}
+                  onStartRun={startCheckoutRun}
+                  drift={state.manifestDrift}
+                  onStartVerify={startCheckoutVerify}
+                  onStopRun={stopCheckoutRun}
+                  onUndoRun={undoCheckoutRun}
+                  onListRuns={listCheckoutRuns}
+                  onGetRunOutput={getCheckoutRunOutput}
+                  onGetRunDiff={getCheckoutRunDiff}
+                  onListRepositoryAllowedCommands={listRepositoryAllowedCommands}
+                  onRemoveRepositoryAllowedCommand={removeRepositoryAllowedCommand}
+                  // The one call this surface shares with a Job's own sheet:
+                  // `start_server` has taken an optional Job since it landed,
+                  // and no Job means the main checkout.
+                  onStartServer={(name) => startServer(name)}
+                  onStopServer={stopServer}
+                  onOpenServerLink={openServerLink}
+                  settingUp={settingUp}
+                  onSettingUp={setSettingUp}
+                  setUp={repository === undefined || scoped !== undefined}
+                  setup={
+                    <Setup
+                      setting={setting}
+                      now={now}
+                      sheet={state.checkoutRunSheet}
+                      onStartVerify={startCheckoutVerify}
+                      onStopRun={stopCheckoutRun}
+                      onOpenEdit={() => {
+                        setSettingUp(false);
+                        editing.onView("form");
+                      }}
+                      floor={floor}
+                    />
+                  }
+                />
+              </Boundary>
+            ) : composing ? (
+              <Composing
+                state={state}
+                commands={commands}
+                live={live}
+                all={all}
+                repositories={repositories}
+                scoped={scoped}
+                onPick={pick}
+                onClose={() => setComposing(false)}
+                onSaid={setTelling}
+                onCopied={setCopied}
+                sketch={composedFrom}
+              />
+            ) : studying ? (
+              <StudiosSurface
+                state={state}
+                live={live}
+                repositories={repositories}
+                manifestId={scoped?.id}
+                all={all}
+                onPick={pick}
+                // Nothing set up anywhere: the Manifest surface is where a
+                // repository is picked, and `pick` opens Setup on one with no
+                // Manifest — so this hands over to that route rather than
+                // cutting a second one from here.
+                onSetUp={() => goTo(SURFACE.manifest)}
+                open={openStudio}
+                onOpenChange={setOpenStudio}
+                selectedNode={studioNode}
+                onSelectNode={setStudioNode}
+                // A Job node opens its Job over the Studio, the way a Board row
+                // opens one over the list — and Escape comes back here, because
+                // `close` clears the Job and leaves the surface alone.
+                onOpenJob={setOpenJob}
+                onDispatchSketch={(from, drawn) => (setComposedFrom({ said: "", produced_by: from, drawn }), setComposing(true))}
+                // A server node reads the live holder and counts its uptime on
+                // the clock the rest of the app already ticks on — #1345.
+                now={now}
+                onCopied={setCopied}
+              />
+            ) : kitting ? (
+              /* What a person already has, and then Kit's servers with both
+                 tiers and what a Drone dispatched here resolves. #1275, #1491.
 
-      {/* Studio capture — #1290. Last, so its layer paints over every surface
-          and every overlay the shell draws under it. */}
-      <CaptureLayer aim={captureAim} onCapture={captureStudioNote} />
+                 On All repositories the ask takes the servers' place and the
+                 reading stays: what somebody already has is this machine's and
+                 answers for every repository, so it needs no pick. */
+              <Boundary region="Kit" {...guarded}>
+                <Kit
+                  // Another repository is another second tier. The machine-wide
+                  // half is the same; what it resolves to is not.
+                  key={state.repository ?? ""}
+                  repository={
+                    all || pickedRepository === null
+                      ? null
+                      : repositoryLabel(pickedRepository, repositories)
+                  }
+                  ask={
+                    <AskRepository
+                      repositories={repositories}
+                      title="Pick a repository to see what its Drones are handed"
+                      next="Kit is this machine's, and the same set everywhere. Which servers a Drone gets is a repository's own word over it, so Kit is read against one."
+                      onPick={pick}
+                    />
+                  }
+                  onReadKitInventory={readKitInventory}
+                  onListKitServers={listKitServers}
+                  onAddKitServer={addKitServer}
+                  onForgetKitServer={forgetKitServer}
+                  onSetKitServerReach={setKitServerReach}
+                  onSetManifestServerReach={setManifestServerReach}
+                />
+              </Boundary>
+            ) : guiding ? (
+              /* The list of guides and the one open beside it — the catalogue
+                 half of #1602, rearranged. It draws off the guide table alone,
+                 so it needs nothing from Fleet and works disconnected.
+                 No pane: the two columns are the screen and each scrolls
+                 itself, which is what lets the folded sheet be flush to it.
+                 The list's width is the window's to remember, the same way the
+                 shell's own left column is — the note of 25 Sep 2026. */
+              <Boundary region="Guides" {...guarded}>
+                <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
+              </Boundary>
+            ) : settingsShowing ? (
+              <Boundary region="Settings" {...guarded}>
+                <BridgeSettings
+                  limits={state.limits}
+                  live={live}
+                  health={state.health}
+                  onSave={commands.saveLimits}
+                  onReadGuides={() => goTo(SURFACE.guides)}
+                />
+              </Boundary>
+            ) : (
+              <>
+                <Overview
+                  state={state}
+                  now={now}
+                  live={live}
+                  repositories={repositories}
+                  disconnected={live ? null : statement.headline}
+                  selected={openJob}
+                  onOpen={setOpenJob}
+                  onKill={(jobId) => setConfirming({ act: "kill_job", jobId })}
+                  // Recently ended's own two, reusing the same confirmation
+                  // `JobDetail`'s header already goes through for both acts —
+                  // `reclaim_worktree` is that header's own word for Clear.
+                  onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
+                  onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
+                  onCompose={() => setComposing(true)}
+                  onCopied={setCopied}
+                  onCursor={setCursor}
+                  land={landing}
+                  onLanded={() => setLanding(null)}
+                />
 
-      <ConfirmAct
-        confirming={confirming}
-        restartNote={restartNote}
-        onRestartNote={setRestartNote}
-        onCancel={() => {
-          setConfirming(null);
-          setRestartNote("");
-        }}
-        onConfirm={confirmed}
-      />
+                {/* Never merged into the lists as a placeholder: a surface that
+                    shows nine of ten Jobs and says so is honest, one that shows
+                    nine is not. One bad row is not a broken board, and hiding it
+                    is worse than drawing it broken. */}
+                {state.unreadable.map((row) => (
+                  <FailureBlock
+                    key={row.job_id ?? row.fault}
+                    failure={jobFailure(row, state.bridge)}
+                    onCopied={setCopied}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        </Shell>
 
-      <SweepDialogs
-        jobs={boardJobs}
-        asking={sweep}
-        sweeping={commands.sweeping}
-        onDone={() => setSweep(null)}
-        onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
-        onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
-      />
+        {/* Studio capture — #1290. Last, so its layer paints over every surface
+            and every overlay the shell draws under it. */}
+        <CaptureLayer aim={captureAim} onCapture={captureStudioNote} />
 
-      <Locate locating={locate} />
+        <ConfirmAct
+          confirming={confirming}
+          restartNote={restartNote}
+          onRestartNote={setRestartNote}
+          onCancel={() => {
+            setConfirming(null);
+            setRestartNote("");
+          }}
+          onConfirm={confirmed}
+        />
 
-      <PaletteMount
-        open={palette.open}
-        onClose={palette.onClose}
-        reading={reading}
-        shownStudio={shownStudio}
-        on={onWhat}
-        surfaces={SURFACES}
-        jobs={state.jobs}
-        checkoutRunSheet={state.checkoutRunSheet}
-        cursor={cursor}
-        failing={failing}
-        live={live}
-        board={boardRows}
-        acts={{
-          openJob: setOpenJob,
-          closeJob: close,
-          compose: () => setComposing(true),
-          surface: goTo,
-          run: (entryId) => {
-            goTo(SURFACE.manifest);
-            setPicked(entryId);
-          },
-          copyDebugInfo: () => {
-            if (failing !== null) copyDebugInfoFor(failing, setCopied);
-          },
-          confirm: (what, jobId) => setConfirming({ act: what, jobId }),
-          openSetting: (id) => {
-            if (id === "fleet_settings") goTo(SURFACE.settings);
-          },
-          refresh: () => void commands.refresh(),
-          board: (id) => {
-            if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
-            // Reports close back to Overview, so that is where they open over.
-            goTo(SURFACE.overview);
-            setAuditing(true);
-          },
-        }}
-        onConfirmAct={(id, jobId) => {
-          if (id === "kill") setConfirming({ act: "kill_job", jobId });
-        }}
-      />
+        <SweepDialogs
+          jobs={boardJobs}
+          asking={sweep}
+          sweeping={commands.sweeping}
+          onDone={() => setSweep(null)}
+          onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
+          onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
+        />
 
-      <Toasts
-        raised={raised}
-        bridge={state.bridge}
-        onLower={lower}
-        copied={copied}
-        said={telling}
-        onCopied={setCopied}
-      />
-    </GuidanceProvider>
+        <Locate locating={locate} />
+
+        <PaletteMount
+          open={palette.open}
+          onClose={palette.onClose}
+          reading={reading}
+          shownStudio={shownStudio}
+          on={onWhat}
+          surfaces={SURFACES}
+          jobs={state.jobs}
+          checkoutRunSheet={state.checkoutRunSheet}
+          cursor={cursor}
+          failing={failing}
+          live={live}
+          board={boardRows}
+          acts={{
+            openJob: setOpenJob,
+            closeJob: close,
+            compose: () => setComposing(true),
+            surface: goTo,
+            run: (entryId) => {
+              goTo(SURFACE.manifest);
+              setPicked(entryId);
+            },
+            copyDebugInfo: () => {
+              if (failing !== null) copyDebugInfoFor(failing, setCopied);
+            },
+            confirm: (what, jobId) => setConfirming({ act: what, jobId }),
+            openSetting: (id) => {
+              if (id === "fleet_settings") goTo(SURFACE.settings);
+            },
+            refresh: () => void commands.refresh(),
+            board: (id) => {
+              if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
+              // Reports close back to Overview, so that is where they open over.
+              goTo(SURFACE.overview);
+              setAuditing(true);
+            },
+          }}
+          onConfirmAct={(id, jobId) => {
+            if (id === "kill") setConfirming({ act: "kill_job", jobId });
+          }}
+        />
+
+        <Toasts
+          raised={raised}
+          bridge={state.bridge}
+          onLower={lower}
+          copied={copied}
+          said={telling}
+          onCopied={setCopied}
+        />
+      </GuidanceProvider>
+    </ProseLinks.Provider>
   );
 }
