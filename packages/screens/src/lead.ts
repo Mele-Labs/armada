@@ -324,13 +324,31 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     };
   }
 
+  // **A Job that is over answers nothing**, so nothing below that would answer
+  // it is read on one. Fleet went on serving the question it was holding on
+  // the owner's Job 1 after he killed it, 1 Oct 2026, and the lead offered
+  // `Answer it` under a Killed badge. Waiting-on-you outranks stopped only
+  // while the Job runs — answering may be what clears a Job still in flight,
+  // which is the owner's reason for that order, and it clears nothing here.
+  const lifecycle = JOB_LIFECYCLE[job.status];
+  const over = lifecycle?.terminal === true;
+  if (over && job.status !== "completed_success") {
+    return {
+      said: "This Job stopped",
+      because: tasksSaid(whole),
+      tone: "completed-failed",
+      act: "Read what stopped it",
+      opens: { tab: "record" },
+    };
+  }
+
   // Waiting on you, **named by the thing itself and not by the step it is on**
   // — the owner's call of 29 Sep 2026, after three different situations drew
   // one sentence between them.
   //
   // The Drone's own question first: it is the one thing on the wire saying a
   // Drone has stopped and is holding its turn open.
-  if (whole?.asking !== undefined) {
+  if (!over && whole?.asking !== undefined) {
     return {
       said: "A Drone asked you something",
       because: because(whole.asking.question, holdsUp(whole, step)),
@@ -341,7 +359,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   }
   // The command, because the command is the decision. A tool with no argument
   // has an empty `detail`, so the tool's own name carries the line instead.
-  const command = whole?.command_waiting;
+  const command = over ? undefined : whole?.command_waiting;
   if (command !== undefined) {
     return {
       said: "A Drone wants to run a command",
@@ -354,7 +372,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       act: "Decide it",
     };
   }
-  const refused = refusals(step, whole?.acceptance_criteria ?? []);
+  const refused = over ? undefined : refusals(step, whole?.acceptance_criteria ?? []);
   if (refused !== undefined) {
     return {
       said: `A Judge refused ${refused.count} of ${refused.of} ${refused.of === 1 ? "criterion" : "criteria"}`,
@@ -363,7 +381,6 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       act: "Answer it",
     };
   }
-  const lifecycle = JOB_LIFECYCLE[job.status];
   if (lifecycle?.whoIsActing === "Person" && lifecycle.mode === "Waited on") {
     // **Escalated is not the same as waiting to be approved.** Fleet stopped
     // the one and named why; the other is work that passed and wants a press.
@@ -416,18 +433,6 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       because: because(metSaid(whole), holdsUp(whole, step)),
       tone: "awaiting-review",
       act: "Review it",
-    };
-  }
-
-  // Stopped, second — answering something that was waiting may already have
-  // been what cleared it, which is the owner's reason for this order.
-  if (lifecycle?.terminal === true && job.status !== "completed_success") {
-    return {
-      said: "This Job stopped",
-      because: tasksSaid(whole),
-      tone: "completed-failed",
-      act: "Read what stopped it",
-      opens: { tab: "record" },
     };
   }
 
