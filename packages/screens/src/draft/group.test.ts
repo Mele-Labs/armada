@@ -63,11 +63,34 @@ describe("the scope and Checks a group takes", () => {
     ]);
   });
 
-  it("stands the kind in for a Check that names no Manifest Check", () => {
-    const step = sampleStep({ checks: [{ kind: "diff_nonempty" }] });
+  it("leaves out a Check that is the step's own guard rather than a task's", () => {
+    const step = sampleStep({ checks: [{ kind: "diff_nonempty" }, { kind: "every_manifest_check" }] });
 
-    expect(taskGroupsOf(withTasks(["T1"], step))[0]?.checks_selected).toEqual([
-      "diff_nonempty",
+    expect(taskGroupsOf(withTasks(["T1"], step))[0]?.checks_selected).toEqual([]);
+  });
+
+  it("takes only the Checks whose `when` reaches the task's paths", () => {
+    const step = sampleStep({
+      checks: [
+        { kind: "manifest_check", name: "build", when: ["crates/**", "xtask/**", "Cargo.toml"] },
+        { kind: "manifest_check", name: "typecheck", when: ["packages/**"] },
+        { kind: "manifest_check", name: "readme", when: ["docs/*.md"] },
+        { kind: "manifest_check", name: "always" },
+      ],
+    });
+    const detail = withTasks([], step);
+    detail.work_plan = samplePlan([
+      sampleTask({ id: "T1", scope: ["xtask/src/main.rs"] }),
+      sampleTask({ id: "T2", scope: ["packages/components/src/guides/index.ts"] }),
+      sampleTask({ id: "T3", scope: ["docs/INDEX.md", "docs/concepts/a/b.md"] }),
+      sampleTask({ id: "T4", scope: ["Cargo.toml.bak"] }),
+    ]);
+
+    expect(taskGroupsOf(detail).map((group) => group.checks_selected)).toEqual([
+      ["build", "always"],
+      ["typecheck", "always"],
+      ["readme", "always"],
+      ["always"],
     ]);
   });
 
@@ -98,6 +121,40 @@ describe("where a group is", () => {
     expect(
       taskGroupsOf(withTasks(["T1"], sampleStep({ state: "not_started" })))[0]?.state,
     ).toBe("pending");
+  });
+
+  it("reads its own task while the step working the tasks runs", () => {
+    const detail = withTasks([]);
+    detail.work_plan = samplePlan([
+      sampleTask({ id: "T1", state: "working" }),
+      sampleTask({ id: "T2", state: "open" }),
+    ]);
+
+    expect(taskGroupsOf(detail).map((group) => group.state)).toEqual(["running", "pending"]);
+  });
+
+  it("takes nothing from the plan step it was written at", () => {
+    const plan = sampleStep({
+      step_id: "plan",
+      ordinal: 1,
+      state: "running",
+      checks: [{ kind: "plan_recorded" }],
+      last_verdict: { attempt: 1, named: "passed" },
+    });
+    const implement = sampleStep({
+      state: "not_started",
+      checks: [{ kind: "manifest_check", name: "test" }],
+    });
+    const detail = sampleDetail({
+      steps: [plan, implement],
+      work_plan: samplePlan([sampleTask({ id: "T1", state: "open" })]),
+      job: { ...sampleDetail().job, current_step_id: "plan" },
+    });
+
+    const [group] = taskGroupsOf(detail);
+    expect(group?.state).toBe("pending");
+    expect(group?.checks_selected).toEqual(["test"]);
+    expect(group?.verdict).toBeUndefined();
   });
 
   it("is passed where the task itself is done, whatever the step is doing", () => {
