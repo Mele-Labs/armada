@@ -32,6 +32,7 @@ pub(crate) fn seen(at: &Timestamp, step: &StepId, event: &DroneEvent) -> Transcr
         ts: Instant::carried(at.as_str()),
         step: Some(ipc::StepId::from(step)),
         by: voice_of(event),
+        drone_id: None,
         saw: match event {
             DroneEvent::Started {
                 session,
@@ -85,6 +86,9 @@ pub(crate) fn seen(at: &Timestamp, step: &StepId, event: &DroneEvent) -> Transcr
             DroneEvent::BackgroundWork { outstanding } => Saw::BackgroundWork {
                 outstanding: *outstanding,
             },
+            DroneEvent::Thinking { estimated_tokens } => Saw::Thinking {
+                estimated_tokens: *estimated_tokens,
+            },
             DroneEvent::Unrecognised { kind } => Saw::Unrecognised { kind: kind.clone() },
             DroneEvent::Unreadable { line, why } => Saw::Unreadable {
                 line: line.clone(),
@@ -129,6 +133,7 @@ pub(crate) fn authored(at: &Timestamp, step: &StepId, by: ipc::Voice, saw: Saw) 
         ts: Instant::carried(at.as_str()),
         step: Some(ipc::StepId::from(step)),
         by,
+        drone_id: None,
         saw,
     }
 }
@@ -143,6 +148,7 @@ pub(crate) fn missed(at: &Timestamp, step: &StepId, rows: u64) -> TranscriptRow 
         // Fleet's, and it is withheld from a viewer either way: what a sink
         // lost is the sink's to say and nobody else's.
         by: ipc::Voice::Fleet,
+        drone_id: None,
         saw: Saw::Missed { rows },
     }
 }

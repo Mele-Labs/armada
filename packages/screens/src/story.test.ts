@@ -302,6 +302,17 @@ describe("a kind this Bridge has no reading for", () => {
     expect(hideUnread(rows)).toEqual({ rows: [], unread: 2 });
   });
 
+  it("reads a named thinking row exactly as the unrecognised one it was before 21.4", () => {
+    const named: Turn = {
+      ...unrecognised("system/thinking_tokens", 1),
+      drone_id: "01DRONEAAAAAAAAAAAAAAAAAAA",
+      saw: { event: "thinking", estimated_tokens: 125 },
+    };
+    const [was] = entriesOf([unrecognised("system/thinking_tokens", 1)], "plan");
+    const [is] = entriesOf([named], "plan");
+    expect(is).toEqual(was);
+  });
+
   it("keeps the kind on the payload, so the row still opens to something", () => {
     const lines = payload(unrecognised("thinking_delta"));
     expect(lines.map((line) => line.text)).toEqual(["thinking_delta"]);

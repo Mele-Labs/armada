@@ -91,6 +91,8 @@ It used to be forced: one Drone worked a Job's steps in turn, so a step read at 
 
 **Three rows are not a `DroneEvent` at all, and they are the other two voices.** A step is Armada opening it, the Drone working, and Fleet running the Checks and reading what came out. Only the middle one was written down, so a surface drawing the activity log had the Drone's turns and nothing about what it had been asked or what was made of it. Every row carries a `by` saying which of the three it is; a row written before that field existed is a Drone's, which is what the default says rather than guesses.
 
+**Every row a viewer is sent also names its Drone**, as `drone_id`, because a Job with several Drones streams one history and their rows were otherwise indistinguishable. Fleet stamps it from the transcript's file name as it reads, so the file holds no copy and an older file is stamped as fully as a new one.
+
 | Row | Carries | Reads as |
 | --- | --- | --- |
 | `Called` | The tool, the call's id, and what the call was on — a path, a command, a pattern — with a flag saying whether it was cut | The Drone reached for something, and what it did with it |
@@ -98,6 +100,7 @@ It used to be forced: one Drone worked a Job's steps in turn, so a step read at 
 | `Said` | Text that crossed the session, and `by` says which way | Prose, which advances nothing |
 | `Refused` | The tool, the call, the harness's wording | Reached for and stopped |
 | `Started` | Session, model, MCP server count | The session, and whether confinement held |
+| `Thinking` | The harness's estimate of how much the model has thought, cumulative within one model call | The Drone is thinking, and how much — never what |
 | `Unrecognised` | The kind | The stream carried something the vocabulary has no variant for — a new event, or the Drone's reasoning |
 | `Unreadable` | The line as the decoder saw it, and why | A line that did not decode |
 | `Ended` | The turn count, what the run cost, and how many turns the harness refused | The Drone stopped, and what it spent getting there |

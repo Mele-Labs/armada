@@ -59,8 +59,17 @@ export function turnArrived(
     // `by` is named for `step`'s reason and carries `drone` where it is
     // absent — every row written before Fleet stamped the field decoded from
     // a Drone's own output, so the default is the truth rather than a guess.
-    const { message: _tag, ts, step, by, ...saw } = message;
-    const row: Turn = { ts, seq, step, by: by ?? "drone", saw };
+    // `drone_id` is named for `step`'s reason and has no default: absent is a
+    // Fleet that sent none, and no Drone can be guessed for it.
+    const { message: _tag, ts, step, by, drone_id, ...saw } = message;
+    const row: Turn = {
+      ts,
+      seq,
+      step,
+      by: by ?? "drone",
+      ...(drone_id === undefined ? {} : { drone_id }),
+      saw,
+    };
     return { turns: { ...held, rows: [...held.rows, row] } };
   }
 

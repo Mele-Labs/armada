@@ -101,7 +101,7 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
 
 /// A `system` line, told apart by its own subtype.
 ///
-/// Three of them matter and the rest are noise from the harness's own
+/// Four of them matter and the rest are noise from the harness's own
 /// machinery. `init` is where the confinement is observable from inside the
 /// session: `mcp_servers` is what the Drone actually came up holding, which is
 /// the only reading that can contradict the flag Armada passed.
@@ -113,6 +113,9 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
 /// `DroneEvent::BackgroundWork` be a count instead of a fold that has to know
 /// every terminal status the harness can send. The other three stay
 /// unrecognised deliberately: they say nothing this one does not.
+///
+/// **`thinking_tokens` is the fourth**, read for how much the model thought and
+/// never for what: the reasoning text is a separate block, not carried.
 fn system_event(system: SystemLine) -> DroneEvent {
     match system.subtype.as_str() {
         "init" => DroneEvent::Started {
@@ -127,6 +130,15 @@ fn system_event(system: SystemLine) -> DroneEvent {
         },
         "background_tasks_changed" => DroneEvent::BackgroundWork {
             outstanding: system.tasks.len(),
+        },
+        // The estimate `crate::watching` already reads for the proposer. A
+        // line without its figure stays unrecognised rather than reading as a
+        // call that thought nothing.
+        "thinking_tokens" => match system.estimated_tokens {
+            Some(estimated_tokens) => DroneEvent::Thinking { estimated_tokens },
+            None => DroneEvent::Unrecognised {
+                kind: String::from("system/thinking_tokens"),
+            },
         },
         other => DroneEvent::Unrecognised {
             kind: format!("system/{other}"),
@@ -401,6 +413,11 @@ struct SystemLine {
     /// own, and how much of it is still there is the whole of what Fleet needs.
     #[serde(default)]
     tasks: Vec<Counted>,
+    /// Present on `thinking_tokens` and nowhere else: the harness's estimate
+    /// of how much the model has thought so far in this call. The
+    /// `estimated_tokens_delta` beside it is not read; the running figure
+    /// already holds it.
+    estimated_tokens: Option<u64>,
 }
 
 /// An entry that is counted and never read, whatever shape it arrives in.

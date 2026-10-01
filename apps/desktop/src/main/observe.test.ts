@@ -163,3 +163,27 @@ describe("a transcript socket that stops", () => {
     expect(turns.attached()).toBe(false);
   });
 });
+
+describe("a row Fleet stamped with its Drone", () => {
+  // **The frame byte for byte as Fleet sends it**: the string
+  // `crates/ipc/src/tests/turns.rs` asserts `TurnMessage::Row` encodes to.
+  const STAMPED =
+    '{"message":"row","ts":"2026-08-27T14:12:00.000Z","by":"drone","drone_id":"01DRONEAAAAAAAAAAAAAAAAAAA","event":"thinking","estimated_tokens":125}';
+
+  it("carries the Drone beside the kind and the estimate inside it", async () => {
+    const fleet = await serving();
+    const published = watching();
+    const turns = new ObserveSocket((state) => published.publish(state));
+    opened.push(() => turns.close());
+
+    turns.open(fleet.port, A_JOB);
+    const fleetSide = await fleet.talking;
+    fleetSide.send(JSON.stringify(OPENED));
+    fleetSide.send(STAMPED);
+    const read = await published.until((state) => "turns" in state && state.turns.rows.length === 1);
+
+    const row = "turns" in read ? read.turns.rows[0] : undefined;
+    expect(row?.drone_id).toBe("01DRONEAAAAAAAAAAAAAAAAAAA");
+    expect(row?.saw).toEqual({ event: "thinking", estimated_tokens: 125 });
+  });
+});
