@@ -279,7 +279,6 @@ export function useCommands(sending: Sending) {
   // branch a base cannot reach, which is the whole reason a person is told
   // rather than left to notice a branch nothing deleted.
   const [givenBack, setGivenBack] = useState<WorktreeReclaimed[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   // Which bulk sweep of finished Jobs is out, so its control waits and a second press sends nothing. #1117.
   const [sweeping, setSweeping] = useState<"clear" | "forget" | null>(null);
   // What Fleet said to the last act on a Job, named, so only the control that
@@ -863,12 +862,7 @@ export function useCommands(sending: Sending) {
    * not fix one that is.
    */
   async function refresh(): Promise<void> {
-    setRefreshing(true);
-    try {
-      sending.onRead(await window.armada.state());
-    } finally {
-      setRefreshing(false);
-    }
+    sending.onRead(await window.armada.state());
   }
 
   return {
@@ -890,7 +884,6 @@ export function useCommands(sending: Sending) {
     fileFindingIssue,
     givenBack,
     setGivenBack,
-    refreshing,
     sweeping,
     stopProposal,
     proposeFrom,

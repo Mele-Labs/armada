@@ -6,7 +6,7 @@
 // padding and gap, so neither the strip nor a panel sits against the window's edge. `Boundary`
 // renders its children straight through when nothing has thrown.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { BoardSection } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
@@ -31,7 +31,6 @@ export function Overview({
   onCompose,
   onCopied,
   onCursor,
-  actions,
   land,
   onLanded,
 }: {
@@ -55,13 +54,6 @@ export function Overview({
   onCopied: (value: string) => void;
   /** Where the cursor is, reported up — `OverviewLists`' own state, mirrored. #1075. */
   onCursor?: (jobId: string | null) => void;
-  /**
-   * `OverviewActions` — Dispatch and the menu behind it, built by the caller.
-   * **Absent draws none.** It was the Board's, at the top of the Board's own
-   * content; Reported, Refresh and the two bulk sweeps had no other entrance
-   * in the app, so it came here rather than going with the page.
-   */
-  actions?: ReactNode;
   /**
    * A section a pressed notification asked for — `App`'s own token. **Opened
    * and scrolled to once this is mounted**, which the press could not do: it
@@ -130,9 +122,6 @@ export function Overview({
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
-        {actions === undefined ? null : (
-          <div className="armada-screen__surface-actions">{actions}</div>
-        )}
         <OverviewSummary jobs={state.jobs} repositories={repositories} picked={state.repository} onJump={onJump} />
         <OverviewLists
           jobs={state.jobs}

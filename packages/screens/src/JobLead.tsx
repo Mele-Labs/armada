@@ -5,6 +5,7 @@
 // that says why: a sentence spelled twice came back wrong the first time one
 // of the two was fixed.
 
+import { SkeletonText } from "@armada/components";
 import type { ReactNode } from "react";
 
 export type JobLeadProps = {
@@ -26,9 +27,14 @@ export type JobLeadProps = {
    * restatement, because the lead has already said both.
    */
   waiting?: ReactNode;
+  /**
+   * Whether what the lead would say is still a guess — its quiet line, before
+   * this Job's own read has answered. Bars stand where the sentence lands.
+   */
+  reading?: boolean;
 };
 
-export function JobLead({ said, because, tone, elapsed, act, waiting }: JobLeadProps) {
+export function JobLead({ said, because, tone, elapsed, act, waiting, reading = false }: JobLeadProps) {
   return (
     <div className="armada-lead" data-tone={tone}>
       <div className="armada-lead__head">
@@ -36,8 +42,15 @@ export function JobLead({ said, because, tone, elapsed, act, waiting }: JobLeadP
           {/* **A heading, because it leads the destination.** Everything under
               it is subordinate to the one thing it names, and a reader moving by
               headings should land here first. */}
-          <h2 className="armada-lead__headline">{said}</h2>
-          {because === "" ? null : <p className="armada-lead__because">{because}</p>}
+          {reading ? (
+            // Two bars: the headline and the line under it.
+            <SkeletonText widths={["30%", "55%"]} />
+          ) : (
+            <>
+              <h2 className="armada-lead__headline">{said}</h2>
+              {because === "" ? null : <p className="armada-lead__because">{because}</p>}
+            </>
+          )}
         </div>
         {/* Aged by the caller, as the box that used to carry it was. */}
         {elapsed === undefined ? null : <span className="armada-lead__elapsed mono">{elapsed}</span>}

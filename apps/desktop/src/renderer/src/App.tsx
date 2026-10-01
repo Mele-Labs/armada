@@ -30,10 +30,10 @@ import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
 import { Boundary } from "@armada/shell";
 import { Standing } from "./Standing";
-import { CopiedToast, SaidToast, useCopied, useSaid } from "@armada/shell";
+import { useCopied, useSaid } from "@armada/shell";
 import { FailureBlock } from "@armada/shell";
 import { jobFailure } from "@armada/shell";
-import { OverviewActions } from "@armada/shell";
+import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { BridgeSettings } from "@armada/screens";
@@ -42,6 +42,7 @@ import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
+import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
@@ -52,7 +53,8 @@ import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
 import { JobDetail } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
-import { failingIn } from "./failing";
+import { failingIn, raisedFailure } from "./failing";
+import { Toasts, useRaised } from "./raised";
 import {
   examine,
   openArtifact,
@@ -136,8 +138,6 @@ import { copyDebugInfoFor } from "@armada/shell";
 import { Shell } from "@armada/shell";
 import { SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
 import { useAtFloor, useNarrow } from "@armada/shell";
-import { watchUncaught } from "@armada/shell";
-import type { Uncaught } from "@armada/shell";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -167,7 +167,6 @@ export function App({ draft }: AppProps = {}) {
   const [telling, setTelling] = useSaid();
   // What a boundary could never catch: a throw in a handler, and a rejected
   // promise from a `void`-ed preload call.
-  const [uncaught, setUncaught] = useState<Uncaught | null>(null);
   // **The whole of navigation.** A list and a detail need one piece of state,
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
@@ -192,6 +191,9 @@ export function App({ draft }: AppProps = {}) {
   // the Board would put a control nobody can act on beside rows that exist to
   // be acted on.
   const [clearing, setClearing] = useState(false);
+  // Which bulk sweep is asking to be confirmed. Here rather than on Cleanup,
+  // because the palette can ask for one from any surface.
+  const [sweep, setSweep] = useState<Sweep | null>(null);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
   const [settingsShowing, setSettingsShowing] = useState(false);
@@ -371,8 +373,6 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  useEffect(() => watchUncaught(setUncaught), []);
-
   // **Where a pressed notification says to go, and it always goes somewhere.**
   // A press that raised the window and left it on whatever it was last showing
   // is a press that did nothing, which is the one outcome that teaches somebody
@@ -435,12 +435,13 @@ export function App({ draft }: AppProps = {}) {
   const live = state.connection.state === "connected";
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { statement, fleet, commandFailure, failing } = failingIn({
+  const { raised, lower } = useRaised(commands.outcome);
+  const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
     readAt: state.readAt,
     outcome: commands.outcome,
-    uncaught,
+    raised: raised.flatMap((one) => raisedFailure(one, state.bridge) ?? []),
     now,
   });
   const guarded = { bridge: state.bridge, onCopied: setCopied };
@@ -570,23 +571,21 @@ export function App({ draft }: AppProps = {}) {
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
-  // Overview's own menu, at the top of its content. It was the Board's, and
-  // Reported, Refresh and the two bulk sweeps had no other entrance in the
-  // app — so it came here rather than going with that page.
-  const surfaceActions = (
-    <OverviewActions
-      jobs={boardJobs}
-      live={live}
-      refreshing={commands.refreshing}
-      onRefresh={() => void commands.refresh()}
-      onReadReports={() => setAuditing(true)}
-      onReadWorktrees={() => setClearing(true)}
-      onOpenSettings={() => goTo(SURFACE.settings)}
-      onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
-      onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
-      sweeping={commands.sweeping}
-    />
-  );
+  // Refresh is a key and a palette row, and nothing on screen.
+  useRefreshKey(() => {
+    if (live) void commands.refresh();
+  });
+  // What the Overview menu carried and nothing else did, now in the palette:
+  // Reported is drawn there and nowhere else.
+  const busy = live ? (commands.sweeping === null ? undefined : "waiting on Fleet") : FLEET_DOWN;
+  const boardRows = [
+    { id: "reports", label: "Reported" },
+    ...sweepsOf(boardJobs).map((one) => ({
+      ...one,
+      ...(one.id === "forget" ? { destructive: true } : {}),
+      ...(busy === undefined ? {} : { dormant: busy }),
+    })),
+  ];
 
   return (
     /* The guidance system, over the whole window — #1602, #1603. It holds what
@@ -697,18 +696,12 @@ export function App({ draft }: AppProps = {}) {
             }
             readingSeen={readingSeen}
             onReadingSeen={setReadingSeen}
-            uncaught={uncaught}
-            onUncaught={setUncaught}
-            bridge={state.bridge}
             onCopied={setCopied}
             missed={state.missed}
             acknowledged={acknowledged}
             onAcknowledged={setAcknowledged}
             givenBack={commands.givenBack}
             onGivenBack={commands.setGivenBack}
-            commandFailure={commandFailure}
-            outcome={commands.outcome}
-            onOutcome={commands.setOutcome}
             taken={commands.taken}
             located={<LocatedNotice locating={locate} repositories={repositories} />}
           />
@@ -909,6 +902,9 @@ export function App({ draft }: AppProps = {}) {
                 now={now}
                 onClose={() => setClearing(false)}
                 onCopied={setCopied}
+                actions={
+                  <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
+                }
               />
             </Boundary>
           ) : manifesting && all ? (
@@ -1082,7 +1078,6 @@ export function App({ draft }: AppProps = {}) {
                 onCompose={() => setComposing(true)}
                 onCopied={setCopied}
                 onCursor={setCursor}
-                actions={surfaceActions}
                 land={landing}
                 onLanded={() => setLanding(null)}
               />
@@ -1118,6 +1113,15 @@ export function App({ draft }: AppProps = {}) {
         onConfirm={confirmed}
       />
 
+      <SweepDialogs
+        jobs={boardJobs}
+        asking={sweep}
+        sweeping={commands.sweeping}
+        onDone={() => setSweep(null)}
+        onClearTerminal={(jobIds) => void commands.clearTerminal(jobIds)}
+        onForgetTerminal={(jobIds) => void commands.forgetTerminal(jobIds)}
+      />
+
       <Locate locating={locate} />
 
       <PaletteMount
@@ -1131,6 +1135,8 @@ export function App({ draft }: AppProps = {}) {
         checkoutRunSheet={state.checkoutRunSheet}
         cursor={cursor}
         failing={failing}
+        live={live}
+        board={boardRows}
         acts={{
           openJob: setOpenJob,
           closeJob: close,
@@ -1147,14 +1153,27 @@ export function App({ draft }: AppProps = {}) {
           openSetting: (id) => {
             if (id === "fleet_settings") goTo(SURFACE.settings);
           },
+          refresh: () => void commands.refresh(),
+          board: (id) => {
+            if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
+            // Reports close back to Overview, so that is where they open over.
+            goTo(SURFACE.overview);
+            setAuditing(true);
+          },
         }}
         onConfirmAct={(id, jobId) => {
           if (id === "kill") setConfirming({ act: "kill_job", jobId });
         }}
       />
 
-      <CopiedToast copied={copied} />
-      <SaidToast said={telling} />
+      <Toasts
+        raised={raised}
+        bridge={state.bridge}
+        onLower={lower}
+        copied={copied}
+        said={telling}
+        onCopied={setCopied}
+      />
     </GuidanceProvider>
   );
 }

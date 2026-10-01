@@ -111,8 +111,8 @@ describe("fan out, then join", () => {
     expect(shapeSaid({ ...first, tasks: [first.tasks[0]!] })).toBe("1 task, on its own");
   });
 
-  test("the group joining its work says so, which is not the same as checking", () => {
-    expect(groupAt(executingConcurrent(), 3).says).toBe("joining its work");
+  test("the group joining says so, which is not the same as checking", () => {
+    expect(groupAt(executingConcurrent(), 3).says).toBe("joining");
   });
 });
 
