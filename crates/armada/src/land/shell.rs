@@ -254,15 +254,6 @@ pub struct GhPullRequest {
     pub state: Option<String>,
     #[serde(rename = "baseRefName")]
     pub base_ref_name: Option<String>,
-    #[serde(rename = "headRefOid")]
-    pub head_ref_oid: Option<String>,
-    #[serde(rename = "mergeCommit")]
-    pub merge_commit: Option<GhMergeCommit>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct GhMergeCommit {
-    pub oid: String,
 }
 
 /// `$ARMADA_LAND_GH pr view <pull_request> --json <fields>`, decoded through

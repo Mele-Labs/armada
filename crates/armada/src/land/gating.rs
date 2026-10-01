@@ -12,7 +12,6 @@ use super::git::best_effort;
 use super::merge_in::{merge_in, regenerate, MergeInFailed};
 use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, seed, setup};
-use super::prove::wait_for_head;
 use super::queue::QueueEntry;
 use super::repo::changed_paths;
 use super::say::say;
@@ -21,8 +20,8 @@ use super::stop::Stopped;
 use super::worktree::{reused_keeping, LandWorktree};
 
 /// Read the tree in this line's candidate worktree, and where `base` has
-/// moved, merge it in first, rerun what the combination hits and push the
-/// merge onto the branch. Returns the commit that will be merged.
+/// moved, merge it in first, and rerun what the combination hits. Returns
+/// the commit that will be merged; nothing is pushed here.
 pub fn gate(
     repo: &Path,
     state: &StateDir,
@@ -297,50 +296,32 @@ pub fn gate(
         );
     }
 
-    if !moved && !regenerated {
-        return Ok(candidate);
-    }
-
-    let pushed = best_effort(
-        &where_,
-        &[
-            "push",
-            "--quiet",
-            &env.remote,
-            &format!("{candidate}:refs/heads/{branch}"),
-        ],
-    );
-    if !pushed.map(|out| out.status.success()).unwrap_or(false) {
-        return Err(Stopped::stopped(format!(
-            "{branch} moved on {} while it was gated — preflight and land again",
-            env.remote
-        )));
-    }
     say(
         state,
         branch,
         OutcomeState::Gating,
         format!(
-            "{} passed with {}; waiting for the forge to see {}",
+            "{} passed{}",
             if rerun.is_empty() {
-                "no Check".to_string()
+                "the gate".to_string()
             } else {
-                rerun.join(", ")
+                format!("the gate and {}", rerun.join(", "))
             },
             match (moved, regenerated) {
-                (true, false) => format!("{} merged in", env.base),
-                (false, _) => "its generated files regenerated".to_string(),
-                (true, true) => format!("{} merged in and generated files regenerated", env.base),
+                (false, false) => String::new(),
+                (true, false) => format!(" with {} merged in", env.base),
+                (false, true) => " with its generated files regenerated".to_string(),
+                (true, true) => format!(
+                    " with {} merged in and its generated files regenerated",
+                    env.base
+                ),
             },
-            short(&candidate)
         ),
         OutcomePatch {
-            pushed: Some(candidate.clone()),
             logs: Some(log_paths),
             ..OutcomePatch::default()
         },
     )?;
-    wait_for_head(repo, env, entry.pr, &candidate)?;
     Ok(candidate)
 }
 

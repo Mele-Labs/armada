@@ -25,7 +25,9 @@ pub struct Env {
     /// `ARMADA_LAND_REGENERATE` — a stale output they write is committed
     /// rather than refused.
     pub regenerate: Vec<String>,
-    pub head_wait: Duration,
+    /// How long a pull request is given to read as merged once its head is on
+    /// the base, before the line closes it naming the merge.
+    pub pr_wait: Duration,
     /// How long one Check in a turn runs before it is killed and read as red.
     pub check_limit: Duration,
 }
@@ -77,8 +79,8 @@ impl Env {
                 .filter(|command| !command.is_empty())
                 .map(str::to_string)
                 .collect(),
-            head_wait: Duration::from_secs_f64(
-                var("ARMADA_LAND_HEAD_WAIT", "120").parse().unwrap_or(120.0),
+            pr_wait: Duration::from_secs_f64(
+                var("ARMADA_LAND_PR_WAIT", "30").parse().unwrap_or(30.0),
             ),
             check_limit: std::env::var("ARMADA_LAND_CHECK_LIMIT")
                 .ok()

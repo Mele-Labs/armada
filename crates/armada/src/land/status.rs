@@ -39,12 +39,8 @@ pub fn status(cwd: &Path, branch: Option<&str>) -> Result<u8, Refused> {
         let (word, detail) = held
             .map(|o| (o.state.word(), o.detail))
             .unwrap_or(("waiting", String::new()));
-        println!(
-            "  {}. {}  #{}  {word}: {detail}",
-            n + 1,
-            entry.branch,
-            entry.pr
-        );
+        let pr = entry.pr.map_or(String::new(), |pr| format!("  #{pr}"));
+        println!("  {}. {}{pr}  {word}: {detail}", n + 1, entry.branch);
     }
 
     let branch = match branch.map(str::to_string).or_else(|| current_branch(cwd)) {

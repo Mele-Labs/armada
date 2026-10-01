@@ -41,21 +41,23 @@ def setUpModule():
         ["cargo", "build", "--quiet", "-p", "armada"], cwd=HERE, check=False
     )
 
-# `gh pr view` and `gh pr merge`, over a JSON file of pull requests. The merge
-# refuses anything but `--merge --match-head-commit`, so a regression to a
-# rebase or a squash fails here rather than on GitHub.
+# `gh pr view` and `gh pr close`, over a JSON file of pull requests. The view
+# answers MERGED once the branch's head is in the remote's `main`, which is how
+# GitHub reads a pull request whose commits were pushed to its base; set
+# `STUB_GH_NO_DETECT` and it never does. `gh pr merge` is refused outright: the
+# line lands by pushing `main` itself.
 STUB_GH = r'''#!/usr/bin/env python3
-import json, os, subprocess, sys, tempfile
+import json, os, subprocess, sys
 state_file = os.environ["STUB_GH_STATE"]
 remote = os.environ["STUB_REMOTE"]
 prs = json.load(open(state_file))
 args = sys.argv[1:]
 
-def git(*a, cwd=None):
-    return subprocess.run(["git", *a], cwd=cwd, capture_output=True, text=True, check=True).stdout.strip()
+def git(*a, check=True):
+    return subprocess.run(["git", *a], capture_output=True, text=True, check=check)
 
 def head(branch):
-    said = git("ls-remote", remote, f"refs/heads/{branch}")
+    said = git("ls-remote", remote, f"refs/heads/{branch}").stdout.strip()
     return said.split()[0] if said else None
 
 def find(sel):
@@ -66,47 +68,25 @@ def find(sel):
 
 if args[:2] == ["pr", "view"]:
     number, pr = find(args[2])
+    at = pr.get("merged_head") or head(pr["branch"])
+    if pr["state"] == "OPEN" and at and not os.environ.get("STUB_GH_NO_DETECT"):
+        if git("--git-dir", remote, "merge-base", "--is-ancestor", at, "main", check=False).returncode == 0:
+            pr.update(state="MERGED", merged_head=at)
+            json.dump(prs, open(state_file, "w"))
     fields = args[args.index("--json") + 1].split(",")
     full = {
         "number": int(number),
         "state": pr["state"],
         "baseRefName": os.environ.get("STUB_GH_BASE", "main"),
-        "headRefOid": os.environ.get("STUB_GH_STALE_HEAD") or pr.get("merged_head") or head(pr["branch"]),
-        "mergeCommit": {"oid": pr["merge_commit"]} if pr.get("merge_commit") else None,
+        "headRefOid": at,
     }
     print(json.dumps({f: full[f] for f in fields}))
-elif args[:2] == ["pr", "merge"]:
+elif args[:2] == ["pr", "close"]:
     number, pr = find(args[2])
-    for banned in ("--rebase", "--squash", "--delete-branch", "--admin"):
-        if banned in args:
-            sys.exit(f"stub gh: {banned} is not how this repository merges")
-    if "--merge" not in args or "--match-head-commit" not in args:
-        sys.exit("stub gh: --merge --match-head-commit is required")
-    pinned = args[args.index("--match-head-commit") + 1]
-    current = head(pr["branch"])
-    if current != pinned:
-        sys.exit(f"stub gh: head is {current}, not {pinned}")
-    work = tempfile.mkdtemp()
-    git("clone", "--quiet", remote, work)
-    git("config", "user.name", "stub", cwd=work)
-    git("config", "user.email", "stub@example.com", cwd=work)
-    race = os.environ.get("STUB_GH_RACE")
-    if race and os.path.exists(race):
-        os.remove(race)
-        with open(os.path.join(work, "race.txt"), "w") as out:
-            out.write("pressed by hand\n")
-        git("add", "race.txt", cwd=work)
-        git("commit", "--quiet", "-m", "a merge nobody queued", cwd=work)
-    git("fetch", "--quiet", "origin", pr["branch"], cwd=work)
-    done = subprocess.run(["git", "merge", "--no-ff", "--no-edit", "FETCH_HEAD"], cwd=work, capture_output=True, text=True)
-    if done.returncode != 0:
-        sys.exit("stub gh: Pull request is not mergeable")
-    git("push", "--quiet", "origin", "HEAD:main", cwd=work)
-    pr.update(state="MERGED", merge_commit=git("rev-parse", "HEAD", cwd=work), merged_head=pinned)
+    pr.update(state="CLOSED", comment=args[args.index("--comment") + 1] if "--comment" in args else None)
     json.dump(prs, open(state_file, "w"))
-    print(f"Merged pull request #{number}")
-    if os.environ.get("STUB_GH_KILL_AFTER_MERGE"):
-        os.kill(os.getppid(), 9)  # a runner killed between the merge and the proof
+elif args[:2] == ["pr", "merge"]:
+    sys.exit("stub gh: the line lands by pushing main, never through the forge")
 else:
     sys.exit(f"stub gh: {args} is not stubbed")
 '''
@@ -207,7 +187,7 @@ class LineFixture(unittest.TestCase):
             ARMADA_LAND_KEEP="node_modules",
             ARMADA_LAND_REGENERATE="",
             LAND_TEST_EVIDENCE=os.path.join(self.root, "evidence.txt"),
-            ARMADA_LAND_HEAD_WAIT="10",
+            ARMADA_LAND_PR_WAIT="10",
             STUB_ARMADA_LAND=stub_land,
             STUB_GH_STATE=self.prs,
             STUB_REMOTE=self.remote,
@@ -270,22 +250,25 @@ class LineFixture(unittest.TestCase):
     def state_file(self, *parts):
         return os.path.join(self.repo, ".git", "armada-land", *parts)
 
-    def branch(self, name, files):
-        """An agent's worktree on `name`, cut from main, committed, pushed, with a PR."""
+    def branch(self, name, files, pr=True):
+        """An agent's worktree on `name`, cut from main and committed — pushed,
+        with a PR, unless `pr` is false, since the line needs neither."""
         where = os.path.join(self.root, "wt-" + name.replace("/", "-"))
         self.git(self.repo, "fetch", "--quiet", "origin")
         self.git(self.repo, "worktree", "add", "--quiet", "-b", name, where, "origin/main")
-        self.commit(where, files, f"work on {name}")
-        prs = load(self.prs)
-        prs[str(len(prs) + 1)] = {"branch": name, "state": "OPEN"}
-        dump(self.prs, prs)
+        self.commit(where, files, f"work on {name}", push=pr)
+        if pr:
+            prs = load(self.prs)
+            prs[str(len(prs) + 1)] = {"branch": name, "state": "OPEN"}
+            dump(self.prs, prs)
         return where
 
-    def commit(self, where, files, message):
+    def commit(self, where, files, message, push=True):
         self.write(where, files)
         self.git(where, "add", "-A")
         self.git(where, "commit", "--quiet", "-m", message)
-        self.git(where, "push", "--quiet", "-u", "origin", "HEAD")
+        if push:
+            self.git(where, "push", "--quiet", "-u", "origin", "HEAD")
 
     def land(self, where, *args, check=True):
         done = sh(sys.executable, LAND, *args, cwd=where, env=self.env, check=False)
@@ -400,9 +383,72 @@ class Line(LineFixture):
         merge = self.outcome("fix/alone")["merge_commit"]
         self.git(self.repo, "fetch", "--quiet", "origin")
         self.assertEqual(len(self.git(self.repo, "rev-list", "--parents", "-n", "1", merge).split()), 3, "a merge commit, not a rebase")
+        self.assertEqual(merge, self.main_head(), "the line pushed main itself")
+        message = self.git(self.repo, "log", "-1", "--format=%B", merge)
+        self.assertIn("#1", message, "the pull request is named where there is one")
+        self.assertIn("Landed-from: fix/alone", message)
+        self.assertEqual(load(self.prs)["1"]["state"], "MERGED", "the forge read the push as the merge")
         self.assertEqual(self.git(self.repo, "ls-remote", "origin", "refs/heads/fix/alone"), "", "the remote branch is deleted")
         self.assertIn("git worktree remove", done.stdout)
         self.assertTrue(os.path.isdir(where), "the agent's worktree is never removed")
+
+    def test_a_branch_never_pushed_and_with_no_pull_request_lands(self):
+        where = self.branch("fix/local-only", {"local.txt": "1\n"}, pr=False)
+        mover = self.branch("fix/moves-local", {"moved.txt": "1\n"})
+        self.land(mover, "preflight")
+        self.land(mover)
+        self.assertEqual(self.settle(mover, "fix/moves-local").returncode, 0)
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/local-only")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        merge = self.outcome("fix/local-only")["merge_commit"]
+        self.assertEqual(merge, self.main_head())
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        self.assertEqual(self.git(self.repo, "rev-parse", merge + "^1"), self.outcome("fix/local-only")["gated_base"],
+                         "what was pushed is the gated candidate on the base it was gated against")
+        self.assertEqual(self.git(self.repo, "rev-parse", merge + "^{tree}"),
+                         self.git(self.repo, "rev-parse", self.outcome("fix/local-only")["candidate"] + "^{tree}"),
+                         "nothing was pushed that was not gated")
+        message = self.git(self.repo, "log", "-1", "--format=%B", merge)
+        self.assertIn("Landed-from: fix/local-only", message)
+        self.assertNotIn("#", message.splitlines()[0], "no pull request to name")
+        self.assertEqual(self.git(self.repo, "ls-remote", "origin", "refs/heads/fix/local-only"), "")
+
+    def test_a_branch_with_nothing_ahead_of_main_is_refused(self):
+        where = os.path.join(self.root, "wt-empty")
+        self.git(self.repo, "worktree", "add", "--quiet", "-b", "fix/empty", where, "origin/main")
+        done = self.land(where, "preflight", check=False)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("nothing ahead of", done.stderr)
+
+    def test_a_pull_request_the_forge_does_not_close_is_closed_naming_the_merge(self):
+        self.env["STUB_GH_NO_DETECT"] = "1"
+        self.env["ARMADA_LAND_PR_WAIT"] = "1"
+        where = self.branch("fix/not-detected", {"x.txt": "1\n"})
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/not-detected")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        merge = self.outcome("fix/not-detected")["merge_commit"]
+        pr = load(self.prs)["1"]
+        self.assertEqual(pr["state"], "CLOSED")
+        self.assertIn(merge, pr["comment"])
+
+    def test_a_remote_branch_holding_more_than_landed_is_kept(self):
+        where = self.branch("fix/more-on-remote", {"x.txt": "1\n"})
+        self.land(where, "preflight")
+        other = os.path.join(self.root, "elsewhere")
+        sh("git", "clone", "--quiet", "-b", "fix/more-on-remote", self.remote, other, env=self.env)
+        self.commit(other, {"later.txt": "pushed from elsewhere\n"}, "more work")
+        self.land(where)
+        done = self.settle(where, "fix/more-on-remote")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertNotIn("later.txt", self.main_files())
+        self.assertNotEqual(self.git(self.repo, "ls-remote", "origin", "refs/heads/fix/more-on-remote"), "",
+                            "a commit that did not land is not deleted with the branch")
+        self.assertEqual(load(self.prs)["1"]["state"], "OPEN", "nor is its pull request closed")
+        self.assertIn("did not land", done.stdout)
 
     def test_a_conflict_stops_and_keeps_its_place(self):
         where = self.branch("fix/clash", {"shared.txt": "branch\n"})
@@ -552,22 +598,6 @@ class Line(LineFixture):
         self.assertEqual(self.settle(slow, "fix/held").returncode, 0)
         self.assertEqual(self.settle(behind, "feature/behind/deep").returncode, 0)
 
-    def test_a_merge_pressed_in_between_is_reported_ungated(self):
-        race = os.path.join(self.root, "race")
-        open(race, "w").close()
-        self.env["STUB_GH_RACE"] = race
-        where = self.branch("fix/raced", {"raced.txt": "1\n"})
-        self.land(where, "preflight")
-        self.land(where)
-        done = self.settle(where, "fix/raced")
-        self.assertEqual(done.returncode, 6, done.stdout)
-        self.assertIn("ungated combination", done.stdout)
-        landed = self.main_files()
-        self.assertIn("raced.txt", landed, "it did land, which is the point")
-        self.assertIn("race.txt", landed, "on top of the commit nobody gated it against")
-        self.assertNotEqual(self.git(where, "ls-remote", "origin", "refs/heads/fix/raced"), "",
-                            "the branch stays, because what landed was never checked")
-
     def test_only_a_new_failing_foundations_line_is_red(self):
         known = "FAIL  a rule main already fails\n        missing: its subject\n"
         mover = self.branch("fix/move", {"moved.txt": "1\n"})
@@ -687,26 +717,30 @@ class Line(LineFixture):
         done = self.settle(shifted, "fix/shifts-a-line")
         self.assertEqual(done.returncode, 0, done.stdout)
 
-    def test_a_pull_request_retargeted_after_preflight_stops(self):
-        where = self.branch("fix/retargeted", {"x.txt": "1\n"})
+    def test_a_runner_killed_after_the_push_finds_it_landed_on_the_next_turn(self):
+        # The remote's own hook kills the pushing runner's group once main has moved.
+        where = self.branch("fix/killed-after-push", {"x.txt": "1\n"})
+        hook = os.path.join(self.remote, "hooks", "post-receive")
+        self.write(self.root, {"post-receive": (
+            "#!/bin/sh\n"
+            "grep -q ' refs/heads/main$' || exit 0\n"
+            '[ -n "$LAND_TEST_KILL_AFTER_PUSH" ] && [ ! -f "$LAND_TEST_KILL_AFTER_PUSH" ] || exit 0\n'
+            'touch "$LAND_TEST_KILL_AFTER_PUSH"\n'
+            "kill -9 -$(ps -o pgid= $$ | tr -d ' ')\n"
+        )})
+        shutil.copy(os.path.join(self.root, "post-receive"), hook)
+        os.chmod(hook, 0o755)
+        self.env["LAND_TEST_KILL_AFTER_PUSH"] = os.path.join(self.root, "killed-once")
         self.land(where, "preflight")
-        self.env["STUB_GH_BASE"] = "release/1"
         self.land(where)
-        done = self.settle(where, "fix/retargeted")
-        self.assertEqual(done.returncode, 7, done.stdout)
-        self.assertIn("release/1", done.stdout)
-        self.assertNotIn("x.txt", self.main_files())
-
-    def test_a_runner_killed_after_the_merge_proves_it_on_the_next_turn(self):
-        self.env["STUB_GH_KILL_AFTER_MERGE"] = "1"
-        where = self.branch("fix/killed-after-merge", {"x.txt": "1\n"})
-        self.land(where, "preflight")
-        self.land(where)
-        done = self.settle(where, "fix/killed-after-merge")
+        done = self.settle(where, "fix/killed-after-push")
+        self.assertTrue(os.path.exists(self.env["LAND_TEST_KILL_AFTER_PUSH"]), "the runner was killed after its push")
         self.assertEqual(done.returncode, 0, done.stdout)
         self.assertIn("x.txt", self.main_files())
-        self.assertEqual(self.git(where, "ls-remote", "origin", "refs/heads/fix/killed-after-merge"), "")
-
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        self.assertEqual(self.git(self.repo, "rev-list", "--count", "--merges", "origin/main"), "1",
+                         "the next turn found it landed rather than merging it twice")
+        self.assertEqual(self.git(where, "ls-remote", "origin", "refs/heads/fix/killed-after-push"), "")
     def test_main_moving_mid_gate_gates_again_against_it(self):
         once = os.path.join(self.root, "moved-once")
         self.mover()
@@ -739,27 +773,7 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 7, done.stdout)
         self.assertIn("moved during each of", done.stdout)
 
-    def test_a_head_github_never_sees_stops_and_preflight_says_to_take_it(self):
-        mover = self.branch("fix/moves-6", {"moved.txt": "1\n"})
-        where = self.branch("fix/stale-head", {"x.txt": "1\n"})
-        self.land(mover, "preflight")
-        self.land(mover)
-        self.assertEqual(self.settle(mover, "fix/moves-6").returncode, 0)
-        self.land(where, "preflight")
-        self.env["STUB_GH_STALE_HEAD"] = "0" * 40
-        self.env["ARMADA_LAND_HEAD_WAIT"] = "1"
-        self.land(where)
-        done = self.settle(where, "fix/stale-head")
-        self.assertEqual(done.returncode, 7, done.stdout)
-        self.assertIn("did not show", done.stdout)
-        del self.env["STUB_GH_STALE_HEAD"]
-
-        again = self.land(where, "preflight", check=False)
-        self.assertEqual(again.returncode, 1)
-        self.assertIn("git reset --hard", again.stderr)
-        self.assertNotIn("push -u", again.stderr, "never force-push over a gated merge")
-
-    def test_a_push_to_the_branch_mid_gate_stops_before_merging(self):
+    def test_a_commit_to_the_branch_mid_gate_stops_before_merging(self):
         gate = os.path.join(self.root, "gate-open")
         mover = self.branch("fix/moves-7", {"moved.txt": "1\n"})
         where = self.branch("fix/pushed-under", {"checks/test.sh": f'while [ ! -f {gate} ]; do sleep 0.1; done\n'})
@@ -772,7 +786,7 @@ class Line(LineFixture):
         while self.outcome("fix/pushed-under").get("state") != "gating" or "running test" not in self.outcome("fix/pushed-under")["detail"]:
             self.assertLess(time.monotonic(), deadline, "the Check never started")
             time.sleep(0.1)
-        self.commit(where, {"late.txt": "written while it was gated\n"}, "more work")
+        self.commit(where, {"late.txt": "written while it was gated\n"}, "more work", push=False)
         open(gate, "w").close()
         done = self.settle(where, "fix/pushed-under")
         self.assertEqual(done.returncode, 7, done.stdout)

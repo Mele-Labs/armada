@@ -17,7 +17,7 @@ use super::stop::Refused;
 
 pub struct Queued {
     pub branch: String,
-    pub pull_request: u64,
+    pub pull_request: Option<u64>,
     pub ahead: usize,
 }
 
@@ -80,14 +80,13 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
             detail: "in line".to_string(),
             updated: SystemClock::new().now().as_str().to_string(),
             runner: std::process::id(),
-            pr: Some(stamp.pr),
+            pr: stamp.pr,
             place: Some(place),
             logs: Vec::new(),
             failed: Vec::new(),
             already: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
-            pushed: None,
             gated_base: None,
             candidate: None,
             merge_commit: None,
