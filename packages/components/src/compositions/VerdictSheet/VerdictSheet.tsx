@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
+import { Prose } from "../../primitives/Prose/Prose";
+
 /**
  * Verdict sheet — the record job detail shows at the one place a Job stops for
  * a person, and again once it is over. One page, read top to bottom: what was
@@ -48,14 +50,15 @@ export type VerdictSheetProps = {
    * The brief — Fleet's own `why` section, the same words the pull request's
    * "Why was the change needed?" carries. Absent where Fleet has composed no
    * review yet, which draws as the title alone, unchanged from before `#665`.
+   * Markdown, drawn through `Prose`.
    */
-  brief?: ReactNode;
+  brief?: string;
   /** The acceptance criteria the Job was frozen with, one line each. */
   criteria: readonly ReactNode[];
   /** What stands in for the criteria list where the Job carries none. */
   criteriaAbsent?: ReactNode;
-  /** What the Drone says it did — the Drone's own claim, `Submitted.claimed`. */
-  cameBack: ReactNode;
+  /** What the Drone says it did — the Drone's own claim, `Submitted.claimed`, in its markdown. */
+  cameBack: string;
   /** The deliverable this step kept, as a control that opens it. */
   deliverable?: ReactNode;
   /**
@@ -71,11 +74,15 @@ export type VerdictSheetProps = {
   /**
    * What nothing checked, and what the base carries that this Job did not
    * write — Fleet's own `risks` section, the same words the pull request's
-   * "Risks" carries. Absent where Fleet has composed no review yet.
+   * "Risks" carries. Absent where Fleet has composed no review yet. Markdown,
+   * drawn through `Prose`.
    */
-  risks?: ReactNode;
-  /** What the Drone says it left alone — `Submitted.not_claimed`, or why there is nothing here. */
-  leftAlone: ReactNode;
+  risks?: string;
+  /**
+   * What the Drone says it left alone — `Submitted.not_claimed`, or why there
+   * is nothing here. Markdown, drawn through `Prose`.
+   */
+  leftAlone: string;
   /** The figures, in the order the drawing runs them. */
   figures: readonly VerdictFigure[];
   /** A standing sentence above the buttons — what merging costs, what ending here means. */
@@ -116,7 +123,11 @@ export function VerdictSheet({
     <>
       <Block label="What you asked for">
         <p className="armada-verdict__lede">{title}</p>
-        {brief === undefined ? null : <p className="armada-verdict__said">{brief}</p>}
+        {brief === undefined ? null : (
+          <div className="armada-verdict__said">
+            <Prose text={brief} />
+          </div>
+        )}
         {criteria.length === 0 ? (
           criteriaAbsent === undefined ? null : (
             <p className="armada-verdict__said">{criteriaAbsent}</p>
@@ -131,7 +142,9 @@ export function VerdictSheet({
       </Block>
 
       <Block label="What the Drone says it did">
-        <p className="armada-verdict__said">{cameBack}</p>
+        <div className="armada-verdict__said">
+          <Prose text={cameBack} />
+        </div>
         {deliverable === undefined ? null : (
           <div className="armada-verdict__document">{deliverable}</div>
         )}
@@ -143,7 +156,9 @@ export function VerdictSheet({
 
       {risks === undefined ? null : (
         <Block label="What nothing checked">
-          <p className="armada-verdict__said">{risks}</p>
+          <div className="armada-verdict__said">
+            <Prose text={risks} />
+          </div>
         </Block>
       )}
 
@@ -155,7 +170,9 @@ export function VerdictSheet({
       </Block>
 
       <Block label="What the Drone says it left alone">
-        <p className="armada-verdict__said">{leftAlone}</p>
+        <div className="armada-verdict__said">
+          <Prose text={leftAlone} />
+        </div>
       </Block>
 
       <ul className="armada-verdict__figures">

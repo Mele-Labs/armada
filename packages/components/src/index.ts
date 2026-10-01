@@ -362,7 +362,9 @@ export * from "./compositions/DispatchSettings/DroneCap";
 export * from "./compositions/GroupShape/GroupShape";
 export * from "./compositions/JobProposal/JobProposal";
 // Settings draws two of the proposal's regions on their own, frozen: what no
-// other destination holds once a Job is approved.
+// other destination holds once a Job is approved. Overview draws what it is
+// held to and its gates under the lead while it waits to be approved.
+export * from "./compositions/JobProposal/ProposalDoneWhen";
 export * from "./compositions/JobProposal/ProposalFields";
 export * from "./compositions/JobProposal/ProposalGates";
 export * from "./compositions/JobProposal/ProposalLanding";

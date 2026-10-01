@@ -141,3 +141,35 @@ export const OneEntry: Story = {
     ],
   },
 };
+
+/**
+ * A Drone writes its claim in markdown, and the trail draws the structure it
+ * wrote rather than its asterisks and backticks. `shown_by` is an artifact and
+ * stays literal mono.
+ */
+export const MarkdownInTheClaim: Story = {
+  args: {
+    entries: [
+      {
+        icon: NO_GLYPH_IN_REGISTRY,
+        iconLabel: "Evidence",
+        step: "Plan the change",
+        provenance: provenance("09:14", "facts_note", "no check"),
+        claimed:
+          "`settings.rs` is split in two, with **no change in behaviour**:\n\n- the reducer\n- the selectors",
+        shownBy: "src/settings.rs → src/settings/reducer.rs, src/settings/selectors.rs",
+        notClaimed: "Nothing about the **settings UI**.",
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
+    await expect(strong).toEqual(["no change in behaviour", "settings UI"]);
+    await expect(canvas.getByRole("code")).toHaveTextContent("settings.rs");
+    // The trail is itself a list, so its entry is a list item beside the two
+    // the claim wrote.
+    const items = canvas.getAllByRole("listitem").map((one) => one.textContent);
+    await expect(items).toEqual(expect.arrayContaining(["the reducer", "the selectors"]));
+    await expect(canvas.queryByText(/\*\*/)).toBeNull();
+  },
+};
