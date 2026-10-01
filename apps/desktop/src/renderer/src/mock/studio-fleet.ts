@@ -162,7 +162,7 @@ function legend(): Studio {
       // One Note with the picture it kept and one without: both are Notes, and only one draws a plate.
       { id: "legend-note", kind: "note", said: "The legend under the step bar is unreadable", capture: pointedAt("legend-note"), position: { x: 0, y: 0 }, created_at: at },
       { id: "legend-width", kind: "note", said: "It wraps at 720 wide", position: { x: 0, y: 300 }, created_at: at },
-      { id: "legend-finding", kind: "finding", asked: "Where do the legend's colours come from?", state: "frozen", position: { x: 340, y: 0 }, created_at: at },
+      { id: "legend-finding", kind: "finding", asked: "Where do the legend's colours come from?", position: { x: 340, y: 0 }, created_at: at },
       { id: "legend-draft", kind: "issue_draft", title: "The Board's legend is illegible", body: "…", state: "draft", position: { x: 680, y: 110 }, created_at: at },
       // Two addresses to read in — #1293. An Issue, and an Epic, which fills
       // the board with a node per issue and runs no scout.
@@ -608,7 +608,7 @@ export function everyKind(jobId: string): Studio {
       position: place(1, 2),
       created_at: MADE,
     },
-    { id: "every-finding", kind: "finding", asked: "Where do the legend's colours come from?", state: "frozen", position: place(2, 2), created_at: MADE },
+    { id: "every-finding", kind: "finding", asked: "Where do the legend's colours come from?", position: place(2, 2), created_at: MADE },
     { id: "every-finding-asked", kind: "finding", asked: "Which states share a token?", state: "proposed", position: place(2, 3), created_at: MADE },
     {
       id: "every-contradiction",
@@ -791,7 +791,7 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
 /**
  * An address read in — #1293, #1394. **What Fleet fetched is decided here by
  * the address**, since a mock has no network: an Epic fills in as one Issue per
- * issue with no scout, and every other source leaves a frozen Finding beside
+ * issue with no scout, and every other source leaves an ended Finding beside
  * the Notes and the Contradiction its scout asked for.
  */
 function readIn(studio: Studio, nodeId: string, position: { x: number; y: number }, take: EpicTake): Studio {
@@ -809,11 +809,8 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     learned: "Two claims, and one of them disagrees with the checkout.",
     ended: { outcome: "answered", cost_micros: 3_100 },
   };
-  const frozen = made(studio, finding, [nodeId], down(0));
-  const marked = {
-    ...frozen,
-    nodes: frozen.nodes.map((node) => (node.kind === "finding" && node.state === undefined ? { ...node, state: "frozen" } : node)),
-  };
+  // Ended, so no state: `frozen` went on 1 Oct 2026.
+  const marked = made(studio, finding, [nodeId], down(0));
   const noted = made(marked, { kind: "note", said: "The issue wants Links read in as a second, refusable step" }, [nodeId], { x: position.x + 340, y: position.y });
   const twice = made(noted, { kind: "note", said: "It names the forge, web pages, sessions and Helm threads as the first sources" }, [nodeId], { x: position.x + 340, y: position.y + 180 });
   const contradicted = made(

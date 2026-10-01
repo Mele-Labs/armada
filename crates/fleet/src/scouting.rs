@@ -1,5 +1,5 @@
 //! A scout on a Studio: started on a person's ask, its Finding kept as it
-//! reads, frozen however it ends, and stopped from its node. `#1292`.
+//! reads, ended however it ends, and stopped from its node. `#1292`.
 //!
 //! **What it read is written as each read is answered**, so a Finding a person
 //! is watching fills in while it is Gathering, and one Fleet lost track of
@@ -14,9 +14,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{
-    FrozenFinding, GatheringFinding, ScoutCheckout, ScoutEnded, ScoutOutcome, Scouted,
-    StudioEdgeId, StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId,
-    StudioNodeKind, StudioNodeState,
+    EndedFinding, GatheringFinding, ScoutCheckout, ScoutEnded, ScoutOutcome, Scouted, StudioEdgeId,
+    StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind,
+    StudioNodeState,
 };
 use ipc::{AskScout, ManifestId, StartScout, StopScout, WireError};
 use store::StudioError;
@@ -161,7 +161,7 @@ where
         self.studio_now(&studio_id, within).await
     }
 
-    /// Every Finding a restart left Gathering, frozen as failed and keeping
+    /// Every Finding a restart left Gathering, ended as failed and keeping
     /// what it read. **Read once, at start**: no scout outlives the Fleet that
     /// was reading it.
     pub(crate) async fn scouts_left_gathering(&self) {
@@ -171,8 +171,8 @@ where
             return;
         };
         for (studio, gathering) in left {
-            let frozen = gathering.frozen(None, failed(LOST));
-            if self.kept(&studio, &frozen).await.is_ok() {
+            let ended = gathering.end(None, failed(LOST));
+            if self.kept(&studio, &ended).await.is_ok() {
                 self.studio_published(&studio).await;
             }
         }
@@ -183,7 +183,7 @@ where
     ///
     /// `told` is the whole of its one turn — section 5b asked about the code,
     /// section 5c reading a source in. `read_in` names the Link whose read-in
-    /// this is, and is what makes the freeze mint nodes off it. `#1293`.
+    /// this is, and is what makes its end mint nodes off it. `#1293`.
     pub(crate) async fn scouting(
         self: Arc<Self>,
         studio: StudioId,
@@ -200,7 +200,7 @@ where
             Err(why) => {
                 self.scouts().ended(&node);
                 let _ = self
-                    .freeze(&studio, gathering, None, failed(&why), read_in)
+                    .scout_ended(&studio, gathering, None, failed(&why), read_in)
                     .await;
                 return;
             }
@@ -227,7 +227,7 @@ where
             self.scouts().ended(&node);
             if !gone {
                 let _ = self
-                    .freeze(&studio, gathering, learned, ended, read_in)
+                    .scout_ended(&studio, gathering, learned, ended, read_in)
                     .await;
             }
         });
@@ -250,7 +250,7 @@ where
         }
     }
 
-    async fn freeze(
+    async fn scout_ended(
         &self,
         studio: &StudioId,
         gathering: GatheringFinding,
@@ -258,13 +258,13 @@ where
         ended: ScoutEnded,
         read_in: Option<StudioNodeId>,
     ) -> Result<(), StudioError> {
-        let frozen: FrozenFinding = gathering.frozen(learned, ended);
-        self.kept(studio, &frozen).await?;
+        let ended: EndedFinding = gathering.end(learned, ended);
+        self.kept(studio, &ended).await?;
         // **After the Finding is kept, never instead of it.** What a read-in
         // produced is the scout's answer read back; the Finding is the record
         // that it ran, and one without the other is half a read-in.
         if let Some(link) = read_in {
-            self.what_came_back(studio, &link, &frozen).await;
+            self.what_came_back(studio, &link, &ended).await;
         }
         self.studio_published(studio).await;
         Ok(())
@@ -369,7 +369,7 @@ where
                 format!(
                     "`{}` is {}, and only a Proposed Finding is started",
                     node_id.as_str(),
-                    other.map(|state| state.as_wire()).unwrap_or("stateless")
+                    other.map(|state| state.as_wire()).unwrap_or("ended")
                 ),
                 self.run_id(),
             ))),

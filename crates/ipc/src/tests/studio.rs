@@ -184,6 +184,21 @@ fn a_node_of_a_kind_the_studio_has_no_name_for_does_not_decode() {
     decode::<StudioNodeContent>("content", body).expect_err("not a kind");
 }
 
+/// **No node is `frozen`** since 21.0, decided with the owner on 1 Oct 2026:
+/// a Finding or an Outline naming it does not decode, and each without it does.
+#[test]
+fn a_finding_or_an_outline_naming_frozen_does_not_decode() {
+    let tail = r#""position":{"x":0,"y":0},"created_at":"2026-10-01T09:00:00.000Z"}"#;
+    let finding = r#"{"id":"01F","kind":"finding","asked":"how is routing decided","#;
+    let outline = r#"{"id":"01O","kind":"outline","body":"Capture on Bridge","#;
+    for node in [finding, outline] {
+        let frozen = format!(r#"{node}"state":"frozen",{tail}"#);
+        decode::<crate::StudioNode>("a node", frozen.as_bytes()).expect_err("frozen is gone");
+        let without = format!("{node}{tail}");
+        decode::<crate::StudioNode>("a node", without.as_bytes()).expect("a node");
+    }
+}
+
 /// **A File is its path and nothing else**, so an `add_node` body naming the
 /// kind without a path, or with a path that is not text, is refused by the
 /// decoder before any daemon is asked.
