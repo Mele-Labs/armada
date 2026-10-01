@@ -74,6 +74,12 @@ export type StudioNodeContent =
    */
   | { kind: "file"; path: string }
   /**
+   * An image a person pasted: the frame Fleet kept, named as a Note's
+   * `capture.frame` is and fetched from `get_studio_frame` the same way. No
+   * words are asked for. Since 18.5.
+   */
+  | { kind: "picture"; frame: CaptureFrame }
+  /**
    * An issue on a forge. Since 14.18, #1394.
    *
    * `address` and `number` were read off the address when the node was made;
@@ -212,15 +218,22 @@ export type RenameStudio = { name: string };
 /**
  * `POST /studios/:studio_id/add_node`. A node starts in its kind's first state.
  * `produced_by` names the node that made this one, and the Studio draws the edge.
+ *
+ * **A Picture is added staged, never kept**: a body naming `frame` is refused
+ * by Fleet's decoder, since a kept frame is a file name Fleet chose. Since 18.5.
  */
-export type AddStudioNode = StudioNodeContent & {
+export type AddStudioNode = (
+  | Exclude<StudioNodeContent, { kind: "picture" }>
+  | { kind: "picture"; staged: StagedFrame }
+) & {
   position: StudioPosition;
   produced_by?: string;
 };
 
 /**
  * What a person puts on a Studio by hand — a Note typed, a Link pasted, a
- * Sketch placed, a File's path pasted. Since 14.12, #1364; a File since 18.5.
+ * Sketch placed, a File's path pasted, a Picture pasted. Since 14.12, #1364; a
+ * File and a Picture since 18.5.
  *
  * **Narrower than `StudioNodeContent` on purpose.** Fleet refuses every other
  * kind from Bridge as `fleet.studio_node_not_a_persons`, because each is made
@@ -247,7 +260,15 @@ export type StudioNodeByHand =
   | { kind: "link"; address: string; said?: string }
   | { kind: "sketch"; body: string }
   /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 18.5. */
-  | { kind: "file"; path: string };
+  | { kind: "file"; path: string }
+  /**
+   * An image, as the PNG staged on disk. **Only Bridge's main builds this**,
+   * from bytes it staged itself: the renderer never names a path, and Fleet
+   * copies the file into its own keeping and answers with the Picture naming
+   * it. Over 4 MiB is refused as `fleet.studio_frame_too_large`, and a file
+   * Fleet cannot read as `fleet.studio_frame_unreadable`. Since 18.5.
+   */
+  | { kind: "picture"; staged: StagedFrame };
 
 /**
  * What a Note keeps of where a person pointed — the development annotation
@@ -276,7 +297,7 @@ export type StudioCapture = {
    */
   source?: string;
   /** The frame Fleet kept beside the Studio's records. */
-  frame?: { filename: string; byte_size: number; width: number; height: number };
+  frame?: CaptureFrame;
   /**
    * The server this Note was captured on, in the capture window — #1294, since
    * 17.1. **Absent on every Note captured on Bridge**, which is every Note
@@ -291,6 +312,13 @@ export type StudioCapture = {
  * was pinned to. `location` above is the path within that origin.
  */
 export type CaptureServed = { run: string; name: string; address: string };
+
+/**
+ * A frame Fleet kept beside the Studio's records: its file name under the
+ * Studio's own directory, what it weighs, and its pixels. A Note's capture
+ * keeps one, and a Picture is one.
+ */
+export type CaptureFrame = { filename: string; byte_size: number; width: number; height: number };
 
 /** The PNG Bridge took, written to disk before the request. Never read back. */
 export type StagedFrame = { staged_path: string; width: number; height: number };

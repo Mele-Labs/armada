@@ -124,6 +124,16 @@ dispatches = false
 not_called = []
 notes = "Decided with the owner, 1 Oct 2026: a pasted path lands as a File. Kept exactly as pasted, trimmed — absolute, under `~` or relative to the repository — and Fleet neither resolves it nor checks that it exists."
 
+[nodes.picture]
+name = "Picture"
+holds = "An image a person pasted, kept as a file beside the Studio's records the way a Note's frame is"
+states = []
+status_colour = false
+added_by_hand = true
+dispatches = false
+not_called = []
+notes = "Decided with the owner, 28 Sep 2026: a screenshot pasted onto a Studio is a Picture, the image alone and no words required. Kept by the same path, under the same 4 MiB cap, as a Note's frame."
+
 [nodes.issue]
 name = "Issue"
 holds = "An issue on a forge: its address, its number, a line of the person's own, and its title and state where it has been read in"

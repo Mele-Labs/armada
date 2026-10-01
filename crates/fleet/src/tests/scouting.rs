@@ -306,7 +306,9 @@ async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
         .add_studio_node(
             studio.id.clone(),
             AddStudioNode {
-                content: StudioNodeContent::finding_asked("what reads the weights"),
+                content: StudioNodeContent::finding_asked("what reads the weights")
+                    .try_into()
+                    .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
             },
@@ -349,7 +351,7 @@ async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
         .add_studio_node(
             studio.id.clone(),
             AddStudioNode {
-                content: claimed,
+                content: claimed.try_into().expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
             },

@@ -153,7 +153,9 @@ async fn a_link(fleet: &Arc<Reading>, address: &str) -> (ipc::Studio, ipc::Studi
                     address: address.to_string(),
                     said: None,
                     named: None,
-                },
+                }
+                .try_into()
+                .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
             },
@@ -482,7 +484,9 @@ async fn a_board_stays_a_link_and_a_note_is_not_read_in() {
                 content: StudioNodeContent::Note {
                     said: "the rail is unreadable".to_string(),
                     capture: None,
-                },
+                }
+                .try_into()
+                .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 200 },
                 produced_by: None,
             },
@@ -546,7 +550,9 @@ async fn narrowing_takes_back_a_closed_issue_and_keeps_one_a_note_hangs_off() {
                         content: StudioNodeContent::Note {
                             said: "this one shipped without the legend".to_string(),
                             capture: None,
-                        },
+                        }
+                        .try_into()
+                        .expect("not a picture"),
                         position: StudioPosition { x: 900, y: 0 },
                         produced_by: Some(closed.clone()),
                     },

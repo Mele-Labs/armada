@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::capturing::StudioCapture;
+use crate::capturing::{CaptureFrame, StudioCapture};
 use crate::enums::{
     StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeState, StudioRelation,
 };
@@ -19,6 +19,7 @@ use crate::ids::{Instant, JobId, ManifestId, StudioEdgeId, StudioId, StudioNodeI
 use crate::rehearsal::CheckoutRunUnderway;
 use crate::scouting::{ScoutCheckout, ScoutEnded, ScoutSource};
 use crate::servers::ServerState;
+use crate::studio_added::StudioNodeAdded;
 
 /// Every Studio one repository keeps, the last touched first — `list_studios`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,6 +168,13 @@ pub enum StudioNodeContent {
     /// trimmed**: Fleet neither resolves it nor checks that it exists.
     File {
         path: String,
+    },
+    /// An image a person pasted: the frame Fleet kept, named as a Note's
+    /// `capture.frame` is and fetched by `get_studio_frame` the same way. Since
+    /// 18.5. **Never in a write**: `add_studio_node` takes a [`StudioNodeAdded`]
+    /// whose Picture carries the staged file instead.
+    Picture {
+        frame: CaptureFrame,
     },
     /// An issue on a forge — `#1394`. `address` and `number` were read off the
     /// address when the node was made; `title` and `state` were read off the
@@ -472,8 +480,9 @@ pub struct RenameStudio {
 /// kind's first one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddStudioNode {
+    /// Any content but a Picture as read: a Picture arrives staged. Since 18.5.
     #[serde(flatten)]
-    pub content: StudioNodeContent,
+    pub content: StudioNodeAdded,
     pub position: StudioPosition,
     /// The node on this Studio that made this one. The Studio draws the
     /// `produced` edge itself.
@@ -834,6 +843,14 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 named,
             },
             C::File { path } => StudioNodeContent::File { path },
+            C::Picture { frame } => StudioNodeContent::Picture {
+                frame: CaptureFrame {
+                    filename: frame.filename,
+                    byte_size: frame.byte_size,
+                    width: frame.width,
+                    height: frame.height,
+                },
+            },
             C::Issue {
                 address,
                 number,
@@ -939,6 +956,16 @@ impl StudioNodeContent {
             // Trimmed here, as a Link's line is; a blank path is refused by
             // `blank`, on the way in.
             StudioNodeContent::File { path } => C::file(&path),
+            // Only ever a read: no write carries one, because `AddedContent`
+            // cannot hold a Picture and a Picture's write is its staged file.
+            StudioNodeContent::Picture { frame } => C::Picture {
+                frame: core_model::CaptureFrame {
+                    filename: frame.filename,
+                    byte_size: frame.byte_size,
+                    width: frame.width,
+                    height: frame.height,
+                },
+            },
             // **The number does not decode into a write either.** What an
             // address names on a forge is `crates/adapters`' reading, made
             // once when the node was made, so a request naming a kind and a

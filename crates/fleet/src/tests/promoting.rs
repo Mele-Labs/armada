@@ -102,7 +102,7 @@ async fn added(fleet: &Fixture, studio: &Studio, content: StudioNodeContent) -> 
         .add_studio_node(
             studio.id.clone(),
             AddStudioNode {
-                content,
+                content: content.try_into().expect("not a picture"),
                 position: at(0, 0),
                 produced_by: None,
             },

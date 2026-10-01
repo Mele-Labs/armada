@@ -104,6 +104,7 @@ pub(super) fn written(content: &StudioNodeContent) -> String {
             Value::Object(link)
         }
         StudioNodeContent::File { path } => json!({ "path": path }),
+        StudioNodeContent::Picture { frame } => json!({ "frame": frame_written(frame) }),
         // **Each of the three writes what it holds and nothing more**, so a
         // node whose title and state no read-in has resolved reads back as one
         // that has not, rather than as one whose forge said nothing.
@@ -229,6 +230,14 @@ pub(super) fn read(kind: &str, stored: &str) -> Result<StudioNodeContent, Unread
         },
         StudioNodeKind::File => StudioNodeContent::File {
             path: text("path")?,
+        },
+        StudioNodeKind::Picture => StudioNodeContent::Picture {
+            frame: frame_read(
+                object
+                    .get("frame")
+                    .ok_or(UnreadableContent::MissingField { field: "frame" })?,
+                "frame.byte_size",
+            )?,
         },
         // **Read through `on_the_forge` and `resolved`**, the domain's own two
         // constructors, so this module never spells one of the three kinds'
@@ -590,15 +599,7 @@ fn capture_written(capture: &StudioCapture) -> Value {
         object.insert("source".into(), json!(source));
     }
     if let Some(frame) = &capture.frame {
-        object.insert(
-            "frame".into(),
-            json!({
-                "filename": frame.filename,
-                "byte_size": frame.byte_size,
-                "width": frame.width,
-                "height": frame.height,
-            }),
-        );
+        object.insert("frame".into(), frame_written(frame));
     }
     // Absent on every Note captured on Bridge, which is every Note before
     // `#1294` — so no stored row is rewritten to keep saying what it said.
@@ -686,15 +687,7 @@ fn capture_read(stored: &Value) -> Result<StudioCapture, UnreadableContent> {
         source: maybe("source"),
         frame: match stored.get("frame") {
             None => None,
-            Some(frame) => Some(CaptureFrame {
-                filename: said(frame, "filename")?,
-                byte_size: frame
-                    .get("byte_size")
-                    .and_then(Value::as_u64)
-                    .ok_or(missing("capture.frame.byte_size"))?,
-                width: whole(Some(frame), "width")?,
-                height: whole(Some(frame), "height")?,
-            }),
+            Some(frame) => Some(frame_read(frame, "capture.frame.byte_size")?),
         },
         served: match stored.get("served") {
             None => None,
@@ -704,5 +697,40 @@ fn capture_read(stored: &Value) -> Result<StudioCapture, UnreadableContent> {
                 address: said(served, "address")?,
             }),
         },
+    })
+}
+
+/// A kept frame, written the same under a Note's capture and on a Picture.
+fn frame_written(frame: &CaptureFrame) -> Value {
+    json!({
+        "filename": frame.filename,
+        "byte_size": frame.byte_size,
+        "width": frame.width,
+        "height": frame.height,
+    })
+}
+
+/// A kept frame read back. `byte_size` names where it sits, so a Note's and a
+/// Picture's are told apart when one will not read.
+fn frame_read(stored: &Value, byte_size: &'static str) -> Result<CaptureFrame, UnreadableContent> {
+    let missing = |field: &'static str| UnreadableContent::MissingField { field };
+    let whole = |field: &'static str| {
+        stored
+            .get(field)
+            .and_then(Value::as_i64)
+            .ok_or(missing(field))
+    };
+    Ok(CaptureFrame {
+        filename: stored
+            .get("filename")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or(missing("filename"))?,
+        byte_size: stored
+            .get("byte_size")
+            .and_then(Value::as_u64)
+            .ok_or(missing(byte_size))?,
+        width: whole("width")?,
+        height: whole("height")?,
     })
 }

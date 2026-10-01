@@ -167,10 +167,11 @@ DROP TABLE studio_nodes_parked;
 DROP TABLE studio_edges_parked;
 "#;
 
-/// Version 84 — a File is a node kind: a path a person pasted. Decided with
-/// the owner, 1 Oct 2026.
+/// Version 84 — a File and a Picture are node kinds: a path a person pasted,
+/// decided with the owner on 1 Oct 2026, and an image a person pasted, decided
+/// with him on 28 Sep 2026.
 ///
-/// **[`V79`]'s rebuild, with one more kind in the `CHECK`**, for its reasons:
+/// **[`V79`]'s rebuild, with two more kinds in the `CHECK`**, for its reasons:
 /// SQLite cannot widen a `CHECK`, a rename rewrites the edges' `REFERENCES`,
 /// and the edges go first because their cascade cannot be turned off inside a
 /// transaction. Every column and every other constraint is V79's, and no row
@@ -186,8 +187,8 @@ CREATE TABLE studio_nodes (
     id         TEXT PRIMARY KEY,
     studio_id  TEXT NOT NULL REFERENCES studios (id) ON DELETE CASCADE,
     kind       TEXT NOT NULL CHECK (kind IN ('run', 'note', 'cluster', 'finding',
-               'contradiction', 'sketch', 'link', 'file', 'issue', 'pull_request', 'epic',
-               'deferral', 'outline', 'issue_draft', 'job')),
+               'contradiction', 'sketch', 'link', 'file', 'picture', 'issue', 'pull_request',
+               'epic', 'deferral', 'outline', 'issue_draft', 'job')),
     state      TEXT CHECK (state IS NULL OR state IN ('proposed', 'gathering', 'frozen',
                'reported', 'issue_draft', 'deferral', 'not_a_problem', 'resolved_here', 'open',
                'answered', 'draft')),

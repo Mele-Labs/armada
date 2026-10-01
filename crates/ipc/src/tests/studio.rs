@@ -39,6 +39,14 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             named: None,
         },
         K::File => C::file("crates/fleet/src/briefing.rs"),
+        K::Picture => C::Picture {
+            frame: core_model::CaptureFrame {
+                filename: "01PICTURE.png".to_string(),
+                byte_size: 2048,
+                width: 1280,
+                height: 800,
+            },
+        },
         // **Built through the domain's own constructor**, which is the only
         // way to reach one of the three — `#1394`. Nothing in this crate
         // spells their fields, and nothing here reads an address.
@@ -189,13 +197,67 @@ fn a_file_without_a_path_as_text_does_not_decode() {
     }
     let body = format!(r#"{{"kind":"file","path":" ~/plan.md ",{at}}}"#);
     let added = decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect("a File");
+    let crate::StudioNodeAdded::Content(content) = added.content else {
+        panic!("a File is content");
+    };
     assert_eq!(
-        added.content.to_domain(),
+        content.to_domain(),
         core_model::StudioNodeContent::File {
             path: "~/plan.md".to_string()
         },
         "trimmed on the way in"
     );
+}
+
+/// **A Picture reads back as the frame Fleet kept**, in a Note's
+/// `capture.frame` field names, and is added as the file Bridge staged.
+#[test]
+fn a_picture_reads_as_its_frame_and_is_added_as_its_staged_file() {
+    let read = StudioNodeContent::from(&content_of(core_model::StudioNodeKind::Picture));
+    assert_eq!(
+        encode(&read).expect("plain data"),
+        r#"{"kind":"picture","frame":{"filename":"01PICTURE.png","byte_size":2048,"width":1280,"height":800}}"#
+    );
+
+    let body = br#"{"kind":"picture","staged":{"staged_path":"/tmp/a.png","width":640,"height":400},"position":{"x":3,"y":4}}"#;
+    let added = decode::<crate::AddStudioNode>("a node", body).expect("a Picture");
+    assert_eq!(
+        added.content,
+        crate::StudioNodeAdded::Picture {
+            staged: crate::StagedFrame {
+                staged_path: "/tmp/a.png".to_string(),
+                width: 640,
+                height: 400,
+            },
+        }
+    );
+    assert_eq!(added.position.x, 3);
+    assert_eq!(
+        encode(&added).expect("plain data").as_bytes(),
+        body,
+        "and writes back as it was sent"
+    );
+}
+
+/// **A request never names a kept frame.** A Picture's `frame` is a file name
+/// Fleet chose and `get_studio_frame` opens, so a body naming one — instead of
+/// `staged`, or beside it — is refused by the decoder, and so is a Picture with
+/// nothing staged. A Picture as read cannot be made into a write either.
+#[test]
+fn a_picture_naming_a_kept_frame_or_nothing_staged_does_not_decode() {
+    let at = r#""position":{"x":0,"y":0}"#;
+    let frame = r#""frame":{"filename":"../../elsewhere.png","byte_size":1,"width":1,"height":1}"#;
+    let staged = r#""staged":{"staged_path":"/tmp/a.png","width":1,"height":1}"#;
+    for body in [
+        format!(r#"{{"kind":"picture",{frame},{at}}}"#),
+        format!(r#"{{"kind":"picture",{frame},{staged},{at}}}"#),
+        format!(r#"{{"kind":"picture",{at}}}"#),
+        format!(r#"{{"kind":"picture","staged":"/tmp/a.png",{at}}}"#),
+    ] {
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err(&body);
+    }
+    let read = StudioNodeContent::from(&content_of(core_model::StudioNodeKind::Picture));
+    crate::StudioNodeAdded::try_from(read).expect_err("a Picture as read is no write");
 }
 
 /// **Helm's act is its own kind**, flat: which act beside the ids, and the

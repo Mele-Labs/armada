@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Redirector, Refusal, Studios};
 use core_model::{
     Studio, StudioAuthor, StudioEdge, StudioEdgeId, StudioGraph, StudioId, StudioName, StudioNode,
-    StudioNodeContent, StudioNodeId, StudioNodeState, ToItself,
+    StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, ToItself,
 };
 use std::sync::Arc;
 
@@ -23,8 +23,8 @@ use ipc::{
     DispatchStudioDraft, EditStudioDraft, EditStudioLink, GroupStudioNodes, HelmStudioAct,
     ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, StudioDeleted,
-    StudioHelmActed, StudioList, StudioRunStarted, StudioServerStarted, StudioSummary, WireError,
-    WriteUpStudioNode,
+    StudioHelmActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
+    StudioSummary, WireError, WriteUpStudioNode,
 };
 use store::{LoadJobError, Store, StudioError};
 
@@ -186,11 +186,41 @@ where
         std::path::Path::new(&self.host().studio_frames_dir).join(studio_id.as_str())
     }
 
+    /// Whether `by` may add a node of `kind` at all, asked before anything is
+    /// written — a Picture's file included.
+    pub(crate) fn addable_by(&self, kind: StudioNodeKind, by: Redirector) -> Result<(), Refusal> {
+        if by == Redirector::Helm && !kind.starts_proposed() {
+            return Err(self.studio_unacceptable(
+                NODE_NOT_HELMS,
+                format!(
+                    "Helm adds only a node that starts proposed, and a {} is a person's to add",
+                    kind.as_wire()
+                ),
+            ));
+        }
+        // **And a person adds only what a person makes**, `#1364`: a Note
+        // typed, a Link pasted, a Sketch placed, a File's path or a Picture
+        // pasted. Every other kind is made by the act that earns it, and one
+        // added by hand would carry a claim nothing stands behind — a Finding
+        // no scout read for, a Cluster nothing was grouped into.
+        if by == Redirector::Person && !kind.added_by_hand() {
+            return Err(self.studio_unacceptable(
+                NODE_NOT_A_PERSONS,
+                format!(
+                    "a person adds a note, a link, a sketch, a file or a picture by hand, and a \
+                     {} is made by the act that earns it",
+                    kind.as_wire()
+                ),
+            ));
+        }
+        Ok(())
+    }
+
     /// Copy a staged PNG into the Studio's own keeping, named for the node it
     /// belongs to. **Refused, not dropped**, for the reason `drafting`'s
     /// attachments are: a person who saw a frame taken and gets a Note with
     /// none is worse off than one whose capture was refused.
-    fn frame_kept(
+    pub(crate) fn frame_kept(
         &self,
         studio_id: &StudioId,
         node_id: &StudioNodeId,
@@ -313,21 +343,16 @@ where
                         format!("no node of this Studio is `{}`", wanted.as_str()),
                     )
                 })?;
-            let kept = match node.content() {
-                StudioNodeContent::Note {
-                    capture: Some(capture),
-                    ..
-                } => capture.frame.as_ref(),
-                _ => None,
-            };
-            kept.ok_or_else(|| {
-                self.studio_unacceptable(
-                    NO_FRAME_KEPT,
-                    format!("node `{}` kept no frame", wanted.as_str()),
-                )
-            })?
-            .filename
-            .clone()
+            node.content()
+                .frame()
+                .ok_or_else(|| {
+                    self.studio_unacceptable(
+                        NO_FRAME_KEPT,
+                        format!("node `{}` kept no frame", wanted.as_str()),
+                    )
+                })?
+                .filename
+                .clone()
         };
         let path = self.studio_frames(&id).join(&filename);
         std::fs::read(&path)
@@ -437,7 +462,14 @@ where
         by: Redirector,
         within: Option<ManifestId>,
     ) -> Result<ipc::Studio, Refusal> {
-        let content = add.content.to_domain();
+        let content = match add.content {
+            StudioNodeAdded::Picture { staged } => {
+                return self
+                    .picture_added(studio_id, staged, add.position, add.produced_by, by, within)
+                    .await
+            }
+            StudioNodeAdded::Content(content) => content.to_domain(),
+        };
         // **A Run node is made by starting a run, and by nothing else.** What
         // one keeps of a swept run is read off the run's own record, so a Run
         // node reachable here would be a way to write a result that no run
@@ -470,30 +502,7 @@ where
                 ));
             }
         }
-        if by == Redirector::Helm && !content.kind().starts_proposed() {
-            return Err(self.studio_unacceptable(
-                NODE_NOT_HELMS,
-                format!(
-                    "Helm adds only a node that starts proposed, and a {} is a person's to add",
-                    content.kind().as_wire()
-                ),
-            ));
-        }
-        // **And a person adds only what a person makes**, `#1364`: a Note
-        // typed, a Link pasted, a Sketch placed, a File's path pasted. Every
-        // other kind is made by the act that earns it, and one added by hand
-        // would carry a claim nothing stands behind — a Finding no scout read
-        // for, a Cluster nothing was grouped into.
-        if by == Redirector::Person && !content.kind().added_by_hand() {
-            return Err(self.studio_unacceptable(
-                NODE_NOT_A_PERSONS,
-                format!(
-                    "a person adds a note, a link, a sketch or a file by hand, and a {} is made \
-                     by the act that earns it",
-                    content.kind().as_wire()
-                ),
-            ));
-        }
+        self.addable_by(content.kind(), by)?;
         let at = self.now();
         let node = StudioNode::added(
             StudioNodeId::carried(self.mint().ulid()),
@@ -586,7 +595,7 @@ where
 
     /// Everything a person picked, removed as one write. `#1411`.
     ///
-    /// **Not [`written`](Self::written).** The frames the Notes going kept are
+    /// **Not [`written`](Self::written).** The frames the nodes going kept are
     /// read off the Studio before the write and deleted after it, so this
     /// holds the graph either side of the one transaction rather than handing
     /// a closure to a helper that keeps neither.
@@ -823,19 +832,14 @@ where
 /// with them. `#1411`.
 ///
 /// **Read off the record before the write**, because after it there is no node
-/// left to name the file. A Note captured without a frame and every other kind
-/// contribute nothing.
+/// left to name the file. A Picture's frame goes and so does a captured
+/// Note's; a Note captured without one and every other kind contribute nothing.
 fn frames_kept_by(graph: &StudioGraph, going: &[StudioNodeId]) -> Vec<String> {
     graph
         .nodes
         .iter()
         .filter(|node| going.iter().any(|wanted| wanted == node.id()))
-        .filter_map(|node| match node.content() {
-            StudioNodeContent::Note {
-                capture: Some(pointed),
-                ..
-            } => pointed.frame.as_ref().map(|frame| frame.filename.clone()),
-            _ => None,
-        })
+        .filter_map(|node| node.content().frame())
+        .map(|frame| frame.filename.clone())
         .collect()
 }

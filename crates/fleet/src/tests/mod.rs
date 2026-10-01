@@ -178,6 +178,7 @@ mod snapshotting;
 mod starting;
 mod starting_empty;
 mod stuck;
+mod studio_pictures;
 mod studio_runs;
 mod studio_servers;
 mod studios;

@@ -98,3 +98,63 @@ fn a_studio_written_before_the_file_kind_keeps_everything_and_takes_a_file() {
         "the path and nothing else"
     );
 }
+
+/// **A Picture is its frame and nothing else**, written in the shape a Note's
+/// capture keeps one, and read back whole. V84 admits it from a V83 file, as it
+/// does a File. Decided with the owner, 28 Sep 2026.
+#[test]
+fn a_picture_writes_its_frame_and_reads_it_back() {
+    let dir = TempDir::new();
+    a_v83_file(&dir);
+
+    let mut store = open(&dir);
+    let content = StudioNodeContent::Picture {
+        frame: core_model::CaptureFrame {
+            filename: String::from("01PICTURE.png"),
+            byte_size: 2048,
+            width: 1280,
+            height: 800,
+        },
+    };
+    let at = core_model::Timestamp::from_rfc3339(AT);
+    let node = core_model::StudioNode::added(
+        core_model::StudioNodeId::carried(Ulid::carried("01PICTURE")),
+        content.clone(),
+        core_model::StudioPosition { x: 12, y: 34 },
+        at.clone(),
+        core_model::StudioAuthor::Person,
+    );
+    store
+        .add_studio_node(&old(), &node, None, &at)
+        .expect("a Picture is a kind V84 admits");
+    drop(store);
+
+    let store = open(&dir);
+    let read = store.studio(&old()).expect("reads");
+    let picture = read
+        .nodes
+        .iter()
+        .find(|one| one.id().as_str() == "01PICTURE")
+        .expect("the Picture");
+    assert_eq!(picture.content(), &content);
+    assert_eq!(picture.state(), None, "a Picture holds no state");
+
+    let conn = Connection::open(dir.db()).expect("the same file");
+    let stored: (String, String) = conn
+        .query_row(
+            "SELECT kind, content FROM studio_nodes WHERE id = '01PICTURE'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("the row");
+    assert_eq!(
+        stored,
+        (
+            String::from("picture"),
+            String::from(
+                r#"{"frame":{"byte_size":2048,"filename":"01PICTURE.png","height":800,"width":1280}}"#
+            )
+        ),
+        "the frame and nothing else"
+    );
+}
