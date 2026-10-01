@@ -746,9 +746,11 @@ fn a_request_naming_a_milestone_is_offered_the_workflow_that_runs_one() {
         "a definition that says nothing is offered exactly as before"
     );
 
-    let Ok(Proposal::Resolved(jobs)) =
-        brief.read("workflow: epic\ntitle: Finish the Board milestone", &held, &[])
-    else {
+    let Ok(Proposal::Resolved(jobs)) = brief.read(
+        "workflow: epic\ntitle: Finish the Board milestone",
+        &held,
+        &[],
+    ) else {
         panic!("an answer choosing the offered workflow is a proposal");
     };
     assert_eq!(jobs[0].workflow_id.as_str(), "epic");

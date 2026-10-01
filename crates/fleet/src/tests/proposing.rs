@@ -434,7 +434,9 @@ fn declining_is_read_as_declining_and_not_as_a_workflow_named_none() {
 fn the_call_is_told_the_request_and_every_workflow_with_its_steps() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held, &a_models()).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(question.contains(A_REQUEST), "the request, verbatim");
     for id in ["bug", "feature", "revert"] {
@@ -502,7 +504,9 @@ fn the_three_addresses_a_studio_dispatches_reach_the_proposer_whole_beside_a_lin
         (format!("https://{host}o/r/pull/1391"), Some("code_review")),
         (format!("https://{host}o/r/milestone/17"), Some("epic")),
     ] {
-        let question = Brief::about(&address, &held, &a_models()).question().to_string();
+        let question = Brief::about(&address, &held, &a_models())
+            .question()
+            .to_string();
         assert!(
             question.contains(&format!(
                 "The request, as the person wrote it:\n\n{address}\n"
@@ -566,7 +570,9 @@ fn a_workflow_that_says_what_it_is_for_is_offered_with_it_beside_its_steps() {
     catalogue.push(workflow_for("epic", "Finishing a milestone"));
     let held = held(catalogue);
 
-    let question = Brief::about(A_REQUEST, &held, &a_models()).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(
         question.contains("  epic — epic\n    for: Finishing a milestone\n    only_in_epic\n"),
@@ -581,7 +587,9 @@ fn a_workflow_that_says_what_it_is_for_is_offered_with_it_beside_its_steps() {
 fn a_workflow_that_says_nothing_about_what_it_is_for_is_offered_as_before() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held, &a_models()).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(
         question.contains(
@@ -599,7 +607,9 @@ fn a_workflow_that_says_nothing_about_what_it_is_for_is_offered_as_before() {
 fn the_call_is_told_nothing_about_the_repository_or_the_board() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held, &a_models()).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     for withheld in ["armada.yml", "mechanical_checks", "advance_gate", "/tmp"] {
         assert!(

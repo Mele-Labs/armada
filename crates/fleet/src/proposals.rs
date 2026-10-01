@@ -367,10 +367,11 @@ fn settled(
     // The settings block appears when the line that carries it has ended and
     // said something readable — never empty, which would be a fourth field
     // claiming to have settled nothing.
-    let settings = (read.urgency.is_some() || read.model.is_some()).then(|| ipc::ProposalSettings {
-        urgency: read.urgency.map(ipc::Urgency::from),
-        model: read.model,
-    });
+    let settings =
+        (read.urgency.is_some() || read.model.is_some()).then(|| ipc::ProposalSettings {
+            urgency: read.urgency.map(ipc::Urgency::from),
+            model: read.model,
+        });
     Some(ipc::ProposalSettled {
         workflow_id: read.workflow.as_ref().map(ipc::WorkflowId::from),
         title: read.title,

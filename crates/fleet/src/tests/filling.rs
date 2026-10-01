@@ -87,7 +87,11 @@ fn a_line_still_being_written_settles_nothing() {
 fn the_four_fields_settle_in_the_owners_order() {
     // 1. Workflow — the shape. Nothing else has landed.
     let one = settled(&upto(2));
-    assert_eq!(one.workflow, a_workflow("feature"), "the workflow had not settled");
+    assert_eq!(
+        one.workflow,
+        a_workflow("feature"),
+        "the workflow had not settled"
+    );
     assert_eq!(one.title, None, "the title landed before it was written");
     assert!(one.done_when.is_empty());
     assert_eq!(one.urgency, None);
