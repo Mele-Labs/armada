@@ -8,6 +8,7 @@ import { escalatedEvidenceSuspect, review } from "@armada/screens/src/fixtures/b
 import { running } from "@armada/screens/src/fixtures/build/index";
 import { advancedStep, BUILD_CHECK, diffRead, freshStep, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+import { recorded } from "@armada/screens/src/fixtures/recorded";
 
 /**
  * The same gate as `Review`, holding on a judge question instead of a clean
@@ -55,9 +56,9 @@ export function withRow(fixture: JobFixture, over: Partial<JobSummary>): JobFixt
 }
 
 /** `Fix`, running rather than finished — `running.ts`'s own shape, for the step taking over. */
-export function runningStep(id: string, label: string, ordinal: number): StepDetail {
+export function runningStep(id: string, label: string, place: number): StepDetail {
   return {
-    ...freshStep(id, label, ordinal),
+    ...freshStep(id, label, place),
     state: "running",
     attempts: [{ attempt: 1, outcome: "running", started_at: "2026-09-10T14:30:00Z" }],
     entered_at: "2026-09-10T14:30:00Z",
@@ -197,6 +198,74 @@ export function runningWithSettings(): JobFixture {
       ],
     }),
   };
+}
+
+/**
+ * A `refactor` Job held at its plan, **in the shape `GET /jobs/:job_id` served
+ * for the owner's Job 1 on 1 Oct 2026**: three steps whose `ordinal` counts
+ * from 0, the plan recorded at `plan` and waiting on a person, nothing entered
+ * after it. Built on a recording, so every read around the detail is one a
+ * Fleet served too.
+ */
+export function refactorAtItsPlan(): JobFixture {
+  const base = recorded("done-worktree-given-back");
+  // A step nothing has entered carries the Job's creation as both times.
+  const created = "2026-10-01T18:29:37.596Z";
+  const at = "2026-10-01T18:34:11.365Z";
+  const until = "2026-10-01T18:36:51.494Z";
+  const step = (step_id: string, label: string, ordinal: number, advance_gate: string): StepDetail => ({
+    step_id,
+    label,
+    ordinal,
+    state: "not_started",
+    checks: [],
+    check_runs: [],
+    judge_checks: [{ criteria: 1, gaming_check: false }],
+    advance_gate,
+    delivers: false,
+    overridden: false,
+    judged: [],
+    flagged: [],
+    attempts: [],
+    verdicts: [],
+    entered_at: created,
+    updated_at: created,
+  });
+  const plan: StepDetail = {
+    ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
+    state: "awaiting_human",
+    checks: [{ kind: "plan_recorded" }],
+    check_runs: [{ attempt: 1, name: "plan_recorded", outcome: "passed" }],
+    attempts: [{ attempt: 1, outcome: "awaiting_human", started_at: at, ended_at: until }],
+    entered_at: at,
+    updated_at: until,
+  };
+  if (base.watched.state !== "read") return base;
+  const job = {
+    ...base.job,
+    title: "Retire guide 8 and add guide validation rule",
+    workflow_id: "refactor",
+    status: "awaiting_review",
+    current_step_id: "plan",
+  };
+  // Under the recording's own id, which `watchedRead` would replace with the
+  // built fixtures'.
+  const detail = {
+    ...base.watched.detail,
+    job,
+    steps: [
+      plan,
+      step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      step("handoff", "Review the change", 2, "human_always"),
+    ],
+    work_plan: {
+      approach: "Retire guide 8 the way guide 11 was retired, then add the rule that every guide's piece is drawn.",
+      recorded_by: { by: "step" as const, step_id: "plan", attempt: 1 },
+      recorded_at: "2026-10-01T18:36:09.854Z",
+      tasks: [{ id: "T1", title: "Remove guide 8 from the catalogue and retire its number", state: "open" }],
+    },
+  };
+  return { ...base, job, watched: { ...base.watched, detail } };
 }
 
 /** The command a Job waits on, as Helm's dock lists it. */

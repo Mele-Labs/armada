@@ -337,11 +337,11 @@ export function arcJob(status: string, over: Partial<JobSummary> = {}): JobSumma
   };
 }
 
-/** A step nothing has entered. */
+/** A step nothing has entered. `place` counts from 1, the wire's `ordinal` from 0 — `freshStep` says why. */
 export function arcStep(
   id: string,
   label: string,
-  ordinal: number,
+  place: number,
   checks: DeclaredCheck[] = [],
   judgeChecks: DeclaredJudge[] = [],
   /** What it takes to advance past it. Absent is a Fleet too old to say. */
@@ -350,7 +350,7 @@ export function arcStep(
   return {
     step_id: id,
     label,
-    ordinal,
+    ordinal: place - 1,
     state: "not_started",
     checks,
     ...(advanceGate === undefined ? {} : { advance_gate: advanceGate }),

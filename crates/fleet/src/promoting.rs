@@ -518,20 +518,12 @@ where
         // address and nothing else, because the issue is already filed and
         // Fleet reads a ticket link in a request the way it always has.
         //
-        // **The origin is who pressed it, not the proposer's own.** Every other
-        // request through this path is one Fleet read and `auto_detected` says
-        // so — *Found by Fleet*, the label for work Armada noticed by itself.
-        // A dispatch from a Studio is somebody sending a draft they wrote up,
-        // so the row says *Dispatched by you* or *Drafted in Helm*.
+        // **The origin is who pressed it, and where from.** A composer
+        // request says *Dispatched by you* or *Drafted in Helm*
+        // (`proposal::requested`); a Studio dispatch says the same and that it
+        // came off a Studio, so the row keeps both clauses.
         let made = self
-            .propose_from_with_attachments(
-                &request,
-                None,
-                Vec::new(),
-                &served,
-                by,
-                Some(pressed(by)),
-            )
+            .propose_from_with_attachments(&request, None, Vec::new(), &served, by, pressed(by))
             .await
             .map_err(|why| self.refusal(why))?;
         let at = self.now();

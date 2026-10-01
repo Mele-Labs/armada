@@ -42,6 +42,7 @@ scripts/land              stamp matches -> queue entry -> runner started if none
                                                   |
 runner (holds the turn lock) ----------------------+
   take the first ARMADA_LAND_BATCH entries (4), in place order: one batch
+  each member: entry still queued, same nonce?  -- no -> dropped (withdrawn, or resubmitted)
   each member: local branch still at the queued head?  -- no -> outcome stopped
   fetch main; a member's head already in main? -- yes -> outcome landed (a killed runner's push)
   stack = main; for each member, in order:
@@ -54,6 +55,8 @@ runner (holds the turn lock) ----------------------+
   seed: cp -c the build directories into a worktree at the stack
   regenerate: each generator -> anything changed? commit it | one failed -> red
   verify-foundations: new FAIL / missing: lines vs main's own run
+        | new lines, every path each names touched by one member -> those members red; regate the rest
+        | new lines, otherwise -> red, no Check runs (several members: split)
   covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each
         | red, one member -> outcome red, nothing pushed
         | red, several    -> split the batch in half, first half first, and take each
@@ -69,11 +72,13 @@ runner (holds the turn lock) ----------------------+
 
 - **Each branch still lands as its own merge commit, in place order.** Branch one is merged onto `main`, branch two onto that, and so on; the regeneration commits on top, and the push is of the top. `git log --first-parent main` reads one merge per branch, each with its `Landed-from:` trailer, and each outcome names its own merge.
 - **The gate and the Checks run once, over the union.** A Check runs when it covers any member's paths, or what landed on `main` since any member was cut.
+- **A new gate line that names a file goes to the member that touched it.** Where every path each new line names was changed by exactly one member, in its own diff from its merge-base, those members go back red with their own lines and the rest are gated again in the same turn, keeping their place. A line naming no path, or a path several members or none touched, splits the batch as a red does. Measured 1 Oct 2026: one `no_file_too_long` line named the only member that touched the file, and the blind split behind it cost two more turns of about eight minutes each.
 - **A red on more than one member splits the batch in half**, first half first, down to a single branch, where a red is reported to that branch's own agent exactly as it was before batching. Three greens and one red cost three gates, not four, and not one each.
 - **Two members that do not merge with each other split the batch too.** That costs merges, never a gate. Alone, the second meets the first on `main` and goes back with the conflict as any branch would.
 - **A member that does not merge with `main` itself goes back with the conflict, and the rest go on without it.** Whether a clash is with `main` or with a member before it is one extra merge of that branch with `main` alone.
 - **A Check red on `main` itself stops the whole batch as `main`'s**, without splitting: no half of it would pass.
 - **`--status` says who gates together.** Each member's line ends `together with` the others while the batch is in its turn.
+- **A half waiting its turn asks the queue again before it is gated.** A member whose entry is gone (`armada land --withdraw`) or carries a new nonce (landed again) is dropped from it. A gate already running still finishes, and can land the member.
 
 ## What the first run found
 
@@ -103,7 +108,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 
-**The gate and the Checks run every turn.** On an unmoved turn the Checks are the ones the branch's own paths hit; on a moved one, those and the ones what landed on `main` hits.
+**The gate runs every turn, and the Checks run on every turn it passes.** On an unmoved turn the Checks are the ones the branch's own paths hit; on a moved one, those and the ones what landed on `main` hits. A new gate line is red whatever the Checks say, so none run behind it.
 
 **The line used to run no Check on an unmoved turn, trusting the agent's own run.** That trust went when `work-issue` step 4 became a quick self-check of build, typecheck and the tests of what changed, so the line is now where a branch's Checks are measured in full. Preflight still stamps the tree, so what the line measures is what the agent pushed.
 
@@ -123,7 +128,9 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 | A Check past its limit on `main` is not cached | A slow run is not a broken commit |
 | The same on `main`'s own run, which stops the turn | There is nothing to compare against |
 | `main`'s run cached per commit, only once read as a report | A killed run cached empty makes every branch after it red |
-| One report carries the gate and the Checks together | An agent reads everything wrong once, not twice |
+| A new failing line ends the turn before any Check | It is red whatever they say. A 1 Oct 2026 turn was red at 15:12 and ran Checks until 15:17 |
+| A run that names no rule still runs the Checks | Nothing was gated, and they say what they can |
+| One report carries the gate's crash and the Checks together | An agent reads everything wrong once, not twice |
 | A `main` that cannot run it stops every turn, saying so | The branch behind it is not the one to fix |
 
 ## What a turn prepares, and in which order
@@ -131,7 +138,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 **The build directories are cloned into both worktrees, and only the generators run between that and `verify-foundations`.** `setup.requires` — `pnpm install` and the browser download — runs only where a Check is about to, after the comparison is read.
 
 ```
-merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if a Check reruns -> the Checks
+merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if it passed and a Check reruns -> the Checks
 ```
 
 **A stale generated file is regenerated, not refused.** `ARMADA_LAND_REGENERATE` holds the generators, `;`-separated: by default `cargo xtask verify-docs --write` and `cargo xtask verify-tokens --write`, which write what `every_open_question_is_collected` and `the_tokens_generate_what_is_checked_in` read. They run on the candidate only, after the seed so `xtask` builds warm. What they change is committed onto the candidate and lands in the merge with it, and a generator that fails is a red turn naming it. Every other rule reads the tree as the branch left it. `main`'s own run is not regenerated, so a stale `main` stays `main`'s.

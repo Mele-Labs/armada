@@ -23,6 +23,7 @@
   "version": 1,
   "workflow_id": "refactor",
   "name": "refactor",
+  "for_requests": "Reorganising code without changing what it does: moving, renaming, splitting or tidying, where nothing anyone can see or use changes -- no screen, no output, no behaviour. A request that adds, removes or changes anything a person sees or can do, however small, is a feature and not a refactor.",
   "structure": "linear",
   "steps": [
     {

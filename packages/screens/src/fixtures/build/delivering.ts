@@ -86,7 +86,7 @@ function landAtTheGate(): StepDetail {
   return {
     step_id: "land",
     label: "Land",
-    ordinal: 6,
+    ordinal: 5,
     state: "awaiting_human",
     checks: [],
     check_runs: [],

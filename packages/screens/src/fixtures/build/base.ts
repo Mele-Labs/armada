@@ -254,7 +254,7 @@ export function reproStep(): StepDetail {
   return {
     step_id: "repro",
     label: "Reproduction",
-    ordinal: 1,
+    ordinal: 0,
     state: "advanced",
     checks: [],
     check_runs: [],
@@ -275,7 +275,7 @@ export function rootCauseStep(): StepDetail {
   return {
     step_id: "root_cause",
     label: "Root cause",
-    ordinal: 2,
+    ordinal: 1,
     state: "advanced",
     checks: [],
     check_runs: [],
@@ -308,9 +308,9 @@ export function landStep(): StepDetail {
  * here". Full-depth fixtures build their own, because what a lead step looked
  * like on the way through is usually the point.
  */
-export function advancedStep(id: string, label: string, ordinal: number, checks: DeclaredCheck[] = []): StepDetail {
+export function advancedStep(id: string, label: string, place: number, checks: DeclaredCheck[] = []): StepDetail {
   return {
-    ...freshStep(id, label, ordinal, checks),
+    ...freshStep(id, label, place, checks),
     state: "advanced",
     check_runs: checks.map((check) => ({ attempt: 1, name: check.name ?? check.kind, outcome: "passed" })),
     attempts: [{ attempt: 1, outcome: "advanced", started_at: CREATED_AT, ended_at: CREATED_AT }],
@@ -318,17 +318,24 @@ export function advancedStep(id: string, label: string, ordinal: number, checks:
   };
 }
 
-/** A bare, not-yet-entered step — `fix` and `regression_verify` before either runs. */
+/**
+ * A bare, not-yet-entered step — `fix` and `regression_verify` before either runs.
+ *
+ * **`place` counts from 1, as a person does; the wire's `ordinal` from 0**,
+ * which is what Fleet serves (Job 1 on the owner's Fleet, 1 Oct 2026, and the
+ * `done-worktree-given-back` recording). Every fixture counted from 1 until
+ * then, so the mock drew `step 1` where a real Job drew `step 0`.
+ */
 export function freshStep(
   id: string,
   label: string,
-  ordinal: number,
+  place: number,
   checks: DeclaredCheck[] = [],
 ): StepDetail {
   return {
     step_id: id,
     label,
-    ordinal,
+    ordinal: place - 1,
     state: "not_started",
     checks,
     check_runs: [],
