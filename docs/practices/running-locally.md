@@ -586,8 +586,8 @@ already a file read away.
 ## Landing a branch
 
 ```sh
-scripts/land preflight              # once the branch's Checks have passed
-scripts/land                        # once the owner has said merge
+scripts/land preflight              # once the branch's self-check has passed
+scripts/land                        # straight after, without waiting to be told
 scripts/land --status [<branch>]    # poll, in short foreground calls
 ```
 
@@ -609,8 +609,10 @@ breaks it takes the line down for everybody behind it, so it runs whatever `main
 did. A Check reads the combination, and there is no combination until the base
 has moved — your own step 4 run is what the branch stands on until then.
 
-**When you run it:** from the branch's own worktree, after your Checks passed and
-the owner said merge. `gh pr merge` and a push to `main` are refused by
+**When you run it:** from the branch's own worktree, as soon as the work is
+committed and its quick self-check passed (`work-issue` step 4). Nobody approves
+it first: the line is the guard, and the owner reads what landed afterwards.
+`gh pr merge` and a push to `main` are refused by
 `.claude/hooks/guard_merge.py`, which names this command instead — they land a
 combination nothing checked. `armada check hooks_test` proves the hook, and
 needs nothing built.

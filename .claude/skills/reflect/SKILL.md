@@ -27,9 +27,6 @@ This skill checks all six and **drives the first four to completion itself** —
 merge and cleanup and doc-fixes, not detection handed back as a to-do list. Then
 it reports a verdict.
 
-**That self-merge authority is scoped to this skill.** It is not a standing
-"merge whatever is green"; invoke it only when actually wrapping up.
-
 Announce: *"Using the reflect skill to check whether this session is ready to
 close."*
 
