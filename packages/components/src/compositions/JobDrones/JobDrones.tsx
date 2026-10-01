@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import {
   Table,
   TableBody,
@@ -78,6 +78,8 @@ export type JobDronesProps = {
   emptyNote?: ReactNode;
   /** The window is at `--window-floor`, where the sheet goes flush. */
   floor?: boolean;
+  /** The way back, where a press elsewhere opened the sheet. `Sheet`'s slot. */
+  back?: SheetBack | undefined;
 };
 
 export function JobDrones({
@@ -91,6 +93,7 @@ export function JobDrones({
   reading,
   emptyNote = "No Drone under this filter",
   floor = false,
+  back,
 }: JobDronesProps) {
   const chosen = filters.find((one) => one.id === filter);
   return (
@@ -186,6 +189,7 @@ export function JobDrones({
         floor={floor}
         size="wide"
         title={reading?.title ?? "Drone"}
+        back={back}
         {...(reading === undefined ? {} : { subtitle: reading.subtitle })}
         {...(reading?.controls === undefined ? {} : { controls: reading.controls })}
         closeLabel="Close"

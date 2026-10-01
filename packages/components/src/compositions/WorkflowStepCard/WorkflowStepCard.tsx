@@ -1,9 +1,10 @@
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
+import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
 
 /**
- * One node of a Job's graphs — a step, the plan one step recorded, a group
- * inside a plan, or a task inside a group. **The same card on the canvas and
+ * One node of a Job's graphs — a step, a group inside a plan, or a task
+ * inside a group. **The same card on the canvas and
  * in the stacked run**, so a toggle between the two changes the arrangement
  * and never what a node says about itself.
  *
@@ -20,14 +21,20 @@ export type WorkflowStepFact = {
   named?: FactChipNamed;
 };
 
+/** One thing waiting on a person, or gone wrong. A value, never a sentence. */
+export type WorkflowStepNeed = {
+  says: string;
+  /** `waiting` is a person's turn; `failed` is something that broke. */
+  tone: "waiting" | "failed";
+};
+
 export type WorkflowStepCardProps = {
   /**
-   * A step of the workflow, the plan a step recorded, a group of that plan, or
-   * a task inside a group. `plan` takes a step's own width: it is drawn beside
-   * steps, and the two narrower widths say *inside a plan*.
+   * A step of the workflow, a group of a plan, or a task inside a group. The
+   * two narrower widths say *inside a plan*.
    */
-  kind: "step" | "plan" | "group" | "task";
-  /** The step's label, `Plan`, the group's name, or the task's title. */
+  kind: "step" | "group" | "task";
+  /** The step's label, the group's name, or the task's title. */
   name: string;
   /** Whether `name` is a `step_id` rather than a label, so it renders in mono. */
   nameIsAnIdentifier?: boolean;
@@ -40,6 +47,13 @@ export type WorkflowStepCardProps = {
   /** Its position in the run, counted from one. Stands in for a glyph on a step nothing entered. */
   ordinal?: number;
   facts?: readonly WorkflowStepFact[];
+  /**
+   * How long, then where it has got to — `9m 38s · advanced` on a finished
+   * step, `55m · 2 Drones` on the one at work. **Absent on a step nothing
+   * entered**, which is the mark and the name alone. A node that passes none
+   * draws its facts as chips instead.
+   */
+  line?: string;
   /** The step the Job is on. The card takes a stronger edge; what loops is `running`. */
   current?: boolean;
   /** Open in the inspector. */
@@ -48,6 +62,18 @@ export type WorkflowStepCardProps = {
   gate?: string;
   /** Opens it in the inspector. Absent draws a card that is not a control. */
   onOpen?: () => void;
+  /**
+   * What waits on a person or went wrong, most pressing first (owner, 30 Sep
+   * 2026), each in its hue and **above everything else under the name**.
+   */
+  needs?: readonly WorkflowStepNeed[];
+  /**
+   * The plan's groups on the step at work, one segment each, coloured by the
+   * group's state, with `line` beside it. `label` is the bar's tooltip, which
+   * is where the count lives: a count beside the segments it counts is the
+   * aggregate the owner ruled out on 29 Sep 2026.
+   */
+  bar?: { groups: readonly TaskBarSegment[]; label: string };
 };
 
 export function WorkflowStepCard({
@@ -58,10 +84,13 @@ export function WorkflowStepCard({
   said,
   ordinal,
   facts = [],
+  line,
   current = false,
   selected = false,
   gate,
   onOpen,
+  needs = [],
+  bar,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -72,6 +101,31 @@ export function WorkflowStepCard({
   // same three things, not a fourth invention: the running edge, the running
   // wash, and one segment travelling the top edge at `--duration-pulse`.
   const working = activity === "running";
+
+  // Under the name: what needs a person first, then where the work has got
+  // to — the group bar beside the line on the step at work.
+  const timed = line === undefined ? null : <span className="armada-wf-card__line">{line}</span>;
+  const below = (
+    <>
+      {needs.length === 0 ? null : (
+        <span className="armada-wf-card__needs">
+          {needs.map((need) => (
+            <span key={need.says} className="armada-wf-card__need" data-tone={need.tone}>
+              {need.says}
+            </span>
+          ))}
+        </span>
+      )}
+      {bar === undefined || bar.groups.length === 0 ? (
+        timed
+      ) : (
+        <span className="armada-wf-card__progress">
+          <StepBar tasks={bar.groups} label={bar.label} />
+          {timed}
+        </span>
+      )}
+    </>
+  );
 
   const body = (
     <>
@@ -94,6 +148,7 @@ export function WorkflowStepCard({
           {name}
         </span>
       </span>
+      {below}
       {facts.length === 0 ? null : (
         <span className="armada-wf-card__facts">
           {facts.map((fact) => (
@@ -103,7 +158,13 @@ export function WorkflowStepCard({
           ))}
         </span>
       )}
-      {gate === undefined ? null : <span className="armada-wf-card__gate">{gate}</span>}
+      {/* The board's outlined chip on a step of the run, which draws no facts
+          and may draw no line; a fragment under the facts everywhere else. */}
+      {gate === undefined ? null : (
+        <span className="armada-wf-card__gate" data-chip={kind === "step" && facts.length === 0 ? "true" : undefined}>
+          {gate}
+        </span>
+      )}
     </>
   );
 

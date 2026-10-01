@@ -1,31 +1,38 @@
-// The wave a Job dispatched — the graph, the list, and what it is asking you.
-// `#1544`.
+// The wave a Job dispatched — the passes of it, who needs you, the graph and
+// the list. `#1544`.
 //
-// **Canvas by default, list available**, the toggle the Workflow tab already
-// keeps (#1530, 22 Sep). The list is `ActiveJobsList` and `JobRowStacked`,
-// which is the row every other surface draws a Job as.
+// **Graph by default, List available** — Plan's own two words and its one
+// remembered choice (owner, 30 Sep 2026), since on an Epic Job the wave is
+// what Plan draws. The list is `ActiveJobsList` and `JobRowStacked`, the row
+// every other surface draws a Job as.
 //
-// **No word here is minted.** "Landed" is `Settled`'s own spelling, "Asking
-// you" is `escalated`'s registry verb, and blocked and waiting are the two
-// halves of `job-statuses.toml`'s `drone_process` — `wave.ts` carries the map.
+// **Who needs you is a list of lines, and the answer is in the Job's panel**
+// (owner, 30 Sep 2026: "both"). A line opens the Job; `JobAnswer` below is
+// what the panel puts at its top — the existing Judge card and the dock's own
+// command card, never a second shape for either.
 
 import {
   ActiveJobsList,
   DockQuestions,
+  FactChip,
   JobRowStacked,
   JudgeQuestion,
   Tabs,
+  Tooltip,
   WaveCanvas,
 } from "@armada/components";
 import { JOB_STATUS } from "@armada/components/src/generated/vocabulary";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type {
   CommandAnswer,
+  EditJob,
   JobDetail as JobWhole,
   JobSummary,
   JudgeAnswer,
+  Outcome,
   RepositorySummary,
+  StepDetail,
 } from "@armada/protocol";
 
 import { answerNamed } from "./copy";
@@ -33,12 +40,9 @@ import { dockQuestionsOf } from "./dock-questions";
 import type { JobDraft } from "./draft/held";
 import type { WaveJobView, WaveView } from "./draft/wave";
 import type { Outstanding } from "./outstanding";
+import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { Eyebrow } from "./regions";
-import { waveRunOf, waveSaid, waveStandingOf } from "./wave";
-import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
-
-/** `escalated`'s own verb, which is the registry's words for a Job asking you. */
-export const ASKING_YOU = JOB_STATUS.escalated?.verb ?? "escalated";
+import { waveRunOf, waveSpentSaid, waveStandingOf, waveTasksSaid } from "./wave";
 
 /** Why nothing can be answered from a window that is not live. */
 const NOT_LIVE = "This window is not live, so nothing can be sent.";
@@ -60,8 +64,9 @@ export type WaveRegionProps = {
   stale: boolean;
   /** An act on one of these Jobs is already out. */
   acting: boolean;
-  view: WorkflowView;
-  onView: (view: WorkflowView) => void;
+  /** Graph or List — Plan's own choice, remembered per viewer by the caller. */
+  view: PlanView;
+  onView: (view: PlanView) => void;
   onOpenJob: (jobId: string) => void;
   onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
   onAnswerCommand: (
@@ -71,6 +76,14 @@ export type WaveRegionProps = {
     note?: string,
     rule?: string,
   ) => void;
+  /** The step that recorded the split, where one did. Its Judge is read off it. */
+  planStep?: StepDetail;
+  /**
+   * Edit one Job of the proposed wave, directly through Fleet. Absent draws no
+   * Edit this Job. **Only a Job at `awaiting_approval` offers it** — the owner,
+   * 30 Sep 2026: a proposed Job is edited in its panel, never by opening it.
+   */
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
 };
 
 /**
@@ -95,32 +108,79 @@ export function waveReadingOf(
 }
 
 /**
- * Which pass of the loop the Job is on, and what the loop is.
+ * Which wave the Job is on, and how many it may run.
  *
- * Read off the wire: `StepDetail.pass` is which pass of how many, and
- * `verdict_routing_target` is the step it returns to. A workflow that does not
- * loop says nothing rather than drawing a pass of one.
+ * Read off the wire: `StepDetail.pass` is which pass of how many, on the step
+ * whose verdict routes back. A workflow that does not loop says nothing rather
+ * than drawing a wave of one.
  */
-export function loopSaid(whole: JobWhole | null): string | undefined {
+export function loopOf(whole: JobWhole | null): { number: number; of: number } | undefined {
   if (whole === null) return undefined;
   const closes = whole.steps.find(
     (step) => step.pass !== undefined && step.verdict_routing_target !== undefined,
   );
-  if (closes?.pass === undefined) return undefined;
-  const back = whole.steps.find((step) => step.step_id === closes.verdict_routing_target);
-  const names = whole.steps.map((step) => step.label).join(", then ");
-  const again = back === undefined ? "" : `, and back to ${back.label.toLowerCase()}`;
-  return `Pass ${String(closes.pass.number)} of ${String(closes.pass.of)} — ${names}${again}.`;
+  return closes?.pass;
 }
 
-/** One Job of the wave, as the list draws it. */
-function WaveRow({
+/**
+ * The loop in words — `Wave 2 of up to 5`, or only `Up to 5 waves` beside a
+ * strip that already names the wave.
+ */
+export function loopSaid(whole: JobWhole | null, stripped = false): string | undefined {
+  const pass = loopOf(whole);
+  if (pass === undefined) return undefined;
+  return stripped
+    ? `Up to ${String(pass.of)} waves`
+    : `Wave ${String(pass.number)} of up to ${String(pass.of)}`;
+}
+
+/** What each Job waits on, off the wave's own ids. */
+export function waitsOf(wave: WaveView, job: WaveJobView): WaveJobView[] {
+  return job.waits_on.flatMap((id) => {
+    const held = wave.jobs.find((one) => one.job === id);
+    return held === undefined ? [] : [held];
+  });
+}
+
+/**
+ * What waits on this Job. **Worked out from the others' `waits_on`**, which is
+ * the one direction the plan records.
+ */
+export function blocksOf(wave: WaveView, job: WaveJobView): WaveJobView[] {
+  return wave.jobs.filter((one) => one.waits_on.includes(job.job));
+}
+
+/**
+ * What a Job that needs you is waiting on you for, in the words a line says.
+ * `undefined` for a Job that needs nobody.
+ */
+function waitingOnSaid(
+  job: WaveJobView,
+  mine: readonly Outstanding[],
+  needs: ReadonlySet<string>,
+): string | undefined {
+  // A Job of the proposed wave waits on the plan's gate, not on its own
+  // answer: Approve the plan releases every one of them, so a line each would
+  // ask for an approval nobody gives one Job at a time.
+  if (job.status === "awaiting_approval") return undefined;
+  const asked = mine.filter((one) => one.kind !== "helm" && one.job_id === job.job);
+  if (asked.some((one) => one.kind === "judge")) return "your answer to the Judge";
+  if (asked.some((one) => one.kind === "command")) return "you to allow a command";
+  if (!needs.has(job.job)) return undefined;
+  return job.status === "awaiting_review" ? "your review" : (JOB_STATUS[job.status]?.verb ?? job.status);
+}
+
+/** One Job of the wave as a row: the list's, the Needs you line's, and the panel's. */
+export function WaveRow({
   job,
-  waits,
+  fields,
+  bare = false,
   onOpen,
 }: {
   job: WaveJobView;
-  waits: readonly WaveJobView[];
+  fields: { label: string; value: string; quiet?: boolean }[];
+  /** Leave the handle off: a line that only has to say which Job and why. */
+  bare?: boolean;
   onOpen: () => void;
 }) {
   const rendering = JOB_STATUS[job.status];
@@ -132,95 +192,119 @@ function WaveRow({
       statusLabel={rendering.verb ?? job.status}
       headline={job.title}
       jobId={job.job}
-      {...(job.handle === undefined ? {} : { handle: job.handle })}
-      fields={[
-        {
-          label: "Waits on",
-          value: waits.length === 0 ? "nothing" : waits.map((one) => one.title).join(", "),
-          quiet: waits.length === 0,
-        },
-        ...(job.landed === undefined
-          ? []
-          : [
-              {
-                label: "Pull request",
-                value: job.landed === "merged" ? "merged" : "closed without merging",
-              },
-            ]),
-      ]}
+      {...(bare || job.handle === undefined ? {} : { handle: job.handle })}
+      fields={fields}
       pulsing={job.status === "running"}
       onOpen={onOpen}
     />
   );
 }
 
+/** What the list says of one Job: what it waits on, where it landed, what it spent. */
+function listFields(wave: WaveView, job: WaveJobView) {
+  const waits = waitsOf(wave, job);
+  const spent = waveSpentSaid(job);
+  const tasks = waveTasksSaid(job);
+  return [
+    {
+      label: "Waits on",
+      value: waits.length === 0 ? "nothing" : waits.map((one) => one.title).join(", "),
+      quiet: waits.length === 0,
+    },
+    ...(job.landed === undefined
+      ? []
+      : [{ label: "Pull request", value: job.landed === "merged" ? "merged" : "closed without merging" }]),
+    ...(spent === undefined ? [] : [{ label: "Spent", value: spent }]),
+    ...(tasks === undefined ? [] : [{ label: "Tasks done", value: tasks }]),
+  ];
+}
+
+export type JobAnswerProps = Pick<
+  WaveRegionProps,
+  "board" | "questions" | "repositories" | "now" | "stale" | "acting" | "onAnswerJudge" | "onAnswerCommand"
+> & { jobId: string };
+
 /**
- * A Job's Judge refusal, answered where it is read.
- *
- * **The existing card, not a new one** (#1530): a refusal here is the same
- * record as a refusal anywhere else, and a second shape for one record is a
- * record that can be renamed in one place.
+ * What one Job of the wave is asking you, answered where it is read: its
+ * Judge refusal as the existing card, and a command the Manifest has not
+ * cleared as the dock's own — allow for this Job, add the rule to the
+ * repository's Manifest, or reject, the three `COMMAND_ANSWER` offers Fleet
+ * sent (#1518, #1519). **Nothing where it asks nothing.**
  */
-function JudgeAsk({
-  ask,
-  title,
+export function JobAnswer({
+  jobId,
+  board,
+  questions,
+  repositories,
+  now,
   stale,
   acting,
   onAnswerJudge,
-}: {
-  ask: JudgeAsking;
-  title: string;
-  stale: boolean;
-  acting: boolean;
-  onAnswerJudge: WaveRegionProps["onAnswerJudge"];
-}) {
+  onAnswerCommand,
+}: JobAnswerProps) {
+  const judge = questions.find(
+    (one): one is JudgeAsking => one.kind === "judge" && one.job_id === jobId,
+  );
+  const commands = dockQuestionsOf(
+    questions.filter((one) => one.kind === "command" && one.job_id === jobId),
+    board,
+    repositories,
+    now,
+    stale
+      ? {}
+      : {
+          onAnswer: (question, answer) => {
+            const named = answerNamed(answer);
+            if (named !== undefined && question.kind === "command") {
+              onAnswerCommand(question.job_id, question.waiting.call, named);
+            }
+          },
+        },
+  ).map((card) => (stale ? { ...card, note: NOT_LIVE } : card));
+  if (judge === undefined && commands.length === 0) return null;
   return (
-    <div className="armada-wave__ask" aria-label={`${title}, a Judge refusal`}>
-      <p className="armada-wave__ask-of">{title}</p>
-      <JudgeQuestion
-        question={ask.question.question}
-        expected={ask.question.expected}
-        produced={ask.question.produced}
-        consequence={ask.question.consequence}
-        disabled={stale || acting}
-        {...(stale ? { disabledNote: NOT_LIVE } : {})}
-        onAnswer={(answer, note) => onAnswerJudge(ask.job_id, ask.question.asked_at, answer, note)}
-      />
-    </div>
+    <>
+      {judge === undefined ? null : (
+        <JudgeQuestion
+          question={judge.question.question}
+          expected={judge.question.expected}
+          produced={judge.question.produced}
+          consequence={judge.question.consequence}
+          disabled={stale || acting}
+          {...(stale ? { disabledNote: NOT_LIVE } : {})}
+          onAnswer={(answer, note) => onAnswerJudge(jobId, judge.question.asked_at, answer, note)}
+        />
+      )}
+      {commands.length === 0 ? null : <DockQuestions questions={commands} />}
+    </>
   );
 }
 
 /**
- * One half of Needs you, with its own count. Nothing is drawn where it is
- * empty.
- *
- * **`name` says what the half means and `label` is the word above it.** The
- * cards inside carry regions of their own — a Judge question's is *Waiting on
- * you* — so a half named `Waiting` would be one of three regions a reader
- * hears that word from.
+ * What the Judge made of the live split: the model that read it, and each
+ * criterion with its verdict. The verdict is the chip's hue, and named in its
+ * tooltip.
  */
-function NeedsHalf({
-  label,
-  name,
-  says,
-  count,
-  children,
-}: {
-  label: string;
-  name: string;
-  says: string;
-  count: number;
-  children: ReactNode;
-}) {
-  if (count === 0) return null;
+function Judged({ step, by }: { step: StepDetail | undefined; by: string | undefined }) {
+  if (step === undefined || step.judged.length === 0) return null;
+  // The last attempt's verdicts are the split being run; an earlier one was
+  // the split a loop return replaced.
+  const last = Math.max(...step.judged.map((one) => one.attempt));
+  const judged = step.judged.filter((one) => one.attempt === last);
   return (
-    <section className="armada-wave__needs-half" aria-label={name}>
-      <Eyebrow>
-        {label} · {count}
-      </Eyebrow>
-      <p className="armada-wave__needs-said">{says}</p>
-      {children}
-    </section>
+    <div className="armada-wave__judged" role="note" aria-label="How the Judge read the split">
+      <Eyebrow>Judged</Eyebrow>
+      {judged.map((one) => (
+        <Tooltip key={one.criterion_id} label={one.verdict === "met" ? "Met" : "Not met"}>
+          <FactChip named={one.verdict === "met" ? "met" : "not_met"}>{one.criterion_id}</FactChip>
+        </Tooltip>
+      ))}
+      {by === undefined ? null : (
+        <Tooltip label="The model that read the split">
+          <span className="armada-wave__judged-by">{by}</span>
+        </Tooltip>
+      )}
+    </div>
   );
 }
 
@@ -230,145 +314,117 @@ export function WaveRegion({
   draft,
   board,
   questions,
-  repositories,
-  now,
-  stale,
-  acting,
   view,
   onView,
   onOpenJob,
-  onAnswerJudge,
-  onAnswerCommand,
+  planStep,
 }: WaveRegionProps) {
   const wave = waveReadingOf(whole, draft, board);
+  // Which pass the graph draws. **The live one unless a person pressed
+  // another**, and this region's own: a pass pressed is a way of reading, not
+  // something the Job holds.
+  const live = wave?.rounds.find((one) => one.live)?.round ?? wave?.rounds.at(-1)?.round ?? 1;
+  const [picked, setPicked] = useState<number | null>(null);
+  const round = picked ?? live;
+  const shown = useMemo(
+    () => (wave === undefined ? undefined : { ...wave, jobs: wave.jobs.filter((one) => one.round === round) }),
+    [wave, round],
+  );
   // **Memoised, and the canvas is why.** `JobDetail` re-renders on every tick
   // of `now`; React Flow measures a node once and hides it until it has, so a
   // fresh node array each second left every card `visibility: hidden` and the
   // graph blank. The run is the same run until the wave itself changes.
   const opened = useCallback((jobId: string) => onOpenJob(jobId), [onOpenJob]);
   const run = useMemo(
-    () => (wave === undefined ? undefined : waveRunOf(wave, { onOpen: opened })),
-    [wave, opened],
+    () => (shown === undefined ? undefined : waveRunOf(shown, { onOpen: opened })),
+    [shown, opened],
   );
-  if (wave === undefined || run === undefined) return null;
+  if (wave === undefined || shown === undefined || run === undefined) return null;
 
   const byId = new Map(wave.jobs.map((one) => [one.job, one]));
   const mine = questions.filter((one) => one.kind !== "helm" && byId.has(one.job_id));
   const asking = new Set(mine.map((one) => (one.kind === "helm" ? "" : one.job_id)));
   const standing = waveStandingOf(wave, asking);
-  const waitsOf = (one: WaveJobView) =>
-    one.waits_on.flatMap((id) => {
-      const held = byId.get(id);
-      return held === undefined ? [] : [held];
-    });
+  const needing = new Set([...standing.blocked, ...standing.waiting].map((one) => one.job));
+  // In the plan's own order, so a line and its node are found in the same place.
+  const needs = wave.jobs.flatMap((one) => {
+    const said = waitingOnSaid(one, mine, needing);
+    return said === undefined ? [] : [{ job: one, said }];
+  });
 
-  /**
-   * A command the Manifest has not cleared, as the dock's own card — allow for
-   * this Job, add the rule to the repository's Manifest, or reject, which are
-   * the three `COMMAND_ANSWER` offers Fleet sent. One place those words are
-   * written (#1518, #1519).
-   */
-  const commandsFor = (jobs: readonly WaveJobView[]) => {
-    const held = new Set(jobs.map((one) => one.job));
-    return dockQuestionsOf(
-      mine.filter((one) => one.kind === "command" && held.has(one.job_id)),
-      board,
-      repositories,
-      now,
-      stale
-        ? {}
-        : {
-            onAnswer: (question, answer) => {
-              const named = answerNamed(answer);
-              if (named !== undefined && question.kind === "command") {
-                onAnswerCommand(question.job_id, question.waiting.call, named);
-              }
-            },
-          },
-    ).map((card) => (stale ? { ...card, note: NOT_LIVE } : card));
-  };
-
-  const judgesFor = (jobs: readonly WaveJobView[]) => {
-    const held = new Set(jobs.map((one) => one.job));
-    return mine.filter(
-      (one): one is JudgeAsking => one.kind === "judge" && held.has(one.job_id),
-    );
-  };
-
-  const rows = (jobs: readonly WaveJobView[], label: string) => (
-    <ActiveJobsList variant="panel" label={label} selectable>
-      {jobs.map((one) => (
-        <WaveRow key={one.job} job={one} waits={waitsOf(one)} onOpen={() => onOpenJob(one.job)} />
-      ))}
-    </ActiveJobsList>
-  );
-
-  const half = (label: string, name: string, says: string, jobs: readonly WaveJobView[]) => (
-    <NeedsHalf label={label} name={name} says={says} count={jobs.length}>
-      {rows(jobs, label)}
-      {judgesFor(jobs).map((ask) => (
-        <JudgeAsk
-          key={ask.job_id}
-          ask={ask}
-          title={byId.get(ask.job_id)?.title ?? ask.job_id}
-          stale={stale}
-          acting={acting}
-          onAnswerJudge={onAnswerJudge}
-        />
-      ))}
-      <DockQuestions questions={commandsFor(jobs)} />
-    </NeedsHalf>
-  );
-
-  const loop = loopSaid(whole);
-  const needs = standing.blocked.length + standing.waiting.length;
+  const loop = loopSaid(whole, wave.rounds.length > 0);
 
   return (
     <section className="armada-wave" aria-label="The wave">
       <div className="armada-wave__head">
-        <Eyebrow>The wave</Eyebrow>
+        <div className="armada-wave__passes">
+          {wave.rounds.length > 1 ? (
+            <Tabs
+              items={wave.rounds.map((one) => ({
+                id: String(one.round),
+                label: `Wave ${String(one.round)} · ${one.says}`,
+              }))}
+              value={String(round)}
+              onChange={(id) => setPicked(Number(id) === live ? null : Number(id))}
+            />
+          ) : wave.rounds[0] === undefined ? null : (
+            <Eyebrow>{`Wave ${String(wave.rounds[0].round)} · ${wave.rounds[0].says}`}</Eyebrow>
+          )}
+          {loop === undefined ? null : <p className="armada-wave__loop">{loop}</p>}
+        </div>
         <Tabs
-          items={WORKFLOW_VIEWS.map((one) => ({ id: one, label: WORKFLOW_VIEW_LABEL[one] }))}
+          items={PLAN_VIEWS.map((one) => ({ id: one, label: PLAN_VIEW_LABEL[one] }))}
           value={view}
-          onChange={(id) => onView(id as WorkflowView)}
+          onChange={(id) => onView(id as PlanView)}
         />
       </div>
-      <p className="armada-wave__said">{waveSaid(standing)}</p>
-      {loop === undefined ? null : (
-        <p className="armada-wave__loop" role="note">
-          {loop}
-        </p>
+
+      {needs.length === 0 ? null : (
+        <section className="armada-wave__needs" aria-label="Needs you">
+          <Eyebrow>Needs you</Eyebrow>
+          <ActiveJobsList
+            variant="panel"
+            view="table"
+            columns={["Waiting on"]}
+            label="Needs you"
+            selectable
+          >
+            {needs.map(({ job: one, said }) => (
+              <WaveRow
+                key={one.job}
+                job={one}
+                bare
+                fields={[{ label: "Waiting on", value: said }]}
+                onOpen={() => onOpenJob(one.job)}
+              />
+            ))}
+          </ActiveJobsList>
+        </section>
       )}
 
-      {view === "canvas" ? (
+      {view === "graph" ? (
         <div className="armada-wave__canvas">
           <WaveCanvas
             nodes={run.nodes}
             edges={run.edges}
-            label={`${job.title}, as the Jobs it dispatched and which waits on which`}
+            label={`${job.title}, wave ${String(round)}, as the Jobs it dispatched and which waits on which`}
             opensOn={run.opensOn}
           />
         </div>
       ) : (
-        rows(wave.jobs, "The wave, as a list")
+        <ActiveJobsList variant="panel" label={`Wave ${String(round)}, as a list`} selectable>
+          {shown.jobs.map((one) => (
+            <WaveRow
+              key={one.job}
+              job={one}
+              fields={listFields(wave, one)}
+              onOpen={() => onOpenJob(one.job)}
+            />
+          ))}
+        </ActiveJobsList>
       )}
 
-      {needs === 0 ? null : (
-        <section className="armada-wave__needs" aria-label={`What the wave ${ASKING_YOU} for`}>
-          {half(
-            "Blocked",
-            "Blocked, holding a Drone",
-            "Each holds a Drone and the worktree it is in, and nothing moves until you answer.",
-            standing.blocked,
-          )}
-          {half(
-            "Waiting",
-            "Waiting at a gate",
-            "Each is resting at a gate. No Drone is held, and its slot has gone back.",
-            standing.waiting,
-          )}
-        </section>
-      )}
+      {round === live ? <Judged step={planStep} by={wave.judged_by} /> : null}
     </section>
   );
 }

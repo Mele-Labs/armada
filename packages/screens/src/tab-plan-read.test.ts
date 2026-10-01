@@ -9,7 +9,6 @@ import { doneTouched, groupFailed, plannedMoment, planRevisionRefused } from "./
 import type { CaseView } from "./draft/cases";
 import {
   besideSaid,
-  boundaryClause,
   caseReads,
   casesOf,
   costSaid,
@@ -22,7 +21,6 @@ import {
   taskSheetOf,
   tasksOf,
   overlapsOf,
-  testsClause,
   turnsSaid,
   touchedByOf,
 } from "./tab-plan-read";
@@ -37,35 +35,13 @@ function wholeOf(moment: ReturnType<typeof plannedMoment>) {
   return watched?.state === "read" ? watched.detail : null;
 }
 
-describe("the boundary's own clause", () => {
-  test("a group that has not run says what will run at it", () => {
-    expect(boundaryClause("pending")).toBe("will run at this boundary");
-  });
-
-  test("a group being checked says so in the present", () => {
-    expect(boundaryClause("checking")).toBe("running at this boundary");
-  });
-
-  test("a group that has run says what ran", () => {
-    expect(boundaryClause("passed")).toBe("ran at this boundary");
-    expect(boundaryClause("retrying")).toBe("ran at this boundary");
-  });
-
-  // The strip draws the count, so the clause never carries one. A clause
-  // that said "7 checks" beside the strip's own 7 is the number twice.
-  test("the clause carries no count", () => {
-    expect(boundaryClause("pending")).not.toMatch(/\d/);
-    expect(testsClause("pending", 2)).not.toMatch(/\d/);
-  });
-
-  test("a boundary with no test says nothing about tests", () => {
-    expect(testsClause("pending", 0)).toBeUndefined();
-  });
-
-  test("tests agree with their own count", () => {
-    expect(testsClause("pending", 1)).toBe("runs at this boundary");
-    expect(testsClause("pending", 2)).toBe("run at this boundary");
-    expect(testsClause("passed", 2)).toBe("ran at this boundary");
+// **No clause about where the Checks run** (owner, 30 Sep 2026: *just
+// fluff*): the strip already sits at the boundary.
+describe("the boundary says nothing about itself", () => {
+  test("a group that has not run carries no clause, and no tests clause", () => {
+    const boundary = groupCardOf(GROUPS[0]!, CASES, touchedByOf(GROUPS), null).boundary;
+    expect(Object.keys(boundary)).not.toContain("clause");
+    expect(Object.keys(boundary)).not.toContain("testsClause");
   });
 });
 
@@ -156,12 +132,6 @@ describe("a done task a later one edited", () => {
   test("nothing is flagged where no task was touched", () => {
     expect(touchedByOf(GROUPS).size).toBe(0);
   });
-
-  test("the inspector carries the flag into the brief", () => {
-    const groups = groupsOf(wholeOf(doneTouched()), doneTouched().draft);
-    const sheet = taskSheetOf("T6", groups, CASES, touchedByOf(groups))!;
-    expect(sheet.note).toContain("T7 edited a file this task had already finished.");
-  });
 });
 
 describe("an order that contradicts the scopes", () => {
@@ -210,7 +180,6 @@ describe("one group's card", () => {
     const bridge = groupCardOf(GROUPS[1]!, CASES, touched, null);
     expect(rust.boundary.checks).toHaveLength(4);
     expect(bridge.boundary.checks).toHaveLength(7);
-    expect(rust.boundary.clause).toBe("will run at this boundary");
   });
 
   test("a case covering a file two groups touch is drawn at the last of them", () => {
@@ -285,45 +254,35 @@ describe("the whole board", () => {
 });
 
 describe("one task's inspector", () => {
-  const touched = touchedByOf(GROUPS);
-
   test("it names what the task runs beside and what covers it", () => {
-    const sheet = taskSheetOf("T5", GROUPS, CASES, touched)!;
+    const sheet = taskSheetOf("T5", GROUPS, CASES)!;
     expect(sheet.beside).toEqual(["T6"]);
     expect(sheet.tier).toBe("difficult");
     expect(sheet.model).toBe("opus");
-    expect(sheet.runBy).toBe("its own agent");
     expect(sheet.tests?.map((one) => one.id)).toEqual(["c-panel"]);
   });
 
   test("a case with no spec reads not covered in the inspector too", () => {
-    const sheet = taskSheetOf("T4", GROUPS, CASES, touched)!;
+    const sheet = taskSheetOf("T4", GROUPS, CASES)!;
     expect(sheet.tests?.map((one) => one.reads)).toEqual(["not covered"]);
   });
 
   test("a task the plan does not hold opens nothing", () => {
-    expect(taskSheetOf("T99", GROUPS, CASES, touched)).toBeUndefined();
+    expect(taskSheetOf("T99", GROUPS, CASES)).toBeUndefined();
   });
 });
 
 describe("a plan that may still be argued with", () => {
   const whole = wholeOf(planRevisionRefused());
 
-  test("a plan at its gate puts the same three controls on every card, and draws the one mark that says what they are", () => {
+  test("a plan at its gate draws the one mark that says what its controls are", () => {
     const board = planBoardOf(whole, planRevisionRefused().draft, () => {}, undefined, true)!;
     expect(board.askable).toBe(true);
-    expect(board.groups.map((group) => group.asks?.map((ask) => ask.id))).toEqual([
-      ["move_up", "move_down", "remove"],
-      ["move_up", "move_down", "remove"],
-      ["move_up", "move_down", "remove"],
-      ["move_up", "move_down", "remove"],
-    ]);
   });
 
-  test("a plan past its gate offers nothing and draws no mark about asking", () => {
+  test("a plan past its gate draws no mark about asking", () => {
     const board = planBoardOf(whole, planRevisionRefused().draft, () => {})!;
     expect(board.askable).toBeUndefined();
-    expect(board.groups.every((group) => group.asks === undefined)).toBe(true);
   });
 
   test("the refusal is read off the step that recorded the plan, and names the task it reached", () => {

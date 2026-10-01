@@ -25,7 +25,7 @@
   gap: var(--space-2);
 }
 
-/* The grip is a handle and not a row of text — `.armada-shell__dock-handle`
+/* The grip is a handle and not a row of text — `.armada-dock-handle`
    turned for a row: a short bar at the centre of the hit area, drawn at
    --border-default so it is there at rest, and stepping to --border-strong and
    twice the width on hover, focus or drag. It says nothing: the select carries

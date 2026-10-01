@@ -61,7 +61,6 @@ describe("one group at a time", () => {
   test("group four has not started, and its Checks read as not run", () => {
     const four = groupAt(executingSequential(), 4);
     expect(four.says).toBe("not started");
-    expect(four.boundary.clause).toBe("will run at this boundary");
     expect(four.boundary.checks).toHaveLength(7);
     expect(new Set(four.boundary.checks.map((one) => one.reads))).toEqual(new Set(["not run"]));
     expect(four.boundary.verdictSays).toBeUndefined();

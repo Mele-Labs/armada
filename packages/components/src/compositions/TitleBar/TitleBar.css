@@ -9,13 +9,18 @@
  * itself and its own note on where the figure came from. */
 .armada-title-bar {
   display: grid;
-  /* Three regions, not one flex row with a trailing spacer: `minmax(0, 1fr)`
+  /* Three regions, not one flex row with a trailing spacer: `1fr`
    * on both sides gives the picker and Helm+logo groups an equal share of
    * whatever is left over, so the center column — search and Dispatch — sits
    * on the bar's true midpoint whatever either side measures. A flex row with
    * two `flex: 1` spacers only centers the middle group when the two sides
-   * happen to be the same width, which picker+add-repo and Helm+logo are not. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+   * happen to be the same width, which picker+add-repo and Helm+logo are not.
+   *
+   * The sides floor at `max-content`, never 0: at 0 a narrow window drew
+   * them under the center group. The center column is what gives way, and
+   * search inside it. `AtTheWindowFloor` holds it. */
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  column-gap: var(--space-3);
   align-items: center;
   flex: none;
   height: var(--h-title-bar);
@@ -23,6 +28,7 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
   background: var(--bg-sunken);
   -webkit-app-region: drag;
+  container-type: inline-size;
 }
 
 /* Every interactive child opts out of the drag region by hand — nothing
@@ -74,8 +80,8 @@
 .armada-title-bar__center {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
-  justify-self: center;
   min-width: 0;
 }
 
@@ -125,6 +131,7 @@
   white-space: nowrap;
   text-align: left;
 }
+
 
 /* The right region: Helm's reopen control, drawn only while the caller says
  * the dock is closed, and the logo. */
@@ -223,4 +230,125 @@
 .armada-title-bar > svg,
 .armada-title-bar > [aria-hidden="true"] {
   flex: none;
+}
+
+/* Only one of the two brand drawings shows; compact below swaps them. */
+.armada-title-bar__lockup,
+.armada-title-bar__mark {
+  display: flex;
+  flex: none;
+}
+
+.armada-title-bar__mark {
+  display: none;
+}
+
+/* The menu, and the panel it opens: drawn always, shown only when narrow. */
+.armada-title-bar__menu {
+  display: none;
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+
+.armada-title-bar__menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The repositories, then a rule, then the row's own acts. */
+.armada-title-bar__menu-repositories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-title-bar__menu-rule {
+  height: var(--border-width);
+  margin: var(--space-1) 0;
+  background: var(--border-subtle);
+}
+
+.armada-title-bar__menu-label {
+  display: flex;
+  align-items: center;
+  height: var(--h-control-sm);
+  padding-inline: var(--space-2);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* Holds the tick's width on every row, so the names line up whichever is picked. */
+.armada-title-bar__menu-check {
+  display: flex;
+  flex: none;
+  width: var(--space-4);
+  color: var(--accent);
+}
+
+.armada-title-bar__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--h-control-sm);
+  padding-inline: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-title-bar__menu-item > span:not([class]) {
+  flex: 1;
+  text-align: left;
+}
+
+.armada-title-bar__menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.armada-title-bar__menu-item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-title-bar__menu-item:disabled {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+/* Narrow: the row goes behind the menu, leaving the mark, Fleet's dot and
+   the menu itself. Every act in the panel has a shortcut but Dispatch, and
+   the owner took that trade (30 Sep 2026).
+
+   armada-allow-off-contract: a container condition cannot read a custom property — measured, not assumed, same as @media
+   Measured in the mock — docs/contracts/design-system.md
+   The full row's sides measure 279px and 266px, and search stops reading
+   below about 160px, so the full row needs about 860px. */
+@container (max-width: 900px) {
+  .armada-title-bar__start,
+  .armada-title-bar__center,
+  .armada-title-bar__helm,
+  .armada-title-bar__lockup {
+    display: none;
+  }
+
+  .armada-title-bar__mark,
+  .armada-title-bar__menu {
+    display: flex;
+  }
+
+  /* The other two regions are gone, so this one takes the whole row. */
+  .armada-title-bar__end {
+    grid-column: 1 / -1;
+  }
 }

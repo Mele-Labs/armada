@@ -188,6 +188,9 @@ pub struct Fittings<H, V, W> {
     /// [`ChecksAtOnce`](crate::ChecksAtOnce), which has no default for
     /// [`Concurrency`]'s reason. #284, #1063.
     pub checks_at_once: crate::ChecksAtOnce,
+    /// The Check slots every process on the machine takes from, `armada check`
+    /// included. **`None` in a test**: a fixture shares no machine.
+    pub check_slots: Option<checks_runner::CheckSlots>,
     /// How stale a machine reading may be. **The
     /// `settings.fleet-health-check-resource-poll-interval` row** — see
     /// [`Polling`] for why it is a freshness bound rather than a second timer.
@@ -369,9 +372,10 @@ where
             seeds: Arc::new(std::sync::Mutex::new(crate::seeding::Seeds::default())),
             base_preparing: Arc::new(tokio::sync::Mutex::new(())),
             headroom: std::sync::Mutex::new(in_force.headroom),
-            places: crate::places::Places::sized(
+            places: crate::places::Places::on_the_machine(
                 in_force.checks_at_once,
                 checks_runner::CheckWidth::read(in_force.concurrency.jobs()),
+                fittings.check_slots,
             ),
             shipped,
             polling: fittings.polling,

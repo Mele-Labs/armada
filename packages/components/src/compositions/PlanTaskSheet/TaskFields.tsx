@@ -3,36 +3,27 @@ import type { ReactNode } from "react";
 /**
  * One label and its value, in the task inspector.
  *
- * **The label is a register and the value is a box.** Four notes across four
- * surfaces say the same thing: *"they are all the same color and weight just a
- * slight difference to the font size"* (owner, 28 Sep 2026). `ProposalFields`
- * answered it for the proposal by putting the value in `--bg-sunken` inside
- * `--border-default`, and this is that treatment stacked — the design board
- * draws this panel with the label above rather than beside, because 392px has
- * no room for two tracks.
+ * **The label is a register and the value is plain text.** The label's small
+ * caps in `--fg-subtle` against the value in `--fg-default` is what separates
+ * one field from the next, and the gap between fields does the rest. The value
+ * sat in a sunken box once, `ProposalFields`' treatment, and the owner read it
+ * as a text input he could type in (29 Sep 2026) — a panel that only reads must
+ * not look like a form. Rows that are rows, a file list or a test list, divide
+ * with a hairline instead.
  *
  * **Not an app-wide component.** That is parked; this is the Plan inspector's.
  */
 export function TaskField({
   label,
-  note,
-  bare,
   children,
 }: {
   label: string;
-  /** A fact about the value, under it. `declared 3 · touched 2`. */
-  note?: ReactNode;
-  /** The value draws its own boxes — a list of rows, a control. */
-  bare?: boolean;
   children: ReactNode;
 }) {
   return (
     <section className="armada-task-sheet__field">
       <h3 className="armada-task-sheet__label">{label}</h3>
-      <div className="armada-task-sheet__value" data-bare={bare === true ? "true" : undefined}>
-        {children}
-      </div>
-      {note === undefined ? null : <p className="armada-task-sheet__note">{note}</p>}
+      <div className="armada-task-sheet__value">{children}</div>
     </section>
   );
 }

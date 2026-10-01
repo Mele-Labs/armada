@@ -21,8 +21,17 @@ one note — a note with `sent` belongs to its Job.
 ### 1. Read the open notes
 
 ```
-ls .armada/annotations/
+ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
+
+**Every worktree's folder, not only the main checkout's.** A mock started from
+a worktree writes its notes into that worktree, so a note pinned on a session's
+review mock is invisible from the main checkout. Confirmed 29 Sep 2026: the
+owner pinned a note on the Workflow mock (`:41060`, run from
+`.claude/worktrees/workflow-board-pass`), the next `/annotations` read only the
+main folder, and he had to ask where his note had gone. A note in a worktree's
+folder is deleted with the worktree, so when it is done, copy it into the main
+checkout's folder, marked `done`, before the worktree is given back.
 
 Read every file. Skip `status: "done"`, and skip any with `sent` — say which Job
 each went to, so the owner knows it is not lost. Group what is left by

@@ -301,3 +301,76 @@
   padding: var(--pad-card);
   border-top: var(--armada-hairline) solid var(--border-subtle);
 }
+
+/* A resizing floating sheet's leading edge: Helm's handle
+   (`src/dock-handle.css`), in the `--space-4` gap the sheet's own margin would
+   have spent. It takes the sheet's place at the trailing end, so the sheet
+   sits flush to it, and it is held off the top and bottom as the sheet is.
+   The width is `Sheet`'s, inline. */
+.armada-sheet-scrim[data-floating] > .armada-dock-handle {
+  margin-left: auto;
+  margin-block: var(--space-4);
+}
+
+.armada-sheet-scrim[data-floating] > .armada-dock-handle + .armada-sheet[data-floating] {
+  flex: none;
+  max-width: none;
+  margin-left: 0;
+}
+
+/* Beside another floating sheet: the file diff to the left of Plan's task
+   panel. **One dim, not two** — the sheet it sits beside already dims the
+   screen and takes the presses, so this scrim paints nothing, takes nothing,
+   and does not fade in. It keeps the other sheet's width, that sheet's
+   trailing margin and the `--space-4` gap between them clear, and the panel
+   stops at the work area's leading margin rather than past it.
+   `--armada-sheet-beside` is the other sheet's width as drawn, set by `Sheet`
+   where that sheet resizes; absent, it is at rest. No travel in either: it
+   would slide across the sheet it sits beside. */
+.armada-sheet-scrim[data-beside] {
+  background: none;
+  pointer-events: none;
+  animation: none;
+}
+
+.armada-sheet-scrim[data-beside] > .armada-sheet {
+  pointer-events: auto;
+  animation: none;
+}
+
+/* The leading `--space-4` is padding rather than the panel's own margin: the
+   panel fills what is left, and a filling flex item's `auto` margin is 0. */
+.armada-sheet-scrim[data-beside]:not(:has(> .armada-sheet[data-floor])) {
+  padding-left: var(--space-4);
+  padding-right: calc(var(--armada-sheet-beside, var(--w-dock)) + 2 * var(--space-4));
+}
+
+.armada-sheet-scrim[data-beside] > .armada-sheet[data-floating]:not([data-floor]) {
+  margin-right: 0;
+}
+
+/* The way back, where a press elsewhere opened this sheet: its own first line
+   of the head, with the close at its trailing end, so the title keeps the
+   whole width under it. The head wraps for it even where a sheet holds its
+   head to one line, and the close still takes the first line's trailing
+   corner. The ghost's own inline padding
+   is pulled back so its chevron starts on the title's edge.
+   `[role]` and the `:has` are weight, not meaning: the task sheet holds its
+   own head to one line at 0,4,0, and a way back has to win over that. */
+.armada-sheet[role="dialog"]:has(> .armada-sheet__head > .armada-sheet__way) .armada-sheet__head {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
+.armada-sheet__way {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-sheet__way > .armada-button[data-variant="ghost"] {
+  margin-left: calc(-1 * var(--space-2));
+}

@@ -38,9 +38,9 @@ async function plan(): Promise<Window> {
   return within;
 }
 
-/** The graph's own group card. Not a control: there is no group destination to press into. */
+/** The graph's own group card, a control: pressing it opens the group's panel. */
 const groupNode = (within: Window, ordinal: number) =>
-  within.getByRole("group", { name: new RegExp(`^Group ${ordinal}, `) });
+  within.getByRole("button", { name: new RegExp(`^Group ${ordinal}, `) });
 
 /** The list's own group list, which the graph draws no copy of. */
 const listGroups = (within: Window) => within.getByRole("list", { name: "Groups, in the order they run" });

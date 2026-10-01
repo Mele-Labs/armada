@@ -54,7 +54,7 @@ test("a refused act plays the level change, from the same place", async () => {
   expect(tap).toHaveBeenCalledWith("level_change");
 });
 
-// **A refused plan drop tapped too**, from the screen holding its own answer
-// rather than from a toast. `Drop…` went with the Plan region on 29 Sep 2026
-// and `PlanWell` has no renderer, so there is no drop to refuse; the claim
-// belongs to the Plan destination when its rows carry the act again.
+// **A refused plan drop taps too**, from the panel holding its own answer
+// rather than from a toast. Drop this task lives in Plan's task panel since
+// 30 Sep 2026, and the claim is made beside its other drop claims, in
+// `job-detail-plan.test.tsx`.

@@ -511,3 +511,6 @@ mod matched;
 
 /// Which tests a run's own summary names as failing. `src/tests/failing.rs`.
 mod failing;
+
+/// The machine's Check slots, across processes. `src/tests/slots.rs`.
+mod slots;

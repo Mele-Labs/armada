@@ -21,6 +21,8 @@
 //! `${width}` a Manifest writes it into — a number handed to a runner, never a
 //! cap imposed on one. #1444.
 //!
+//! [`CheckSlots`] bounds how many Checks run at once across every process.
+//!
 //! [`split`] is the one splitter in the workspace and is public for that
 //! reason. `fleet::drifting` asks whether what a `run` line names is still in
 //! the repository, which is the same resolution this crate does before it
@@ -42,6 +44,7 @@ mod matched;
 mod narrow;
 mod run;
 mod serving;
+mod slots;
 mod width;
 
 #[cfg(test)]
@@ -52,4 +55,5 @@ pub use matched::{one_test_ran, OneTestRan};
 pub use narrow::{narrowed, one_test, run_changed, Narrowed};
 pub use run::{run, run_until, run_writing, run_writing_with_env, split, Attempt, Output, Writing};
 pub use serving::Served;
+pub use slots::{already_held, CheckSlots, Held, InUse, HELD_ENV};
 pub use width::{resolve_width, CheckWidth, WIDTH_ENV};

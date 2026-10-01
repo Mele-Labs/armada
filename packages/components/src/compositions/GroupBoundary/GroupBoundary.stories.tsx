@@ -32,7 +32,6 @@ const all = (reads: GroupBoundaryCheck["reads"]): GroupBoundaryCheck[] =>
  */
 export const NotRun: Story = {
   args: {
-    clause: "will run at this boundary",
     checks: all("not run"),
   },
   play: async ({ canvas, canvasElement }) => {
@@ -49,7 +48,6 @@ export const NotRun: Story = {
 /** One in flight. The bar is the only thing on this surface that says so. */
 export const OneInFlight: Story = {
   args: {
-    clause: "running at this boundary",
     checks: NAMES.map((name, at) => ({ name, reads: at < 3 ? "passed" : at === 3 ? "running" : "not run" })),
     verdictSays: "running now",
   },
@@ -58,12 +56,10 @@ export const OneInFlight: Story = {
 /** All passed, with the commit the group left and the cases that ran beside them. */
 export const AllPassed: Story = {
   args: {
-    clause: "ran at this boundary",
     checks: all("passed"),
     verdictSays: "all passed",
     verdictNamed: "passed",
     commit: "7a2f0c5",
-    testsClause: "ran at this boundary",
     tests: [
       { id: "c-panel", spec: "packages/screens/src/Running.test.tsx", reads: "owed" },
       { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
@@ -91,7 +87,6 @@ export const AllPassed: Story = {
  */
 export const OneFailed: Story = {
   args: {
-    clause: "ran at this boundary",
     checks: NAMES.map((name) =>
       name === "screens_test"
         ? {

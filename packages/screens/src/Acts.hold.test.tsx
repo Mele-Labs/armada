@@ -7,7 +7,11 @@ import { page } from "vitest/browser";
 
 import type { JobDetail as JobWhole, JobSpend, JobSummary } from "@armada/protocol";
 import { Acts, type ConfirmableAct, type HeldAct } from "./Acts";
-import { mount, unmount } from "./mounted";
+import { motion, mount, unmount } from "./mounted";
+
+// The hold is the claim, and reduced motion — which this project runs under — does not offer one.
+// The two tests that take the preference take it back themselves, with `reduceMotion` below.
+beforeEach(motion);
 
 afterEach(() => {
   vi.useRealTimers();
