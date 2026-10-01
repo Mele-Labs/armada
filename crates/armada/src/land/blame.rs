@@ -108,9 +108,9 @@ mod tests {
     fn a_line_number_and_a_root_file_are_read_as_paths() {
         let new = lines(&[
             "missing: crates/a.rs:80 — a rule this line breaks",
-            "missing: CLAUDE.md is 51 lines, over 50 — move the explanation, keep the pointer",
+            "missing: ROUTES.md is 51 lines, over 50 — move the explanation, keep the pointer",
         ]);
-        let own = paths(&[&["CLAUDE.md"], &["crates/a.rs"]]);
+        let own = paths(&[&["ROUTES.md"], &["crates/a.rs"]]);
         assert_eq!(
             blame(&new, &own),
             Some(vec![vec![new[1].clone()], vec![new[0].clone()]])
