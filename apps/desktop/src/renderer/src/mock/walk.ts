@@ -1,0 +1,221 @@
+// A walk: a short named script of steps over a mock scenario, which the mock
+// plays in the browser on `?walk=<name>`, `capture/walk.mjs` photographs, and
+// `walks.test.tsx` runs as a test. `docs/practices/running-locally.md`, *Walks*.
+//
+// **One way of finding a target and one way of pressing it, for all three.**
+// A test that pressed with Playwright while the link pressed with this would
+// pass on a walk the owner then found broken, and the walk is only evidence if
+// what CI ran is what he clicks.
+
+import { computeAccessibleName, getRole, isInaccessible } from "dom-accessibility-api";
+
+/** What a name is matched against: a string inside it, any case, or a pattern. */
+export type Name = string | RegExp;
+
+/** Something on screen, found the way a test finds it: by role and accessible name, or by its text. */
+export type Target = {
+  /** The role, or `text` for an element found by the words it draws. */
+  role: string;
+  name?: Name;
+  /** The whole name and nothing else, rather than a string inside it. */
+  exact?: boolean;
+  /** Looked for only inside this one. */
+  within?: Target;
+  /** How a stop names it. */
+  said: string;
+};
+
+export type Step =
+  | { press: Target; say: string }
+  | { look: Target; say: string }
+  | { type: string; into: Target; say: string };
+
+export type Walk = { scenario: string; steps: readonly Step[] };
+
+/** A walk over `scenario`. Its name is the name it is exported under. */
+export function walk(scenario: string, steps: readonly Step[]): Walk {
+  return { scenario, steps };
+}
+
+const quoted = (name: Name) => (typeof name === "string" ? `“${name}”` : String(name));
+
+/** Anything with this role, and this name where one is given. */
+export function role(kind: string, name?: Name, options: { exact?: boolean } = {}): Target {
+  return {
+    role: kind,
+    ...(name === undefined ? {} : { name }),
+    ...(options.exact === undefined ? {} : { exact: options.exact }),
+    said: name === undefined ? `a ${kind}` : `a ${kind} named ${quoted(name)}`,
+  };
+}
+
+export const tab = (name: Name) => role("tab", name);
+export const button = (name: Name, options?: { exact?: boolean }) => role("button", name, options);
+export const dialog = (name: Name) => role("dialog", name);
+export const row = (name: Name) => role("row", name);
+export const region = (name: Name) => role("region", name);
+
+/** Words on screen: the smallest element that draws them. */
+export function text(words: Name): Target {
+  return { role: "text", name: words, said: `the words ${quoted(words)}` };
+}
+
+/**
+ * A card on a canvas: a Workflow step or a Plan group or task. **Named by its
+ * label and then its state**, "Implement, running", so a label is matched up to
+ * that comma rather than inside the name, where `Plan` would also find `Plan the change`.
+ */
+export function card(label: string): Target {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return { role: "button", name: new RegExp(`^${escaped}, `), said: `a card named “${label}”` };
+}
+
+/** `target`, looked for only inside `scope`. */
+export function inside(scope: Target, target: Target): Target {
+  return { ...target, within: scope, said: `${target.said} in ${scope.said}` };
+}
+
+/** Where a step points: what it presses, looks at, or types into. */
+export function targetOf(step: Step): Target {
+  return "press" in step ? step.press : "look" in step ? step.look : step.into;
+}
+
+/** What the step does, said plainly for a stop. */
+function verb(step: Step): string {
+  return "press" in step ? "press" : "look" in step ? "look at" : "type into";
+}
+
+const squeezed = (words: string) => words.replace(/\s+/g, " ").trim();
+
+function matches(name: string, wanted: Name, exact: boolean): boolean {
+  const said = squeezed(name);
+  if (typeof wanted !== "string") return wanted.test(said);
+  return exact ? said === squeezed(wanted) : said.toLowerCase().includes(squeezed(wanted).toLowerCase());
+}
+
+/** The walk's own card and ring, which a target is never found in. */
+export const WALK_UI = "data-walk-ui";
+
+function reachable(element: Element): boolean {
+  return element.closest(`[${WALK_UI}]`) === null && !isInaccessible(element);
+}
+
+/**
+ * Every element under `root` this target names, in document order. **Hidden
+ * ones are not found**, as a test's `getByRole` does not find them.
+ */
+function every(target: Target, root: ParentNode): Element[] {
+  const all = [...root.querySelectorAll("*")];
+  if (target.role === "text") {
+    const wanted = target.name!;
+    const drawing = all.filter(
+      (one) => !["SCRIPT", "STYLE"].includes(one.tagName) && matches(one.textContent ?? "", wanted, false),
+    );
+    // The smallest: one whose children do not draw the words on their own.
+    return drawing.filter((one) => !drawing.some((other) => other !== one && one.contains(other))).filter(reachable);
+  }
+  return all.filter(
+    (one) =>
+      getRole(one) === target.role &&
+      reachable(one) &&
+      (target.name === undefined || matches(computeAccessibleName(one), target.name, target.exact ?? false)),
+  );
+}
+
+/**
+ * The element a target names, or null. **The last of several**, as the mock's
+ * tests take `.last()`: a panel is drawn after what it opens over, so the last
+ * `Close` is the one on top.
+ */
+export function find(target: Target, root: ParentNode = document): HTMLElement | null {
+  let scope: ParentNode = root;
+  if (target.within !== undefined) {
+    const found = find(target.within, root);
+    if (found === null) return null;
+    scope = found;
+  }
+  const all = every(target, scope);
+  return (all[all.length - 1] as HTMLElement | undefined) ?? null;
+}
+
+/** How long a step waits for its target before the walk stops on it. */
+export const PATIENCE_MS = 5_000;
+
+const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The step's target once it is on screen and has stopped moving, or null if it
+ * never came. **Still, and not only present**: a panel's first frame is drawn
+ * wholly outside the window, and a press aimed at it then reaches nothing
+ * (`docs/practices/bridge.md`, *A press waits for the surface to arrive*). So
+ * it waits for the panel it sits in to finish entering, then for its box to
+ * hold still across frames.
+ */
+export async function arrive(step: Step, patience = PATIENCE_MS): Promise<HTMLElement | null> {
+  const until = Date.now() + patience;
+  let found = find(targetOf(step));
+  while (found === null && Date.now() < until) {
+    await sleep(100);
+    found = find(targetOf(step));
+  }
+  if (found === null) return null;
+  found.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const layer = found.closest('[role="dialog"]');
+  if (layer !== null) await Promise.all(layer.getAnimations().map((one) => one.finished.catch(() => undefined)));
+  let was = found.getBoundingClientRect();
+  for (let held = 0, tries = 0; held < 3 && tries < 60; tries += 1) {
+    await frame();
+    const now = found.getBoundingClientRect();
+    held = now.x === was.x && now.y === was.y && now.width === was.width ? held + 1 : 0;
+    was = now;
+  }
+  return found;
+}
+
+/** Why the walk stopped on a step, in the words its card and its test say. */
+export function stopped(at: number, step: Step): string {
+  return `Stopped at step ${at + 1}, “${step.say}”. Nothing to ${verb(step)}: no ${targetOf(step).said.replace(/^an? /, "")} came within ${PATIENCE_MS / 1000} seconds.`;
+}
+
+/**
+ * A press as a pointer makes one: down, focus, up, click, at the element's
+ * middle. **Not `element.click()`**, which skips the down a tab activates on.
+ */
+function press(element: HTMLElement): void {
+  const box = element.getBoundingClientRect();
+  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, button: 0 };
+  const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
+  element.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
+  const down = element.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+  if (down) element.focus();
+  element.dispatchEvent(new PointerEvent("pointerup", pointer));
+  element.dispatchEvent(new MouseEvent("mouseup", at));
+  element.dispatchEvent(new MouseEvent("click", at));
+}
+
+/** A field filled as typing fills it: React hears an input with the new value. */
+function fill(element: HTMLElement, words: string): void {
+  if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+    throw new Error(`${element.tagName.toLowerCase()} is not a field a walk can type into`);
+  }
+  element.focus();
+  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), "value")?.set;
+  setter?.call(element, words);
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** What the step does to its target when the walk moves past it. A look does nothing. */
+export function act(step: Step, element: HTMLElement): void {
+  if ("press" in step) press(element);
+  else if ("type" in step) fill(element, step.type);
+}
+
+/** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */
+export async function walkThrough(steps: readonly Step[]): Promise<void> {
+  for (const [at, step] of steps.entries()) {
+    const element = await arrive(step);
+    if (element === null) throw new Error(stopped(at, step));
+    act(step, element);
+  }
+}

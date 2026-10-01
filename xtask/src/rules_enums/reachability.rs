@@ -23,6 +23,14 @@
 //! repository builds — `retrying` and then `awaiting_human` each stood there
 //! and each was answered (`#522`). A state reached somewhere and not here is
 //! two built things disagreeing, and fails.
+//!
+//! **The same softening reaches one status, and only where both halves say
+//! nothing.** A row declaring no `step_states` beneath a status no path reaches
+//! is the registry ahead of its implementation again, one level up —
+//! `proposing` (`#1159`) is a Job dispatched from a request, created in that
+//! status by nothing yet and holding no step at all once it is. A row that
+//! declares states and is reached by nothing still fails: that is an inbound
+//! edge wired away, which is what the message was written for.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -235,6 +243,23 @@ fn check_row(
         }
     }
     let Some(holds) = holds else {
+        // **The two halves agree where both say nothing**, which is the one
+        // reading of an unreachable status that is not a disagreement: a row
+        // declaring no step state and a machine holding none beneath it are
+        // saying the same thing. It is how a status is declared ahead of its
+        // implementation — `proposing` (`#1159`) is the first, a Job dispatched
+        // from a request, which nothing creates yet and which holds no step at
+        // all once it does. Warned rather than passed silently, because the
+        // registry being ahead is a fact a reader wants; the softening runs one
+        // way, as this module's header says the state axis's does.
+        if declared.is_empty() {
+            report.warn(format!(
+                "{STATUSES}:{line} — `[statuses.{key}]` declares no step state, and the machine \
+                 reaches the status by no path at all. The two agree; the registry is ahead of \
+                 what is built"
+            ));
+            return declared.clone();
+        }
         report.fail(format!(
             "{STATUSES}:{line} — `[statuses.{key}]` declares {}, and the machine reaches the \
              status by no path at all. A status nothing arrives at holds nothing",

@@ -79,3 +79,69 @@
   cursor: grab;
   touch-action: none;
 }
+
+/* A walk, `WalkPlayer.tsx`: a ring on the step's target and the caption in a card.
+ * Neither takes a press meant for the app: the layer is pointer-events none,
+ * and only the card takes them back.
+ *
+ * MISSING TOKEN: nothing stacks above `--z-palette`, and a walk rings things
+ * inside the palette and every panel. One step above, as the annotation layer
+ * takes, accepted for the same reason: nothing ships this layer. */
+.armada-mock-walk {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-palette) + 1);
+  pointer-events: none;
+}
+
+.armada-mock-walk__ring {
+  position: fixed;
+  left: var(--walk-x);
+  top: var(--walk-y);
+  width: var(--walk-w);
+  height: var(--walk-h);
+  border-radius: var(--radius-sm);
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  /* Off the element's edge, so it still reads on an accent-filled control. */
+  outline-offset: calc(var(--border-width) * 2);
+  box-shadow: 0 0 0 var(--space-2) var(--accent-faint);
+}
+
+.armada-mock-walk__card {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  width: var(--w-tooltip);
+  pointer-events: auto;
+}
+
+/* Across the window when the ring is under the trailing corner. */
+.armada-mock-walk__card[data-side="leading"] {
+  right: auto;
+  left: var(--space-6);
+}
+
+/* Done, it is a chip: the app is left where the walk ended, to keep poking. */
+.armada-mock-walk__card[data-walk-state="done"] {
+  width: auto;
+}
+
+.armada-mock-walk__where {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.armada-mock-walk__said {
+  margin: var(--space-1) 0 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}
+
+.armada-mock-walk__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}

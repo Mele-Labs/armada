@@ -14,10 +14,18 @@
 // # Why the order is an order
 //
 // `Copy debug info` copies one failure, so one has to be chosen, and the choice
-// is which explains the others. Fleet being unreachable outranks a throw in a
-// handler: it is the one that explains every other symptom on screen. A command
-// that failed sits between them — more specific than a stray throw, and still
-// explained by an unreachable Fleet where there is one.
+// is which explains the others. Fleet being unreachable outranks everything
+// else: it is the one that explains every other symptom on screen. After it
+// comes the newest toast — a command that failed or a throw no boundary saw —
+// because that is the one the person has just met.
+//
+// # Which failures are toasts
+//
+// A press that failed pops up as a toast, over every layer, and stays until it
+// is dismissed: a command Fleet refused or did not answer, a route it does not
+// serve yet, a throw no boundary saw, and a press the form would not send. A
+// state is not a press, so Fleet unreachable stays a banner, and so do the
+// board's unreadable rows.
 //
 // The board's own unreadable rows are not in this order and never were. Each is
 // drawn beside the row it is about, and there can be several at once.
@@ -26,7 +34,7 @@ import type { BridgeIdentity, Connection, Outcome } from "@armada/protocol";
 import type { Failure, Statement, Uncaught } from "@armada/shell";
 import { fleetFailure, refusalFailure, transportFailure, uncaughtFailure } from "@armada/shell";
 import { statementOf } from "@armada/shell";
-import { servesNothing } from "@armada/screens";
+import { said, servesNothing } from "@armada/screens";
 
 /** What the window has been published, as far as a failure is concerned. */
 export type Published = {
@@ -37,8 +45,8 @@ export type Published = {
   readAt: number | null;
   /** What the last command answered, failure or not. */
   outcome: Outcome | null;
-  /** A throw or a rejection no boundary could have caught. */
-  uncaught: Uncaught | null;
+  /** The failures standing as toasts, oldest first. */
+  raised: Failure[];
   /** The one clock every elapsed figure in the window is drawn from. */
   now: number;
 };
@@ -56,7 +64,7 @@ export type Failing = {
 };
 
 export function failingIn(published: Published): Failing {
-  const { connection, bridge, readAt, outcome, uncaught, now } = published;
+  const { connection, bridge, readAt, outcome, raised, now } = published;
   const statement = statementOf(connection, now, readAt);
   const fleet = fleetFailure(connection, statement, bridge, now);
   // What the last command answered, where the answer was a failure rather than
@@ -64,21 +72,44 @@ export function failingIn(published: Published): Failing {
   // envelope, and a transport failure is a command it did not answer at all —
   // which used to be a single line of copy with no code and nothing to copy.
   // Everything else `Outcome` carries is the form saying what it will not send,
-  // which is guidance and takes the `Alert` the surface draws.
-  const commandFailure =
-    outcome === null || outcome.ok
-      ? null
-      : outcome.why === "refused"
-        ? servesNothing(outcome) ? null : refusalFailure(outcome.error, bridge)
-        : outcome.why === "transport"
-          ? transportFailure(outcome, bridge)
-          : null;
+  // which is guidance: a toast of its own, one per kind — `raised.tsx`.
+  const commandFailure = commandFailureOf(outcome, bridge);
 
   return {
     statement,
     fleet,
     commandFailure,
-    failing:
-      fleet ?? commandFailure ?? (uncaught === null ? null : uncaughtFailure(uncaught, bridge)),
+    failing: fleet ?? raised.at(-1) ?? null,
   };
+}
+
+/** Whether a command's answer is a failure rather than the form's guidance. */
+export function failedCommand(outcome: Outcome | null): boolean {
+  if (outcome === null || outcome.ok) return false;
+  if (outcome.why === "refused") return !servesNothing(outcome);
+  return outcome.why === "transport";
+}
+
+function commandFailureOf(outcome: Outcome | null, bridge: BridgeIdentity): Failure | null {
+  if (outcome === null || !failedCommand(outcome) || outcome.ok) return null;
+  if (outcome.why === "refused") return refusalFailure(outcome.error, bridge);
+  if (outcome.why === "transport") return transportFailure(outcome, bridge);
+  return null;
+}
+
+/**
+ * What a press the form would not send says, or null where the answer was not
+ * guidance. Its toast has no Copy debug info: there is no code to hand on.
+ */
+export function guidanceOf(outcome: Outcome | null): string | null {
+  if (outcome === null || outcome.ok || failedCommand(outcome)) return null;
+  return said(outcome) || null;
+}
+
+/** One toast: a command that failed or was not sent, or a throw no boundary saw. */
+export type Raised = { key: number } & ({ outcome: Outcome } | { uncaught: Uncaught });
+
+/** The failure a toast draws. */
+export function raisedFailure(one: Raised, bridge: BridgeIdentity): Failure | null {
+  return "uncaught" in one ? uncaughtFailure(one.uncaught, bridge) : commandFailureOf(one.outcome, bridge);
 }
