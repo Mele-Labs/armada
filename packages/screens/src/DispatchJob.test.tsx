@@ -1,27 +1,25 @@
-// One request out at a time, and one way back from the override.
+// One request out of this surface, and one way through it.
 //
 // # Why the guard is tested and not just written
 //
 // There is no in-flight guard on `proposeFromRequest`, matching `proposeJob`.
 // Two presses are two model calls and two drafted plans — two of everything at
-// the gate, and somebody deleting one by hand — so the form is what has to stop
-// it, and a guard nothing exercises is a guard nobody knows broke.
+// the gate, and somebody deleting one by hand.
 //
-// **The button being disabled is not the test.** That is a rendering, and a
-// press can reach the handler with the control still drawn live: a key repeat,
-// a synthetic click, a frame not yet painted. So every case here presses a
-// control that is enabled and asserts on what was sent.
+// **The press leaves the composer** since 30 Sep 2026, so the app unmounting
+// this card is most of what stops a second one. The ref is the rest, and it is
+// what these press: the unmount is a render, and a key repeat or a synthetic
+// click in the same task reaches the handler with the button still there.
 //
-// The story in `packages/components` proves the other half — that the control
-// goes off while a call is out — because that half is a rendering and belongs
-// where renderings are agreed.
+// **The wait, the answer and both refusals are not here any more.** A
+// dispatched request is a Job from the press, so the wait is `ProposerWait`
+// inside that Job's own lead and the answer is its row moving on the Board.
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { DispatchJob } from "./DispatchJob";
 import type { DispatchJobProps } from "./DispatchJob";
-import type { Answered } from "./proposal";
 import { mount, unmount } from "./mounted";
 
 afterEach(unmount);
@@ -29,46 +27,6 @@ afterEach(unmount);
 /** What the form is holding when the guard has to work. */
 const REQUEST = "The board flickers every time an event lands.";
 
-/** An answer that leaves the request in the field, so a second press has one. */
-const UNRESOLVED: Answered = {
-  proposal: { at: "unresolved" },
-  outcome: null,
-  request: REQUEST,
-};
-
-/** A promise the test settles, so a call can be held open across two presses. */
-function held(): { promise: Promise<Answered>; answer: (read: Answered) => void } {
-  let answer!: (read: Answered) => void;
-  const promise = new Promise<Answered>((resolve) => {
-    answer = resolve;
-  });
-  return { promise, answer };
-}
-
-/** A proposal of one, at its gate — what the surface draws after an answer. */
-const PROPOSED: Answered = {
-  proposal: {
-    at: "proposed",
-    request: REQUEST,
-    jobs: [
-      {
-        id: "job_2d90bb",
-        title: "Stop the board flickering on every event",
-        workflow: "bug",
-        status: "awaiting_approval",
-      },
-    ],
-  },
-  outcome: null,
-  request: null,
-};
-
-/**
- * Mount it, and hand back every request that reached the caller.
- *
- * `onPropose` answers with whatever the test hands it, so a call can be left
- * outstanding — which is the only state the guard exists for.
- */
 /**
  * What this screen is handed beside the request: where the work starts, and
  * what the settings block may offer.
@@ -91,24 +49,14 @@ const HELD = {
   machineCap: null,
 } satisfies Partial<DispatchJobProps>;
 
-function opened(answering: () => Promise<Answered>): { sent: string[] } {
+/** Mount it, and hand back every request that reached the caller. */
+function opened(): { sent: string[] } {
   const sent: string[] = [];
   mount(
     <DispatchJob
-      onPropose={(request) => {
-        sent.push(request);
-        return answering();
-      }}
+      onPropose={(request) => sent.push(request)}
       onStage={() => Promise.resolve({ path: "/tmp/staged" })}
       onSearchFiles={() => Promise.resolve([])}
-      onOpen={() => {}}
-      onApprove={() => {}}
-      approving={[]}
-      // Nothing published, which is the state before Fleet's first message and
-      // the one these cases are about: what the guard does is not a function of
-      // how far the call has got.
-      watching={null}
-      onStop={() => {}}
       {...HELD}
       disabled={false}
     />,
@@ -120,84 +68,44 @@ function field() {
   return page.getByRole("textbox", { name: "Request" });
 }
 
+const dispatch = () => page.getByRole("button", { name: "Dispatch", exact: true });
+
 test("two presses in one task are one call", async () => {
-  // Never settled: the call stays out for the whole test, which is the window
-  // the second press has to be refused in.
-  const { sent } = opened(() => new Promise<Answered>(() => {}));
+  const { sent } = opened();
   await userEvent.fill(field(), REQUEST);
 
   // **Both presses in one task, on purpose.** React has not re-rendered between
-  // them, so the second reaches the handler with the button still enabled in
-  // the DOM — which is the whole case the ref exists for and the one a click
-  // helper that waits for the control to settle can never produce.
-  const button = page.getByRole("button", { name: "Dispatch", exact: true }).element() as HTMLButtonElement;
+  // them and the app has not had a chance to unmount this card, so the second
+  // reaches the handler with the button still enabled in the DOM — the whole
+  // case the ref exists for, and one a click helper that waits for the control
+  // to settle can never produce.
+  const button = dispatch().element() as HTMLButtonElement;
   button.click();
   button.click();
 
   expect(sent, "a second press fired a second model call").toEqual([REQUEST]);
-  // And the rendering caught up, which is the half a person sees. Pending
-  // rather than disabled: it is the control being waited on. #1117.
-  await expect
-    .element(page.getByRole("button", { name: "Reading the request" }))
-    .toHaveAttribute("aria-busy", "true");
 });
 
 /**
- * The answer releases it, and not before.
- *
- * **The half that keeps the test above honest.** A guard that never let go
- * would pass it and wedge the surface after one dispatch, which on screen reads
- * exactly like the guard working.
+ * And it does not release. **The card is what the app takes away**, so a second
+ * press a render later is still the same request — where before the guard let go
+ * on the answer, because the answer was drawn here.
  */
-test("the answer releases it", async () => {
-  const first = held();
-  let next: () => Promise<Answered> = () => first.promise;
-  const { sent } = opened(() => next());
-
+test("a press a render later is still one call", async () => {
+  const { sent } = opened();
   await userEvent.fill(field(), REQUEST);
-  await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
+  await userEvent.click(dispatch());
   expect(sent).toEqual([REQUEST]);
 
-  next = () => Promise.resolve(UNRESOLVED);
-  first.answer(UNRESOLVED);
-  // The refusal put the request back, so the second press has one to send.
-  await expect.element(page.getByRole("button", { name: "Dispatch", exact: true })).toBeEnabled();
-
-  await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
-  expect(sent, "the answer did not release the guard").toEqual([REQUEST, REQUEST]);
-});
-
-/**
- * A call that threw leaves the surface usable. **Wedged on `reading` is worse
- * than the throw** — nothing on screen says the call is dead, and the guard
- * never releases — so the state goes back and the throw carries on.
- */
-test("a call that threw gives the surface back", async () => {
-  // The rethrow is the point, and `dispatch` is called through `void`, so it
-  // lands as an unhandled rejection. In the app that is what `watchUncaught`
-  // draws; here it is caught so the runner does not fail the test for the
-  // behaviour the test is asserting.
-  const expected = (event: PromiseRejectionEvent) => event.preventDefault();
-  window.addEventListener("unhandledrejection", expected);
-  try {
-    const { sent } = opened(() => Promise.reject(new Error("the preload has no proposer")));
-    await userEvent.fill(field(), REQUEST);
-    await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
-
-    const dispatch = page.getByRole("button", { name: "Dispatch", exact: true });
-    await expect.element(dispatch).toBeEnabled();
-    await userEvent.click(dispatch);
-    expect(sent, "a throw left the surface unable to ask again").toEqual([REQUEST, REQUEST]);
-  } finally {
-    window.removeEventListener("unhandledrejection", expected);
-  }
+  await userEvent.click(dispatch());
+  expect(sent, "the surface sent the same request twice").toEqual([REQUEST]);
 });
 
 /** Nothing is sent for a field holding only spaces, by the button or otherwise. */
 test("whitespace is not a request", async () => {
-  const { sent } = opened(() => Promise.resolve(UNRESOLVED));
+  const { sent } = opened();
   await userEvent.fill(field(), "   \t ");
-  await expect.element(page.getByRole("button", { name: "Dispatch", exact: true })).toBeDisabled();
+  await expect.element(dispatch()).toBeDisabled();
   expect(sent).toEqual([]);
 });
 
@@ -205,86 +113,20 @@ test("whitespace is not a request", async () => {
  * There is one way through this surface and no way off it.
  *
  * **The owner took hand entry out on 2026-09-23**, once Settings carried every
- * decision the form did. This is what a screen that offered a second route
- * would fail: a refusal draws no way out, and the footer carries one control.
+ * decision the form did, and the footer has carried one control since.
  */
 test("nothing offers a second way to make a Job", async () => {
-  opened(() => Promise.resolve(UNRESOLVED));
+  opened();
   await userEvent.fill(field(), REQUEST);
-  await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
 
-  await expect.element(page.getByText(/No workflow fits this request/)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Enter by hand" })).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("button", { name: "Describe the work instead" }))
     .not.toBeInTheDocument();
-  await expect.element(field()).toBeVisible();
-});
-
-/**
- * The head of a proposal is released from the screen that proposed it, with
- * its own id. **The press that starts the work**, and the reason there is no
- * trip to detail for it: the workflow, the name and the split are all on
- * screen, so approving is the same reading either way.
- */
-test("the proposal is approved from here", async () => {
-  const approved: string[] = [];
-  mount(
-    <DispatchJob
-      onPropose={() => Promise.resolve(PROPOSED)}
-      onStage={() => Promise.resolve({ path: "/tmp/staged" })}
-      onSearchFiles={() => Promise.resolve([])}
-      onOpen={() => {}}
-      onApprove={(jobId) => approved.push(jobId)}
-      approving={[]}
-      watching={null}
-      onStop={() => {}}
-      {...HELD}
-      disabled={false}
-    />,
-  );
-
-  await userEvent.fill(field(), REQUEST);
-  await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
-
-  await userEvent.click(
-    page.getByRole("button", { name: "Approve Stop the board flickering on every event" }),
-  );
-  expect(approved).toEqual(["job_2d90bb"]);
-});
-
-/**
- * A Job's status is Fleet's, and approving one changes it. **The row is drawn
- * against the board rather than against the answer** — a proposal held on this
- * screen would otherwise go on saying `needs approval` under a Job already
- * queued, and offer a gate that is no longer anybody's to open.
- */
-test("the row follows the board, not the answer", async () => {
-  mount(
-    <DispatchJob
-      onPropose={() => Promise.resolve(PROPOSED)}
-      onStage={() => Promise.resolve({ path: "/tmp/staged" })}
-      onSearchFiles={() => Promise.resolve([])}
-      onOpen={() => {}}
-      onApprove={() => {}}
-      approving={[]}
-      // What the board says now, which is not what came back with the proposal.
-      statusOf={() => "queued"}
-      watching={null}
-      onStop={() => {}}
-      {...HELD}
-      disabled={false}
-    />,
-  );
-
-  await userEvent.fill(field(), REQUEST);
-  await userEvent.click(page.getByRole("button", { name: "Dispatch", exact: true }));
-
+  // Live rather than pending: the press leaves the card, so there is no state of
+  // it in which Fleet has been asked and has not answered.
+  await expect.element(dispatch()).toBeEnabled();
   await expect
-    .element(page.getByRole("button", { name: "Review Stop the board flickering on every event" }))
-    .toBeVisible();
-  expect(
-    page.getByRole("button", { name: /^Approve/ }).elements(),
-    "a released job still offered its gate",
-  ).toEqual([]);
+    .element(page.getByRole("button", { name: "Reading the request" }))
+    .not.toBeInTheDocument();
 });

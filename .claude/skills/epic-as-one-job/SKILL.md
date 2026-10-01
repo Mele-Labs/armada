@@ -54,8 +54,9 @@ the message as well. A question about a document he has not been handed is a
 question he has to go and find the answer to, and the approval is the one moment
 in the run where he is reading rather than being reported to.
 
-One `AskUserQuestion`, once the plan is open in front of him, fixing four
-things. **One
+One `AskUserQuestion`, once the plan is open in front of him, fixing what the
+table names. Merging is not on it: each green child lands as `work-issue` step 6
+says, without asking. **One
 approval here becomes several agents' worth of spend** — `#51` caps a *Fleet*
 dispatch and nothing caps a session's, so the bound is the one he sets and your
 own arithmetic.
@@ -65,7 +66,6 @@ own arithmetic.
 | The split | approve as written, or approve with the changes he names |
 | The cadence | run wave to wave and report; report and hold for approval each wave; run until a question or a red wave |
 | The bound | how many waves before the run stops and reports regardless |
-| The merge authority | merge each green child as it lands, or stack branches and leave every merge to him |
 
 **How often he approves is a property of the milestone, not of you.** A low-risk
 milestone runs wave to wave. A risky one stops each round. He sets it once, at

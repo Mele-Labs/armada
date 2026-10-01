@@ -42,10 +42,9 @@ export type TitleBarProps = {
   /**
    * Opens the composer.
    *
-   * The Board's own menu (Refresh, Reported, Held disk, Settings, the
-   * two bulk acts) stays on the Board's own head — Dispatch here is a plain
-   * button, not a split one. #1156: a `SplitButton` with nothing behind its
-   * caret still drew a caret, so a person saw a menu that was not there.
+   * Dispatch here is a plain button, not a split one. #1156: a
+   * `SplitButton` with nothing behind its caret still drew a caret, so a
+   * person saw a menu that was not there.
    */
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */

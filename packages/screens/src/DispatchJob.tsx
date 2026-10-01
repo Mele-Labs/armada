@@ -5,26 +5,15 @@
 // order between them. The hand form this used to swap to is gone — the owner's
 // call of 2026-09-23, once the Settings block carried every decision it held.
 //
-// # The proposal is this screen's state, not the app's
-//
-// Nothing outside this surface reads it, it dies when the surface closes, and
-// the app holding it made the guard below depend on the app re-rendering in
-// time. What does cross back is the half the app draws: a refusal with no
-// drawing here is an `Outcome`, and `answeredAs` is what decides which of the
-// two an answer is.
-//
-// # The double-press guard, and why it is two things
-//
-// There is no in-flight guard on the preload call, so two presses are two model
-// calls and two drafted plans — two of everything at the gate, and somebody
-// deleting one by hand. **This screen is what stops it.**
-//
-// The control being off while a call is out is the first half and the one a
-// person sees. The second half is the ref: a press that arrives anyway sends
-// nothing, because one request is outstanding until its promise settles. A
-// disabled attribute is a rendering, and a rendering is not a guarantee — a key
-// repeat and a synthetic click both reach the handler with the button drawn
-// live.
+// **The press leaves, and this screen holds no proposal at all.** The wait and
+// the answer are `ProposalPage`'s — the owner's decision of 30 Sep 2026, *the
+// wait is a destination*.
+
+// **The double-press guard is still a ref.** Two presses are two model calls
+// and two drafted plans, and nothing on the preload call guards it. Leaving the
+// surface is most of the fix; the ref is the rest, because unmounting is a
+// render — a key repeat and a synthetic click both reach the handler in the
+// same task, with the button still in the document.
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -32,8 +21,6 @@ import type { ReactNode } from "react";
 import { DispatchRequest, DispatchSettings, SketchPad } from "@armada/components";
 import type {
   DispatchSettingsValue,
-  Proposal,
-  ProposalWatch,
   Refs,
   RequestMode,
   SketchBox,
@@ -59,8 +46,6 @@ import {
   withoutShapes,
 } from "./draft/sketch";
 import type { Drawing, SketchAttachment } from "./draft/sketch";
-import type { Answered } from "./proposal";
-import { PROPOSAL_IS_SLOW } from "./proposal";
 
 /**
  * What the sketch's chip is called. **Numbered because a request may carry
@@ -73,16 +58,13 @@ const PAD_LABEL = "The picture attached to this request";
 
 export type DispatchJobProps = {
   /**
-   * Send the request, and answer with what came back.
+   * Send the request, with everything staged against it.
    *
-   * **A promise rather than a callback**, for the reason `onReadCall` is one:
-   * the answer belongs to the press that asked for it and to nothing else, so
-   * publishing it as app state would make one person's gesture part of what
-   * every surface re-renders on.
-   *
-   * Called at most once per answer, and never with a blank request.
+   * **It answers nothing, because the caller leaves this surface on the press**
+   * and the wait is `ProposalPage`'s. Called at most once per mount, and never
+   * with a blank request.
    */
-  onPropose: (request: string, attachments: readonly StagedAttachment[]) => Promise<Answered>;
+  onPropose: (request: string, attachments: readonly StagedAttachment[]) => void;
   /**
    * Put a picked or pasted file somewhere the Job can name, and answer with
    * the path. The same call `Composer`'s `onStage` makes; this screen owns
@@ -91,45 +73,9 @@ export type DispatchJobProps = {
   onStage: (bytes: ArrayBuffer, filename: string, mimeType: string) => Promise<{ path: string }>;
   /** Narrow the checkout against typed text, for the `@` mention popup. */
   onSearchFiles: (query: string) => Promise<readonly string[]>;
-  /** Open one of the jobs that came back, where its own gate is drawn. */
-  onOpen: (jobId: string) => void;
-  /**
-   * Release the head of the proposal. **What starts the work, from the screen
-   * that proposed it** — the workflow, the name and the split are all on it, so
-   * approving is a press here rather than a trip to detail.
-   */
-  onApprove: (jobId: string) => void;
-  /** Jobs with an approval in flight, from the app. What stops a second press. */
-  approving: readonly string[];
-  /**
-   * What Fleet says a proposed Job is at now, or `undefined` where the board
-   * holds no row for it.
-   *
-   * **The proposal is this screen's and the status is Fleet's**, and approving
-   * one changes the status without changing the proposal. A row drawn from the
-   * answer alone would say `needs approval` for as long as the surface stayed
-   * open, under a job already queued.
-   */
-  statusOf?: (jobId: string) => string | undefined;
-  /**
-   * What Fleet says the call in flight is doing, or `null`.
-   *
-   * **The app's, where the proposal is this screen's.** The two are not the
-   * same fact and cannot come from the same place: the proposal is what the
-   * press asked for and belongs to the press, and this arrives on the event
-   * stream between the asking and the answer. A screen holding its own copy
-   * would have nothing to fill it from.
-   */
-  watching: ProposalWatch | null;
-  /**
-   * Stop the call. **Kills it rather than stopping the wait** — a wait
-   * abandoned leaves the proposer running inside Fleet and spending.
-   */
-  onStop: () => void;
   /**
    * The way out of the composer, drawn on the head of the card that asks for
-   * the request. The caller draws it once and hands the same control to every
-   * state it opens; absent draws none.
+   * the request. The caller's control; absent draws none.
    */
   close?: ReactNode;
   /** The repository this dispatch is for. A fact, answered before this opens. */
@@ -185,18 +131,12 @@ export type DispatchJobProps = {
   disabled: boolean;
   /** Why the controls are off, where they are. */
   disabledNote?: ReactNode;
-  /** What the surface is told after a clipboard write, so it can raise a toast. */
-  onCopied?: (what: string) => void;
 };
 
 export function DispatchJob({
   onPropose,
   onStage,
   onSearchFiles,
-  onOpen,
-  onApprove,
-  approving,
-  statusOf,
   close,
   repository,
   opensOn,
@@ -209,11 +149,8 @@ export function DispatchJob({
   settings: settingsOpenOn,
   sketch,
   onTyped,
-  watching,
-  onStop,
   disabled,
   disabledNote,
-  onCopied,
 }: DispatchJobProps) {
   const [request, setRequest] = useState(opensOn ?? "");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
@@ -227,21 +164,18 @@ export function DispatchJob({
   const [links, setLinks] = useState<string[]>([]);
   const [settings, setSettings] = useState<DispatchSettingsValue>(asChosen(settingsOpenOn));
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [proposal, setProposal] = useState<Proposal>({ at: "unasked" });
   // Words or a picture. Held here rather than in the card, because both halves
   // of one request outlive a switch between them.
   const [mode, setMode] = useState<RequestMode>("write");
   const [drawing, setDrawing] = useState<Drawing>(() => drawingOf(sketch));
   const [said, setSaid] = useState(sketch?.said ?? "");
-  // One request outstanding at a time. A ref rather than state because nothing
-  // renders from it: it is the guard, not a reading, and a re-render between
-  // the press and the answer would be a second chance to fire.
-  const outstanding = useRef(false);
+  // One request per mount. A ref rather than state because nothing renders from
+  // it: it is the guard, not a reading, and the unmount the press causes is a
+  // render, so two presses in one task both find the button in the document.
+  const sent = useRef(false);
 
   // What a close would lose here: the words in the field, anything staged or
-  // linked against them, and any setting moved off what it opened on. A
-  // proposal that came back is not in it — those jobs exist on the board
-  // already and closing this surface does not touch them.
+  // linked against them, and any setting moved off what it opened on.
   const typed =
     request.trim() !== "" ||
     attachments.length > 0 ||
@@ -253,63 +187,15 @@ export function DispatchJob({
     return () => onTyped?.(false);
   }, [typed, onTyped]);
 
-  async function dispatch(): Promise<void> {
+  function dispatch(): void {
     // Links go out with the request, one to a line. The proposer's field is
     // prose and a ticket address in it is what it already reads; a chip is so
     // the person can see and take back what they pasted.
     const asked = [request.trim(), ...links].join("\n");
-    if (outstanding.current || disabled || request.trim() === "") return;
-    outstanding.current = true;
-    setProposal({ at: "reading" });
-    try {
-      const read = await onPropose(asked, attachments);
-      setProposal(read.proposal);
-      // Fleet's echo, put back in the field. A refused request comes back
-      // unchanged, and this is what makes that true rather than only stated.
-      if (read.request !== null) setRequest(read.request);
-    } catch (thrown) {
-      // A surface left on `reading` is worse than the throw: nothing on it says
-      // the call is dead and the control never comes back. The throw carries on
-      // to the app's own handler for a rejection nothing caught.
-      setProposal({ at: "unasked" });
-      throw thrown;
-    } finally {
-      outstanding.current = false;
-    }
+    if (sent.current || disabled || request.trim() === "") return;
+    sent.current = true;
+    onPropose(asked, attachments);
   }
-
-  function reset(): void {
-    setRequest("");
-    setAttachments([]);
-    setLinks([]);
-    setProposal({ at: "unasked" });
-    // The picture goes with the words. `Dispatch another` is a fresh request,
-    // and a pad still holding the last one's boxes would attach them to it.
-    setDrawing(drawingOf(undefined));
-    setSaid("");
-    setMode("write");
-  }
-
-  // A call Fleet says is out, on a surface that did not press for it. **The
-  // window and the daemon have independent lifetimes** (`bridge.md`), so a
-  // composer reopened mid-read has no proposal of its own and a form drawn
-  // idle under a running proposer is the one reading that is never true.
-  const out: Proposal | null =
-    proposal.at === "unasked" && watching !== null ? { at: "reading", watch: watching } : null;
-
-  // The rows, against the board's own reading of each Job where there is one.
-  // Every other status on this surface is what came back with the proposal;
-  // this one moves under it, because approving is now a press on the row.
-  const shown: Proposal =
-    proposal.at === "proposed" && statusOf !== undefined
-      ? {
-          ...proposal,
-          jobs: proposal.jobs.map((job) => {
-            const at = statusOf(job.id);
-            return at === undefined || at === job.status ? job : { ...job, status: at };
-          }),
-        }
-      : proposal;
 
   return (
     <DispatchRequest
@@ -383,26 +269,10 @@ export function DispatchJob({
       onRemoveAttachment={(path) =>
         setAttachments((current) => current.filter((attachment) => attachment.path !== path))
       }
-      onDispatch={() => void dispatch()}
+      onDispatch={dispatch}
       close={close}
-      onReset={reset}
-      onOpen={onOpen}
-      onApprove={onApprove}
-      approving={approving}
-      // The two facts are joined here and nowhere else: the proposal is this
-      // screen's and the watch is the app's, and the component takes one value.
-      // A screen still `reading` with nothing published yet draws the wait
-      // without a reading, which is the sentence that was always there.
-      proposal={
-        proposal.at === "reading" && watching !== null
-          ? { at: "reading", watch: watching }
-          : (out ?? shown)
-      }
-      onStop={onStop}
-      slowAfterMs={PROPOSAL_IS_SLOW}
       disabled={disabled}
       disabledNote={disabledNote}
-      onCopied={onCopied}
     />
   );
 }

@@ -1,16 +1,12 @@
-/* Dispatch request — one field, one press, and what the request became.
+/* Dispatch request — one field, one press, and that is the whole of it.
  *
  * The card's own surface comes from Card: on this surface it sits directly on
  * the canvas, so it is the card treatment under Depth — the gradient, the
  * edge, the shadow — at --radius-lg and --pad-card (#1353). Only what the card
  * does not answer is spelled here.
  *
- * **Nothing here animates.** The wait moves because the numbers in it change,
- * which is a fact arriving rather than a decoration — and the one continuous
- * animation the design contract allows is the running step mark, which this is
- * not. The wait read as a dead button until Fleet could say what the call was
- * doing; a spinner was refused then and is refused now, for the better reason
- * that there is something real to draw instead. */
+ * **Nothing here animates**, and nothing here waits: the press leaves this
+ * card, and the wait is the Job's own row on the Board — ProposerWait.css. */
 .armada-dispatch {
   /* The surface is laid out by whatever holds it, and a flex or grid child
      with no floor refuses to narrow past its content. */
@@ -139,80 +135,6 @@
   min-width: 0;
 }
 
-/* The wait, where Fleet has said nothing about the call — an older Fleet, or
-   the moment before the first message. Sans, muted, no mark. */
-.armada-dispatch__waiting {
-  min-width: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  text-wrap: pretty;
-}
-
-/* The wait, described. Set on the same inline rule the refusals use, because
-   it is the same kind of thing: the surface saying what is true right now about
-   an act, beside the field rather than over it. `--step-running` and not
-   `--step-waiting`: something is happening. */
-.armada-dispatch__wait {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  padding-inline-start: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--step-running);
-}
-
-/* What it is doing, and for how long — one line, the two ends apart. */
-.armada-dispatch__wait-head {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: space-between;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.armada-dispatch__wait-what {
-  min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-body);
-}
-
-.armada-dispatch__wait-for {
-  flex: none;
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-.armada-dispatch__wait-where,
-.armada-dispatch__wait-count {
-  min-width: 0;
-  color: var(--fg-subtle);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-/* Where the surface asks. Separated from the readings above it, because it is
-   a question rather than another fact. */
-.armada-dispatch__wait-slow {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-  margin-block-start: var(--space-2);
-}
-
-.armada-dispatch__wait-ask {
-  min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  text-wrap: pretty;
-}
-
 /* Why the controls are off, where they are. */
 .armada-dispatch__note {
   min-width: 0;
@@ -221,163 +143,8 @@
   line-height: var(--leading-2xs);
 }
 
-/* --- No workflow resolved ------------------------------------------------- */
-
-/* Fleet answered and declined, which is Armada working rather than failing. So
-   no red, no fill and no code chip — the rule on the left is --step-waiting,
-   the tone that means needs you and not urgent, and it is the same rule the
-   drone-question box takes for the same reason. */
-.armada-dispatch__unresolved {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  padding-inline-start: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--step-waiting);
-}
-
-.armada-dispatch__unresolved-head {
-  min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-heading);
-}
-
-.armada-dispatch__unresolved-body {
-  min-width: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-wrap: pretty;
-}
-
-/* --- What the request became ---------------------------------------------- */
-
-.armada-dispatch__answered {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-/* The request, kept on screen after it was sent. Quoted with a rule rather
-   than framed: it is what was asked, not a field any more, and a second box
-   under the card would read as a second surface. */
-.armada-dispatch__asked {
-  min-width: 0;
-  padding-inline-start: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--border-default);
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  text-wrap: pretty;
-}
-
-.armada-dispatch__became {
-  min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-body);
-}
-
-/* The jobs, in the order they must land in. A well, because they are what
-   Armada answered rather than anything typed — the same separation the
-   composer's glance strip draws. */
-.armada-dispatch__jobs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-  list-style: none;
-}
-
-.armada-dispatch__job {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-/* The position in a run whose order is the substance — the proposal's chain,
-   where the number says which waits on which, and the three lines of what
-   happens next. Mono, because it is a machine reading, and set back so the
-   words lead. One treatment, because it is one kind of thing. */
-.armada-dispatch__ordinal {
-  flex: none;
-  width: var(--space-4);
-  color: var(--fg-subtle);
-  font-size: var(--text-xs);
-  text-align: end;
-}
-
-/* On the chain, beside the title it numbers, not centred against a row whose
-   height comes from the two lines under it. The body's own line height is what
-   puts it there; the next list aligns on its baseline instead and needs
-   neither. */
-.armada-dispatch__job > .armada-dispatch__ordinal {
-  align-self: start;
-  line-height: var(--leading-sm);
-}
-
-.armada-dispatch__job-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  min-width: 0;
-}
-
-/* What the proposer called it. Sans and full strength: nobody typed it, and it
-   is the one thing on this row a person is checking. */
-.armada-dispatch__title {
-  min-width: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-/* The workflow's name, never its id. Plain sans in --fg-muted — a workflow is
-   not a status, so it is never a chip. */
-.armada-dispatch__workflow {
-  min-width: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-/* The row's controls, together at the trailing edge. Read then release, in
-   that order — the accent is last, where the reading ends, the same order the
-   card's own footer takes. */
-.armada-dispatch__job-acts {
-  display: flex;
-  flex: none;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.armada-dispatch__waits {
-  min-width: 0;
-  color: var(--fg-subtle);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-/* What to do about a fault, where the control that does it is the footer's.
-   Set back and sans, because it is a sentence rather than a control. */
-.armada-dispatch__act {
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-/* Cancel-side first, the accent at the trailing edge where the reading ends —
-   the same order the job composer's own footer takes. */
+/* One control, at the trailing edge where the reading ends — the same order
+   every card's footer takes. */
 .armada-dispatch__foot {
   justify-content: flex-end;
   gap: var(--space-2);
