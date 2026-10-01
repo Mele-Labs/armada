@@ -48,9 +48,70 @@ export type ProposalInFlight = {
   thinking_tokens?: number;
   /**
    * How much of the answer has arrived, in characters. **A count and never the
-   * text**: what the proposer decided arrives as the Jobs it minted.
+   * text**, which is unchanged — the raw answer does not cross this seam.
+   *
+   * It used to be the whole of what a surface could say about the answer, on
+   * the grounds that a channel carrying it as it was written would be a second,
+   * earlier, worse copy of the Jobs it minted. True while nothing existed until
+   * the answer landed; a dispatched request is a Job from the press since 30 Sep
+   * 2026, so `settled` is that row becoming more complete rather than a rival to
+   * it. The Rust doc carries the correction in full.
    */
   answered_characters?: number;
+  /**
+   * What the proposer has decided so far. Absent until something has, and on
+   * every Fleet older than 19.1.
+   */
+  settled?: ProposalSettled;
+};
+
+/**
+ * What the proposer has decided, while it is still writing the rest.
+ * `crates/ipc/src/proposing.rs`.
+ *
+ * **Four fields in the owner's order** (30 Sep 2026): the workflow decides the
+ * Job's shape, the title is what makes the row recognisable, done-when is the
+ * goal, and the settings are the part he can still change.
+ *
+ * **Fields that are settled, never a transcript.** A field appears once its own
+ * line in the answer has ended, so a client either has a title or has none and
+ * never has half of one. No `scope`, no `because`, no `after`: each of those
+ * reaches a client as the Job it belongs to, once the call has answered.
+ */
+export type ProposalSettled = {
+  /** The workflow it chose. **Only ever one this repository holds.** */
+  workflow_id?: string;
+  /**
+   * What the Job is called. **The field that changes a row under a reader** —
+   * before it lands the row's title is the request as it was typed.
+   */
+  title?: string;
+  /** What the Job is held to, one line each, in the order they arrived. */
+  done_when?: string[];
+  /** The settings it decided. Absent until the line has ended. */
+  settings?: ProposalSettings;
+};
+
+/**
+ * The settings the proposer answered. `crates/ipc/src/proposing.rs`.
+ *
+ * Both arrive on one line of the answer, so both settle together — the settings
+ * are one field, which is why they are a type rather than two fields on
+ * `ProposalSettled`.
+ *
+ * **Land-as-one is not here and that is a decision.** How the work lands follows
+ * from having read the code and this call has read none — the 3 Sep 2026 ruling,
+ * kept on 30 Sep when it was put beside the model.
+ */
+export type ProposalSettings = {
+  /** How urgent it read the request as being — the generated urgency vocabulary. */
+  urgency?: string;
+  /**
+   * Which model a Drone on this Job will be spawned as. **Only ever one this
+   * machine holds**, and absent is configuration deciding rather than a model
+   * the proposer picked as a default.
+   */
+  model?: string;
 };
 
 /**

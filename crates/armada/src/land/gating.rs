@@ -9,7 +9,7 @@ use super::dir::StateDir;
 use super::env::Env;
 use super::gate::{foundations_delta, not_installed, FoundationsComparison};
 use super::git::best_effort;
-use super::merge_in::{merge_in, MergeInFailed};
+use super::merge_in::{merge_in, regenerate, MergeInFailed};
 use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, seed, setup};
 use super::prove::wait_for_head;
@@ -85,14 +85,22 @@ pub fn gate(
             OutcomePatch::default(),
         )?;
     }
-    let candidate = super::repo::rev_parse(&where_, "HEAD")?;
-
     seed(repo, &where_, env, logs)?;
+    let regenerated = regenerate(&where_, &env.regenerate, logs).map_err(|why| {
+        Stopped::red(
+            format!("red: {why}. Nothing was pushed or merged."),
+            OutcomePatch {
+                logs: Some(vec![path_string(&logs.join("regenerate.log"))]),
+                ..OutcomePatch::default()
+            },
+        )
+    })?;
+    let candidate = super::repo::rev_parse(&where_, "HEAD")?;
     let mut rerun = Vec::new();
     if moved {
         let since = super::repo::merge_base(repo, head, base)?;
         let mut hit: Vec<String> = changed_paths(repo, &since, base)?;
-        hit.extend(changed_paths(repo, &since, head)?);
+        hit.extend(changed_paths(repo, &since, &candidate)?);
         rerun = covers(&env.armada, &where_, &hit)?;
     }
 
@@ -259,7 +267,7 @@ pub fn gate(
         );
     }
 
-    if !moved {
+    if !moved && !regenerated {
         return Ok(candidate);
     }
 
@@ -283,13 +291,17 @@ pub fn gate(
         branch,
         OutcomeState::Gating,
         format!(
-            "{} passed with {} merged in; waiting for the forge to see {}",
+            "{} passed with {}; waiting for the forge to see {}",
             if rerun.is_empty() {
                 "no Check".to_string()
             } else {
                 rerun.join(", ")
             },
-            env.base,
+            match (moved, regenerated) {
+                (true, false) => format!("{} merged in", env.base),
+                (false, _) => "its generated files regenerated".to_string(),
+                (true, true) => format!("{} merged in and generated files regenerated", env.base),
+            },
             short(&candidate)
         ),
         OutcomePatch {

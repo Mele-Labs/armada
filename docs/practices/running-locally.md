@@ -190,10 +190,13 @@ owner's own `com.armada.fleet`.
 ## A Fleet of your own
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
-has its own home, its own store, a local clone of this repository with the Fleet
-data copied in, and a Drone that exits at once — so a Job it dispatches
-escalates rather than doing work or spending anything. Add `--copy-store` to
-start it on a copy of your Jobs; leave it off for an empty store.
+has its own home, its own store, a local clone of this repository with
+`.armada/workflows/` copied in, and a Drone that exits at once — so a Job it
+dispatches escalates rather than doing work or spending anything. Add
+`--copy-store` to start it on a copy of your Jobs and the records each one is
+read from — transcripts, logs, briefs, Check output, attachments; leave it off
+for an empty store. Nothing else under `.armada/` is copied: the rest is build
+caches and Job checkouts, hundreds of gigabytes.
 
 **Reach for it when you want a Job as Fleet serves it, without your Fleet** — to
 record one for the mock with `scripts/record-job.mjs`, or to point a surface at a
@@ -206,8 +209,8 @@ needs `sqlite3`, which macOS ships. **It prints what `armada serve` prints**,
 because it ends by running it, and the port is also in
 `<scratch-dir>/home/user/Library/Application Support/Armada/fleet.json`. It refuses a
 scratch directory inside the repository and answers a second start with the pid
-already running. Stop it the way you stop Fleet, then delete the directory — it
-holds a copy of your transcripts.
+already running. Stop it the way you stop Fleet, then delete the directory — with
+`--copy-store` it holds a copy of your transcripts.
 
 ## Recording a Job for the mock
 
@@ -250,15 +253,17 @@ for. It needs `pnpm install` and nothing else, and it opens the page itself.
 Vite prints the address and reloads the page as you edit. Ctrl-C stops it, and
 nothing is left running or written.
 
-**`?scenario=<name>` picks what the window shows**, and the picker in the
-bottom-right corner switches by reloading onto another. An unknown name falls
+**`?scenario=<name>` picks what the window shows**, and the picker at the foot
+of the left column switches by reloading onto another. An unknown name falls
 back to the first scenario and says so in the browser console.
 
-**The picker moves, so it never sits over the thing you are reading.** Drag it
-by its own name, or focus that and use the arrow keys; *Minimize* leaves a strip
-that still says which scenario is on. Where it was left and whether it was
-minimized both survive the reload choosing a scenario causes, and Home on the
-grip puts it back in the corner.
+**The picker is in the left column, so it never sits over the thing you are
+reading.** It rests as one control saying which scenario is on — a glyph alone
+where the column is at its rail, with the scenario in its tooltip. Pressing it
+opens the list over the content, and only then: type to narrow it, which is a
+fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
+what is left, Enter takes the top row and Esc gives up. Every row is a link to
+this page on `?scenario=`, which is the reload that puts the window on it.
 
 | Scenario | What the window holds |
 |---|---|
@@ -352,6 +357,42 @@ and `mountTwo` sets two windows on one main. `onBoard(jobs, …)` in
 `scenario.ts` builds a scenario from rows a test picks. A test that used to be a
 Storybook `play` asserts what `App` does with a press — the dialog, the
 composer, the file written — rather than that a callback was called.
+
+### Walks
+
+**To show the owner something, write a walk and send him the link, or capture
+it and send him the pictures.** Not a list of what to open and press: a walk is
+those steps, played in the real app, from one definition.
+
+```ts
+// apps/desktop/src/renderer/src/mock/walks/back-from-a-drone.ts
+export const backFromADrone = walk("arc/executing-sequential", [
+  { press: tab("Workflow"), say: "The run, top to bottom" },
+  { press: card("Implement"), say: "Its panel lists every Drone on the step" },
+  { look: button("Back to Implement"), say: "The way back is in its head" },
+]);
+```
+
+A step **presses**, **looks**, or **types** into a field, at a target found the
+way the mock tests find one: `tab`, `button`, `card`, `dialog`, `row`, `region`,
+`text`, or `role(kind, name)` for any other, and `inside(scope, target)` to look
+in one place only. A name is matched anywhere in the accessible name, in any
+case, unless it is a pattern or `{ exact: true }`; of several matches the last
+is taken, as the tests take `.last()`. The walk is named by its export.
+`walk.ts` beside the walks is the whole vocabulary.
+
+| | |
+|---|---|
+| **The link** | `?walk=<name>` on a running mock, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
+| **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
+| **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
+
+**A walk stops on the step whose target never came.** After five seconds its
+card says which step and what it looked for, the capture photographs the stop
+and exits 1, and the test fails with the same sentence. A throw while it plays
+fails the capture and the test as well, since Bridge draws one as a banner and
+carries on. That stop is what makes a walk evidence rather than a tour.
 
 ## Annotating Bridge
 
@@ -545,8 +586,8 @@ already a file read away.
 ## Landing a branch
 
 ```sh
-scripts/land preflight              # once the branch's Checks have passed
-scripts/land                        # once the owner has said merge
+scripts/land preflight              # once the branch's self-check has passed
+scripts/land                        # straight after, without waiting to be told
 scripts/land --status [<branch>]    # poll, in short foreground calls
 ```
 
@@ -568,8 +609,10 @@ breaks it takes the line down for everybody behind it, so it runs whatever `main
 did. A Check reads the combination, and there is no combination until the base
 has moved — your own step 4 run is what the branch stands on until then.
 
-**When you run it:** from the branch's own worktree, after your Checks passed and
-the owner said merge. `gh pr merge` and a push to `main` are refused by
+**When you run it:** from the branch's own worktree, as soon as the work is
+committed and its quick self-check passed (`work-issue` step 4). Nobody approves
+it first: the line is the guard, and the owner reads what landed afterwards.
+`gh pr merge` and a push to `main` are refused by
 `.claude/hooks/guard_merge.py`, which names this command instead — they land a
 combination nothing checked. `armada check hooks_test` proves the hook, and
 needs nothing built.
@@ -636,6 +679,11 @@ branch.** `preflight` then tells you to take it with `git fetch` and
 **A conflict in a generated file is not one.** A file whose head says
 `GENERATED by` is rebuilt with the command it names, such as
 `cargo xtask verify-docs --write` for `docs/OPEN.md`.
+
+**Nor is a stale one.** Every turn reruns `verify-docs --write` and
+`verify-tokens --write` on the candidate before the gate, then commits and
+pushes what they change onto your branch. Take it the way you take a merged-in
+`main`, with `git fetch` and `git reset --hard`.
 
 **What gates the line itself:** `armada check scripts_test` runs
 `scripts/test_land.py` against a throwaway repository with a stub `gh` and

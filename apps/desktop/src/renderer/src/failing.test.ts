@@ -33,7 +33,7 @@ function failedAt(path: string) {
     bridge: BRIDGE,
     readAt: 0,
     outcome,
-    uncaught: null,
+    raised: [],
     now: 0,
   }).commandFailure;
 }
@@ -59,7 +59,7 @@ test("a pending route's other status is not claimed as unbuilt: only the router'
     bridge: BRIDGE,
     readAt: 0,
     outcome,
-    uncaught: null,
+    raised: [],
     now: 0,
   }).commandFailure;
 

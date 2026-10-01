@@ -28,29 +28,47 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use config::ResolvedWorkflow;
-use core_model::{Ulid, WorkflowId};
+use core_model::{Ulid, Urgency, WorkflowId};
 use verification::field;
 
 use crate::judging::CallFailed;
 
 /// The block an answer owes per Job, and the one word that declines.
 ///
-/// The last three paragraphs are load-bearing and none is decoration. The
-/// first stops one Job becoming three, which is the failure a proposer that
-/// *can* split work invents; the second is what makes a member of a split
-/// briefable on its own part, since that line is the only thing its Drone is
-/// given; the third stops a list of paths being answered from.
+/// The last four paragraphs are load-bearing and none is decoration. The
+/// first is the field order, which is a contract rather than a layout — see
+/// [`Settled`]; the second stops one Job becoming three, which is the failure
+/// a proposer that *can* split work invents; the third is what makes a member
+/// of a split briefable on its own part, since that line is the only thing its
+/// Drone is given; the fourth stops a list of paths being answered from.
+///
+/// **The first four lines are in the owner's order and it is not arbitrary**
+/// (30 Sep 2026): the workflow decides the Job's shape, the title is what makes
+/// the row recognisable, done-when is the goal, and the settings are the part he
+/// can still change. *A proposal fills in as it is written*, 30 Sep 2026, in
+/// the decisions register.
 const ANSWER_FORMAT: &str = "\
 Answer with nothing but the block below, once for each Job the work needs.
 
     job: <its number, counting from 1>
     workflow: <the id, spelled exactly as it appears above>
     title: <what to call this Job, in the words the request used>
+    done_when: <one thing that has to be true before this Job is finished, in \
+one line. Write the line again for each one. Leave it out where the request \
+names none>
+    settings: urgency=<normal, or incident where something is broken for \
+people using the software right now>, model=<one of the models listed above, \
+spelled exactly. Leave the pair out to let this machine's configuration choose>
     scope: <what this Job is to do, and none of what the others are. Leave \
 the line out where you write one Job>
     because: <why that workflow, in one line>
     after: <the job numbers that must finish first, comma separated. Leave \
 the line out where none do>
+
+Write the lines in the order above, and finish each line before starting the \
+next. Somebody is watching this answer arrive and each line fills a place on \
+their screen as it lands, so a line written out of order fills the wrong place \
+and a line revised further down moves under them while they read it.
 
 If no workflow above fits the request:
 
@@ -98,6 +116,32 @@ pub struct ProposedJob {
     /// The one-based positions of the Jobs that must finish first. **Always
     /// earlier than this one**, which is what makes a plan creatable in order.
     pub after: Vec<usize>,
+    /// What this Job is held to, one line each, in the order it wrote them.
+    ///
+    /// **Empty is a request that named none**, which is every request that
+    /// describes work without saying when it is finished — and it is what the
+    /// Done when card has always drawn as *nothing was read out of a request or
+    /// an issue*. Each line reaches the Job as an `AcceptanceCriterion` whose
+    /// source is the Judge: these are prose, and prose is what the Judge reads.
+    pub done_when: Vec<String>,
+    /// How urgent the request says the work is.
+    ///
+    /// A fact about the request itself — something is broken for people right
+    /// now, or it is not.
+    pub urgency: Urgency,
+    /// Which model a Drone on this Job is spawned as.
+    ///
+    /// **`None` is configuration's**, and it is what a call that names no model
+    /// reaches — never a model this call picked as a default. The owner's
+    /// decision of 30 Sep 2026, taken over the argument that a model choosing
+    /// which model runs the work is the dial every later call's cost hangs off:
+    /// it picks, and it picks only from what this machine holds.
+    ///
+    /// **`atomic` is not the pair of this and is deliberately absent.**
+    /// `crate::proposal`'s own header carries the 3 Sep 2026 ruling: how the
+    /// work lands follows from having read the code, and this call has read
+    /// none. Put beside this decision on 30 Sep, the owner kept it.
+    pub model: Option<String>,
 }
 
 /// What one call proposed. **No arm of this means "the usual one".**
@@ -120,6 +164,20 @@ pub enum Unresolved {
     /// nearest-matched: a name nothing holds is not evidence about which one
     /// was meant.
     NotHeld { named: String },
+    /// It named a model this machine does not hold.
+    ///
+    /// **Its own arm, and it was [`Unresolved::NotHeld`] for half a day.**
+    /// Reusing that one made a mis-spelled model refuse the dispatch as
+    /// `fleet.no_workflow_fits`, whose sentence tells a person to rephrase —
+    /// which cannot fix it, and the workflow was never wrong. Two causes
+    /// wanting opposite responses must not share a word (`#334`, `#410`): a
+    /// request no workflow fits wants rephrasing, and a model nothing holds
+    /// wants a different model or that model installed.
+    ///
+    /// `held` rides along because the set is already in hand — it is what the
+    /// question was built from — and a refusal naming only what was wrong
+    /// leaves a person to go and look up what would have been right.
+    ModelNotHeld { named: String, held: Vec<String> },
 }
 
 impl fmt::Display for Unresolved {
@@ -136,6 +194,22 @@ impl fmt::Display for Unresolved {
                 out,
                 "the proposal named `{named}`, which this repository does not hold"
             ),
+            Unresolved::ModelNotHeld { named, held } => {
+                let names: Vec<String> = held.iter().map(|model| format!("`{model}`")).collect();
+                match names.is_empty() {
+                    true => write!(
+                        out,
+                        "the proposal asked for model `{named}`, and this machine names no \
+                         model at all"
+                    ),
+                    false => write!(
+                        out,
+                        "the proposal asked for model `{named}`, which this machine does not \
+                         run. It runs {}",
+                        names.join(", ")
+                    ),
+                }
+            }
         }
     }
 }
@@ -227,11 +301,17 @@ pub struct Brief {
 impl Brief {
     /// Assemble the question.
     ///
-    /// **Two inputs and no third.** There is no parameter for the Manifest, the
-    /// repository, the Board or the Jobs already running — every extra token is
-    /// money on a call that fires on every dispatch, and a proposer that could
-    /// read the repository is a Drone at many times the price.
-    pub fn about(request: &str, workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>) -> Brief {
+    /// **Three inputs and no fourth.** There is no parameter for the Manifest,
+    /// the repository, the Board or the Jobs already running — every extra token
+    /// is money on a call that fires on every dispatch, and a proposer that
+    /// could read the repository is a Drone at many times the price. `models` is
+    /// the third because the settings line names one, and a list is what stops
+    /// it naming a model nothing can run.
+    pub fn about(
+        request: &str,
+        workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Brief {
         let mut question = String::new();
         question.push_str(
             // **Not "what it will write".** It used to say so, and the answer
@@ -273,6 +353,19 @@ impl Brief {
             let steps: Vec<&str> = workflow.steps().iter().map(|step| step.label()).collect();
             question.push_str(&format!("    {}\n", steps.join(" -> ")));
         }
+        // **The models this machine actually holds, so the settings line can
+        // name one rather than invent one.** The owner chose on 30 Sep 2026 to
+        // let this call pick the model, over the argument that a model choosing
+        // which model runs the work is a dial deciding every later cost — and
+        // the guard he took with it is that it picks from the list. A name that
+        // is not here is refused exactly as a workflow id that is not held is.
+        question.push_str("\nThe models this machine can run a worker on:\n\n");
+        if models.is_empty() {
+            question.push_str("  (this machine has named none, so leave `model` out)\n");
+        }
+        for model in models {
+            question.push_str(&format!("  {model}\n"));
+        }
         question.push('\n');
         question.push_str(ANSWER_FORMAT);
         Brief {
@@ -298,6 +391,7 @@ impl Brief {
         &self,
         answer: &str,
         held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
     ) -> Result<Proposal, NotProposed> {
         let blocks = blocks(answer);
         // Declining is one answer about the whole request rather than one Job's
@@ -337,6 +431,21 @@ impl Brief {
             // that does not comply — `#831`. `field` stays what the Judge
             // reads unchanged; only the proposer tolerates the wrap.
             let scope = scope_field(block);
+            // **Refused for an unheld workflow's reason and not through its
+            // arm.** A name nothing holds is not evidence about which one was
+            // meant, so the request comes back rather than being spawned
+            // against a model this machine cannot run — but what a person does
+            // about it is install a model or pick another, never rephrase the
+            // request. `Unresolved::ModelNotHeld` is why that is two arms.
+            let model = named_model(block);
+            if let Some(named) = &model {
+                if !models.iter().any(|held| held == named) {
+                    return Ok(Proposal::Unresolved(Unresolved::ModelNotHeld {
+                        named: named.clone(),
+                        held: models.to_vec(),
+                    }));
+                }
+            }
             jobs.push((
                 scope,
                 ProposedJob {
@@ -345,6 +454,14 @@ impl Brief {
                     brief: String::new(),
                     because: field(block, "because"),
                     after,
+                    done_when: done_when(block),
+                    // **Normal where the line is absent or unreadable**, which
+                    // is the same value this call sent before it asked at all.
+                    // An unspellable urgency is not a reason to refuse a plan:
+                    // the word is a setting a person changes at the gate, and
+                    // the gate is in front of them either way.
+                    urgency: urgency(block).unwrap_or(Urgency::Normal),
+                    model,
                 },
             ));
         }
@@ -396,11 +513,13 @@ fn declines(block: &str) -> bool {
 
 /// Every line that opens a field, in the order [`ANSWER_FORMAT`] states them.
 /// What [`scope_field`] reads until: the next of these, or the end of the
-/// block.
-const FIELD_LINES: [&str; 6] = [
+/// block, and what [`Settled`] reads a field as ended by.
+const FIELD_LINES: [&str; 8] = [
     "job:",
     "workflow:",
     "title:",
+    "done_when:",
+    "settings:",
     "scope:",
     "because:",
     "after:",
@@ -437,6 +556,158 @@ fn scope_field(block: &str) -> Option<String> {
         value.push_str(trimmed);
     }
     (!value.is_empty()).then_some(value)
+}
+
+/// Every `done_when` line in this block, in the order it wrote them.
+///
+/// **One line each, and repeats are the shape rather than a mistake** —
+/// [`ANSWER_FORMAT`] asks for the line again per criterion, because a person
+/// watching the answer arrive gets one more line on the screen each time rather
+/// than one line that grows. A blank one is dropped.
+fn done_when(block: &str) -> Vec<String> {
+    block
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("done_when:"))
+        .map(str::trim)
+        .filter(|said| !said.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// One `key=value` pair off the `settings` line.
+///
+/// `key=value`, comma separated, so a second setting is a second pair rather
+/// than a second line — which is what keeps the four fields four.
+fn setting(block: &str, key: &str) -> Option<String> {
+    let said = field(block, "settings")?;
+    said.split(',')
+        .filter_map(|pair| pair.split_once('='))
+        .find(|(named, _)| named.trim().eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// What the `settings` line said about urgency, where it said anything.
+fn urgency(block: &str) -> Option<Urgency> {
+    Urgency::from_wire(setting(block, "urgency")?.to_ascii_lowercase().as_str())
+}
+
+/// What the `settings` line named as the model, as it spelled it.
+///
+/// **Unchecked here.** Whether this machine holds it is the caller's, because
+/// the two callers answer differently: [`Brief::read`] refuses the plan and
+/// [`Settled`] simply does not settle the field — which is what the workflow id
+/// one line up already does in each of them.
+fn named_model(block: &str) -> Option<String> {
+    setting(block, "model")
+}
+
+/// What the proposer has settled, read off an answer that is still being
+/// written.
+///
+/// # A prefix is the same Job, not a second copy of it
+///
+/// `crates/ipc/src/proposing.rs` carried the opposite rule until 30 Sep 2026 —
+/// a count and never the text, because a channel carrying the answer as it was
+/// written would be a second, earlier, worse copy of the Jobs it minted. That
+/// was right while nothing existed until the answer landed. A dispatched
+/// request is a Job from the press now, so there is a row from the moment
+/// Dispatch is pressed and a field read early is that row becoming more
+/// complete. The DTO carries the dated correction.
+///
+/// # A field is settled when its own line has ended
+///
+/// The format is one field per line, so a `\n` is what says a value will not
+/// change. Everything after the last newline is a line still being written and
+/// is not read at all — which is what stops a title landing as `Say which of
+/// the two was giv`.
+///
+/// # The head Job only
+///
+/// A request that becomes several Jobs is several rows, and the extras carry
+/// `dispatched_by`. What is being watched is the row the press made, so the
+/// reading stops at the second `job:` line rather than proposing a shape for
+/// rows nobody is looking at yet.
+///
+/// # What it never carries
+///
+/// No `scope`, no `because`, no `after`, and no raw text. `scope` is a brief
+/// and a brief is what the Drone is handed; a transcript on the wire is the
+/// thing the correction above is careful not to become. Four fields, because
+/// four fields are what a person watching has somewhere to put.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Settled {
+    /// The workflow, **only where this repository holds it**. A name nothing
+    /// holds ends the call as [`Unresolved::NotHeld`], and drawing it in the
+    /// meantime would put a workflow on screen that nothing froze.
+    pub workflow: Option<WorkflowId>,
+    /// What the Job is called. Until this lands the row's title is the request
+    /// as it was typed, and when it lands the title changes under whoever is
+    /// reading it.
+    pub title: Option<String>,
+    /// What the Job is held to, in the order the lines arrived.
+    pub done_when: Vec<String>,
+    /// How urgent it read the request as being. `None` until the line ends.
+    pub urgency: Option<Urgency>,
+    /// The model it chose, **only where this machine holds it** — the workflow
+    /// field's own rule one line down. `None` is also a call that named none,
+    /// which is configuration deciding and not a default this picked.
+    pub model: Option<String>,
+}
+
+impl Settled {
+    /// Read what has settled out of the answer as far as it has been written.
+    ///
+    /// **Pure, and the whole prefix every time.** It re-reads rather than
+    /// folding frame by frame, because a fold would have to hold a
+    /// half-written line and decide what to do with it; re-reading a few
+    /// hundred characters on a throttled tick costs nothing and cannot drift
+    /// from what the finished answer says.
+    pub fn of(
+        written: &str,
+        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Settled {
+        // Everything up to and including the last newline. A line with no
+        // newline after it is still being written.
+        let ended = match written.rfind('\n') {
+            Some(at) => &written[..=at],
+            None => return Settled::default(),
+        };
+        let head = head_block(ended);
+        let workflow = field(&head, "workflow")
+            .map(|named| WorkflowId::carried(Ulid::carried(named)))
+            .filter(|named| held.contains_key(named));
+        Settled {
+            workflow,
+            title: field(&head, "title"),
+            done_when: done_when(&head),
+            urgency: urgency(&head),
+            model: named_model(&head).filter(|named| models.iter().any(|held| held == named)),
+        }
+    }
+}
+
+/// The first Job's block of a partly written answer, whether or not it is
+/// numbered.
+///
+/// **[`blocks`]'s tolerance, one block deep.** An answer that skipped `job:`
+/// is one Job and the whole prefix is its block; an answer that numbered it
+/// ends the block where the second number starts.
+fn head_block(ended: &str) -> String {
+    let mut out = String::new();
+    let mut opened = false;
+    for line in ended.lines() {
+        if line.trim().starts_with("job:") {
+            if opened {
+                break;
+            }
+            opened = true;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
 }
 
 /// The job numbers this block waits on. A word that is not a number is dropped

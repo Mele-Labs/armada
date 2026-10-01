@@ -704,6 +704,21 @@ pub enum Adrift {
     /// nearest fit would be the standard rather than a guess a person could
     /// correct.
     NoWorkflowFits { request: String, why: Unresolved },
+    /// **The request was read and it asked for a model this machine does not
+    /// run.** Refused at dispatch, the request comes back unchanged, and no
+    /// Job exists.
+    ///
+    /// Deliberately not [`Adrift::NoWorkflowFits`], and that division is the
+    /// whole reason this exists: that refusal's advice is to say the request
+    /// again differently, which cannot fix a model name and is about something
+    /// that was not wrong. What fixes this is naming a model the machine runs,
+    /// or installing the one asked for — a different act, so a different code.
+    /// `#334` and `#410`'s rule.
+    ModelNotHeld {
+        request: String,
+        named: String,
+        held: Vec<String>,
+    },
     /// **The call could not be made, which is a different thing.** The network,
     /// the quota, the budget, or an answer nothing could be read out of.
     ///

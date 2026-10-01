@@ -220,3 +220,60 @@ describe("the three states that were saying the wrong thing", () => {
     expect(leadFor(peer as JobFixture).said).toBe("Waiting for your review");
   });
 });
+
+describe("a dispatched request the proposer has not answered", () => {
+  it("names the model reading it, and offers the one act", () => {
+    const lead = leadFor(named("proposing"));
+    expect(lead.said).toBe("A model is reading the request");
+    expect(lead.act).toBe("Stop the proposer");
+    // Answered in the lead's own region, so the act names no destination —
+    // the wait region is what carries the control.
+    expect(lead.opens).toBeUndefined();
+  });
+
+  it("says nothing on the second line, because the wait is under it", () => {
+    // **The line that would otherwise restate the wait.** The wait region draws
+    // the reach, the budget and the thinking estimate; a clause here repeating
+    // any of them is the duplication the owner took out of this region.
+    expect(leadFor(named("proposing")).because).toBe("");
+  });
+
+  it("is not the quiet line, which would say nothing needs you", () => {
+    // What it said before this branch existed, over a model call spending money
+    // on a Job with no step for `currentStep` to find.
+    expect(leadFor(named("proposing")).said).not.toBe("Nothing needs you");
+    // And no tone: nothing is waiting on a person and nothing has failed.
+    expect(leadFor(named("proposing")).tone).toBeUndefined();
+  });
+});
+
+// **Before this Job's own read has answered**, the lead stands in only where it
+// would fall through to its quiet line — the owner, 1 Oct 2026. Every other
+// branch it can reach with no read is proven by the Board's row alone.
+describe("with no read yet, only the quiet line is a guess", () => {
+  /** The fixture's Job, with its read not yet answered. */
+  const unread = (one: JobFixture) => leadOf(one.job, null, one.now);
+
+  it("a running Job with no read falls through to the quiet line, and says it did", () => {
+    const lead = unread(named("running — this Job's own detail"));
+    expect(lead.said).toBe("Nothing needs you");
+    expect(lead.quiet).toBe(true);
+  });
+
+  it("a Job the row says is waiting on you is said at once, and is not quiet", () => {
+    const lead = unread(named("awaiting_approval"));
+    expect(lead.said).toBe("Waiting for your approval");
+    expect(lead.quiet).toBeUndefined();
+  });
+
+  it("a Job the row says is over is said at once, and is not quiet", () => {
+    const over = FIXTURES.filter((one) => one.job.status === "killed" || one.job.status === "rejected");
+    expect(over.length).toBeGreaterThan(0);
+    for (const one of over) expect(unread(one).quiet, one.name).toBeUndefined();
+  });
+
+  it("a read Job naming its running step is the same branch, and not quiet", () => {
+    // Quiet is a headline with nothing to name, not the branch it came from.
+    expect(leadFor(named("running — mid-step on Fix")).quiet).toBeUndefined();
+  });
+});

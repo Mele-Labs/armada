@@ -1,5 +1,5 @@
-/* The `+ Node` control and the field behind each kind — #1364. It sits on the
-   board's aside, at a node's own width, so it reads as one more card. */
+/* The `+ Node` control and the field behind each kind — #1364. On a Studio it
+   is the body of the node it makes, so it is a node's own width. */
 
 .armada-studio-add-node {
   display: flex;

@@ -268,7 +268,10 @@ pub use manifest_proposal::{
 };
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
-pub use proposing::{ProposalInFlight, ProposalReach, ProposalStopped, StopProposal};
+pub use proposing::{
+    ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
+    StopProposal,
+};
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{
     what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote, ReadInRelation,

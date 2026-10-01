@@ -90,6 +90,18 @@ export type ProposedPlan = {
 /** The request was read and no workflow fits. 422. The request comes back. */
 export const NO_WORKFLOW_FITS = "fleet.no_workflow_fits";
 
+/**
+ * The request was read and it asked for a model this machine does not run. 422.
+ * The request comes back, with `model` naming what was asked for and `models`
+ * naming what this machine runs.
+ *
+ * **Never `NO_WORKFLOW_FITS`.** That code's sentence tells a person to say the
+ * request again differently — which cannot fix a model name, and is advice
+ * about something that was not wrong. It shipped as that code for half a day;
+ * `#334` and `#410`'s rule is what it broke, and this is the fix.
+ */
+export const PROPOSER_MODEL_NOT_HELD = "fleet.proposer_model_not_held";
+
 /** The proposer call could not be made — the network, the quota, the timeout. 500. */
 export const PROPOSER_UNREACHABLE = "fleet.proposer_unreachable";
 
@@ -99,6 +111,14 @@ export const PROPOSER_UNREACHABLE = "fleet.proposer_unreachable";
  * and it is what came back that could not be read. `#831`.
  */
 export const PROPOSER_UNREADABLE = "fleet.proposer_unreadable";
+
+/**
+ * Somebody watching the proposer stopped it. **Not a failure and never
+ * `PROPOSER_UNREACHABLE`**: `crates/fleet/src/refusing.rs` declares it apart
+ * so a client does not draw a person's own press as Armada breaking. Nothing
+ * was created and what they typed comes back.
+ */
+export const PROPOSER_STOPPED = "fleet.proposer_stopped";
 
 /**
  * Something under the daemon failed. 500, and read here for

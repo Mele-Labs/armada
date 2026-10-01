@@ -40,6 +40,13 @@ See [Job Board](../concepts/job-board.md) for the full board mechanics — what 
 | Settings | Optional, and closed to start. Its head says how many are set |
 | What happens next | Armada reads the request and names the Job; you adjust and approve it; a planning Drone splits the work and a Judge reads what comes back |
 
+**The press leaves this card, and it holds no wait.** A dispatched request is a
+Job from the press — `proposing` in
+[Job proposer](../concepts/job-proposer.md) — so the composer closes, the
+request is a row on Overview, and how far the call has got is drawn on that
+Job's own page. Nothing opens: several requests go off at once, and each is an
+address to come back to.
+
 **There is no hand-entry form.** `Enter by hand` and the Job it built are gone
 — the owner's call of 23 September 2026, once Settings carried every decision
 the form did. [Job proposer](../concepts/job-proposer.md) has the rule.
@@ -172,9 +179,9 @@ A Job proposal is approved or overridden inside the dispatch flow itself, not at
 
 What the proposer proposes is the workflow, the title, and the split where the work is several Jobs. Scope is not among them — [Job proposer](../concepts/job-proposer.md) owns why, and none of that argument is restated here.
 
-Where the Job proposer emits several Jobs, all of them stand at the gate and each takes its own one-by-one dispatch approval when its turn comes, so the strictly-one-by-one rule and the no-batch-approve rule both stay intact. There is no plan-level approval, and [Job proposer](../concepts/job-proposer.md) owns why. The head of a proposal is approved on the proposal itself, so a Job whose proposal is obvious costs one tap — the trip to detail is for reading it, not for agreeing with it.
+Where the Job proposer emits several Jobs, all of them stand at the gate and each takes its own one-by-one dispatch approval when its turn comes, so the strictly-one-by-one rule and the no-batch-approve rule both stay intact. There is no plan-level approval, and [Job proposer](../concepts/job-proposer.md) owns why. The head of a proposal is approved on the Job's own page, where the proposal is what Overview draws until it is approved — so a Job whose proposal is obvious still costs one press off its row.
 
-What the structural decision deliberately leaves open is what the surface looks like. No UI/UX design had started on any journey when this was decided, and this journey is design order 1 precisely because everything else reuses its approval pattern — forcing a surface before that pass would have designed the convention backwards. What has since taken its place is the Job proposer's own order: a person describes the work or links a ticket, the wait says what the call is doing and offers the stop, the Jobs arrive whole, and approval is the act that starts the work — on the proposal itself.
+What the structural decision deliberately leaves open is what the surface looks like. No UI/UX design had started on any journey when this was decided, and this journey is design order 1 precisely because everything else reuses its approval pattern — forcing a surface before that pass would have designed the convention backwards. What has since taken its place is the Job proposer's own order: a person describes the work or links a ticket, **the press leaves the composer and the request is a row**, the Job's own page says how far the call has got and offers the stop, the Jobs arrive whole, and approval is the act that starts the work.
 
 **Approving is not the only act at the gate, and what locks, locks at approval.** A proposal is a reading a person corrects: the request in its own words, the title, which workflow runs and the gate on each of its steps, which model each tier runs, how many Drones this Job may take, how it lands, and what the Job is held to. The workflow and the gates were once frozen when the Job was created, which made every correction a rejection and a retyped request; the decision of 22 Sep 2026 moves that freeze to the approval press. Bridge draws it — the proposal while it is yours to change, and the same values with the instant they froze at. **Fleet still freezes at creation and carries no per-Job gate, no tier map and no criterion origin**, so what Bridge holds lives in the draft schema under `packages/screens/src/draft/` and reaches no operation; the schema lock (#1545) is where each shape moves onto the wire.
 

@@ -15,7 +15,7 @@
 // sentence stops being true.
 
 import { expect, test, describe, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 import { issueLink } from "@armada/protocol";
 
@@ -187,28 +187,10 @@ describe("what froze at approval", () => {
   );
 });
 
+// The moment before this one — a request dispatched and not yet read — is a Job
+// on the Board rather than a form waiting on it, so what a person sees there is
+// `proposing.test.tsx`'s to claim.
 describe("classifying", () => {
-  test(
-    "arc/proposing-reading: the form says the proposer is thinking, how long it has been out " +
-      "and how long it may take — and offers to stop it",
-    async () => {
-      mount("arc/proposing-reading");
-
-      const wait = page.getByRole("status").filter({ hasText: "thinking" }).first();
-      await expect.element(wait).toBeVisible();
-      // What it is doing, how long it has been doing it, and how long it may
-      // take. The elapsed figure is against the window's own clock, so it is
-      // read as a shape rather than as a string.
-      await expect.element(wait).toHaveTextContent(/\d+[ms]/);
-      await expect.element(wait).toHaveTextContent("left");
-      await expect.element(wait).toHaveTextContent("sonnet");
-
-      await expect
-        .element(page.getByRole("button", { name: "Stop the proposer" }))
-        .toBeVisible();
-    },
-  );
-
   test(
     "arc/proposing-review: the workflow the proposer chose is named with its four steps, and " +
       "every one of them has a gate row a person can still change",
@@ -482,7 +464,7 @@ describe("the plan", () => {
 
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
     await planList("arc/group-failed");
-    await expect.element(groupCard(3)).toHaveTextContent("failed at its checks");
+    await expect.element(groupCard(3)).toHaveTextContent("retrying");
     await expect.element(groupCard(3)).toHaveTextContent("attempt 2");
     await expect.element(groupCard(3)).toHaveTextContent("screens_test");
     await expect.element(groupCard(3)).toHaveTextContent("typecheck");
@@ -1124,11 +1106,10 @@ describe("the wave", () => {
     await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
     // Nothing was done, so what was typed stays.
     await expect.element(form.getByLabelText("Title")).toHaveValue("Say which half refused, in the toast");
-    // The failure is drawn under the panel's dim, so the panel goes first.
-    await userEvent.keyboard("{Escape}");
-    await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+    // The failure pops up over the panel, so it is copied with the panel open.
     await page.getByRole("button", { name: "Copy debug info" }).click();
     await expect.poll(() => written).toHaveLength(1);
+    await expect.element(panel).toBeVisible();
     expect(written[0]).toContain("bridge.not_implemented");
     expect(written[0]).toContain(issueLink(1699));
     expect(written[0]).toContain("POST /jobs/{job_id}/edit");

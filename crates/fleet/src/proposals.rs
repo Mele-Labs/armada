@@ -18,11 +18,13 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::CallProgress;
-use core_model::{Actor, Timestamp};
+use config::ResolvedWorkflow;
+use core_model::{Actor, Timestamp, WorkflowId};
 
 use crate::clock::Clock;
 use crate::judging::JudgeBudget;
 use crate::mint::Mint;
+use crate::proposing::Settled;
 
 /// How often a token estimate may be republished.
 ///
@@ -115,6 +117,20 @@ struct Reached {
     reach: ipc::ProposalReach,
     thinking_tokens: Option<u64>,
     answered_characters: Option<u64>,
+    /// The answer as far as it has been written.
+    ///
+    /// **Held here and published never.** It is the input [`Settled`] reads and
+    /// nothing else reads it at all — `ipc::ProposalInFlight::settled` is what
+    /// crosses, and it carries fields rather than a transcript. The whole answer
+    /// still comes back as the call's return value, which is what mints the
+    /// Jobs.
+    ///
+    /// **Bounded by the call, not by this.** A proposal answers a block per Job;
+    /// the ceiling on how much lands here is `JudgeBudget` and the model's own
+    /// output, exactly as it was before this field existed.
+    written: String,
+    /// What has settled, as the last message said it. `None` until a field has.
+    settled: Option<ipc::ProposalSettled>,
     /// When a message last went out. `None` before the first.
     told_at: Option<Timestamp>,
 }
@@ -143,6 +159,8 @@ impl Watching {
                 reach: ipc::ProposalReach::Starting,
                 thinking_tokens: None,
                 answered_characters: None,
+                written: String::new(),
+                settled: None,
                 told_at: None,
             }),
         };
@@ -172,8 +190,18 @@ impl StopWhenAsked {
 impl Making {
     /// Report one reading. **Handed to the runner as a callback**, so the
     /// runner knows nothing about events, throttles or ids.
-    pub fn telling(&self) -> impl Fn(CallProgress) + Send + Sync + '_ {
-        move |progress| self.moved(progress)
+    ///
+    /// `held` is the catalogue the answer's `workflow` line is read against.
+    /// **The reader's, not a second authority** — `Settled::of` reports a
+    /// workflow only where this repository holds it, which is `Brief::read`'s
+    /// own rule one field at a time, so nothing draws a workflow the call is
+    /// about to be refused for naming.
+    pub fn telling<'held>(
+        &'held self,
+        held: &'held BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &'held [String],
+    ) -> impl Fn(CallProgress) + Send + Sync + 'held {
+        move |progress| self.moved(progress, held, models)
     }
 
     /// The id, for a caller that has to name this proposal in a refusal.
@@ -196,7 +224,12 @@ impl Making {
         StopWhenAsked(stopped)
     }
 
-    fn moved(&self, progress: CallProgress) {
+    fn moved(
+        &self,
+        progress: CallProgress,
+        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) {
         let Ok(mut reached) = self.reached.lock() else {
             return;
         };
@@ -211,12 +244,24 @@ impl Making {
                 reached.thinking_tokens = Some(tokens);
                 step(&mut reached.reach, ipc::ProposalReach::Thinking) || self.ticked(&reached)
             }
-            CallProgress::Answering { characters } => {
+            CallProgress::Answering { characters, text } => {
                 // Cumulative, because the stream carries one frame's worth at a
                 // time and what a surface draws is how much has arrived.
                 reached.answered_characters =
                     Some(reached.answered_characters.unwrap_or(0) + characters);
-                step(&mut reached.reach, ipc::ProposalReach::Answering) || self.ticked(&reached)
+                reached.written.push_str(&text);
+                let settled = settled(&reached.written, held, models);
+                // **A field settling is always worth a message, and is never
+                // throttled.** The count is what moves continuously and what
+                // `TOKEN_TICK` exists to bound; this moves four times on a
+                // one-Job answer, plus once per `done_when` line, so publishing
+                // each immediately is what the whole design is for — a field a
+                // person waits a second to see is a field that arrived late.
+                let filled = settled != reached.settled;
+                reached.settled = settled;
+                step(&mut reached.reach, ipc::ProposalReach::Answering)
+                    || filled
+                    || self.ticked(&reached)
             }
             // The call is over. The coming-back message is the guard's, on
             // drop, so that every way of ending sends exactly one — and this
@@ -278,6 +323,7 @@ impl Making {
                 answered_characters: reached
                     .as_ref()
                     .and_then(|reached| reached.answered_characters),
+                settled: reached.as_ref().and_then(|reached| reached.settled.clone()),
             }
         });
         self.watching
@@ -302,6 +348,36 @@ impl Drop for Making {
         self.watching.proposals.forget(&self.proposal);
         self.publish(false);
     }
+}
+
+/// What has settled, as the wire says it, or `None` where nothing has.
+///
+/// **Absent rather than four absences.** A proposal that has not begun writing
+/// has nothing decided, and an empty object on the wire would make a client
+/// distinguish "no field yet" from "no reading yet" for no difference.
+fn settled(
+    written: &str,
+    held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+    models: &[String],
+) -> Option<ipc::ProposalSettled> {
+    let read = Settled::of(written, held, models);
+    if read == Settled::default() {
+        return None;
+    }
+    // The settings block appears when the line that carries it has ended and
+    // said something readable — never empty, which would be a fourth field
+    // claiming to have settled nothing.
+    let settings =
+        (read.urgency.is_some() || read.model.is_some()).then(|| ipc::ProposalSettings {
+            urgency: read.urgency.map(ipc::Urgency::from),
+            model: read.model,
+        });
+    Some(ipc::ProposalSettled {
+        workflow_id: read.workflow.as_ref().map(ipc::WorkflowId::from),
+        title: read.title,
+        done_when: read.done_when,
+        settings,
+    })
 }
 
 /// Move `reach` forward and say whether it moved. **Forward only**: the frames
