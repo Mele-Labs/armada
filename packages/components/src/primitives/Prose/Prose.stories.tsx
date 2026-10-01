@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
+import { Clamped } from "../../compositions/Clamped/Clamped";
+import { Card } from "../Card/Card";
 import { Prose, ProseLinks } from "./Prose";
 
 /** What a click hands over. Bridge's is `window.armada.openLink`. */
@@ -66,9 +68,9 @@ export const AFlagsCitation: Story = {
 
 /**
  * The structure a model writes when it lists findings. The `#` line renders at
- * `--weight-heading` and full contrast, **not at `--text-lg`**: panel headings
- * own that step. It takes no place in the page's outline either, since a
- * model's `#` inside a card is not the card's title.
+ * `--text-base`, `--weight-heading` and full contrast, **not at `--text-lg`**:
+ * panel headings own that step. It takes no place in the page's outline either,
+ * since a model's `#` inside a card is not the card's title.
  */
 export const AListAndAHeading: Story = {
   args: {
@@ -239,3 +241,115 @@ export const Empty: Story = {
     await expect(canvasElement).toBeEmptyDOMElement();
   },
 };
+
+/** A single newline is a line break, as a forge draws a review comment. */
+export const SoftLineBreaks: Story = {
+  args: {
+    text: "Restore the walk.\nThen rerun the check.\n\nA second paragraph.",
+  },
+  play: async ({ canvas }) => {
+    const [first] = canvas.getAllByRole("paragraph");
+    await expect(canvas.getAllByRole("paragraph")).toHaveLength(2);
+    await expect(first?.innerText).toBe("Restore the walk.\nThen rerun the check.");
+  },
+};
+
+/**
+ * Prose inside `Clamped`, with a list in it. `-webkit-line-clamp` counts no
+ * lines inside a flex box, so Prose is block flow: as a flex column this drew
+ * whole and the control never appeared.
+ */
+export const ClampedThroughAList: Story = {
+  args: {
+    text:
+      "The approach, in three moves:\n\n" +
+      "- restore `forget_job` to the walk\n" +
+      "- serve `DELETE /jobs/{id}` from `routes.rs`\n" +
+      "- rerun the check against `main`\n\n" +
+      "Each move is its own commit, so a reviewer can read them apart.",
+  },
+  render: (args) => (
+    <Clamped lines={2}>
+      <Prose {...args} />
+    </Clamped>
+  ),
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("button", { name: "View more" })).toBeVisible();
+  },
+};
+
+/** One Judge verdict carrying every construct, drawn by each direction on trial. */
+const VERDICT =
+  "## Verdict: the assertion was weakened\n\n" +
+  "The Drone made `served_every_operation` pass by **narrowing the set it counts**, not by serving " +
+  "`forget_job`. The route still answers *404* on a live Fleet.\n" +
+  "Checked against `main` at `4f2c1ab`.\n\n" +
+  "### What changed\n\n" +
+  "1. The walk now skips `forget_job`\n" +
+  "   - `crates/api/src/tests/served.rs:214`\n" +
+  "   - the count dropped from 41 to 40\n" +
+  "2. No route was added to `crates/api/src/routes.rs`\n" +
+  "3. ~~The handler exists~~ The handler was never written\n\n" +
+  "### Before and after\n\n" +
+  "| Check | main | This step |\n" +
+  "|---|---|---|\n" +
+  "| `served_every_operation` | fails, 41 of 41 | passes, 40 of 40 |\n" +
+  "| `routes_are_documented` | passes | passes |\n\n" +
+  "> Every operation in `operations.toml` is served by exactly one route.\n\n" +
+  "```rust\n" +
+  "let routes: Vec<&Route> = ROUTES.iter()\n" +
+  '    .filter(|r| r.operation != "forget_job")\n' +
+  "    .collect();\n" +
+  "assert_eq!(routes.len(), served.len());\n" +
+  "```\n\n" +
+  "### What the Drone should do\n\n" +
+  "- [x] Restore `forget_job` to the walk\n" +
+  "- [ ] Serve `DELETE /jobs/{id}` from `routes.rs`\n" +
+  "- [ ] Rerun `armada check api_test`\n\n" +
+  "The claim is in [the M4 acceptance test](https://forge.invalid/armada/blob/main/docs/m4.md).";
+
+/** A direction is a `data-prose-direction` above Prose; `Prose.css` scopes B and C to it. */
+function direction(which: "a" | "b" | "c"): Story {
+  return {
+    args: { text: VERDICT },
+    render: (args) => (
+      <Card>
+        <div data-prose-direction={which}>
+          <Prose {...args} />
+        </div>
+      </Card>
+    ),
+  };
+}
+
+/**
+ * **A, inside the contract.** The default. The first two heading levels at
+ * `--text-base`, bold at heading weight, `--accent` list markers and quote rule,
+ * code in an edged `--bg-sunken` well.
+ */
+export const DirectionA: Story = {
+  ...direction("a"),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Verdict: the assertion was weakened")).toBeVisible();
+    await expect(canvas.getByRole("table")).toBeVisible();
+    await expect(canvas.getByRole("blockquote")).toBeVisible();
+    await expect(canvas.getAllByRole("checkbox")).toHaveLength(3);
+    await expect(canvas.getByRole("link", { name: "the M4 acceptance test" })).toBeVisible();
+  },
+};
+
+/**
+ * **B, more life.** The level-one heading at `--text-lg`, a ruled level two, a
+ * header band on the table, a tinted callout for the quote, and an accent edge
+ * on the fenced block. Breaks: `--text-lg` belongs to panel headings, and
+ * `--accent` marks things nobody can press.
+ */
+export const DirectionB: Story = direction("b");
+
+/**
+ * **C, margin notes.** Headings hang in a gutter beside the text they head, so
+ * a long verdict is scanned by its margin. The evidence (code, table) runs the
+ * full width. Breaks: floats, so it cannot be clamped, and the gutter is a
+ * fixed width a rail cannot pay.
+ */
+export const DirectionC: Story = direction("c");

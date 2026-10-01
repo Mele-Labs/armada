@@ -1,12 +1,13 @@
 import { createContext, useContext, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
 /**
  * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
- * through `react-markdown` and `remark-gfm`. What each construct is drawn as,
- * and why the renderer declares no font size, is the contract's —
- * `docs/contracts/design-system.md`, *Prose — model-written markdown*.
+ * through `react-markdown` and `remark-gfm`. A single newline is a line break, as
+ * a forge draws a comment (`remark-breaks`). What each construct is drawn as is
+ * the contract's — `docs/contracts/design-system.md`, *Prose — model-written markdown*.
  *
  * Raw HTML stays its characters: without `rehype-raw`, `react-markdown` turns
  * every HTML node back into text, and this text arrives from a model.
@@ -28,12 +29,14 @@ export function Prose({ text }: ProseProps) {
   if (text.trim() === "") return null;
   return (
     <div className="armada-prose">
-      <Markdown remarkPlugins={[remarkGfm]} components={DRAWN}>
+      <Markdown remarkPlugins={PLUGINS} components={DRAWN}>
         {text}
       </Markdown>
     </div>
   );
 }
+
+const PLUGINS = [remarkGfm, remarkBreaks];
 
 /** The address if it is one this app hands to a browser, else `null`. */
 function web(href: string | undefined): string | null {
@@ -68,20 +71,26 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
   );
 }
 
-/** Every heading level: the line at heading weight, with no scale and no outline entry. */
-function said({ children }: { children?: ReactNode }) {
-  return <p className="armada-prose__said">{children}</p>;
+/** A heading of any level is a paragraph: a model's `#` inside a card is not the card's title. */
+function said(level: number) {
+  return function Said({ children }: { children?: ReactNode }) {
+    return (
+      <p className="armada-prose__said" data-level={level}>
+        {children}
+      </p>
+    );
+  };
 }
 
 /** Elements left out (`em`, `del`, `tr`, `thead`, `tbody`) carry no treatment of their own. */
 const DRAWN: Components = {
   p: ({ children }) => <p className="armada-prose__paragraph">{children}</p>,
-  h1: said,
-  h2: said,
-  h3: said,
-  h4: said,
-  h5: said,
-  h6: said,
+  h1: said(1),
+  h2: said(2),
+  h3: said(3),
+  h4: said(4),
+  h5: said(5),
+  h6: said(6),
   strong: ({ children }) => <strong className="armada-prose__strong">{children}</strong>,
   code: ({ children }) => <code className="armada-prose__code">{children}</code>,
   pre: ({ children }) => <pre className="armada-prose__block">{children}</pre>,

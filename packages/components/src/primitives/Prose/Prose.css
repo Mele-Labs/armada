@@ -1,52 +1,72 @@
 /* Prose — model-written markdown, drawn as its structure.
 
-   NOTHING HERE DECLARES A FONT SIZE, and that is the rule the file exists for.
-   The type scale belongs to docs/contracts/design-system.md; a renderer that
-   ships its own is a second design system inside the first. Every block
-   inherits the size of the surface it is drawn on, so the same component reads
-   at --text-sm in a dialog body and at --text-2xs in a rail row without either
-   value being restated here.
+   The body inherits the surface's size. Only a heading of the first three
+   levels declares one: --text-base, the ladder's "emphasis within body", one
+   step above a body at --text-sm. docs/contracts/design-system.md,
+   *Prose — model-written markdown*.
 
-   What it does declare is spacing, family, weight, and the rules and accent
-   the contract already gives tables and links. None of them is a scale. */
+   BLOCK FLOW, NEVER FLEX. `-webkit-line-clamp` counts no lines inside a flex
+   box, and Prose is drawn inside `Clamped` (PlanBoard's approach, JobBrief).
+   Every gap is a margin between siblings. */
 .armada-prose {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: block;
   min-width: 0;
 }
 
-.armada-prose__paragraph {
+/* Zero specificity, so the sibling spacing below always wins over it. */
+:where(.armada-prose) :where(p, ul, ol, pre, blockquote, hr, table) {
   margin: 0;
+}
+
+.armada-prose > * + *,
+.armada-prose__quote > * + *,
+.armada-prose__item > * + * {
+  margin-top: var(--space-2);
+}
+
+/* A block of evidence (code, a table, a quote) takes more room than a paragraph. */
+.armada-prose > * + :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule),
+.armada-prose > :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule) + * {
+  margin-top: var(--space-3);
+}
+
+.armada-prose__paragraph {
   text-wrap: pretty;
 }
 
-/* What a `#` line becomes. Weight and full contrast against the muted body
-   around it — the structure the writer meant, without borrowing --text-lg from
-   the panel headings that own it. */
+/* A heading of any level: full contrast at heading weight. The first three
+   levels go one step up the ladder, and every heading takes a section's space
+   above it. */
 .armada-prose__said {
-  margin: 0;
   color: var(--fg-default);
   font-weight: var(--weight-heading);
 }
 
+.armada-prose__said:is([data-level="1"], [data-level="2"], [data-level="3"]) {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+.armada-prose > * + .armada-prose__said {
+  margin-top: var(--space-6);
+}
+
+/* Weight as well as contrast, so bold reads on text already at full contrast.
+   The owner's choice on 1 Oct 2026; never above --weight-heading. */
 .armada-prose__strong {
   color: var(--fg-default);
-  font-weight: var(--weight-body);
+  font-weight: var(--weight-heading);
 }
 
-/* An unordered list is rows, not bullets: a marker glyph would be decorative
-   iconography, and the indent already says what it would. */
+.armada-prose del {
+  color: var(--fg-subtle);
+}
+
 .armada-prose__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0 0 0 var(--space-4);
-  list-style: none;
+  padding-left: var(--space-4);
+  list-style: disc;
 }
 
-/* An ordered list keeps its numbers: they carry the order. */
 .armada-prose__list--ordered {
   padding-left: var(--space-6);
   list-style: decimal;
@@ -56,9 +76,22 @@
   text-wrap: pretty;
 }
 
-/* Nested lists sit under their item, not a block gap away. */
-.armada-prose__item > .armada-prose__list {
+/* A nested list's markers sit under its item's text, not under the item's marker. */
+.armada-prose__item .armada-prose__list {
+  padding-left: var(--space-6);
+}
+
+.armada-prose__item + .armada-prose__item {
   margin-top: var(--space-1);
+}
+
+.armada-prose__item::marker {
+  color: var(--accent);
+}
+
+/* A task's checkbox is its marker. */
+.armada-prose__item:has(> .armada-prose__task) {
+  list-style: none;
 }
 
 .armada-prose__task {
@@ -76,32 +109,61 @@
 }
 
 .armada-prose__link:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
+/* Machine-derived, so mono, in the --bg-sunken well the contract names for code. */
+.armada-prose__code {
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  color: var(--fg-default);
+  /* One token to a reader and several to a line-breaker: breaking anywhere
+     beats running off the edge. */
+  overflow-wrap: anywhere;
+}
+
+/* The fenced block wraps rather than scrolls: a horizontal scrollbar inside a
+   floating layer hides content behind a gesture. */
+.armada-prose__block {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  color: var(--fg-default);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The block's code element is the inline one too; inside the block it is no
+   second well. */
+.armada-prose__block .armada-prose__code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+}
+
+/* Quoted words are someone's exact words, so they read at full contrast. */
 .armada-prose__quote {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
   padding-left: var(--space-3);
-  border-left: var(--border-width) solid var(--border-default);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
+  color: var(--fg-default);
 }
 
 .armada-prose__rule {
-  width: 100%;
-  margin: 0;
   border: 0;
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
-/* The Table primitive's rules and header contrast, without its sizes: a table
-   in a rail reads at the rail's size. Cells wrap rather than scroll, for the
-   fenced block's reason below. */
-/* As wide as its content, up to the column: a flex child stretches by default,
-   and at a dialog's width that strands three short columns a screen apart. */
+/* The Table primitive's rules and header contrast, without its sizes. As wide
+   as its content: in a dialog a full-width table strands short columns a
+   screen apart. */
 .armada-prose__table {
-  align-self: flex-start;
   border-collapse: collapse;
 }
 
@@ -125,39 +187,134 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-/* Machine-derived, so mono. A well rather than a tint, because --bg-sunken is
-   what the contract names for code. */
-.armada-prose__code {
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  font-family: var(--font-mono);
-  color: var(--fg-default);
-  /* An expression is one token to a reader and several to a line-breaker.
-     Breaking anywhere beats running off the edge; breaking mid-token only
-     happens where the whole run does not fit. */
-  overflow-wrap: anywhere;
+/* ---------------------------------------------------------------------------
+   DIRECTIONS ON TRIAL. Nothing in the app sets `data-prose-direction`; only the
+   Prose directions stories do. The owner picks one, it becomes the default
+   above, and this section is deleted.
+   --------------------------------------------------------------------------- */
+
+/* B, "More life". Breaks: --text-lg is the panel headings' step, and --accent
+   marks things nobody can press. */
+[data-prose-direction="b"] .armada-prose__said:is([data-level="1"], [data-level="2"]) {
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-default);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
 }
 
-/* The fenced block. `pre-wrap` and not `pre`: this sits inside a dialog and a
-   rail, and a horizontal scrollbar inside a floating layer hides content
-   behind a gesture. The line breaks the writer put in are kept; the ones the
-   width forces are added. */
-.armada-prose__block {
-  margin: 0;
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+[data-prose-direction="b"] .armada-prose__list--ordered > .armada-prose__item::marker {
   font-family: var(--font-mono);
-  color: var(--fg-default);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  font-weight: var(--weight-heading);
 }
 
-/* The block's code element is the inline one too; inside the block it is no
-   second well. */
-.armada-prose__block .armada-prose__code {
-  padding: 0;
+[data-prose-direction="b"] .armada-prose__link {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-muted);
+  text-underline-offset: var(--space-1);
+}
+
+[data-prose-direction="b"] .armada-prose__code {
+  border-color: var(--border-default);
+  background: var(--bg-overlay);
+}
+
+[data-prose-direction="b"] .armada-prose__block {
+  border-color: var(--accent-muted);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
+}
+
+[data-prose-direction="b"] .armada-prose__block .armada-prose__code {
+  border: 0;
   background: none;
-  font-family: inherit;
+}
+
+[data-prose-direction="b"] .armada-prose__quote {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
+  color: var(--fg-default);
+}
+
+[data-prose-direction="b"] .armada-prose__table {
+  border: var(--border-width) solid var(--border-subtle);
+}
+
+[data-prose-direction="b"] .armada-prose__th {
+  padding: var(--space-2);
+  background: var(--bg-overlay);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+/* C, "Margin notes". A review read as an engineer's annotated page: headings
+   hang in a gutter to the left of the text they head, so a long message can be
+   scanned by its margin. Code, tables and rules run the full width, gutter
+   included, because they are the evidence. Breaks: floats, so it cannot be
+   clamped, and the gutter costs a fixed width a rail cannot pay. A narrow
+   fallback would need a container query, whose width no token can spell. */
+[data-prose-direction="c"] .armada-prose {
+  display: flow-root;
+  padding-left: calc(var(--space-12) * 3);
+}
+
+[data-prose-direction="c"] .armada-prose__said {
+  float: left;
+  clear: left;
+  width: calc(var(--space-12) * 3 - var(--space-4));
+  margin-left: calc(var(--space-12) * -3);
+  padding-top: var(--space-1);
+  border-top: calc(var(--border-width) * 2) solid var(--accent);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* A heading's section starts level with it, not a section below the last. */
+[data-prose-direction="c"] .armada-prose > .armada-prose__said + * {
+  margin-top: 0;
+}
+
+[data-prose-direction="c"] .armada-prose > * + .armada-prose__said,
+[data-prose-direction="c"] .armada-prose > * + .armada-prose__said + * {
+  margin-top: var(--space-6);
+}
+
+[data-prose-direction="c"] .armada-prose > :is(.armada-prose__block, .armada-prose__table, .armada-prose__rule) {
+  clear: left;
+  margin-left: calc(var(--space-12) * -3);
+}
+
+[data-prose-direction="c"] .armada-prose__quote {
+  border-left-width: calc(var(--border-width) * 2);
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+[data-prose-direction="c"] .armada-prose__item::marker {
+  color: var(--fg-subtle);
+}
+
+[data-prose-direction="c"] .armada-prose__code {
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-strong);
+  border-radius: 0;
+  background: none;
+}
+
+[data-prose-direction="c"] .armada-prose__block {
+  border: 0;
+  border-left: calc(var(--border-width) * 2) solid var(--border-strong);
+  border-radius: 0;
+}
+
+[data-prose-direction="c"] .armada-prose__block .armada-prose__code {
+  border: 0;
+}
+
+[data-prose-direction="c"] .armada-prose__th {
+  border-bottom-width: calc(var(--border-width) * 2);
 }
