@@ -181,12 +181,8 @@ export function ConfidenceSheet({ confidence, onView, grounds, captured, ci, fol
             <tbody>
               {dismissed.map((row) => (
                 <tr key={row.finding}>
-                  <td>
-                    <Prose text={row.finding} />
-                  </td>
-                  <td className="armada-confidence__muted">
-                    <Prose text={row.reason} />
-                  </td>
+                  <td><Prose text={row.finding} /></td>
+                  <td className="armada-confidence__muted"><Prose text={row.reason} /></td>
                 </tr>
               ))}
             </tbody>
@@ -284,9 +280,7 @@ function Areas({ areas, onView }: { areas: readonly AreaRow[]; onView: OnView })
         {areas.map((area) => (
           <tr key={area.name}>
             <td className="armada-confidence__muted">{area.name}</td>
-            <td>
-              <Prose text={area.what} />
-            </td>
+            <td><Prose text={area.what} /></td>
             <td className="armada-confidence__files">
               {area.files.map((file) => (
                 <code key={file} className="armada-confidence__path">
@@ -320,9 +314,7 @@ function Tests({ tests }: { tests: TestsSection }) {
             {tests.proves.map((row) => (
               <tr key={`${row.area}-${row.what}`}>
                 <td className="armada-confidence__muted">{row.area}</td>
-                <td>
-                  <Prose text={row.what} />
-                </td>
+                <td><Prose text={row.what} /></td>
                 <td className="armada-confidence__number">{row.tests}</td>
               </tr>
             ))}
@@ -353,9 +345,7 @@ function Tests({ tests }: { tests: TestsSection }) {
                     </>
                   )}
                 </td>
-                <td className="armada-confidence__muted">
-                  <Prose text={row.why ?? "No reason given"} />
-                </td>
+                <td className="armada-confidence__muted"><Prose text={row.why ?? "No reason given"} /></td>
               </tr>
             ))}
           </tbody>
@@ -373,9 +363,7 @@ function Tests({ tests }: { tests: TestsSection }) {
             {tests.untested.map((row) => (
               <tr key={row.code}>
                 <td>{row.code}</td>
-                <td className="armada-confidence__muted">
-                  <Prose text={row.why} />
-                </td>
+                <td className="armada-confidence__muted"><Prose text={row.why} /></td>
               </tr>
             ))}
           </tbody>
@@ -415,9 +403,7 @@ function Findings({
       <tbody>
         {findings.map((row) => (
           <tr key={row.finding}>
-            <td>
-              <Prose text={row.finding} />
-            </td>
+            <td><Prose text={row.finding} /></td>
             <td className="armada-confidence__muted">
               <Prose text={row.why} />
               {/* Under the reason rather than in a column of its own, which clipped it. */}
