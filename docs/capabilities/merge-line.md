@@ -92,7 +92,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **The line used to run no Check on an unmoved turn, trusting the agent's own run.** That trust went when `work-issue` step 4 became a quick self-check of build, typecheck and the tests of what changed, so the line is now where a branch's Checks are measured in full. Preflight still stamps the tree, so what the line measures is what the agent pushed.
 
-**A Check that failed is asked of `main` too, before the branch is blamed.** Only the Checks that failed, only on a turn that had one, and the answer is cached per base commit — so a green turn pays nothing for this and a red one pays for what it already knows is broken. A Check red on both sides is reported as `main`'s, naming it and sending the reader at `main`; a Check red only with `main` merged in stays the branch's. A turn holding one of each says both.
+**A Check that failed is asked of `main` too, before the branch is blamed.** Only the Checks that failed, only on a turn that had one, and the answer is cached per base commit — so a green turn pays nothing for this and a red one pays for what it already knows is broken. A Check red on both sides is reported as `main`'s, naming it and sending the reader at `main`; a Check red only with `main` merged in stays the branch's. A turn holding one of each says both. **A Check that times out on `main` is `main`'s for that turn and is not cached**, so the next branch on the same commit asks again: cached, one slow run told every branch after it that `main` was broken.
 
 **How a `verify-foundations` run is read:**
 
@@ -105,6 +105,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 | A Check whose command is not installed stops the turn | A missing tool is not the branch breaking `main` |
 | A Check red on `main` too stops the turn as `main`'s | "Fix your branch" and "fix `main`" send a reader to different places |
 | A Check past its limit is red, on either side, and says so | One hang would otherwise hold every branch behind it |
+| A Check past its limit on `main` is not cached | A slow run is not a broken commit |
 | The same on `main`'s own run, which stops the turn | There is nothing to compare against |
 | `main`'s run cached per commit, only once read as a report | A killed run cached empty makes every branch after it red |
 | One report carries the gate and the Checks together | An agent reads everything wrong once, not twice |
