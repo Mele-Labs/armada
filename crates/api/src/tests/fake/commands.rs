@@ -15,6 +15,7 @@
 //! below are a pair of statuses handed to it.
 
 mod gating;
+mod killing;
 mod proposing;
 mod recovering;
 
@@ -464,6 +465,19 @@ impl Commands for FakeDaemon {
     }
     async fn kill_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_kill_job(job_id).await
+    }
+    async fn kill_process(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        pid: u32,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_kill_process(job_id, pid).await
+    }
+    async fn kill_processes(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_kill_processes(job_id).await
     }
     async fn forget_job(
         self: std::sync::Arc<Self>,

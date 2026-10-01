@@ -636,6 +636,28 @@ where
         self.summarised(&job).await
     }
 
+    /// One process and what it started; the Drone's own pid is `kill_drone`.
+    async fn kill_process(self: Arc<Self>, job_id: JobId, pid: u32) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { Fleet::kill_process(&fleet, &job_id.to_domain(), pid).await }
+        })
+        .await
+        .map_err(|why| self.killing_refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    /// Every process: `kill_drone`, and what its group signal misses.
+    async fn kill_processes(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { Fleet::kill_processes(&fleet, &job_id.to_domain()).await }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// Go and look at this Job now. **The one act here that moves nothing** —
     /// what it leaves is a line in the Job's own log saying somebody asked and
     /// what was found, which is why it is a command rather than a read.

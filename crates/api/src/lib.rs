@@ -60,6 +60,8 @@ mod observing;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
+/// Pulse's kills: one process of a Job, and every one.
+mod processes;
 mod queries;
 /// The `:job_id` a route carries, resolved before a handler can reach it.
 mod reference;

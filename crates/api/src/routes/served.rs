@@ -22,12 +22,10 @@ pub struct Route {
 /// placeholder is worse than one that 404s, because a client cannot tell the
 /// difference between not built and not working.
 ///
-/// A path is checkable against its inventory key by eye. `list_jobs` and
-/// `get_job` are the collection and the member and name no act; every other row
-/// spells its key in the last segment, except `redispatch`, which drops `_job`
-/// because no `redispatch_drone` exists to tell it apart from. The lifeboat's
-/// `POST /v0/jobs/:id/kill` is the same act as `kill_job` under a frozen prefix
-/// that shares nothing with this table, by design.
+/// An act's row spells its key in the last segment where it can: not
+/// `redispatch`, with no `redispatch_drone` to tell apart, nor Pulse's kills,
+/// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
+/// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
 pub const SERVED: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -781,6 +779,16 @@ pub const SERVED: &[Route] = &[
         operation: "kill_job",
         method: "POST",
         path: "/jobs/:job_id/kill_job",
+    },
+    Route {
+        operation: "kill_process",
+        method: "POST",
+        path: "/jobs/:job_id/processes/:pid/kill",
+    },
+    Route {
+        operation: "kill_processes",
+        method: "POST",
+        path: "/jobs/:job_id/processes/kill",
     },
     // Real deletion, and the only route on this table that is: every other
     // command moves a Job further, and this removes the row.
