@@ -95,11 +95,6 @@ export const PastedWithReadIn: Story = {
   },
 };
 
-/** A Sketch placed — the diagram written out as text. */
-export const Sketch: Story = {
-  args: { adding: "sketch" },
-};
-
 /** Out to Fleet. The field waits rather than taking a second press. */
 export const Adding: Story = {
   args: { adding: "note", saving: true },

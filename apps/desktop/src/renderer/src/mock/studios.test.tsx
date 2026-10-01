@@ -538,18 +538,18 @@ test("putting a draft down sends the written one already open, and drops a blank
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
   await pressBoard(0);
   await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
-  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
+  await page.getByRole("button", { name: "Add a Link", exact: true }).click();
   await pressBoard(1);
-  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
+  await expect.element(drafted("Link").getByLabelText("Link", { exact: true })).toHaveFocus();
   expect(drafted("Note").query()).toBeNull();
   expect(kept()).toHaveLength(before);
 
-  await userEvent.keyboard("Board -> Legend -> View");
+  await userEvent.keyboard("https://example.invalid/legend");
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
   await pressBoard(2);
   await expect.poll(() => kept().length).toBe(before + 1);
   await expect.element(drafted("Note")).toBeVisible();
-  expect(drafted("Sketch").query()).toBeNull();
+  expect(drafted("Link").query()).toBeNull();
 });
 
 /**

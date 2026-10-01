@@ -195,11 +195,30 @@ export const Contradiction: Story = {
   },
 };
 
+/**
+ * The pad's drawing, drawn in the plate a Picture uses, and no title: a Sketch
+ * says nothing in words of its own beyond what is in its boxes.
+ */
 export const Sketch: Story = {
-  args: { kind: "sketch", state: "frozen", title: "The whiteboard's rail", facts: ["diagram"] },
+  args: {
+    kind: "sketch",
+    state: "frozen",
+    title: "",
+    drawing: {
+      boxes: [
+        { id: "b1", x: 0, y: 0, body: "The rail" },
+        { id: "b2", x: 360, y: 40, body: "The board" },
+      ],
+      lines: [{ id: "b1-b2", from: "b1", to: "b2" }],
+      strokes: [],
+      pictures: [],
+    },
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Sketch")).toBeVisible();
     await expect(canvas.getByText("frozen")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "The sketch drawn on this Studio" })).toBeVisible();
+    await expect(canvas.getByText("The rail")).toBeInTheDocument();
   },
 };
 
@@ -397,7 +416,7 @@ const READ_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, 
 const noop = () => undefined;
 
 /**
- * A node still being written, one per kind a person adds by hand — the owner's
+ * A node still being written, one per kind a person writes by hand — the owner's
  * note of 1 Oct 2026. The field is the card's body, under the kind; the last is
  * out to Fleet, and says so. The keys and the press off it are proved through
  * `App`, in `mock/studios.test.tsx`.
@@ -410,9 +429,6 @@ export const Draft: Story = {
       </StudioNodeDraft>
       <StudioNodeDraft kind="link">
         <StudioAddNode inPlace adding="link" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
-      </StudioNodeDraft>
-      <StudioNodeDraft kind="sketch">
-        <StudioAddNode inPlace adding="sketch" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
       </StudioNodeDraft>
       <StudioNodeDraft kind="note" pending>
         <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} saving />

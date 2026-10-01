@@ -27,6 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -83,6 +84,10 @@ export const addStudioNode = (studioId: string, node: StudioNodeByHand, position
 export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
 export const addStudioPicture = (studioId: string, bytes: Uint8Array, position: { x: number; y: number }) =>
   window.armada.addStudioPicture(studioId, bytes, position);
+export const addStudioSketch = (studioId: string, drawing: SketchToKeep, position: { x: number; y: number }) =>
+  window.armada.addStudioSketch(studioId, drawing, position);
+export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
+  window.armada.saveStudioSketch(studioId, nodeId, drawing);
 export const moveStudioNode = (studioId: string, nodeId: string, position: { x: number; y: number }) =>
   window.armada.moveStudioNode(studioId, nodeId, position);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>
@@ -93,8 +98,8 @@ export const decideStudioEdge = (studioId: string, edgeId: string, accepted: boo
 export const captureStudioNote = (studioId: string, said: string, capture: StudioCapture) =>
   window.armada.captureStudioNote(studioId, said, capture);
 /** The picture one Note kept — #1352. The bytes become a `blob:` this window owns and revokes. */
-export const readStudioFrame = (studioId: string, nodeId: string) =>
-  window.armada.readStudioFrame(studioId, nodeId);
+export const readStudioFrame = (studioId: string, nodeId: string, picture?: string) =>
+  window.armada.readStudioFrame(studioId, nodeId, picture);
 export const promoteOnStudio = (studioId: string, promotion: StudioPromotion) =>
   window.armada.promoteOnStudio(studioId, promotion);
 export const startStudioRun = (studioId: string, name: string, position: StudioPosition) =>

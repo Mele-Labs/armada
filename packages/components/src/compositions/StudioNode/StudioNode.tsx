@@ -4,6 +4,7 @@ import { Badge } from "../../primitives/Badge/Badge";
 import { Card } from "../../primitives/Card/Card";
 import { JOB_STATUS, type Rendering } from "../../generated/vocabulary";
 import { FactChip } from "../FactChip/FactChip";
+import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchPreview";
 
 /**
  * Studio node — one node on a Studio's whiteboard, of any kind on
@@ -69,7 +70,11 @@ export type StudioNodeOf =
   | { kind: "cluster" }
   | { kind: "finding"; state: StudioFindingState }
   | { kind: "contradiction"; state: StudioContradictionState }
-  | { kind: "sketch"; state: "frozen" }
+  /**
+   * The pad's drawing, drawn read-only in the card's picture plate — the
+   * owner's call of 1 Oct 2026. No words of its own, so no title is drawn.
+   */
+  | { kind: "sketch"; state: "frozen"; drawing: StudioNodeDrawing }
   /**
    * A Link keeps its address, whatever is typed beside it — `#1378`. The
    * card's title is the person's own line, and this is drawn under it; where
@@ -98,6 +103,9 @@ export type StudioNodeOf =
   | { kind: "job"; state?: string };
 
 export type StudioNodeKind = StudioNodeOf["kind"];
+
+/** A Sketch's drawing, as the card draws it. Its pictures' `src` is the caller's, as a frame's is. */
+export type StudioNodeDrawing = Omit<SketchPreviewProps, "label">;
 
 export type StudioNodeProps = StudioNodeOf & {
   title: string;
@@ -215,6 +223,9 @@ export const STUDIO_FRAME_LABEL = "The screen this Note was captured from";
 /** What a Picture's image is called where it is read aloud. */
 export const STUDIO_PICTURE_LABEL = "The picture pasted onto this Studio";
 
+/** What a Sketch's drawing is called where it is read aloud. */
+export const STUDIO_SKETCH_LABEL = "The sketch drawn on this Studio";
+
 /**
  * The picture on the card: what was on screen when the Note was made.
  *
@@ -282,8 +293,9 @@ export function StudioNode(props: StudioNodeProps) {
       </div>
       {/* One box for what the card says, sized by the kind rather than by the
           words — see `StudioNode.css`. */}
-      {/* A Picture says nothing, so it has no box for words — default to no text. */}
-      {props.kind === "picture" ? null : (
+      {/* A Picture and a Sketch say nothing in words of their own, so neither
+          has a box for words — default to no text. */}
+      {props.kind === "picture" || props.kind === "sketch" ? null : (
         <div className="armada-studio-node__said">
           <p
             className="armada-studio-node__title"
@@ -309,6 +321,11 @@ export function StudioNode(props: StudioNodeProps) {
         </div>
       )}
       {props.kind === "picture" ? <Frame frame={props.frame} alt={STUDIO_PICTURE_LABEL} /> : null}
+      {props.kind === "sketch" ? (
+        <span className="armada-studio-node__frame">
+          <SketchPreview label={STUDIO_SKETCH_LABEL} {...props.drawing} />
+        </span>
+      ) : null}
       {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} alt={STUDIO_FRAME_LABEL} />}
       {facts.length === 0 ? null : (
         <ul className="armada-studio-node__facts">

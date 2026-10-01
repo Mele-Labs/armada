@@ -13,6 +13,7 @@ import type {
   CaptureStudioNote,
   FrameRead,
   Outcome,
+  SketchDrawn,
   StagedFrame,
   Studio,
   StudioCapture,
@@ -166,10 +167,10 @@ export class StudioReads {
    * `blob:` the renderer makes itself: the CSP's `img-src 'self' blob:` is what
    * draws them, and no scheme was added to it.
    */
-  async frameOf(studioId: string, nodeId: string): Promise<FrameRead> {
+  async frameOf(studioId: string, nodeId: string, picture?: string): Promise<FrameRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    return await studioFrameOf(port, studioId, nodeId);
+    return await studioFrameOf(port, studioId, nodeId, picture);
   }
 
   /** A row below the lowest node on the Studio, or the origin on an empty one. */
@@ -194,6 +195,11 @@ export class StudioReads {
    */
   async addNode(studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> {
     return this.acted(await this.act(member(studioId, "/add_node"), { ...node, position }));
+  }
+
+  /** The whole drawing a person left on a Sketch's pad, its new pictures staged — 1 Oct 2026. */
+  async editSketch(studioId: string, nodeId: string, drawing: SketchDrawn): Promise<Outcome> {
+    return this.acted(await this.act(member(studioId, "/edit_sketch"), { node_id: nodeId, drawing }));
   }
 
   async moveNode(studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> {

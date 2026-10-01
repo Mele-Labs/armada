@@ -49,7 +49,7 @@ function further(points: readonly SketchPoint[], point: SketchPoint): readonly S
  * corner to corner — a thinned freehand line drawn as straight segments reads
  * as a saw, which is not what the hand did.
  */
-function pathOf(points: readonly SketchPoint[]): string {
+export function pathOf(points: readonly SketchPoint[]): string {
   const first = points[0];
   if (first === undefined) return "";
   let d = `M ${String(first.x)} ${String(first.y)}`;

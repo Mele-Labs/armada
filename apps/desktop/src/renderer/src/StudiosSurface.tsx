@@ -15,10 +15,13 @@ import { BoardEmptyState, Button } from "@armada/components";
 import { AskRepository, Studios, type OpenStudio } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
+import type { Drawing } from "@armada/screens/src/draft/sketch";
+
 import type { BridgeState } from "../../shared/bridge";
 import {
   addStudioNode,
   addStudioPicture,
+  addStudioSketch,
   createStudio,
   decideStudioEdge,
   moveStudioNode,
@@ -30,6 +33,7 @@ import {
   readStudioFrame,
   removeStudioNodes,
   renameStudio,
+  saveStudioSketch,
   startStudioRun,
   startStudioServer,
   stopServer,
@@ -59,6 +63,8 @@ export type StudiosSurfaceProps = {
   onSelectNode: (nodeId: string | null) => void;
   /** Open one Job whole — the Board's own press, reached from a Job node (#1379). */
   onOpenJob: (jobId: string) => void;
+  /** The composer, with a Sketch's drawing on its pad — 1 Oct 2026. */
+  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
   /** The clock the window ticks on, for how long a server node has been up — #1345. */
   now: number;
   onCopied: (value: string) => void;
@@ -148,6 +154,9 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onAddNode={(node, position) => addStudioNode(openId ?? "", node, position)}
         pathOfFile={pathOfFile}
         onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
+        onAddSketch={(drawing, position) => addStudioSketch(openId ?? "", drawing, position)}
+        onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
+        onDispatchSketch={props.onDispatchSketch}
         onMoveNode={(nodeId, position) => moveStudioNode(openId ?? "", nodeId, position)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}

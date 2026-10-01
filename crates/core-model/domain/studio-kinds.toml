@@ -96,13 +96,13 @@ notes = "Its four outcomes are its states after `reported`, so ending one is a s
 
 [nodes.sketch]
 name = "Sketch"
-holds = "A diagram or mockup, as structured content"
+holds = "A drawing: boxes, the joins between them, lines drawn by hand and pasted pictures — the dispatch composer's pad, kept on the Studio"
 states = ["frozen"]
 status_colour = false
 added_by_hand = true
 dispatches = false
 not_called = []
-notes = "The diagram written out, as structured content. An image is a Picture."
+notes = "Decided with the owner, 1 Oct 2026: a Studio's Sketch and the composer's Sketch pad are one drawing, opened on the pad and kept when it closes. Each pasted picture is a frame Fleet names and keeps the way a Picture's is. A Sketch written as text before became one box holding it (store V85). `dispatches` is false because Dispatch on a Sketch opens the composer with the drawing on its pad, and never the dispatch gate's rung."
 
 [nodes.link]
 name = "Link"
