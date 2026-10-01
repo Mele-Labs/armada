@@ -367,6 +367,78 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
   expect(named[named.length - 1]).toBe("Delete 1 node");
 });
 
+/** The whiteboard's pane, in the window's coordinates. React Flow's pane has no role. */
+const board = () => document.querySelector(".armada-studio-whiteboard .react-flow__pane")!.getBoundingClientRect();
+
+/** Drag the board sideways by `dx`, from a point where nothing is drawn. */
+function panBoard(dx: number): void {
+  const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
+  const frame = pane.getBoundingClientRect();
+  let from = { x: frame.left, y: frame.top };
+  for (let y = frame.top + 20; y < frame.bottom; y += 20) {
+    if (document.elementFromPoint(frame.left + frame.width / 2, y) === pane) {
+      from = { x: frame.left + frame.width / 2, y };
+      break;
+    }
+  }
+  const at = (x: number) => ({ clientX: from.x + x, clientY: from.y, button: 0, bubbles: true, view: window });
+  pane.dispatchEvent(new MouseEvent("mousedown", at(0)));
+  for (const step of [0.1, 0.5, 1]) window.dispatchEvent(new MouseEvent("mousemove", at(dx * step)));
+  window.dispatchEvent(new MouseEvent("mouseup", at(dx)));
+}
+
+/** Every act on the bar that is outside the board, or under something else, by name. */
+function outOfReach(): (string | null)[] {
+  const frame = board();
+  return bar()
+    .getByRole("button")
+    .elements()
+    .filter((press) => {
+      const box = press.getBoundingClientRect();
+      const inside = box.left >= frame.left && box.right <= frame.right && box.top >= frame.top && box.bottom <= frame.bottom;
+      return !inside || document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button") !== press;
+    })
+    .map((press) => press.getAttribute("aria-label"));
+}
+
+/**
+ * The owner's decision of 1 Oct 2026: a node picked at the board's edge has its
+ * bar centred over it and hanging out of the frame, so **the board pans to it** —
+ * the bar is never clamped. React Flow pans a focused node in only when none of
+ * it shows, so a node half out stays where it is without this.
+ */
+test("a node picked half off either side of the board is panned in with its bar, at the same zoom", async () => {
+  open(studying().scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Issue draft: The Board's legend is illegible/)).toBeVisible();
+  for (const [name, side] of [
+    [/^Issue draft: The Board's legend is illegible/, "right"],
+    [/^Note: The legend under the step bar/, "left"],
+  ] as const) {
+    // Dragged across by its empty board until the card's middle is on that edge.
+    const card = node(name).element();
+    const middle = centre(card).x;
+    panBoard((side === "right" ? board().right : board().left) - middle);
+    // Half off that side, and half on it: the case React Flow's own focus pan leaves alone.
+    await expect
+      .poll(() => {
+        const box = card.getBoundingClientRect();
+        return side === "right" ? box.right > board().right && box.left < board().right : box.left < board().left && box.right > board().left;
+      }, { message: `the ${side} node hangs off the board` })
+      .toBe(true);
+    const wide = card.getBoundingClientRect().width;
+
+    await pick(name);
+    await expect.element(bar()).toBeVisible();
+    await expect.poll(outOfReach, { message: `every act on the ${side} node's bar is in reach` }).toEqual([]);
+    const box = card.getBoundingClientRect();
+    expect(box.left >= board().left && box.right <= board().right).toBe(true);
+    expect(box.width).toBe(wide);
+  }
+});
+
 /**
  * The owner's notes of 1 Oct 2026, option 2 and his answer to it: *when I
  * select the item in the vertical toolbar, it just becomes a selection. Then I
