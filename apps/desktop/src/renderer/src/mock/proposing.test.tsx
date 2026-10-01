@@ -320,6 +320,27 @@ describe("a proposal fills in as it is written", () => {
     await expect.element(wait).toHaveTextContent("Done when");
   });
 
+  test("the model lands with the rest of the settings, because they are one line", async () => {
+    mount("arc/proposing-settings-landed");
+    await opened();
+    const wait = page.getByRole("status").filter({ hasText: "The answer is arriving" }).first();
+    await expect.element(wait).toHaveTextContent("Model");
+    await expect.element(wait).toHaveTextContent("opus");
+  });
+
+  test("a settings line that named no model says nothing about one, and the Job keeps configuration's", async () => {
+    mount("arc/proposing-model-left-to-configuration");
+    await listed();
+    // **Absent stays absent.** Nothing stands in for a model the proposer
+    // declined to name: the Job reaches configuration's choice, which is what
+    // the row was already carrying.
+    expect(settling().textContent).not.toContain("opus");
+    await opened();
+    const wait = page.getByRole("status").filter({ hasText: "The answer is arriving" }).first();
+    await expect.element(wait).toHaveTextContent("Urgency");
+    await expect.element(wait).not.toHaveTextContent("Model");
+  });
+
   test("the title changes under a reader on the Job's page, and the words he typed stay on it", async () => {
     // **Open before the title lands**, which is the case worth holding down:
     // the row he is reading is the row that changes.

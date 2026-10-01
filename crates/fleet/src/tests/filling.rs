@@ -19,8 +19,8 @@ use std::collections::BTreeMap;
 use config::ResolvedWorkflow;
 use core_model::{Urgency, WorkflowId};
 
-use crate::proposing::{Brief, Proposal, Settled};
-use crate::tests::proposing::{a_catalogue, A_REQUEST};
+use crate::proposing::{Brief, Proposal, Settled, Unresolved};
+use crate::tests::proposing::{a_catalogue, a_models, A_REQUEST};
 
 fn held() -> BTreeMap<WorkflowId, ResolvedWorkflow> {
     a_catalogue()
@@ -30,7 +30,7 @@ fn held() -> BTreeMap<WorkflowId, ResolvedWorkflow> {
 }
 
 fn settled(written: &str) -> Settled {
-    Settled::of(written, &held())
+    Settled::of(written, &held(), &a_models())
 }
 
 /// The answer this suite reads, whole, in the order `ANSWER_FORMAT` asks for it.
@@ -41,7 +41,7 @@ const ANSWER: &str = "job: 1\n\
      title: Say which of the two a clear gave back\n\
      done_when: The Cleared tab names the branch on every row whose worktree is gone\n\
      done_when: A row whose branch was also given back says so\n\
-     settings: urgency=normal\n\
+     settings: urgency=normal, model=opus\n\
      because: it adds a fact to a surface that already lists the rows\n";
 
 /// How much of [`ANSWER`] has arrived, by the line count.
@@ -121,9 +121,13 @@ fn the_four_fields_settle_in_the_owners_order() {
         "the second criterion did not join the first"
     );
 
-    // 4. Settings — the part he can still change.
+    // 4. Settings — the part he can still change. **Both pairs on one line**,
+    // so the urgency and the model settle together: it is one field.
     let five = settled(&upto(6));
     assert_eq!(five.urgency, Some(Urgency::Normal));
+    assert_eq!(five.model.as_deref(), Some("opus"));
+
+    assert_eq!(four.model, None, "the model landed before it was written");
 
     // And nothing is taken away as the next field lands.
     assert_eq!(five.workflow, one.workflow);
@@ -155,8 +159,8 @@ fn a_call_that_dies_after_the_workflow_leaves_the_workflow_and_no_title() {
     assert_eq!(read.title, None);
 
     let catalogue = held();
-    let refused = Brief::about(A_REQUEST, &catalogue)
-        .read(&died, &catalogue)
+    let refused = Brief::about(A_REQUEST, &catalogue, &a_models())
+        .read(&died, &catalogue, &a_models())
         .expect_err("a workflow with no title was read as a plan");
     assert!(
         refused.to_string().contains("given no name"),
@@ -188,6 +192,7 @@ fn only_the_head_job_settles() {
         Some(Urgency::Normal),
         "the second block's urgency was read as the first row's"
     );
+    assert_eq!(read.model.as_deref(), Some("opus"));
 }
 
 /// **No `scope` and no `because` among the criteria.** Four fields because four
@@ -210,8 +215,8 @@ fn the_reading_carries_no_brief_and_no_reason() {
 fn what_settled_is_what_the_plan_ends_up_holding() {
     let catalogue = held();
     let read = settled(ANSWER);
-    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue)
-        .read(ANSWER, &catalogue)
+    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue, &a_models())
+        .read(ANSWER, &catalogue, &a_models())
         .expect("a plan")
     else {
         panic!("the answer did not resolve");
@@ -221,6 +226,7 @@ fn what_settled_is_what_the_plan_ends_up_holding() {
     assert_eq!(Some(jobs[0].title.clone()), read.title);
     assert_eq!(jobs[0].done_when, read.done_when);
     assert_eq!(Some(jobs[0].urgency), read.urgency);
+    assert_eq!(jobs[0].model, read.model);
 }
 
 /// A request that names no done-when and no settings is the ordinary case, and
@@ -228,10 +234,11 @@ fn what_settled_is_what_the_plan_ends_up_holding() {
 #[test]
 fn an_answer_with_neither_line_is_held_to_the_workflow_alone() {
     let catalogue = held();
-    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue)
+    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue, &a_models())
         .read(
             "workflow: bug\ntitle: The log reader drops a line\n",
             &catalogue,
+            &a_models(),
         )
         .expect("a plan")
     else {
@@ -239,6 +246,9 @@ fn an_answer_with_neither_line_is_held_to_the_workflow_alone() {
     };
     assert!(jobs[0].done_when.is_empty());
     assert_eq!(jobs[0].urgency, Urgency::Normal);
+    // **Absent stays absent.** No model named is configuration deciding, and
+    // never a model this call picked as a default.
+    assert_eq!(jobs[0].model, None);
 }
 
 /// An urgency nothing spells is `normal` rather than a refusal. **A setting a
@@ -246,10 +256,11 @@ fn an_answer_with_neither_line_is_held_to_the_workflow_alone() {
 #[test]
 fn an_urgency_nobody_can_spell_is_normal_and_not_a_refusal() {
     let catalogue = held();
-    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue)
+    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue, &a_models())
         .read(
             "workflow: bug\ntitle: The log reader drops a line\nsettings: urgency=extremely\n",
             &catalogue,
+            &a_models(),
         )
         .expect("a plan")
     else {
@@ -267,14 +278,81 @@ fn an_urgency_nobody_can_spell_is_normal_and_not_a_refusal() {
 #[test]
 fn an_incident_the_request_describes_reaches_the_job_as_one() {
     let catalogue = held();
-    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue)
+    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue, &a_models())
         .read(
             "workflow: bug\ntitle: The log reader drops a line\nsettings: urgency=incident\n",
             &catalogue,
+            &a_models(),
         )
         .expect("a plan")
     else {
         panic!("the answer did not resolve");
     };
     assert_eq!(jobs[0].urgency, Urgency::Incident);
+}
+
+/// **The model is picked from what this machine holds, never invented.** The
+/// owner took the model on 30 Sep 2026 over the argument that a model choosing
+/// which model runs the work is the dial every later cost hangs off; the guard
+/// he took with it is the list.
+#[test]
+fn the_model_it_names_is_one_this_machine_holds() {
+    let catalogue = held();
+    let Proposal::Resolved(jobs) = Brief::about(A_REQUEST, &catalogue, &a_models())
+        .read(
+            "workflow: bug\ntitle: The log reader drops a line\nsettings: urgency=normal, model=haiku\n",
+            &catalogue,
+            &a_models(),
+        )
+        .expect("a plan")
+    else {
+        panic!("the answer did not resolve");
+    };
+    assert_eq!(jobs[0].model.as_deref(), Some("haiku"));
+    // And the list is in the question, because a call told nothing can only
+    // guess.
+    assert!(
+        Brief::about(A_REQUEST, &catalogue, &a_models())
+            .question()
+            .contains("haiku"),
+        "the question never told the call which models this machine holds"
+    );
+}
+
+/// **A model nothing holds is refused as a workflow nothing holds is**, and the
+/// request comes back. Not nearest-matched: a name nothing holds is not
+/// evidence about which one was meant, and a Job spawned against a model this
+/// machine cannot run fails at the spawn with the work already approved.
+#[test]
+fn a_model_this_machine_does_not_hold_refuses_the_request() {
+    let catalogue = held();
+    let answered = Brief::about(A_REQUEST, &catalogue, &a_models())
+        .read(
+            "workflow: bug\ntitle: The log reader drops a line\nsettings: model=gpt-9\n",
+            &catalogue,
+            &a_models(),
+        )
+        .expect("a reading, not a call failure");
+    assert_eq!(
+        answered,
+        Proposal::Unresolved(Unresolved::NotHeld {
+            named: "gpt-9".to_string()
+        }),
+        "a model nothing holds was accepted, or refused as a different shape"
+    );
+    // And it never settles either, so nothing drew it while the call ran.
+    assert_eq!(
+        settled("workflow: bug\nsettings: model=gpt-9\n").model,
+        None
+    );
+}
+
+/// A settings line that names only a model still settles the settings. **One
+/// line is one field**, and either pair on it is enough for that field to have
+/// arrived.
+#[test]
+fn a_settings_line_naming_only_a_model_settles_the_settings() {
+    let read = settled("workflow: bug\ntitle: A name\nsettings: model=sonnet\n");
+    assert_eq!(read.model.as_deref(), Some("sonnet"));
+    assert_eq!(read.urgency, None);
 }

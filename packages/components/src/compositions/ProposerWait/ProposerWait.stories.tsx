@@ -194,6 +194,44 @@ export const FillingIn: Story = {
     // The fourth has not landed, and nothing stands in for it: an empty slot
     // stays empty (29 Sep 2026).
     await expect(canvas.queryByText("Urgency")).toBeNull();
+    await expect(canvas.queryByText("Model")).toBeNull();
+  },
+};
+
+/**
+ * The fourth field, whole. **The urgency and the model are one line of the
+ * answer**, so they settle together — the settings are one field, not two.
+ *
+ * The owner took the model on 30 Sep 2026 over the argument that a model
+ * choosing which model runs the work is the dial every later call's cost hangs
+ * off. It picks from what this machine holds, and naming one it does not is
+ * refused exactly as naming a workflow nothing holds is.
+ */
+export const SettingsLanded: Story = {
+  args: {
+    watch: {
+      reached: "answering",
+      elapsedMs: 26_000,
+      budgetMs: 600_000,
+      model: "sonnet",
+      answeredCharacters: 318,
+      settled: [
+        { label: "Workflow", said: "feature" },
+        { label: "Title", said: "Say which of the two a clear gave back" },
+        {
+          label: "Done when",
+          said: "The Cleared tab names the branch on every row whose worktree is gone",
+        },
+        { label: "Urgency", said: "normal" },
+        { label: "Model", said: "opus" },
+      ],
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("opus")).toBeVisible();
+    // The proposer's own model is the wait's `model`; the one it picked for the
+    // work is a settled field. Two different dials, and both are on screen.
+    await expect(canvas.getByText(/sonnet/)).toBeVisible();
   },
 };
 

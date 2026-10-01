@@ -180,16 +180,34 @@ pub struct ProposalSettled {
 
 /// The settings the proposer answered.
 ///
-/// **One field, and a type rather than a bare `urgency` on
-/// [`ProposalSettled`].** Urgency is the one setting this call is placed to read
-/// — it is a fact about the request, where `write_targets` and `atomic` are the
-/// scope step's and the model is configuration's. The fourth thing a person
-/// watches fill is *the settings*, so the fourth field is the settings, and a
-/// second one is a field here rather than a fifth field there.
+/// **A type rather than fields on [`ProposalSettled`] directly**, because the
+/// fourth thing a person watches fill is *the settings* — so the fourth field is
+/// the settings, and a second one is a field here rather than a fifth field
+/// there. Both arrive on one line of the answer, so both settle together.
+///
+/// **`atomic` is not here and that is a decision rather than an omission.** How
+/// the work lands follows from having read the code and this call has read none
+/// — the 3 Sep 2026 ruling in `crates/fleet/src/proposal.rs`'s header, which the
+/// owner kept on 30 Sep when it was put beside the model. `write_targets` is
+/// absent for the same reason.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposalSettings {
-    /// How urgent it read the request as being.
-    pub urgency: Urgency,
+    /// How urgent it read the request as being. Absent is a line that named no
+    /// urgency, or named one no vocabulary holds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub urgency: Option<Urgency>,
+    /// Which model a Drone on this Job will be spawned as.
+    ///
+    /// **Only ever one this machine holds** — `list_models`' own set, checked
+    /// before this is written, so a client never draws a model nothing can run
+    /// and the call is refused for naming one exactly as it is for naming a
+    /// workflow nothing holds.
+    ///
+    /// **Absent is configuration deciding**, which is what `ProposeJob.model`
+    /// absent has always meant — never a model the proposer picked as a
+    /// default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// How far a proposal has got. **The fact an elapsed count cannot state.**

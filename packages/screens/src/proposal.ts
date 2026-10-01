@@ -98,7 +98,8 @@ export function filled(
     ...job,
     ...(settled.workflow_id === undefined ? {} : { workflow_id: settled.workflow_id }),
     ...(title === undefined ? {} : { title }),
-    ...(settled.settings === undefined ? {} : { urgency: settled.settings.urgency }),
+    ...(settled.settings?.urgency === undefined ? {} : { urgency: settled.settings.urgency }),
+    ...(settled.settings?.model === undefined ? {} : { model: settled.settings.model }),
   };
   return {
     job: moved,
@@ -199,8 +200,11 @@ function settledRows(
       : [{ label: "Workflow", said: settled.workflow_id }]),
     ...(settled.title === undefined ? [] : [{ label: "Title", said: settled.title }]),
     ...(settled.done_when ?? []).map((said) => ({ label: "Done when", said })),
-    ...(settled.settings === undefined
+    ...(settled.settings?.urgency === undefined
       ? []
       : [{ label: "Urgency", said: settled.settings.urgency }]),
+    ...(settled.settings?.model === undefined
+      ? []
+      : [{ label: "Model", said: settled.settings.model }]),
   ];
 }

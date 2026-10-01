@@ -57,7 +57,8 @@ Answer with nothing but the block below, once for each Job the work needs.
 one line. Write the line again for each one. Leave it out where the request \
 names none>
     settings: urgency=<normal, or incident where something is broken for \
-people using the software right now>
+people using the software right now>, model=<one of the models listed above, \
+spelled exactly. Leave the pair out to let this machine's configuration choose>
     scope: <what this Job is to do, and none of what the others are. Leave \
 the line out where you write one Job>
     because: <why that workflow, in one line>
@@ -125,12 +126,22 @@ pub struct ProposedJob {
     pub done_when: Vec<String>,
     /// How urgent the request says the work is.
     ///
-    /// **The one setting this call answers.** `write_targets` and `atomic` are
-    /// the scope step's and say so where they are set; the model is
-    /// configuration's. Urgency is a fact about the request itself — something
-    /// is broken for people right now, or it is not — which is the one thing on
-    /// the settings block this call is placed to read.
+    /// A fact about the request itself — something is broken for people right
+    /// now, or it is not.
     pub urgency: Urgency,
+    /// Which model a Drone on this Job is spawned as.
+    ///
+    /// **`None` is configuration's**, and it is what a call that names no model
+    /// reaches — never a model this call picked as a default. The owner's
+    /// decision of 30 Sep 2026, taken over the argument that a model choosing
+    /// which model runs the work is the dial every later call's cost hangs off:
+    /// it picks, and it picks only from what this machine holds.
+    ///
+    /// **`atomic` is not the pair of this and is deliberately absent.**
+    /// `crate::proposal`'s own header carries the 3 Sep 2026 ruling: how the
+    /// work lands follows from having read the code, and this call has read
+    /// none. Put beside this decision on 30 Sep, the owner kept it.
+    pub model: Option<String>,
 }
 
 /// What one call proposed. **No arm of this means "the usual one".**
@@ -260,11 +271,17 @@ pub struct Brief {
 impl Brief {
     /// Assemble the question.
     ///
-    /// **Two inputs and no third.** There is no parameter for the Manifest, the
-    /// repository, the Board or the Jobs already running — every extra token is
-    /// money on a call that fires on every dispatch, and a proposer that could
-    /// read the repository is a Drone at many times the price.
-    pub fn about(request: &str, workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>) -> Brief {
+    /// **Three inputs and no fourth.** There is no parameter for the Manifest,
+    /// the repository, the Board or the Jobs already running — every extra token
+    /// is money on a call that fires on every dispatch, and a proposer that
+    /// could read the repository is a Drone at many times the price. `models` is
+    /// the third because the settings line names one, and a list is what stops
+    /// it naming a model nothing can run.
+    pub fn about(
+        request: &str,
+        workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Brief {
         let mut question = String::new();
         question.push_str(
             // **Not "what it will write".** It used to say so, and the answer
@@ -306,6 +323,19 @@ impl Brief {
             let steps: Vec<&str> = workflow.steps().iter().map(|step| step.label()).collect();
             question.push_str(&format!("    {}\n", steps.join(" -> ")));
         }
+        // **The models this machine actually holds, so the settings line can
+        // name one rather than invent one.** The owner chose on 30 Sep 2026 to
+        // let this call pick the model, over the argument that a model choosing
+        // which model runs the work is a dial deciding every later cost — and
+        // the guard he took with it is that it picks from the list. A name that
+        // is not here is refused exactly as a workflow id that is not held is.
+        question.push_str("\nThe models this machine can run a worker on:\n\n");
+        if models.is_empty() {
+            question.push_str("  (this machine has named none, so leave `model` out)\n");
+        }
+        for model in models {
+            question.push_str(&format!("  {model}\n"));
+        }
         question.push('\n');
         question.push_str(ANSWER_FORMAT);
         Brief {
@@ -331,6 +361,7 @@ impl Brief {
         &self,
         answer: &str,
         held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
     ) -> Result<Proposal, NotProposed> {
         let blocks = blocks(answer);
         // Declining is one answer about the whole request rather than one Job's
@@ -370,6 +401,19 @@ impl Brief {
             // that does not comply — `#831`. `field` stays what the Judge
             // reads unchanged; only the proposer tolerates the wrap.
             let scope = scope_field(block);
+            // **Refused exactly as an unheld workflow is**, and that is the
+            // point of reusing the arm rather than minting a second shape of
+            // wrongness: a name nothing holds is not evidence about which one
+            // was meant, so the request comes back rather than being spawned
+            // against a model this machine cannot run.
+            let model = named_model(block);
+            if let Some(named) = &model {
+                if !models.iter().any(|held| held == named) {
+                    return Ok(Proposal::Unresolved(Unresolved::NotHeld {
+                        named: named.clone(),
+                    }));
+                }
+            }
             jobs.push((
                 scope,
                 ProposedJob {
@@ -385,6 +429,7 @@ impl Brief {
                     // the word is a setting a person changes at the gate, and
                     // the gate is in front of them either way.
                     urgency: urgency(block).unwrap_or(Urgency::Normal),
+                    model,
                 },
             ));
         }
@@ -497,16 +542,32 @@ fn done_when(block: &str) -> Vec<String> {
         .collect()
 }
 
-/// What the `settings` line said about urgency, where it said anything.
+/// One `key=value` pair off the `settings` line.
 ///
 /// `key=value`, comma separated, so a second setting is a second pair rather
 /// than a second line — which is what keeps the four fields four.
-fn urgency(block: &str) -> Option<Urgency> {
+fn setting(block: &str, key: &str) -> Option<String> {
     let said = field(block, "settings")?;
     said.split(',')
         .filter_map(|pair| pair.split_once('='))
-        .find(|(key, _)| key.trim().eq_ignore_ascii_case("urgency"))
-        .and_then(|(_, value)| Urgency::from_wire(value.trim().to_ascii_lowercase().as_str()))
+        .find(|(named, _)| named.trim().eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// What the `settings` line said about urgency, where it said anything.
+fn urgency(block: &str) -> Option<Urgency> {
+    Urgency::from_wire(setting(block, "urgency")?.to_ascii_lowercase().as_str())
+}
+
+/// What the `settings` line named as the model, as it spelled it.
+///
+/// **Unchecked here.** Whether this machine holds it is the caller's, because
+/// the two callers answer differently: [`Brief::read`] refuses the plan and
+/// [`Settled`] simply does not settle the field — which is what the workflow id
+/// one line up already does in each of them.
+fn named_model(block: &str) -> Option<String> {
+    setting(block, "model")
 }
 
 /// What the proposer has settled, read off an answer that is still being
@@ -556,6 +617,10 @@ pub struct Settled {
     pub done_when: Vec<String>,
     /// How urgent it read the request as being. `None` until the line ends.
     pub urgency: Option<Urgency>,
+    /// The model it chose, **only where this machine holds it** — the workflow
+    /// field's own rule one line down. `None` is also a call that named none,
+    /// which is configuration deciding and not a default this picked.
+    pub model: Option<String>,
 }
 
 impl Settled {
@@ -566,7 +631,11 @@ impl Settled {
     /// half-written line and decide what to do with it; re-reading a few
     /// hundred characters on a throttled tick costs nothing and cannot drift
     /// from what the finished answer says.
-    pub fn of(written: &str, held: &BTreeMap<WorkflowId, ResolvedWorkflow>) -> Settled {
+    pub fn of(
+        written: &str,
+        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Settled {
         // Everything up to and including the last newline. A line with no
         // newline after it is still being written.
         let ended = match written.rfind('\n') {
@@ -582,6 +651,7 @@ impl Settled {
             title: field(&head, "title"),
             done_when: done_when(&head),
             urgency: urgency(&head),
+            model: named_model(&head).filter(|named| models.iter().any(|held| held == named)),
         }
     }
 }

@@ -1777,6 +1777,18 @@ workflow, title, done-when, settings — and
 `.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md` carries the
 order's reasoning, the option he turned down and the cost he took.
 
+**The settings are one field carrying two**, because both arrive on one line of
+the answer: `urgency`, and `model` — which model a Drone on this Job is spawned
+as. The owner took the model over the argument that a model choosing which model
+runs the work is the dial every later call's cost hangs off. **It picks from
+`list_models`' own set**, and a name that set does not hold refuses the request
+exactly as a workflow id nothing holds does, through `Unresolved::NotHeld`.
+**Absent stays absent**: a call that names no model reaches `ProposeJob.model`
+null, which has always meant configuration decides. Land-as-one is deliberately
+not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
+that how the work lands follows from having read the code, and the owner kept it
+when it was put beside the model.
+
 **Fields that are settled, never a transcript.** Fleet reads the answer's prefix
 in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
 crosses only once its own line has ended — so a client either has a title or has

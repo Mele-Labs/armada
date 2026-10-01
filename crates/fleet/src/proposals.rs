@@ -199,8 +199,9 @@ impl Making {
     pub fn telling<'held>(
         &'held self,
         held: &'held BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &'held [String],
     ) -> impl Fn(CallProgress) + Send + Sync + 'held {
-        move |progress| self.moved(progress, held)
+        move |progress| self.moved(progress, held, models)
     }
 
     /// The id, for a caller that has to name this proposal in a refusal.
@@ -223,7 +224,12 @@ impl Making {
         StopWhenAsked(stopped)
     }
 
-    fn moved(&self, progress: CallProgress, held: &BTreeMap<WorkflowId, ResolvedWorkflow>) {
+    fn moved(
+        &self,
+        progress: CallProgress,
+        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) {
         let Ok(mut reached) = self.reached.lock() else {
             return;
         };
@@ -244,7 +250,7 @@ impl Making {
                 reached.answered_characters =
                     Some(reached.answered_characters.unwrap_or(0) + characters);
                 reached.written.push_str(&text);
-                let settled = settled(&reached.written, held);
+                let settled = settled(&reached.written, held, models);
                 // **A field settling is always worth a message, and is never
                 // throttled.** The count is what moves continuously and what
                 // `TOKEN_TICK` exists to bound; this moves four times on a
@@ -352,18 +358,24 @@ impl Drop for Making {
 fn settled(
     written: &str,
     held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+    models: &[String],
 ) -> Option<ipc::ProposalSettled> {
-    let read = Settled::of(written, held);
+    let read = Settled::of(written, held, models);
     if read == Settled::default() {
         return None;
     }
+    // The settings block appears when the line that carries it has ended and
+    // said something readable — never empty, which would be a fourth field
+    // claiming to have settled nothing.
+    let settings = (read.urgency.is_some() || read.model.is_some()).then(|| ipc::ProposalSettings {
+        urgency: read.urgency.map(ipc::Urgency::from),
+        model: read.model,
+    });
     Some(ipc::ProposalSettled {
         workflow_id: read.workflow.as_ref().map(ipc::WorkflowId::from),
         title: read.title,
         done_when: read.done_when,
-        settings: read.urgency.map(|urgency| ipc::ProposalSettings {
-            urgency: ipc::Urgency::from(urgency),
-        }),
+        settings,
     })
 }
 

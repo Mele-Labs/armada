@@ -95,12 +95,23 @@ export type ProposalSettled = {
 /**
  * The settings the proposer answered. `crates/ipc/src/proposing.rs`.
  *
- * One field, because urgency is the one setting this call is placed to read:
- * scope and land-as-one are the scope step's, and the model is configuration's.
+ * Both arrive on one line of the answer, so both settle together — the settings
+ * are one field, which is why they are a type rather than two fields on
+ * `ProposalSettled`.
+ *
+ * **Land-as-one is not here and that is a decision.** How the work lands follows
+ * from having read the code and this call has read none — the 3 Sep 2026 ruling,
+ * kept on 30 Sep when it was put beside the model.
  */
 export type ProposalSettings = {
   /** How urgent it read the request as being — the generated urgency vocabulary. */
-  urgency: string;
+  urgency?: string;
+  /**
+   * Which model a Drone on this Job will be spawned as. **Only ever one this
+   * machine holds**, and absent is configuration deciding rather than a model
+   * the proposer picked as a default.
+   */
+  model?: string;
 };
 
 /**

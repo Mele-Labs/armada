@@ -55,6 +55,14 @@ pub struct Proposing {
     pub model: Model,
     /// Fleet's own, because the call authenticates as Fleet.
     pub environment: Environment,
+    /// Every model a Drone on this machine may be spawned as —
+    /// `ipc::ModelChoices::models`, as `list_models` serves it.
+    ///
+    /// **Not the dial above.** `model` is what reads the request; this is what
+    /// the request's Job will be worked by, and the owner's decision of 30 Sep
+    /// 2026 is that this call picks it from here. A list rather than a free
+    /// field, so the proposer cannot name a model nothing can run.
+    pub choices: Vec<String>,
 }
 
 /// Make the call, and answer with what it proposed.
@@ -76,7 +84,7 @@ pub async fn proposed(
     client_ref: Option<String>,
     records_root: &str,
 ) -> Result<(ProposalId, Proposal), NotProposed> {
-    let brief = Brief::about(request, workflows);
+    let brief = Brief::about(request, workflows, &proposing.choices);
     let ask = Ask::put(
         proposing.model.clone(),
         brief.question(),
@@ -95,7 +103,7 @@ pub async fn proposed(
         proposing.client.as_ref(),
         &ask,
         proposing.budget,
-        &making.telling(workflows),
+        &making.telling(workflows, &proposing.choices),
         stopped.asked(),
     )
     .await
@@ -105,7 +113,7 @@ pub async fn proposed(
     // the time it runs — so `refused` here is always one of the readings a
     // second try may fix, never an outage and never `Unresolved`, which is a
     // successful reading. `#831`: one retry, and only on this.
-    let refused = match brief.read(&first_reply, workflows) {
+    let refused = match brief.read(&first_reply, workflows, &proposing.choices) {
         Ok(proposal) => {
             drop(making);
             return Ok((minted_by, proposal));
@@ -122,7 +130,7 @@ pub async fn proposed(
         proposing.client.as_ref(),
         &retry_ask,
         proposing.budget,
-        &making.telling(workflows),
+        &making.telling(workflows, &proposing.choices),
         making.retry().asked(),
     )
     .await;
@@ -130,7 +138,7 @@ pub async fn proposed(
     // message, and the Jobs this becomes arrive as `job.created` after it.
     drop(making);
     let second_reply = second_reply.map_err(NotProposed::Call)?;
-    match brief.read(&second_reply, workflows) {
+    match brief.read(&second_reply, workflows, &proposing.choices) {
         Ok(proposal) => Ok((minted_by, proposal)),
         Err(refused_again) => {
             // Best-effort, and never a reason to fail harder than the
@@ -444,7 +452,10 @@ where
             atomic: false,
             write_targets: None,
             dependencies,
-            model: None,
+            // **What the `settings` line named, and `None` where it named
+            // none** — `ProposedJob::model`. `None` is configuration deciding,
+            // which is what this sent unconditionally until 30 Sep 2026.
+            model: job.model.clone(),
             // **What the `done_when` lines said**, each as a criterion the
             // Judge reads: they are prose, and prose is the Judge's. Empty is a
             // request that named none, which is what the Done when card has

@@ -62,6 +62,53 @@ Named here because the cost above is real and is paid, not avoided.
 | A workflow nothing holds | Only a workflow this repository holds ever settles — the same rule that refuses the finished answer, one field early |
 | A call that dies after the workflow | `proposing -> escalated`, with the workflow kept and no title. The row's title is still the request, so it reads as words somebody wrote rather than as a blank |
 
+## What the fourth field holds, which took a second question
+
+*Settings* is a block with several dials on it, and the four-field answer did not
+say which of them this call writes. The 23 September ruling had already named
+three — a model, an urgency and a land-as-one switch — as things *"the proposer
+writes for you"*. Asked which of the three it actually decides:
+
+| Setting | Answer | Why |
+|---|---|---|
+| Urgency | **It writes it** | A fact about the request itself: something is broken for people right now, or it is not |
+| Model | **It writes it**, over an argument against | Below |
+| Land as one | **It does not**, on an older ruling he kept | Below |
+
+### The model, taken over the objection
+
+It was put to him that the model is the dial deciding what every later call
+costs, and that letting the proposer pick it is a model choosing which model runs
+the work. **He chose it anyway.** The guardrails he took with it:
+
+- **It picks from what this Fleet holds**, never a name it invents. The question
+  carries `list_models`' own set and the answer names one of them.
+- **A name that set does not hold is refused as a workflow id that is not** —
+  `Unresolved::NotHeld`, the request comes back — rather than nearest-matched or
+  given a second shape of wrongness.
+- **Absent stays absent.** A call that names no model reaches `ProposeJob.model`
+  null, which has always meant configuration decides, and never a default this
+  call picked.
+
+### Land as one, ruled out on a decision he kept
+
+`atomic` was asked for in the same breath and was not taken. Put beside the
+model with both rulings in view, he kept **3 September 2026**:
+`docs/concepts/job-proposer.md`'s *Scope is not among them* says *"How the work
+lands is not among them either… this call has read no code"*, and
+`crates/fleet/src/proposal.rs`'s own header records that four documents were
+corrected against that module rather than the other way round.
+
+**Why the two settings split where they do**: urgency and the model are facts
+about the request and about this machine, which this call can read; how the work
+lands follows from having read the code, which it has not. `write_targets` is
+out for the same reason and always was.
+
+**Cost taken:** land-as-one is the one field on the dispatch card with no
+proposed value to react to. The 23 September rule itself is unchanged — every
+decision is still overridden on the Settings block — and that record now carries
+a dated line saying which of its three the proposer writes.
+
 ## The title changes under a reader, and that was asked for
 
 It is the second field, so the row's title stops being the request while he may
@@ -87,6 +134,16 @@ row becoming more complete. **The objection still stands for the text itself**,
 which is why what crosses the wire is fields that are settled and never a
 transcript, and why the count is still a count. The DTO carries the old sentence
 with its date beside the new one.
+
+## What is still open
+
+The model refusal is a whole-request refusal: a proposer that spells a model
+slightly wrong refuses the dispatch, and the sentence a person reads for it is
+`fleet.no_workflow_fits`'s — *no workflow in this repository fits that request,
+rephrase it and dispatch again* — which is not what happened and not what would
+fix it. That follows directly from reusing the workflow's own refusal rather
+than minting a second shape, which is what was asked for. Worth a look once the
+proposer has run against a real catalogue.
 
 ## What is owed
 

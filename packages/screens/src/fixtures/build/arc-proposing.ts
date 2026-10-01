@@ -149,7 +149,7 @@ const FILLING: readonly { name: string; says: string; settled: ProposalSettled }
   },
   {
     name: "proposingSettingsLanded",
-    says: "Proposing — the settings have landed, and the answer is about to",
+    says: "Proposing — the settings have landed, model and all, and the answer is about to",
     settled: {
       workflow_id: "feature",
       title: "Say which of the two a clear gave back",
@@ -157,7 +157,26 @@ const FILLING: readonly { name: string; says: string; settled: ProposalSettled }
         "The Cleared tab names the branch on every row whose worktree is gone",
         "A row whose branch was also given back says so, and does not say it twice",
       ],
-      settings: { urgency: "normal" },
+      // **Both on one line of the answer, so both settle together** — the
+      // settings are one field. The model is picked from what this machine
+      // holds, which is the guard the owner took with it on 30 Sep 2026.
+      settings: { urgency: "normal", model: "opus" },
+    },
+  },
+  {
+    name: "proposingModelLeftToConfiguration",
+    says: "Proposing — the settings named no model, so configuration decides",
+    settled: {
+      workflow_id: "feature",
+      title: "Say which of the two a clear gave back",
+      done_when: [
+        "The Cleared tab names the branch on every row whose worktree is gone",
+        "A row whose branch was also given back says so, and does not say it twice",
+      ],
+      // **Absent stays absent**, which is the moment beside the one above: a
+      // call that declines to name a model reaches configuration's choice and
+      // never a default the proposer picked. Nothing stands in for it.
+      settings: { urgency: "incident" },
     },
   },
 ];

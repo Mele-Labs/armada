@@ -40,6 +40,10 @@ Doing that by hand means knowing the workflow catalogue before you can ask for a
 > **Rule.** There is no hand-entry form. Describing the work is the only way a person makes a Job from Bridge, and a decision the proposer would take is overridden on the dispatch card's own Settings block — the workflow among them.
 > Why: the owner, 23 September 2026 — *"I think with all of the settings, this is really not needed anymore."* This reverses the earlier reading that hand entry stays as the override. The form carried a title, a brief, a workflow, a model, an urgency and a land-as-one switch, and every decision in it but the title and the brief is now a field beside the request — which the proposer writes for you.
 
+**30 September 2026: the last clause is narrower than it reads, and the rule above is unchanged.** *Which the proposer writes for you* named three settings. Two of them it does write — the model and the urgency, which is what 19.1 built. **Land-as-one it does not, and that is a decision rather than a gap**: how the work lands follows from having read the code, and this call has read none. The 3 September 2026 ruling is in `crates/fleet/src/proposal.rs`'s own header, which records that four documents were corrected against that module rather than the other way round; put beside the model on 30 September, the owner kept it. *Scope is not among them*, below, is the same argument for `write_targets`.
+
+**What that costs is one field.** Land-as-one is still on the dispatch card and still a person's to set, so the rule above — every decision overridden on the Settings block — holds exactly as written. What a person does not get is a proposed value to react to for that one field.
+
 ## What it proposes
 
 | Output | Detail |
@@ -48,12 +52,15 @@ Doing that by hand means knowing the workflow catalogue before you can ask for a
 | `title` | What the Job is called, written from the description or the prompt |
 | `acceptance_criteria` | What the Job is held to, one line each, where the request says |
 | `urgency` | `incident` where something is broken for people right now; `normal` otherwise |
+| `model` | Which model a Drone on this Job is spawned as, picked from what this machine holds. Absent is configuration deciding |
 | A graph, where the work is several Jobs | The order they must land in |
 | `facts`, where the work is several Jobs | What each one is for, and none of what the others are |
 
 **The first four are in the owner's order and it is not a layout** (30 Sep 2026): the workflow decides the Job's shape, the title is what makes the row recognisable, done-when is the goal, and the settings are the part he can still change. The answer format asks for them in that order because a person watches the answer arrive and each line fills a place on their screen as it lands — `crates/fleet/src/proposing.rs`, `ANSWER_FORMAT`.
 
-**Urgency is the one setting it answers**, and the other two the 23 September ruling named are not its to answer: `atomic` follows from the scope step's declaration and the model is configuration's. What a proposal reaches the gate with is still a person's to change.
+**The settings it answers are the urgency and the model**, and both arrive on one line of the answer — so they settle together and the fourth field is one field. **Land-as-one is not among them**, on the 3 September ruling above. What a proposal reaches the gate with is still a person's to change.
+
+**The model is picked from a list, never invented.** The question carries every model `list_models` serves and the answer names one of them; a name this machine does not hold is refused exactly as a workflow id it does not hold is, and the request comes back. **Naming none is configuration deciding** — the value `model` has always had when absent — and never a model this call picked as a default.
 
 **Naming the Job is part of the same reading**, so nobody types a title for work they have already described — the call has the description in front of it and a [Job](job.md) requires a name.
 
@@ -174,7 +181,7 @@ Why: every Job the request became already stands at `awaiting_approval`, so a pl
 
 ## What is recorded
 
-**Its output is not stored as its own record.** `workflow_id`, `title`, the lines it is held to, its urgency and the Job's own brief land on the [Job](job.md) — the brief as `facts` — and no field says a proposal happened.
+**Its output is not stored as its own record.** `workflow_id`, `title`, the lines it is held to, its urgency, its model and the Job's own brief land on the [Job](job.md) — the brief as `facts` — and no field says a proposal happened.
 
 **Its reasoning is.** Entry zero of a Job's `scope_revisions[]` carries a `rationale` — why that workflow. It names no paths, because none were proposed; the step's own declaration is the entry that names them. That rationale is the only durable trace the call ever ran.
 
