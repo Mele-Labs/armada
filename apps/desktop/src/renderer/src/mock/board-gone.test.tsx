@@ -3,9 +3,8 @@
 //
 // **What Overview had to gain first.** The Board carried readings and acts that
 // existed nowhere else, so the page could not simply go: the Done section, and
-// the menu holding Reported, Refresh and the two bulk sweeps. Each is pinned
-// here, because each is a thing a person could do before and must still be able
-// to do.
+// the menu holding Reported, Refresh and the two bulk sweeps. The menu went on
+// 1 Oct 2026 and `overview-menu-gone.test.tsx` pins where each item lives now.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -14,17 +13,12 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-/** Overview's own menu, which is the whole of the control since 28 Sep. */
-async function everythingElse(): Promise<void> {
-  await page.getByRole("button", { name: "Everything else" }).click();
-}
-
 /**
  * The owner, 28 Sep 2026: *"We dont need this button on the overview because
  * its already right above it in the title bar."* The menu's face and the title
  * row's button called one `onCompose`, so the face went and the menu stayed.
  */
-test("Overview carries the menu and no Dispatch of its own, since the title row has one", async () => {
+test("Overview carries no Dispatch of its own, since the title row has one", async () => {
   mount("every-state");
   await onScreen();
 
@@ -36,7 +30,6 @@ test("Overview carries the menu and no Dispatch of its own, since the title row 
   expect(
     page.getByRole("region", { name: "Overview" }).getByRole("button", { name: "Dispatch", exact: true }).query(),
   ).toBeNull();
-  await expect.element(page.getByRole("button", { name: "Everything else" })).toBeVisible();
 });
 
 test("the Job Board is gone from the rail", async () => {
@@ -81,36 +74,4 @@ test("Done draws every Job that completed or was cleared, folded until asked for
   await expect
     .poll(() => document.querySelectorAll("#armada-overview-panel-done [data-job-id]").length)
     .toBeGreaterThan(0);
-});
-
-test("Reported is reachable, and it was only ever in the Board's menu", async () => {
-  mount("every-state");
-  await onScreen();
-
-  await everythingElse();
-  await page.getByRole("menuitem", { name: "Reported" }).click();
-  // The reports screen, by its own way out — the mock serves no `/reports`, so
-  // what it draws is the refusal and this control.
-  await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
-});
-
-test("Refresh and both bulk sweeps are on the menu Overview now carries", async () => {
-  mount("every-state");
-  await onScreen();
-
-  await everythingElse();
-  await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
-  await expect.element(page.getByRole("menuitem", { name: /^Clear \d+ finished/ })).toBeVisible();
-  await expect.element(page.getByRole("menuitem", { name: /records$/ })).toBeVisible();
-});
-
-test("a bulk clear asks before it sweeps, from Overview as it did from the Board", async () => {
-  mount("every-state");
-  await onScreen();
-
-  await everythingElse();
-  await page.getByRole("menuitem", { name: /^Clear \d+ finished/ }).click();
-  const asking = page.getByRole("dialog");
-  await expect.element(asking).toBeVisible();
-  await expect.element(asking.getByRole("button", { name: "Clear", exact: true })).toBeVisible();
 });
