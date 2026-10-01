@@ -196,7 +196,7 @@ function stepCard(
   const gate = gateOf(step.advance_gate);
   const working = activity === "running";
   const needs = needsOf(whole, step, activity, groups);
-  const drones = droneViewsOf(groups).filter((one) => one.step === step.step_id && one.state === "running").length;
+  const drones = droneViewsOf(groups, whole).filter((one) => one.step === step.step_id && one.state === "running").length;
   const line = lineOf(step, said, activity, drones, took(step, now, frozen !== undefined), needs.length > 0);
   return {
     kind: "step",

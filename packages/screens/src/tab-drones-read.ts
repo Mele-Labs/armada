@@ -82,7 +82,7 @@ export function dronesUnder(
     .filter((drone) => filter === "all" || drone.state === filter)
     .sort(
       (a, b) =>
-        a.task.localeCompare(b.task, undefined, { numeric: true }) ||
+        (a.task ?? "").localeCompare(b.task ?? "", undefined, { numeric: true }) ||
         (a.since ?? "").localeCompare(b.since ?? ""),
     );
   if (order === "task") return byTask;

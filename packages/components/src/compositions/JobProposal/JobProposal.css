@@ -360,6 +360,17 @@
   color: var(--fg-default);
 }
 
+/* What the workflow is for, under its name: the definition's own sentence,
+   one step quieter than the name it describes. */
+.armada-proposal__workflow-promise {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
 .armada-proposal__boxes {
   display: flex;
   flex-wrap: wrap;

@@ -34,6 +34,7 @@ import { droneViewsOf, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
 import { DRONE_SAYS } from "./tab-drones-read";
+import { jobDroneOf } from "./tab-plan-read";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
@@ -223,7 +224,7 @@ export function WorkflowTab({
   // tab reads them where the draft holds none.
   const now = Date.now();
   const openStepId = whole.steps.find((step) => stepNodeId(step.step_id) === open)?.step_id;
-  const here = droneViewsOf(groups)
+  const here = droneViewsOf(groups, whole)
     .filter((one) => one.step === openStepId)
     .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
   const ranFor = (one: DroneView): string | undefined =>
@@ -254,7 +255,7 @@ export function WorkflowTab({
         running={{
           rows: here.map((one) => ({
             id: one.id,
-            label: `Drone on ${one.task}`,
+            label: one.task === undefined ? (jobDroneOf(whole)?.label ?? one.id) : `Drone on ${one.task}`,
             activity: activityOf(one),
             said: DRONE_SAYS[one.state].toLowerCase(),
             says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),
