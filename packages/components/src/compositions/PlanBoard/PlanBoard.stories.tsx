@@ -331,11 +331,11 @@ export const AnAskIsOut: Story = {
  * The approach and a stopped task's reason are model text, and draw as the
  * markdown they were written in.
  *
- * **A `play`, because the approach is clamped and markdown is block flow.**
- * `-webkit-line-clamp` counts no lines inside a flex column, and `Prose` is
- * one, so an approach of four paragraphs drew whole with no View more — the
- * failure `Clamped.css` records for `DroneBrief`. The control appearing is
- * the clamp holding.
+ * **A `play`, because the approach is clamped and markdown is blocks.**
+ * `-webkit-line-clamp` counts no lines inside a flex column. While `Prose`
+ * and its list were flex columns, an approach of four paragraphs drew in full
+ * with no View more, the failure `Clamped.css` records for `DroneBrief`. The
+ * control appearing is the clamp holding.
  */
 export const InMarkdown: Story = {
   args: {
