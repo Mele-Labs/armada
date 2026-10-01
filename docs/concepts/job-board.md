@@ -12,7 +12,7 @@ Defines the Job Board — the population of Jobs a person browses, and the rules
 
 The owner: *"Overview now supersedes the job board. We should delete this page."* Overview already drew the same rows under the same sections from the same arithmetic; the Board was a second place holding the same Jobs behind a filter strip.
 
-**What moved with it, because nothing else had it.** The Done section — every Job that completed or was cleared — and the menu carrying Reported, Refresh, *Clear N finished jobs* and *Delete N jobs' records*, which had no other entrance in the app.
+**What moved with it, because nothing else had it.** The Done section — every Job that completed or was cleared — and the menu carrying Reported, Refresh, *Clear N finished jobs* and *Delete N jobs' records*, which had no other entrance in the app. **That menu went on 1 Oct 2026**, the owner's note: Refresh is `⇧⌘R` and a palette row, Reported is a palette row and drawn nowhere else, and the two sweeps sit on Cleanup's head and in the palette.
 
 **What was dropped rather than moved**, as the owner chose: the search field, the state tabs, the sort control and the card/table toggle. They are conveniences over a single list, and Overview's sections answer the question the tabs answered. They come back when he asks for one.
 
@@ -84,7 +84,7 @@ trailing; a tab with nothing behind it renders no count rather than a `0`.
 | --- | --- |
 | All | Every Job on the Board |
 | Needs you | The statuses that stop until a person reads them — `awaiting_approval`, `awaiting_attestation`, `awaiting_repair`, `awaiting_review`, `escalated` |
-| Running | Everything in flight, `piloted` included: a Job a person has taken over is still moving |
+| Running | Everything in flight, `piloted` included: a Job a person has taken over is still moving. `proposing` is here too, and the declared row carries no workflow and no steps yet |
 | Queued | `queued`, whatever its reason |
 | Finished | Every terminal status whose worktree has not been reclaimed |
 | Cleared | Every Job whose worktree and branch were given back while its record stayed |

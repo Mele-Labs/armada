@@ -6,10 +6,10 @@
 # **Why nothing here may touch the owner's Fleet.** A Fleet started over the
 # real store reconciles at boot, and every Job it finds `running` with its Drone
 # gone is escalated `interrupted` — written into the owner's record. One served
-# against the real checkout appends to the transcripts under its `.armada/`.
+# against the real checkout cuts its Jobs' worktrees there.
 # So this points `HOME` at a scratch directory, because Fleet's store and its
 # runtime file live under `$HOME/Library/Application Support/Armada` and nothing
-# else moves them. It serves a local clone with the Fleet data copied in, and
+# else moves them. It serves a local clone with the workflows copied in, and
 # sets `ARMADA_AGENT_BINARY` to a program that exits at once, so a Job it
 # dispatches escalates instead of spending anything.
 #
@@ -50,7 +50,7 @@ if [ ! -x "$armada" ]; then
 fi
 
 mkdir -p "$dir"
-dir=$(cd "$dir" && pwd)
+dir=$(cd "$dir" && pwd -P)
 # Inside the repository, a copy of the owner's transcripts is one `git add -A`
 # from a public commit.
 case "$dir/" in
@@ -77,18 +77,35 @@ fi
 
 if [ ! -d "$dir/repo" ]; then
   git clone --local --quiet "$main" "$dir/repo"
-  # Without the worktrees: they are other Jobs' checkouts, many gigabytes of
-  # them, and a git worktree copied file by file is a directory git no longer
-  # knows. The transcripts, logs and Check outputs are what a Job is read from.
-  rsync -a --exclude worktrees "$main/.armada/" "$dir/repo/.armada/"
+  # Workflows are all Fleet reads from a repository's `.armada/`. The rest is
+  # build caches and Job checkouts, hundreds of gigabytes, so this names what
+  # to copy rather than what to skip.
+  if [ -d "$main/.armada/workflows" ]; then
+    mkdir -p "$dir/repo/.armada"
+    cp -R "$main/.armada/workflows" "$dir/repo/.armada/"
+  fi
 fi
 
 mkdir -p "$machine" "$dir/bin"
 if $copy_store && [ ! -f "$machine/armada.db" ]; then
+  owner="$HOME/Library/Application Support/Armada"
   # `.backup` rather than `cp`, because the store is in WAL mode and a copy of
   # the main file alone can miss whatever has not been checkpointed. It is
   # SQLite's online backup, so it is safe while the owner's Fleet is up.
-  sqlite3 "$HOME/Library/Application Support/Armada/armada.db" ".backup '$machine/armada.db'"
+  sqlite3 "$owner/armada.db" ".backup '$machine/armada.db'"
+  # Forget the owner's checkout, or this Fleet would locate it at boot.
+  sqlite3 "$machine/armada.db" "DELETE FROM fleet_repositories"
+  # A Job's transcripts, logs, briefs and Check output sit under
+  # `repos/<sha1 of the served root>` (`crates/fleet/src/records.rs`), and this
+  # Fleet serves the clone, so they move to the clone's key.
+  key() { printf %s "$1" | shasum -a 1 | cut -d' ' -f1; }
+  if [ -d "$owner/repos/$(key "$main")" ]; then
+    mkdir -p "$machine/repos"
+    cp -R "$owner/repos/$(key "$main")" "$machine/repos/$(key "$dir/repo")"
+  fi
+  if [ -d "$owner/attachments" ]; then
+    cp -R "$owner/attachments" "$machine/"
+  fi
 fi
 
 agent="$dir/bin/agent"

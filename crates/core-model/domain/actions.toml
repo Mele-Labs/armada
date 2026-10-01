@@ -148,6 +148,18 @@ destructive = false
 confirms = false
 notes = "Closes an overlay, or returns to the list from a detail route. `x` is the badge set's system-failure mark and the registry already carries its second reading: as chrome it is the dialog close, unchanged."
 
+[actions.refresh]
+kind = "Action"
+tier = "Global"
+verb = "Refresh"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧⌘R"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Re-reads everything Fleet holds over the connection Bridge already has; it does not reconnect. The owner's note of 1 Oct 2026 took it off Overview's menu and put it on a key, and he chose ⇧⌘R over ⌘R: ⌘R stays Electron's own View > Reload, which reloads the whole window, and a hand that presses it out of habit still gets that. ⇧⌘R was Electron's Force Reload in the same default menu. Bridge's handler takes the press first and prevents it, which stops the menu ever seeing it — measured against Electron 40 on 1 Oct 2026. Spelled in Apple's modifier order, ⇧ before ⌘, as `capture_note`'s ⌥⌘C is. No glyph: `rotate-cw` means Redispatch and `refresh-cw` is reserved to churning, so both rotation silhouettes are spoken for."
+
 # -------------------------------------------------------------- contextual
 
 [actions.move_focus]

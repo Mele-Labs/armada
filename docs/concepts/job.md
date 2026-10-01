@@ -82,11 +82,13 @@ The full set of Job statuses — each with its meaning, its reason values and wh
 
 ## Transitions
 
-A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent.
+A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent. A Job dispatched from a request enters at `proposing`, before either — declared, and not yet built.
 
 ### Reading the request is a status, and approval is what locks
 
-**Not yet built.** A Job is created before the [Job proposer](job-proposer.md) has answered, at the `proposing` status #1159 adds, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed. Classifying what the work is is that same status and not a second one.
+**Declared, not yet built.** A Job is created before the [Job proposer](job-proposer.md) has answered, at the `proposing` status #1159 adds, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed. Classifying what the work is is that same status and not a second one. The row is in `crates/core-model/domain/job-statuses.toml` with its three edges out and `in_code = "Not yet"`; nothing in Fleet creates a Job at dispatch, and `propose_from_request` still answers with the Jobs the request became.
+
+**It is the third entry status and nothing arrives at it.** A Job created here has no frozen workflow, so it has no `job_steps` rows at all — the one status beneath which no step state is ever seen — and the step machine is initialised on the way out, where the proposer's answer freezes a `WorkflowDef`. Its `who_is_acting` is `None` with `mode` `Working`, which is the furthest apart those two questions come: something is happening and it is neither a person nor a Drone.
 
 **What the reading proposes is loose until a person approves it.** The workflow, the title, the brief, the gate on each step and how the work lands are all editable at `awaiting_approval`, and all of them freeze on the approval that dispatches the Job. Creation freezes nothing, which is the change: the resolved `WorkflowDef` is frozen into the Job at creation today (`crates/core-model/domain/job-fields.toml`), so a proposal that picked the wrong workflow cannot be corrected without a new Job.
 
@@ -105,7 +107,9 @@ flowchart LR
 
   START(( )) -->|top-level| AA
   START -->|sub-dispatched| Q
+  START -->|from a request| PR
 
+  PR["proposing"] -->|the proposer answered| AA
   AA["awaiting_approval"] -->|approved| Q["queued"]
   Q -->|Drone spawns| R["running"]
 
@@ -119,6 +123,7 @@ flowchart LR
   REP -->|restart| Q
   REP -->|"run Checks again, and they rule"| R
 
+  PR -->|"declined, or the call faulted"| ESC
   Q -->|dependency_failed| ESC["escalated"]
   R -->|escalation trigger| ESC
   AR -->|interrupted| ESC
@@ -136,10 +141,15 @@ flowchart LR
   R -.->|widening| AA
 
   class AA gate
-  class Q,R drone
+  class PR,Q,R drone
   class AR,REP,ESC,AT waited
   class P worked
 ```
+
+`proposing` is drawn in the working band and nobody is acting in it: the band
+says work is happening, and `who_is_acting` says there is nothing to prompt or
+poke. Its third edge, `proposing -> killed`, is in the ending diagram below with
+every other `killed`.
 
 ## Recovering an escalated Job
 
@@ -457,7 +467,7 @@ The full transition table — every legal edge, its trigger and its guard — is
 
 ## Step state
 
-**Step state is rows, not a field.** `job_steps` carries one row per `(job_id, step_id)`, written at Job creation from the frozen WorkflowDef — every step of the workflow, in order, all `not_started`. The state of steps that are *not* current is therefore recorded rather than inferred from position relative to the current step. Position-inference breaks on a loop workflow, where a step can have advanced and then be re-entered.
+**Step state is rows, not a field.** `job_steps` carries one row per `(job_id, step_id)`, written at Job creation from the frozen WorkflowDef — every step of the workflow, in order, all `not_started`. A Job at `proposing` is the one exception and it is not a gap: there is no frozen WorkflowDef to write them from yet, so the rows are written where that status is left. The state of steps that are *not* current is therefore recorded rather than inferred from position relative to the current step. Position-inference breaks on a loop workflow, where a step can have advanced and then be re-entered.
 
 **Materialising the rows at creation is what makes the freeze structural.** A WorkflowDef edited in the repo mid-Job cannot reach a Job already running against it, because the Job runs against its rows.
 
