@@ -326,7 +326,8 @@ export const AJudgesVerdict: Story = {
     await expect(canvas.getByText("Verdict: the assertion was weakened")).toBeVisible();
     await expect(canvas.getByText("What the Drone should do")).toBeVisible();
     await expect(canvas.queryByRole("heading")).toBeNull();
-    await expect(canvas.queryByText(/[#`*~|]/)).toBeNull();
+    // Not `|`: the fenced Rust closes over `|r|`.
+    await expect(canvas.queryByText(/[#`*~]/)).toBeNull();
     // Emphasis, inline code, and the soft break inside the first paragraph.
     await expect(canvas.getByRole("strong")).toHaveTextContent("narrowing the set it counts");
     await expect(canvas.getByRole("emphasis")).toHaveTextContent("404");
