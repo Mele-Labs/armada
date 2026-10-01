@@ -6,6 +6,7 @@
 // without one of its own, and `record-task.tsx` and `record-check.tsx` take
 // these helpers without reaching back up to the file that imports them.
 
+import { Prose } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { Eyebrow, FieldLabel } from "./regions";
@@ -67,7 +68,10 @@ export function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="armada-ledger__read-field">
       <FieldLabel>{label}</FieldLabel>
-      <p className="armada-ledger__read-said">{sentenceCase(value)}</p>
+      {/* A Drone or a Judge wrote most of these, in markdown. */}
+      <div className="armada-ledger__read-said">
+        <Prose text={sentenceCase(value)} />
+      </div>
     </div>
   );
 }

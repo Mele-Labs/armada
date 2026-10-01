@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import { Bot, Box, FileCheck, FileDiff, FlaskConical, ListTodo, Scale, Shield } from "lucide-react";
 
-import { PathChip, type JobLedgerMark } from "@armada/components";
+import { PathChip, Prose, type JobLedgerMark } from "@armada/components";
 
 import { familyOf, type LedgerFamily, type LedgerRow } from "./draft/ledger";
 
@@ -83,6 +83,11 @@ export function whatCellOf(row: LedgerRow): ReactNode {
  * paths ran under the sheet's Close at 1280. A File row's paths are read whole
  * in its diff's section headers; a kept deliverable's, under the title.
  */
+/** The Outcome cell. A failed task's reason is a Drone's markdown; other outcomes are Fleet's words. */
+export function outcomeCellOf(row: LedgerRow): ReactNode {
+  return row.kind === "task_failed" ? <Prose text={row.outcome} /> : row.outcome;
+}
+
 export function titleOf(row: LedgerRow): string {
   if (!PATHS_IN.includes(row.kind)) return row.what;
   const paths = row.what.split(", ").filter((one) => one !== "");

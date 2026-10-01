@@ -209,6 +209,8 @@ export const startServer = (name: string, jobId?: string) => window.armada.start
 export const stopServer = (serverId: string) => window.armada.stopServer(serverId);
 export const openServerLink = (serverId: string, url: string) =>
   window.armada.openServerLink(serverId, url);
+/** A link in a model's text. Main opens `http(s):` only — `main/links.ts`. */
+export const openLink = (address: string) => window.armada.openLink(address);
 
 // The capture window on a server Run — #1294. One entry, and everything the
 // window then does is its own bar's.

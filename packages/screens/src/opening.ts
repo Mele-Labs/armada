@@ -210,6 +210,25 @@ export function whyNotOpenedNode(followed: Followed): string | null {
   }
 }
 
+/**
+ * Why a link in a model's text did not open, or `null` because it did. Prose
+ * only draws `http(s):` as a link, so `not_addressable` is main disagreeing
+ * with what the renderer drew. It still gets a sentence.
+ */
+export function whyNotOpenedLink(followed: Followed): string | null {
+  if (followed.ok) return null;
+  switch (followed.why) {
+    // `main/links.ts` answers neither: it looks nothing up.
+    case "unknown_job":
+    case "no_address":
+      return "Bridge did not open that link.";
+    case "not_addressable":
+      return `Bridge opens only web addresses, and ${followed.address} is not one.`;
+    case "refused":
+      return `This machine did not open ${followed.address}: ${followed.detail}`;
+  }
+}
+
 /** Asking the host to open one Studio node's address — a Studio id and a node id. */
 export type OpenStudioNode = (studioId: string, nodeId: string) => Promise<Followed>;
 
