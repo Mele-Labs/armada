@@ -150,7 +150,7 @@ export type BridgeApi = {
   /**
    * Kill one process the Job holds, by pid. **Fleet decides whether the pid is
    * the Job's** — it rebuilds the tree at the act — so this names, never grants.
-   * #1647 builds the route; until it does, the answer is `bridge.not_implemented`.
+   * A pid outside it is refused as `fleet.not_the_jobs_process`. #1647.
    */
   killProcess: (jobId: string, pid: number) => Promise<Outcome>;
   /** Kill every process the Job holds. #1647, as `killProcess`. */

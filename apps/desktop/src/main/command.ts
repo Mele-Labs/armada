@@ -434,7 +434,7 @@ export class JobCommands {
    * Kill one process the Job holds — a runaway `cargo` under the Drone, from
    * Pulse. **The pid is a name, not a grant**: Fleet rebuilds the Job's tree at
    * the act and refuses a pid outside it, so nothing here checks it, and it is
-   * encoded so no value can reach another route. #1647 builds the route.
+   * encoded so no value can reach another route. #1647.
    */
   async killProcess(jobId: string, pid: number): Promise<Outcome> {
     return this.act(jobId, this.killing, "already_killing", (port) =>
@@ -442,7 +442,7 @@ export class JobCommands {
     );
   }
 
-  /** Kill every process the Job holds, every member's included. #1647 builds the route. */
+  /** Kill every process the Job holds, every member's included. #1647. */
   async killProcesses(jobId: string): Promise<Outcome> {
     return this.act(jobId, this.killing, "already_killing", (port) =>
       ask(port, "POST", route(jobId, "processes/kill")),
