@@ -680,6 +680,59 @@ pub(crate) mod over_http {
         );
     }
 
+    /// **A model this machine does not run refuses with its own code**, and
+    /// never the one above.
+    ///
+    /// This shipped as `fleet.no_workflow_fits` for half a day, which told a
+    /// person to say the request again differently — advice that cannot fix a
+    /// model name and is about a workflow that was never wrong. Two causes
+    /// wanting opposite responses must not share a word, `#334` and `#410`.
+    ///
+    /// The fields are the other half: a refusal naming only what was wrong
+    /// leaves somebody to go and look up what would have been right.
+    #[tokio::test]
+    async fn a_model_this_machine_does_not_run_refuses_with_its_own_code() {
+        let home = TempDir::new();
+        let app = served(
+            &home,
+            FakeJudge::saying(
+                "workflow: bug\ntitle: The log reader drops the last line\n\
+                 settings: model=gpt-9",
+            ),
+        );
+
+        let (status, body) = call(&app, "POST", "/jobs/from_request", A_BODY).await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let error: WireError = ipc::decode("a refusal", &body).expect("a WireError");
+        assert_eq!(
+            error.code, "fleet.proposer_model_not_held",
+            "a model nothing runs was refused as a workflow nothing fits, whose \
+             advice is to rephrase — which cannot fix it"
+        );
+        assert_ne!(error.code, "fleet.no_workflow_fits");
+        assert!(
+            !error.message.contains("say it again"),
+            "the sentence told a person to rephrase a request that was read fine: {}",
+            error.message
+        );
+        assert_eq!(
+            error.fields.get("model"),
+            Some(&WireValue::Str("gpt-9".to_string())),
+            "the refusal did not name the model that could not be run"
+        );
+        assert!(
+            error.fields.contains_key("models"),
+            "the refusal did not say what this machine does run, so there is \
+             nothing on screen to act on"
+        );
+        assert_eq!(
+            error.fields.get("request"),
+            Some(&WireValue::Str(A_REQUEST.to_string())),
+            "unchanged, as the decline beside it does"
+        );
+    }
+
     /// A body with no request in it never reaches the daemon, so nothing is
     /// spent on it. 400 is the transport's own refusal.
     #[tokio::test]

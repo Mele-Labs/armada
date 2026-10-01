@@ -60,7 +60,9 @@ Doing that by hand means knowing the workflow catalogue before you can ask for a
 
 **The settings it answers are the urgency and the model**, and both arrive on one line of the answer — so they settle together and the fourth field is one field. **Land-as-one is not among them**, on the 3 September ruling above. What a proposal reaches the gate with is still a person's to change.
 
-**The model is picked from a list, never invented.** The question carries every model `list_models` serves and the answer names one of them; a name this machine does not hold is refused exactly as a workflow id it does not hold is, and the request comes back. **Naming none is configuration deciding** — the value `model` has always had when absent — and never a model this call picked as a default.
+**The model is picked from a list, never invented.** The question carries every model `list_models` serves and the answer names one of them; a name this machine does not hold refuses the request, which comes back unchanged. **Naming none is configuration deciding** — the value `model` has always had when absent — and never a model this call picked as a default.
+
+**It is refused for a workflow's reason and not through a workflow's words.** `fleet.proposer_model_not_held` is its own code, naming the model asked for and the models this machine runs. Collapsing it into *no workflow fits* told a person to rephrase a request that had been read correctly, which cannot change which models a machine runs — the rule in [When it cannot resolve a workflow](#when-it-cannot-resolve-a-workflow)'s neighbourhood, and `#334` and `#410`'s: two causes wanting opposite responses must not share a word.
 
 **Naming the Job is part of the same reading**, so nobody types a title for work they have already described — the call has the description in front of it and a [Job](job.md) requires a name.
 

@@ -83,9 +83,9 @@ the work. **He chose it anyway.** The guardrails he took with it:
 
 - **It picks from what this Fleet holds**, never a name it invents. The question
   carries `list_models`' own set and the answer names one of them.
-- **A name that set does not hold is refused as a workflow id that is not** —
-  `Unresolved::NotHeld`, the request comes back — rather than nearest-matched or
-  given a second shape of wrongness.
+- **A name that set does not hold is refused**, the request comes back, and it
+  is never nearest-matched. Which refusal it is took a correction of its own,
+  below.
 - **Absent stays absent.** A call that names no model reaches `ProposeJob.model`
   null, which has always meant configuration decides, and never a default this
   call picked.
@@ -135,15 +135,36 @@ which is why what crosses the wire is fields that are settled and never a
 transcript, and why the count is still a count. The DTO carries the old sentence
 with its date beside the new one.
 
-## What is still open
+## The model refusal is its own, and that took two tries
 
-The model refusal is a whole-request refusal: a proposer that spells a model
-slightly wrong refuses the dispatch, and the sentence a person reads for it is
-`fleet.no_workflow_fits`'s — *no workflow in this repository fits that request,
-rephrase it and dispatch again* — which is not what happened and not what would
-fix it. That follows directly from reusing the workflow's own refusal rather
-than minting a second shape, which is what was asked for. Worth a look once the
-proposer has run against a real catalogue.
+**It was built as `Unresolved::NotHeld` first — the workflow's own arm — and
+that was wrong.** The instruction it came from said to follow what `Brief::read`
+already does for a workflow rather than invent a second shape of wrongness. That
+is a good instinct about shapes and the wrong answer here, and what it produced
+is worth keeping written down:
+
+> A model name the proposer spells slightly off refuses the entire dispatch
+> through `fleet.no_workflow_fits`, whose sentence reads *"No workflow in this
+> repository fits that request… Rephrase it and dispatch again."*
+
+Rephrasing cannot fix it, the workflow was never wrong, and the blast radius is
+every dispatch. **It is the rule `#334` and `#410` already state**: two causes
+wanting opposite responses must not share a word. A request no workflow fits
+wants rephrasing. A model this machine does not hold wants a different model, or
+that model installed — a different act, so a different code.
+
+So there is a third arm. `Unresolved::ModelNotHeld` carries the name asked for
+**and the set this machine runs**, because the set is already in hand — it is
+what the question was built from — and a refusal naming only what was wrong
+leaves a person to go and look up what would have been right.
+`fleet.proposer_model_not_held` is the code, declared in
+`crates/fleet/src/refusing.rs` beside the one it must never be, and mirrored on
+Bridge the way `fleet.proposer_stopped` was: a refusal with no arm falls through
+to a bare notice.
+
+**What stays as it was.** `Settled::of` still simply does not settle a model
+nothing holds, which is right either way — nothing half-right should cross while
+the answer is still being written.
 
 ## What is owed
 

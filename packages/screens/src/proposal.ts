@@ -56,10 +56,37 @@ const NO_WORKFLOW_FITS =
   "No workflow in this repository fits that request, so no Job was created. " +
   "Rephrase it and dispatch again.";
 
+/**
+ * What a model nothing holds says. **The sentence above is the one it must not
+ * say**: the request was read, the workflow was fine, and rephrasing cannot
+ * change which models this machine runs. It names what was asked for and what
+ * is available, both off the envelope's own fields, so the next act is on
+ * screen rather than somewhere to go and look up.
+ */
+function modelUnavailable(outcome: Outcome): string {
+  const fields = outcome.ok ? {} : "error" in outcome ? outcome.error.fields : {};
+  const asked = fields["model"];
+  const held = fields["models"];
+  const named = typeof asked === "string" && asked !== "" ? `\u201c${asked}\u201d` : "a model";
+  const runs =
+    typeof held === "string" && held !== ""
+      ? ` This machine runs ${held}.`
+      : " This machine names no model at all.";
+  return (
+    `The proposer asked for ${named}, which this machine does not run, so no Job was created.` +
+    `${runs} Dispatch again once it is available, or pick a model yourself.`
+  );
+}
+
 export function answeredAs(answer: Proposed): Answered {
   if (answer.ok) return { outcome: null, told: null };
   if (answer.why === "stopped") return { outcome: null, told: null };
   if (answer.why === "unresolved") return { outcome: null, told: NO_WORKFLOW_FITS };
+  // Told rather than raised, for the decline's reason: Armada worked, and the
+  // machine not holding a model is not a failure to draw in red.
+  if (answer.why === "model_unavailable") {
+    return { outcome: null, told: modelUnavailable(answer.outcome) };
+  }
   return { outcome: answer.outcome, told: null };
 }
 

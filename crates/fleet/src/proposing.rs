@@ -164,6 +164,20 @@ pub enum Unresolved {
     /// nearest-matched: a name nothing holds is not evidence about which one
     /// was meant.
     NotHeld { named: String },
+    /// It named a model this machine does not hold.
+    ///
+    /// **Its own arm, and it was [`Unresolved::NotHeld`] for half a day.**
+    /// Reusing that one made a mis-spelled model refuse the dispatch as
+    /// `fleet.no_workflow_fits`, whose sentence tells a person to rephrase —
+    /// which cannot fix it, and the workflow was never wrong. Two causes
+    /// wanting opposite responses must not share a word (`#334`, `#410`): a
+    /// request no workflow fits wants rephrasing, and a model nothing holds
+    /// wants a different model or that model installed.
+    ///
+    /// `held` rides along because the set is already in hand — it is what the
+    /// question was built from — and a refusal naming only what was wrong
+    /// leaves a person to go and look up what would have been right.
+    ModelNotHeld { named: String, held: Vec<String> },
 }
 
 impl fmt::Display for Unresolved {
@@ -180,6 +194,22 @@ impl fmt::Display for Unresolved {
                 out,
                 "the proposal named `{named}`, which this repository does not hold"
             ),
+            Unresolved::ModelNotHeld { named, held } => {
+                let names: Vec<String> = held.iter().map(|model| format!("`{model}`")).collect();
+                match names.is_empty() {
+                    true => write!(
+                        out,
+                        "the proposal asked for model `{named}`, and this machine names no \
+                         model at all"
+                    ),
+                    false => write!(
+                        out,
+                        "the proposal asked for model `{named}`, which this machine does not \
+                         run. It runs {}",
+                        names.join(", ")
+                    ),
+                }
+            }
         }
     }
 }
@@ -401,16 +431,18 @@ impl Brief {
             // that does not comply — `#831`. `field` stays what the Judge
             // reads unchanged; only the proposer tolerates the wrap.
             let scope = scope_field(block);
-            // **Refused exactly as an unheld workflow is**, and that is the
-            // point of reusing the arm rather than minting a second shape of
-            // wrongness: a name nothing holds is not evidence about which one
-            // was meant, so the request comes back rather than being spawned
-            // against a model this machine cannot run.
+            // **Refused for an unheld workflow's reason and not through its
+            // arm.** A name nothing holds is not evidence about which one was
+            // meant, so the request comes back rather than being spawned
+            // against a model this machine cannot run — but what a person does
+            // about it is install a model or pick another, never rephrase the
+            // request. `Unresolved::ModelNotHeld` is why that is two arms.
             let model = named_model(block);
             if let Some(named) = &model {
                 if !models.iter().any(|held| held == named) {
-                    return Ok(Proposal::Unresolved(Unresolved::NotHeld {
+                    return Ok(Proposal::Unresolved(Unresolved::ModelNotHeld {
                         named: named.clone(),
+                        held: models.to_vec(),
                     }));
                 }
             }

@@ -319,10 +319,14 @@ fn the_model_it_names_is_one_this_machine_holds() {
     );
 }
 
-/// **A model nothing holds is refused as a workflow nothing holds is**, and the
-/// request comes back. Not nearest-matched: a name nothing holds is not
-/// evidence about which one was meant, and a Job spawned against a model this
-/// machine cannot run fails at the spawn with the work already approved.
+/// **A model nothing holds is refused for a workflow's reason and through its
+/// own arm.** Not nearest-matched: a name nothing holds is not evidence about
+/// which one was meant, and a Job spawned against a model this machine cannot
+/// run fails at the spawn with the work already approved.
+///
+/// **And not `Unresolved::NotHeld`**, which it was for half a day: that arm's
+/// refusal tells a person to say the request again differently, which cannot
+/// fix a model name. `crate::tests::proposing::over_http` holds the code.
 #[test]
 fn a_model_this_machine_does_not_hold_refuses_the_request() {
     let catalogue = held();
@@ -335,10 +339,21 @@ fn a_model_this_machine_does_not_hold_refuses_the_request() {
         .expect("a reading, not a call failure");
     assert_eq!(
         answered,
-        Proposal::Unresolved(Unresolved::NotHeld {
-            named: "gpt-9".to_string()
+        Proposal::Unresolved(Unresolved::ModelNotHeld {
+            named: "gpt-9".to_string(),
+            held: a_models(),
         }),
-        "a model nothing holds was accepted, or refused as a different shape"
+        "a model nothing holds was accepted, or refused as the workflow's own \
+         refusal — whose advice is to rephrase"
+    );
+    // The set rides along, because it is already in hand and a refusal naming
+    // only what was wrong leaves a person to go and look up what was right.
+    let Proposal::Unresolved(why) = &answered else {
+        panic!("a resolved plan");
+    };
+    assert!(
+        why.to_string().contains("haiku"),
+        "the refusal never said what this machine does run: {why}"
     );
     // And it never settles either, so nothing drew it while the call ran.
     assert_eq!(

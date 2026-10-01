@@ -39,7 +39,7 @@ use crate::daemon::Fleet;
 use crate::drafting::StatedBy;
 use crate::judging::{watched, CallFailed, JudgeBudget};
 use crate::proposals::Watching;
-use crate::proposing::{Brief, NotProposed, Proposal, ProposedJob};
+use crate::proposing::{Brief, NotProposed, Proposal, ProposedJob, Unresolved};
 
 /// Everything one call needs in order to ask.
 ///
@@ -333,6 +333,19 @@ where
         })?;
         let plan = match proposal {
             Proposal::Resolved(jobs) => jobs,
+            // **Two refusals and not one.** A request no workflow fits is said
+            // again differently; a model this machine does not run is a
+            // different model or that model installed. Collapsing them gave a
+            // mis-spelled model the rephrase-it sentence, which cannot fix it
+            // — `#334` and `#410`'s rule, and `Unresolved::ModelNotHeld`'s
+            // own note.
+            Proposal::Unresolved(Unresolved::ModelNotHeld { named, held }) => {
+                return Err(Adrift::ModelNotHeld {
+                    request: request.to_string(),
+                    named,
+                    held,
+                })
+            }
             Proposal::Unresolved(why) => {
                 return Err(Adrift::NoWorkflowFits {
                     request: request.to_string(),

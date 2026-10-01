@@ -548,6 +548,17 @@ export type Proposed =
    */
   | { ok: false; why: "unresolved"; request: string; outcome: Outcome }
   /**
+   * The request was read and asked for a model this machine does not run.
+   * **No Job was created**, and `request` is what was sent.
+   *
+   * **Its own arm and never `unresolved`**, because a person does a different
+   * thing about it: nothing they typed was wrong and saying it again cannot
+   * fix it. What fixes it is a model this machine runs, or installing the one
+   * asked for. `crates/fleet/src/refusing.rs` declares the two codes apart so
+   * a client can honour that.
+   */
+  | { ok: false; why: "model_unavailable"; request: string; outcome: Outcome }
+  /**
    * The call could not be made — the network, the quota, the timeout, or no
    * answer at all. **This says nothing about the request**, which is why it is
    * not the arm above: rendering an outage as "nothing fits" tells a person

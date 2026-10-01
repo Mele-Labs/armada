@@ -1782,7 +1782,13 @@ the answer: `urgency`, and `model` — which model a Drone on this Job is spawne
 as. The owner took the model over the argument that a model choosing which model
 runs the work is the dial every later call's cost hangs off. **It picks from
 `list_models`' own set**, and a name that set does not hold refuses the request
-exactly as a workflow id nothing holds does, through `Unresolved::NotHeld`.
+through `fleet.proposer_model_not_held` — **its own code, and never
+`fleet.no_workflow_fits`**. That refusal's advice is to say the request again
+differently, which cannot fix a model name and is about a workflow that was not
+wrong; `#334` and `#410`'s rule is that two causes wanting opposite responses
+must not share a word. The refusal carries the model asked for and the set this
+machine runs, and Bridge mirrors the code the way it mirrors
+`fleet.proposer_stopped`.
 **Absent stays absent**: a call that names no model reaches `ProposeJob.model`
 null, which has always meant configuration decides. Land-as-one is deliberately
 not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
