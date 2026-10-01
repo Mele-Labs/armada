@@ -68,9 +68,9 @@ export const AFlagsCitation: Story = {
 
 /**
  * The structure a model writes when it lists findings. The `#` line renders at
- * `--text-base`, `--weight-heading` and full contrast, **not at `--text-lg`**:
- * panel headings own that step. It takes no place in the page's outline either,
- * since a model's `#` inside a card is not the card's title.
+ * `--text-lg` over a rule, at `--weight-heading` and full contrast. It takes no
+ * place in the page's outline, since a model's `#` inside a card is not the
+ * card's title.
  */
 export const AListAndAHeading: Story = {
   args: {
@@ -278,7 +278,7 @@ export const ClampedThroughAList: Story = {
   },
 };
 
-/** One Judge verdict carrying every construct, drawn by each direction on trial. */
+/** One Judge verdict carrying every construct. */
 const VERDICT =
   "## Verdict: the assertion was weakened\n\n" +
   "The Drone made `served_every_operation` pass by **narrowing the set it counts**, not by serving " +
@@ -308,48 +308,50 @@ const VERDICT =
   "- [ ] Rerun `armada check api_test`\n\n" +
   "The claim is in [the M4 acceptance test](https://forge.invalid/armada/blob/main/docs/m4.md).";
 
-/** A direction is a `data-prose-direction` above Prose; `Prose.css` scopes B and C to it. */
-function direction(which: "a" | "b" | "c"): Story {
-  return {
-    args: { text: VERDICT },
-    render: (args) => (
-      <Card>
-        <div data-prose-direction={which}>
-          <Prose {...args} />
-        </div>
-      </Card>
-    ),
-  };
-}
-
 /**
- * **A, inside the contract.** The default. The first two heading levels at
- * `--text-base`, bold at heading weight, `--accent` list markers and quote rule,
- * code in an edged `--bg-sunken` well.
+ * **The whole treatment, on a card.** The owner's pick on 1 Oct 2026, "B, more
+ * life": levels one and two at `--text-lg` over a rule, accent markers, a
+ * header band on the table, a tinted callout for the quote, an accent edge on
+ * the fenced block.
  */
-export const DirectionA: Story = {
-  ...direction("a"),
-  play: async ({ canvas }) => {
+export const AJudgesVerdict: Story = {
+  args: { text: VERDICT },
+  render: (args) => (
+    <Card>
+      <Prose {...args} />
+    </Card>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    // Headings: their words, no `#`, and no entry in the page's outline.
     await expect(canvas.getByText("Verdict: the assertion was weakened")).toBeVisible();
-    await expect(canvas.getByRole("table")).toBeVisible();
-    await expect(canvas.getByRole("blockquote")).toBeVisible();
-    await expect(canvas.getAllByRole("checkbox")).toHaveLength(3);
-    await expect(canvas.getByRole("link", { name: "the M4 acceptance test" })).toBeVisible();
+    await expect(canvas.getByText("What the Drone should do")).toBeVisible();
+    await expect(canvas.queryByRole("heading")).toBeNull();
+    await expect(canvas.queryByText(/[#`*~|]/)).toBeNull();
+    // Emphasis, inline code, and the soft break inside the first paragraph.
+    await expect(canvas.getByRole("strong")).toHaveTextContent("narrowing the set it counts");
+    await expect(canvas.getByRole("emphasis")).toHaveTextContent("404");
+    await expect(canvas.getByRole("deletion")).toHaveTextContent("The handler exists");
+    await expect(canvas.getAllByText("served_every_operation")).toHaveLength(2);
+    const [opening] = canvas.getAllByRole("paragraph").filter((one) => one.textContent?.startsWith("The Drone"));
+    await expect(opening?.innerText).toContain("live Fleet.\nChecked against");
+    // An ordered list with a list inside it, and a task list.
+    const lists = canvas.getAllByRole("list");
+    await expect(lists.map((one) => one.tagName)).toEqual(["OL", "UL", "UL"]);
+    const tasks = canvas.getAllByRole("checkbox");
+    await expect(tasks).toHaveLength(3);
+    await expect(tasks[0]).toBeChecked();
+    // The table, the quote and the fenced block.
+    await expect(canvas.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+      "Check",
+      "main",
+      "This step",
+    ]);
+    await expect(canvas.getByRole("blockquote")).toHaveTextContent(
+      "Every operation in operations.toml is served by exactly one route.",
+    );
+    await expect(canvas.getByText(/assert_eq!\(routes\.len\(\), served\.len\(\)\);/)).toBeVisible();
+    // The link hands its address over.
+    await userEvent.click(canvas.getByRole("link", { name: "the M4 acceptance test" }));
+    await expect(opened).toHaveBeenCalledWith("https://forge.invalid/armada/blob/main/docs/m4.md");
   },
 };
-
-/**
- * **B, more life.** The level-one heading at `--text-lg`, a ruled level two, a
- * header band on the table, a tinted callout for the quote, and an accent edge
- * on the fenced block. Breaks: `--text-lg` belongs to panel headings, and
- * `--accent` marks things nobody can press.
- */
-export const DirectionB: Story = direction("b");
-
-/**
- * **C, margin notes.** Headings hang in a gutter beside the text they head, so
- * a long verdict is scanned by its margin. The evidence (code, table) runs the
- * full width. Breaks: floats, so it cannot be clamped, and the gutter is a
- * fixed width a rail cannot pay.
- */
-export const DirectionC: Story = direction("c");

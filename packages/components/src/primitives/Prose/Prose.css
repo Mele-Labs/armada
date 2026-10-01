@@ -1,8 +1,8 @@
 /* Prose — model-written markdown, drawn as its structure.
 
-   The body inherits the surface's size. Only a heading of the first three
-   levels declares one: --text-base, the ladder's "emphasis within body", one
-   step above a body at --text-sm. docs/contracts/design-system.md,
+   The body inherits the surface's size. Only a heading declares one: levels
+   one and two at --text-lg, level three at --text-base. The owner chose this
+   on 1 Oct 2026 ("B, more life"). docs/contracts/design-system.md,
    *Prose — model-written markdown*.
 
    BLOCK FLOW, NEVER FLEX. `-webkit-line-clamp` counts no lines inside a flex
@@ -34,15 +34,21 @@
   text-wrap: pretty;
 }
 
-/* A heading of any level: full contrast at heading weight. The first three
-   levels go one step up the ladder, and every heading takes a section's space
-   above it. */
+/* A heading of any level: full contrast at heading weight, with a section's
+   space above it. */
 .armada-prose__said {
   color: var(--fg-default);
   font-weight: var(--weight-heading);
 }
 
-.armada-prose__said:is([data-level="1"], [data-level="2"], [data-level="3"]) {
+.armada-prose__said:is([data-level="1"], [data-level="2"]) {
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-default);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+}
+
+.armada-prose__said[data-level="3"] {
   font-size: var(--text-base);
   line-height: var(--leading-base);
 }
@@ -85,8 +91,14 @@
   margin-top: var(--space-1);
 }
 
+/* Accent on a marker nobody presses: the carve-out under Accent in the contract. */
 .armada-prose__item::marker {
   color: var(--accent);
+}
+
+.armada-prose__list--ordered > .armada-prose__item::marker {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-heading);
 }
 
 /* A task's checkbox is its marker. */
@@ -105,6 +117,7 @@
 .armada-prose__link {
   color: var(--accent);
   text-decoration: none;
+  text-underline-offset: var(--space-1);
   overflow-wrap: anywhere;
 }
 
@@ -113,12 +126,12 @@
   text-decoration: underline;
 }
 
-/* Machine-derived, so mono, in the --bg-sunken well the contract names for code. */
+/* Machine-derived, so mono, in a well a step above the body's ground. */
 .armada-prose__code {
   padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--border-subtle);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+  background: var(--bg-overlay);
   font-family: var(--font-mono);
   color: var(--fg-default);
   /* One token to a reader and several to a line-breaker: breaking anywhere
@@ -130,7 +143,8 @@
    floating layer hides content behind a gesture. */
 .armada-prose__block {
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
+  border: var(--border-width) solid var(--accent-muted);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
   font-family: var(--font-mono);
@@ -148,10 +162,12 @@
   font-family: inherit;
 }
 
-/* Quoted words are someone's exact words, so they read at full contrast. */
+/* Quoted words are someone's exact words: full contrast, in a tinted callout. */
 .armada-prose__quote {
-  padding-left: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-left: calc(var(--border-width) * 2) solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
   color: var(--fg-default);
 }
 
@@ -160,10 +176,11 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
-/* The Table primitive's rules and header contrast, without its sizes. As wide
-   as its content: in a dialog a full-width table strands short columns a
-   screen apart. */
+/* The Table primitive's header treatment: a band in --bg-overlay, the one legal
+   ALL CAPS at --text-2xs. As wide as its content: in a dialog a full-width
+   table strands short columns a screen apart. */
 .armada-prose__table {
+  border: var(--border-width) solid var(--border-subtle);
   border-collapse: collapse;
 }
 
@@ -178,69 +195,8 @@
 }
 
 .armada-prose__th {
-  border-bottom: var(--border-width) solid var(--border-default);
-  color: var(--fg-default);
-  font-weight: var(--weight-heading);
-}
-
-.armada-prose__td {
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-/* ---------------------------------------------------------------------------
-   DIRECTIONS ON TRIAL. Nothing in the app sets `data-prose-direction`; only the
-   Prose directions stories do. The owner picks one, it becomes the default
-   above, and this section is deleted.
-   --------------------------------------------------------------------------- */
-
-/* B, "More life". Breaks: --text-lg is the panel headings' step, and --accent
-   marks things nobody can press. */
-[data-prose-direction="b"] .armada-prose__said:is([data-level="1"], [data-level="2"]) {
-  padding-bottom: var(--space-1);
-  border-bottom: var(--border-width) solid var(--border-default);
-  font-size: var(--text-lg);
-  line-height: var(--leading-lg);
-}
-
-[data-prose-direction="b"] .armada-prose__list--ordered > .armada-prose__item::marker {
-  font-family: var(--font-mono);
-  font-weight: var(--weight-heading);
-}
-
-[data-prose-direction="b"] .armada-prose__link {
-  text-decoration: underline;
-  text-decoration-color: var(--accent-muted);
-  text-underline-offset: var(--space-1);
-}
-
-[data-prose-direction="b"] .armada-prose__code {
-  border-color: var(--border-default);
-  background: var(--bg-overlay);
-}
-
-[data-prose-direction="b"] .armada-prose__block {
-  border-color: var(--accent-muted);
-  border-left: calc(var(--border-width) * 2) solid var(--accent);
-}
-
-[data-prose-direction="b"] .armada-prose__block .armada-prose__code {
-  border: 0;
-  background: none;
-}
-
-[data-prose-direction="b"] .armada-prose__quote {
-  padding: var(--space-2) var(--space-3);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: var(--accent-faint);
-  color: var(--fg-default);
-}
-
-[data-prose-direction="b"] .armada-prose__table {
-  border: var(--border-width) solid var(--border-subtle);
-}
-
-[data-prose-direction="b"] .armada-prose__th {
   padding: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
   background: var(--bg-overlay);
   color: var(--fg-muted);
   font-size: var(--text-2xs);
@@ -250,71 +206,6 @@
   letter-spacing: var(--tracking-caps);
 }
 
-/* C, "Margin notes". A review read as an engineer's annotated page: headings
-   hang in a gutter to the left of the text they head, so a long message can be
-   scanned by its margin. Code, tables and rules run the full width, gutter
-   included, because they are the evidence. Breaks: floats, so it cannot be
-   clamped, and the gutter costs a fixed width a rail cannot pay. A narrow
-   fallback would need a container query, whose width no token can spell. */
-[data-prose-direction="c"] .armada-prose {
-  display: flow-root;
-  padding-left: calc(var(--space-12) * 3);
-}
-
-[data-prose-direction="c"] .armada-prose__said {
-  float: left;
-  clear: left;
-  width: calc(var(--space-12) * 3 - var(--space-4));
-  margin-left: calc(var(--space-12) * -3);
-  padding-top: var(--space-1);
-  border-top: calc(var(--border-width) * 2) solid var(--accent);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-/* A heading's section starts level with it, not a section below the last. */
-[data-prose-direction="c"] .armada-prose > .armada-prose__said + * {
-  margin-top: 0;
-}
-
-[data-prose-direction="c"] .armada-prose > * + .armada-prose__said,
-[data-prose-direction="c"] .armada-prose > * + .armada-prose__said + * {
-  margin-top: var(--space-6);
-}
-
-[data-prose-direction="c"] .armada-prose > :is(.armada-prose__block, .armada-prose__table, .armada-prose__rule) {
-  clear: left;
-  margin-left: calc(var(--space-12) * -3);
-}
-
-[data-prose-direction="c"] .armada-prose__quote {
-  border-left-width: calc(var(--border-width) * 2);
-  color: var(--fg-default);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-}
-
-[data-prose-direction="c"] .armada-prose__item::marker {
-  color: var(--fg-subtle);
-}
-
-[data-prose-direction="c"] .armada-prose__code {
-  border: 0;
-  border-bottom: var(--border-width) solid var(--border-strong);
-  border-radius: 0;
-  background: none;
-}
-
-[data-prose-direction="c"] .armada-prose__block {
-  border: 0;
-  border-left: calc(var(--border-width) * 2) solid var(--border-strong);
-  border-radius: 0;
-}
-
-[data-prose-direction="c"] .armada-prose__block .armada-prose__code {
-  border: 0;
-}
-
-[data-prose-direction="c"] .armada-prose__th {
-  border-bottom-width: calc(var(--border-width) * 2);
+.armada-prose__td {
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
