@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CircleDot } from "lucide-react";
+import { Prose } from "../../primitives/Prose/Prose";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
 import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
 import { tokensOf, tokensSaid, type Thought } from "./thought";
@@ -24,8 +25,9 @@ export type { Thought } from "./thought";
  * **A card per speaker.** Consecutive turns from one speaker — Drone, Armada or
  * Fleet — are one card, headed with the speaker's name in the words
  * `ActivityLog` names them with, and a change of speaker starts the next card.
- * The rows inside carry only what happened: a call leads with its tool, prose
- * is plain, and a refusal says so in its body. The owner drew it on 29 Sep
+ * The rows inside carry only what happened: a call leads with its tool, the
+ * Drone's prose is its markdown drawn through `Prose`, and a refusal says so
+ * in its body. The owner drew it on 29 Sep
  * 2026, replacing the column that named the speaker on every row: *"it just
  * repeats pretty much the same thing on every row."* A turn with no speaker is
  * a card of its own with no head, rather than one under a guessed name.
@@ -79,7 +81,13 @@ export type DroneTurn = {
    * successful answer carries none. Absent draws nothing.
    */
   answer?: ReactNode;
-  /** Prose: the Drone's own text, or the harness's wording for a refusal. */
+  /**
+   * Prose: the Drone's own text, or the harness's wording for a refusal.
+   *
+   * **A `said` row's string is drawn through `Prose`**, because it is markdown
+   * a model wrote. Every other row's is drawn as it is: a refusal's wording is
+   * the harness's, and an underscore in a tool name is not emphasis.
+   */
   said?: ReactNode;
   /**
    * The row is the Drone thinking rather than something it did. Consecutive
@@ -369,7 +377,7 @@ function StepBoundary({ step }: { step?: TurnStep }) {
 function Row({ turn }: { turn: DroneTurn }) {
   return (
     <li className="armada-turns__turn" title={turn.at}>
-      <span className="armada-turns__body">
+      <div className="armada-turns__body">
         {turn.subject === undefined && turn.detail === undefined ? null : (
           <span className="armada-turns__head">
             {turn.subject === undefined ? null : (
@@ -386,8 +394,12 @@ function Row({ turn }: { turn: DroneTurn }) {
         {turn.answer === undefined ? null : (
           <span className="armada-turns__answer">{turn.answer}</span>
         )}
-        {turn.said === undefined ? null : <span className="armada-turns__said">{turn.said}</span>}
-      </span>
+        {turn.said === undefined ? null : (
+          <div className="armada-turns__said">
+            {turn.kind === "said" && typeof turn.said === "string" ? <Prose text={turn.said} /> : turn.said}
+          </div>
+        )}
+      </div>
     </li>
   );
 }
