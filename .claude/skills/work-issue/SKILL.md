@@ -158,6 +158,11 @@ afterwards by reading what landed, for example
 `git log --merges --first-parent main --since=yesterday`; each merge carries a
 `Landed-from:` trailer naming its branch.
 
+**A visual change is the exception: it waits for the owner's look.** It ships
+with a walk, he opens its link on a mock served from your worktree, and it lands
+only on his OK. `annotations`, step 4, has the rule, and
+`docs/practices/running-locally.md` *Walks* has the walk.
+
 **`scripts/land` is how it merges**: never `gh pr merge`, never a push to
 `main`, and a hook refuses both.
 
