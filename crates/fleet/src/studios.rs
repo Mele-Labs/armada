@@ -480,16 +480,16 @@ where
             ));
         }
         // **And a person adds only what a person makes**, `#1364`: a Note
-        // typed, a Link pasted, a Sketch placed. Every other kind is made by
-        // the act that earns it, and one added by hand would carry a claim
-        // nothing stands behind — a Finding no scout read for, a Cluster
-        // nothing was grouped into.
+        // typed, a Link pasted, a Sketch placed, a File's path pasted. Every
+        // other kind is made by the act that earns it, and one added by hand
+        // would carry a claim nothing stands behind — a Finding no scout read
+        // for, a Cluster nothing was grouped into.
         if by == Redirector::Person && !content.kind().added_by_hand() {
             return Err(self.studio_unacceptable(
                 NODE_NOT_A_PERSONS,
                 format!(
-                    "a person adds a note, a link or a sketch by hand, and a {} is made by the \
-                     act that earns it",
+                    "a person adds a note, a link, a sketch or a file by hand, and a {} is made \
+                     by the act that earns it",
                     content.kind().as_wire()
                 ),
             ));

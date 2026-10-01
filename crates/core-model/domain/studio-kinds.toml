@@ -114,6 +114,16 @@ dispatches = false
 not_called = ["Source"]
 notes = "Source is a verification source, in the Design System's hedging rule. A Link dispatches nothing: there is no filed thing to dispatch against."
 
+[nodes.file]
+name = "File"
+holds = "A path to a file, as a person pasted it"
+states = []
+status_colour = false
+added_by_hand = true
+dispatches = false
+not_called = []
+notes = "Decided with the owner, 1 Oct 2026: a pasted path lands as a File. Kept exactly as pasted, trimmed — absolute, under `~` or relative to the repository — and Fleet neither resolves it nor checks that it exists."
+
 [nodes.issue]
 name = "Issue"
 holds = "An issue on a forge: its address, its number, a line of the person's own, and its title and state where it has been read in"

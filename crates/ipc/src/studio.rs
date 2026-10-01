@@ -163,6 +163,11 @@ pub enum StudioNodeContent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         named: Option<String>,
     },
+    /// A path to a file, as a person pasted it. Since 18.5. **Kept as pasted,
+    /// trimmed**: Fleet neither resolves it nor checks that it exists.
+    File {
+        path: String,
+    },
     /// An issue on a forge — `#1394`. `address` and `number` were read off the
     /// address when the node was made; `title` and `state` were read off the
     /// forge, so both are absent until it has been read in.
@@ -828,6 +833,7 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 said,
                 named,
             },
+            C::File { path } => StudioNodeContent::File { path },
             C::Issue {
                 address,
                 number,
@@ -930,6 +936,9 @@ impl StudioNodeContent {
             // itself is a read-in's to record, so a request naming one is
             // dropped the way a Run's `kept` is.
             StudioNodeContent::Link { address, said, .. } => C::link(address, said),
+            // Trimmed here, as a Link's line is; a blank path is refused by
+            // `blank`, on the way in.
+            StudioNodeContent::File { path } => C::file(&path),
             // **The number does not decode into a write either.** What an
             // address names on a forge is `crates/adapters`' reading, made
             // once when the node was made, so a request naming a kind and a

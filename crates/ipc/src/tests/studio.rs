@@ -38,6 +38,7 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             said: Some(text()),
             named: None,
         },
+        K::File => C::file("crates/fleet/src/briefing.rs"),
         // **Built through the domain's own constructor**, which is the only
         // way to reach one of the three — `#1394`. Nothing in this crate
         // spells their fields, and nothing here reads an address.
@@ -171,6 +172,30 @@ fn a_proposal_naming_the_produced_edge_does_not_decode() {
 fn a_node_of_a_kind_the_studio_has_no_name_for_does_not_decode() {
     let body = br#"{"kind":"observation","said":"not a node"}"#;
     decode::<StudioNodeContent>("content", body).expect_err("not a kind");
+}
+
+/// **A File is its path and nothing else**, so an `add_node` body naming the
+/// kind without a path, or with a path that is not text, is refused by the
+/// decoder before any daemon is asked.
+#[test]
+fn a_file_without_a_path_as_text_does_not_decode() {
+    let at = r#""position":{"x":0,"y":0}"#;
+    for body in [
+        format!(r#"{{"kind":"file",{at}}}"#),
+        format!(r#"{{"kind":"file","path":7,{at}}}"#),
+        format!(r#"{{"kind":"file","path":null,{at}}}"#),
+    ] {
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err(&body);
+    }
+    let body = format!(r#"{{"kind":"file","path":" ~/plan.md ",{at}}}"#);
+    let added = decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect("a File");
+    assert_eq!(
+        added.content.to_domain(),
+        core_model::StudioNodeContent::File {
+            path: "~/plan.md".to_string()
+        },
+        "trimmed on the way in"
+    );
 }
 
 /// **Helm's act is its own kind**, flat: which act beside the ids, and the
