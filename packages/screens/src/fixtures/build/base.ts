@@ -375,9 +375,13 @@ export function detail(jobRow: JobSummary, steps: StepDetail[], over: Partial<Jo
     branch: BRANCH,
     steps,
     acceptance_criteria: CRITERIA,
+    // In markdown, as a Proposer writes a brief: the walk `markdownFromAReviewer`
+    // looks at it drawn.
     facts:
-      "The selectors cannot be tested without constructing the whole store, which makes every " +
-      "settings test an integration test.",
+      "The selectors cannot be tested without constructing the **whole store**, which makes " +
+      "every settings test an integration test.\n\n" +
+      "- extract `selectColumnOrder`\n" +
+      "- keep the public exports",
     write_targets: ["packages/settings/src/"],
     dependencies: [],
     spend: spend(),
