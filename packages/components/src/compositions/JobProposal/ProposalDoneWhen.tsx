@@ -1,5 +1,6 @@
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Prose } from "../../primitives/Prose/Prose";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_CRITERIA } from "../../guides";
 
@@ -91,7 +92,9 @@ export function ProposalDoneWhen({
           {criteria.map((criterion, at) => (
             <li className="armada-proposal__criterion" key={criterion.id ?? at}>
               {onCriterion === undefined ? (
-                <p className="armada-proposal__criterion-text">{criterion.text}</p>
+                <div className="armada-proposal__criterion-text">
+                  <Prose text={criterion.text} />
+                </div>
               ) : (
                 <div className="armada-proposal__criterion-row">
                   <Input

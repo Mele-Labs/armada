@@ -1,4 +1,5 @@
 import { Input } from "../../primitives/Input/Input";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { GuideMark } from "../GuideMark/GuideMark";
@@ -28,7 +29,11 @@ export type { CompleteChoice, ProposalLandingValue } from "./ProposalLanding";
 export type ProposalRequest = {
   /** The repository, by the name a person calls it. */
   repository: string;
-  /** The request, in the requester's own words. Empty is a Job given none. */
+  /**
+   * The request, in the requester's own words. Empty is a Job given none.
+   * Read after approval, it is drawn through `Prose`: whoever wrote it may have
+   * written markdown.
+   */
   said: string;
   /** Why there is nothing to read, where there is nothing. */
   absent: string;
@@ -287,7 +292,7 @@ function ProposalAsked({
       </div>
       {onRequest === undefined ? (
         <div className="armada-proposal__said" data-absent={request.said === "" || undefined}>
-          {request.said === "" ? request.absent : request.said}
+          {request.said === "" ? request.absent : <Prose text={request.said} />}
         </div>
       ) : (
         <div className="armada-proposal__said-field">

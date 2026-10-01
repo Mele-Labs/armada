@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Clamped } from "../Clamped/Clamped";
 
@@ -29,8 +30,11 @@ export type JobBriefCriterion = {
    * What was asked, in the words it was asked in. `criterion_id` is not drawn
    * beside it: the contract makes the row's number what a citation resolves
    * against, and a ULID on every row is noise a reader has to step over.
+   *
+   * **A string, drawn through `Prose`**, because a model or a person wrote it
+   * and either may have written markdown.
    */
-  text: ReactNode;
+  text: string;
   /** `check`, `judge` or `attested`, as the wire spells it. */
   source?: ReactNode;
 };
@@ -39,8 +43,12 @@ export type JobBriefProps = {
   criteria: JobBriefCriterion[];
   /** Why there are none, where there are none. Never a labelled blank. */
   criteriaAbsent?: ReactNode;
-  /** The context the Job was given, in the words it was given in. */
-  facts?: ReactNode;
+  /**
+   * The context the Job was given, in the words it was given in — the
+   * Proposer's, usually. **A string, drawn through `Prose`**, so the markdown
+   * it was written in reads as its structure.
+   */
+  facts?: string;
   /** Why there are none, where there are none. */
   factsAbsent?: ReactNode;
   /**
@@ -127,7 +135,9 @@ export function JobBrief({
               {criteria.map((criterion, i) => (
                 <li className="armada-job-brief__criterion" key={i}>
                   <span className="armada-job-brief__ordinal">{i + 1}</span>
-                  <span className="armada-job-brief__text">{criterion.text}</span>
+                  <div className="armada-job-brief__text">
+                    <Prose text={criterion.text} />
+                  </div>
                   {criterion.source === undefined ? (
                     <span />
                   ) : (
@@ -153,7 +163,9 @@ export function JobBrief({
             // control only draws where there is more, so a short brief is
             // untouched.
             <Clamped lines={factsLines}>
-              <p className="armada-job-brief__facts">{facts}</p>
+              <div className="armada-job-brief__facts">
+                <Prose text={facts} />
+              </div>
             </Clamped>
           )}
         </div>

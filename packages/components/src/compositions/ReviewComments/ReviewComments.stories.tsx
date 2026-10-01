@@ -18,9 +18,10 @@ import { ReviewComments, type ReviewCommentsProps } from "./ReviewComments";
  * some are about something else. A drone handed all of them tries to satisfy
  * all of them.
  *
- * **Every word in a comment was written outside this machine.** It is drawn as
- * a text node and as nothing else — no markdown, no clickable link, no
- * attribute. The only value that goes back is the handle the forge gave it.
+ * **Every word in a comment was written outside this machine.** It is drawn
+ * through `Prose`, like every model's words, so what its markdown may become is
+ * Prose's rule and not a second one here. The only value that goes back is the
+ * handle the forge gave it.
  *
  * **No glyph.** `packages/icons/icons.toml` has no mark for a review comment
  * and nothing there means one, so this draws none rather than borrowing a
@@ -152,13 +153,13 @@ export const NobodyHasCommented: Story = {
 };
 
 /**
- * A comment that is four paragraphs, a fenced block and a line long enough to
+ * A comment with a heading, a fenced block, a list and a line long enough to
  * widen anything it is drawn in.
  *
- * **Nothing is rendered and nothing is truncated.** The backticks stay
- * backticks and the heading stays a hash — a comment that could make its own
- * markup on this surface is a comment that could make a link. The paragraphs
- * survive because a reviewer's shape is part of what they said.
+ * **Drawn as its markdown, and nothing truncated** — the owner's call of
+ * 1 Oct 2026, *same Prose* as a model's words. The fence is a code block and
+ * the list a list; the long line wraps rather than widening the panel. What a
+ * comment's markdown may not become is Prose's rule, not this surface's.
  */
 export const ACommentWithEverythingInIt: Story = {
   args: {
@@ -167,11 +168,19 @@ export const ACommentWithEverythingInIt: Story = {
         id: "IC_kwDOlong",
         by: "a-reviewer",
         at: "2026-09-08 12:00",
-        said: "# This is not a heading\n\nThe reader stops one line early. Reproduced with:\n\n```\narmada check bridge_test\n```\n\nSee https://example.invalid/an/extremely/long/path/that/keeps/going/and/going/and/going for the run.",
+        said: "# The reader stops early\n\nThe reader stops one line early. Reproduced with:\n\n```\narmada check bridge_test\n```\n\n- it happens on **every** run\n- only past `--window-floor`\n\nSee https://example.invalid/an/extremely/long/path/that/keeps/going/and/going/and/going for the run.",
         takenUp: false,
       },
     ],
     onTakeUp: () => {},
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("every", { selector: "strong" })).toBeVisible();
+    await expect(canvas.getByText("--window-floor", { selector: "code" })).toBeVisible();
+    await expect(canvas.getByText("it happens on", { exact: false, selector: "li" })).toBeVisible();
+    await expect(canvas.getByText("armada check bridge_test", { selector: "pre code" })).toBeVisible();
+    // Markup is drawn, the asterisks are not.
+    expect(canvas.queryByText(/\*\*/)).toBeNull();
   },
 };
 
