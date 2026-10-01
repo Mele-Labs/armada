@@ -211,7 +211,7 @@ pub(crate) fn checks(
 /// The path is not resolved against a worktree here. This crate reads files and
 /// never a Job's, and whether the Drone wrote it is the gate's question — what
 /// is answered here is whether the string could name it at all.
-fn artifact_target(at: &str, target: String, out: &mut Vec<Refusal>) -> Option<String> {
+pub(crate) fn artifact_target(at: &str, target: String, out: &mut Vec<Refusal>) -> Option<String> {
     let why = if target.contains('*') || target.contains('?') {
         Some(BadTarget::Globbed)
     } else if target.starts_with('/') {

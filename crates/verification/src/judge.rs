@@ -30,6 +30,7 @@ use crate::answered::Answered;
 use crate::product::{Product, Reference};
 use crate::request::Request;
 use crate::shown::{placed, Laid, Region};
+use crate::standing::Standing;
 
 /// The two words a Judge may answer with, and the three fields a refusal owes.
 ///
@@ -93,10 +94,14 @@ impl Brief {
     /// what was actually asked* — is answerable here because every call carries
     /// it, and there is no arrangement of arguments that assembles a brief
     /// without it.
+    ///
+    /// `standing` is what the repository requires of every change, placed
+    /// after the request; [`Standing::unstated`] adds nothing.
     pub fn about(
         step: &ResolvedStep,
         criterion: &JudgeCriterion,
         request: Request<'_>,
+        standing: &Standing,
         product: &Product<'_>,
         references: &[Reference<'_>],
         answered: Answered<'_>,
@@ -116,6 +121,8 @@ impl Brief {
         // too — so it is read before anything it is the standard for, which is
         // the ordering `Reference::parts` already argues for one level down.
         laid.part(REQUEST, &request.told());
+        // Beside the request and for its reason: a standard, not the work.
+        laid.part(STANDING, &standing.told());
         // **The deterministic facts, and the whole of them.** A name and an
         // outcome word is what this rendered until #205, which dropped the two
         // parts a criterion is actually answered from: why a Check that did not
@@ -243,6 +250,9 @@ impl Brief {
 
 /// What the request's part of a brief is called on a citation.
 const REQUEST: &str = "request";
+
+/// What the repository's standing rules are called on a citation.
+const STANDING: &str = "standing_rules";
 
 /// One `name: value` line, wherever in the answer it appears.
 ///

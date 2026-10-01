@@ -216,8 +216,14 @@ fn brief(baseline: Option<Baseline<'_>>) -> GamingBrief {
 fn about(pattern: GamingPattern, text: &str, baseline: Option<Baseline<'_>>) -> GamingBrief {
     let workflow = workflow();
     let step = &workflow.frozen().steps()[0];
-    GamingBrief::about(step, pattern, &patch(text), baseline)
-        .expect("a judged pattern has a question")
+    GamingBrief::about(
+        step,
+        pattern,
+        &patch(text),
+        baseline,
+        &crate::Standing::unstated(),
+    )
+    .expect("a judged pattern has a question")
 }
 
 #[test]

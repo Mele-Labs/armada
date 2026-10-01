@@ -24,6 +24,7 @@
 mod mechanical;
 mod step;
 
+pub(crate) use mechanical::artifact_target;
 pub use mechanical::MechanicalCheck;
 pub use step::Step;
 
