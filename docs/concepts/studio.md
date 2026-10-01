@@ -125,8 +125,11 @@ flowchart LR
 > **Rule.** A node with an address never stops being its address. Whatever is typed beside it is additional, and one with no line is drawn by its address.
 > Why: the address is what a scout reads in. See #1378.
 
-> **Rule.** Pasting an address offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
+> **Rule.** Pasting an address into a Link's field offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
 > Why: a node that appears and offers nothing is the surface saying the person's paste did not matter.
+
+> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Note carrying it, and other text is a Note. It lands under the pointer, or in the middle of the view where the pointer is off the board. A paste into a field is that field's.
+> Why: the owner asked to paste whatever is on his clipboard, and a field opening first is the panel he had just asked to be rid of. A file copied in Finder is a File, since what Chromium is handed beside it is its icon. Decided with him, 1 Oct 2026; `.claude/decisions/2026-10-01-a-paste-lands-at-once.md`.
 
 > **Rule.** A node lands where the person is looking, not at the origin.
 > Why: a Studio is laid out by hand, and a node placed off-screen is a node a person has to go and find.

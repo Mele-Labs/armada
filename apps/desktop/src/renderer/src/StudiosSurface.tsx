@@ -24,6 +24,7 @@ import {
   openCaptureWindow,
   openServerLink,
   openStudioNode,
+  pathOfFile,
   promoteOnStudio,
   readStudioFrame,
   removeStudioNodes,
@@ -144,6 +145,7 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         }}
         onRename={(studioId, name) => renameStudio(studioId, name)}
         onAddNode={(node, position) => addStudioNode(openId ?? "", node, position)}
+        pathOfFile={pathOfFile}
         onMoveNode={(nodeId, position) => moveStudioNode(openId ?? "", nodeId, position)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}

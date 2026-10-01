@@ -114,6 +114,11 @@
   text-overflow: ellipsis;
 }
 
+/* A File's title is its path, and a path is a value: mono, as an address is. */
+.armada-studio-node[data-kind="file"] .armada-studio-node__title {
+  font-family: var(--font-mono);
+}
+
 /* A title that is itself an address — a Link nobody wrote a line on — is one
    line and not three. The clamp above already ends it in an ellipsis; what
    this changes is how many lines a URL is allowed to take, which is what the

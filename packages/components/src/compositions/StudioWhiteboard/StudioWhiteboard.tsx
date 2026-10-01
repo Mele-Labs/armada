@@ -6,6 +6,7 @@ import {
   applyNodeChanges,
   getBezierPath,
   useReactFlow,
+  useStore,
   type Edge,
   type EdgeProps,
   type Node,
@@ -121,6 +122,13 @@ export type StudioWhiteboardProps = {
   onPanePress?: (at: { x: number; y: number }) => void;
   /** A kind is armed, and the board draws a crosshair. */
   placing?: boolean;
+  /**
+   * ⌘V while the board has focus and no field does — the owner's note of
+   * 1 Oct 2026. `at` is under the pointer where it is over the board, and the
+   * middle of the view where it is not. Answers whether it took the paste;
+   * one it did not is left to the browser. Absent, a paste does nothing here.
+   */
+  onPaste?: (clipboard: DataTransfer, at: { x: number; y: number }) => boolean;
   /**
    * What sits over the board's top-right corner — a Studio's Run control.
    * **Never the field behind a rail press**: that is the draft, put down where
@@ -427,6 +435,48 @@ export function useStudioPlacement(): () => { x: number; y: number } {
   }, [flow]);
 }
 
+/** A paste aimed at somewhere a person types, which is that field's and not the board's. */
+function typing(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea") !== null);
+}
+
+/**
+ * The board's ⌘V. **Inside the board**, for `useStudioPlacement`'s reason: where
+ * a paste lands is read off the viewport React Flow holds.
+ *
+ * **The board is a focus target, and so takes focus from a press on it.** React
+ * Flow's pane is none, so a press on empty board left focus on the body and ⌘V
+ * never reached here. `-1` keeps it out of the Tab order.
+ */
+function BoardPaste({ onPaste }: { onPaste: NonNullable<StudioWhiteboardProps["onPaste"]> }) {
+  const board = useStore((state) => state.domNode);
+  const flow = useReactFlow();
+  const middle = useStudioPlacement();
+  const latest = useRef(onPaste);
+  latest.current = onPaste;
+  useEffect(() => {
+    if (board === null) return;
+    let pointer: { x: number; y: number } | null = null;
+    if (!board.hasAttribute("tabindex")) board.tabIndex = -1;
+    const moved = (event: PointerEvent) => void (pointer = { x: event.clientX, y: event.clientY });
+    const left = () => void (pointer = null);
+    const pasted = (event: ClipboardEvent) => {
+      if (event.clipboardData === null || typing(event.target)) return;
+      const at = pointer === null ? middle() : flow.screenToFlowPosition(pointer);
+      if (latest.current(event.clipboardData, { x: Math.round(at.x), y: Math.round(at.y) })) event.preventDefault();
+    };
+    board.addEventListener("pointermove", moved);
+    board.addEventListener("pointerleave", left);
+    board.addEventListener("paste", pasted);
+    return () => {
+      board.removeEventListener("pointermove", moved);
+      board.removeEventListener("pointerleave", left);
+      board.removeEventListener("paste", pasted);
+    };
+  }, [board, flow, middle]);
+  return null;
+}
+
 function Board({
   nodes: given,
   edges: givenEdges,
@@ -439,6 +489,7 @@ function Board({
   draft = null,
   onPanePress,
   placing = false,
+  onPaste,
   children,
   rail,
   nodeBar,
@@ -511,6 +562,7 @@ function Board({
       aside={children}
     >
       {nodeBar}
+      {onPaste === undefined || readOnly ? null : <BoardPaste onPaste={onPaste} />}
     </GraphCanvas>
   );
 }

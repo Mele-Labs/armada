@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -536,10 +536,11 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.createStudio, manifestId),
   renameStudio: (studioId: string, name: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.renameStudio, studioId, name),
-  // Three kinds and no more: the type is as narrow as the act, so the surface
-  // this bridge gains is a note, a link or a sketch rather than any node.
+  // Four kinds and no more: the type is as narrow as the act, so the surface
+  // this bridge gains is a note, a link, a sketch or a file rather than any node.
   addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position),
+  pathOfFile: (file: File): string => webUtils.getPathForFile(file),
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position),
   // The frame is main's: this hands over what was pointed at and nothing else,

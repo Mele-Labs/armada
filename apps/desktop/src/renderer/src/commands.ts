@@ -80,6 +80,7 @@ export const createStudio = (manifestId: string) => window.armada.createStudio(m
 export const renameStudio = (studioId: string, name: string) => window.armada.renameStudio(studioId, name);
 export const addStudioNode = (studioId: string, node: StudioNodeByHand, position: { x: number; y: number }) =>
   window.armada.addStudioNode(studioId, node, position);
+export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
 export const moveStudioNode = (studioId: string, nodeId: string, position: { x: number; y: number }) =>
   window.armada.moveStudioNode(studioId, nodeId, position);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>

@@ -971,11 +971,12 @@ void app.whenReady().then(() => {
       ? { x: at.x as number, y: at.y as number }
       : null;
   };
-  /** One of the three kinds a person adds by hand, with its own field filled. */
+  /** One of the four kinds a person adds by hand, with its own field filled. */
   const byHand = (value: unknown): value is StudioNodeByHand => {
-    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; body?: unknown };
+    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; body?: unknown; path?: unknown };
     if (node.kind === "note") return text(node.said);
     if (node.kind === "link") return text(node.address);
+    if (node.kind === "file") return text(node.path);
     return node.kind === "sketch" && text(node.body);
   };
   ipcMain.handle(CHANNELS.watchStudios, (_event, manifestId: unknown) =>

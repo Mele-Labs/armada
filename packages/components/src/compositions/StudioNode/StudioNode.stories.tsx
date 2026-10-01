@@ -230,6 +230,23 @@ export const LinkWithNoLine: Story = {
   },
 };
 
+const LONG_PATH = "/Users/user/Development/armada/packages/components/src/compositions/StudioNode/StudioNode.tsx";
+
+/**
+ * A path a person pasted, kept as pasted — absolute, under home, or from the
+ * repository's root. Drawn mono, as an address is, with the whole of a long
+ * one on the title.
+ */
+export const File: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="file" path="crates/fleet/src/briefing.rs" title="crates/fleet/src/briefing.rs" />
+      <StudioNode kind="file" path="~/Desktop/notes.md" title="~/Desktop/notes.md" />
+      <StudioNode kind="file" path={LONG_PATH} title={LONG_PATH} />
+    </Row>
+  ),
+};
+
 /**
  * The three kinds a forge address makes — #1394. **A kind is a concept, never
  * a vendor**: an Issue is an Issue whoever serves it, and which forge an

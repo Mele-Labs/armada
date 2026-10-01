@@ -306,6 +306,8 @@ function cardOf(
       // A person's line wins because it is theirs, and the address is drawn
       // under whichever it was, so nothing is said twice.
       return { kind: "link", address: node.address, title: node.said ?? node.named ?? node.address };
+    case "file":
+      return { kind: "file", path: node.path, title: node.path };
     // The three kinds a forge address makes — #1394. The title follows a
     // Link's rule, with what the forge calls it where a read-in learned one;
     // everything else the kind holds is a fact rather than a sentence.
