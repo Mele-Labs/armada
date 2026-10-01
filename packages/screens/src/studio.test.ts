@@ -364,7 +364,6 @@ test("a Finding says what it was handed beyond the checkout, and what was cut", 
           id: "a",
           kind: "finding",
           asked: "Read in armada:thread",
-          state: "frozen",
           sources: [
             { address: "armada:thread", kind: "thread", cut: 0 },
             { address: "https://x/page", kind: "page", cut: 12_400 },
@@ -379,6 +378,8 @@ test("a Finding says what it was handed beyond the checkout, and what was cut", 
   expect(read[0]!.node).toMatchObject({
     facts: ["Read this repository's Helm thread", "Read a page, 12,400 characters cut"],
   });
+  // Ended, it holds no state, and never reads as one nobody started.
+  expect(read[0]!.node).not.toHaveProperty("state");
 });
 
 test("an Epic says which of its issues it took, how many that left out and how many it kept", () => {

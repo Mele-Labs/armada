@@ -232,9 +232,9 @@ pub const COMMIT: &str = "4bdb169c0e1d2f3a4b5c6d7e8f9a0b1c2d3e4f5a";
 pub const COST: u64 = 18_020;
 
 /// The bench's Studio with a Finding on it, made by the first Note, which its
-/// scout started, read [`READ`] into and froze as answered — **through the
+/// scout started, read [`READ`] into and ended as answered — **through the
 /// transitions a scout's Fleet makes**, and nothing that sets a state by hand.
-pub fn a_studio_with_a_frozen_finding() -> StudioGraph {
+pub fn a_studio_with_an_ended_finding() -> StudioGraph {
     let mut graph = a_studio_with_two_notes();
     let proposed = StudioNode::added(
         StudioNodeId::carried(Ulid::carried("01FINDING")),
@@ -253,7 +253,7 @@ pub fn a_studio_with_a_frozen_finding() -> StudioGraph {
         gathering.looked(ScoutLook::File(file.to_string()));
     }
     gathering.looked(ScoutLook::Search("count in packages/screens".to_string()));
-    let frozen = gathering.frozen(
+    let ended = gathering.end(
         Some("The Board counts what `list_job_board` answers.".to_string()),
         ScoutEnded {
             outcome: ScoutOutcome::Answered,
@@ -263,12 +263,12 @@ pub fn a_studio_with_a_frozen_finding() -> StudioGraph {
     let produced = StudioEdge::produced(
         StudioEdgeId::carried(Ulid::carried("01EDGEASKED")),
         graph.nodes[0].id().clone(),
-        frozen.node().id().clone(),
+        ended.node().id().clone(),
         at(4),
         StudioAuthor::Person,
     )
     .expect("a Note and a Finding");
-    graph.nodes.push(frozen.node().clone());
+    graph.nodes.push(ended.node().clone());
     graph.edges.push(produced);
     graph
 }
@@ -368,7 +368,7 @@ pub fn a_studio_with_sources_read_in() -> StudioGraph {
             }],
         )
         .expect("a Finding just added is Proposed")
-        .frozen(
+        .end(
             Some(format!("What {address} says.")),
             ScoutEnded {
                 outcome: ScoutOutcome::Answered,

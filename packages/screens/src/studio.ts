@@ -294,9 +294,11 @@ function cardOf(
     case "finding":
       // What it was handed beyond the checkout, and what did not fit. A scout
       // asked about the code alone has none and says nothing about sources.
+      // **No state is a Finding its scout ended**, never one nobody started:
+      // `frozen` went on 1 Oct 2026, and Fleet sends a Proposed one's state.
       return {
         kind: "finding",
-        state: stateOf(node, "proposed"),
+        ...(node.state === undefined ? {} : { state: node.state as "proposed" | "gathering" }),
         title: node.asked,
         facts: (node.sources ?? []).map(sourceRead),
       };

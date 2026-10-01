@@ -33,7 +33,7 @@ import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchP
  */
 export type StudioRunState = "running" | "starting" | "serving" | "passed" | "failed" | "stopped";
 
-export type StudioFindingState = "proposed" | "gathering" | "frozen";
+export type StudioFindingState = "proposed" | "gathering";
 export type StudioContradictionState =
   | "reported"
   | "issue_draft"
@@ -41,7 +41,7 @@ export type StudioContradictionState =
   | "not_a_problem"
   | "resolved_here";
 export type StudioDeferralState = "open" | "answered";
-export type StudioOutlineState = "draft" | "frozen";
+export type StudioOutlineState = "draft";
 
 /**
  * The picture a Note kept, as the caller resolved it — #1352.
@@ -68,7 +68,8 @@ export type StudioNodeOf =
   | { kind: "run"; state?: StudioRunState }
   | { kind: "note"; frame?: StudioNodeFrame }
   | { kind: "cluster" }
-  | { kind: "finding"; state: StudioFindingState }
+  /** `state` absent: its scout ended, and how is one of its facts. Never `frozen` (1 Oct 2026). */
+  | { kind: "finding"; state?: StudioFindingState }
   | { kind: "contradiction"; state: StudioContradictionState }
   /**
    * The pad's drawing, drawn read-only in the card's picture plate — the
@@ -143,7 +144,6 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
 const NEUTRAL_STATE: Readonly<Record<string, string>> = {
   proposed: "proposed",
   gathering: "gathering",
-  frozen: "frozen",
   reported: "reported",
   issue_draft: "issue draft",
   deferral: "deferral",
@@ -199,7 +199,7 @@ export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
     const working = node.state === "running" || node.state === "starting" || node.state === "serving";
     return { words: node.state, status: null, run: node.state, missing: null, working };
   }
-  if (!("state" in node)) return { words: null, status: null, run: null, missing: null, working: false };
+  if (!("state" in node) || node.state === undefined) return { words: null, status: null, run: null, missing: null, working: false };
   return {
     words: NEUTRAL_STATE[node.state] ?? node.state,
     status: null,

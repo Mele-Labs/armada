@@ -71,8 +71,8 @@ pub use kit::{
 };
 pub use studio::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow,
-    ContradictionOutcome, Drawing, EdgeRefused, EpicRead, EpicTake, ForgeFacts, ForgeState,
-    FrozenFinding, GatheringFinding, NotRewritable, NotScoutable, Recognised, Rewritten,
+    ContradictionOutcome, Drawing, EdgeRefused, EndedFinding, EpicRead, EpicTake, ForgeFacts,
+    ForgeState, GatheringFinding, NotRewritable, NotScoutable, Recognised, Rewritten,
     ScoutCheckout, ScoutEnded, ScoutLook, ScoutOutcome, ScoutSource, ScoutSourceKind, Scouted,
     SketchBox, SketchDrawing, SketchJoin, SketchMalformed, SketchPicture, SketchPoint,
     SketchStroke, StateDoesNotFit, Studio, StudioAuthor, StudioCapture, StudioEdge, StudioEdgeId,
