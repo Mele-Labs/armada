@@ -820,6 +820,21 @@ What is actually open has therefore changed, and is no longer 'what is the numbe
 Judge is also not where verification's spend risk concentrates. Cost is not the driver on this tier and the Judge concept says so outright — latency is, because the calls queue at a gate a person is waiting behind. That bound is real and is enforced today, provisionally and by wall clock, in the composition root.
 """
 
+[settings.judge-brief-standing-rules-cap]
+name = "Judge brief: standing rules cap"
+scope = "Machine"
+default = "4 KiB"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "Lower is stricter"
+owner = "Fleet"
+read_by = "verification"
+notes = """
+The most of the file `armada.yml`'s `standing_rules` names that one Judge brief carries. Over it, `verification::Standing::read` cuts at the last whole line that fits and the brief says the file was cut, at what size, and that the rest is not shown — a Judge is never handed part of a repository's rules without being told. `STANDING_RULES` in `crates/verification/src/standing.rs`.
+
+**A judgement, not a measurement.** The text rides every Judge call, times `panel_size`, beside a brief already carrying the request, the Check tails and often the whole diff, so it must stay a small part of one. Four kibibytes is roughly a thousand tokens and nearly three times `docs/instructions/every-change.md`, the file written for this repository. It is a list of what every change carries, and a file that needs more is a contract to point at rather than to paste.
+"""
+
 [settings.judge-trigger-set-which-mechanical-results-fire-a-judge-check]
 name = "Judge trigger set (which mechanical results fire a Judge Check)"
 scope = "Kit → Manifest"

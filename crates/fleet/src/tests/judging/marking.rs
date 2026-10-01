@@ -47,6 +47,7 @@ async fn while_judging(judge: FakeJudge, worktree: &Worktree) -> (Vec<ipc::JobJu
         environment: Environment::nothing(),
         marking: marking(aloft.clone(), events.clone()),
         asked: Asked::nowhere(),
+        standing: verification::Standing::unstated(),
     };
     rule_on(
         at,

@@ -44,6 +44,7 @@ fn brief(pattern: GamingPattern, diff: &str) -> GamingBrief {
         pattern,
         &Patch::of(diff.to_string()),
         None,
+        &crate::Standing::unstated(),
     )
     .expect("a judged pattern has a question")
 }

@@ -88,6 +88,31 @@ export type JobResources = {
   worktree?: WorktreeOnDisk;
   /** When anything was last written to the Job's own log. */
   wrote_last_at?: string;
+  /**
+   * Every log file the Job has: its own log, then each Drone's transcript,
+   * then each kept Judge brief. Absent is a Job with no file yet, or a Fleet
+   * older than 21.2. Every row is the Job's own.
+   */
+  logs?: LogFile[];
+};
+
+/** Which of a Job's records a log file is. */
+export type LogKind = "job" | "transcript" | "brief";
+
+/** One log file a Job has, what it weighs and whether a writer holds it. */
+export type LogFile = {
+  kind: LogKind;
+  /** Relative to `records_root`, the way `Judged.brief_path` is. */
+  path: string;
+  /** Absent is a file Fleet listed and could not `stat`, never zero. */
+  bytes?: number;
+  /**
+   * Whether a process holds the file open for writing, as `lsof` reports it —
+   * the Job's tree or Fleet, which writes every transcript and the Job's log
+   * for as long as a Drone's output is being read. **Never an mtime.**
+   * Absent is `lsof` not answering, never `false`.
+   */
+  being_written?: boolean;
 };
 
 /**

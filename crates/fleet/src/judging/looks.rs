@@ -198,7 +198,15 @@ pub(crate) async fn judged(
     for check in step.judge_checks() {
         let model = model_for(check, &judging.default_model)?;
         for criterion in check.criteria() {
-            let brief = Brief::about(step, criterion, request, &product, &references, answered);
+            let brief = Brief::about(
+                step,
+                criterion,
+                request,
+                &judging.standing,
+                &product,
+                &references,
+                answered,
+            );
             // Once, outside the panel loop, because the panel answers one
             // brief. See `crate::asked`: the file is not a summary of the
             // members' briefs, it is the brief all of them were given.
@@ -255,7 +263,15 @@ pub(crate) async fn judged(
     // step's own rigour dial bill it for drift.
     if let Some(criterion) = verification::drift_criterion(off_plan) {
         let model = fleets_model(step, &judging.default_model)?;
-        let brief = Brief::about(step, &criterion, request, &product, &references, answered);
+        let brief = Brief::about(
+            step,
+            &criterion,
+            request,
+            &judging.standing,
+            &product,
+            &references,
+            answered,
+        );
         // Kept like any other, and this is the one whose brief nobody could
         // reconstruct: `drift_criterion` assembles a question out of the paths
         // the work touched, so what it asked is not in any workflow file.
@@ -355,7 +371,15 @@ pub(crate) async fn converging(
     judging: &Judging,
 ) -> Result<Convergence, CallFailed> {
     let model = fleets_model(step, &judging.default_model)?;
-    let brief = ConvergenceBrief::about(step, patch, declared, off_plan, held, precedent);
+    let brief = ConvergenceBrief::about(
+        step,
+        patch,
+        declared,
+        off_plan,
+        held,
+        precedent,
+        &judging.standing,
+    );
     let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
         .map_err(|_| CallFailed::NothingToAsk)?;
     // **One call, and it names neither a criterion nor a pattern**, because it

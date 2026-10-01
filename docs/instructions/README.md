@@ -9,6 +9,11 @@ fact lives as the repository does rather than an approximation of it.
 |---|---|
 | `claude-desktop.md` | The Armada project's instructions in the Claude desktop app |
 
+**One more is read rather than pasted.** `every-change.md` is what this
+repository requires of every change, written for `armada.yml`'s
+`standing_rules` to name; Fleet reads the file that key names into every Judge
+brief. It follows the same rule, because a Judge reads every byte of it.
+
 **The file is exactly what gets pasted, byte for byte.** No header, no note
 about being canonical — anything in the file would go into the destination
 along with it. That is what this README is for.
