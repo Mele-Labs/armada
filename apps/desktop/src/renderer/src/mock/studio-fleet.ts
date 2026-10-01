@@ -31,6 +31,18 @@ import type { FleetHandle, Scenario } from "./moment";
 const OK = { ok: true } as const;
 const MANIFEST_ID = repository().manifest!.id;
 
+/** The files a test says are on disk, by path. **The mock has no disk**, so every other one has none. */
+const ON_DISK = new WeakMap<File, string>();
+
+/** Say `file` is on disk at `path`, the way Finder's copy of one is. */
+export function onDisk(file: File, path: string): File {
+  ON_DISK.set(file, path);
+  return file;
+}
+
+/** `pathOfFile`, as main answers it: the path of a file on disk, and `""` for a screenshot. */
+export const pathOnDisk = (file: File): string => ON_DISK.get(file) ?? "";
+
 /**
  * Every Studio call a mock Fleet answers. **Named one by one**, so a Studio capability added to
  * `BridgeApi` fails typecheck here rather than going unanswered at runtime — `fake.ts`'s own rule.
@@ -40,6 +52,7 @@ export type StudioRoutes = Pick<
   | "watchStudios"
   | "watchStudio"
   | "createStudio"
+  | "pathOfFile"
   | "renameStudio"
   | "addStudioNode"
   | "captureStudioNote"
@@ -203,7 +216,8 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         const answer = write(studioId, (studio) => ({ ...studio, name, named_by: "person" }));
         return answer.ok ? OK : answer.outcome;
       },
-      // A node by hand — #1364. **The three kinds and no more**, the way Fleet
+      pathOfFile: pathOnDisk,
+      // A node by hand — #1364. **The four kinds and no more**, the way Fleet
       // refuses the rest from Bridge: a mock that took a Finding here would let
       // a test pass against a door that would not open.
       addStudioNode: async (studioId, node: StudioNodeByHand, position) => {

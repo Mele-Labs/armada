@@ -71,6 +71,7 @@ import { useStudioFrames, type ReadStudioFrame } from "./studio-frames";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
 import { useAddNodeKeys } from "./studio-keys";
+import { landingOf, pastedOf } from "./studio-paste";
 import { studioStartEntries, studioStarts, type StudioStart } from "./studio-starting";
 import type { StudioAnswer, StudioRead, StudiosRead } from "./studio-reads";
 import { useStudioPromotion } from "./StudioPromotion";
@@ -154,8 +155,10 @@ export type StudiosProps = {
   onCreate: () => Promise<StudioAnswer>;
   /** Name a Studio, or name it again. Reaches the list's rows and the open Studio alike. */
   onRename: (studioId: string, name: string) => Promise<Outcome>;
-  /** Put a Note, a Link or a Sketch on the open Studio, where the person is looking. */
+  /** Put a Note, a Link, a Sketch or a File on the open Studio, where the person is looking. */
   onAddNode: (node: StudioNodeByHand, position: StudioPosition) => Promise<Outcome>;
+  /** Where a pasted file is on disk, or `""` for one that is not — a screenshot. Main's to know. */
+  pathOfFile: (file: File) => string;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
@@ -530,6 +533,18 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   }
 
   /**
+   * ⌘V on the board — the owner, 1 Oct 2026: it **lands at once**, with no
+   * draft and no field. A picture is not taken yet (`studio-paste.ts`), so
+   * the browser keeps it.
+   */
+  function pasted(clipboard: DataTransfer, at: StudioPosition): boolean {
+    const landing = landingOf(pastedOf(clipboard, props.pathOfFile));
+    if (landing === null || landing.kind === "picture") return false;
+    void props.onAddNode(landing, at).then(answered);
+    return true;
+  }
+
+  /**
    * Start one entry, and let the node it makes land where the person is
    * looking. **A server goes to its own operation** — it is held rather than
    * run, and `start_studio_run` refuses a name carrying `serve` — #1345.
@@ -680,6 +695,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             editable ? <AddRail armed={arming} onArm={arm} /> : undefined
           }
           placing={editable && arming !== null}
+          {...(editable ? { onPaste: pasted } : {})}
           {...(editable && arming !== null ? { onPanePress: place } : {})}
           draft={
             editable && draft !== null

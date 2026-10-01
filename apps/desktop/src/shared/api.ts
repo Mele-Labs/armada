@@ -827,9 +827,9 @@ export type BridgeApi = {
    */
   renameStudio: (studioId: string, name: string) => Promise<Outcome>;
   /**
-   * Put a Note, a Link or a Sketch on a Studio, where the person is looking — #1364.
+   * Put a Note, a Link, a Sketch or a File on a Studio, where the person is looking — #1364.
    *
-   * **Three kinds, and the type is what says so.** Every other kind is made by
+   * **Four kinds, and the type is what says so.** Every other kind is made by
    * the act that earns it, and Fleet refuses one from Bridge by name; a
    * capability wide enough to ask for a Finding would be a capability the
    * renderer has and the door has to keep taking away.
@@ -839,6 +839,12 @@ export type BridgeApi = {
     node: StudioNodeByHand,
     position: StudioPosition,
   ) => Promise<Outcome>;
+  /**
+   * Where a file pasted onto a Studio is on disk, or `""` for one that is not —
+   * a screenshot. **The path and nothing else**: Electron hands the renderer a
+   * name, and this reads no file.
+   */
+  pathOfFile: (file: File) => string;
   /** Save where a person put a node down. Position only: nothing else about a node is written. */
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition) => Promise<Outcome>;
   /**

@@ -10,10 +10,11 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 
 /**
  * Add a node — the `+ Node` control on an open Studio, and the field behind
- * each of the three kinds a person puts on one by hand. `#1364`.
+ * each of the three kinds a person writes onto one by hand. `#1364`.
  *
  * **Three kinds and no more**, decided with the owner: a Note typed, a Link
- * pasted, a Sketch placed. A Finding comes from a scout, a Run from a run, a
+ * pasted, a Sketch placed. A File is a fourth by hand, and only ever pasted
+ * onto the board, so it has no field here. A Finding comes from a scout, a Run from a run, a
  * Cluster from promotion — and Fleet refuses the rest from Bridge by name, so
  * this menu and that door say the same thing.
  *
@@ -28,7 +29,9 @@ export type StudioNodeByHand =
   | { kind: "note"; said: string }
   /** `said` is the line beside the address, absent where none was typed. `#1378`. */
   | { kind: "link"; address: string; said?: string }
-  | { kind: "sketch"; body: string };
+  | { kind: "sketch"; body: string }
+  /** A path, pasted onto the board. **No field writes one**, so it is no `StudioNodeByHandKind`. */
+  | { kind: "file"; path: string };
 
 export type StudioAddNodeProps = {
   /** The kind being written, or `null` for the menu alone. */

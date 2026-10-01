@@ -76,6 +76,8 @@ export type StudioNodeOf =
    * they typed none the title *is* the address, and it is not said twice.
    */
   | { kind: "link"; address: string }
+  /** A path a person pasted, kept as pasted. The card's title is the path. */
+  | { kind: "file"; path: string }
   /**
    * The three kinds a forge address makes — `#1394`. Each draws its address
    * the way a Link does; what it holds besides is a fact, not a sentence.
@@ -116,6 +118,7 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
   contradiction: "Contradiction",
   sketch: "Sketch",
   link: "Link",
+  file: "File",
   issue: "Issue",
   pull_request: "Pull request",
   epic: "Epic",
@@ -243,6 +246,8 @@ export function StudioNode(props: StudioNodeProps) {
   // on: an address wrapped over three lines is what the node was before.
   const address = "address" in props ? props.address : null;
   const untitled = address !== null && address === title;
+  // A path past three lines is cut, so the whole of it is in the title.
+  const whole = untitled ? title : props.kind === "file" ? props.path : undefined;
   return (
     <Card
       // A card on the canvas is glass. `docs/contracts/design-system.md`, Depth.
@@ -274,7 +279,7 @@ export function StudioNode(props: StudioNodeProps) {
         <p
           className="armada-studio-node__title"
           data-clipped={untitled || undefined}
-          title={untitled ? title : undefined}
+          title={whole}
         >
           {title}
         </p>

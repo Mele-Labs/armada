@@ -31,6 +31,7 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "finding-file", position: { x: 680, y: 0 }, node: { kind: "finding", state: "frozen", title: "Fleet writes fleet.json once, at start", facts: ["$0.31"] } },
   { id: "cluster", position: { x: 680, y: 260 }, node: { kind: "cluster", title: "The Board's legend is illegible", facts: ["2 notes"] } },
   { id: "sketch", position: { x: 680, y: 520 }, node: { kind: "sketch", state: "frozen", title: "The legend, redrawn", facts: ["diagram"] } },
+  { id: "file", position: { x: 680, y: 780 }, node: { kind: "file", title: "packages/components/src/compositions/StatusLegend/StatusLegend.css", path: "packages/components/src/compositions/StatusLegend/StatusLegend.css" } },
   { id: "deferral", position: { x: 1020, y: -130 }, node: { kind: "deferral", state: "open", title: "Does the legend belong on the Board?", facts: ["blocks 1"] } },
   { id: "outline", position: { x: 1020, y: 260 }, node: { kind: "outline", state: "draft", title: "Legend, then width", facts: ["3 parts"] } },
   // The three kinds a forge address makes — #1394. Each is a record of
