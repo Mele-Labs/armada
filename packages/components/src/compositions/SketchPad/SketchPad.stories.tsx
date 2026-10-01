@@ -346,7 +346,7 @@ async function screenshot(): Promise<File> {
   pen.fillStyle = "gray";
   pen.fillRect(0, 0, 2880, 1800);
   const png = await canvas.convertToBlob({ type: "image/png" });
-  return new File([png], "screenshot.png", { type: "image/png" });
+  return new File([png], "image.png", { type: "image/png" });
 }
 
 /**
@@ -405,6 +405,85 @@ export const Pasted: Story = {
       await waitFor(() =>
         expect(canvas.queryByRole("group", { name: "A pasted picture" })).toBeNull(),
       );
+    });
+  },
+};
+
+/**
+ * What a real ⌘V hands the page on macOS, measured in Bridge's own Electron
+ * (the decision `2026-10-01-a-paste-lands-at-once.md`, on `studios/paste`).
+ * Each text shape carries `text/plain`; what differs is what rides beside it.
+ */
+const CLIPBOARDS: { from: string; text: string; beside: Record<string, string> }[] = [
+  { from: "an address bar", text: "https://example.com/tickets/1545", beside: {} },
+  {
+    from: "a page's text",
+    text: "the count goes stale",
+    beside: { "text/html": "<p>the count goes stale</p>" },
+  },
+  {
+    from: "a terminal",
+    text: "crates/fleet/src/briefing.rs",
+    beside: {
+      "text/html": "<pre>crates/fleet/src/briefing.rs</pre>",
+      "text/rtf": "{\\rtf1 crates/fleet/src/briefing.rs}",
+    },
+  },
+];
+
+/** Whether a node is drawn inside the pad on show and is the top thing at its own middle. */
+function inView(graph: HTMLElement, node: HTMLElement): boolean {
+  const pad = graph.getBoundingClientRect();
+  const at = node.getBoundingClientRect();
+  const inside =
+    at.left >= pad.left && at.top >= pad.top && at.right <= pad.right && at.bottom <= pad.bottom;
+  const top = document.elementFromPoint(at.left + at.width / 2, at.top + at.height / 2);
+  return inside && top !== null && node.contains(top);
+}
+
+/**
+ * ⌘V on a pad that already holds a drawing — **the owner's "not allowing me to
+ * paste links or anything else"**, 1 Oct 2026. Every paste landed a box, but
+ * placed a box-width down and across from each box it came near, which on
+ * this pad put it below the pad's own height: in the draft, out of sight. A
+ * picture skipped that rule, which is why only screenshots seemed to work.
+ *
+ * **So what is asserted is that each lands where a person can see it**, on
+ * top of whatever is there, for each shape a real clipboard carries — and
+ * that a screenshot is still a picture.
+ */
+export const PastedOnADrawing: Story = {
+  args: { ...args, strokes: [] },
+  render: (props) => <Held {...props} />,
+  play: async ({ canvas, step }) => {
+    const graph = canvas.getByLabelText(args.label);
+
+    for (const clipboard of CLIPBOARDS) {
+      await step(`text copied from ${clipboard.from} lands in view, as a box`, async () => {
+        paste(graph, (data) => {
+          data.setData("text/plain", clipboard.text);
+          for (const [type, value] of Object.entries(clipboard.beside)) data.setData(type, value);
+        });
+        const box = await canvas.findByRole("group", { name: `Box: ${clipboard.text}` });
+        await waitFor(() => expect(inView(graph, box)).toBe(true));
+      });
+    }
+
+    await step("a screenshot is still a picture, and lands in view", async () => {
+      const shot = await screenshot();
+      paste(graph, (data) => data.items.add(shot));
+      const picture = await canvas.findByRole("group", { name: "A pasted picture" });
+      const pad = graph.getBoundingClientRect();
+      await waitFor(() => {
+        const drawn = picture.getBoundingClientRect();
+        expect(drawn.top >= pad.top && drawn.bottom <= pad.bottom).toBe(true);
+      });
+    });
+
+    await step("text pasted after a picture is drawn over it, not hidden under it", async () => {
+      paste(graph, (data) => data.setData("text/plain", "over the picture"));
+      const box = await canvas.findByRole("group", { name: "Box: over the picture" });
+      await waitFor(() => expect(inView(graph, box)).toBe(true));
     });
   },
 };

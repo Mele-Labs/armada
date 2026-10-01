@@ -2,7 +2,6 @@ import {
   Handle,
   MarkerType,
   applyNodeChanges,
-  useReactFlow,
   type Edge,
   type FitViewOptions,
   type Node,
@@ -10,11 +9,12 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { Pencil, SquarePlus, Trash2, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
+import { Paste, useMiddle } from "./Paste";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
 import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
@@ -28,12 +28,7 @@ import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
  * **`GraphCanvas` is the graph half** (`#1539`) — no second canvas and no
  * drawing library. A box is words and a place, the way a Studio's `Sketch` node
  * is `{ body: String }`: no colour, no size, nothing to pick. The pen is this
- * surface's alone and no other canvas inherits it — see `Ink` below.
- *
- * **A paste aimed at the pad lands on it** (the owner, 1 Oct 2026): text is a
- * new box holding it, and a screenshot is a picture — moved, joined, drawn
- * over and removed like a box, and never resized. A paste into a box's own
- * field is that field's, and makes nothing.
+ * surface's alone and no other canvas inherits it: `Ink`, and `Paste` for ⌘V.
  *
  * **Nothing here stages anything.** What goes out is a PNG Bridge writes; every
  * edit is reported to the caller, so the drawing survives a switch to Write.
@@ -133,14 +128,6 @@ const MADE_IN_A_STUDIO = "From a Studio";
 /** What a pasted picture is called, for somebody who cannot see it. */
 const A_PICTURE = "A pasted picture";
 
-/**
- * How much of the pad a pasted picture may take, each way. **A screenshot is
- * the whole screen**, which at the pad's own scale is several pads across; it
- * is brought down to sit inside the part of the pad on show, with room around
- * it for the boxes it is about. A smaller picture keeps its own size.
- */
-const A_PICTURE_FILLS = 0.6;
-
 type BoxNode = Node<{ body: string; onBody: (body: string) => void; disabled: boolean }, "sketch">;
 type PictureNode = Node<SketchPictureLanding, "picture">;
 type PadNode = BoxNode | PictureNode;
@@ -238,51 +225,6 @@ const RAIL_LABEL = "What you can draw";
 const BOX_ACTS_LABEL = "What you can do with the boxes you picked";
 
 /**
- * Where a new box lands: the middle of the pad on show, clear of what is
- * already there. Add a box, a pasted line of text and a pasted picture all put
- * one down here.
- *
- * **A picture is centred both ways and stepped clear of other pictures
- * only.** Stepped clear of every box, a picture several boxes wide walked
- * off the side of the pad on show, which is worse than the overlap.
- *
- * **A hook inside the board**, because it reads the viewport React Flow holds,
- * and that only resolves inside the provider — `useStudioPlacement`'s own
- * finding.
- */
-function useMiddle() {
-  const flow = useReactFlow();
-  return useCallback(
-    (picture?: { width: number; height: number }) => {
-      const at = document.querySelector(".armada-sketch-pad__canvas")?.getBoundingClientRect();
-      if (at === undefined) return { x: 0, y: 0 };
-      const centre = flow.screenToFlowPosition({ x: at.x + at.width / 2, y: at.y + at.height / 2 });
-      // Half a box back, because a box is placed by its top-left corner. The
-      // width is read off the token it is drawn at rather than restated here.
-      const wide = Number.parseFloat(
-        getComputedStyle(document.body).getPropertyValue("--w-sketch-box"),
-      );
-      const half = Number.isFinite(wide) ? wide / 2 : 0;
-      const corner =
-        picture === undefined
-          ? { x: centre.x - half, y: centre.y }
-          : { x: centre.x - picture.width / 2, y: centre.y - picture.height / 2 };
-      // And off whatever is already there, so two boxes added in a row are two
-      // boxes rather than one with another hidden under it.
-      return clearOf(
-        flow
-          .getNodes()
-          .filter((node) => (node.type === "picture") === (picture !== undefined))
-          .map((node) => node.position),
-        corner,
-        Number.isFinite(wide) ? wide : 0,
-      );
-    },
-    [flow],
-  );
-}
-
-/**
  * The rail down the pad's leading edge — the pen, the line it takes back, and a
  * box added. **The acts on a box are not here**: they hover over the box, which
  * is `BoxActs` below.
@@ -333,76 +275,6 @@ function PadRail({
     },
   ];
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} disabled={disabled} />;
-}
-
-/** Whether a paste was aimed at somewhere a person types, which takes it as text. */
-function isTyping(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]") !== null;
-}
-
-/**
- * A paste aimed at the pad rather than at a field on it. **A picture wins over
- * text**, because a copied screenshot often carries a name beside its bytes and
- * the bytes are what was meant. Text lands at once as a box holding it, with
- * no field opening first — the rule the owner set for a Studio's paste on
- * 1 Oct 2026.
- *
- * **Listened for on the pad's frame**, which is outside the board; this sits
- * inside it so where a paste lands is read off the same viewport Add a box
- * reads.
- */
-function Paste({
-  pad,
-  onAdd,
-  onPicture,
-}: {
-  pad: RefObject<HTMLDivElement | null>;
-  onAdd: (at: { x: number; y: number }, body: string) => void;
-  onPicture: (picture: SketchPictureLanding, at: { x: number; y: number }) => void;
-}) {
-  const flow = useReactFlow();
-  const middle = useMiddle();
-
-  useEffect(() => {
-    const frame = pad.current;
-    if (frame === null) return;
-
-    const land = async (file: File) => {
-      const bitmap = await createImageBitmap(file);
-      const { width, height } = bitmap;
-      bitmap.close();
-      const shown = frame.getBoundingClientRect();
-      const zoom = flow.getZoom();
-      const scale = Math.min(
-        1,
-        ((shown.width / zoom) * A_PICTURE_FILLS) / width,
-        ((shown.height / zoom) * A_PICTURE_FILLS) / height,
-      );
-      const size = { width: Math.round(width * scale), height: Math.round(height * scale) };
-      onPicture({ src: URL.createObjectURL(file), ...size }, middle(size));
-    };
-
-    const pasted = (event: ClipboardEvent) => {
-      if (isTyping(event.target) || event.clipboardData === null) return;
-      const picture = Array.from(event.clipboardData.items)
-        .find((item) => item.kind === "file" && item.type.startsWith("image/"))
-        ?.getAsFile();
-      if (picture !== null && picture !== undefined) {
-        event.preventDefault();
-        void land(picture);
-        return;
-      }
-      const text = event.clipboardData.getData("text/plain").trim();
-      if (text === "") return;
-      event.preventDefault();
-      onAdd(middle(), text);
-    };
-
-    frame.addEventListener("paste", pasted);
-    return () => frame.removeEventListener("paste", pasted);
-  }, [pad, flow, middle, onAdd, onPicture]);
-
-  return null;
 }
 
 /**
@@ -471,9 +343,13 @@ function toPictureNode(picture: SketchPicture): PictureNode {
   };
 }
 
-/** Everything the caller gave, as React Flow holds it — the boxes, then the pictures. */
+/**
+ * Everything the caller gave, as React Flow holds it — **the pictures, then
+ * the boxes**, so a box is drawn over a picture and never hidden under one.
+ * A screenshot is what a box is about, and the box is the part with words.
+ */
 function given(props: SketchPadProps): PadNode[] {
-  return [...props.boxes.map((box) => toPadNode(box, props)), ...props.pictures.map(toPictureNode)];
+  return [...props.pictures.map(toPictureNode), ...props.boxes.map((box) => toPadNode(box, props))];
 }
 
 /**

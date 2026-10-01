@@ -120,12 +120,19 @@ designs had this with more than just a box. We could do a free draw as well."*
 > down.
 
 **A paste aimed at the pad lands on it**, the owner's call of 1 October 2026.
-Text is a new box holding it, put down at the middle of the pad on show with
-no field opening first. A screenshot is a picture on the pad rather than an
+Text is a new box holding it, put down in view with no field opening first.
+A screenshot is a picture on the pad rather than an
 attachment on the Job: scaled down to sit inside the pad on show, never
 resized after, and otherwise a box without words. It moves, joins, takes the
 pen over it and comes off under Remove. A paste into a box's own field types
 into that field and makes nothing.
+
+> **Rule.** Whatever lands on the pad — pasted or added — lands where it can
+> be seen: the free spot nearest the middle of the pad on show, or the middle
+> itself where none is free. A box is drawn over a picture, never under one.
+> Why: a box placed by stepping clear of every other box walked below a pad
+> that already held a drawing, so links pasted onto it landed out of sight.
+> The owner read that as paste not working, 1 October 2026.
 
 **A pad with a line and no box still attaches its picture**, because a person
 who drew and put down no box drew something. A pasted picture counts the same
