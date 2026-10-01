@@ -140,7 +140,7 @@ fn read_imports(text: &str, report: &mut Report) -> Vec<Import> {
 
 /// `text` with every `/* … */` blanked and every line kept, so a line number
 /// still means what it meant before.
-fn strip_comments(text: &str) -> String {
+pub(crate) fn strip_comments(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(open) = rest.find("/*") {
@@ -191,6 +191,8 @@ fn normalize(spec: &str) -> String {
     }
     parts.join("/")
 }
+
+pub mod claims;
 
 #[cfg(test)]
 mod tests;
