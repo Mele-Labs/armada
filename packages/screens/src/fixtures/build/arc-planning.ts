@@ -79,8 +79,9 @@ function planRefused(): StepDetail {
         verdict: "not_met",
         expected: "the plan names every file the panel's rows are drawn from",
         produced:
-          "The revision takes running-rows.tsx out of T5 and no other task claims it, so the " +
-          "rows are drawn by nothing.",
+          "The revision takes `running-rows.tsx` out of T5 and **no other task claims it**, so:\n\n" +
+          "- the rows are drawn by nothing\n" +
+          "- the panel opens empty",
       },
     ],
     attempts: [

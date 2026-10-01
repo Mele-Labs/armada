@@ -371,3 +371,57 @@ export const WithFollowUps: Story = {
     await expect(args.followUp?.onFileIssue).toHaveBeenCalledWith(open);
   },
 };
+
+/**
+ * Every cell the reviewer wrote, in its markdown: weight, a code span and a
+ * list each read as the structure written rather than asterisks and
+ * backticks. What Armada names itself — an area, a file, a test — stays
+ * literal beside them.
+ */
+export const MarkdownInTheCells: Story = {
+  args: {
+    confidence: {
+      says: "confident",
+      reasons: ["Every Check passed and the Judge met every criterion."],
+      areas: [
+        {
+          name: "Admission",
+          what: "CPU **no longer** holds a Job",
+          files: ["crates/fleet/src/headroom.rs"],
+        },
+      ],
+      tests: {
+        proves: [{ area: "Admission", what: "A saturated CPU holds **nothing** back", tests: 2 }],
+        changed: [{ name: REMOVED, change: "loosened", why: "It now asserts **the opposite**", flagged: false }],
+        untested: [{ code: "Opening Fleet settings", why: "No test reaches `open_settings`" }],
+      },
+      needs_you: [
+        {
+          finding: `\`${REMOVED}\` was loosened`,
+          why: "Two things:\n\n- a test weakened\n- with **no reason** in the diff",
+        },
+      ],
+      small_fixes: [],
+      for_context: [],
+      dismissed: [{ finding: "The **lock order** when saving", reason: "Saving takes `one_lock`" }],
+    },
+  },
+  play: async ({ canvas }) => {
+    // Folded sections stay mounted and hidden, so the read takes hidden cells too.
+    const strong = canvas.getAllByRole("strong", { hidden: true }).map((one) => one.textContent);
+    await expect(strong).toEqual([
+      "no longer",
+      "nothing",
+      "the opposite",
+      "no reason",
+      "lock order",
+    ]);
+    const code = canvas.getAllByRole("code", { hidden: true }).map((one) => one.textContent);
+    await expect(code).toEqual(expect.arrayContaining(["open_settings", REMOVED, "one_lock"]));
+    const items = canvas.getAllByRole("listitem", { hidden: true }).map((one) => one.textContent);
+    await expect(items).toEqual(
+      expect.arrayContaining(["a test weakened", "with no reason in the diff"]),
+    );
+    await expect(canvas.queryByText(/\*\*|`/)).toBeNull();
+  },
+};

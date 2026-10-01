@@ -41,6 +41,7 @@ import type { StepChapter } from "@armada/components";
 import { againOf, useShowAgain } from "./again";
 import { leadOf } from "./lead";
 import { OverviewBoard } from "./OverviewBoard";
+import { Approving } from "./approving";
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
 import { CircleDashed } from "lucide-react";
@@ -875,6 +876,16 @@ export function OverviewTab(props: OverviewTabProps) {
       // the Board row's to say at once (owner, 1 Oct 2026).
       lead={{ ...lead, act: leadAct, reading: lead.quiet === true && stillReading(watched, job.id) }}
       waiting={waiting}
+      // **What the approval approves, only while the lead offers it.** The
+      // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
+      // done or how its steps gate, and the Judge refused the plan for it.
+      {...(lead.approves !== true || waiting !== undefined || whole === null
+        ? {}
+        : {
+            approving: (
+              <Approving whole={whole} workflows={props.workflows} manifest={manifest} />
+            ),
+          })}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
         : {
