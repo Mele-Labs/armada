@@ -41,23 +41,39 @@ scripts/land preflight    clean tree, commits ahead of main -> stamp HEAD^{tree}
 scripts/land              stamp matches -> queue entry -> runner started if none -> returns
                                                   |
 runner (holds the turn lock) ----------------------+
-  local branch still at the queued head?  -- no -> outcome stopped
-  fetch main; head already in main? -- yes -> outcome landed (a killed runner's push)
-  worktree add --detach <head>
-  main moved? -- yes -> git merge <main>
+  take the first ARMADA_LAND_BATCH entries (4), in place order: one batch
+  each member: local branch still at the queued head?  -- no -> outcome stopped
+  fetch main; a member's head already in main? -- yes -> outcome landed (a killed runner's push)
+  stack = main; for each member, in order:
+    worktree at <head>; stack not in it? -- yes -> git merge <stack>
         |            | conflict only in generated files -> regenerate, commit
-        |            | any other conflict -> outcome conflict (keeps its place)
-  seed: cp -c the build directories in
-  regenerate: each generator -> anything changed? commit it | one failed -> outcome red
+        |            | other conflict, and with main alone too -> that member: outcome conflict
+        |            |                                            (keeps its place); the rest go on
+        |            | other conflict, only with a member before it -> split the batch
+    stack = commit-tree <candidate>^{tree} -p <stack> -p <candidate>   (Landed-from: <branch>)
+  seed: cp -c the build directories into a worktree at the stack
+  regenerate: each generator -> anything changed? commit it | one failed -> red
   verify-foundations: new FAIL / missing: lines vs main's own run
-  covers(changed, + landed if main moved) -> setup -> armada check each
-        | red -> outcome red, nothing pushed
-  commit-tree <candidate>^{tree} -p <gated base> -p <candidate>   (Landed-from: <branch>)
-  git push origin <merge>:main  -- not a fast-forward -> gate again (bounded rounds)
-        | pushed -> outcome landed
-  PR open? wait for GitHub to read it merged, else gh pr close --comment <merge>
-  remote branch all landed? -> git push origin --delete <branch>; print worktree cleanup commands
+  covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each
+        | red, one member -> outcome red, nothing pushed
+        | red, several    -> split the batch in half, first half first, and take each
+  git push origin <top>:main  -- not a fast-forward -> gate again (bounded rounds)
+        | pushed -> each member: outcome landed, naming its own merge
+  each member: PR open? wait for GitHub to read it merged, else gh pr close --comment <merge>
+  each member: remote branch all landed? -> git push origin --delete <branch>; print cleanup commands
 ```
+
+## Batching
+
+**A turn takes up to four waiting branches and gates them once.** One gate per branch made the wait grow with every agent landing. `ARMADA_LAND_BATCH` sets the size; `1` is the line as it was.
+
+- **Each branch still lands as its own merge commit, in place order.** Branch one is merged onto `main`, branch two onto that, and so on; the regeneration commits on top, and the push is of the top. `git log --first-parent main` reads one merge per branch, each with its `Landed-from:` trailer, and each outcome names its own merge.
+- **The gate and the Checks run once, over the union.** A Check runs when it covers any member's paths, or what landed on `main` since any member was cut.
+- **A red on more than one member splits the batch in half**, first half first, down to a single branch, where a red is reported to that branch's own agent exactly as it was before batching. Three greens and one red cost three gates, not four, and not one each.
+- **Two members that do not merge with each other split the batch too.** That costs merges, never a gate. Alone, the second meets the first on `main` and goes back with the conflict as any branch would.
+- **A member that does not merge with `main` itself goes back with the conflict, and the rest go on without it.** Whether a clash is with `main` or with a member before it is one extra merge of that branch with `main` alone.
+- **A Check red on `main` itself stops the whole batch as `main`'s**, without splitting: no half of it would pass.
+- **`--status` says who gates together.** Each member's line ends `together with` the others while the batch is in its turn.
 
 ## What the first run found
 
@@ -69,7 +85,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 - **The runner is detached into its own process group.** The Bash tool kills a command at 600 s; the runner outlives that call.
 - **A dead runner's entry stays queued.** The next `scripts/land` or `--status` finds the lock free and starts a runner, which retakes the turn.
 - **An entry is keyed by a hash of its branch** and carries the name, because branch names hold `/`.
-- **Every finished turn removes its entry**, whatever the outcome.
+- **Every finished entry leaves the line**, whatever the outcome, as soon as its own outcome is known, not when the rest of its batch finishes.
 - **A conflict and a red keep their place.** Resubmitted, the entry reuses the place the outcome recorded: the wait was already served.
 - **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, `CHECK_LIMIT` in `crates/armada/src/land/env.rs`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
 - **State lives under the common git directory**, in `armada-land/`, so every worktree of one clone shares one line.

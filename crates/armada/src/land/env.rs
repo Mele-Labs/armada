@@ -30,7 +30,12 @@ pub struct Env {
     pub pr_wait: Duration,
     /// How long one Check in a turn runs before it is killed and read as red.
     pub check_limit: Duration,
+    /// How many waiting branches one turn takes and gates together.
+    pub batch: usize,
 }
+
+/// [`Env::batch`] unless `ARMADA_LAND_BATCH` says otherwise.
+pub const BATCH: usize = 4;
 
 /// A copy of `armada.yml`'s `setup.requires`, named in the capability doc as
 /// what does not port — kept honest by
@@ -87,6 +92,11 @@ impl Env {
                 .and_then(|seconds| seconds.parse().ok())
                 .and_then(|seconds| Duration::try_from_secs_f64(seconds).ok())
                 .unwrap_or(CHECK_LIMIT),
+            batch: std::env::var("ARMADA_LAND_BATCH")
+                .ok()
+                .and_then(|count| count.parse().ok())
+                .filter(|count| *count > 0)
+                .unwrap_or(BATCH),
         }
     }
 

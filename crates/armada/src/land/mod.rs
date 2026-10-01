@@ -15,6 +15,7 @@
 //! [`onto_main`], which pushes the base itself.
 
 mod armada_cli;
+mod batch;
 mod caches;
 pub mod codec;
 pub mod dir;

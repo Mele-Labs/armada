@@ -108,6 +108,17 @@ test("typing part of a name narrows to it", async () => {
   expect(names()[0]).toBe("fleet-not-running");
 });
 
+test("every row is a line tall, however many there are", async () => {
+  await show();
+  await said().click();
+  await expect.element(field()).toBeVisible();
+
+  // 1 Oct 2026: the open list drew as one thin bar. Each row is a flex item
+  // with `overflow: hidden`, so the list shrank all of them to their padding.
+  const line = parseFloat(getComputedStyle(rows()[0]!).lineHeight);
+  for (const row of rows()) expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(line);
+});
+
 test("the search is fuzzy — the initials of a long name reach it", async () => {
   await show();
   await said().click();
