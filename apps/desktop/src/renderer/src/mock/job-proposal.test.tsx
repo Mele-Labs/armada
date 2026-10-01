@@ -73,7 +73,7 @@ describe("what a person may still change", () => {
       await expect
         .element(asked())
         .toHaveValue(
-          "The stat reads its two numbers off get_capacity, and nothing on it leads to the one " +
+          "The stat reads its two numbers off `get_capacity`, and nothing on it leads to the one " +
             "Drone that is running or to anything else the machine has out.",
         );
 

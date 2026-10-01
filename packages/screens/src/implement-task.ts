@@ -68,7 +68,7 @@ export function linesOfTask(
   turns: readonly Turn[],
   stepId: string | undefined,
   taskId: string,
-): { id: string; at?: string; said: string }[] {
+): { id: string; at?: string; said: string; words?: true }[] {
   const tasks = whole?.work_plan?.tasks ?? [];
   const instantOf = new Map(turns.map((turn) => [String(turn.seq), turn.ts]));
   return entriesOf(turns, stepId)
@@ -77,7 +77,14 @@ export function linesOfTask(
       return ts !== undefined && taskAt(ts, tasks) === taskId;
     })
     .slice(-MOST_LINES)
-    .map((row) => ({ id: row.id, at: row.at, said: row.message }));
+    .map((row) => ({
+      id: row.id,
+      at: row.at,
+      said: row.message,
+      // The Drone's own words are markdown; every other row is a sentence
+      // Armada assembled, and stays literal.
+      ...(row.kind === "said" ? { words: true as const } : {}),
+    }));
 }
 
 export type TaskInspectorReading = {

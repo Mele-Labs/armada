@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Prose } from "../../primitives/Prose/Prose";
 import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
@@ -294,10 +295,14 @@ export function PlanTaskSheet({
     >
       <div className="armada-task-sheet__body">
         {reason === undefined ? null : (
-          <TaskField label="Dropped because">{reason}</TaskField>
+          <TaskField label="Dropped because">
+            <Prose text={reason} />
+          </TaskField>
         )}
         {failedReason === undefined ? null : (
-          <TaskField label="Why it stopped">{failedReason}</TaskField>
+          <TaskField label="Why it stopped">
+            <Prose text={failedReason} />
+          </TaskField>
         )}
         {acts === undefined && edit === undefined && drop === undefined && propose === undefined ? null : (
           /* Keyed apart from the peek, which is keyed by the task too: two
@@ -311,7 +316,11 @@ export function PlanTaskSheet({
             task={{ title, note, scope, expects, model }}
           />
         )}
-        {(note ?? "") === "" ? null : <TaskField label="Brief">{note}</TaskField>}
+        {(note ?? "") === "" ? null : (
+          <TaskField label="Brief">
+            <Prose text={note ?? ""} />
+          </TaskField>
+        )}
         {/* **What a person reads and what they send are one place**, under
             the head: the Drone's tail with the box at its foot. A task no
             Drone has run has no tail, so the box stands alone. */}
@@ -693,11 +702,13 @@ function FilePath({
 }
 
 function Evidence({ said, of, absent }: { said: string; of?: string; absent: string }) {
-  const empty = (of ?? "") === "";
+  const empty = of === undefined || of === "";
   return (
     <div className="armada-task-sheet__row">
       <dt>{said}</dt>
-      <dd className={empty ? "armada-task-sheet__unsaid" : undefined}>{empty ? absent : of}</dd>
+      <dd className={empty ? "armada-task-sheet__unsaid" : undefined}>
+        {empty ? absent : <Prose text={of} />}
+      </dd>
     </div>
   );
 }

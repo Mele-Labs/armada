@@ -459,3 +459,32 @@ export const UnderAReview: Story = {
     await expect(canvas.getByText("What you asked for")).toBeVisible();
   },
 };
+
+/**
+ * The four blocks that carry a model's own words — the review's brief and
+ * risks, the Drone's claim and what it left alone — draw the markdown they
+ * were written in rather than its asterisks and backticks.
+ */
+export const MarkdownInTheRecord: Story = {
+  args: {
+    ...AtAGate.args,
+    brief: "Three test files were **never declared**, so their cases never ran.",
+    cameBack:
+      "Declared every file under `src/tests/`, with **two** changes:\n\n" +
+      "- the suite names each file\n- a gate rule fails the next one",
+    risks: "What no Check covered is **not covered here** either.",
+    leftAlone: "Two lint warnings in `proving.rs`, **untouched**.",
+  },
+  play: async ({ canvas }) => {
+    const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
+    await expect(strong).toEqual(["never declared", "two", "not covered here", "untouched"]);
+    const code = canvas.getAllByRole("code").map((one) => one.textContent);
+    await expect(code).toEqual(["src/tests/", "proving.rs"]);
+    // The criteria are a list of their own, so the claim's two items sit among them.
+    const items = canvas.getAllByRole("listitem").map((one) => one.textContent);
+    await expect(items).toEqual(
+      expect.arrayContaining(["the suite names each file", "a gate rule fails the next one"]),
+    );
+    await expect(canvas.queryByText(/\*\*/)).toBeNull();
+  },
+};

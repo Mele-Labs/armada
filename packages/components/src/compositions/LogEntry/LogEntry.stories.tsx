@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect } from "storybook/test";
+import { Prose } from "../../primitives/Prose/Prose";
 import { ToolName } from "../ToolName/ToolName";
 import { LogEntry, PayloadLine } from "./LogEntry";
 
@@ -55,6 +57,29 @@ export const Drone: Story = {
     mono: true,
     onToggle: () => {},
     payloadId: "entry-drone",
+  },
+};
+
+/**
+ * The Drone saying something, in markdown. **Its blocks run on along the one
+ * line**: emphasis and code draw, the list's items follow the paragraph rather
+ * than stacking under it, and the row clips as a plain sentence would.
+ */
+export const DroneMarkdown: Story = {
+  name: "The Drone writes markdown",
+  args: {
+    at: "14:26:35",
+    actor: "drone",
+    message: (
+      <Prose text={"## The split\nSplitting the reducer.\n**The public signature** stays put:\n\n- `selectSettings` keeps its name\n- the tests move with it"} />
+    ),
+    onToggle: () => {},
+    payloadId: "entry-drone-markdown",
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("The public signature").tagName).toBe("STRONG");
+    await expect(canvas.getByText("selectSettings").tagName).toBe("CODE");
+    await expect(canvas.getByText("the tests move with it").tagName).toBe("LI");
   },
 };
 

@@ -104,6 +104,35 @@ button.armada-entry:focus-visible {
   white-space: nowrap;
 }
 
+/* The Drone's sentence, as markdown, held to the row's one line. Prose draws
+   blocks; here they run inline, unframed, at the line's own size and nowrap, so
+   emphasis and code survive and the clip still ends in an ellipsis. Elements rather than
+   Prose's classes, which are its own to rename, and under `__msg` so this
+   outweighs Prose's own rules whatever order the two sheets load in. A block
+   after a block takes a space, where its line break was. */
+.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td) {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  white-space: inherit;
+}
+
+/* A line break is the space it stands for, and a rule is nothing. */
+.armada-entry__msg .armada-entry__line :is(br, hr) {
+  display: none;
+}
+
+.armada-entry__msg .armada-entry__line :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td)
+  + :is(div, p, ul, ol, li, pre, blockquote, table, thead, tbody, tr, th, td)::before {
+  content: " ";
+}
+
 /* What a call's edit added and removed, in the diff tokens — the same pair the
    payload's `passed` and `failed` lines take, and the same pair Produced and
    the patch view give a count of lines. They never shrink: the path before

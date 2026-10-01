@@ -219,14 +219,14 @@ export function watchOf(proposing: ProposalInFlight | null, now: number): Propos
  */
 function settledRows(
   settled: ProposalSettled | undefined,
-): { label: string; said: string }[] {
+): { label: string; said: string; prose?: boolean }[] {
   if (settled === undefined) return [];
   return [
     ...(settled.workflow_id === undefined
       ? []
       : [{ label: "Workflow", said: settled.workflow_id }]),
     ...(settled.title === undefined ? [] : [{ label: "Title", said: settled.title }]),
-    ...(settled.done_when ?? []).map((said) => ({ label: "Done when", said })),
+    ...(settled.done_when ?? []).map((said) => ({ label: "Done when", said, prose: true })),
     ...(settled.settings?.urgency === undefined
       ? []
       : [{ label: "Urgency", said: settled.settings.urgency }]),

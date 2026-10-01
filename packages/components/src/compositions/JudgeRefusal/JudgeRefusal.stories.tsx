@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect } from "storybook/test";
 import { JudgeRefusal } from "./JudgeRefusal";
 
 /**
@@ -129,5 +130,31 @@ export const Unanimous: Story = {
     ],
     reading:
       "All three judges found the same fault independently. A retry of this brief lands here again, so rewrite what the Drone was asked to do.",
+  },
+};
+
+/**
+ * The three fields are the Judge's own words, and it writes them in markdown.
+ * Each draws as the structure written — weight, a code span, a list — rather
+ * than its asterisks and backticks, and stays in its own labelled field.
+ */
+export const MarkdownInTheFinding: Story = {
+  args: {
+    heading: "Refused — 02 Behaviour unchanged",
+    finding: {
+      expected: "The suite is **red** when `parses_loose_trailing_whitespace` runs",
+      produced: "Two things instead:\n\n- the case is deleted\n- the suite is green",
+      consequence: "A parser regression ships as **verified**",
+    },
+  },
+  play: async ({ canvas }) => {
+    const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
+    await expect(strong).toEqual(["red", "verified"]);
+    await expect(canvas.getByRole("code")).toHaveTextContent("parses_loose_trailing_whitespace");
+    const items = canvas.getAllByRole("listitem").map((one) => one.textContent);
+    await expect(items).toEqual(
+      expect.arrayContaining(["the case is deleted", "the suite is green"]),
+    );
+    await expect(canvas.queryByText(/\*\*/)).toBeNull();
   },
 };

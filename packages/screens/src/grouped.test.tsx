@@ -186,7 +186,9 @@ describe("the Working area reads as the Drone's sentences", () => {
   it("draws no task heading where the Job has no plan", () => {
     const markup = narrated(sentences());
     expect(markup).not.toContain(OUTSIDE_ANY_TASK);
-    expect(markup).toContain("Now wire this into `Fleet::assembled` in fittings.rs:");
+    // The sentence is markdown, so its backticks draw as a code span.
+    expect(markup).toContain("Now wire this into ");
+    expect(markup).toContain("Fleet::assembled");
     expect(markup).toContain("1 call so far · Edit");
   });
 

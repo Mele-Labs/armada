@@ -3,6 +3,7 @@ import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/D
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/HoldButton";
 import { PathChip } from "../PathChip/PathChip";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
@@ -105,12 +106,19 @@ export type WorkflowInspectorRedirect = Omit<DroneMessageBoxProps, "placeholder"
   onReaches?: (id: string) => void;
 };
 
-/** One line a task's own agent wrote, newest last. */
+/** One line of a task's log, newest last. */
 export type WorkflowInspectorLine = {
   id: string;
   /** When it was said, already formatted. */
   at?: string;
   said: string;
+  /**
+   * `said` is the Drone's own words, so it is drawn as the markdown it was
+   * written in. **Absent is a line Armada assembled** — a call and its
+   * argument, a Check — and that stays literal: a glob in a call's argument,
+   * read as markdown, loses its stars to emphasis.
+   */
+  words?: true;
 };
 
 /**
@@ -259,7 +267,9 @@ function TaskRegions({ reading }: { reading: WorkflowInspectorTaskReading }) {
         {reading.brief === undefined ? (
           <Absent said={reading.briefAbsent ?? "No brief was recorded for this task."} />
         ) : (
-          <p className="armada-wf-inspector__brief">{reading.brief}</p>
+          <div className="armada-wf-inspector__brief">
+            <Prose text={reading.brief} />
+          </div>
         )}
       </Region>
 
@@ -307,7 +317,13 @@ function TaskRegions({ reading }: { reading: WorkflowInspectorTaskReading }) {
                 {line.at === undefined ? null : (
                   <span className="armada-wf-inspector__at mono">{line.at}</span>
                 )}
-                <span className="armada-wf-inspector__said">{line.said}</span>
+                {line.words === true ? (
+                  <div className="armada-wf-inspector__said">
+                    <Prose text={line.said} />
+                  </div>
+                ) : (
+                  <span className="armada-wf-inspector__said">{line.said}</span>
+                )}
               </li>
             ))}
           </ul>

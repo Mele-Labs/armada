@@ -32,6 +32,12 @@ export type WorkflowSummary = {
   manifest_id: string;
   /** `armada`, `kit` or `repository`. Absent from a Fleet older than the field. */
   source?: string;
+  /**
+   * The definition's `for_requests` line: what kind of request this workflow is
+   * for. Absent where the definition declares none, and from a Fleet older than
+   * 21.1.
+   */
+  for_requests?: string;
 };
 
 /** `GET /workflows/left_out`: a Kit or carried definition Fleet runs without. `crates/ipc/src/setup.rs`. */

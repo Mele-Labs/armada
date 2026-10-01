@@ -175,7 +175,9 @@ describe("a boundary that failed", () => {
 
   test("a task whose own agent stopped without finishing carries its reason", () => {
     expect(taskIn(groupFailed(), 3, "T6").failedReason).toBe(
-      "The row's press opened the Board rather than the Job",
+      "The row's press opened the Board rather than the Job:\n\n" +
+        "- `openBoard` ran on **every** row\n" +
+        "- the Job's id was never read",
     );
   });
 });

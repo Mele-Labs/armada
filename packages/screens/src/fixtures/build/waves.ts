@@ -325,7 +325,10 @@ const BLOCKED_REFUSAL: JudgeQuestion = {
   criterion_id: "the_half_is_named",
   question: "Does the message say which half refused — Bridge or Fleet?",
   expected: "A transport failure names the side that refused, as error-contract.md requires.",
-  produced: "The message reads 'the request failed' and names neither side.",
+  produced:
+    "The message reads `the request failed` and names **neither side**:\n\n" +
+    "- not Bridge, which sent it\n" +
+    "- not Fleet, which refused it",
   consequence: "A person cannot tell whether to restart Fleet or reopen the window.",
   asked_at: "2026-09-22T11:02:00Z",
 };

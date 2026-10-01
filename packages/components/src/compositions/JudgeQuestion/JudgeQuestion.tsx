@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from "react";
 import type { JudgeAnswer } from "@armada/protocol";
 import { JUDGE_FINDING, JUDGE_FINDING_LABEL, JUDGE_FINDING_SAID } from "../../judge-record";
 import { Button, STILL_WAITING, useStillWaiting } from "../../primitives/Button/Button";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -71,7 +72,10 @@ const ANSWERS: readonly [JudgeAnswer, "primary" | "secondary"][] = [
 export type JudgeQuestionProps = {
   /** Which criterion refused — `Does the fix address the cause the note names?` */
   question: string;
-  /** What should be seen, returned or recorded if the work is right. */
+  /**
+   * What should be seen, returned or recorded if the work is right. This and
+   * the two below are the Judge's own markdown, drawn through `Prose`.
+   */
   expected: string;
   /** What will be seen instead. */
   produced: string;
@@ -143,7 +147,7 @@ export function JudgeQuestion({
               <dt className="armada-judge-question__label">{JUDGE_FINDING_LABEL[field]}</dt>
             </Tooltip>
             <dd className="armada-judge-question__value" data-field={field}>
-              {finding[field]}
+              <Prose text={finding[field]} />
             </dd>
           </div>
         ))}
