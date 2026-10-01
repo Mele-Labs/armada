@@ -302,11 +302,8 @@ where
     /// a Helm session read a request too, and `job.created` for every Job
     /// this mints is published against that caller. `#943`.
     ///
-    /// `dispatched_as` is the origin every Job this mints carries, and **every
-    /// caller names one**: there is no default for it to fall through to,
-    /// because the default was *Found by Fleet* and it was wrong on a request
-    /// a person typed. [`requested`] for the composer, `promoting::pressed`
-    /// for a Studio.
+    /// `dispatched_as` is every minted Job's origin, and **no default**: it was
+    /// *Found by Fleet*, wrong on a request a person typed. `requested`.
     pub async fn propose_from_with_attachments(
         &self,
         request: &str,
