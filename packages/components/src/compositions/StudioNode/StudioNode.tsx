@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Badge } from "../../primitives/Badge/Badge";
 import { Card } from "../../primitives/Card/Card";
 import { JOB_STATUS, type Rendering } from "../../generated/vocabulary";
@@ -292,6 +294,43 @@ export function StudioNode(props: StudioNodeProps) {
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+export type StudioNodeDraftProps = {
+  kind: StudioNodeKind;
+  /** The field a person is typing into. The caller's, so its keys and its offer stay one thing. */
+  children: ReactNode;
+  /** Out to Fleet: the card says it is busy, as a working node does. */
+  pending?: boolean;
+};
+
+/**
+ * A node still being written — the owner's note of 1 Oct 2026: a press on the
+ * rail puts the node on the board, and the person types into the node itself
+ * rather than into a panel at the far side of the window.
+ *
+ * **The same card, with the field where the title goes.** The kind heads it
+ * as it heads every node, so what is being written reads as what it will be.
+ *
+ * **Bridge's alone until it is sent.** Nothing here is on the Studio yet, so
+ * it is drawn selected but never reported as a selection, and it takes no
+ * drag: a press inside it is a press on the field. `nodrag nopan nowheel` are
+ * React Flow's own words for that.
+ */
+export function StudioNodeDraft({ kind, children, pending = false }: StudioNodeDraftProps) {
+  return (
+    <Card
+      className="armada-studio-node armada-glass nodrag nopan nowheel"
+      data-kind={kind}
+      data-selected
+      aria-busy={pending || undefined}
+    >
+      <div className="armada-studio-node__head">
+        <span className="armada-studio-node__kind">{STUDIO_NODE_KIND[kind]}</span>
+      </div>
+      {children}
     </Card>
   );
 }

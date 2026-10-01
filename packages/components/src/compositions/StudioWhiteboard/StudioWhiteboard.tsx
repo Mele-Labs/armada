@@ -12,13 +12,20 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
-import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from "../StudioNode/StudioNode";
+import {
+  STUDIO_NODE_KIND,
+  StudioNode,
+  StudioNodeDraft,
+  studioNodeLabel,
+  type StudioNodeKind,
+  type StudioNodeOf,
+} from "../StudioNode/StudioNode";
 
 /**
  * Studio whiteboard — a Studio's nodes and edges, placed freely: drag, pan,
@@ -43,6 +50,21 @@ export type StudioWhiteboardNode = {
   /** Where the node sits, in the whiteboard's own coordinates. */
   position: { x: number; y: number };
   node: StudioNodeOf & { title: string; facts?: readonly string[] };
+};
+
+/**
+ * A node still being written, drawn where it will land — the owner's note of
+ * 1 Oct 2026. **Bridge's and nobody else's** until the caller sends it: it is
+ * never reported as moved or selected, and the field is the caller's.
+ */
+export type StudioWhiteboardDraft = {
+  /** A fresh id per draft, so a second draft is a fresh field rather than the first one re-kinded. */
+  id: string;
+  kind: StudioNodeKind;
+  position: { x: number; y: number };
+  /** The field. Focused once the board has drawn the card. */
+  field: ReactNode;
+  pending?: boolean;
 };
 
 export type StudioEdgeRelation = "same_as" | "blocks" | "answers";
@@ -90,12 +112,15 @@ export type StudioWhiteboardProps = {
   onDecide?: (edgeId: string, accepted: boolean) => void;
   /** The relation whose answer is out to Fleet. Its Accept spins, and every answer waits. */
   deciding?: string | null;
+  /** The node a rail press put down, with its field in it. Absent is none. */
+  draft?: StudioWhiteboardDraft | null;
   /**
-   * The field behind whatever the rail opened, over the board's top-right
-   * corner. **This and nothing else** — it drew the relations waiting on a
-   * person too, and a panel doing two jobs with neither of them named is what
-   * the owner read on 28 Sep 2026 as a card showing when nothing was selected.
-   * What waits on a person is answered on its own edge.
+   * What sits over the board's top-right corner — a Studio's Run control.
+   * **Never the field behind a rail press**: that is the draft, on the board
+   * where the node will land (the owner, 1 Oct 2026). Nor the relations
+   * waiting on a person — a panel doing two jobs with neither of them named is
+   * what the owner read on 28 Sep 2026 as a card showing when nothing was
+   * selected. What waits on a person is answered on its own edge.
    */
   children?: ReactNode;
   /**
@@ -131,7 +156,8 @@ export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
 };
 
 type BoardNodeData = StudioWhiteboardNode["node"];
-type BoardNode = Node<BoardNodeData, "studio">;
+type DraftNodeData = { kind: StudioNodeKind; field: ReactNode; pending: boolean };
+type BoardNode = Node<BoardNodeData, "studio"> | Node<DraftNodeData, "draft">;
 /** A proposed relation's card: who drew it, the sentence its buttons are named by, and the answer. */
 type Proposal = {
   proposer: string;
@@ -148,7 +174,7 @@ type BoardEdge = Edge<BoardEdgeData, "studio">;
  * an edge takes is chosen from where the two nodes sit — `facingSides`.
  * Nothing connects by hand, so none is drawn.
  */
-function BoardNodeView({ data, selected }: NodeProps<BoardNode>) {
+function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio">>) {
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
@@ -159,6 +185,26 @@ function BoardNodeView({ data, selected }: NodeProps<BoardNode>) {
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
     </>
+  );
+}
+
+/**
+ * A draft's card. **Focused once React Flow has measured it**, not on mount:
+ * a node is drawn `visibility: hidden` until its size is known, and focus on a
+ * hidden field does nothing — so `autoFocus` alone left the caret nowhere.
+ */
+function DraftNodeView({ data, width }: NodeProps<Node<DraftNodeData, "draft">>) {
+  const at = useRef<HTMLDivElement>(null);
+  const shown = width > 0;
+  useEffect(() => {
+    if (shown) at.current?.querySelector<HTMLElement>("textarea, input")?.focus();
+  }, [shown]);
+  return (
+    <div ref={at}>
+      <StudioNodeDraft kind={data.kind} pending={data.pending}>
+        {data.field}
+      </StudioNodeDraft>
+    </div>
   );
 }
 
@@ -262,11 +308,27 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
  */
 const JOINS_THE_SELECTION = ["Meta", "Control"];
 
-const NODE_TYPES = { studio: BoardNodeView };
+const NODE_TYPES = { studio: BoardNodeView, draft: DraftNodeView };
 const EDGE_TYPES = { studio: BoardEdgeView };
 
 function toBoardNode({ id, position, node }: StudioWhiteboardNode): BoardNode {
   return { id, position, type: "studio", data: node, ariaLabel: studioNodeLabel(node) };
+}
+
+/** What a draft is read aloud as: the kind, and that it is not on the Studio yet. */
+function toDraftNode({ id, kind, position, field, pending = false }: StudioWhiteboardDraft): BoardNode {
+  return {
+    id,
+    position,
+    type: "draft",
+    data: { kind, field, pending },
+    ariaLabel: `New ${STUDIO_NODE_KIND[kind]}`,
+    // Named as every node is, though it takes no focus stop of its own: the field inside is the stop.
+    ariaRole: "group",
+    draggable: false,
+    selectable: false,
+    focusable: false,
+  };
 }
 
 /**
@@ -274,12 +336,16 @@ function toBoardNode({ id, position, node }: StudioWhiteboardNode): BoardNode {
  * its measured size, whether it is selected. A node's kind, title and state
  * always come from the caller, so a Finding that freezes redraws in place.
  */
-function merged(given: readonly StudioWhiteboardNode[], kept: readonly BoardNode[]): BoardNode[] {
+function merged(
+  given: readonly StudioWhiteboardNode[],
+  draft: StudioWhiteboardDraft | null,
+  kept: readonly BoardNode[],
+): BoardNode[] {
   const byId = new Map(kept.map((node) => [node.id, node]));
-  return given.map((entry) => {
-    const fresh = toBoardNode(entry);
-    const held = byId.get(entry.id);
-    return held === undefined ? fresh : { ...held, data: fresh.data, ariaLabel: fresh.ariaLabel };
+  const fresh = [...given.map(toBoardNode), ...(draft === null ? [] : [toDraftNode(draft)])];
+  return fresh.map((node) => {
+    const held = byId.get(node.id);
+    return held === undefined ? node : ({ ...held, data: node.data, ariaLabel: node.ariaLabel } as BoardNode);
   });
 }
 
@@ -334,6 +400,7 @@ function Board({
   readOnly = false,
   onDecide,
   deciding = null,
+  draft = null,
   children,
   rail,
   nodeBar,
@@ -348,20 +415,20 @@ function Board({
   const [kept, setKept] = useState<BoardNode[]>(() =>
     given.map((entry) => ({ ...toBoardNode(entry), selected: pick !== null && entry.id === pick })),
   );
-  const nodes = useMemo(() => merged(given, kept), [given, kept]);
+  const nodes = useMemo(() => merged(given, draft, kept), [given, draft, kept]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<BoardNode>[]) => {
-      setKept((current) => applyNodeChanges(changes, merged(given, current)));
+      setKept((current) => applyNodeChanges(changes, merged(given, draft, current)));
       // `dragging: false` is a node put down: a drag ending, or an arrow key.
       for (const change of changes) {
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
-          onNodeMoved?.(change.id, change.position);
+          if (change.id !== draft?.id) onNodeMoved?.(change.id, change.position);
         }
       }
     },
-    [given, onNodeMoved, readOnly],
+    [given, draft, onNodeMoved, readOnly],
   );
 
   const edges = useMemo<BoardEdge[]>(() => {

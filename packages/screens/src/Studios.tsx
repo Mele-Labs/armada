@@ -10,7 +10,7 @@
 // **The whiteboard's selection is held here, not in `App`.** Clustering is of several nodes, and
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -115,6 +115,17 @@ function bindingOf(act: string): { shortcut?: string } {
 const RAIL_LABEL = "What you can put on this Studio";
 
 const PICKED_LABEL = "What is picked";
+
+/**
+ * A node a person is writing, before Fleet has it. **Its id is never a
+ * node's**: Fleet mints those, and nothing here is on the Studio yet.
+ */
+type Draft = { id: string; kind: StudioNodeByHandKind; position: StudioPosition };
+
+const DRAFT = "draft";
+
+/** How many drafts this window has put down, so each has an id of its own. */
+let drafted = 0;
 
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
@@ -408,13 +419,15 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   /** Every node picked on the whiteboard. A cluster is of several, and `App` keeps one. */
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [naming, setNaming] = useState(false);
-  // Which kind is being written, and whether it is out to Fleet — #1364. Held
-  // here rather than in the control, because `N`, `V` and `S` open it too.
-  const [adding, setAdding] = useState<StudioNodeByHandKind | null>(null);
+  // The node being written on the board, whether it is out to Fleet, and why
+  // Fleet did not take it — #1364, and the owner's note of 1 Oct 2026. Held
+  // here rather than in the node, because `N`, `V` and `S` put one down too.
+  // **Bridge's alone until it is sent**: Fleet never holds a blank node.
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [addingOut, setAddingOut] = useState(false);
+  const [addRefused, setAddRefused] = useState<string | undefined>(undefined);
   /** A start is out to Fleet: the menu does not send a second — #1345. */
   const [starting, setStarting] = useState(false);
-  useAddNodeKeys(open.editable && live, setAdding);
   // The pictures the Notes kept, and the `blob:` each one becomes — #1352.
   const frames = useStudioFrames(props.onReadFrame, open.id);
   const drawn = framesDrawn(studio, selectedNode);
@@ -459,12 +472,30 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     });
   }
 
-  function add(node: StudioNodeByHand, position: StudioPosition): void {
+  /**
+   * Put a draft down. **A fresh id every time**, so the field mounts empty.
+   * One already down has heard the press on the rail as a press off it, so it
+   * was sent or dropped before this one lands.
+   */
+  function putDown(kind: StudioNodeByHandKind, position: StudioPosition): void {
+    drafted += 1;
+    setAddRefused(undefined);
+    setDraft({ id: `${DRAFT}-${drafted}`, kind, position });
+  }
+
+  /**
+   * Send the draft. **Its refusal is drawn on the node**, which is where the
+   * person is looking. The draft is only taken off once Fleet has the node, and
+   * only if it is still the one sent: a press off it onto the rail sends this
+   * one and puts the next down before the answer lands.
+   */
+  function add(sent: Draft, node: StudioNodeByHand): void {
     setAddingOut(true);
-    void props.onAddNode(node, position).then((outcome) => {
+    setAddRefused(undefined);
+    void props.onAddNode(node, sent.position).then((outcome) => {
       setAddingOut(false);
-      answered(outcome);
-      if (outcome.ok) setAdding(null);
+      if (outcome.ok) setDraft((held) => (held?.id === sent.id ? null : held));
+      else setAddRefused(said(outcome));
     });
   }
 
@@ -616,7 +647,30 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             onSelectNode(ids[0] ?? null);
           }}
           rail={
-            editable ? <AddRail adding={adding} onAdding={setAdding} /> : undefined
+            editable ? <AddRail adding={draft?.kind ?? null} onAdding={putDown} /> : undefined
+          }
+          draft={
+            editable && draft !== null
+              ? {
+                  id: draft.id,
+                  kind: draft.kind,
+                  position: draft.position,
+                  pending: addingOut,
+                  field: (
+                    <StudioAddNode
+                      inPlace
+                      adding={draft.kind}
+                      onAdding={(kind) =>
+                        kind === null ? setDraft(null) : putDown(kind, draft.position)
+                      }
+                      onAdd={(node) => add(draft, node)}
+                      readIn={READING_IN_UNBUILT}
+                      saving={addingOut}
+                      {...(addRefused === undefined ? {} : { refused: addRefused })}
+                    />
+                  ),
+                }
+              : null
           }
           nodeBar={
             <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
@@ -632,22 +686,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             </GraphCanvasNodeBar>
           }
         >
-          {/* The field is drawn only while a kind is being written: the rail is
-              what asks for one now, so `StudioAddNode`'s own menu is a door
-              this screen no longer opens. */}
-          {editable && adding !== null ? (
-            <Card aria-label="Add a node">
-              <CardContent>
-                <AddNode
-                  adding={adding}
-                  onAdding={setAdding}
-                  onAdd={add}
-                  saving={addingOut}
-                  disabled={!editable}
-                />
-              </CardContent>
-            </Card>
-          ) : null}
           {editable && starts.length > 0 ? (
             <Card aria-label="Run">
               <CardContent>
@@ -697,17 +735,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 }
 
 /**
- * The `+ Node` control, drawn on the board's own aside.
- *
- * **A component and not markup**, because `useStudioPlacement` reads the
- * viewport React Flow is holding and only a component rendered inside the
- * board is inside that provider. What it buys is the rule: a node lands where
- * the person is looking rather than at the origin.
- */
-/**
  * The `Run` control, on the board's own aside — #1345.
  *
- * **`AddNode`'s shape for `AddNode`'s reason**: `useStudioPlacement` reads the
+ * **`AddRail`'s shape for `AddRail`'s reason**: `useStudioPlacement` reads the
  * viewport React Flow holds, and only a component drawn inside the board is
  * inside that provider. What it buys is the same rule — the Run node lands
  * where the person is looking rather than at the origin.
@@ -737,44 +767,35 @@ function StartRun(props: {
  * The rail's tool group: one icon per kind a person puts on a Studio by hand.
  *
  * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
- * 2026, which asked for a vertical bar of icons on the canvas's left. The field
- * behind a press is still drawn in the board's aside, where it has room for a
- * paragraph.
+ * 2026, which asked for a vertical bar of icons on the canvas's left. **A press
+ * puts the node itself down**, where the person is looking, with its field in
+ * it — the owner's note of 1 Oct 2026, which refused the panel the field was
+ * drawn in on the board's far side.
+ *
+ * **The keys are bound here and not on the screen**, because a key puts a node
+ * down too and only a component inside the board can ask `useStudioPlacement`
+ * where.
  */
 function AddRail({
   adding,
   onAdding,
 }: {
   adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind) => void;
+  onAdding: (kind: StudioNodeByHandKind, position: StudioPosition) => void;
 }) {
+  const place = useStudioPlacement();
+  const putDown = useCallback(
+    (kind: StudioNodeByHandKind) => onAdding(kind, place()),
+    [onAdding, place],
+  );
+  useAddNodeKeys(true, putDown);
   const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
     icon,
     pressed: adding === kind,
     ...(shortcut === undefined ? {} : { shortcut }),
-    onPress: () => onAdding(kind),
+    onPress: () => putDown(kind),
   }));
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
-}
-
-function AddNode(props: {
-  adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind | null) => void;
-  onAdd: (node: StudioNodeByHand, position: StudioPosition) => void;
-  saving: boolean;
-  disabled: boolean;
-}) {
-  const place = useStudioPlacement();
-  return (
-    <StudioAddNode
-      adding={props.adding}
-      onAdding={props.onAdding}
-      onAdd={(node) => props.onAdd(node, place())}
-      readIn={READING_IN_UNBUILT}
-      saving={props.saving}
-      disabled={props.disabled}
-    />
-  );
 }

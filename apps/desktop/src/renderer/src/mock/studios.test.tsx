@@ -323,6 +323,63 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
 });
 
 /**
+ * The owner's note of 1 Oct 2026, option 2: *when I click one of the new node
+ * options in the vertical toolbar, it immediately places the node on the
+ * canvas with it focused so that I can type in the details.* It replaced the
+ * panel the field stood in over the board's far corner.
+ *
+ * **A mock test rather than a story, because the claim is about where the
+ * field is** and what reaches Fleet: nothing until the node is written, and
+ * nothing at all for one abandoned.
+ */
+test("a rail press puts the node on the board with its field focused, and only a written one reaches Fleet", async () => {
+  const fleet = studying();
+  open(fleet.scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  const kept = () => fleet.studios().find((one) => one.name === "The Board's legend")!.nodes;
+  const before = kept().length;
+  const drafted = (kind: string) => page.getByRole("group", { name: `New ${kind}`, exact: true });
+
+  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await expect.element(drafted("Note")).toBeVisible();
+  // Typed straight into the node: the field is in it, and has the caret.
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  // And nowhere else: the corner the panel stood in holds no field.
+  expect(document.querySelector(".armada-graph-canvas__aside textarea, .armada-graph-canvas__aside input")).toBeNull();
+  // Nothing is sent for a node nobody has written yet.
+  expect(kept()).toHaveLength(before);
+
+  await userEvent.keyboard("The legend is unreadable in View");
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(node(/^Note: The legend is unreadable in View/)).toBeVisible();
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+
+  // The key puts one down the same way, and Esc takes it off with nothing sent.
+  await userEvent.keyboard("N");
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+
+  // A press off the node: blank is gone, written is sent.
+  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
+  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
+  await page.getByRole("heading", { name: "The Board's legend" }).click();
+  await expect.poll(() => drafted("Sketch").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+
+  await page.getByRole("button", { name: "Add a Sketch", exact: true }).click();
+  await expect.element(drafted("Sketch").getByLabelText("Sketch", { exact: true })).toHaveFocus();
+  await userEvent.keyboard("Board -> Legend -> View");
+  await page.getByRole("heading", { name: "The Board's legend" }).click();
+  await expect.poll(() => kept().length).toBe(before + 2);
+  await expect.poll(() => drafted("Sketch").query()).toBeNull();
+});
+
+/**
  * The owner's note of 29 Sep 2026 (g0zl): *This approval box is so disconnected
  * from the node … I could see exactly where this note is going to be added on
  * the board, and I can approve or reject it right there.*

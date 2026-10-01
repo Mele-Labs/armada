@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import { keyFor } from "../../actions";
@@ -20,6 +20,12 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  * **Which kind is being written is the caller's**, because the keys are: `N`,
  * `V` and `S` are live on the open Studio, and a menu holding its own state
  * would answer a press and the key would not.
+ *
+ * **`inPlace` is the field inside the node it makes** — the owner's note of
+ * 1 Oct 2026, which asked that a rail press put the node on the board rather
+ * than open a panel. The node's own head names the kind, so the field's label
+ * is read aloud and not drawn; there is no Cancel, because pressing anywhere
+ * off the node is the answer: written, it is sent, and blank, it is gone.
  */
 
 export type StudioNodeByHandKind = "note" | "link" | "sketch";
@@ -50,6 +56,8 @@ export type StudioAddNodeProps = {
   refused?: string;
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
+  /** Drawn inside the node it makes rather than in a panel. A press off it sends or abandons. */
+  inPlace?: boolean;
 };
 
 /** Each kind's act in the registry, which is the one place a binding is written. */
@@ -97,9 +105,14 @@ export function StudioAddNode({
   saving = false,
   refused,
   disabled = false,
+  inPlace = false,
 }: StudioAddNodeProps) {
   const [draft, setDraft] = useState("");
   const [line, setLine] = useState("");
+  const here = useRef<HTMLDivElement>(null);
+  // What a press off the node does, read at the press rather than bound to a
+  // render: the listener is registered once and the field changes under it.
+  const away = useRef<() => void>(() => undefined);
 
   // A new kind is a new field: what was half-typed for a Note is not a Link.
   // The field itself is keyed on the kind, so it mounts afresh and takes focus.
@@ -107,6 +120,27 @@ export function StudioAddNode({
     setDraft("");
     setLine("");
   }, [adding]);
+
+  // **Off the node is a pointer pressed outside it, or focus leaving it for
+  // something else on the page.** Blur alone would also fire on a press on the
+  // node's own text, and on the window losing focus to another app.
+  useEffect(() => {
+    if (!inPlace) return;
+    const outside = (target: EventTarget | null) =>
+      target instanceof Node && here.current !== null && !here.current.contains(target);
+    const pressed = (event: PointerEvent) => {
+      if (outside(event.target)) away.current();
+    };
+    const left = (event: FocusEvent) => {
+      if (outside(event.target)) away.current();
+    };
+    document.addEventListener("pointerdown", pressed, true);
+    document.addEventListener("focusin", left);
+    return () => {
+      document.removeEventListener("pointerdown", pressed, true);
+      document.removeEventListener("focusin", left);
+    };
+  }, [inPlace]);
 
   if (adding === null) {
     return (
@@ -131,6 +165,12 @@ export function StudioAddNode({
     if (node !== null) onAdd(node);
   }
 
+  away.current = () => {
+    if (saving || adding === null) return;
+    if (node === null) onAdding(null);
+    else onAdd(node);
+  };
+
   // Enter sends a line; a field a person writes prose in takes ⌘Enter, so a
   // paragraph break does not send the note. Esc abandons it either way.
   function keyed(event: KeyboardEvent<HTMLElement>): void {
@@ -146,12 +186,12 @@ export function StudioAddNode({
   }
 
   return (
-    <div className="armada-studio-add-node">
+    <div className="armada-studio-add-node" ref={here}>
       {adding === "link" ? (
         <Input
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           value={draft}
           mono
@@ -165,7 +205,7 @@ export function StudioAddNode({
         <Textarea
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           rows={rows}
           value={draft}
@@ -202,9 +242,11 @@ export function StudioAddNode({
             Read it in
           </Button>
         ) : null}
-        <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
-          Cancel
-        </Button>
+        {inPlace ? null : (
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
+            Cancel
+          </Button>
+        )}
         {adding === "link" ? <Kbd>Enter</Kbd> : <KbdChord keys={["⌘", "Enter"]} />}
       </div>
     </div>
