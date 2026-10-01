@@ -34,6 +34,7 @@
   "version": 1,
   "workflow_id": "design_plan",
   "name": "design_plan",
+  "for_requests": "Working out how something should be built before anybody builds it: a design or plan drafted, then revised with whoever asked until they are content, where the result is a document and no code is written. Trying the idea out in code is a prototype.",
   "structure": "loop",
   "steps": [
     {

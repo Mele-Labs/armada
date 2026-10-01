@@ -134,6 +134,16 @@ typecheck run from `packages/components` could not read the file, and the
 `grep` for `passed|failed` around it printed nothing at all. Run Checks from
 the repository root, and read a silence as nothing having run.
 
+**That is a silence after it exits. Mid-run, `armada check` writes nothing
+until the suite ends**, so an empty log is a suite still running, not one
+blocked; a slot wait says so on stderr. Confirmed 1 Oct 2026: six runs of
+`armada check test` beside desktop_test logged 0 bytes, and they were read
+as blocked. That cost two probes, a question to the owner and a read of the
+slot code before the test binaries' build times showed they had been running
+all along. **And `test`'s one-test form matches the whole path**:
+`armada check test tests::servers::<name>`, not `<name>`, which runs nothing
+after a full build.
+
 ### 5. Commit
 
 Read `.claude/skills/commit-message/SKILL.md`. Say what the diff cannot.

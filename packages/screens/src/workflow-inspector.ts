@@ -22,7 +22,7 @@ import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
 import { activityOf, stateOf } from "./run";
 import { groupNodeId } from "./plan-canvas";
-import { stepNodeId, stepTheGroupsWereMadeAt } from "./workflow-canvas";
+import { placeOf, stepNodeId, stepTheGroupsWereMadeAt } from "./workflow-canvas";
 
 /** What the inspector draws, less the two controls the tab wires itself. */
 export type WorkflowReading = Omit<WorkflowInspectorProps, "redirect" | "stop"> & {
@@ -163,7 +163,7 @@ export function workflowReadingOf({
   return {
     name: step.label,
     kind: "step",
-    eyebrow: `Step ${step.ordinal}`,
+    eyebrow: `Step ${placeOf(step)}`,
     state: { activity, said: frozen?.word ?? stateOf(step) },
     ...(wrote || works
       ? {

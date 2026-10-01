@@ -1,77 +1,151 @@
-/* Prose — model-written text, drawn as its structure.
+/* Prose — model-written markdown, drawn as its structure.
 
-   NOTHING HERE DECLARES A FONT SIZE, and that is the rule the file exists for.
-   The type scale belongs to docs/contracts/design-system.md; a renderer that
-   ships its own is a second design system inside the first. Every block
-   inherits the size of the surface it is drawn on, so the same component reads
-   at --text-sm in a dialog body and at --text-2xs in a rail row without either
-   value being restated here.
+   The body inherits the surface's size. Only a heading declares one: levels
+   one and two at --text-lg, level three at --text-base. The owner chose this
+   on 1 Oct 2026 ("B, more life"). docs/contracts/design-system.md,
+   *Prose — model-written markdown*.
 
-   What it does declare is spacing, family and weight — the three things a wall
-   of text is missing and none of which is a scale. */
+   BLOCK FLOW, NEVER FLEX. `-webkit-line-clamp` counts no lines inside a flex
+   box, and Prose is drawn inside `Clamped` (PlanBoard's approach, JobBrief).
+   Every gap is a margin between siblings. */
 .armada-prose {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: block;
   min-width: 0;
 }
 
-.armada-prose__paragraph {
+/* Zero specificity, so the sibling spacing below always wins over it. */
+:where(.armada-prose) :where(p, ul, ol, pre, blockquote, hr, table) {
   margin: 0;
+}
+
+.armada-prose > * + *,
+.armada-prose__quote > * + *,
+.armada-prose__item > * + * {
+  margin-top: var(--space-2);
+}
+
+/* A block of evidence (code, a table, a quote) takes more room than a paragraph. */
+.armada-prose > * + :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule),
+.armada-prose > :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule) + * {
+  margin-top: var(--space-3);
+}
+
+.armada-prose__paragraph {
   text-wrap: pretty;
 }
 
-/* What a `#` line becomes. Weight and full contrast against the muted body
-   around it — the structure the writer meant, without borrowing --text-lg from
-   the panel headings that own it. */
+/* A heading of any level: full contrast at heading weight, with a section's
+   space above it. */
 .armada-prose__said {
-  margin: 0;
   color: var(--fg-default);
   font-weight: var(--weight-heading);
 }
 
-.armada-prose__strong {
-  color: var(--fg-default);
-  font-weight: var(--weight-body);
+.armada-prose__said:is([data-level="1"], [data-level="2"]) {
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-default);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
 }
 
-/* A list is rows, not bullets. A marker glyph would be decorative iconography
-   on an instrument panel, and the indent already says what the marker would. */
+.armada-prose__said[data-level="3"] {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+.armada-prose > * + .armada-prose__said {
+  margin-top: var(--space-6);
+}
+
+/* Weight as well as contrast, so bold reads on text already at full contrast.
+   The owner's choice on 1 Oct 2026; never above --weight-heading. */
+.armada-prose__strong {
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+}
+
+.armada-prose del {
+  color: var(--fg-subtle);
+}
+
 .armada-prose__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0 0 0 var(--space-4);
-  list-style: none;
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+
+.armada-prose__list--ordered {
+  padding-left: var(--space-6);
+  list-style: decimal;
 }
 
 .armada-prose__item {
   text-wrap: pretty;
 }
 
-/* Machine-derived, so mono. A well rather than a tint, because --bg-sunken is
-   what the contract names for code. */
-.armada-prose__code {
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+/* A nested list's markers sit under its item's text, not under the item's marker. */
+.armada-prose__item .armada-prose__list {
+  padding-left: var(--space-6);
+}
+
+.armada-prose__item + .armada-prose__item {
+  margin-top: var(--space-1);
+}
+
+/* Accent on a marker nobody presses: the carve-out under Accent in the contract. */
+.armada-prose__item::marker {
+  color: var(--accent);
+}
+
+.armada-prose__list--ordered > .armada-prose__item::marker {
   font-family: var(--font-mono);
-  color: var(--fg-default);
-  /* An expression is one token to a reader and several to a line-breaker.
-     Breaking anywhere beats running off the edge; breaking mid-token only
-     happens where the whole run does not fit. */
+  font-weight: var(--weight-heading);
+}
+
+/* A task's checkbox is its marker. */
+.armada-prose__item:has(> .armada-prose__task) {
+  list-style: none;
+}
+
+.armada-prose__task {
+  margin: 0 var(--space-2) 0 0;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
+/* design-system.md, hard rule 2: an anchor takes --accent and underlines on
+   hover only. */
+.armada-prose__link {
+  color: var(--accent);
+  text-decoration: none;
+  text-underline-offset: var(--space-1);
   overflow-wrap: anywhere;
 }
 
-/* The fenced block. `pre-wrap` and not `pre`: this sits inside a dialog and a
-   rail, and a horizontal scrollbar inside a floating layer hides content
-   behind a gesture. The line breaks the writer put in are kept; the ones the
-   width forces are added. */
-.armada-prose__block {
-  margin: 0;
-  padding: var(--space-2);
+.armada-prose__link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+/* Machine-derived, so mono, in a well a step above the body's ground. */
+.armada-prose__code {
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  font-family: var(--font-mono);
+  color: var(--fg-default);
+  /* One token to a reader and several to a line-breaker: breaking anywhere
+     beats running off the edge. */
+  overflow-wrap: anywhere;
+}
+
+/* The fenced block wraps rather than scrolls: a horizontal scrollbar inside a
+   floating layer hides content behind a gesture. */
+.armada-prose__block {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--accent-muted);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
   font-family: var(--font-mono);
   color: var(--fg-default);
@@ -79,6 +153,59 @@
   overflow-wrap: anywhere;
 }
 
-.armada-prose__block code {
+/* The block's code element is the inline one too; inside the block it is no
+   second well. */
+.armada-prose__block .armada-prose__code {
+  padding: 0;
+  border: 0;
+  background: none;
   font-family: inherit;
+}
+
+/* Quoted words are someone's exact words: full contrast, in a tinted callout. */
+.armada-prose__quote {
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
+  color: var(--fg-default);
+}
+
+.armada-prose__rule {
+  border: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* The Table primitive's header treatment: a band in --bg-overlay, the one legal
+   ALL CAPS at --text-2xs. As wide as its content: in a dialog a full-width
+   table strands short columns a screen apart. */
+.armada-prose__table {
+  border: var(--border-width) solid var(--border-subtle);
+  border-collapse: collapse;
+}
+
+.armada-prose__th,
+.armada-prose__td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  /* Not `anywhere`: that sizes every column to one character and breaks a
+     header like "Before" in two. A path in a cell still breaks, as code. */
+  overflow-wrap: break-word;
+}
+
+.armada-prose__th {
+  padding: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-overlay);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.armada-prose__td {
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }

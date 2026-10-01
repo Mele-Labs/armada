@@ -6,7 +6,7 @@
 //! infrastructure a turn runs on. This stage is the orchestration that
 //! calls all of it and the CLI verb that reaches it — start at
 //! [`preflight::preflight`], [`enqueue::land`], [`status::status`] and
-//! [`runner_loop::run_runner`], then [`turn::take_turn`] and [`gating::gate`]
+//! [`runner_loop::run_runner`], then [`turn::take_turn`] and [`gating::foundations`]
 //! for what a turn does.
 //!
 //! State stays JSON, decoded and encoded only through
@@ -16,6 +16,7 @@
 
 mod armada_cli;
 mod batch;
+mod blame;
 mod caches;
 pub mod codec;
 pub mod dir;
@@ -40,6 +41,7 @@ pub mod stamp;
 mod status;
 mod stop;
 mod turn;
+mod withdraw;
 pub mod worktree;
 
 pub use codec::{ReadStateError, WriteStateError};
@@ -62,6 +64,7 @@ pub use runner_loop::run_runner;
 pub use stamp::{read_stamp, write_stamp, PreflightStamp};
 pub use status::{status, UNKNOWN};
 pub use stop::Refused;
+pub use withdraw::{withdraw, Withdrawn};
 pub use worktree::{
     drop_worktree, land_root, main_tree, reused, reused_keeping, LandRootError, LandWorktree,
     LogError, MainTreeError, ReuseError,

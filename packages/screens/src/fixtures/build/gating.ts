@@ -66,7 +66,7 @@ function retryingStep(): StepDetail {
   return {
     step_id: "regression_verify",
     label: "Regression check",
-    ordinal: 4,
+    ordinal: 3,
     state: "retrying",
     checks: [NEXTEST_CHECK],
     check_runs: [nextestFailed(1)],
@@ -200,7 +200,7 @@ function twoChecksOneReported(): StepDetail {
   return {
     step_id: "regression_verify",
     label: "Regression check",
-    ordinal: 4,
+    ordinal: 3,
     state: "running",
     checks: [NEXTEST_CHECK, BUILD_CHECK],
     check_runs: [nextestRun({ attempt: 1, output_path: REGRESSION_LOG })],
@@ -224,7 +224,7 @@ function checkStreamingStep(): StepDetail {
   return {
     step_id: "regression_verify",
     label: "Regression check",
-    ordinal: 4,
+    ordinal: 3,
     state: "running",
     checks: [NEXTEST_CHECK, BUILD_CHECK],
     check_runs: [],

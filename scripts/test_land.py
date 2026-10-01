@@ -365,6 +365,10 @@ class LineFixture(unittest.TestCase):
         return [line for line in open(self.env["LAND_TEST_EVIDENCE"]).read().splitlines()
                 if line.startswith("check ") and "/land/candidate" in line]
 
+    def read(self, cwd, path):
+        with open(os.path.join(cwd, path)) as held:
+            return held.read()
+
     def outcome(self, branch):
         return load(self.state_file("outcomes", key(branch) + ".json"))
 
@@ -551,10 +555,6 @@ class Line(LineFixture):
         self.env["ARMADA_LAND_REGENERATE"] = "sh open.sh"
         return header
 
-    def read(self, cwd, path):
-        with open(os.path.join(cwd, path)) as held:
-            return held.read()
-
     def test_a_stale_generated_file_is_regenerated_and_lands(self):
         header = self.stale_open()
         where = self.branch("fix/stale-open", {"questions/a": "a\n"})
@@ -656,6 +656,38 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 4, done.stdout)
         self.assertIn("missing: a new subject", done.stdout)
         self.assertNotIn("its subject", done.stdout.replace("a new subject", ""))
+
+    def test_a_new_foundations_line_is_red_without_running_a_check(self):
+        known = self.read(self.repo, "foundations.txt")
+        where = self.branch("fix/gate-only", {
+            "foundations.txt": "FAIL  a new rule\n        missing: a new subject\n" + known,
+        })
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/gate-only")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("missing: a new subject", done.stdout)
+        self.assertIn("no Check was run", done.stdout)
+        self.assertIn("foundations.log", self.logged("fix/gate-only"))
+        self.assertNotIn("test.log", self.logged("fix/gate-only"), "no Check log")
+        self.assertEqual(self.candidate_runs(), [], "no Check ran in the candidate")
+        self.assertFalse(os.path.exists(os.path.join(self.repo, ".armada", "land", "candidate", "marker.stamp")),
+                         "nor was it set up for one")
+
+    def test_withdraw_takes_a_waiting_entry_out_of_the_line(self):
+        gate, _ = self.blocked()
+        (where,) = self.queue([("fix/changed-my-mind", {"mind.txt": "1\n"})])
+        done = self.land(where, "--withdraw")
+        self.assertIn("withdrew fix/changed-my-mind", done.stdout)
+        self.assertNotIn(key("fix/changed-my-mind") + ".json", os.listdir(self.state_file("queue")))
+        status = self.land(where, "--status", check=False)
+        self.assertEqual(status.returncode, 7, status.stdout)
+        self.assertIn("withdrawn", status.stdout)
+        open(gate, "w").close()
+        self.assertEqual(self.settle(self.repo, "fix/blocker").returncode, 0)
+        self.assertNotIn("mind.txt", self.main_files())
+        again = self.land(where, "--withdraw", "fix/changed-my-mind")
+        self.assertIn("not in line", again.stdout)
 
     def test_a_check_only_one_side_hits_still_reruns(self):
         """The union: main lands under `ui/`, the branch never touches it."""
@@ -1228,6 +1260,110 @@ class Batch(LineFixture):
         first, second = self.outcome("fix/clash-a")["merge_commit"], self.outcome("fix/clash-b")["merge_commit"]
         self.git(self.repo, "fetch", "--quiet", "origin")
         sh("git", "merge-base", "--is-ancestor", first, second, cwd=self.repo, env=self.env)
+
+    def capped(self, lines):
+        """Main with a gate rule that fails a `.ts` file over `lines` lines,
+        naming the file, as `no_file_too_long` does."""
+        self.write(self.repo, {
+            "foundations.sh": self.read(self.repo, "foundations.sh") + (
+                f"for f in *.ts; do [ -f \"$f\" ] || continue; n=$(wc -l < \"$f\" | tr -d ' '); "
+                f"[ \"$n\" -gt {lines} ] && printf 'FAIL  no file too long\\n        "
+                f"missing: %s is %s lines, over {lines}\\n' \"$f\" \"$n\"; done; true\n"
+            ),
+            "long.ts": "".join(f"{n}\n" for n in range(lines - 1)),
+        })
+        self.git(self.repo, "add", "-A")
+        self.git(self.repo, "commit", "--quiet", "-m", "a capped file")
+        self.git(self.repo, "push", "--quiet", "origin", "main")
+
+    def foundations_runs(self):
+        return [line for line in open(self.env["LAND_TEST_EVIDENCE"]).read().splitlines()
+                if line.startswith("foundations ") and "/land/candidate" in line]
+
+    def test_a_gate_line_goes_to_the_one_member_that_touched_its_file(self):
+        self.capped(10)
+        gate, held = self.blocked()
+        names = ["fix/beside-a", "fix/grows-it", "fix/beside-c"]
+        long = "".join(f"{n}\n" for n in range(12))
+        wts = self.queue([
+            ("fix/beside-a", {"a.txt": "1\n"}),
+            ("fix/grows-it", {"long.ts": long, "grown.txt": "1\n"}),
+            ("fix/beside-c", {"c.txt": "1\n"}),
+        ])
+        before = len(self.foundations_runs())
+        open(gate, "w").close()
+        open(held, "w").close()
+        codes = [self.settle(where, name).returncode for where, name in zip(wts, names)]
+        self.assertEqual(codes, [0, 4, 0])
+        red = self.settle(wts[1], "fix/grows-it").stdout
+        self.assertIn("missing: long.ts is 12 lines, over 10", red)
+        self.assertIn("no Check was run", red)
+        merges = [self.outcome(name)["merge_commit"] for name in ("fix/beside-a", "fix/beside-c")]
+        self.assertEqual(merges[-1], self.main_head(), "one push for the two")
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        self.assertEqual(self.git(self.repo, "rev-parse", merges[-1] + "^1"), merges[0],
+                         "the two landed together, not one turn each")
+        self.assertEqual(len(self.foundations_runs()) - before, 2, "gated twice, with no split")
+        on_main = self.main_files()
+        self.assertNotIn("grown.txt", on_main)
+        self.assertIn("a.txt", on_main)
+        self.assertIn("c.txt", on_main)
+
+    def test_a_gate_line_two_members_touched_splits_the_batch(self):
+        self.capped(11)
+        gate, held = self.blocked()
+        names = ["fix/top", "fix/bottom", "fix/beside"]
+        base = "".join(f"{n}\n" for n in range(10))
+        wts = self.queue([
+            ("fix/top", {"long.ts": "top\n" + base}),
+            ("fix/bottom", {"long.ts": base + "bottom\n"}),
+            ("fix/beside", {"beside.txt": "1\n"}),
+        ])
+        before = len(self.foundations_runs())
+        open(gate, "w").close()
+        open(held, "w").close()
+        codes = [self.settle(where, name).returncode for where, name in zip(wts, names)]
+        self.assertEqual(codes, [0, 4, 0])
+        self.assertIn("missing: long.ts is 12 lines, over 11", self.settle(wts[1], "fix/bottom").stdout)
+        self.assertGreaterEqual(len(self.foundations_runs()) - before, 4,
+                                "split to find whose: all three, the first two, then each")
+
+    def test_a_withdrawn_entry_in_a_pending_half_is_not_gated(self):
+        gate, held = self.blocked()
+        known = self.read(self.repo, "foundations.txt")
+        names = ["fix/half-a", "fix/half-b", "fix/half-c"]
+        wts = self.queue([
+            ("fix/half-a", {"a.txt": "1\n", "hold.txt": "1\n"}),
+            ("fix/half-b", {"b.txt": "1\n"}),
+            # A line naming no path, so the batch splits rather than blames.
+            ("fix/half-c", {"c.txt": "1\n", "foundations.txt": "FAIL  a new rule\n        missing: a new subject\n" + known}),
+        ])
+        open(gate, "w").close()
+        deadline = time.monotonic() + 30
+        while "running ui" not in self.outcome("fix/half-a").get("detail", ""):
+            self.assertLess(time.monotonic(), deadline, "the first half never reached its Check")
+            time.sleep(0.1)
+        self.assertIn("together with fix/half-b", self.outcome("fix/half-a")["detail"])
+        self.assertNotIn("fix/half-c", self.outcome("fix/half-a")["detail"], "split before the Checks")
+        before = len(self.foundations_runs())
+        done = self.land(wts[2], "--withdraw")
+        self.assertIn("withdrew fix/half-c", done.stdout)
+        open(held, "w").close()
+        for where, name in zip(wts[:2], names[:2]):
+            self.assertEqual(self.settle(where, name).returncode, 0)
+        status = self.settle(wts[2], "fix/half-c")
+        self.assertEqual(status.returncode, 7, status.stdout)
+        self.assertIn("withdrawn", status.stdout)
+        self.assertEqual(len(self.foundations_runs()) - before, 0, "the withdrawn half was never gated")
+        self.assertNotIn("c.txt", self.main_files())
+
+    def test_withdraw_while_gating_says_the_turn_will_finish(self):
+        gate, _ = self.blocked()
+        done = self.land(self.repo, "--withdraw", "fix/blocker")
+        self.assertIn("withdrew fix/blocker", done.stdout)
+        self.assertIn("will still finish", done.stdout)
+        open(gate, "w").close()
+        self.assertEqual(self.settle(self.repo, "fix/blocker").returncode, 0)
 
     def test_a_member_that_conflicts_with_main_goes_back_and_the_rest_land(self):
         gate, held = self.blocked()
