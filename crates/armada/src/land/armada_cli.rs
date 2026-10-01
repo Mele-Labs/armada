@@ -14,8 +14,9 @@
 //! own reading.
 
 use std::path::Path;
+use std::time::Duration;
 
-use super::shell::run;
+use super::shell::{run, run_limited};
 use super::stop::Stopped;
 
 /// `$ARMADA_LAND_ARMADA covers`, fed the changed paths on stdin — the Checks
@@ -53,16 +54,25 @@ pub fn run_command(armada: &str, cwd: &Path, name: &str, log: &Path) -> Result<(
 }
 
 /// `$ARMADA_LAND_ARMADA check <name>` — one Check the combination hits,
-/// logged whole so a red turn's caller can point at it.
-pub fn check(armada: &str, cwd: &Path, name: &str, log: &Path) -> Result<CheckRan, Stopped> {
-    let ran = run(&[armada, "check", name], cwd, None, Some(log))?;
+/// logged whole so a red turn's caller can point at it, and killed past
+/// `limit`.
+pub fn check(
+    armada: &str,
+    cwd: &Path,
+    name: &str,
+    log: &Path,
+    limit: Duration,
+) -> Result<CheckRan, Stopped> {
+    let limited = run_limited(&[armada, "check", name], cwd, log, limit)?;
     Ok(CheckRan {
-        passed: ran.success(),
-        output: ran.combined(),
+        passed: limited.ran.success() && !limited.timed_out,
+        timed_out: limited.timed_out,
+        output: limited.ran.combined(),
     })
 }
 
 pub struct CheckRan {
     pub passed: bool,
+    pub timed_out: bool,
     pub output: String,
 }

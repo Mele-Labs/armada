@@ -98,10 +98,8 @@ fn land_verb(act: LandAct) -> ExitCode {
                 } else {
                     done.checks.join(", ")
                 };
-                println!(
-                    "Checks this change hits: {checks}. Each should have passed on this tree."
-                );
-                println!("When the owner says merge: armada land");
+                println!("Checks this change hits: {checks}. The line runs each of them.");
+                println!("Once the self-check passes: armada land");
                 ExitCode::SUCCESS
             }
             Err(why) => refused(&why),

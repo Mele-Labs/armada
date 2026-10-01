@@ -91,7 +91,7 @@ pub fn checks_on_the_base(
         super::prepare::setup(&at, env, logs)?;
         for name in unknown {
             let log = logs.join(format!("{name}-on-{}.log", env.base));
-            let ran = check(&env.armada, &at, name, &log)?;
+            let ran = check(&env.armada, &at, name, &log, env.check_limit)?;
             known.insert(name.clone(), ran.passed);
         }
         codec::write(&cache_path, &known).map_err(|why| Stopped::stopped(why.to_string()))?;

@@ -313,6 +313,14 @@ class LineFixture(unittest.TestCase):
     def main_head(self):
         return sh("git", "ls-remote", self.remote, "refs/heads/main", env=self.env).stdout.split()[0]
 
+    def onto_main(self, files, message):
+        """Commit straight onto main, as a hand merge would, with no turn to refuse it."""
+        self.git(self.repo, "pull", "--quiet", "--ff-only", "origin", "main")
+        self.write(self.repo, files)
+        self.git(self.repo, "add", "--", *files)
+        self.git(self.repo, "commit", "--quiet", "-m", message)
+        self.git(self.repo, "push", "--quiet", "origin", "HEAD:main")
+
     def mover(self):
         """A script that pushes one commit onto main, for a base that moves mid-gate."""
         path = os.path.join(self.root, "move-main.sh")
@@ -354,7 +362,7 @@ class Line(LineFixture):
 
         first = self.settle(one, "fix/one")
         self.assertEqual(first.returncode, 0, first.stdout)
-        self.assertNotIn("test.log", self.logged("fix/one"), "main had not moved, so no Check reran")
+        self.assertIn("test.log", self.logged("fix/one"), "main had not moved, and the Check the branch hits still ran")
         second = self.settle(two, "fix/two")
         self.assertEqual(second.returncode, 4, second.stdout)
         self.assertIn("test failed", second.stdout)
@@ -369,15 +377,25 @@ class Line(LineFixture):
         self.assertEqual(load(self.prs)["2"]["state"], "OPEN")
         self.assertEqual(os.listdir(self.state_file("queue")), [], "every exit leaves the line")
 
-    def test_main_unmoved_runs_the_gate_and_no_check(self):
-        where = self.branch("fix/alone", {"checks/test.sh": "exit 1\n"})
+    def test_main_unmoved_still_runs_the_checks_the_branch_hits(self):
+        where = self.branch("fix/red-alone", {"checks/test.sh": "exit 1\n"})
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/red-alone")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("red against main: test failed", done.stdout)
+        self.assertIn("test.log", self.logged("fix/red-alone"))
+        self.assertEqual(load(self.prs)["1"]["state"], "OPEN")
+
+    def test_main_unmoved_lands_on_the_gate_and_the_branchs_checks(self):
+        where = self.branch("fix/alone", {"alone.txt": "1\n"})
         self.land(where, "preflight")
         self.land(where)
         done = self.settle(where, "fix/alone")
         self.assertEqual(done.returncode, 0, done.stdout)
         self.assertIn("merged as", done.stdout)
         logged = self.logged("fix/alone")
-        self.assertNotIn("test.log", logged, "a failing Check never ran, because main had not moved")
+        self.assertIn("test.log", logged, "the Check the branch hits ran, though main had not moved")
         self.assertIn("foundations.log", logged, "the gate reads the tree on every turn")
         merge = self.outcome("fix/alone")["merge_commit"]
         self.git(self.repo, "fetch", "--quiet", "origin")
@@ -621,7 +639,7 @@ class Line(LineFixture):
         done = self.settle(where, "fix/breaks-the-gate-alone")
         self.assertEqual(done.returncode, 4, done.stdout)
         self.assertNotIn("foundations.sh", self.main_files() - {"foundations.sh"} or set())
-        self.assertNotIn("test.log", self.logged("fix/breaks-the-gate-alone"), "and still no Check ran")
+        self.assertIn("test.log", self.logged("fix/breaks-the-gate-alone"), "and the Check the branch hits ran beside it")
 
     def test_a_base_whose_own_gate_cannot_run_stops_rather_than_reds(self):
         # Broken on main by a hand merge, which is what the guard hook refuses.
@@ -880,13 +898,8 @@ class Line(LineFixture):
         self.assertEqual(self.settle(three, "fix/remade-three").returncode, 0)
 
     def test_a_check_already_red_on_main_is_not_the_branchs_fault(self):
-        # It reaches main on an unmoved turn, where no Check runs — which is how
-        # the pair of config tests reached main in this repository.
-        broken = self.branch("fix/breaks-test-on-main", {"checks/test.sh": "exit 1\n"})
         after = self.branch("fix/behind-a-red-main", {"after.txt": "1\n"})
-        self.land(broken, "preflight")
-        self.land(broken)
-        self.assertEqual(self.settle(broken, "fix/breaks-test-on-main").returncode, 0)
+        self.onto_main({"checks/test.sh": "exit 1\n"}, "break test on main")
 
         self.land(after, "preflight")
         self.land(after)
@@ -896,16 +909,61 @@ class Line(LineFixture):
         self.assertIn("not this branch's", done.stdout)
         self.assertNotIn("after.txt", self.main_files(), "nothing merges either way")
 
+    def test_a_check_past_its_limit_is_red_and_gives_the_turn_up(self):
+        # The grandchild leads a group of its own, as `armada check` puts a
+        # Check's command in one, so killing only the runner's child would miss it.
+        pid_file = os.path.join(self.root, "hung.pid")
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        mover = self.branch("fix/moves-hung", {"moved.txt": "1\n"})
+        hung = self.branch("fix/hung", {"checks/test.sh": (
+            "python3 -c 'import os, time; os.setpgid(0, 0); "
+            f"open(\"{pid_file}\", \"w\").write(str(os.getpid())); time.sleep(600)' &\n"
+            "sleep 600\n"
+        )})
+        self.land(mover, "preflight")
+        self.land(mover)
+        self.assertEqual(self.settle(mover, "fix/moves-hung").returncode, 0)
+        behind = self.branch("fix/behind-hung", {"behind.txt": "1\n"})
+        for where in (hung, behind):
+            self.land(where, "preflight")
+            self.land(where)
+
+        done = self.settle(hung, "fix/hung")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("test timed out after 2 seconds", done.stdout)
+        self.assertNotIn("already fails", done.stdout, "main's own run of it passed")
+        with open(pid_file) as held:
+            pid = int(held.read())
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                break
+            self.assertLess(time.monotonic(), deadline, "the Check's own process group outlived its limit")
+            time.sleep(0.1)
+        self.assertEqual(self.settle(behind, "fix/behind-hung").returncode, 0,
+                         "the next entry gets its turn")
+
+    def test_a_check_past_its_limit_on_main_too_is_mains(self):
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        after = self.branch("fix/behind-a-hung-main", {"after.txt": "1\n"})
+        self.onto_main({"checks/test.sh": "sleep 600\n"}, "hang test on main")
+
+        self.land(after, "preflight")
+        self.land(after)
+        done = self.settle(after, "fix/behind-a-hung-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("test timed out after 2 seconds", done.stdout)
+        self.assertIn("already fails on main", done.stdout)
+
     def test_one_turn_says_the_branchs_red_and_mains_together(self):
         self.write(self.repo, {"checks/ui.sh": "! { [ -f ui/a ] && [ -f ui/b ]; }\n"})
         self.git(self.repo, "add", "-A")
         self.git(self.repo, "commit", "--quiet", "-m", "a scoped Check")
         self.git(self.repo, "push", "--quiet", "origin", "main")
-        broken = self.branch("fix/red-main", {"checks/test.sh": "exit 1\n", "ui/a": "1\n"})
         mine = self.branch("fix/red-mine", {"ui/b": "1\n"})
-        self.land(broken, "preflight")
-        self.land(broken)
-        self.assertEqual(self.settle(broken, "fix/red-main").returncode, 0)
+        self.onto_main({"checks/test.sh": "exit 1\n", "ui/a": "1\n"}, "break test and half of ui on main")
 
         self.land(mine, "preflight")
         self.land(mine)

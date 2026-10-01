@@ -16,6 +16,7 @@ use super::prove::wait_for_head;
 use super::queue::QueueEntry;
 use super::repo::changed_paths;
 use super::say::say;
+use super::shell::spoken;
 use super::stop::Stopped;
 use super::worktree::{reused_keeping, LandWorktree};
 
@@ -81,7 +82,10 @@ pub fn gate(
             state,
             branch,
             OutcomeState::Gating,
-            format!("{} has not moved; reading the gate, and no Check", env.base),
+            format!(
+                "{} has not moved; reading the gate and the Checks the branch hits",
+                env.base
+            ),
             OutcomePatch::default(),
         )?;
     }
@@ -96,13 +100,12 @@ pub fn gate(
         )
     })?;
     let candidate = super::repo::rev_parse(&where_, "HEAD")?;
-    let mut rerun = Vec::new();
+    let since = super::repo::merge_base(repo, head, base)?;
+    let mut hit: Vec<String> = changed_paths(repo, &since, &candidate)?;
     if moved {
-        let since = super::repo::merge_base(repo, head, base)?;
-        let mut hit: Vec<String> = changed_paths(repo, &since, base)?;
-        hit.extend(changed_paths(repo, &since, &candidate)?);
-        rerun = covers(&env.armada, &where_, &hit)?;
+        hit.extend(changed_paths(repo, &since, base)?);
     }
+    let rerun = covers(&env.armada, &where_, &hit)?;
 
     say(
         state,
@@ -133,6 +136,7 @@ pub fn gate(
 
     let mut failed = Vec::new();
     let mut uninstalled = Vec::new();
+    let mut timed_out = Vec::new();
     if !rerun.is_empty() {
         setup(&where_, env, logs)?;
         nothing_left(&where_, "preparing the gate")?;
@@ -150,8 +154,13 @@ pub fn gate(
         )?;
         let log = logs.join(format!("{name}.log"));
         log_paths.push(path_string(&log));
-        let ran = check(&env.armada, &where_, name, &log)?;
+        let ran = check(&env.armada, &where_, name, &log, env.check_limit)?;
         if ran.passed {
+            continue;
+        }
+        if ran.timed_out {
+            timed_out.push(name.clone());
+            failed.push(name.clone());
             continue;
         }
         match not_installed(&ran.output) {
@@ -210,9 +219,24 @@ pub fn gate(
         }));
     }
 
+    let killed = |names: &[String]| {
+        let past: Vec<String> = names
+            .iter()
+            .filter(|name| timed_out.contains(*name))
+            .cloned()
+            .collect();
+        (!past.is_empty()).then(|| {
+            format!(
+                "{} timed out after {} and was killed",
+                past.join(", "),
+                spoken(env.check_limit)
+            )
+        })
+    };
     let theirs = (!already.is_empty()).then(|| {
         format!(
-            "{} already fails on {} itself, so that much is not this branch's — fix {} and land that first",
+            "{}{} already fails on {} itself, so that much is not this branch's — fix {} and land that first",
+            killed(&already).map_or(String::new(), |said| format!("{said}, and ")),
             already.join(", "),
             env.base,
             env.base
@@ -225,9 +249,15 @@ pub fn gate(
             format!("against {}", env.base)
         };
         let mut parts = Vec::new();
-        if !failed.is_empty() {
-            parts.push(format!("{} failed", failed.join(", ")));
+        let red: Vec<String> = failed
+            .iter()
+            .filter(|name| !timed_out.contains(*name))
+            .cloned()
+            .collect();
+        if !red.is_empty() {
+            parts.push(format!("{} failed", red.join(", ")));
         }
+        parts.extend(killed(&failed));
         if let Some(crashed) = &crashed {
             parts.push(crashed.clone());
         }

@@ -75,9 +75,9 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 **A quick self-check, once: build, typecheck, and the tests of what you
 changed.** The merge line is the full run: `scripts/land` runs the Checks the
-merged tree hits against the real `main`, and a red there comes back to you
-(step 6). Where `main` has not moved since the branch was cut it runs only the
-gate (`docs/practices/running-locally.md`, *Landing a branch*).
+branch hits, and those `main` brought in when it moved, against the real
+`main`, and a red there comes back to you (step 6).
+`docs/practices/running-locally.md`, *Landing a branch*.
 
 **Never every Check the branch touches, and never twice.** Confirmed 13 Sep
 2026: a session ran every row of the old table on every branch and again after
