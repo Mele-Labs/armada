@@ -11,7 +11,7 @@ import {
   type NodeTypes,
   type OnNodesChange,
 } from "@xyflow/react";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { Maximize } from "lucide-react";
 
@@ -218,6 +218,42 @@ function Surface<N extends Node, E extends Edge>({
   children,
 }: GraphCanvasProps<N, E>) {
   const flow = useReactFlow();
+  // **A caller that applies no changes still gets its nodes' sizes kept.**
+  // React Flow reads a node's size off the node it is handed and draws a node
+  // without one hidden, until its resize observer measures it again — which it
+  // asks for only when that node's own render sees it go from measured to not.
+  // The Job's run is rebuilt on every render and took no `onNodesChange`, so
+  // every render hid every card for a frame, and one built before the first
+  // measurement and taken in after it (a guide card opening, a live Job's next
+  // read) wiped that measurement before any card drew it. Nothing asked again,
+  // and the owner's first real Job drew an empty canvas (1 Oct 2026) where the
+  // mock, rendered once, drew every step. Keeping the sizes is the part of
+  // `applyNodeChanges` such a caller needs; one that applies its own changes
+  // hands `measured` back itself and is left alone.
+  const [sizes, setSizes] = useState<ReadonlyMap<string, { width: number; height: number }>>(new Map());
+  const keepSizes = useCallback<OnNodesChange<N>>((changes) => {
+    setSizes((held) => {
+      let next: Map<string, { width: number; height: number }> | undefined;
+      for (const change of changes) {
+        if (change.type !== "dimensions" || change.dimensions === undefined) continue;
+        const was = held.get(change.id);
+        if (was?.width === change.dimensions.width && was.height === change.dimensions.height) continue;
+        next ??= new Map(held);
+        next.set(change.id, change.dimensions);
+      }
+      return next ?? held;
+    });
+  }, []);
+  const sized = useMemo(
+    () =>
+      onNodesChange !== undefined
+        ? nodes
+        : nodes.map((node) => {
+            const measured = sizes.get(node.id);
+            return node.measured !== undefined || measured === undefined ? node : { ...node, measured };
+          }),
+    [nodes, onNodesChange, sizes],
+  );
   const onPaneClick = useCallback(
     (event: { clientX: number; clientY: number }) =>
       onPanePress?.(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
@@ -243,11 +279,11 @@ function Surface<N extends Node, E extends Edge>({
       data-placing={placing || undefined}
       aria-label={label}
       colorMode="dark"
-      nodes={nodes}
+      nodes={sized}
       edges={edges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
-      onNodesChange={onNodesChange}
+      onNodesChange={onNodesChange ?? keepSizes}
       onSelectionChange={onPicked}
       {...(onPanePress === undefined ? {} : { onPaneClick })}
       nodesConnectable={false}

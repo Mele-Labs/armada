@@ -61,6 +61,13 @@ function apartAfter(card: WorkflowStepCardProps): number {
 /** `step:`, so a node id is never mistaken for another kind in a join. */
 export const stepNodeId = (stepId: string): string => `step:${stepId}`;
 
+/**
+ * Where a step sits in the run, **counted from 1 as a person counts**. Fleet's
+ * `ordinal` counts from 0, so the first step of a real Job read `step 0` on
+ * the board's corner while every fixture, counting from 1, read `step 1`.
+ */
+export const placeOf = (step: StepDetail): number => step.ordinal + 1;
+
 /** The run, in both arrangements, off one reading. */
 export type WorkflowRun = {
   nodes: WorkflowCanvasNode[];
@@ -193,7 +200,7 @@ function stepCard(
     ...(step.label === step.step_id ? { nameIsAnIdentifier: true } : {}),
     activity,
     said,
-    ordinal: step.ordinal,
+    ordinal: placeOf(step),
     ...(line === undefined ? {} : { line }),
     current: step.step_id === whole.job.current_step_id && frozen === undefined,
     ...(gate === undefined ? {} : { gate }),
