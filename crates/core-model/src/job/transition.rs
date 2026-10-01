@@ -92,6 +92,12 @@ pub static EDGES: &[Edge] = &[
     edge(Piloted, Killed),
     edge(Piloted, Running),
     edge(Piloted, Superseded),
+    edge(Proposing, AwaitingApproval),
+    // Untriggered, and `escalation-triggers.toml` is where that is owed: the
+    // declined and the faulted proposal want different words, and neither
+    // exists yet. `[statuses.proposing]`'s `open_questions` carries it.
+    edge(Proposing, Escalated),
+    edge(Proposing, Killed),
     edge(Queued, AwaitingApproval),
     triggered(Queued, Escalated, EscalationTrigger::DependencyFailed),
     edge(Queued, Killed),

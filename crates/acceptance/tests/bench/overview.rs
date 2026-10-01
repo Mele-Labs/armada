@@ -121,7 +121,10 @@ pub const NEEDS_YOU: &[&str] = &[
     "awaiting_review",
     "escalated",
 ];
-pub const RUNNING: &[&str] = &["running", "piloted"];
+/// `proposing` is here because its `mode` is `Working` and `needs-you.ts` reads
+/// `mode` before the actor: a dispatched request being read is in flight, and
+/// its `who_is_acting` of `None` is not a person to put on a list.
+pub const RUNNING: &[&str] = &["running", "piloted", "proposing"];
 pub const QUEUED: &[&str] = &["queued"];
 
 /// Overview's three drawn sections — Needs you, Running and Queued — read off
