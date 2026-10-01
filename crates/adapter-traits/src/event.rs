@@ -259,6 +259,16 @@ pub enum DroneEvent {
     /// coming. `fleet::awaiting_background` is the reading and
     /// `fleet::silence` is what it does about it.
     BackgroundWork { outstanding: usize },
+    /// The model is thinking, and how much it has thought so far.
+    ///
+    /// **An estimate, cumulative within one model call**, and the harness's
+    /// own: the field says so in its name and this carries it forward rather
+    /// than rounding it into a fact. A call that thought for a while sends a
+    /// rising run of these, and the next call starts again from zero.
+    ///
+    /// **How much, never what.** The reasoning text is a separate block and is
+    /// deliberately not carried — `docs/scope.md`.
+    Thinking { estimated_tokens: u64 },
     /// Something arrived that this vocabulary has no variant for. Carried by
     /// kind so a stream that grew an event is visible as a count rather than as
     /// a gap.

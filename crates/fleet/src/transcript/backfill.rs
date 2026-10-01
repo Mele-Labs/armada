@@ -62,6 +62,9 @@ pub async fn history(records_root: &str, handle: &str) -> (Vec<TranscriptRow>, u
         let Ok(file) = fs::File::open(&at).await else {
             continue;
         };
+        // **The file's name is the Drone**, for every row in it however old:
+        // nothing is written per line, so no older line is missing one.
+        let drone = drone_named_by(&at);
         let mut lines = BufReader::new(file).lines();
         while let Ok(Some(line)) = lines.next_line().await {
             // A line that will not decode is counted as missing rather than
@@ -79,7 +82,7 @@ pub async fn history(records_root: &str, handle: &str) -> (Vec<TranscriptRow>, u
             // drop the whole argument as the row is sent either way; doing it
             // here is what keeps two thousand buffered rows from being two
             // thousand buffered heredocs.
-            kept.push_back(row.for_a_viewer());
+            kept.push_back(row.in_the_transcript_of(&drone).for_a_viewer());
         }
     }
     (Vec::from(kept), skipped)
@@ -98,6 +101,7 @@ pub async fn of_one(
 ) -> (Vec<TranscriptRow>, u64) {
     let mut kept: VecDeque<TranscriptRow> = VecDeque::with_capacity(0);
     let mut older = 0u64;
+    let stamp = ipc::DroneId::from(drone);
     let Ok(file) = fs::File::open(transcript_of(records_root, handle, drone)).await else {
         return (Vec::new(), 0);
     };
@@ -113,7 +117,7 @@ pub async fn of_one(
             kept.pop_front();
             older += 1;
         }
-        kept.push_back(row.for_a_viewer());
+        kept.push_back(row.in_the_transcript_of(&stamp).for_a_viewer());
     }
     (Vec::from(kept), older)
 }
@@ -390,6 +394,18 @@ async fn transcripts(records_root: &str, handle: &str) -> Vec<PathBuf> {
         }
     }
     named
+}
+
+/// The Drone a transcript belongs to, read off its name: `<drone-id>.jsonl`.
+///
+/// Every path here came out of [`transcripts`], which joins a file name the
+/// Job's log gave it, so the stem is there.
+fn drone_named_by(at: &Path) -> ipc::DroneId {
+    ipc::DroneId::carried(
+        at.file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    )
 }
 
 /// The one line of the Job's log this reads, and only the fields it needs.

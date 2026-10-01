@@ -294,6 +294,42 @@ fn the_other_background_task_lines_are_not_read_as_the_count() {
     }
 }
 
+/// **How much a Drone thought, named rather than dropped as unrecognised.** The
+/// two lines are the harness's own, copied from
+/// `docs/spikes/015-http-allow-60s.jsonl`: a cumulative estimate within one
+/// call, so the second carries the first's 50 inside its 125. #1664.
+#[test]
+fn a_thinking_tokens_line_is_read_as_the_estimate_it_carries() {
+    let first = read(
+        r#"{"type":"system","subtype":"thinking_tokens","estimated_tokens":50,"estimated_tokens_delta":50,"session_id":"8608771b-801b-4b28-b62b-b87812ea213c","uuid":"fddbb878-8937-4221-be60-d0794979de46"}"#,
+    );
+    assert_eq!(
+        first,
+        vec![DroneEvent::Thinking {
+            estimated_tokens: 50
+        }]
+    );
+
+    let second = read(
+        r#"{"type":"system","subtype":"thinking_tokens","estimated_tokens":125,"estimated_tokens_delta":75,"session_id":"8608771b-801b-4b28-b62b-b87812ea213c","uuid":"c94339fa-6d9e-4a04-8460-6b4371ae73db"}"#,
+    );
+    assert_eq!(
+        second,
+        vec![DroneEvent::Thinking {
+            estimated_tokens: 125
+        }]
+    );
+
+    // Without its figure the line is still a row, and still the kind it was.
+    let bare = read(r#"{"type":"system","subtype":"thinking_tokens","session_id":"a"}"#);
+    assert_eq!(
+        bare,
+        vec![DroneEvent::Unrecognised {
+            kind: String::from("system/thinking_tokens")
+        }]
+    );
+}
+
 #[test]
 fn a_turn_carrying_two_tool_calls_is_two_events() {
     let read = read(

@@ -97,6 +97,7 @@ fn each_socket_message_carries_its_tag_and_round_trips() {
         ts: Instant::carried("2026-09-13T09:00:00.000Z"),
         step: None,
         by: Voice::Drone,
+        drone_id: None,
         saw: Saw::Said {
             text: "Job 12 is waiting on a person.".to_string(),
         },

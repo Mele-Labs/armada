@@ -483,6 +483,82 @@ async fn a_retrys_rows_follow_the_first_attempts_under_the_one_job() {
     assert_eq!(said, vec!["the first attempt", "the retry"]);
 }
 
+/// **A Job with two Drones, told apart row by row** — in the history off the
+/// disk and on the live feed. Each row is stamped with the Drone whose file it
+/// is in, read off the file's name, so nothing is written per line and an older
+/// file stamps the same way. #1662.
+#[tokio::test]
+async fn each_drones_rows_carry_its_own_id_in_the_history_and_live() {
+    let at = TempDir::new();
+    let root = at.path().to_string_lossy().to_string();
+    let (first, second) = ("01DRONEIIIIIIIIIIIIIIIIIII", "01DRONEJJJJJJJJJJJJJJJJJJJ");
+    for (drone, tokens) in [(first, 50), (second, 125)] {
+        let recording = recording(&at, drone);
+        recording.saw(&[DroneEvent::Thinking {
+            estimated_tokens: tokens,
+        }]);
+        recording.noted(
+            ipc::Voice::Armada,
+            ipc::Saw::Said {
+                text: String::from("Go on."),
+            },
+        );
+        recording.settled().await;
+    }
+    assert!(
+        !rows_once_written(&at, first, 2).await.contains("drone_id"),
+        "the file's name is the id, so no line carries one"
+    );
+
+    let (rows, _) = history(&root, HANDLE).await;
+    let stamped: Vec<(Option<&str>, &ipc::Saw)> = rows
+        .iter()
+        .map(|row| (row.drone_id.as_ref().map(|id| id.as_str()), &row.saw))
+        .collect();
+    let said = ipc::Saw::Said {
+        text: String::from("Go on."),
+    };
+    assert_eq!(
+        stamped,
+        vec![
+            (
+                Some(first),
+                &ipc::Saw::Thinking {
+                    estimated_tokens: 50
+                }
+            ),
+            (Some(first), &said),
+            (
+                Some(second),
+                &ipc::Saw::Thinking {
+                    estimated_tokens: 125
+                }
+            ),
+            (Some(second), &said),
+        ]
+    );
+
+    let turns = api::Turns::new();
+    let job = ipc::JobId::carried(JOB);
+    let taps = crate::transcript::Taps::opening(
+        &root,
+        spine(second),
+        Arc::new(Ticking::from_nine()),
+        turns.feeding(&job),
+    )
+    .expect("the record opens");
+    let mut watch = turns.watching(&job).expect("a Drone is writing");
+    for tap in taps.each() {
+        tap.saw(&[DroneEvent::Thinking {
+            estimated_tokens: 300,
+        }]);
+    }
+    let Some(api::Seen::Row(row)) = watch.next().await else {
+        panic!("the live row reaches a viewer");
+    };
+    assert_eq!(row.drone_id.as_ref().map(|id| id.as_str()), Some(second));
+}
+
 /// A Job nothing ever dispatched. **Ordinary, not an error** — there is no log
 /// to read and nothing to show.
 #[tokio::test]

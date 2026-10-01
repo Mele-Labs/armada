@@ -78,6 +78,20 @@ describe("what the body does not draw", () => {
     ]);
   });
 
+  it("counts a named thinking row under the kind it arrived as before 21.4", () => {
+    const thinking: Turn = {
+      ts: at(1),
+      seq: 901,
+      step: STEP,
+      by: "drone",
+      drone_id: "01DRONEAAAAAAAAAAAAAAAAAAA",
+      saw: { event: "thinking", estimated_tokens: 125 },
+    };
+    const { acts, unread } = workingOf([thinking, unrecognised(at(2), "system/thinking_tokens")], STEP);
+    expect(acts).toHaveLength(0);
+    expect(unread).toEqual([{ kind: "system/thinking_tokens", count: 2 }]);
+  });
+
   it("drops Armada's echo of its own instruction, the way the log does", () => {
     const echo: Turn = {
       ts: at(1),
