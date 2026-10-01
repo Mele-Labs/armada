@@ -1,5 +1,5 @@
 //! What `add_studio_node` names: a node's content as a read answers it, except
-//! a Picture, which arrives as the file Bridge's main staged. Since 19.2.
+//! a Picture, which arrives as the file Bridge's main staged. Since 19.3.
 //!
 //! **A request never names a kept frame.** A kept frame is a file name Fleet
 //! chose under the Studio's own directory, and `get_studio_frame` opens what a
