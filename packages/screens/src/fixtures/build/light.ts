@@ -61,7 +61,7 @@ export function stepsOf(
     return {
       step_id: one.step_id,
       label: one.label,
-      ordinal: ordinal + 1,
+      ordinal,
       state: before ? "advanced" : here ? state : "not_started",
       checks: one.checks,
       check_runs: before

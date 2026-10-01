@@ -15,7 +15,7 @@ import {
 import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "./duration";
-import { markFor, whatCellOf } from "./record-cells";
+import { markFor, outcomeCellOf, whatCellOf } from "./record-cells";
 import { taskGroupsOf } from "./draft/group";
 import {
   countsOf,
@@ -157,7 +157,7 @@ export function ledgerRowsFor(
     if (mark !== undefined) drawn.mark = mark;
     const exact = absoluteOf(row.at);
     if (exact !== null) drawn.whenExact = exact;
-    if (row.outcome !== "") drawn.outcome = row.outcome;
+    if (row.outcome !== "") drawn.outcome = outcomeCellOf(row);
     const tone = toneOf(row);
     if (tone !== undefined) drawn.tone = tone;
     return drawn;

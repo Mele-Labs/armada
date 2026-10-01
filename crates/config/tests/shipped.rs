@@ -269,8 +269,9 @@ fn this_repositorys_own_manifest_loads_and_states_its_patience() {
 /// Asserted off the file, and against the steps' vocabulary as well as for the
 /// requester's: a line that restates `Plan the wave -> Dispatch the wave` is
 /// the defect at greater length. `code_review` is asserted beside it since
-/// `#1379`, for the same reason and against its own steps' words; a definition
-/// that declares nothing is still legal, and the other six do not yet.
+/// `#1379`, for the same reason and against its own steps' words. A definition
+/// that declares nothing is still legal; every one shipped here declares a
+/// line since 1 Oct 2026, which `fleet`'s `tests::proposing` holds.
 #[test]
 fn the_epic_says_it_is_for_a_milestone_in_a_requesters_words() {
     let what_for = says_what_it_is_for("epic.json");
@@ -322,7 +323,9 @@ fn says_what_it_is_for(file: &str) -> String {
 /// workflow is chosen is a model's answer, and this file spawns none. What it
 /// holds is the half that was wrong before — that the catalogue offers a line
 /// a person asking about a pull request or a milestone would have used, and
-/// that the other six offer nothing to be matched on by accident.
+/// that no other line offers either word to be matched on by accident. Every
+/// shipped definition has declared a line since 1 Oct 2026, so the guard is on
+/// the words and no longer on which two say anything.
 #[test]
 fn a_forge_link_is_offered_a_line_written_in_the_words_somebody_asking_would_use() {
     let declared: Vec<(String, Option<String>)> = shipped()
@@ -336,14 +339,19 @@ fn a_forge_link_is_offered_a_line_written_in_the_words_somebody_asking_would_use
             )
         })
         .collect();
-    let saying: Vec<&str> = declared
-        .iter()
-        .filter(|(_, line)| line.is_some())
-        .map(|(id, _)| id.as_str())
-        .collect();
-    assert_eq!(
-        saying,
-        ["code_review", "epic"],
-        "exactly the two a bare forge link has to reach say what they are for"
-    );
+    for (word, owner) in [("pull request", "code_review"), ("milestone", "epic")] {
+        let saying: Vec<&str> = declared
+            .iter()
+            .filter(|(_, line)| {
+                line.as_deref()
+                    .is_some_and(|line| line.to_lowercase().contains(word))
+            })
+            .map(|(id, _)| id.as_str())
+            .collect();
+        assert_eq!(
+            saying,
+            [owner],
+            "only the workflow a bare forge link has to reach says `{word}`"
+        );
+    }
 }
