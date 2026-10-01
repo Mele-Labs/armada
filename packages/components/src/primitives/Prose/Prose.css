@@ -1,4 +1,4 @@
-/* Prose — model-written text, drawn as its structure.
+/* Prose — model-written markdown, drawn as its structure.
 
    NOTHING HERE DECLARES A FONT SIZE, and that is the rule the file exists for.
    The type scale belongs to docs/contracts/design-system.md; a renderer that
@@ -7,8 +7,8 @@
    at --text-sm in a dialog body and at --text-2xs in a rail row without either
    value being restated here.
 
-   What it does declare is spacing, family and weight — the three things a wall
-   of text is missing and none of which is a scale. */
+   What it does declare is spacing, family, weight, and the rules and accent
+   the contract already gives tables and links. None of them is a scale. */
 .armada-prose {
   display: flex;
   flex-direction: column;
@@ -35,8 +35,8 @@
   font-weight: var(--weight-body);
 }
 
-/* A list is rows, not bullets. A marker glyph would be decorative iconography
-   on an instrument panel, and the indent already says what the marker would. */
+/* An unordered list is rows, not bullets: a marker glyph would be decorative
+   iconography, and the indent already says what it would. */
 .armada-prose__list {
   display: flex;
   flex-direction: column;
@@ -46,8 +46,78 @@
   list-style: none;
 }
 
+/* An ordered list keeps its numbers: they carry the order. */
+.armada-prose__list--ordered {
+  padding-left: var(--space-6);
+  list-style: decimal;
+}
+
 .armada-prose__item {
   text-wrap: pretty;
+}
+
+/* Nested lists sit under their item, not a block gap away. */
+.armada-prose__item > .armada-prose__list {
+  margin-top: var(--space-1);
+}
+
+.armada-prose__task {
+  margin: 0 var(--space-2) 0 0;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
+/* design-system.md, hard rule 2: an anchor takes --accent and underlines on
+   hover only. */
+.armada-prose__link {
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.armada-prose__link:hover {
+  text-decoration: underline;
+}
+
+.armada-prose__quote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: var(--border-width) solid var(--border-default);
+}
+
+.armada-prose__rule {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* The Table primitive's rules and header contrast, without its sizes: a table
+   in a rail reads at the rail's size. Cells wrap rather than scroll, for the
+   fenced block's reason below. */
+.armada-prose__table {
+  border-collapse: collapse;
+}
+
+.armada-prose__th,
+.armada-prose__td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.armada-prose__th {
+  border-bottom: var(--border-width) solid var(--border-default);
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+}
+
+.armada-prose__td {
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 /* Machine-derived, so mono. A well rather than a tint, because --bg-sunken is
@@ -79,6 +149,10 @@
   overflow-wrap: anywhere;
 }
 
-.armada-prose__block code {
+/* The block's code element is the inline one too; inside the block it is no
+   second well. */
+.armada-prose__block .armada-prose__code {
+  padding: 0;
+  background: none;
   font-family: inherit;
 }

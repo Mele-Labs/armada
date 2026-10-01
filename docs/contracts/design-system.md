@@ -1928,6 +1928,41 @@ things that can disagree, which is the distinction the gate rests on.
 
 Placement, alignment and collision are under Floating layers.
 
+### Prose — model-written markdown
+
+Free text a model wrote — a Judge's consequence, a flag's citation, a
+Drone's turn, a Helm reply — is drawn by `Prose` as GitHub-flavoured
+markdown, through `react-markdown` and `remark-gfm`. **The owner chose
+full markdown on 1 Oct 2026**, over a hand-written subset that refused
+links, tables and blockquotes.
+
+**The renderer declares no font size.** Every construct inherits the
+size of the surface it is drawn on, so one component reads at
+`--text-sm` in a dialog and `--text-2xs` in a rail. A heading with its
+own size would be a second type scale inside this one.
+
+| Written | Drawn |
+|---|---|
+| `#` heading, any level | the line at `--weight-heading` and `--fg-default`, as a paragraph: no size, and no entry in the page's outline |
+| `**bold**`, `*italic*`, `~~struck~~` | `--fg-default` at body weight, slant, a line through |
+| `` `code` `` | mono in a `--bg-sunken` well |
+| Fenced block | a mono `--bg-sunken` block that wraps rather than clips |
+| `-` list | rows with no marker glyph; the indent says what a bullet would |
+| `1.` list | the numbers, which carry order |
+| `- [x]` task | a disabled checkbox in `--accent` |
+| Table | the Table primitive's rules: `--border-default` under the header, `--border-subtle` between rows, header at `--weight-heading`. Cells wrap; column alignment is dropped |
+| Blockquote | a `--border-default` rule down the leading edge |
+| `---` | a `--border-subtle` rule |
+| Link | `--accent`, underlined on hover (hard rule 2). Only `http:` and `https:` are links; anything else draws as its text |
+| Image | a link to the address, labelled by its alt text. The CSP's `img-src 'self' blob:` would draw a remote image broken |
+| Raw HTML | its characters. No `rehype-raw` |
+
+**A link hands its address to the shell and the window goes nowhere.**
+Bridge opens it in the system browser through `openLink`, which takes the
+address the text carried and checks only its scheme. Every other opener reads
+its address in main, but that is not possible here: a link in model text has
+no id main could look it up by. Without an opener, a link draws as its text.
+
 ### Stats panel
 
 The left column's second panel — what used to be the status bar's two
