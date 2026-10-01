@@ -181,14 +181,14 @@ export const AQuoteAndARule: Story = {
 export const Links: Story = {
   args: {
     text:
-      "The upstream fix is [tokio#7012](https://github.com/tokio-rs/tokio/pull/7012), and " +
+      "The upstream fix is [tokio#7012](https://forge.invalid/tokio-rs/tokio/pull/7012), and " +
       "https://docs.rs/tokio says the same.\n\n" +
       "[This one](javascript:alert(1)) and [this one](../served.rs) are not links.\n\n" +
       "![the failing render](https://example.com/render.png)",
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("link", { name: "tokio#7012" }));
-    await expect(opened).toHaveBeenCalledWith("https://github.com/tokio-rs/tokio/pull/7012");
+    await expect(opened).toHaveBeenCalledWith("https://forge.invalid/tokio-rs/tokio/pull/7012");
     await expect(canvas.getByRole("link", { name: "https://docs.rs/tokio" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "the failing render" })).toBeVisible();
     await expect(canvas.queryByRole("img")).toBeNull();
@@ -202,7 +202,7 @@ export const Links: Story = {
 /** With nothing to open it, a link is its text: no control where there is nowhere to go. */
 export const LinksWithNowhereToOpen: Story = {
   args: {
-    text: "The upstream fix is [tokio#7012](https://github.com/tokio-rs/tokio/pull/7012).",
+    text: "The upstream fix is [tokio#7012](https://forge.invalid/tokio-rs/tokio/pull/7012).",
   },
   decorators: [
     (Story) => (

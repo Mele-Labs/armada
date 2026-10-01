@@ -240,9 +240,8 @@ function createWindow(): BrowserWindow {
   // forge would be a window with no rail, no shell and no way back: Electron's
   // version of the frozen surface this app was built to escape.
   //
-  // `openExternal` is reached on a channel, never by navigating: `forge.ts`
-  // from an address main read off its own state, and `links.ts` from a link in
-  // a model's text, `http(s):` only.
+  // `openExternal` is reached on a channel, never by navigating: `forge.ts` from
+  // main's own state, `links.ts` from a link in a model's text, `http(s):` only.
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
 

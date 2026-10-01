@@ -3,7 +3,7 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 /**
- * Text a model wrote, drawn as the markdown it is written in: GitHub's flavour,
+ * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
  * through `react-markdown` and `remark-gfm`. What each construct is drawn as,
  * and why the renderer declares no font size, is the contract's —
  * `docs/contracts/design-system.md`, *Prose — model-written markdown*.

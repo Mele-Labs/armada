@@ -13,10 +13,10 @@ beforeEach(() => openExternal.mockClear());
 
 describe("opening a link in a model's text", () => {
   it("hands an https address to the OS", async () => {
-    await expect(openLink("https://github.com/tokio-rs/tokio/pull/7012")).resolves.toEqual({
+    await expect(openLink("https://forge.invalid/tokio-rs/tokio/pull/7012")).resolves.toEqual({
       ok: true,
     });
-    expect(openExternal).toHaveBeenCalledWith("https://github.com/tokio-rs/tokio/pull/7012");
+    expect(openExternal).toHaveBeenCalledWith("https://forge.invalid/tokio-rs/tokio/pull/7012");
   });
 
   it("hands an http address to the OS", async () => {
