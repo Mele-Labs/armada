@@ -352,6 +352,13 @@ export function hideUnread(rows: readonly LogRow[]): { rows: LogRow[]; unread: n
 }
 
 /**
+ * The kind a `thinking` row arrived under before Fleet named it, protocol 21.4.
+ * The log and the working view still read it as that, so neither moved when
+ * the wire did; the Drones tab is where the estimate is drawn.
+ */
+export const THINKING_TOKENS = "system/thinking_tokens";
+
+/**
  * One row as a line. **The kind is the wire's own word** — no vocabulary in the
  * repository carries a verb per turn kind, so the spelling renders rather than
  * copy invented here.
@@ -508,6 +515,18 @@ function rowOf(row: Turn): LogRow {
         kind,
         message: `A row this Bridge has no reading for: ${saw.kind}`,
         payload: [{ text: saw.kind, named: "meta" }],
+      };
+    case "thinking":
+      // **Read exactly as it was before Fleet named it** (protocol 21.4): the
+      // kind it arrived under, counted with the unread rather than listed. How
+      // much it thought is the Drones tab's to draw, #1664.
+      return {
+        id,
+        at,
+        actor,
+        kind: "unrecognised",
+        message: `A row this Bridge has no reading for: ${THINKING_TOKENS}`,
+        payload: [{ text: THINKING_TOKENS, named: "meta" }],
       };
     default:
       return {

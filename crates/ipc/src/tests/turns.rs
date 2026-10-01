@@ -10,6 +10,7 @@ fn row(saw: Saw) -> TranscriptRow {
         ts: Instant::carried("2026-08-27T14:12:00.000Z"),
         step: None,
         by: crate::Voice::Drone,
+        drone_id: None,
         saw,
     }
 }
@@ -173,4 +174,33 @@ fn a_row_written_before_the_voice_existed_is_the_drones() {
     let old = r#"{"ts":"2026-08-27T14:12:00.000Z","event":"said","text":"reading the file"}"#;
     let back: TranscriptRow = decode("a row", old.as_bytes()).expect("it decodes");
     assert_eq!(back.by, crate::Voice::Drone);
+}
+
+/// **The two facts #1662 and #1664 put on a row, exactly as Fleet sends them.**
+/// The estimate is the harness's own figure and the Drone id is the one
+/// `list_job_drones` names, stamped by the reader of the file it came out of.
+/// What the file holds carries no id: the file's name is the id.
+#[test]
+fn a_thinking_row_crosses_with_its_estimate_and_the_drone_whose_it_is() {
+    let file_row = row(Saw::Thinking {
+        estimated_tokens: 125,
+    });
+    let on_disk = encode(&file_row).expect("the file's row encodes");
+    assert_eq!(
+        on_disk,
+        r#"{"ts":"2026-08-27T14:12:00.000Z","by":"drone","event":"thinking","estimated_tokens":125}"#,
+        "the file carries no Drone id: its name is the id"
+    );
+
+    let drone = crate::DroneId::carried("01DRONEAAAAAAAAAAAAAAAAAAA");
+    let sent = crate::TurnMessage::Row(
+        Shown::of(file_row.in_the_transcript_of(&drone)).expect("a thinking row is shown"),
+    );
+    let json = encode(&sent).expect("it encodes");
+    assert_eq!(
+        json,
+        r#"{"message":"row","ts":"2026-08-27T14:12:00.000Z","by":"drone","drone_id":"01DRONEAAAAAAAAAAAAAAAAAAA","event":"thinking","estimated_tokens":125}"#
+    );
+    let back: crate::TurnMessage = decode("a row message", json.as_bytes()).expect("it decodes");
+    assert_eq!(back, sent);
 }

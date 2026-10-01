@@ -251,6 +251,10 @@ pub struct Live {
     /// The same label the file's rows carry, so a watcher and the record agree
     /// on which step a row belongs to.
     step: StepLabel,
+    /// The Drone whose transcript this is, stamped on every row offered so a
+    /// viewer of a Job with several can tell them apart — the file's own name,
+    /// which a row read back from it is stamped with too.
+    drone: ipc::DroneId,
 }
 
 impl Tap for Live {
@@ -261,13 +265,20 @@ impl Tap for Live {
         let at = self.clock.now();
         let step = self.step.now();
         for event in events {
-            self.feed.offer(row::seen(&at, &step, event).for_a_viewer());
+            self.feed.offer(
+                row::seen(&at, &step, event)
+                    .in_the_transcript_of(&self.drone)
+                    .for_a_viewer(),
+            );
         }
     }
 
     fn noted(&self, by: Voice, saw: Saw) {
-        self.feed
-            .offer(row::authored(&self.clock.now(), &self.step.now(), by, saw).for_a_viewer());
+        self.feed.offer(
+            row::authored(&self.clock.now(), &self.step.now(), by, saw)
+                .in_the_transcript_of(&self.drone)
+                .for_a_viewer(),
+        );
     }
 }
 
@@ -293,10 +304,17 @@ impl Taps {
         clock: Arc<dyn Clock>,
         feed: api::Feed,
     ) -> Result<Taps, io::Error> {
+        let drone = ipc::DroneId::from(&spine.drone);
         let recording = Recording::of(records_root, spine, Arc::clone(&clock))?;
         let step = recording.label();
+        let live = Live {
+            feed,
+            clock,
+            step,
+            drone,
+        };
         Ok(Taps {
-            each: vec![Arc::new(recording), Arc::new(Live { feed, clock, step })],
+            each: vec![Arc::new(recording), Arc::new(live)],
         })
     }
 

@@ -1144,6 +1144,10 @@ It does not travel `/events`. That stream is one drop-oldest channel of fixed ca
 Not `get_drone`, which is a snapshot of one Drone over HTTP. This is one Job across every Drone it has had, and it continues.
 
 **The row a Drone ends on is what carries a spend.** It was withheld because the Job's rail was said to state the cost and the turn count; the rail states neither, and no other operation here answers with either — so this is the only place on the wire a Drone's cost appears. A Job that retried has one such row per Drone, and what the Job cost is the sum of them.
+
+**Every row names the Drone whose transcript it is in**, as `drone_id`, the id `list_job_drones` names, so a Job with several Drones has rows that can be told apart (#1662). A field on the row rather than a socket per Drone: one Job's rows stay in one order on one clock, which is what this socket is for, and a viewer of one Drone filters. Fleet stamps it from the transcript's file name, `<drone-id>.jsonl`, on the history and on the live rows alike, so an older file is stamped as fully as a new one.
+
+**`thinking` carries how much the model thought**, the harness's estimate, cumulative within one model call, and never what it thought (#1664). Before 21.4 it arrived as `unrecognised` with the kind `system/thinking_tokens` and no figure.
 """
 
 
