@@ -64,7 +64,7 @@ async function openChecks(ordinal: number) {
 describe("implement", () => {
   test(
     "arc/executing-sequential: groups one and two read passed with the commit each left, " +
-      "group three is working, and group four has not started",
+      "group three is running, and group four has not started",
     async () => {
       await planList("arc/executing-sequential");
 
@@ -72,7 +72,7 @@ describe("implement", () => {
       await expect.element(groupCard(1)).toHaveTextContent("4c1b9d2");
       await expect.element(groupCard(2)).toHaveTextContent("passed");
       await expect.element(groupCard(2)).toHaveTextContent("7a2f0c5");
-      await expect.element(groupCard(3)).toHaveTextContent("working");
+      await expect.element(groupCard(3)).toHaveTextContent("running");
       await expect.element(groupCard(4)).toHaveTextContent("not started");
     },
   );

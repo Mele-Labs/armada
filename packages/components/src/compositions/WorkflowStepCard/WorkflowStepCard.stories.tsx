@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 
+import { GROUP_STATE } from "../../generated/vocabulary";
 import { WorkflowStepCard } from "./WorkflowStepCard";
 
 const meta: Meta<typeof WorkflowStepCard> = {
@@ -126,6 +127,34 @@ export const Group: Story = {
     said: "checking",
     facts: [{ value: "2 tasks" }, { value: "7 checks" }],
     onOpen: fn(),
+  },
+};
+
+/**
+ * A group drawing its own registry row through `mark` — `GROUP_STATE`'s
+ * `retrying`: its glyph, its `--status-awaiting-review` hue and its verb,
+ * where the step machine's nearest activity would have drawn `--fg-muted`.
+ * The list's group head reads the same row.
+ */
+export const GroupWithItsOwnMark: Story = {
+  args: {
+    kind: "group",
+    name: "Group 2",
+    activity: "retrying",
+    mark: { icon: GROUP_STATE.retrying!.icon!, token: GROUP_STATE.retrying!.statusToken! },
+    said: GROUP_STATE.retrying!.verb!,
+    facts: [{ value: "3 tasks" }, { value: "run again 1 time" }],
+    onOpen: fn(),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("button", { name: "Group 2, retrying" })).toBeVisible();
+    const mark = canvasElement.querySelector(".armada-wf-card__mark")!;
+    await expect(mark).not.toBeNull();
+    // The registry's hue, not the activity's: no `data-activity` to key one off.
+    await expect(mark.hasAttribute("data-activity")).toBe(false);
+    await expect((mark as HTMLElement).style.getPropertyValue("--armada-wf-card-mark")).toBe(
+      "var(--status-awaiting-review)",
+    );
   },
 };
 
