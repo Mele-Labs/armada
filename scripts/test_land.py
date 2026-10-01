@@ -857,7 +857,8 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 4, done.stdout)
         self.assertIn("test timed out after 2 seconds", done.stdout)
         self.assertNotIn("already fails", done.stdout, "main's own run of it passed")
-        pid = int(open(pid_file).read())
+        with open(pid_file) as held:
+            pid = int(held.read())
         deadline = time.monotonic() + 5
         while True:
             try:

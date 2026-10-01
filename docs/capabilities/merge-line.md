@@ -70,7 +70,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 - **An entry is keyed by a hash of its branch** and carries the name, because branch names hold `/`.
 - **Every finished turn removes its entry**, whatever the outcome.
 - **A conflict and a red keep their place.** Resubmitted, the entry reuses the place the outcome recorded: the wait was already served.
-- **A hung Check holds the turn until somebody kills the runner.** A timeout was ruled out, because a cold build plus the app suite runs past any fixed one and evicting a holder that is still working puts two merges in flight.
+- **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, `CHECK_LIMIT` in `crates/armada/src/land/env.rs`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
 - **State lives under the common git directory**, in `armada-land/`, so every worktree of one clone shares one line.
 - **Two worktrees, under `.armada/land/`, kept and reused.** `candidate/` is where a branch is gated, `base/` where `main`'s own runs happen. Inside the repository, because a checkout outside it is not somewhere this project's tooling runs: Vite refuses to serve a `node_modules` outside its allow list and `tsc` cannot name a type through one, and three Bridge Checks failed there for reasons that had nothing to do with the branch. `land/` is neither `worktrees/` nor `bases/`, so nothing here is taken for a Job's checkout, and `.armada/*` is already ignored.
 - **Each turn resets its worktree and cleans it, keeping the build directories.** `git reset --hard`, then `git clean -xdff` with `target/` and `node_modules/` excepted — so nothing of the turn before survives but what makes the next one fast. **The lock is what makes reuse safe**: one turn at a time means there is never a second reader of either worktree.
@@ -102,6 +102,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 | A non-zero exit naming no failing rule is red | A branch that breaks `xtask` prints one `error[E0433]` and would be gated on nothing |
 | A Check whose command is not installed stops the turn | A missing tool is not the branch breaking `main` |
 | A Check red on `main` too stops the turn as `main`'s | "Fix your branch" and "fix `main`" send a reader to different places |
+| A Check past its limit is red, on either side, and says so | One hang would otherwise hold every branch behind it |
 | The same on `main`'s own run, which stops the turn | There is nothing to compare against |
 | `main`'s run cached per commit, only once read as a report | A killed run cached empty makes every branch after it red |
 | One report carries the gate and the Checks together | An agent reads everything wrong once, not twice |
