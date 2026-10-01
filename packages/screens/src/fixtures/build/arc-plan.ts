@@ -41,7 +41,7 @@ const ARC_NOTES: Record<string, string> = {
   T3: "Only the words change. The stat stays where it is.",
   T4: "Settings says it in two places. Change both.",
   T5: "Keep the four lists in this order, and draw each row as the Board does.",
-  T6: "The row opens the Job, not the Drone.",
+  T6: "The row opens **the Job**, not the Drone. Read the id from `row.job_id`.",
   T7: "Name what it is waiting for. No spinner.",
   T8: "Fixed data only. None of the four should need Fleet.",
 };

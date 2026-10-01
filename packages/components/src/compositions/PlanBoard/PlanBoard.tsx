@@ -3,6 +3,7 @@ import { ChevronRight, TriangleAlert } from "lucide-react";
 import { GROUP_STATE } from "../../generated/vocabulary";
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Clamped } from "../Clamped/Clamped";
@@ -515,10 +516,10 @@ function TaskRow({
       {/* Labelled, because the reason is the Drone's own words and a bare
           sentence under a row reads as a note somebody left (owner, 28 Sep). */}
       {task.failedReason === undefined ? null : (
-        <span className="armada-plan-board__task-failed">
+        <div className="armada-plan-board__task-failed">
           <span className="armada-plan-board__task-eyebrow">Why it stopped</span>
-          <span>{task.failedReason}</span>
-        </span>
+          <Prose text={task.failedReason} />
+        </div>
       )}
     </li>
   );
@@ -779,7 +780,9 @@ export function PlanBoard({
   return (
     <div className="armada-plan-board">
       <section className="armada-plan-board__approach" aria-label="The approach">
-        <Clamped lines={3}>{approach}</Clamped>
+        <Clamped lines={3}>
+          <Prose text={approach} />
+        </Clamped>
       </section>
       <div className="armada-plan-board__group-region">
         {/* The noun and nothing else — `Groups` is true of a plan that has

@@ -50,7 +50,9 @@ describe("what the panel says a task is doing", () => {
 
   test("a failed task says why its agent stopped, in the words the run recorded", () => {
     expect(doingOfTask(taskNamed(groupFailed(), "T6"))).toBe(
-      "The row's press opened the Board rather than the Job",
+      "The row's press opened the Board rather than the Job:\n\n" +
+        "- `openBoard` ran on **every** row\n" +
+        "- the Job's id was never read",
     );
   });
 
