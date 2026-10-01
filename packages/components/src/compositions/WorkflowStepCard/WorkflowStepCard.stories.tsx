@@ -19,27 +19,36 @@ export default meta;
 
 type Story = StoryObj<typeof WorkflowStepCard>;
 
-/** A step nothing has entered. Its number stands in for a glyph. */
+// A step of the run, as the Workflow tab draws it (owner, 30 Sep 2026): what
+// needs a person first, in its hue; then where the work has got to — the group
+// bar and the line on the step at work, how long and its state on a step that
+// ran, and nothing on a step nothing entered.
+
+/** A step nothing has entered: its number, its name, and the gate's chip where a person answers. */
 export const NotStarted: Story = {
   args: {
     kind: "step",
-    name: "Write tests",
+    name: "Review the change",
     activity: "not_started",
     said: "not started",
-    ordinal: 3,
-    facts: [{ value: "7 checks" }, { value: "1 criterion" }],
+    ordinal: 4,
+    gate: "will ask you",
     onOpen: fn(),
   },
 };
 
+/** The plan's four groups as the step at work's bar: two passed, one working, one to come. */
+const FOUR_GROUPS = { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" } as const;
+
 /**
  * The step the Job is on — edged, washed and swept, the live phase's own three
- * things (`design-system.md`, Motion). The owner asked for the running node to
- * read like the running panel, 28 Sep 2026.
+ * things (`design-system.md`, Motion) — with its groups as a bar and how long
+ * and its Drones beside it.
  *
  * **A `play`, because a still cannot show a loop**, and the thing most at risk
  * here is the second one: one loop per card, so the mark beside the sweep has
- * to hold still.
+ * to hold still. **And because a still cannot say where the count went**: it
+ * is the bar's name and tooltip, never text beside the segments it counts.
  */
 export const Running: Story = {
   args: {
@@ -49,12 +58,13 @@ export const Running: Story = {
     said: "running",
     ordinal: 2,
     current: true,
-    facts: [{ value: "4 groups" }, { value: "11 checks" }, { value: "attempt 2" }],
+    line: "55m · 2 Drones",
+    bar: FOUR_GROUPS,
     onOpen: fn(),
   },
   // The loop is the claim; the test run otherwise emulates reduced motion.
   parameters: { motion: "on" },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvas, canvasElement }) => {
     const card = canvasElement.querySelector(".armada-wf-card")!;
     const sweep = card.querySelector(".armada-wf-card__sweep");
     await expect(sweep).not.toBeNull();
@@ -63,12 +73,26 @@ export const Running: Story = {
     // And nothing else on the card loops: the mark that pulses on a card with
     // no sweep holds still under one.
     await expect(card.querySelector(".armada-step-mark[data-pulsing]")).toBeNull();
+    await expect(canvas.getByRole("img", { name: "2 of 4 groups done" })).toBeInTheDocument();
+    // The line beside it carries how long and the Drones, and no count.
+    await expect(canvas.getByText("55m · 2 Drones")).toBeVisible();
+    await expect(canvas.queryByText(/groups/, { selector: ".armada-wf-card__line" })).toBeNull();
   },
 };
 
+/** The step at work, with a Check that failed at a group's boundary: the failure first, then the bar. */
+export const RunningWithAFailedCheck: Story = {
+  args: {
+    ...Running.args,
+    line: "1h 02m",
+    needs: [{ says: "screens_test failed", tone: "failed" }],
+    bar: { groups: ["done", "done", "failed", "open"], label: "2 of 4 groups done" },
+  } as Story["args"],
+};
+
 /**
- * A step waiting on a person says what it is waiting for — and it is the step
- * the Job is on, which is the pair worth drawing beside the one above:
+ * A step waiting on a person says so before anything else — and it is the
+ * step the Job is on, which is the pair worth drawing beside the one above:
  * **a card that is not working does not move at all.**
  */
 export const WaitingOnYou: Story = {
@@ -79,8 +103,9 @@ export const WaitingOnYou: Story = {
     said: "awaiting review",
     ordinal: 4,
     current: true,
-    gate: "a person answers",
-    facts: [{ value: "delivers" }],
+    needs: [{ says: "Waiting on you", tone: "waiting" }],
+    line: "12m",
+    gate: "will ask you",
     onOpen: fn(),
   },
   // Under reduced motion nothing moves anyway, so holding still would prove nothing.
@@ -92,7 +117,7 @@ export const WaitingOnYou: Story = {
   },
 };
 
-/** A step that advanced, with what its Checks came to. */
+/** A step that ran: how long it took and what it came to. */
 export const Advanced: Story = {
   args: {
     kind: "step",
@@ -100,12 +125,12 @@ export const Advanced: Story = {
     activity: "advanced",
     said: "advanced",
     ordinal: 1,
-    facts: [{ value: "2 of 2 passed", named: "passed" }],
+    line: "6m 00s · advanced",
     onOpen: fn(),
   },
 };
 
-/** A step that stopped, and one whose verdict refused it — three kinds of stopped, never alike. */
+/** A step that stopped says why first, and then only how long. */
 export const Stopped: Story = {
   args: {
     kind: "step",
@@ -113,7 +138,8 @@ export const Stopped: Story = {
     activity: "stopped",
     said: "stopped",
     ordinal: 2,
-    facts: [{ value: "typecheck failed", named: "failed" }],
+    needs: [{ says: "typecheck failed", tone: "failed" }],
+    line: "48m · attempt 3",
     onOpen: fn(),
   },
 };
