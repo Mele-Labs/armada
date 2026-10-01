@@ -1,5 +1,5 @@
 //! One gate over a built candidate: `verify-foundations` read against the
-//! base, and every Check the combination hits. `scripts/land`'s own `gate`.
+//! base, then every Check the combination hits. `scripts/land`'s own `gate`.
 
 use std::path::Path;
 
@@ -15,9 +15,23 @@ use super::queue::QueueEntry;
 use super::shell::spoken;
 use super::stop::Stopped;
 
-/// Measure what [`super::batch::build`] built for `group` against `base`.
-/// `Ok` is green; nothing is pushed here.
-pub fn gate(
+/// What `verify-foundations` said of a candidate, against the base's own run.
+pub enum Read {
+    /// No line the base lacks. A run that crashed is here too, so the Checks
+    /// beside it still say what they can.
+    Passed(Passed),
+    /// Lines the base lacks: red whatever the Checks say, so none run.
+    New(Vec<String>),
+}
+
+pub struct Passed {
+    crashed: Option<String>,
+    log: String,
+}
+
+/// Run `verify-foundations` on what [`super::batch::build`] built for
+/// `group`, and read it against `base`.
+pub fn foundations(
     repo: &Path,
     state: &StateDir,
     env: &Env,
@@ -25,10 +39,7 @@ pub fn gate(
     base: &str,
     built: &Built,
     logs: &Path,
-) -> Result<(), Stopped> {
-    let (where_, moved, regenerated) = (&built.worktree, built.moved, built.regenerated);
-    let rerun = covers(&env.armada, where_, &built.hit)?;
-
+) -> Result<Read, Stopped> {
     tell(
         state,
         group,
@@ -39,22 +50,62 @@ pub fn gate(
     let base_output = base_foundations(repo, state, base, env, logs)?;
     let log = logs.join("foundations.log");
     let argv: Vec<&str> = env.foundations.iter().map(String::as_str).collect();
-    let ran = super::shell::run(&argv, &where_, None, Some(&log))?;
-    let (new_lines, crashed) =
-        match foundations_delta(&base_output, &ran.combined(), ran.status_code()) {
-            FoundationsComparison::New(new) => (new, None),
-            FoundationsComparison::Crashed(last) => (
-                Vec::new(),
-                Some(format!(
-                    "`{}` exited {} naming no failing rule, so nothing was gated ({})",
-                    env.foundations.join(" "),
-                    ran.status_code(),
-                    last.join(" / "),
-                )),
-            ),
-        };
-    nothing_left(&where_, "verify-foundations")?;
-    let mut log_paths = vec![path_string(&log)];
+    let ran = super::shell::run(&argv, &built.worktree, None, Some(&log))?;
+    let read = match foundations_delta(&base_output, &ran.combined(), ran.status_code()) {
+        FoundationsComparison::New(new) if !new.is_empty() => Read::New(new),
+        FoundationsComparison::New(_) => Read::Passed(Passed {
+            crashed: None,
+            log: path_string(&log),
+        }),
+        FoundationsComparison::Crashed(last) => Read::Passed(Passed {
+            crashed: Some(format!(
+                "`{}` exited {} naming no failing rule, so nothing was gated ({})",
+                env.foundations.join(" "),
+                ran.status_code(),
+                last.join(" / "),
+            )),
+            log: path_string(&log),
+        }),
+    };
+    nothing_left(&built.worktree, "verify-foundations")?;
+    Ok(read)
+}
+
+/// The red for `lines` the base lacks, with `log` the run that printed them.
+pub fn foundations_red(env: &Env, moved: bool, lines: Vec<String>, log: &Path) -> Stopped {
+    Stopped::red(
+        format!(
+            "red {}: {} verify-foundations line(s) {} does not have, so no Check was run. \
+             Nothing was pushed or merged.",
+            against(env, moved),
+            lines.len(),
+            env.base
+        ),
+        OutcomePatch {
+            new_lines: Some(lines),
+            logs: Some(vec![path_string(log)]),
+            ..OutcomePatch::default()
+        },
+    )
+}
+
+/// Run every Check the candidate hits, once `verify-foundations` passed.
+/// `Ok` is green; nothing is pushed here.
+#[allow(clippy::too_many_arguments)]
+pub fn checks(
+    repo: &Path,
+    state: &StateDir,
+    env: &Env,
+    group: &[QueueEntry],
+    base: &str,
+    built: &Built,
+    logs: &Path,
+    passed: Passed,
+) -> Result<(), Stopped> {
+    let (where_, moved, regenerated) = (&built.worktree, built.moved, built.regenerated);
+    let rerun = covers(&env.armada, where_, &built.hit)?;
+    let Passed { crashed, log } = passed;
+    let mut log_paths = vec![log];
 
     let mut failed = Vec::new();
     let mut uninstalled = Vec::new();
@@ -126,16 +177,8 @@ pub fn gate(
         if !failed.is_empty() {
             detail.push_str(&format!(". {} failed beside it", failed.join(", ")));
         }
-        if !new_lines.is_empty() {
-            detail.push_str(&format!(
-                ", and {} verify-foundations line(s) {} does not have",
-                new_lines.len(),
-                env.base
-            ));
-        }
         return Err(Stopped::stopped(detail).with_patch(OutcomePatch {
             failed: Some(failed),
-            new_lines: Some(new_lines),
             logs: Some(log_paths),
             ..OutcomePatch::default()
         }));
@@ -164,12 +207,7 @@ pub fn gate(
             env.base
         )
     });
-    if !failed.is_empty() || !new_lines.is_empty() || crashed.is_some() {
-        let against = if moved {
-            format!("with {} merged in", env.base)
-        } else {
-            format!("against {}", env.base)
-        };
+    if !failed.is_empty() || crashed.is_some() {
         let mut parts = Vec::new();
         let red: Vec<String> = failed
             .iter()
@@ -183,25 +221,18 @@ pub fn gate(
         if let Some(crashed) = &crashed {
             parts.push(crashed.clone());
         }
-        if !new_lines.is_empty() {
-            parts.push(format!(
-                "{} verify-foundations line(s) {} does not have",
-                new_lines.len(),
-                env.base
-            ));
-        }
         if let Some(theirs) = &theirs {
             parts.push(theirs.clone());
         }
         return Err(Stopped::red(
             format!(
-                "red {against}: {}. Nothing was pushed or merged.",
+                "red {}: {}. Nothing was pushed or merged.",
+                against(env, moved),
                 parts.join(", ")
             ),
             OutcomePatch {
                 failed: Some(failed),
                 already: Some(already),
-                new_lines: Some(new_lines),
                 logs: Some(log_paths),
                 ..OutcomePatch::default()
             },
@@ -246,6 +277,14 @@ pub fn gate(
         },
     )?;
     Ok(())
+}
+
+fn against(env: &Env, moved: bool) -> String {
+    if moved {
+        format!("with {} merged in", env.base)
+    } else {
+        format!("against {}", env.base)
+    }
 }
 
 fn path_string(path: &Path) -> String {

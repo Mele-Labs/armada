@@ -49,6 +49,8 @@ pub enum LandAct {
     Preflight,
     /// `armada land --status [branch]` — where it is, from disk.
     Status { branch: Option<String> },
+    /// `armada land --withdraw [branch]` — out of the line.
+    Withdraw { branch: Option<String> },
     /// `armada land --runner <common-git-dir>` — hidden: the detached
     /// runner's own entry point, started by `ensure_runner` rather than
     /// typed.
@@ -202,27 +204,32 @@ fn positionals(args: &[String], allowed: &[&str], faults: &mut Vec<Fault>) -> Ve
     positional
 }
 
-/// `land`'s own shape: an optional `preflight` positional, `--status` with
-/// an optional value, and the hidden `--runner <common-git-dir>` —
+/// `land`'s own shape: an optional `preflight` positional, `--status` and
+/// `--withdraw` with an optional value, and the hidden `--runner <common-git-dir>` —
 /// different enough from every other verb's flags (a value, not a bare
 /// switch) that it is read by hand rather than through [`positionals`].
 /// Precedence where more than one is given — `--runner`, then `--status`,
-/// then `preflight`, then joining the line — matches `argparse`'s own
+/// then `--withdraw`, then `preflight`, then joining the line — matches `argparse`'s own
 /// dispatch in `scripts/land`'s `main()`.
 fn read_land(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
     let mut positional = Vec::new();
     let mut status: Option<Option<String>> = None;
+    let mut withdraw: Option<Option<String>> = None;
     let mut runner = None;
     let mut i = 0;
     while i < rest.len() {
         let arg = &rest[i];
-        if arg == "--status" {
+        if arg == "--status" || arg == "--withdraw" {
             let value = rest
                 .get(i + 1)
                 .filter(|next| !next.starts_with('-'))
                 .cloned();
             i += usize::from(value.is_some());
-            status = Some(value);
+            if arg == "--status" {
+                status = Some(value);
+            } else {
+                withdraw = Some(value);
+            }
         } else if arg == "--runner" {
             match rest.get(i + 1) {
                 Some(value) => {
@@ -234,7 +241,7 @@ fn read_land(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
         } else if arg.starts_with('-') {
             faults.push(Fault::NoSuchFlag {
                 given: arg.clone(),
-                allowed: vec!["--status".to_string()],
+                allowed: vec!["--status".to_string(), "--withdraw".to_string()],
             });
         } else {
             positional.push(arg.clone());
@@ -257,6 +264,11 @@ fn read_land(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
     }
     if let Some(branch) = status {
         return Some(Verb::Land(LandAct::Status {
+            branch: branch.filter(|branch| !branch.is_empty()),
+        }));
+    }
+    if let Some(branch) = withdraw {
+        return Some(Verb::Land(LandAct::Withdraw {
             branch: branch.filter(|branch| !branch.is_empty()),
         }));
     }
@@ -383,7 +395,7 @@ impl fmt::Display for Fault {
             Fault::LandActionUnknown { given } => write!(
                 out,
                 "`armada {LAND} {given}` is not a form this verb takes — they are `{LAND}`, \
-                 `{LAND} preflight`, `{LAND} --status [branch]`"
+                 `{LAND} preflight`, `{LAND} --status [branch]`, `{LAND} --withdraw [branch]`"
             ),
         }
     }
@@ -400,15 +412,19 @@ impl fmt::Display for Usage {
             if *verb == LAND {
                 writeln!(
                     out,
-                    "  armada {LAND}                     join the merge line, and return at once"
+                    "  armada {LAND}                       join the merge line, and return at once"
                 )?;
                 writeln!(
                     out,
-                    "  armada {LAND} preflight            ready this branch, and stamp its tree"
+                    "  armada {LAND} preflight              ready this branch, and stamp its tree"
                 )?;
                 writeln!(
                     out,
-                    "  armada {LAND} --status [<branch>]  where it is, answered from disk"
+                    "  armada {LAND} --status [<branch>]    where it is, answered from disk"
+                )?;
+                writeln!(
+                    out,
+                    "  armada {LAND} --withdraw [<branch>]  out of the line, this branch by default"
                 )?;
                 continue;
             }

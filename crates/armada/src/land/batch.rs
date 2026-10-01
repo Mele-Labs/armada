@@ -73,6 +73,8 @@ pub struct Built {
     /// Every path the Checks are asked about: each branch's side, and what
     /// landed on the base since it was cut.
     pub hit: Vec<String>,
+    /// Each member's own side alone, in member order.
+    pub own: Vec<Vec<String>>,
 }
 
 pub enum NotBuilt {
@@ -114,11 +116,14 @@ pub fn build(
     let mut stack = base.to_string();
     let mut merges = Vec::new();
     let mut hit = Vec::new();
+    let mut own = Vec::new();
     let mut moved = group.len() > 1;
     for (index, entry) in group.iter().enumerate() {
         let (branch, head) = (entry.branch.as_str(), entry.head.as_str());
         let since = merge_base(repo, head, base)?;
-        hit.extend(changed_paths(repo, &since, head)?);
+        let mine = changed_paths(repo, &since, head)?;
+        hit.extend(mine.iter().cloned());
+        own.push(mine);
         if !is_ancestor(repo, base, head) {
             moved = true;
             hit.extend(changed_paths(repo, &since, base)?);
@@ -175,6 +180,7 @@ pub fn build(
         regenerated,
         moved,
         hit,
+        own,
     })
 }
 
