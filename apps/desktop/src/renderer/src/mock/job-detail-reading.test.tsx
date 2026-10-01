@@ -96,12 +96,23 @@ test("Plan, unread: neither the lead nor the plan says nothing was recorded", as
   expect(text()).not.toContain("records no plan");
 });
 
+/**
+ * `running`'s read with no process on the Job. `running` itself has one, and
+ * the Drones tab lists a Job's own Drone since Job 2 drew it empty (1 Oct 2026).
+ */
+function runningWithNoDrone(): JobFixture {
+  const fixture = running();
+  if (fixture.watched.state !== "read") return fixture;
+  const { assigned_drone: _, ...job } = fixture.watched.detail.job;
+  return { ...fixture, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job } } };
+}
+
 test("Drones, unread: rows stand in, and none-ran is said only once it is read", async () => {
   const fleet = await openedReading();
   await toTab("Drones");
   await expect.element(panel("Drones").getByRole("status")).toBeVisible();
   expect(text()).not.toContain("No Drone has run on this Job yet.");
-  fleet.answer(running());
+  fleet.answer(runningWithNoDrone());
   await expect.element(page.getByText("No Drone has run on this Job yet.")).toBeVisible();
 });
 
