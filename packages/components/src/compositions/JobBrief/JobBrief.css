@@ -82,10 +82,8 @@
   white-space: nowrap;
 }
 
-/* The brief itself. Sans, at full contrast. Its structure is markdown's,
-   drawn by Prose, so this keeps no line breaks of its own: a list written as
-   one is a list Prose draws, and `pre-wrap` here would break each paragraph
-   again at every soft wrap the writer's editor made. */
+/* The brief itself. Sans, at full contrast. Its structure and its line
+   breaks are markdown's, drawn by Prose, so this sets no `white-space`. */
 .armada-job-brief__facts {
   margin: 0;
   min-width: 0;
@@ -93,19 +91,6 @@
   line-height: var(--leading-sm);
   color: var(--fg-default);
   text-wrap: pretty;
-}
-
-/* PROSE IN BLOCK FLOW, because it sits inside `Clamped`. Prose is a flex
-   column, and `-webkit-line-clamp` counts no lines in a flex box — the clamp
-   goes inert and its control never draws (Clamped.css has the account, and
-   DroneBrief.css the time it happened). Block flow keeps the clamp; the
-   sibling margin is the gap the flex column gave. */
-.armada-job-brief__facts .armada-prose {
-  display: block;
-}
-
-.armada-job-brief__facts .armada-prose > * + * {
-  margin-top: var(--space-2);
 }
 
 /* What is absent, and why. Never a labelled blank: a label with nothing under
