@@ -50,6 +50,17 @@ export type StudioAddNodeProps = {
   refused?: string;
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
+  /**
+   * The field inside the node it makes — the owner's notes of 1 Oct 2026, which
+   * asked that a kind be put down on the board rather than written in a panel.
+   * The node's head names the kind, so the label is read aloud and not drawn.
+   * **No Cancel, and no press off the node does anything**: Esc is the way out,
+   * since a draft that went with a stray press was what he called too
+   * sensitive.
+   */
+  inPlace?: boolean;
+  /** What a send would carry now, or `null` while blank — for a caller that sends it on another press. */
+  onWritten?: (node: StudioNodeByHand | null) => void;
 };
 
 /** Each kind's act in the registry, which is the one place a binding is written. */
@@ -97,6 +108,8 @@ export function StudioAddNode({
   saving = false,
   refused,
   disabled = false,
+  inPlace = false,
+  onWritten,
 }: StudioAddNodeProps) {
   const [draft, setDraft] = useState("");
   const [line, setLine] = useState("");
@@ -107,6 +120,10 @@ export function StudioAddNode({
     setDraft("");
     setLine("");
   }, [adding]);
+
+  useEffect(() => {
+    if (adding !== null) onWritten?.(written(adding, draft, line));
+  }, [adding, draft, line, onWritten]);
 
   if (adding === null) {
     return (
@@ -151,7 +168,7 @@ export function StudioAddNode({
         <Input
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           value={draft}
           mono
@@ -165,7 +182,7 @@ export function StudioAddNode({
         <Textarea
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           rows={rows}
           value={draft}
@@ -202,9 +219,11 @@ export function StudioAddNode({
             Read it in
           </Button>
         ) : null}
-        <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
-          Cancel
-        </Button>
+        {inPlace ? null : (
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
+            Cancel
+          </Button>
+        )}
         {adding === "link" ? <Kbd>Enter</Kbd> : <KbdChord keys={["⌘", "Enter"]} />}
       </div>
     </div>
