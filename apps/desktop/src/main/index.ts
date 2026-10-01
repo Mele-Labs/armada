@@ -26,6 +26,7 @@ import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition } fro
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { CaptureWindows } from "./capture/windows";
+import { coalesce } from "./coalesce";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
@@ -318,13 +319,21 @@ function withView(state: BridgeState, view: PickedView): BridgeState {
 }
 
 /** Every window sees the same state, save its own pick — `pickedViews`, overlaid here. */
+const toWindows = coalesce((state: BridgeState) => {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
+  }
+});
+
+/**
+ * Main's own readers move on every change; the windows are told once a frame,
+ * because a Job's backfill publishes once per row and each send clones the whole state.
+ */
 function publish(state: BridgeState): void {
   published = state;
   // A Run that has stopped serving ends capture in its own window — #1294.
   captureWindows.changed(state);
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
-  }
+  toWindows(state);
   // **Here rather than on chosen events**, because what decides a notification
   // is the needs-you set changing and this is the one funnel every change to
   // the list passes through. `readAt` is what tells a publish that carries a
