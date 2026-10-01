@@ -296,7 +296,9 @@ test("Edit this task opens filled from the task, and Save says the route is not 
   await entered(task);
   await task.getByRole("button", { name: "Edit this task" }).click();
   await expect.element(task.getByLabelText("Title")).toHaveValue("Open a Drone's Job from its row");
-  await expect.element(task.getByLabelText("Brief")).toHaveValue("The row opens the Job, not the Drone.");
+  await expect.element(task.getByLabelText("Brief")).toHaveValue(
+    "The row opens **the Job**, not the Drone. Read the id from `row.job_id`.",
+  );
   await expect.element(task.getByLabelText("Files")).toHaveValue("packages/screens/src/running-rows.tsx");
   await expect.element(task.getByLabelText("Done when")).toHaveValue("Pressing a Drone's row opens that Job");
   await expect.element(task.getByLabelText("Model")).toHaveValue("sonnet");
