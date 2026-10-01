@@ -780,7 +780,7 @@ export function OverviewTab(props: OverviewTabProps) {
             // would let the sheet and the tab disagree about the same Job.
             holds={{
               jobId: job.handle,
-              reading: holding === null ? null : pulseReadingOf(pulseViewOf(holding), examinedNow),
+              reading: holding === null ? null : pulseReadingOf(pulseViewOf(holding), examinedNow, undefined, now),
               figures: pulseFiguresOf(holding === null ? null : pulseViewOf(holding), whole),
               note: whyNoReading(resources),
               age: holding === null ? undefined : (span(holding.read_at, now) ?? undefined),

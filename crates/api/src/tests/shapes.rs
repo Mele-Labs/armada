@@ -487,6 +487,7 @@ pub fn resources(job_id: JobId) -> JobResources {
             path: "/repo/.armada/worktrees/01JOB".to_string(),
             branch: "armada/01JOB".to_string(),
             bytes: Some(1_073_741_824),
+            measured_at: Some(Instant::carried("2026-09-04T04:06:41.120Z")),
         }),
         wrote_last_at: Some(Instant::carried("2026-09-04T04:06:12.001Z")),
     }

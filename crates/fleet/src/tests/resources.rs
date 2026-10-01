@@ -157,7 +157,11 @@ async fn a_second_read_inside_the_window_does_not_walk_again() {
         .await;
 
     assert_eq!(walks.load(Ordering::SeqCst), 1);
-    assert_eq!(again, Some(4096));
+    assert_eq!(
+        again,
+        Some((at(0), 4096)),
+        "the first walk's instant, not this read's"
+    );
 }
 
 #[tokio::test]
@@ -173,7 +177,7 @@ async fn a_read_after_the_window_walks_again() {
         .await;
 
     assert_eq!(walks.load(Ordering::SeqCst), 2);
-    assert_eq!(again, Some(8192));
+    assert_eq!(again, Some((at(30), 8192)));
 }
 
 #[tokio::test]
@@ -188,7 +192,7 @@ async fn a_walk_that_did_not_finish_is_not_kept() {
 
     assert_eq!(first, None);
     assert_eq!(walks.load(Ordering::SeqCst), 2);
-    assert_eq!(again, Some(4096));
+    assert_eq!(again, Some((at(1), 4096)));
 }
 
 #[tokio::test]
@@ -203,7 +207,8 @@ async fn two_reads_while_a_walk_is_out_share_it() {
     );
 
     assert_eq!(walks.load(Ordering::SeqCst), 1);
-    assert_eq!((one, two), (Some(4096), Some(4096)));
+    assert_eq!(one, Some((now.clone(), 4096)));
+    assert_eq!(two, one);
 }
 
 fn look(asked: Asked, found: Finding) -> ipc::Look {
@@ -300,8 +305,8 @@ async fn a_worktree_on_disk_is_measured_and_named() {
     assert!(worktree.path.ends_with(&job.handle()));
     assert_eq!(worktree.branch, format!("armada/{}", job.handle()));
     assert!(
-        worktree.bytes.is_some(),
-        "the walk finished inside its bound"
+        worktree.bytes.is_some() && worktree.measured_at.is_some(),
+        "the walk finished inside its bound, and says when"
     );
 }
 

@@ -67,9 +67,15 @@ pub(crate) struct Sizes {
 }
 
 impl Sizes {
-    /// The size kept for `path` if it is inside [`SIZED_FOR`], or what `walk`
-    /// finds. A walk that finds nothing is not kept, so the next read walks.
-    pub(crate) async fn of<F, Walk>(&self, path: &str, now: &Timestamp, walk: F) -> Option<u64>
+    /// The size kept for `path` and when it was walked, if that is inside
+    /// [`SIZED_FOR`], or what `walk` finds now. A walk that finds nothing is
+    /// not kept, so the next read walks.
+    pub(crate) async fn of<F, Walk>(
+        &self,
+        path: &str,
+        now: &Timestamp,
+        walk: F,
+    ) -> Option<(Timestamp, u64)>
     where
         F: FnOnce() -> Walk,
         Walk: Future<Output = Option<u64>>,
@@ -84,14 +90,14 @@ impl Sizes {
         // Held across the walk, so a second read of this path waits for the
         // first one's `du` rather than starting its own.
         let mut kept = kept.lock().await;
-        if let Some((at, bytes)) = &*kept {
+        if let Some((at, _)) = &*kept {
             if elapsed(at, now) < SIZED_FOR {
-                return Some(*bytes);
+                return kept.clone();
             }
         }
         let bytes = walk().await?;
         *kept = Some((now.clone(), bytes));
-        Some(bytes)
+        kept.clone()
     }
 }
 
@@ -166,12 +172,13 @@ where
     /// checkout to read.
     async fn sized_worktree(&self, job: &Job) -> Option<ipc::WorktreeOnDisk> {
         let worktree = self.worktree_of(job).ok().flatten()?;
-        let bytes = self
+        let size = self
             .sizes()
             .of(worktree.path(), &self.now(), || taken(worktree.path()))
             .await;
         Some(ipc::WorktreeOnDisk {
-            bytes,
+            measured_at: size.as_ref().map(|(at, _)| at.into()),
+            bytes: size.map(|(_, bytes)| bytes),
             path: worktree.path().to_string(),
             branch: worktree.branch().to_string(),
         })

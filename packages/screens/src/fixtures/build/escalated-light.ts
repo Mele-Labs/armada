@@ -84,7 +84,7 @@ function escalatedFixture(name: string, trigger: string, extra: Partial<Stuck>):
       processes: [
         { pid: 41233, command: "node", cpu_percent: 0.1, memory_bytes: 402_653_184, running_for: "15:12", recorded: true },
       ],
-      worktree: { path: ".armada/worktrees/77-split-the-settings-reducer", branch: "fix/settings-split-selectors", bytes: 1_310_720_000 },
+      worktree: { path: ".armada/worktrees/77-split-the-settings-reducer", branch: "fix/settings-split-selectors", bytes: 1_310_720_000, measured_at: "2026-09-10T14:30:40.000Z" },
     }),
     recorded: foldedReads(),
     calls: {},

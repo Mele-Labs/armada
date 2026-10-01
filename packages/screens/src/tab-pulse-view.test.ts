@@ -82,6 +82,16 @@ describe("the rows the board draws", () => {
     expect(pulseReadingOf(one, null).worktrees[0]?.bytes).toBeUndefined();
   });
 
+  // Fleet keeps a size for 30 s, so the reading's own age would understate it.
+  it("ages a worktree's size from its measured_at, not the reading's read_at", () => {
+    const kept = view({
+      worktrees: [{ ...view().worktrees[0]!, measured_at: "2026-09-22T10:29:35.000Z" }],
+    });
+    const now = Date.parse("2026-09-22T10:30:05.000Z");
+
+    expect(pulseReadingOf(kept, null, null, now).worktrees[0]?.age).toBe("30s");
+  });
+
   it("puts a look's finding on the one checkout it asked about", () => {
     const [row] = pulseReadingOf(view(), looked("not_working")).worktrees;
 
