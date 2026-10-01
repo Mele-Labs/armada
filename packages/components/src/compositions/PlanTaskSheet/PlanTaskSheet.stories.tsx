@@ -77,15 +77,50 @@ export const Done: Story = {
   },
 };
 
+/**
+ * Every field a model or a person wrote — the brief, why it stopped, and both
+ * ends of the evidence — drawn as the markdown it was written in.
+ */
+export const InMarkdown: Story = {
+  args: {
+    ...LONG,
+    state: "failed",
+    failedReason: "`cargo test` failed **twice** on the same case",
+    note: "Add the read to Fleet:\n\n- one query\n- one route",
+    expects: "A test in `fleetwide.rs`",
+    shown: "**Nothing** was run",
+  },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement);
+    const field = (label: string) => within(sheet.getByRole("heading", { name: label }).closest("section")!);
+    await expect(field("Why it stopped").getByRole("code")).toHaveTextContent("cargo test");
+    await expect(field("Why it stopped").getByRole("strong")).toHaveTextContent("twice");
+    await expect(field("Brief").getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "one query",
+      "one route",
+    ]);
+    const evidence = field("Done when");
+    await expect(evidence.getByRole("code")).toHaveTextContent("fleetwide.rs");
+    await expect(evidence.getByRole("strong")).toHaveTextContent("Nothing");
+  },
+};
+
 /** A dropped task keeps its reason, and the reason leads. */
 export const Dropped: Story = {
   args: {
     id: "T4",
     title: "Carry the reword everywhere else it is spelled",
     state: "dropped",
-    reason: "SettingsSurface.tsx and Board.tsx were deleted in #1236 and #1235.",
+    reason: "`SettingsSurface.tsx` and `Board.tsx` were deleted in #1236 and #1235.",
     scope: ["packages/components/src/compositions/StatsPanel/StatsPanel.stories.tsx"],
     expects: 'StatsPanel.stories.tsx reads "1 running · 2 max".',
+  },
+  play: async ({ canvasElement }) => {
+    const reason = within(within(canvasElement).getByRole("heading", { name: "Dropped because" }).closest("section")!);
+    await expect(reason.getAllByRole("code").map((code) => code.textContent)).toEqual([
+      "SettingsSurface.tsx",
+      "Board.tsx",
+    ]);
   },
 };
 

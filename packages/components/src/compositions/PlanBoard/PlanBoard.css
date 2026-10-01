@@ -18,6 +18,25 @@
   color: var(--fg-muted);
 }
 
+/* The approach is markdown inside `Clamped`, and `-webkit-line-clamp` counts
+   no lines inside a flex container — `Clamped.css` has the account. `Prose`
+   and its list are flex columns; with only the root made block, a list in a
+   four-paragraph approach still drew it whole with no View more. So here both
+   are block flow, spaced
+   by margin instead of gap. Remove this once `Prose` itself is block flow. */
+.armada-plan-board__approach .armada-prose,
+.armada-plan-board__approach .armada-prose__list {
+  display: block;
+}
+
+.armada-plan-board__approach .armada-prose > * + * {
+  margin-top: var(--space-2);
+}
+
+.armada-plan-board__approach .armada-prose__item + .armada-prose__item {
+  margin-top: var(--space-1);
+}
+
 /* The groups and the head that names them, so the label sits with the cards
    rather than a whole board gap above them. */
 .armada-plan-board__group-region {

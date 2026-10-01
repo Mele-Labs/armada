@@ -326,3 +326,49 @@ export const AnAskIsOut: Story = {
     await expect(within(second).getByRole("button", { name: "Propose a change" })).toBeDisabled();
   },
 };
+
+/**
+ * The approach and a stopped task's reason are model text, and draw as the
+ * markdown they were written in.
+ *
+ * **A `play`, because the approach is clamped and markdown is block flow.**
+ * `-webkit-line-clamp` counts no lines inside a flex column, and `Prose` is
+ * one, so an approach of four paragraphs drew whole with no View more — the
+ * failure `Clamped.css` records for `DroneBrief`. The control appearing is
+ * the clamp holding.
+ */
+export const InMarkdown: Story = {
+  args: {
+    approach:
+      "One **read** of everything running, then the stat's words.\n\n" +
+      "Then the panel, built from `drones_running`.\n\n" +
+      "- What holds the next Drone back\n- What it costs\n\n" +
+      "And last, the tests.",
+    groups: [
+      {
+        ...planned()[1]!,
+        state: "retrying",
+        says: "retrying",
+        tasks: [
+          planned()[1]!.tasks[0]!,
+          {
+            ...planned()[1]!.tasks[1]!,
+            mark: "failed",
+            failedReason: "The row's press called `openBoard` rather than **the Job**",
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const approach = within(canvas.getByRole("region", { name: "The approach" }));
+    await expect(approach.getByRole("button", { name: "View more" })).toBeVisible();
+    await expect(approach.getByRole("strong")).toHaveTextContent("read");
+    await expect(approach.getByRole("code")).toHaveTextContent("drones_running");
+
+    const row = within(canvas.getByRole("listitem", { name: /^T6 / }));
+    await expect(row.getByRole("code")).toHaveTextContent("openBoard");
+    await expect(row.getByRole("strong")).toHaveTextContent("the Job");
+  },
+};
