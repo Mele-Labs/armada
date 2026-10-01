@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { LucideIcon } from "lucide-react";
+import { expect } from "storybook/test";
 import { EvidenceCard } from "./EvidenceCard";
 
 /**
@@ -73,5 +74,31 @@ export const NotClaimedEmpty: Story = {
     time: "14:20",
     claimed: "The change is on fix/poke-ceiling and ready to read.",
     shownBy: "3 files +214 −96 · branch fix/poke-ceiling",
+  },
+};
+
+/**
+ * A Drone writes its claim in markdown, and the card draws the structure it
+ * wrote rather than its asterisks and backticks. Both prose fields go through
+ * `Prose`; `shown_by` is an artifact and stays literal mono.
+ */
+export const MarkdownInTheClaim: Story = {
+  args: {
+    icon: NO_GLYPH_IN_REGISTRY,
+    iconLabel: "Evidence",
+    step: "Plan the change",
+    time: "09:14",
+    claimed:
+      "`settings.rs` is split in two, with **no change in behaviour**:\n\n- the reducer\n- the selectors",
+    shownBy: "src/settings.rs → src/settings/reducer.rs, src/settings/selectors.rs",
+    notClaimed: "Nothing about the **settings UI**.",
+  },
+  play: async ({ canvas }) => {
+    const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
+    await expect(strong).toEqual(["no change in behaviour", "settings UI"]);
+    await expect(canvas.getByRole("code")).toHaveTextContent("settings.rs");
+    const items = canvas.getAllByRole("listitem").map((one) => one.textContent);
+    await expect(items).toEqual(["the reducer", "the selectors"]);
+    await expect(canvas.queryByText(/\*\*/)).toBeNull();
   },
 };
