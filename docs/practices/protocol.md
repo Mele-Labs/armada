@@ -1724,7 +1724,118 @@ field says the peer is older than 18.4, and Bridge draws the deference unresolve
 naming a default the repository never wrote. They are `#[serde(default)] String` on Fleet's side
 and `?: string` on Bridge's, which is `WorkflowSummary.source`'s spelling for the same situation.
 
-## Protocol 18.5: a worktree's size says when it was walked
+## Protocol 19.0: a dispatched request is a row
+
+`#1159`. `JobStatus` gains `proposing` — the interval while the Job proposer is
+reading a request — and **widening that set is a major bump by this document's
+own table**, so the major moves and the minor resets. The table's row is *add a
+new enum variant the other side is expected to `match` on*, and the caveat row
+above it does not reach this set: `held_by` and `queued_reason` are open because
+Bridge renders them through the generated vocabulary without branching, and this
+paragraph's own *Minor vs. major* section already names `JobStatus` as the
+counter-example — **Bridge picks a screen from it**. A Bridge built before this
+looks `proposing` up in `packages/components/src/generated/vocabulary.ts`, finds
+nothing, and has no screen to draw for a row that is now on every Board; the
+Rust deserializer is stricter still and refuses the spelling outright
+(`crates/ipc/src/enums.rs`'s `wire_enum!`). A minor bump would have promised that
+an older peer parses every message the same way, and that is the promise this
+breaks.
+
+**Nothing else on the wire changed.** No DTO gains or loses a field, no route is
+added, and `dispatched_by` (14.2) is already how a Job the proposer split names
+the Job that dispatched it — so the extras need no second relation. `ProposalId`,
+`ProposalInFlight`, `proposal.moved` and `stop_proposal` are untouched: a client
+still watches the *call* through them and now has a Job's row to come back to as
+well.
+
+**And Fleet does not write it yet.** `domain/job-statuses.toml` carries the row
+at `in_code = "Not yet"`, beside `awaiting_approval`, `awaiting_repair` and
+`awaiting_attestation`; `propose_from_request` still answers with the Jobs the
+request became. So the refusal a major buys is paid before anything can send the
+word — which is the right way round, because the alternative is a Fleet that can
+send a status and a Bridge that connects and cannot draw it.
+
+**The event stream is neither better nor worse for this.** No kind is added, no
+payload grows, and nothing here assumes delivery is complete: a `proposing` row
+reaches a client through the `job.created` kind and the resync that already carry
+every other row, and the bounded drop-oldest broadcast in
+`crates/api/src/stream.rs` is unchanged. When Fleet does create a Job at
+dispatch, several requests sent at once will publish one `job.created` each,
+which is the same one-message-per-row the approval gate already published.
+
+## Protocol 19.1: a proposal fills in as it is written
+
+`ProposalInFlight.settled` and the two DTOs behind it, `ProposalSettled` and
+`ProposalSettings` — additive on a message that already existed, so the minor
+moves. A Bridge built before this ignores the field and draws the wait exactly as
+it did at 19.0.
+
+The owner, 30 Sep 2026, having looked at a proposing Job on screen: *"I would
+really push for us to find a way to make the proposer not report the job whole.
+Is there anyway for it to fill in as it goes?"* Four fields, in his order —
+workflow, title, done-when, settings — and
+`.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md` carries the
+order's reasoning, the option he turned down and the cost he took.
+
+**The settings are one field carrying two**, because both arrive on one line of
+the answer: `urgency`, and `model` — which model a Drone on this Job is spawned
+as. The owner took the model over the argument that a model choosing which model
+runs the work is the dial every later call's cost hangs off. **It picks from
+`list_models`' own set**, and a name that set does not hold refuses the request
+through `fleet.proposer_model_not_held` — **its own code, and never
+`fleet.no_workflow_fits`**. That refusal's advice is to say the request again
+differently, which cannot fix a model name and is about a workflow that was not
+wrong; `#334` and `#410`'s rule is that two causes wanting opposite responses
+must not share a word. The refusal carries the model asked for and the set this
+machine runs, and Bridge mirrors the code the way it mirrors
+`fleet.proposer_stopped`.
+**Absent stays absent**: a call that names no model reaches `ProposeJob.model`
+null, which has always meant configuration decides. Land-as-one is deliberately
+not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
+that how the work lands follows from having read the code, and the owner kept it
+when it was put beside the model.
+
+**Fields that are settled, never a transcript.** Fleet reads the answer's prefix
+in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
+crosses only once its own line has ended — so a client either has a title or has
+none, and never has `Say which of the two giv`. The raw text does not cross:
+`answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
+the dated correction of the rule that used to make it the whole of what a surface
+could say.
+
+**What the correction turns on is the premise, not the reasoning.** *A channel
+carrying the answer as it was written would be a second, earlier, worse copy of
+the Jobs it minted* was right while nothing existed until the answer landed. A
+dispatched request is a Job from the press since 19.0, so a field read early is
+that row becoming more complete rather than a rival to it — and the objection
+still stands for the text itself, which is why nothing beside the count carries
+one.
+
+**Bridge draws each field where the Job already draws it**, through one fold
+(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+row's Workflow column, the settled title is the row's title, the done-when lines
+are the Job's criteria and the settings are its urgency. The wait inside
+Overview's lead says which of the four the call has got to, because that is the
+one region on a proposing Job's page whose subject is the call.
+
+**Fleet publishes it and nothing folds it yet.** `job-statuses.toml` still reads
+`in_code = "Not yet"` for `proposing`, so no Fleet creates a Job at dispatch and
+`proposal.moved` names no Job for `arrivals.ts` to fold onto. The mock is what
+mints the row and applies the fold; when Fleet's half lands, `arrivals.ts` calls
+`filled` on the Job the message names and nothing in `packages/` changes.
+
+**It makes the back-pressure question neither better nor worse.** No new queue,
+no new channel and no per-client state: `settled` rides on `proposal.moved`, which
+is already on the one bounded drop-oldest broadcast, and a dropped message costs
+a reading that the next one supersedes — the field is the whole prefix re-read
+rather than a delta, so a client that lost one is not missing a field, it is a
+beat behind. What it does add is messages: a field settling publishes
+immediately rather than waiting for `TOKEN_TICK`, which is four more messages per
+one-Job answer plus one per done-when line. That is bounded by the answer's own
+shape and not by the frame rate, which is the property `TOKEN_TICK` exists to
+hold.
+
+## Protocol 19.2: a worktree's size says when it was walked
 
 One optional field added to `WorktreeOnDisk` — `measured_at`, the instant the `du` that found
 `bytes` ran. Additive: a Bridge built before this ignores it, and draws the size under the
@@ -1735,7 +1846,7 @@ can be up to that much older than `read_at`. `read_at` used to say every figure 
 now says every figure but this one, and Pulse draws the size's own age under it.
 
 **Present exactly where `bytes` is.** A walk that did not finish measured nothing, so there is no
-instant to put on it; an absent `measured_at` beside a present `bytes` is a Fleet older than 18.5.
+instant to put on it; an absent `measured_at` beside a present `bytes` is a Fleet older than 19.2.
 
 ## Open questions
 

@@ -107,6 +107,27 @@ export const NobodyHasAsked: Story = {
 };
 
 /**
+ * **The Job those figures come off has not been read yet.** Bars stand where
+ * they land, and no count is drawn: `Checks running 0` before the read is a
+ * number nobody took (owner, 1 Oct 2026).
+ */
+export const FiguresNotYetRead: Story = {
+  args: {
+    reading: null,
+    figures: FIGURES,
+    figuresReading: true,
+    note: "Reading the machine.",
+    examined: null,
+    onExamine: () => {},
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("status")).toBeVisible();
+    await expect(canvas.queryByText("Checks running")).toBeNull();
+    await expect(canvas.queryByText("Judges running")).toBeNull();
+  },
+};
+
+/**
  * **The reading a person came for.** A drone and the build it started, the one
  * fleet wrote down leading the list, and the disk the checkout has taken —
  * which is the figure with a second reason to exist, since seventy-four

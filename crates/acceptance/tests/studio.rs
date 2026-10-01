@@ -213,7 +213,9 @@ fn an_issue_drafts_text_alone_reaches_the_proposer_and_the_job_is_told_all_of_it
     );
 
     let held = held();
-    let brief = Brief::about(&received.request, &held);
+    // No model offered, so the answer names none and the Job reaches
+    // configuration's — `ProposedJob::model`.
+    let brief = Brief::about(&received.request, &held, &[]);
     assert!(
         brief.question().contains(&draft),
         "the proposer is asked with the draft as the person wrote it up: {}",
@@ -221,7 +223,7 @@ fn an_issue_drafts_text_alone_reaches_the_proposer_and_the_job_is_told_all_of_it
     );
 
     let workflow = held.keys().next().expect("the bench holds a workflow");
-    let Ok(Proposal::Resolved(jobs)) = brief.read(&one_job_under(workflow), &held) else {
+    let Ok(Proposal::Resolved(jobs)) = brief.read(&one_job_under(workflow), &held, &[]) else {
         panic!("an answer naming a held workflow and a title is a proposal");
     };
     assert_eq!(

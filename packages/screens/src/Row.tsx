@@ -92,6 +92,12 @@ import { originReading } from "./origin";
 import { leading, readingOf } from "./reading";
 import type { Recent } from "./recent";
 
+/**
+ * The status a dispatched request stands at until the proposer answers — a wire
+ * value, spelled once here for the three cells it empties.
+ */
+const BEING_PROPOSED = "proposing";
+
 /** Whether the Job is over, from the registry that says so. */
 export function isTerminal(job: JobSummary): boolean {
   return JOB_LIFECYCLE[job.status]?.terminal === true;
@@ -208,6 +214,30 @@ export function Row({
   const workflowValue =
     workflow === undefined ? job.workflow_id : `${workflow.name}, ${steps.length} steps`;
   const freeze = rowFreezeOf(job);
+  // **A dispatched request has nothing for three of the four columns.**
+  // `job-statuses.toml` says `proposing` is the one status with no frozen
+  // workflow at all, so there is no workflow to name, no step machine to place
+  // a bar in and nothing that has run.
+  //
+  // **The track stays and the heading goes with the value.** The columns are
+  // the list's, so a dropped field shifts every one behind it; but a heading
+  // over a blank is the placeholder *an empty slot stays empty* refuses, and
+  // the owner applied that rule here by eye on 30 Sep 2026 once he could see
+  // the row. An em dash would be worse again — it reads as a value that failed
+  // to load, which is the Spend argument three comments up.
+  //
+  // **Cost he took:** scanning down the list, a proposing row's cells sit where
+  // its neighbours' do with nothing naming them. The table view is unaffected,
+  // since there the header names each column once for the whole list.
+  const beingProposed = job.status === BEING_PROPOSED;
+  // **The workflow is the one of the three that arrives before the Job does.**
+  // A proposal fills in as the proposer writes it (30 Sep 2026), and the
+  // workflow is the first field to settle — so this cell is blank while nothing
+  // has chosen one and is an ordinary Workflow cell, heading and all, the moment
+  // something has. Progress and Run time stay blank for the whole status: the
+  // step machine is initialised on the way out, at `proposing ->
+  // awaiting_approval`, and nothing has run.
+  const noWorkflowYet = beingProposed && job.workflow_id === "";
   const elapsedNow = elapsedOf(job, now);
   const createdAt = absoluteOf(job.created_at) ?? undefined;
   // **When it ended, preferred over when it was created.** `ended_at` is what
@@ -242,16 +272,18 @@ export function Row({
   // so the column says Workflow and carries the workflow. The branch is a fact
   // the detail holds.
   const facts: JobRowField[] = [
+    noWorkflowYet
+      ? { value: undefined }
+      : {
+          label: "Workflow",
+          icon: ScrollText,
+          value: workflowValue,
+          mono: workflow === undefined,
+          copyValue: job.workflow_id,
+        },
     {
-      label: "Workflow",
-      icon: ScrollText,
-      value: workflowValue,
-      mono: workflow === undefined,
-      copyValue: job.workflow_id,
-    },
-    {
-      label: "Progress",
-      value: (
+      ...(beingProposed ? {} : { label: "Progress" }),
+      value: beingProposed ? undefined : (
         <>
           {bar}
           <span className="armada-row-step">
@@ -269,14 +301,16 @@ export function Row({
       ),
     },
     {
-      label: "Run time",
+      ...(beingProposed ? {} : { label: "Run time" }),
       // **A Job that has never run draws nothing here, not `endedAt`.** The
       // fallback is for a Job from a Fleet that served no `ended_at`, which
       // leaves `elapsedOf` with nothing to stop against; a Job still waiting
       // for approval or a slot has never run at all, and a date in this column
       // would read as a run that happened. `endedAt` already falls back to
       // `createdAt` itself, for a row older still — see where it is computed.
-      value: elapsedNow ?? (isTerminal(job) ? endedAt : undefined) ?? "—",
+      value: beingProposed
+        ? undefined
+        : (elapsedNow ?? (isTerminal(job) ? endedAt : undefined) ?? "—"),
       mono: true,
       quiet: elapsedNow === undefined,
     },

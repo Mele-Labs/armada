@@ -281,6 +281,9 @@ where
                 // Judge and a proposer call carry neither.
                 &[],
             )?,
+            // The same list `list_models` serves, so what the proposer may pick
+            // and what a picker offers cannot disagree.
+            choices: self.models.models.clone(),
         })
     }
 

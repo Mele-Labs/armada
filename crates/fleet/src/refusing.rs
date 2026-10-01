@@ -54,6 +54,15 @@ const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
 /// and the reason it has a code of its own: a caller reading `UNACCEPTABLE`
 /// cannot tell it from a proposal naming a workflow that does not exist.
 const NO_WORKFLOW_FITS: &str = "fleet.no_workflow_fits";
+/// The request was read and asked for a model this machine does not run.
+///
+/// **Never `NO_WORKFLOW_FITS`.** That code's sentence tells a person to say the
+/// request again differently, which cannot fix a model name and is advice about
+/// something that was not wrong. This shipped as that code for half a day and
+/// the cost was exactly what `#334` and `#410` say it is: two causes wanting
+/// opposite responses sharing a word. The fields carry the model asked for and
+/// the set this machine runs, so a person can act without going to look it up.
+const PROPOSER_MODEL_NOT_HELD: &str = "fleet.proposer_model_not_held";
 /// The proposer call could not be made. **Never the code above** — a client
 /// that rendered an outage as "nothing fits" would tell a person their request
 /// was refused when it was never read.
@@ -454,6 +463,20 @@ where
             Adrift::NoWorkflowFits { request, .. } => Refusal::Unacceptable(
                 WireError::raised(NO_WORKFLOW_FITS, said, self.run_id())
                     .with_field("request", WireValue::Str(request.clone())),
+            ),
+            // The request came back on the same field, for the same reason —
+            // nothing a person typed was wrong and what they retype is what
+            // they wrote. `model` and `models` are what the arm above has no
+            // equivalent of: which name could not be run, and what could.
+            Adrift::ModelNotHeld {
+                request,
+                named,
+                held,
+            } => Refusal::Unacceptable(
+                WireError::raised(PROPOSER_MODEL_NOT_HELD, said, self.run_id())
+                    .with_field("request", WireValue::Str(request.clone()))
+                    .with_field("model", WireValue::Str(named.clone()))
+                    .with_field("models", WireValue::Str(held.join(", "))),
             ),
             // A call that could not be made, which is not that refusal — 500,
             // because nothing about the request is wrong and asking again is

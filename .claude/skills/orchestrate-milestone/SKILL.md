@@ -105,16 +105,14 @@ usually right — it has just read the code and you were working from memory.
 
 | | |
 |---|---|
-| **The Checks the change can affect** | what `work-issue` step 4 names, once per branch and one heavy run at a time. `format` is one of them wherever Rust changed — a merge that skipped it left `main` failing a declared Check on 2 Sep |
+| **The quick self-check** | what `work-issue` step 4 names, once per branch and one heavy run at a time. `format` is one of them wherever Rust changed — a merge that skipped it left `main` failing a declared Check on 2 Sep |
 | The acceptance tests pass | where the change reaches what they read, by test name. **No failing test is merged**, a milestone's own included |
 | `verify-foundations` is no worse | against a baseline off `main`, not against zero — a `missing:` the branch added blocks |
 | `verify-docs` is green | where `docs/` or `operations.toml` changed |
 | You have read the diff | not the report |
 
-**After a rebase, rerun only what the commits you crossed could break.** Where
-they touch none of the branch's files, no gate rule under `xtask/`, no
-`armada.yml`, no lockfile and no protocol version, rerun nothing. Otherwise rerun
-`verify-foundations`, and the Checks for the files both sides touched. Confirmed
+**After bringing `main` in, rerun nothing before landing.** The land turn reruns
+the gate and every Check the combination hits, against the real `main`. Confirmed
 12 Sep 2026, when `main` took a merge every 7–14 minutes and a whole bar on two
 branches outlasted every gap, so neither landed; on 13 Sep the whole bar after
 every rebase made the owner's machine unusable.
