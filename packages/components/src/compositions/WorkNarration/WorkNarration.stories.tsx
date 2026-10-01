@@ -90,7 +90,7 @@ export const APlanMidTask: Story = {
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByText("Now wire this into `Fleet::assembled` in fittings.rs:")).toBeVisible();
+    await expect(canvas.getByText("Fleet::assembled")).toBeVisible();
     const folded = canvas.getByRole("button", { name: "2 calls · Edit" });
     await expect(folded).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(folded);
@@ -178,7 +178,32 @@ export const NoPlan: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.queryByText("Outside any task")).toBeNull();
-    await expect(canvas.getByText("Now let's add `EvidenceInbox::reloaded`:")).toBeVisible();
+    await expect(canvas.getByText("EvidenceInbox::reloaded")).toBeVisible();
+  },
+};
+
+/** The Drone writes markdown, and its sentence draws it: emphasis, a list, a name in code. */
+export const TheDroneWritesMarkdown: Story = {
+  name: "The Drone writes markdown",
+  args: {
+    emptyNote: "Nothing yet",
+    sections: [
+      {
+        id: "outside",
+        beats: [
+          {
+            id: "m1",
+            at: "08:30:12",
+            said: "Reloading on start. **Two places** read the inbox:\n\n- `EvidenceInbox::reloaded` on start\n- the settle loop after it",
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Two places").tagName).toBe("STRONG");
+    await expect(canvas.getByText("EvidenceInbox::reloaded").tagName).toBe("CODE");
+    await expect(canvas.getByText("the settle loop after it").tagName).toBe("LI");
   },
 };
 

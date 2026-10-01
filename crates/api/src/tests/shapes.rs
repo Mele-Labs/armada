@@ -640,6 +640,7 @@ pub fn workflows() -> Vec<WorkflowSummary> {
         name: "a-workflow".to_string(),
         version: 1,
         source: "armada".to_string(),
+        for_requests: Some("A change somebody asked for by name".to_string()),
         steps: vec![
             // Gated, and ungated. The pair is the distinction [`detail`]'s rail
             // turns on, so the fake carries both rather than one — and the

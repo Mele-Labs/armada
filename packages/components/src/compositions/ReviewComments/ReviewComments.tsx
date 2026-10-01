@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Button, STILL_WAITING, useStillWaiting, type ButtonAnswer } from "../../primitives/Button/Button";
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -26,9 +27,12 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * # Every word here except Armada's own was written by somebody outside
  *
- * A comment is written by whoever can see the pull request. It is drawn as a
- * text node and as nothing else — no markdown is rendered, no link is made
- * clickable *out of its own text*, no attribute carries one. What a person
+ * A comment is written by whoever can see the pull request, and a reviewer
+ * writes markdown. **It is drawn through `Prose`, the renderer every model's
+ * words go through** — the owner's call of 1 Oct 2026, reversing the bare text
+ * node this drew before — so a comment reads as its structure, and what its
+ * markdown may and may not become, a link out of its own text among it, is
+ * Prose's rule kept in one place rather than a second one here. What a person
  * does with it is pick it or not, and the only value that goes back on a pick
  * is the handle the forge gave it.
  *
@@ -36,8 +40,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * **The code an inline comment is about** — its file, its line, and the diff
  * around it — comes ahead of the words, exactly as the forge answered it: no
- * syntax highlighting, a `pre` block same as the comment's own paragraphs are
- * `pre-wrap`. **A link to the comment on the forge** is its own control, drawn
+ * syntax highlighting, in a `pre` block. **A link to the comment on the forge** is its own control, drawn
  * from `id` through `onOpenLink` rather than from a `url` string handed
  * straight to an anchor — the same discipline `WhereRow`'s `open` act keeps,
  * so nothing this surface was given reaches the OS without main resolving it
@@ -210,10 +213,12 @@ export function ReviewComments({
                     <pre className="armada-remarks__hunk mono">{comment.inline.hunk}</pre>
                   </div>
                 )}
-                {/* Somebody else's words, as a text node and nothing else.
-                    `pre-wrap` keeps the paragraphs they wrote without rendering
-                    a line of it as markup. */}
-                <p className="armada-remarks__said armada-remarks__body">{comment.said}</p>
+                {/* Somebody else's words, through `Prose` like every
+                    model's: the paragraphs, lists and code they wrote, and
+                    nothing Prose refuses. */}
+                <div className="armada-remarks__said armada-remarks__body">
+                  <Prose text={comment.said} />
+                </div>
                 {comment.takenUp ? (
                   <p className="armada-remarks__sent">{sentNote}</p>
                 ) : (

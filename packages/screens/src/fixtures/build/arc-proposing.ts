@@ -48,9 +48,13 @@ const JUST_SENT_MS = 8_000;
 const READING_FOR_MS = 460_000;
 
 /** The second request, dispatched in the same sitting as the arc's own. */
+// In markdown, as a person types one into Dispatch: the walk
+// `markdownFromTheProposer` looks at it drawn as the Brief.
 const SECOND_REQUEST =
   "The Cleared tab keeps rows whose worktree is gone and says nothing about the branch. " +
-  "Say which of the two was given back on each row.";
+  "Say which of the two was given back on each row:\n\n" +
+  "- the **worktree** alone\n" +
+  "- the `branch` as well";
 const SECOND_ID = "01M2D3ZF41002REQUEST0002";
 const SECOND_HANDLE = "20-say-what-a-clear-gave-back";
 
@@ -143,7 +147,7 @@ const FILLING: readonly { name: string; says: string; settled: ProposalSettled }
       title: "Say which of the two a clear gave back",
       done_when: [
         "The Cleared tab names the branch on every row whose worktree is gone",
-        "A row whose branch was also given back says so, and does not say it twice",
+        "A row whose `branch` was also given back says so, and does not say it **twice**",
       ],
     },
   },
@@ -155,7 +159,7 @@ const FILLING: readonly { name: string; says: string; settled: ProposalSettled }
       title: "Say which of the two a clear gave back",
       done_when: [
         "The Cleared tab names the branch on every row whose worktree is gone",
-        "A row whose branch was also given back says so, and does not say it twice",
+        "A row whose `branch` was also given back says so, and does not say it **twice**",
       ],
       // **Both on one line of the answer, so both settle together** — the
       // settings are one field. The model is picked from what this machine
@@ -171,7 +175,7 @@ const FILLING: readonly { name: string; says: string; settled: ProposalSettled }
       title: "Say which of the two a clear gave back",
       done_when: [
         "The Cleared tab names the branch on every row whose worktree is gone",
-        "A row whose branch was also given back says so, and does not say it twice",
+        "A row whose `branch` was also given back says so, and does not say it **twice**",
       ],
       // **Absent stays absent**, which is the moment beside the one above: a
       // call that declines to name a model reaches configuration's choice and

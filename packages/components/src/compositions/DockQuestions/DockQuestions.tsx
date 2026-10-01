@@ -40,9 +40,12 @@ export type DockQuestion = {
   title?: string;
   /** The line over what was asked, naming the kind. */
   label: string;
-  /** What was asked. A node, so a command sits in mono inside its sentence. */
+  /**
+   * What was asked. A node, so a command sits in mono inside its sentence, and
+   * so a Drone's own question arrives as `Prose` — the caller knows who wrote it.
+   */
   asked: ReactNode;
-  /** A line under it — for a Judge refusal, what the difference does. */
+  /** A line under it — for a Judge refusal, what the difference does, as `Prose`. */
   detail?: ReactNode;
   /** How long it has waited, already rendered. */
   waiting?: string;
@@ -115,8 +118,8 @@ function QuestionCard({
       </div>
       {title === undefined ? null : <p className="armada-dock-question__title">{title}</p>}
       <span className="armada-dock-question__label">{label}</span>
-      <p className="armada-dock-question__asked">{asked}</p>
-      {detail === undefined ? null : <p className="armada-dock-question__detail">{detail}</p>}
+      <div className="armada-dock-question__asked">{asked}</div>
+      {detail === undefined ? null : <div className="armada-dock-question__detail">{detail}</div>}
       <div className="armada-dock-question__answers" role="group" aria-label="Answers">
         {answers.map((answer) => {
           const pending = answering === true && pressedId === answer.id;

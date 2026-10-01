@@ -262,6 +262,7 @@ pub(crate) fn workflow_summary(
         steps: declared(workflow),
         manifest_id: ManifestId::from(manifest_id),
         source: workflow.source().as_wire().to_string(),
+        for_requests: workflow.for_requests().map(str::to_string),
     }
 }
 

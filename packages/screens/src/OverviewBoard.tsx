@@ -21,6 +21,7 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  Prose,
   SkeletonText,
   WorkflowCanvas,
 } from "@armada/components";
@@ -123,10 +124,20 @@ export function OverviewBoard({
             the brief should replace where the figures list is right now."*
             The one card with no destination behind it. */}
         <DestinationCard label="Brief">
+          {/* The Proposer's words through `Prose`, so a brief written in
+              markdown reads as its structure — the owner's ask of 1 Oct 2026.
+              The sentences for an absent brief are Bridge's own and stay text. */}
           {brief === undefined && reading ? (
             <JobBriefSkeleton />
+          ) : brief === undefined ? (
+            <p className="armada-overview-board__brief">{briefAbsent ?? "No brief was written."}</p>
           ) : (
-            <p className="armada-overview-board__brief">{brief ?? briefAbsent ?? "No brief was written."}</p>
+            // **The requester's words as the structure they carry.** An issue
+            // body Fleet pastes in has headings, code and paragraphs, and drawn
+            // as one `<p>` it ran together — the owner's Job 1, 1 Oct 2026.
+            <div className="armada-overview-board__brief">
+              <Prose text={brief} />
+            </div>
           )}
         </DestinationCard>
 

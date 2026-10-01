@@ -457,6 +457,10 @@ const api: BridgeApi = {
   openServerLink: (serverId: string, url: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openServerLink, serverId, url),
 
+  // A link in a model's text. The address crosses because nothing else could
+  // name it; main opens `http(s):` only. `main/links.ts`.
+  openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
+
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in
   // the Job's own log. It costs no model call, and the answer arrives on the

@@ -134,6 +134,11 @@ pub struct WorkflowSummary {
     /// older than the field.
     #[serde(default)]
     pub source: String,
+    /// The definition's `for_requests` line: the one sentence saying what kind of request this
+    /// workflow is for, which the proposer reads when it picks one. **Absent where the
+    /// definition declares none**, and from a Fleet older than 21.1. Since 21.1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub for_requests: Option<String>,
 }
 
 /// A Kit or carried definition this Fleet runs without, and why. #425: named only in

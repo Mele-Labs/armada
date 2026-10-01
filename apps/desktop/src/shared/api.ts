@@ -702,6 +702,10 @@ export type BridgeApi = {
    * server id and the link's own address — main checks it against the links
    * it holds for that server before handing anything to the OS. */
   openServerLink: (serverId: string, url: string) => Promise<Followed>;
+  /** Open a link written in a model's text, in the system browser. **The one
+   * entry that sends an address**: such a link has no id main could look it
+   * up by. Main opens `http(s):` and refuses everything else by name. */
+  openLink: (address: string) => Promise<Followed>;
   /**
    * Ask Fleet to go and look at this Job now, and say what it found.
    *

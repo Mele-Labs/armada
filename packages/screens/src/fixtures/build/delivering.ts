@@ -86,7 +86,7 @@ function landAtTheGate(): StepDetail {
   return {
     step_id: "land",
     label: "Land",
-    ordinal: 6,
+    ordinal: 5,
     state: "awaiting_human",
     checks: [],
     check_runs: [],
@@ -120,7 +120,9 @@ const REMARKS: Remark[] = [
     id: "IC_kwDOgate0",
     by: "a-reviewer",
     at: "2026-09-09 08:58",
-    said: "The test file has no case for an empty column list, which is the one the board draws differently.",
+    said:
+      "The test file has no case for an **empty** column list, which is the one the board " +
+      "draws differently:\n\n- `columns: []`\n- one hidden column",
     taken_up: true,
   },
   {

@@ -232,6 +232,13 @@ One accent, used for interactive affordance only — never for status.
 --accent-muted  #1C3A52   subtle fills, selected row backgrounds
 ```
 
+**One carve-out: the structure of a model's text.** `Prose` draws its
+list markers, its quote rule (over an `--accent-faint` callout) and the
+leading edge of a fenced block in `--accent`, though none of them can be
+pressed. The owner chose this on 1 Oct 2026 ("Widen Accent for Prose").
+The marks sit on structure a reader scans, not on a status, so the "never
+for status" half holds without exception.
+
 **A status mark never sits on an accent fill.** `--status-running` is
 1.28:1 against `--accent`, so a status line drawn on a primary button
 cannot be seen. A control that has to carry a status mark first steps
@@ -528,6 +535,21 @@ lift raised the whole ladder and touched no weights. Emphasis within
 body is one step up the ladder, or `0.012em` tracking at body sizes, or
 `--fg-default` against `--fg-muted` — never 500 on a dense surface. 500
 stays for labels, which is a role, not emphasis.
+
+**One carve-out: `**bold**` in a model's text.** `Prose` draws it at
+`--weight-heading` as well as `--fg-default`, never above. The owner chose
+this on 1 Oct 2026 ("real bold weight"). The reason is that contrast alone
+has nothing to add to a passage already at `--fg-default`, such as a
+brief, so a bold run there drew as plain text. Every other surface keeps
+the rule above.
+
+**A second carve-out: a model's own headings.** `--text-lg` belongs to
+panel headings, but `Prose` draws a `#` or `##` at `--text-lg` over a
+`--border-default` rule, and a `###` at `--text-base`. The owner chose
+this on 1 Oct 2026 ("B, more life"). A model's message has sections, and
+at body size they did not read as sections. Both steps come from the
+ladder. The heading is still a paragraph, so it takes no place in the
+page's outline.
 
 **Figures are lining and tabular everywhere**, set once at the root, so
 numbers in a column align in the sans and compare by shape. Mono is
@@ -1927,6 +1949,48 @@ word a reader sees. Two explanations of what a Check is would be two
 things that can disagree, which is the distinction the gate rests on.
 
 Placement, alignment and collision are under Floating layers.
+
+### Prose — model-written markdown
+
+Free text a model wrote — a Judge's consequence, a flag's citation, a
+Drone's turn, a Helm reply — is drawn by `Prose` as GitHub-flavoured
+markdown, through `react-markdown`, `remark-gfm` and `remark-breaks`.
+**The owner chose full markdown on 1 Oct 2026**, over a hand-written
+subset that refused links, tables and blockquotes. A single newline is a
+line break, the way a forge draws a review comment.
+
+**The body inherits the surface's size**, so one component reads at
+`--text-sm` in a dialog and `--text-2xs` in a rail. Only headings and the
+table header declare a size: the heading carve-out under Typography, and
+the Table primitive's own header step.
+
+**Block flow, never flex.** `-webkit-line-clamp` counts no lines inside a
+flex box, and Prose is drawn inside `Clamped`. Every gap is a margin
+between siblings.
+
+| Written | Drawn |
+|---|---|
+| `#`, `##` | the line at `--text-lg`, `--weight-heading` and `--fg-default` over a `--border-default` rule, as a paragraph with `--space-6` above. It gets no entry in the page's outline |
+| `###` | the same at `--text-base`, with no rule |
+| `####` and deeper | the same at body size |
+| `**bold**`, `*italic*`, `~~struck~~` | `--weight-heading` at `--fg-default` (the carve-out under Typography), slant, a line through in `--fg-subtle` |
+| `` `code` `` | mono in a `--bg-overlay` well edged in `--border-default` |
+| Fenced block | mono on `--bg-sunken` at `--radius-md`, edged in `--accent-muted` with a two-unit `--accent` leading edge (the carve-out under Accent). It wraps rather than clipping |
+| `-` list, `1.` list | discs, and mono numbers at `--weight-heading`, in `--accent` |
+| `- [x]` task | a disabled checkbox in `--accent`, in place of the marker |
+| Table | the Table primitive's header: a `--bg-overlay` band, `--text-2xs` caps at `--tracking-caps` in `--fg-muted`, `--border-default` beneath. `--border-subtle` between rows and around the table. Cells wrap; column alignment is dropped |
+| Blockquote | a callout on `--accent-faint` with a two-unit `--accent` leading edge, words at `--fg-default` |
+| `---` | a `--border-subtle` rule |
+| Link | `--accent`, underlined on hover (hard rule 2). Only `http:` and `https:` are links; anything else draws as its text |
+| Image | a link to the address, labelled by its alt text. The CSP's `img-src 'self' blob:` would draw a remote image broken |
+| Raw HTML | its characters. No `rehype-raw` |
+
+**A link hands its address to the shell and the window goes nowhere.**
+Bridge opens it in the system browser through `openLink`, which takes the
+address the text carried and checks only its scheme. Every other opener reads
+its address in main, but that is not possible here: a link in model text has
+no id main could look it up by. Without an opener, a link draws as its text.
+A refused open is said in a toast, in `whyNotOpenedLink`'s words.
 
 ### Stats panel
 

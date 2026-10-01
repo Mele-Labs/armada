@@ -1,15 +1,17 @@
 //! One turn: a batch of waiting branches built into one candidate, gated
 //! once, and pushed onto the base — split in half on a red or a clash between
-//! members, and retried up to [`ROUNDS`] times against a base that keeps
-//! moving. `scripts/land`'s own `take_turn`.
+//! members, unless a new gate line names whose it is, and retried up to
+//! [`ROUNDS`] times against a base that keeps moving. `scripts/land`'s own
+//! `take_turn`.
 
 use std::collections::VecDeque;
 use std::path::Path;
 
 use super::batch::{build, halves, logs_for, tell, NotBuilt};
+use super::blame::blame;
 use super::dir::StateDir;
 use super::env::{Env, ROUNDS};
-use super::gating::gate;
+use super::gating::{checks, foundations, foundations_red, Read};
 use super::git::checked;
 use super::onto_main::{already_landed, landed, local_head, push, Pushed};
 use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
@@ -17,6 +19,7 @@ use super::queue::{read_queue_entry, QueueEntry};
 use super::repo::{is_ancestor, remote_head};
 use super::say::say;
 use super::stop::Stopped;
+use super::withdraw::still_in_line;
 
 /// Take `entries`, in place order, and end every one of their turns.
 pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entries: &[QueueEntry]) {
@@ -70,6 +73,33 @@ fn end_all(
     None
 }
 
+/// Report each member its own gate lines, and keep the rest to gate again
+/// at once. Each red keeps the gate's log in its own directory, since the
+/// rest's run overwrites the group's.
+fn red_alone(
+    state: &StateDir,
+    env: &Env,
+    moved: bool,
+    logs: &Path,
+    group: Vec<QueueEntry>,
+    shares: Vec<Vec<String>>,
+) -> Vec<QueueEntry> {
+    let mut rest = Vec::new();
+    for (entry, lines) in group.into_iter().zip(shares) {
+        if lines.is_empty() {
+            rest.push(entry);
+            continue;
+        }
+        let own = logs_for(state, std::slice::from_ref(&entry));
+        let log = own.join("foundations.log");
+        let _ = std::fs::remove_dir_all(&own);
+        let _ = std::fs::create_dir_all(&own)
+            .and_then(|()| std::fs::copy(logs.join("foundations.log"), &log));
+        finish(state, &entry, foundations_red(env, moved, lines, &log));
+    }
+    rest
+}
+
 fn land_group(
     repo: &Path,
     state: &StateDir,
@@ -118,6 +148,7 @@ fn land_group(
 
     let mut rounds = 0;
     while rounds < ROUNDS {
+        group.retain(|entry| still_in_line(state, entry));
         group.retain(|entry| {
             let kept = local_head(repo, &entry.branch).as_deref() == Some(entry.head.as_str());
             if !kept {
@@ -169,7 +200,26 @@ fn land_group(
             Err(NotBuilt::Between) => return Some(halves(group)),
             Err(NotBuilt::Stopped(stopped)) => return end_all(state, group, stopped),
         };
-        if let Err(stopped) = gate(repo, state, env, &group, &base, &built, &logs) {
+        let passed = match foundations(repo, state, env, &group, &base, &built, &logs) {
+            Ok(Read::Passed(passed)) => passed,
+            Ok(Read::New(lines)) => {
+                let shares = (group.len() > 1)
+                    .then(|| blame(&lines, &built.own))
+                    .flatten();
+                let Some(shares) = shares else {
+                    let red =
+                        foundations_red(env, built.moved, lines, &logs.join("foundations.log"));
+                    return end_all(state, group, red);
+                };
+                group = red_alone(state, env, built.moved, &logs, group, shares);
+                if group.is_empty() {
+                    return None;
+                }
+                continue;
+            }
+            Err(stopped) => return end_all(state, group, stopped),
+        };
+        if let Err(stopped) = checks(repo, state, env, &group, &base, &built, &logs, passed) {
             return end_all(state, group, stopped);
         }
         let before = group.len();

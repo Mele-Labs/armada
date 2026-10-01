@@ -135,6 +135,7 @@ pub struct JobDetail {
     /// record clears the note the moment a Drone's brief is built from it, so
     /// this field stops being present at the same instant the note stops
     /// waiting. Nothing here can go stale, because nothing here is remembered.
+    /// **Absent on a terminal Job**, which no Drone will come for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect_waiting: Option<RedirectWaiting>,
     /// Other Jobs claiming to write where this one says it will.
@@ -209,7 +210,8 @@ pub struct JobDetail {
     pub command_waiting: Option<CommandInFlight>,
     /// The Judge question a person is being asked about, right now. **Since
     /// 11.1**, and absent from a Fleet older than that. Filled after
-    /// `JobDetail::of`, like `command_waiting`. See `JudgeQuestion`.
+    /// `JobDetail::of`, like `command_waiting`. See `JudgeQuestion`. **Present
+    /// only at `awaiting_review`**, the one status the answer is taken at.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub judge_question: Option<JudgeQuestion>,
     /// How this Job meets a Judge criterion that refuses. **Since 11.3**, and
@@ -716,7 +718,11 @@ impl JobDetail {
             // like the six above it: every one of those is a fact the Job does
             // not carry, and this one is a column on `jobs`. A caller asked to
             // hand it in could hand in a note the record had already cleared.
-            redirect_waiting: job.redirect_waiting().map(RedirectWaiting::of),
+            // A terminal Job is never re-admitted, so no Drone opens with it.
+            redirect_waiting: job
+                .redirect_waiting()
+                .filter(|_| !job.status().is_terminal())
+                .map(RedirectWaiting::of),
             // An argument like the six above it, and for their reason: which
             // other Jobs claim these paths is not a field of this Job, and
             // working it out needs every other Job's record.
