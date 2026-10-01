@@ -2,23 +2,28 @@ import { useState, type ReactNode } from "react";
 
 import { ChevronDown, ChevronRight } from "lucide-react";
 
+import { Prose } from "../../primitives/Prose/Prose";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
 
 /**
  * A step's work as the Drone told it, grouped under the plan task it served.
  *
- * **The Drone's sentences are the rows**, drawn as written, and each folds the
- * calls after it behind one line. A section is one plan task, or the work
- * outside any; a section with no heading draws its sentences bare, which is a
- * step with no plan. The rows under a sentence are the caller's log.
+ * **The Drone's sentences are the rows**, drawn as the markdown they were
+ * written in, and each folds the calls after it behind one line. A section is
+ * one plan task, or the work outside any; a section with no heading draws its
+ * sentences bare, which is a step with no plan. The rows under a sentence are
+ * the caller's log.
  */
 export type NarrationBeat = {
   /** Stable across re-renders. The first row's own id. */
   id: string;
   /** When it was said, already formatted. */
   at?: string;
-  /** The Drone's sentence, verbatim. Absent on calls made before it said anything. */
+  /**
+   * The Drone's sentence, verbatim, drawn through `Prose`. Absent on calls made
+   * before it said anything.
+   */
   said?: string;
   /** What the fold line says — `3 calls · Edit, Read`. */
   meta?: string;
@@ -163,12 +168,14 @@ function Beat({ beat }: { beat: NarrationBeat }) {
   return (
     <div className="armada-narration__beat">
       {beat.said === undefined ? null : (
-        <p className="armada-narration__said">
+        <div className="armada-narration__said">
           {beat.at === undefined ? null : (
             <span className="armada-narration__at mono">{beat.at}</span>
           )}
-          <span className="armada-narration__words">{beat.said}</span>
-        </p>
+          <div className="armada-narration__words">
+            <Prose text={beat.said} />
+          </div>
+        </div>
       )}
       {beat.body === undefined ? null : (
         <>

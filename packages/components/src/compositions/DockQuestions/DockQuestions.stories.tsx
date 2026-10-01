@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn } from "storybook/test";
 
+import { Prose } from "../../primitives/Prose/Prose";
 import { DockQuestions, type DockQuestion } from "./DockQuestions";
 
 /**
@@ -74,6 +75,34 @@ const judgeRefusal: DockQuestion = {
 
 /** A Drone's question offers its own two to four answers. */
 export const ADroneQuestion: Story = { args: { questions: [droneQuestion] } };
+
+/**
+ * What an agent wrote, in markdown: the Drone's question, and the Judge's word on what the
+ * difference does. The caller hands both over as `Prose`; they draw as written.
+ */
+export const InMarkdown: Story = {
+  name: "Questions in markdown",
+  args: {
+    questions: [
+      {
+        ...droneQuestion,
+        asked: (
+          <Prose
+            text={"Should the count include **exited** drones?\n\n- `drone_count` reads the live set\n- the restart drops it"}
+          />
+        ),
+      },
+      { ...judgeRefusal, detail: <Prose text={"A customer is **still charged** the full price by `total()`."} /> },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("exited").tagName).toBe("STRONG");
+    await expect(canvas.getByText("drone_count").tagName).toBe("CODE");
+    await expect(canvas.getByText("the restart drops it").tagName).toBe("LI");
+    await expect(canvas.getByText("still charged").tagName).toBe("STRONG");
+    await expect(canvas.getByText("total()").tagName).toBe("CODE");
+  },
+};
 
 /** A held command offers the three Armada answers Fleet sent. */
 export const ACommandWaiting: Story = { args: { questions: [commandWaiting] } };
