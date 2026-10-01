@@ -7,7 +7,7 @@
 import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary } from "@armada/shell";
-import { HapticsProvider, ProseLinks } from "@armada/components";
+import { HapticsProvider } from "@armada/components";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
@@ -86,10 +86,8 @@ export function mountApp(scenario: string | Scenario, host: HTMLElement, shared?
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <ProseLinks.Provider value={(address) => void api.openLink(address)}>
-            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-            <OnScreen say={say} />
-          </ProseLinks.Provider>
+          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+          <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>
     </StrictMode>,
