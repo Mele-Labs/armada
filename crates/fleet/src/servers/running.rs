@@ -304,8 +304,11 @@ async fn until(mut stopped: watch::Receiver<bool>) {
 
 /// A line of Fleet's own between commands, so one log reads as the sequence.
 fn marked(log: &Path, line: &str) {
+    // **One write, line and newline together.** The server appends to this
+    // file at the same time, and `writeln!` issues two writes: its first line
+    // could land between them, glued to the header.
     if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(log) {
-        let _ = writeln!(file, "{line}");
+        let _ = file.write_all(format!("{line}\n").as_bytes());
     }
 }
 
