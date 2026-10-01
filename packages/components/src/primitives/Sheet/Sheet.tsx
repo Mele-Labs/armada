@@ -250,6 +250,8 @@ export function Sheet({
       if (closeRef.current?.closest('[role="dialog"]')?.querySelector(".armada-popover__panel")) return;
       // The command palette opens over every surface, a sheet included, and takes the press for the same reason.
       if (document.querySelector(".armada-palette")) return;
+      // A toast stands over the sheet, and a press made inside it is the toast's.
+      if (document.activeElement?.closest(".armada-toast")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

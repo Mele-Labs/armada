@@ -16,7 +16,7 @@ import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/screen
 import type { BridgeApi } from "../../../shared/api";
 import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";
 import type { FleetHandle, Scenario } from "./scenario";
-import { onJob } from "./scenario";
+import { onJob, scenarioNamed } from "./scenario";
 import { entered, mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -307,18 +307,72 @@ test("Edit this task opens filled from the task, and Save says the route is not 
   await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
   // Nothing was done, so what was typed stays.
   await expect.element(task.getByLabelText("Model")).toHaveValue("haiku");
-  // The failure is drawn under the panel's dim, so the panels go first.
-  await userEvent.keyboard("{Escape}");
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+  // The failure pops up over the panel, so it is copied with the panel open.
   await page.getByRole("button", { name: "Copy debug info" }).click();
   await expect.poll(() => written).toHaveLength(1);
+  await expect.element(task).toBeVisible();
   const pasted = written[0]!;
   expect(pasted).toContain("bridge.not_implemented");
   expect(pasted).toContain(issueLink(1657));
   expect(pasted).toContain("POST /jobs/{job_id}/tasks/{task_id}/edit");
   expect(pasted).toContain("T6");
   expect(pasted).toContain("haiku");
+});
+
+// The owner's, 1 Oct 2026: a press that failed pops up as a toast over
+// everything on the screen, panels and their dim included, and its acts are
+// pressable where it appears.
+test("Restart this task with its panel open pops the failure up over the panel, and Copy debug info there leaves the panel open", async () => {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+  });
+  mount("arc/group-failed");
+  const task = await panelOf("T6", "Open a Drone's Job from its row");
+  await task.getByRole("button", { name: "Restart this task" }).click();
+  const failure = page.getByRole("alert").filter({ hasText: "Not implemented" });
+  await expect.element(failure).toBeVisible();
+  // Not drawn inside the panel: over it.
+  expect(task.getByText("Not implemented", { exact: true }).query()).toBeNull();
+  await failure.getByRole("button", { name: "Copy debug info" }).click();
+  await expect.poll(() => written).toHaveLength(1);
+  expect(written[0]).toContain("bridge.not_implemented");
+  expect(written[0]).toContain(issueLink(1656));
+  expect(written[0]).toContain("POST /jobs/{job_id}/tasks/{task_id}/restart");
+  await expect.element(task).toBeVisible();
+  // A failure stays until it is dismissed. Esc from inside it dismisses it and
+  // leaves the panel; Esc from anywhere else is the panel's again.
+  await expect.element(failure).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => failure.query()).toBeNull();
+  await expect.element(task).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => task.query()).toBeNull();
+});
+
+// The owner's, 1 Oct 2026: a press while Fleet is not connected is a press that
+// did not happen, so it pops up like a failure does — and pressed again, it is
+// the same one toast rather than a second.
+test("Restart this task while Fleet is not connected says so over the panel, once however often it is pressed", async () => {
+  const group = scenarioNamed("arc/group-failed")!;
+  // A fresh answer per press, as across the preload, so a second press is a second answer.
+  mount({ ...group, behaves: (fleet) => ({ ...group.behaves?.(fleet), restartTask: async () => ({ ...NOT_CONNECTED }) }) });
+  const task = await panelOf("T6", "Open a Drone's Job from its row");
+  const restart = task.getByRole("button", { name: "Restart this task" });
+  await restart.click();
+  const said = page.getByText("Fleet is not connected. Nothing was sent.", { exact: true });
+  // The toast's own status, and the notice inside it: the innermost is the notice.
+  const toast = page.getByRole("status").filter({ hasText: "Fleet is not connected. Nothing was sent." }).last();
+  await expect.element(toast).toBeVisible();
+  expect(task.getByText("Fleet is not connected. Nothing was sent.").query()).toBeNull();
+  await restart.click();
+  await expect.poll(() => said.all().length).toBe(1);
+  // Guidance, not a failure: nothing to copy, and Dismiss leaves the panel.
+  expect(toast.getByRole("button", { name: "Copy debug info" }).query()).toBeNull();
+  await toast.getByRole("button", { name: "Dismiss" }).click();
+  await expect.poll(() => said.query()).toBeNull();
+  await expect.element(task).toBeVisible();
 });
 
 test("a refused Add task says nothing was sent, and keeps the title typed", async () => {

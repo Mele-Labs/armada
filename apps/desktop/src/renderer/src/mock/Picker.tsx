@@ -1,307 +1,237 @@
 // Which scenario the mock is on, and a way to another. Dev-only: nothing the
 // Electron build bundles imports this file.
 
-import { StrictMode, useLayoutEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { Button, Card, Select } from "@armada/components";
-import type { KeyboardEvent, PointerEvent } from "react";
+import { Button, Input } from "@armada/components";
+import { FlaskConical } from "lucide-react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 import "./mock.css";
 import { SCENARIOS } from "./scenario";
-import type { Scenario } from "./scenario";
-import {
-  clampSpot,
-  forgetSpot,
-  readCollapsed,
-  readSpot,
-  writeCollapsed,
-  writeSpot,
-} from "./picker-place";
-import type { Spot } from "./picker-place";
 
 /**
- * The scenarios grouped by what comes before the first `/`, in the order
- * `SCENARIOS` lists them. **A name with no `/` is its own first group** — the
- * whole-app moments are what the mock opens on, and burying them under a
- * heading would put `every-state` below a dozen `arc/…` rows.
+ * The app's own left column — where the owner asked for the picker on
+ * 30 Sep 2026: *"I still would like to find a better way to overlay the mock
+ * scenarios. What if we put it in the left side panel?"*
+ *
+ * **In the column, not over it.** #1618 answered the same complaint by making
+ * the card draggable, which moved the problem rather than ending it: wherever
+ * it was dropped it was still on top of something, and every screenshot taken
+ * all night had to hide it first. A child of the column is in the flow with
+ * Navigation, Stats and Fleet, so it covers nothing at any width and scrolls
+ * with them when the window is too short to hold all four.
  */
-function grouped(): [string, Scenario[]][] {
-  const groups = new Map<string, Scenario[]>();
-  for (const one of SCENARIOS) {
-    const at = one.name.indexOf("/");
-    const key = at === -1 ? "" : one.name.slice(0, at);
-    const held = groups.get(key);
-    if (held === undefined) groups.set(key, [one]);
-    else held.push(one);
-  }
-  return [...groups.entries()];
+const COLUMN = ".armada-shell__left";
+
+/**
+ * The column, once the app has drawn it. `main.tsx` mounts the app first, but
+ * React renders on its own schedule, so it is not there when this root mounts
+ * — and it never arrives inside a `?frame` capture, where the picker is not
+ * mounted at all. Watching is what covers both without polling.
+ */
+function useColumn(): Element | null {
+  const [column, setColumn] = useState<Element | null>(() => document.querySelector(COLUMN));
+  useEffect(() => {
+    if (column !== null) return;
+    const watch = new MutationObserver(() => {
+      const found = document.querySelector(COLUMN);
+      if (found !== null) setColumn(found);
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, [column]);
+  return column;
 }
 
-/** One `--space-4` per arrow press, the step `TheShell`'s own handle takes. */
-const STEP = 16;
-
 /**
- * A drag underway: which pointer, where it went down, the card's box then, and
- * where the card has reached. **`moved` is why the spot is not read out of state
- * on the lift**: a `pointermove` is a continuous event, so React is free not to
- * have committed the last one when the discrete `pointerup` runs.
+ * Where each character of `query` sits in `name`, in order, or `null` where
+ * they do not all fit. **A subsequence, not a substring**: there are over a
+ * hundred scenarios and the useful thing to type is the initials of a long
+ * one — `arcex` finds `arc/executing-concurrent`.
  */
-type Drag = {
-  pointerId: number;
-  fromX: number;
-  fromY: number;
-  at: Spot;
-  size: DOMRect;
-  moved: Spot | null;
-};
+function fuzzy(name: string, query: string): number[] | null {
+  const at: number[] = [];
+  let from = 0;
+  for (const letter of query) {
+    const found = name.indexOf(letter, from);
+    if (found === -1) return null;
+    at.push(found);
+    from = found + 1;
+  }
+  return at;
+}
 
 /**
- * What the grip does, said for a keyboard: a cursor over it is not a label. The
- * grip draws no text at all — it is a bar, and the scenario is the select's to
- * say — so the name is on the end of the label, since a name a speech command
- * cannot say is a control it cannot press.
+ * How well `at` reads as a hit, lower first: a run of adjacent characters
+ * beats a scattering of them, and an early hit beats a late one. **No other
+ * term** — a score with more in it is one nobody can predict from the query
+ * they typed, and this list is walked by eye as often as it is searched.
  */
-const moveLabel = (current: string) => `Move the scenario picker — ${current}`;
-const MOVE_HINT = "Drag, or nudge with the arrow keys. Home returns it to the corner.";
+function score(at: number[]): number {
+  const gaps = at.reduce((held, one, i) => (i === 0 ? 0 : held + (one - at[i - 1]! - 1)), 0);
+  return gaps * 100 + (at[0] ?? 0);
+}
+
+/** A scenario that matched, and where — the marks the row draws it with. */
+type Hit = { name: string; says: string; at: number[] };
+
+/** Every scenario the query reaches, best first. The empty query is all of them, in `SCENARIOS`' order. */
+function hits(query: string): Hit[] {
+  const wanted = query.trim().toLowerCase();
+  if (wanted === "") return SCENARIOS.map((one) => ({ name: one.name, says: one.says, at: [] }));
+  return SCENARIOS.flatMap((one) => {
+    const at = fuzzy(one.name.toLowerCase(), wanted);
+    return at === null ? [] : [{ name: one.name, says: one.says, at }];
+  }).sort((a, b) => score(a.at) - score(b.at) || a.name.length - b.name.length);
+}
+
+/** The name with the matched characters marked, so a fuzzy hit reads as one. */
+function marked(name: string, at: number[]): ReactNode {
+  if (at.length === 0) return name;
+  const held = new Set(at);
+  return [...name].map((letter, i) =>
+    held.has(i) ? (
+      <b className="armada-mock-picker__hit" key={i}>
+        {letter}
+      </b>
+    ) : (
+      letter
+    ),
+  );
+}
 
 /**
- * Collapsed, the whole chip is the press that reopens it — so its label says
- * what pressing does rather than leaving a screen reader the bare scenario name
- * the chip draws. It is still the grip, which the hint carries.
- */
-const expandLabel = (current: string) => `Expand the scenario picker — ${current}`;
-const CHIP_HINT = `Press to expand. ${MOVE_HINT}`;
-
-/**
- * Choosing reloads on `?scenario=`, so a scenario never inherits the last one's window state.
+ * Where a row goes: this page again, on `?scenario=`.
  *
- * **The picker is moved rather than parked.** It rested over Helm's column on
- * the assumption that column is empty below its composer, and on the screens
- * being annotated it is not — so the spot and the collapse are the owner's, kept
- * across that reload. The drag follows `LeftHandle` in `packages/components`:
- * pointer capture on the handle, a clamp, the same keys without a pointer. It
- * is a move, so the clamp bounds two axes and the handle is a real button —
- * there is no role for "drag me", and a keyboard has to reach it.
+ * **A link, not a handler that navigates.** Choosing reloads, so that a
+ * scenario never inherits the last one's window state, and a reload is what an
+ * ordinary link already does — with the destination readable before it is
+ * pressed, which is also what lets a test read where a row leads without
+ * leaving the page.
+ */
+function to(name: string): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set("scenario", name);
+  return url.toString();
+}
+
+/**
+ * The picker, in the app's own left column.
  *
- * **Expanded it is one row saying the scenario once**, and **collapsed it is a
- * chip rather than a smaller card**: one small control tall, the name, and the
- * whole of it presses to reopen.
+ * **One control at rest, saying which scenario is on**, and a layer over the
+ * content only while it is open — which is the difference the owner asked for:
+ * a card parked over his work, however draggable, is a card he has to move.
+ *
+ * **The list is fuzzy-searched**, because there are over a hundred scenarios
+ * and the `<select>` this replaces made finding one a scroll. Typing narrows,
+ * the arrows walk what is left, Enter takes the top row, Esc gives up.
  */
 export function Picker({ current }: { current: string }) {
-  const frame = useRef<HTMLDivElement>(null);
-  const [spot, setSpot] = useState<Spot | null>(() => readSpot());
-  const [collapsed, setCollapsed] = useState(() => readCollapsed());
-  const [dragging, setDragging] = useState(false);
-  const drag = useRef<Drag | null>(null);
-  // A drag of the chip ends in a `click` on it, since the chip is both grip and
-  // press. Moved, that press is not one, or every lift would reopen the picker.
-  const shifted = useRef(false);
+  const column = useColumn();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [at, setAt] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const top = useRef<HTMLAnchorElement>(null);
 
-  /** Settled: held in state, and remembered for the next page. */
-  function place(next: Spot): void {
-    setSpot(next);
-    writeSpot(next);
-  }
+  const found = useMemo(() => hits(query), [query]);
+  // The first row is always the one Enter takes, so a query narrowed to one
+  // scenario is a two-key act. Reset with the query rather than clamped: a
+  // cursor left at row nine of a list that now has two is nowhere he put it.
+  useEffect(() => setAt(0), [query]);
+  useEffect(() => {
+    if (open) field.current?.focus();
+    else setQuery("");
+  }, [open]);
 
-  /** The picker's box now — what a clamp needs, and where a first drag starts from. */
-  function box(): DOMRect | null {
-    return frame.current?.getBoundingClientRect() ?? null;
-  }
-
-  // A spot is read back into whatever window is open now, and collapsing
-  // changes the picker's own size — one recovery, so both run through the clamp
-  // here. `place` rather than `setSpot`: an unremembered recovery would read
-  // the offscreen spot back on the next reload.
-  useLayoutEffect(() => {
-    if (spot === null) return;
-    function settle(): void {
-      const size = box();
-      if (size === null) return;
-      const fixed = clampSpot(spot!, size);
-      if (fixed.x !== spot!.x || fixed.y !== spot!.y) place(fixed);
+  // Esc and a press outside give it up, `Popover`'s own two rules — spelled
+  // here because that primitive's panel is `position: absolute` and this one
+  // hangs off a column that scrolls, so it has to be `fixed` to escape it.
+  useEffect(() => {
+    if (!open) return;
+    function key(event: globalThis.KeyboardEvent): void {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
     }
-    settle();
-    window.addEventListener("resize", settle);
-    return () => window.removeEventListener("resize", settle);
-  }, [spot, collapsed]);
-
-  function pointerDown(event: PointerEvent<HTMLButtonElement>): void {
-    if (event.button !== 0) return;
-    const size = box();
-    if (size === null) return;
-    // Capture keeps the moves coming to the grip when the pointer outruns it.
-    // A pointer the browser is not tracking has none to give, and a drag driven
-    // by hand is exactly that — the moves still arrive, so it is not a failure.
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // As above.
+    function down(event: MouseEvent): void {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
     }
-    shifted.current = false;
-    drag.current = {
-      pointerId: event.pointerId,
-      fromX: event.clientX,
-      fromY: event.clientY,
-      at: { x: size.left, y: size.top },
-      size,
-      moved: null,
+    window.addEventListener("keydown", key, true);
+    window.addEventListener("mousedown", down);
+    return () => {
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("mousedown", down);
     };
-    setDragging(true);
-    document.body.style.cursor = "grabbing";
-    document.body.style.userSelect = "none";
-    // `preventDefault` stops the press selecting text, and takes the focus with it.
-    event.currentTarget.focus();
+  }, [open]);
+
+  function keyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === "ArrowDown") setAt((held) => Math.min(held + 1, found.length - 1));
+    else if (event.key === "ArrowUp") setAt((held) => Math.max(held - 1, 0));
+    // The row's own link, pressed — one way through for the pointer and the
+    // keyboard, rather than a second navigation spelled beside it.
+    else if (event.key === "Enter") top.current?.click();
+    else return;
     event.preventDefault();
   }
 
-  function pointerMove(event: PointerEvent<HTMLButtonElement>): void {
-    const held = drag.current;
-    if (held === null || held.pointerId !== event.pointerId) return;
-    const next = clampSpot(
-      { x: held.at.x + (event.clientX - held.fromX), y: held.at.y + (event.clientY - held.fromY) },
-      held.size,
-    );
-    // State only: what gets remembered is where he left it, not every frame of getting there.
-    held.moved = next;
-    shifted.current = true;
-    setSpot(next);
-  }
+  if (column === null) return null;
 
-  function endDrag(event: PointerEvent<HTMLButtonElement>): void {
-    const held = drag.current;
-    if (held === null || held.pointerId !== event.pointerId) return;
-    drag.current = null;
-    setDragging(false);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    if (held.moved !== null) writeSpot(held.moved);
-  }
-
-  function keyDown(event: KeyboardEvent<HTMLButtonElement>): void {
-    const size = box();
-    if (size === null) return;
-    // Unmoved, the first press starts from wherever the stylesheet rests it.
-    const at = spot ?? { x: size.left, y: size.top };
-    if (event.key === "ArrowLeft") place(clampSpot({ ...at, x: at.x - STEP }, size));
-    else if (event.key === "ArrowRight") place(clampSpot({ ...at, x: at.x + STEP }, size));
-    else if (event.key === "ArrowUp") place(clampSpot({ ...at, y: at.y - STEP }, size));
-    else if (event.key === "ArrowDown") place(clampSpot({ ...at, y: at.y + STEP }, size));
-    else if (event.key === "Home") {
-      // The one way back to the resting corner, for a card left somewhere awkward.
-      setSpot(null);
-      forgetSpot();
-    } else return;
-    event.preventDefault();
-  }
-
-  function toggle(): void {
-    setCollapsed((held) => {
-      writeCollapsed(!held);
-      return !held;
-    });
-  }
-
-  /** The chip pressed, which is the chip not dragged. */
-  function press(): void {
-    if (shifted.current) {
-      shifted.current = false;
-      return;
-    }
-    toggle();
-  }
-
-  const grip = {
-    onPointerDown: pointerDown,
-    onPointerMove: pointerMove,
-    onPointerUp: endDrag,
-    onPointerCancel: endDrag,
-    onKeyDown: keyDown,
-  };
-
-  return (
-    // The spot is on a frame around the picker rather than on what it draws:
-    // `Card` takes no ref, and the box being measured is the one being moved.
-    <div
-      ref={frame}
-      className="armada-mock-picker"
-      data-placed={spot === null ? undefined : true}
-      data-collapsed={collapsed || undefined}
-      data-dragging={dragging || undefined}
-      // React writes a number on `left`/`top` as px itself, so no length is
-      // spelled — and none of these could be a token: the value is a pointer's.
-      style={spot === null ? undefined : { left: spot.x, top: spot.y }}
-    >
-      {collapsed ? (
-        // The chip is the grip and the press at once, so it carries both.
-        <Button
-          variant="secondary"
-          size="sm"
-          data-chip
-          aria-label={expandLabel(current)}
-          aria-expanded={false}
-          title={CHIP_HINT}
-          onClick={press}
-          {...grip}
-        >
-          {current}
-        </Button>
-      ) : (
-        <Card>
-          <div className="armada-mock-picker__bar">
-            <Button
-              variant="ghost"
-              size="sm"
-              // A data attribute rather than a class: `Button` writes its own
-              // `className` after the spread, so one handed to it is dropped.
-              data-grip
-              aria-label={moveLabel(current)}
-              title={MOVE_HINT}
-              {...grip}
-            />
-            <div className="armada-mock-picker__field">
-              <Select
-                // Named for a screen reader, drawn for nobody: a label over the
-                // one control on a dev tool was the third element saying this.
-                aria-label="Mock scenario"
-                value={current}
-                onChange={(event) => {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("scenario", event.target.value);
-                  window.location.assign(url);
-                }}
+  return createPortal(
+    <div className="armada-mock-picker" ref={root} data-open={open || undefined}>
+      <Button
+        variant="ghost"
+        size="sm"
+        data-said
+        aria-expanded={open}
+        aria-label={`Mock scenario — ${current}`}
+        title={`Mock scenario — ${current}`}
+        onClick={() => setOpen((held) => !held)}
+      >
+        <FlaskConical size={16} strokeWidth={2} aria-hidden />
+        <span className="armada-mock-picker__current">{current}</span>
+      </Button>
+      {open ? (
+        <div className="armada-mock-picker__layer" role="dialog" aria-label="Mock scenario">
+          <Input
+            ref={field}
+            aria-label="Find a scenario"
+            placeholder="Find a scenario"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={keyDown}
+          />
+          <div className="armada-mock-picker__list">
+            {found.map((one, i) => (
+              <a
+                key={one.name}
+                ref={i === at ? top : undefined}
+                className="armada-mock-picker__row"
+                href={to(one.name)}
+                aria-current={one.name === current ? "true" : undefined}
+                data-at={i === at || undefined}
+                data-current={one.name === current || undefined}
+                title={one.says}
               >
-                {grouped().map(([group, scenarios]) =>
-                  group === "" ? (
-                    scenarios.map((one) => (
-                      <option key={one.name} value={one.name} title={one.says}>
-                        {one.name}
-                      </option>
-                    ))
-                  ) : (
-                    <optgroup key={group} label={group}>
-                      {scenarios.map((one) => (
-                        <option key={one.name} value={one.name} title={one.says}>
-                          {one.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ),
-                )}
-              </Select>
-            </div>
-            <Button variant="ghost" size="sm" aria-expanded onClick={toggle}>
-              Minimize
-            </Button>
+                {marked(one.name, one.at)}
+              </a>
+            ))}
           </div>
-        </Card>
-      )}
-    </div>
+        </div>
+      ) : null}
+    </div>,
+    column,
   );
 }
 
 /**
  * The picker on its own root, in `host` — the mock's own mount, so the page and
- * a test put up the same card with the same stylesheet behind it.
+ * a test put up the same control with the same stylesheet behind it. What it
+ * draws goes into the app's left column from there, so `host` stays empty.
  */
 export function mountPicker(current: string, host: HTMLElement): () => void {
   const root = createRoot(host);

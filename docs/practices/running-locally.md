@@ -190,10 +190,13 @@ owner's own `com.armada.fleet`.
 ## A Fleet of your own
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
-has its own home, its own store, a local clone of this repository with the Fleet
-data copied in, and a Drone that exits at once — so a Job it dispatches
-escalates rather than doing work or spending anything. Add `--copy-store` to
-start it on a copy of your Jobs; leave it off for an empty store.
+has its own home, its own store, a local clone of this repository with
+`.armada/workflows/` copied in, and a Drone that exits at once — so a Job it
+dispatches escalates rather than doing work or spending anything. Add
+`--copy-store` to start it on a copy of your Jobs and the records each one is
+read from — transcripts, logs, briefs, Check output, attachments; leave it off
+for an empty store. Nothing else under `.armada/` is copied: the rest is build
+caches and Job checkouts, hundreds of gigabytes.
 
 **Reach for it when you want a Job as Fleet serves it, without your Fleet** — to
 record one for the mock with `scripts/record-job.mjs`, or to point a surface at a
@@ -206,8 +209,8 @@ needs `sqlite3`, which macOS ships. **It prints what `armada serve` prints**,
 because it ends by running it, and the port is also in
 `<scratch-dir>/home/user/Library/Application Support/Armada/fleet.json`. It refuses a
 scratch directory inside the repository and answers a second start with the pid
-already running. Stop it the way you stop Fleet, then delete the directory — it
-holds a copy of your transcripts.
+already running. Stop it the way you stop Fleet, then delete the directory — with
+`--copy-store` it holds a copy of your transcripts.
 
 ## Recording a Job for the mock
 
@@ -250,15 +253,17 @@ for. It needs `pnpm install` and nothing else, and it opens the page itself.
 Vite prints the address and reloads the page as you edit. Ctrl-C stops it, and
 nothing is left running or written.
 
-**`?scenario=<name>` picks what the window shows**, and the picker in the
-bottom-right corner switches by reloading onto another. An unknown name falls
+**`?scenario=<name>` picks what the window shows**, and the picker at the foot
+of the left column switches by reloading onto another. An unknown name falls
 back to the first scenario and says so in the browser console.
 
-**The picker moves, so it never sits over the thing you are reading.** Drag it
-by its own name, or focus that and use the arrow keys; *Minimize* leaves a strip
-that still says which scenario is on. Where it was left and whether it was
-minimized both survive the reload choosing a scenario causes, and Home on the
-grip puts it back in the corner.
+**The picker is in the left column, so it never sits over the thing you are
+reading.** It rests as one control saying which scenario is on — a glyph alone
+where the column is at its rail, with the scenario in its tooltip. Pressing it
+opens the list over the content, and only then: type to narrow it, which is a
+fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
+what is left, Enter takes the top row and Esc gives up. Every row is a link to
+this page on `?scenario=`, which is the reload that puts the window on it.
 
 | Scenario | What the window holds |
 |---|---|

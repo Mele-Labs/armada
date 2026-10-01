@@ -81,7 +81,7 @@ import { pulseViewOf } from "./draft/pulse";
 import { jobMembersOf } from "./draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
-import { whyNoBrief } from "./work";
+import { stillReading, whyNoBrief } from "./work";
 
 
 
@@ -866,7 +866,9 @@ export function OverviewTab(props: OverviewTabProps) {
 
   const inside = (
     <OverviewBoard
-      lead={{ ...lead, act: leadAct }}
+      // The quiet line stands in while the read is out; any other lead is
+      // the Board row's to say at once (owner, 1 Oct 2026).
+      lead={{ ...lead, act: leadAct, reading: lead.quiet === true && stillReading(watched, job.id) }}
       waiting={waiting}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
@@ -916,6 +918,7 @@ export function OverviewTab(props: OverviewTabProps) {
       // What froze, and whether anybody has moved a setting since. `changedOf`
       // is the same count the strip's own Settings tab carries.
       settings={settingsSaid(props.draft?.landing, changedOf(whole))}
+      reading={stillReading(watched, job.id)}
       onOpenTab={props.onOpenTab}
     />
   );

@@ -1,3 +1,7 @@
+import type { CSSProperties } from "react";
+import type { LucideIcon } from "lucide-react";
+
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
@@ -10,9 +14,10 @@ import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
  *
  * **Status colour is not chosen here.** The mark is `StepActivityMark`, whose
  * hue maps onto the step machine, and a chip takes a verdict's hue only where
- * the caller names one. A group's own state (`joining`, `checking`) has no
- * mark of its own, so the caller maps it to the nearest activity and hands the
- * group's word through `said` — nothing is lost and nothing is invented.
+ * the caller names one. A node whose state is not a step's — a plan group's
+ * `joining`, `retrying` — hands its registry row's glyph and token through
+ * `mark` and its verb through `said`, and the activity it passes only decides
+ * the sweep.
  */
 
 /** One short fact under the name. A value, never a sentence. */
@@ -39,6 +44,14 @@ export type WorkflowStepCardProps = {
   /** Whether `name` is a `step_id` rather than a label, so it renders in mono. */
   nameIsAnIdentifier?: boolean;
   activity: StepActivity;
+  /**
+   * A mark of the caller's own, read from a registry row — its `icon` and its
+   * `statusToken` (`--status-not-started`). **Present, it replaces the
+   * activity mark's glyph and hue**; `activity` still decides whether the card
+   * sweeps. A plan group passes `GROUP_STATE`'s row, so the graph draws what
+   * the list draws. Absent changes nothing.
+   */
+  mark?: { icon: LucideIcon; token: string };
   /**
    * The state in words — the registry's verb for a step, the group machine's
    * own value for a group. Read to somebody who cannot see the mark.
@@ -81,6 +94,7 @@ export function WorkflowStepCard({
   name,
   nameIsAnIdentifier,
   activity,
+  mark,
   said,
   ordinal,
   facts = [],
@@ -134,16 +148,20 @@ export function WorkflowStepCard({
           word beside it already say running. */}
       {working ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
       <span className="armada-wf-card__head">
-        <StepActivityMark
-          activity={activity}
-          label={said}
-          ordinal={ordinal}
-          // **No `pulsing`, and that loses nothing.** The mark only ever
-          // pulses on `running`, which is the one state that now sweeps — and
-          // one loop per card means the sweep is the loop. A card that is not
-          // working does not move at all.
-          says={`${name}, ${said}`}
-        />
+        {mark === undefined ? (
+          <StepActivityMark
+            activity={activity}
+            label={said}
+            ordinal={ordinal}
+            // **No `pulsing`, and that loses nothing.** The mark only ever
+            // pulses on `running`, which is the one state that now sweeps — and
+            // one loop per card means the sweep is the loop. A card that is not
+            // working does not move at all.
+            says={`${name}, ${said}`}
+          />
+        ) : (
+          <OwnMark mark={mark} label={said} says={`${name}, ${said}`} />
+        )}
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
@@ -189,5 +207,33 @@ export function WorkflowStepCard({
     >
       {body}
     </button>
+  );
+}
+
+/**
+ * The caller's mark, in `StepActivityMark`'s slot and geometry — 16px, a 12px
+ * glyph at stroke 2, the same hidden name and the same tooltip — with the hue
+ * its registry row names rather than one keyed off `data-activity`.
+ */
+function OwnMark({
+  mark,
+  label,
+  says,
+}: {
+  mark: NonNullable<WorkflowStepCardProps["mark"]>;
+  label: string;
+  says: string;
+}) {
+  const Icon = mark.icon;
+  return (
+    <Tooltip asChild label={says}>
+      <span
+        className="armada-step-mark armada-wf-card__mark"
+        style={{ "--armada-wf-card-mark": `var(${mark.token})` } as CSSProperties}
+      >
+        <Icon size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-step-mark__name">{label}</span>
+      </span>
+    </Tooltip>
   );
 }

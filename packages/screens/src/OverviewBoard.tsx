@@ -20,6 +20,8 @@ import {
   GUIDE_PLAN,
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
+  JobBriefSkeleton,
+  SkeletonText,
   WorkflowCanvas,
 } from "@armada/components";
 import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
@@ -87,6 +89,12 @@ export type OverviewBoardProps = {
   briefAbsent?: string;
   /** What froze and what somebody has changed since, in one line. */
   settings: string;
+  /**
+   * Whether this Job's own read has yet to answer. **A card with nothing to
+   * draw then stands in with its shape**, never its empty answer: "No plan has
+   * been recorded" before the plan was read is a wrong answer, not a wait.
+   */
+  reading?: boolean;
   onOpenTab: (tab: DetailTab) => void;
 };
 
@@ -102,6 +110,7 @@ export function OverviewBoard({
   brief,
   briefAbsent,
   settings,
+  reading = false,
   onOpenTab,
 }: OverviewBoardProps) {
   return (
@@ -114,7 +123,11 @@ export function OverviewBoard({
             the brief should replace where the figures list is right now."*
             The one card with no destination behind it. */}
         <DestinationCard label="Brief">
-          <p className="armada-overview-board__brief">{brief ?? briefAbsent ?? "No brief was written."}</p>
+          {brief === undefined && reading ? (
+            <JobBriefSkeleton />
+          ) : (
+            <p className="armada-overview-board__brief">{brief ?? briefAbsent ?? "No brief was written."}</p>
+          )}
         </DestinationCard>
 
         <DestinationCard label="Workflow" guide={GUIDE_WORKFLOW} onOpen={() => onOpenTab("workflow")}>
@@ -123,7 +136,10 @@ export function OverviewBoard({
               canvas is the best way to show it without managing two different
               components to represent workflow."* Nothing is pressable inside
               it; the card around it is the press. */}
-          {workflow === undefined ? (
+          {workflow === undefined && reading ? (
+            // The canvas's own frame, empty, at the height the run lands at.
+            <div className="armada-overview-board__canvas" role="status" aria-label="Reading the run" aria-busy />
+          ) : workflow === undefined ? (
             <p className="armada-inside__absent" role="note">
               {workflowAbsent ?? "This Job's frozen workflow has no steps."}
             </p>
@@ -144,7 +160,9 @@ export function OverviewBoard({
             beside the things it counts — hard rule 7, `design-system.md`.
             `said` stays as the bar's own label, where the items are not. */}
         <DestinationCard label="Plan" guide={GUIDE_PLAN} onOpen={() => onOpenTab("plan")}>
-          {plan === undefined ? (
+          {plan === undefined && reading ? (
+            <SkeletonText />
+          ) : plan === undefined ? (
             <p className="armada-inside__absent" role="note">
               {planAbsent ?? "No plan has been recorded."}
             </p>
@@ -197,7 +215,11 @@ export function OverviewBoard({
         </DestinationCard>
 
         <DestinationCard label="Pulse" guide={GUIDE_PULSE} onOpen={() => onOpenTab("pulse")}>
-          {pulse.length === 0 ? (
+          {/* Every figure here but the machine's is the Job's own — `Checks
+              running 0` before the read is a count nobody took. */}
+          {reading ? (
+            <SkeletonText />
+          ) : pulse.length === 0 ? (
             <p className="armada-inside__absent" role="note">
               {pulseAbsent ?? "Nothing has been read from this machine yet."}
             </p>
