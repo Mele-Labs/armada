@@ -135,6 +135,24 @@ export const NoteFrames: Story = {
   },
 };
 
+/**
+ * A picture pasted onto the board — the owner, 1 Oct 2026. **The picture and
+ * nothing else**: no words were pasted with it, so no title is drawn and the
+ * node is named by its kind.
+ */
+export const Picture: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="picture" title="" frame={{ src: shot("darkslategray", "Job Board") }} />
+      <StudioNode kind="picture" title="" frame={{}} />
+    </Row>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+    await expect(canvas.getByText("reading…")).toBeVisible();
+  },
+};
+
 export const Cluster: Story = {
   args: { kind: "cluster", title: "The Board's legend is illegible", facts: ["3 notes"] },
   play: async ({ canvas }) => {
@@ -228,6 +246,23 @@ export const LinkWithNoLine: Story = {
     await expect(clipped.length).toBe(2);
     await expect(canvas.getByText("Where the review comments on the retry land")).toBeVisible();
   },
+};
+
+const LONG_PATH = "/Users/user/Development/armada/packages/components/src/compositions/StudioNode/StudioNode.tsx";
+
+/**
+ * A path a person pasted, kept as pasted — absolute, under home, or from the
+ * repository's root. Drawn mono, as an address is, with the whole of a long
+ * one on the title.
+ */
+export const File: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="file" path="crates/fleet/src/briefing.rs" title="crates/fleet/src/briefing.rs" />
+      <StudioNode kind="file" path="~/Desktop/notes.md" title="~/Desktop/notes.md" />
+      <StudioNode kind="file" path={LONG_PATH} title={LONG_PATH} />
+    </Row>
+  ),
 };
 
 /**

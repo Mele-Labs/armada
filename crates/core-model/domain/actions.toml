@@ -512,4 +512,4 @@ shortcut = "S"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` owns and #1345 builds. `S` for sketch, shifted because `s` is Restart step. **A Sketch is structured content and never pixels** — `studio.md`'s own rule that an agent can read a record and cannot read a drawing — so what a person places is the diagram written out, and the node draws its first line. No glyph, for `add_note`'s reason."
+notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` owns and #1345 builds. `S` for sketch, shifted because `s` is Restart step. A Sketch is the diagram written out, so what a person places is text, and the node draws its first line; an image goes on as a Picture. No glyph, for `add_note`'s reason."

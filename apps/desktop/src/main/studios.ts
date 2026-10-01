@@ -188,7 +188,7 @@ export class StudioReads {
   }
 
   /**
-   * Put a Note, a Link or a Sketch on a Studio where the person is looking —
+   * Put a Note, a Link, a Sketch or a File on a Studio where the person is looking —
    * #1364. **The kind is the narrow one**, so nothing the renderer can ask for
    * is a kind Fleet would refuse as `fleet.studio_node_not_a_persons`.
    */

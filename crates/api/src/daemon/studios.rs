@@ -37,7 +37,7 @@ pub trait Studios: Send + Sync + 'static {
         within: Option<ManifestId>,
     ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 
-    /// `get_studio_frame` — the picture one Note kept, as the file itself:
+    /// `get_studio_frame` — the picture one Note or Picture kept, as the file itself:
     /// the name Fleet stored it under, and its bytes.
     ///
     /// **The node names it and the record holds the file name**, so nothing a

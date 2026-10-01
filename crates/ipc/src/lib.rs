@@ -154,6 +154,8 @@ mod showing;
 mod since;
 /// A Studio, its nodes and edges, and the acts a client asks of one. `#1285`.
 mod studio;
+/// What `add_studio_node` carries: any content, a Picture staged rather than kept.
+mod studio_added;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
 /// Check's log is read over.
@@ -322,6 +324,7 @@ pub use studio::{
     StudioRunHeld, StudioRunKept, StudioRunStarted, StudioServerStarted, StudioSummary,
     WriteUpStudioNode,
 };
+pub use studio_added::{AddedContent, StudioNodeAdded};
 pub use turn::{
     BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
     Voice, Withheld,

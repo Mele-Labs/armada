@@ -167,6 +167,67 @@ DROP TABLE studio_nodes_parked;
 DROP TABLE studio_edges_parked;
 "#;
 
+/// Version 84 — a File and a Picture are node kinds: a path a person pasted,
+/// decided with the owner on 1 Oct 2026, and an image a person pasted, decided
+/// with him on 28 Sep 2026.
+///
+/// **[`V79`]'s rebuild, with two more kinds in the `CHECK`**, for its reasons:
+/// SQLite cannot widen a `CHECK`, a rename rewrites the edges' `REFERENCES`,
+/// and the edges go first because their cascade cannot be turned off inside a
+/// transaction. Every column and every other constraint is V79's, and no row
+/// is reclassified.
+pub(crate) const V84: &str = r#"
+CREATE TABLE studio_nodes_parked AS SELECT * FROM studio_nodes;
+CREATE TABLE studio_edges_parked AS SELECT * FROM studio_edges;
+
+DROP TABLE studio_edges;
+DROP TABLE studio_nodes;
+
+CREATE TABLE studio_nodes (
+    id         TEXT PRIMARY KEY,
+    studio_id  TEXT NOT NULL REFERENCES studios (id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL CHECK (kind IN ('run', 'note', 'cluster', 'finding',
+               'contradiction', 'sketch', 'link', 'file', 'picture', 'issue', 'pull_request',
+               'epic', 'deferral', 'outline', 'issue_draft', 'job')),
+    state      TEXT CHECK (state IS NULL OR state IN ('proposed', 'gathering', 'frozen',
+               'reported', 'issue_draft', 'deferral', 'not_a_problem', 'resolved_here', 'open',
+               'answered', 'draft')),
+    content    TEXT NOT NULL,
+    x          INTEGER NOT NULL,
+    y          INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    added_by   TEXT CHECK (added_by IS NULL OR added_by IN ('person', 'helm')),
+    UNIQUE (studio_id, id)
+) STRICT;
+
+CREATE TABLE studio_edges (
+    id         TEXT PRIMARY KEY,
+    studio_id  TEXT NOT NULL REFERENCES studios (id) ON DELETE CASCADE,
+    from_node  TEXT NOT NULL,
+    to_node    TEXT NOT NULL,
+    kind       TEXT NOT NULL CHECK (kind IN ('produced', 'same_as', 'blocks', 'answers')),
+    standing   TEXT NOT NULL CHECK (standing IN ('proposed', 'accepted')),
+    created_at TEXT NOT NULL,
+    added_by   TEXT CHECK (added_by IS NULL OR added_by IN ('person', 'helm')),
+    FOREIGN KEY (studio_id, from_node) REFERENCES studio_nodes (studio_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (studio_id, to_node) REFERENCES studio_nodes (studio_id, id) ON DELETE CASCADE,
+    UNIQUE (from_node, to_node, kind),
+    CHECK (from_node <> to_node),
+    CHECK (kind <> 'produced' OR standing = 'accepted')
+) STRICT;
+
+INSERT INTO studio_nodes (id, studio_id, kind, state, content, x, y, created_at, added_by)
+SELECT id, studio_id, kind, state, content, x, y, created_at, added_by
+FROM studio_nodes_parked;
+
+INSERT INTO studio_edges (id, studio_id, from_node, to_node, kind, standing, created_at, added_by)
+SELECT id, studio_id, from_node, to_node, kind, standing, created_at, added_by
+FROM studio_edges_parked;
+
+DROP TABLE studio_nodes_parked;
+DROP TABLE studio_edges_parked;
+"#;
+
 /// Why a Studio read or write did not happen.
 #[derive(Debug)]
 pub enum StudioError {

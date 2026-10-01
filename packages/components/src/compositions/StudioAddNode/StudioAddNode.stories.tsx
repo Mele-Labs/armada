@@ -95,7 +95,7 @@ export const PastedWithReadIn: Story = {
   },
 };
 
-/** A Sketch placed — structured content and never pixels, which the field says. */
+/** A Sketch placed — the diagram written out as text. */
 export const Sketch: Story = {
   args: { adding: "sketch" },
 };

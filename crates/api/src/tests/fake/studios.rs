@@ -10,9 +10,9 @@ use ipc::{
     EditStudioLink, GroupStudioNodes, Instant, ManifestId, MoveStudioNode, ProposeStudioEdge,
     RemoveStudioNodes, RenameStudio, SettleContradiction, StartScout, StartStudioRun,
     StartStudioServer, StopScout, Studio, StudioDeleted, StudioEdge, StudioEdgeId, StudioEdgeKind,
-    StudioEdgeStanding, StudioId, StudioList, StudioNode, StudioNodeContent, StudioNodeId,
-    StudioNodeState, StudioPosition, StudioRunStarted, StudioServerStarted, StudioSummary,
-    WireError, WriteUpStudioNode,
+    StudioEdgeStanding, StudioId, StudioList, StudioNode, StudioNodeAdded, StudioNodeContent,
+    StudioNodeId, StudioNodeState, StudioPosition, StudioRunStarted, StudioServerStarted,
+    StudioSummary, WireError, WriteUpStudioNode,
 };
 
 use super::FakeDaemon;
@@ -132,6 +132,7 @@ impl Studios for FakeDaemon {
                     capture: Some(capture),
                     ..
                 } => capture.frame.as_ref(),
+                StudioNodeContent::Picture { frame } => Some(frame),
                 _ => None,
             };
             let frame = kept.ok_or_else(|| {
@@ -202,7 +203,11 @@ impl Studios for FakeDaemon {
         within: Option<ManifestId>,
     ) -> Result<Studio, Refusal> {
         self.added_by.lock().expect("not poisoned").push(by);
-        let helms = matches!(add.content, StudioNodeContent::Finding { .. });
+        let helms = matches!(
+            &add.content,
+            StudioNodeAdded::Content(content)
+                if matches!(content.clone().into(), StudioNodeContent::Finding { .. })
+        );
         if by == Redirector::Helm && !helms {
             return Err(Refusal::Unacceptable(refused(
                 "fake.studio_node_not_helms",
@@ -211,9 +216,21 @@ impl Studios for FakeDaemon {
         }
         self.changing(&studio_id, within, |studio| {
             let id = StudioNodeId::carried(format!("01NODE{}", studio.nodes.len()));
+            // A Picture names the file kept for it, as a capture's Note does.
+            let content = match add.content {
+                StudioNodeAdded::Picture { staged } => StudioNodeContent::Picture {
+                    frame: ipc::CaptureFrame {
+                        filename: format!("{}.png", id.as_str()),
+                        byte_size: THE_FRAME.len() as u64,
+                        width: staged.width,
+                        height: staged.height,
+                    },
+                },
+                StudioNodeAdded::Content(content) => content.into(),
+            };
             studio.nodes.push(StudioNode {
                 id,
-                content: add.content,
+                content,
                 state: None,
                 position: add.position,
                 created_at: Instant::carried(AT),

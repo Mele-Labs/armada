@@ -35,7 +35,9 @@ fn a_note(said: &str, x: i64) -> AddStudioNode {
         content: StudioNodeContent::Note {
             said: said.to_string(),
             capture: None,
-        },
+        }
+        .try_into()
+        .expect("not a picture"),
         position: StudioPosition { x, y: 0 },
         produced_by: None,
     }
@@ -215,7 +217,9 @@ async fn helm_adds_only_a_node_that_starts_proposed() {
     assert_eq!(code(&refused), "fleet.studio_node_not_helms");
 
     let finding = AddStudioNode {
-        content: StudioNodeContent::finding_asked("what reads the count"),
+        content: StudioNodeContent::finding_asked("what reads the count")
+            .try_into()
+            .expect("not a picture"),
         position: StudioPosition { x: 0, y: 0 },
         produced_by: None,
     };
@@ -256,7 +260,7 @@ async fn a_person_adds_only_what_a_person_makes() {
             .add_studio_node(
                 studio.id.clone(),
                 AddStudioNode {
-                    content,
+                    content: content.try_into().expect("not a picture"),
                     position: StudioPosition {
                         x: n as i64 * 340,
                         y: 0,
@@ -302,7 +306,7 @@ async fn a_person_adds_only_what_a_person_makes() {
             .add_studio_node(
                 studio.id.clone(),
                 AddStudioNode {
-                    content,
+                    content: content.try_into().expect("not a picture"),
                     position: StudioPosition { x: 0, y: 400 },
                     produced_by: None,
                 },
@@ -340,7 +344,9 @@ async fn every_write_is_published_and_a_produced_edge_is_not_decided() {
             address: "https://example.invalid/counts".to_string(),
             said: None,
             named: None,
-        },
+        }
+        .try_into()
+        .expect("not a picture"),
         position: StudioPosition { x: 0, y: 160 },
         produced_by: Some(note.nodes[0].id.clone()),
     };
@@ -636,7 +642,9 @@ async fn a_links_line_is_written_edited_and_cleared_and_its_address_never_moves(
                     address: ADDRESS.to_string(),
                     said: Some("  why the card says nothing  ".to_string()),
                     named: None,
-                },
+                }
+                .try_into()
+                .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
             },
@@ -720,4 +728,76 @@ fn said_on<'a>(studio: &'a Studio, node_id: &ipc::StudioNodeId) -> (&'a str, Opt
         panic!("a Link");
     };
     (address, said.as_deref())
+}
+
+fn a_file(path: &str) -> AddStudioNode {
+    AddStudioNode {
+        content: StudioNodeContent::File {
+            path: path.to_string(),
+        }
+        .try_into()
+        .expect("not a picture"),
+        position: StudioPosition { x: 0, y: 0 },
+        produced_by: None,
+    }
+}
+
+/// **A path a person pastes lands as a File**, kept as pasted and trimmed of
+/// the space around it, and reads back so after Fleet is assembled again.
+/// Decided with the owner, 1 Oct 2026. Nothing resolves it: none of these
+/// three exists under the test's home.
+#[tokio::test]
+async fn a_pasted_path_is_a_file_and_reads_back_as_pasted() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    let pasted = [
+        "/Users/user/notes/plan.md",
+        "~/Desktop/legend.png",
+        "  crates/fleet/src/briefing.rs\n",
+    ];
+    for path in pasted {
+        fleet
+            .add_studio_node(studio.id.clone(), a_file(path), Redirector::Person, None)
+            .await
+            .expect("a person's own kind");
+    }
+    drop(fleet);
+
+    let fleet = a_fleet(&home);
+    let read = fleet
+        .get_studio(studio.id, None)
+        .await
+        .expect("still there");
+    let kept: Vec<String> = read
+        .nodes
+        .iter()
+        .map(|node| ipc::encode(&node.content).expect("plain data"))
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            r#"{"kind":"file","path":"/Users/user/notes/plan.md"}"#,
+            r#"{"kind":"file","path":"~/Desktop/legend.png"}"#,
+            r#"{"kind":"file","path":"crates/fleet/src/briefing.rs"}"#,
+        ]
+    );
+    assert!(read.nodes.iter().all(|node| node.state.is_none()));
+}
+
+/// A File with no path is no File: refused as blank, and nothing is written.
+#[tokio::test]
+async fn a_file_with_a_blank_path_is_refused_as_blank() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    for path in ["", "   \n"] {
+        let refused = fleet
+            .add_studio_node(studio.id.clone(), a_file(path), Redirector::Person, None)
+            .await
+            .expect_err("no path");
+        assert_eq!(code(&refused), "fleet.studio_node_blank");
+    }
+    let read = fleet.get_studio(studio.id, None).await.expect("read back");
+    assert!(read.nodes.is_empty(), "nothing refused was written");
 }
