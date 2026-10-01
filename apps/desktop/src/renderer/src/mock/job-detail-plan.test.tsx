@@ -307,18 +307,48 @@ test("Edit this task opens filled from the task, and Save says the route is not 
   await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
   // Nothing was done, so what was typed stays.
   await expect.element(task.getByLabelText("Model")).toHaveValue("haiku");
-  // The failure is drawn under the panel's dim, so the panels go first.
-  await userEvent.keyboard("{Escape}");
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+  // The failure pops up over the panel, so it is copied with the panel open.
   await page.getByRole("button", { name: "Copy debug info" }).click();
   await expect.poll(() => written).toHaveLength(1);
+  await expect.element(task).toBeVisible();
   const pasted = written[0]!;
   expect(pasted).toContain("bridge.not_implemented");
   expect(pasted).toContain(issueLink(1657));
   expect(pasted).toContain("POST /jobs/{job_id}/tasks/{task_id}/edit");
   expect(pasted).toContain("T6");
   expect(pasted).toContain("haiku");
+});
+
+// The owner's, 1 Oct 2026: a press that failed pops up as a toast over
+// everything on the screen, panels and their dim included, and its acts are
+// pressable where it appears.
+test("Restart this task with its panel open pops the failure up over the panel, and Copy debug info there leaves the panel open", async () => {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+  });
+  mount("arc/group-failed");
+  const task = await panelOf("T6", "Open a Drone's Job from its row");
+  await task.getByRole("button", { name: "Restart this task" }).click();
+  const failure = page.getByRole("alert").filter({ hasText: "Not implemented" });
+  await expect.element(failure).toBeVisible();
+  // Not drawn inside the panel: over it.
+  expect(task.getByText("Not implemented", { exact: true }).query()).toBeNull();
+  await failure.getByRole("button", { name: "Copy debug info" }).click();
+  await expect.poll(() => written).toHaveLength(1);
+  expect(written[0]).toContain("bridge.not_implemented");
+  expect(written[0]).toContain(issueLink(1656));
+  expect(written[0]).toContain("POST /jobs/{job_id}/tasks/{task_id}/restart");
+  await expect.element(task).toBeVisible();
+  // A failure stays until it is dismissed. Esc from inside it dismisses it and
+  // leaves the panel; Esc from anywhere else is the panel's again.
+  await expect.element(failure).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => failure.query()).toBeNull();
+  await expect.element(task).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => task.query()).toBeNull();
 });
 
 test("a refused Add task says nothing was sent, and keeps the title typed", async () => {

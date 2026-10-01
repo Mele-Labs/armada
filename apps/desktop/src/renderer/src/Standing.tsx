@@ -5,6 +5,9 @@
 // surface working beneath it — which is the design contract's own definition of
 // a banner, and the reason none of it belongs in the status bar.
 //
+// **A press that failed is not a standing condition, so it is not here.** It
+// pops up as a toast over everything, panels included — `raised.tsx`.
+//
 // # Why it is its own file
 //
 // `App.tsx` reached the 900 lines the gate refuses. This band is the one seam
@@ -20,9 +23,8 @@
 import type { ReactNode } from "react";
 import { Alert, Button, ManifestNotice } from "@armada/components";
 import type { ManifestReading, Outcome, WorktreeReclaimed } from "@armada/protocol";
-import type { BridgeIdentity } from "@armada/protocol";
-import type { Failure, Uncaught } from "@armada/shell";
-import { FailureBlock, uncaughtFailure } from "@armada/shell";
+import type { Failure } from "@armada/shell";
+import { FailureBlock } from "@armada/shell";
 import { reclaimed, said, TakenNotice } from "@armada/screens";
 
 export type StandingProps = {
@@ -33,10 +35,6 @@ export type StandingProps = {
   /** The reading already put away, by the instant Fleet read the file. */
   readingSeen: string | null;
   onReadingSeen: (at: string | null) => void;
-  /** What no error boundary saw. */
-  uncaught: Uncaught | null;
-  onUncaught: (caught: Uncaught | null) => void;
-  bridge: BridgeIdentity;
   /** A clipboard write is silent, so the surface confirms it. */
   onCopied: (value: string) => void;
   /** Events Fleet dropped, and how many of them have been read. */
@@ -50,8 +48,10 @@ export type StandingProps = {
    */
   givenBack: WorktreeReclaimed[];
   onGivenBack: (given: WorktreeReclaimed[]) => void;
-  /** The last command's answer, and the failure half of it where there is one. */
-  commandFailure: Failure | null;
+  /**
+   * The last command's answer, where it is the form's guidance. A command that
+   * failed pops up as a toast over everything instead — `raised.tsx`.
+   */
   outcome: Outcome | null;
   onOutcome: (outcome: Outcome | null) => void;
   /** A press a freeze took and holds, while it holds. */
@@ -66,16 +66,12 @@ export function Standing({
   manifestReading,
   readingSeen,
   onReadingSeen,
-  uncaught,
-  onUncaught,
-  bridge,
   onCopied,
   missed,
   acknowledged,
   onAcknowledged,
   givenBack,
   onGivenBack,
-  commandFailure,
   outcome,
   onOutcome,
   taken,
@@ -97,18 +93,6 @@ export function Standing({
         <ManifestNotice
           reading={manifestReading}
           onDismiss={() => onReadingSeen(manifestReading.at)}
-        />
-      )}
-
-      {/* What no boundary sees. A click that threw and a rejected preload
-          call both look like a button that did nothing. */}
-      {uncaught === null ? null : (
-        <FailureBlock
-          failure={uncaughtFailure(uncaught, bridge)}
-          onCopied={onCopied}
-          // Cleared by hand rather than on a timer: a failure that vanishes
-          // while nobody is looking is the silence being repaired here.
-          onDismiss={() => onUncaught(null)}
         />
       )}
 
@@ -156,22 +140,10 @@ export function Standing({
 
       {taken === null ? null : <TakenNotice {...taken} />}
 
-      {/* A refusal Fleet named carries a `run_id`, its `fields` and its
-          `chain`, so it is drawn whole rather than as one line of copy — its
-          `message` names one problem even where several exist. A command Fleet
-          did not answer carries no envelope and is drawn whole for the same
-          reason: the code, the route and the wait are the whole of what a
-          person has to hand on. Neither is reloadable, because a redraw re-runs
-          no command. Everything else here is the form telling you what it will
-          not send, which is guidance and not a failure. */}
-      {commandFailure !== null ? (
-        <FailureBlock
-          failure={commandFailure}
-          onCopied={onCopied}
-          reloadable={false}
-          onDismiss={() => onOutcome(null)}
-        />
-      ) : outcome === null || outcome.ok ? null : (
+      {/* The form telling you what it will not send, which is guidance and
+          not a failure. A refusal Fleet named, and a command it did not
+          answer, are failures and pop up as toasts — `raised.tsx`. */}
+      {outcome === null || outcome.ok ? null : (
         <Alert
           tone="escalated"
           action={

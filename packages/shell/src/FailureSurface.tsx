@@ -13,11 +13,13 @@ import {
   FailureNotice,
   FileAnIssue,
   NOT_OFFERED,
+  Toast,
 } from "@armada/components";
 import type { Filing } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
-import { CopiedToast, useCopied } from "./CopiedToast";
+import type { KeyboardEvent } from "react";
+import { CopiedToast, ToastRegion, useCopied } from "./CopiedToast";
 import type { Caught, Failure } from "./failures";
 import { rendererFailure } from "./failures";
 
@@ -165,6 +167,49 @@ export function FailureBlock({
   );
 }
 
+export type FailureToastProps = {
+  failure: Failure;
+  onCopied: (value: string) => void;
+  /** Required: a failure is evidence, so it stays until somebody puts it away. */
+  onDismiss: () => void;
+  reloadable?: boolean;
+};
+
+/**
+ * A failure somebody's press caused, popped up over everything on the screen.
+ *
+ * **The whole notice, in the toast's own surface.** The same block a banner
+ * draws, so the headline, the code, the fold and every act come with it. It
+ * stands over panels and their dim, which is the reason it is a toast: a
+ * banner drawn under a panel left Copy debug info out of reach until the panel
+ * was closed.
+ *
+ * **No timer.** A copy confirmation goes on its own; a failure stays until it
+ * is dismissed, because the person may be reading the panel it came from.
+ *
+ * **Esc with focus inside it dismisses it, and nothing else.** A panel open
+ * under it keeps its own Esc for every press made outside the toast.
+ */
+export function FailureToast({ failure, onCopied, onDismiss, reloadable = false }: FailureToastProps) {
+  function pressed(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    // File an issue opens its review inside this element, and Esc there
+    // cancels the review: the dialog's own listener, on the window, still
+    // hears it. Marked taken so nothing under the toast answers it too.
+    if ((event.target as Element).closest('[role="dialog"]') !== null) return;
+    event.stopPropagation();
+    onDismiss();
+  }
+  return (
+    <div onKeyDown={pressed}>
+      <Toast>
+        <FailureBlock failure={failure} onCopied={onCopied} reloadable={reloadable} onDismiss={onDismiss} />
+      </Toast>
+    </div>
+  );
+}
+
 export type FailureSurfaceProps = {
   caught: Caught;
   region: string;
@@ -200,7 +245,9 @@ export function FailureSurface({ caught, region, usable, bridge, onCopied }: Fai
     // was drawn by the tree that just threw.
     <div className={usable ? "" : "flex h-full flex-col overflow-y-auto bg-bg-base p-6 text-fg-default"}>
       {block}
-      <CopiedToast copied={copied} />
+      <ToastRegion>
+        <CopiedToast copied={copied} />
+      </ToastRegion>
     </div>
   );
 }
