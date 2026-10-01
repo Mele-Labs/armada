@@ -246,3 +246,126 @@ fn a_finding_whose_content_does_not_fit_its_state_is_refused() {
         assert!(read.is_err(), "{state:?}");
     }
 }
+
+mod sketch {
+    use alloc::string::String;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::studio::{
+        Drawing, SketchBox, SketchJoin, SketchMalformed, SketchPicture, SketchPoint, SketchStroke,
+    };
+
+    fn a_box(id: &str) -> SketchBox {
+        SketchBox {
+            id: String::from(id),
+            x: 0,
+            y: 0,
+            body: String::from("a panel"),
+        }
+    }
+
+    fn join(id: &str, from: &str, to: &str) -> SketchJoin {
+        SketchJoin {
+            id: String::from(id),
+            from: String::from(from),
+            to: String::from(to),
+        }
+    }
+
+    fn picture(id: &str, width: i64) -> SketchPicture<()> {
+        SketchPicture {
+            id: String::from(id),
+            x: 0,
+            y: 0,
+            width,
+            height: 40,
+            frame: (),
+        }
+    }
+
+    fn drawn(
+        boxes: Vec<SketchBox>,
+        joins: Vec<SketchJoin>,
+        strokes: Vec<SketchStroke>,
+        pictures: Vec<SketchPicture<()>>,
+    ) -> Result<Drawing<()>, SketchMalformed> {
+        Drawing::drawn(boxes, joins, strokes, pictures)
+    }
+
+    #[test]
+    fn a_join_between_a_box_and_a_picture_is_a_drawing() {
+        let drawing = drawn(
+            vec![a_box("b1")],
+            vec![join("b1-p1", "b1", "p1")],
+            Vec::new(),
+            vec![picture("p1", 80)],
+        )
+        .expect("a box joined to a picture");
+        assert!(!drawing.is_empty());
+    }
+
+    #[test]
+    fn every_malformed_drawing_is_refused_by_what_is_wrong() {
+        let refused = |result: Result<Drawing<()>, SketchMalformed>| result.unwrap_err();
+        assert_eq!(
+            refused(drawn(vec![a_box(" ")], vec![], vec![], vec![])),
+            SketchMalformed::BlankId
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![],
+                vec![],
+                vec![picture("b1", 80)]
+            )),
+            SketchMalformed::IdTwice {
+                id: String::from("b1")
+            }
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![join("j", "b1", "b9")],
+                vec![],
+                vec![]
+            )),
+            SketchMalformed::JoinToNothing {
+                join: String::from("j"),
+                end: String::from("b9")
+            }
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![join("j", "b1", "b1")],
+                vec![],
+                vec![]
+            )),
+            SketchMalformed::JoinToItself {
+                join: String::from("j")
+            }
+        );
+        let dot = SketchStroke {
+            id: String::from("s1"),
+            points: vec![SketchPoint { x: 1, y: 1 }],
+        };
+        assert_eq!(
+            refused(drawn(vec![], vec![], vec![dot], vec![])),
+            SketchMalformed::StrokeTooShort {
+                stroke: String::from("s1")
+            }
+        );
+        assert_eq!(
+            refused(drawn(vec![], vec![], vec![], vec![picture("p1", 0)])),
+            SketchMalformed::PictureWithNoSize {
+                picture: String::from("p1")
+            }
+        );
+    }
+
+    #[test]
+    fn nothing_drawn_is_empty() {
+        assert!(drawn(vec![], vec![], vec![], vec![]).unwrap().is_empty());
+    }
+}

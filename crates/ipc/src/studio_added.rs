@@ -1,5 +1,6 @@
 //! What `add_studio_node` names: a node's content as a read answers it, except
-//! a Picture, which arrives as the file Bridge's main staged. Since 19.3.
+//! a Picture, which arrives as the file Bridge's main staged (since 19.3), and
+//! a Sketch, whose pictures arrive the same way (since 20.0).
 //!
 //! **A request never names a kept frame.** A kept frame is a file name Fleet
 //! chose under the Studio's own directory, and `get_studio_frame` opens what a
@@ -16,9 +17,11 @@ use serde_json::{Map, Value};
 
 use crate::capturing::StagedFrame;
 use crate::studio::StudioNodeContent;
+use crate::studio_sketch::SketchDrawn;
 
-/// The one tag decoded apart from the rest.
+/// The two tags decoded apart from the rest.
 const PICTURE: &str = "picture";
+const SKETCH: &str = "sketch";
 
 /// A node's content as `add_studio_node` carries it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,6 +29,9 @@ pub enum StudioNodeAdded {
     /// `{"kind":"picture","staged":{…}}`. Fleet copies the staged PNG into the
     /// Studio's keeping and writes the Picture naming the file it kept.
     Picture { staged: StagedFrame },
+    /// `{"kind":"sketch","drawing":{…}}`, each picture carrying its staged
+    /// file. Fleet keeps each and writes the Sketch naming what it kept.
+    Sketch { drawing: SketchDrawn },
     /// Any other kind, in the shape `get_studio` reads it back in.
     Content(AddedContent),
 }
@@ -66,12 +72,24 @@ impl TryFrom<StudioNodeContent> for StudioNodeAdded {
 fn names_a_kept_frame(content: &StudioNodeContent) -> Option<&'static str> {
     match content {
         StudioNodeContent::Picture { .. } => Some("frame"),
+        StudioNodeContent::Sketch { drawing } if !drawing.pictures().is_empty() => {
+            Some("drawing.pictures.frame")
+        }
         StudioNodeContent::Note {
             capture: Some(capture),
             ..
         } if capture.frame.is_some() => Some("capture.frame"),
         _ => None,
     }
+}
+
+/// A Sketch as written: its drawing, and nothing beside it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SketchWritten {
+    #[serde(rename = "kind")]
+    _kind: serde::de::IgnoredAny,
+    drawing: SketchDrawn,
 }
 
 /// The staged shape, and nothing beside it — a `frame` too is refused.
@@ -100,6 +118,16 @@ impl<'de> Deserialize<'de> for StudioNodeAdded {
                 staged: picture.staged,
             });
         }
+        if body.get("kind").and_then(Value::as_str) == Some(SKETCH) {
+            let sketch = SketchWritten::deserialize(Value::Object(body)).map_err(|why| {
+                D::Error::custom(format!(
+                    "a sketch is added as its drawing, each picture its staged file: {why}"
+                ))
+            })?;
+            return Ok(StudioNodeAdded::Sketch {
+                drawing: sketch.drawing,
+            });
+        }
         let content =
             StudioNodeContent::deserialize(Value::Object(body)).map_err(D::Error::custom)?;
         if let Some(field) = names_a_kept_frame(&content) {
@@ -119,6 +147,12 @@ impl Serialize for StudioNodeAdded {
                 let mut map = out.serialize_map(Some(2))?;
                 map.serialize_entry("kind", PICTURE)?;
                 map.serialize_entry("staged", staged)?;
+                map.end()
+            }
+            StudioNodeAdded::Sketch { drawing } => {
+                let mut map = out.serialize_map(Some(2))?;
+                map.serialize_entry("kind", SKETCH)?;
+                map.serialize_entry("drawing", drawing)?;
                 map.end()
             }
             StudioNodeAdded::Content(AddedContent(content)) => content.serialize(out),

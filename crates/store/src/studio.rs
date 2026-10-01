@@ -228,6 +228,23 @@ DROP TABLE studio_nodes_parked;
 DROP TABLE studio_edges_parked;
 "#;
 
+/// Version 85 — a Sketch is a drawing, decided with the owner on 1 Oct 2026:
+/// the dispatch composer's pad, kept on the Studio.
+///
+/// **Every Sketch written as text becomes one box holding it**, at the pad's
+/// origin, so nothing a person wrote is lost and the node opens on the pad
+/// like any other. No `CHECK` changes and no other kind is touched.
+pub(crate) const V85: &str = r#"
+UPDATE studio_nodes
+SET content = json_object(
+    'boxes', json_array(json_object(
+        'id', 'b1', 'x', 0, 'y', 0, 'body', json_extract(content, '$.body'))),
+    'joins', json_array(),
+    'strokes', json_array(),
+    'pictures', json_array())
+WHERE kind = 'sketch' AND json_extract(content, '$.body') IS NOT NULL;
+"#;
+
 /// Why a Studio read or write did not happen.
 #[derive(Debug)]
 pub enum StudioError {

@@ -3,7 +3,8 @@
 //!
 //! **Every rewrite of a node a person wrote is here, and nowhere else.** A
 //! Contradiction settles, an Issue draft is edited before it is dispatched,
-//! and a Link takes the line beside its address (`#1378`). Everything else a
+//! a Link takes the line beside its address (`#1378`), and a Sketch is drawn
+//! on (1 Oct 2026). Everything else a
 //! rung does is a node added with `Produced` edges, which needs nothing new.
 //! [`Rewritten`] is the second [`Scouted`](super::Scouted): only the methods
 //! below make one, so the store's rewrite cannot reach a Note.
@@ -124,6 +125,21 @@ impl StudioNode {
             Some(content) => self.holding(content, self.state()),
             None => Err(NotRewritable {
                 kind: self.kind(),
+                state: self.state(),
+            }),
+        }
+    }
+
+    /// The Sketch, holding the drawing a person left on its pad. Decided with
+    /// the owner, 1 Oct 2026: a Studio's Sketch is the pad's drawing, so it is
+    /// drawn on after it is placed. Any other kind is refused.
+    pub fn redrawn(&self, drawing: super::SketchDrawing) -> Result<Rewritten, NotRewritable> {
+        match self.content() {
+            StudioNodeContent::Sketch { .. } => {
+                self.holding(StudioNodeContent::Sketch { drawing }, self.state())
+            }
+            content => Err(NotRewritable {
+                kind: content.kind(),
                 state: self.state(),
             }),
         }

@@ -16,6 +16,7 @@ mod finding;
 mod forge;
 mod note;
 mod promotion;
+mod sketch;
 
 use alloc::string::String;
 
@@ -29,6 +30,10 @@ pub use note::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow, StudioCapture,
 };
 pub use promotion::{ContradictionOutcome, NotRewritable, Rewritten};
+pub use sketch::{
+    Drawing, SketchBox, SketchDrawing, SketchJoin, SketchMalformed, SketchPicture, SketchPoint,
+    SketchStroke,
+};
 
 use crate::envelope::{Timestamp, Ulid};
 use crate::job::{id_newtype, JobId, ManifestId};
@@ -471,8 +476,9 @@ pub enum StudioNodeContent {
         second: String,
         answer: Option<String>,
     },
-    /// A diagram or mockup, as text.
-    Sketch { body: String },
+    /// The drawing the dispatch composer's pad makes: boxes, joins, lines
+    /// drawn by hand and pasted pictures. Decided with the owner, 1 Oct 2026.
+    Sketch { drawing: SketchDrawing },
     /// A board, document, issue, page or session, kept as its address, the
     /// line a person wrote beside it, and what the source calls itself.
     ///
@@ -610,8 +616,10 @@ impl StudioNodeContent {
             StudioNodeContent::Contradiction { first, second, .. } => {
                 &[("first", first), ("second", second)]
             }
-            StudioNodeContent::Sketch { body } | StudioNodeContent::Outline { body } => {
-                &[("body", body)]
+            StudioNodeContent::Outline { body } => &[("body", body)],
+            // Blank is nothing drawn, which no field's text can say.
+            StudioNodeContent::Sketch { drawing } => {
+                return drawing.is_empty().then_some("drawing");
             }
             // Neither `said` nor `named` is here: a Link with no line and no
             // name is a Link, and both are normalised to absent, never blank.
@@ -674,8 +682,8 @@ impl StudioNodeContent {
     }
 
     /// The frame a node keeps beside the Studio's records: a Picture's, and a
-    /// Note's where its capture took one. **The one place that says which
-    /// content keeps a file**, so serving one and deleting one ask the same.
+    /// Note's where its capture took one. A Sketch keeps one per picture, and
+    /// answers through [`frames`](Self::frames) and [`frame_of`](Self::frame_of).
     pub fn frame(&self) -> Option<&CaptureFrame> {
         match self {
             StudioNodeContent::Picture { frame } => Some(frame),
@@ -684,6 +692,29 @@ impl StudioNodeContent {
                 ..
             } => capture.frame.as_ref(),
             _ => None,
+        }
+    }
+
+    /// Every frame a node keeps. **The one place that says which content keeps
+    /// a file**, so deleting a node and redrawing a Sketch ask the same.
+    pub fn frames(&self) -> alloc::vec::Vec<&CaptureFrame> {
+        match self {
+            StudioNodeContent::Sketch { drawing } => {
+                drawing.pictures().iter().map(|one| &one.frame).collect()
+            }
+            content => content.frame().into_iter().collect(),
+        }
+    }
+
+    /// The frame `picture` names on a Sketch, or the node's own frame where
+    /// no picture is named. `None` where that names nothing kept.
+    pub fn frame_of(&self, picture: Option<&str>) -> Option<&CaptureFrame> {
+        match (self, picture) {
+            (StudioNodeContent::Sketch { drawing }, Some(id)) => {
+                drawing.picture(id).map(|one| &one.frame)
+            }
+            (_, Some(_)) => None,
+            (content, None) => content.frame(),
         }
     }
 

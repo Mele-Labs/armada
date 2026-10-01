@@ -146,8 +146,13 @@ pub enum StudioNodeContent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         answer: Option<String>,
     },
+    /// The drawing the dispatch composer's pad makes. Since 20.0, where it was
+    /// `body`, a diagram written as text: a Sketch kept as text reads as one
+    /// box holding it. **Never in a write as read**: its pictures name kept
+    /// frames, so `add_studio_node` takes a [`StudioNodeAdded`] whose Sketch
+    /// carries [`SketchDrawn`](crate::SketchDrawn).
     Sketch {
-        body: String,
+        drawing: crate::SketchDrawing,
     },
     Link {
         address: String,
@@ -832,7 +837,9 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 second,
                 answer,
             },
-            C::Sketch { body } => StudioNodeContent::Sketch { body },
+            C::Sketch { drawing } => StudioNodeContent::Sketch {
+                drawing: crate::SketchDrawing::from(&drawing),
+            },
             C::Link {
                 address,
                 said,
@@ -947,7 +954,11 @@ impl StudioNodeContent {
                 second,
                 answer,
             },
-            StudioNodeContent::Sketch { body } => C::Sketch { body },
+            // Only ever a read, as a Picture is: a write's pictures arrive
+            // staged, through `StudioNodeAdded::Sketch`.
+            StudioNodeContent::Sketch { drawing } => C::Sketch {
+                drawing: drawing.to_domain(),
+            },
             // The line is trimmed here, and a blank one is no line at all.
             // **`named` does not decode into a write**: what a source calls
             // itself is a read-in's to record, so a request naming one is

@@ -156,6 +156,7 @@ mod since;
 mod studio;
 /// What `add_studio_node` carries: any content, a Picture staged rather than kept.
 mod studio_added;
+mod studio_sketch;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
 /// Check's log is read over.
@@ -325,6 +326,10 @@ pub use studio::{
     WriteUpStudioNode,
 };
 pub use studio_added::{AddedContent, StudioNodeAdded};
+pub use studio_sketch::{
+    EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
+    SketchPictureDrawn, SketchPoint, SketchStroke,
+};
 pub use turn::{
     BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
     Voice, Withheld,

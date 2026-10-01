@@ -252,7 +252,9 @@ async fn a_person_adds_only_what_a_person_makes() {
             named: None,
         },
         StudioNodeContent::Sketch {
-            body: "legend on its own row".to_string(),
+            drawing: ipc::SketchDrawing::from(&core_model::SketchDrawing::one_box(
+                "legend on its own row".to_string(),
+            )),
         },
     ];
     for (n, content) in by_hand.into_iter().enumerate() {
@@ -589,14 +591,14 @@ async fn a_notes_frame_is_read_back_by_its_node_and_a_note_without_one_is_not_a_
     let without = captured.nodes.last().expect("the second Note").id.clone();
 
     let (name, bytes) = fleet
-        .get_studio_frame(studio.id.clone(), with.clone(), None)
+        .get_studio_frame(studio.id.clone(), with.clone(), None, None)
         .await
         .expect("the frame that was kept");
     assert_eq!(name, format!("{}.png", with.as_str()), "the kept name");
     assert_eq!(bytes, [7u8; 512], "the file itself");
 
     let refused = fleet
-        .get_studio_frame(studio.id.clone(), without, None)
+        .get_studio_frame(studio.id.clone(), without, None, None)
         .await
         .expect_err("a Note that kept no frame");
     assert_eq!(code(&refused), "fleet.studio_frame_not_kept");
@@ -605,6 +607,7 @@ async fn a_notes_frame_is_read_back_by_its_node_and_a_note_without_one_is_not_a_
         .get_studio_frame(
             studio.id.clone(),
             ipc::StudioNodeId::carried("01NOSUCHNODE"),
+            None,
             None,
         )
         .await
@@ -618,7 +621,7 @@ async fn a_notes_frame_is_read_back_by_its_node_and_a_note_without_one_is_not_a_
     )
     .expect("the Studio's own directory");
     let refused = fleet
-        .get_studio_frame(studio.id.clone(), with, None)
+        .get_studio_frame(studio.id.clone(), with, None, None)
         .await
         .expect_err("a frame the record names and the disk does not hold");
     assert_eq!(code(&refused), "fleet.studio_frame_unreadable");

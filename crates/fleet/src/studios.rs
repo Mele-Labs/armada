@@ -20,8 +20,8 @@ use std::sync::Arc;
 
 use ipc::{
     AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio,
-    DispatchStudioDraft, EditStudioDraft, EditStudioLink, GroupStudioNodes, HelmStudioAct,
-    ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
+    DispatchStudioDraft, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
+    HelmStudioAct, ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, StudioDeleted,
     StudioHelmActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
     StudioSummary, WireError, WriteUpStudioNode,
@@ -240,6 +240,17 @@ where
         node_id: &StudioNodeId,
         staged: ipc::StagedFrame,
     ) -> Result<core_model::CaptureFrame, Refusal> {
+        self.frame_kept_as(studio_id, format!("{}.png", node_id.as_str()), staged)
+    }
+
+    /// [`frame_kept`](Self::frame_kept), under a name Fleet minted — a
+    /// Sketch keeps one per picture, so the node alone cannot name each.
+    pub(crate) fn frame_kept_as(
+        &self,
+        studio_id: &StudioId,
+        filename: String,
+        staged: ipc::StagedFrame,
+    ) -> Result<core_model::CaptureFrame, Refusal> {
         let unreadable = |cause: std::io::Error| {
             self.studio_unacceptable(
                 FRAME_UNREADABLE,
@@ -261,7 +272,6 @@ where
                 ),
             ));
         }
-        let filename = format!("{}.png", node_id.as_str());
         let dir = self.studio_frames(studio_id);
         std::fs::create_dir_all(&dir).map_err(unreadable)?;
         std::fs::copy(&staged.staged_path, dir.join(&filename)).map_err(unreadable)?;
@@ -340,6 +350,7 @@ where
         &self,
         studio_id: ipc::StudioId,
         node_id: ipc::StudioNodeId,
+        picture: Option<String>,
         within: Option<ManifestId>,
     ) -> Result<(String, Vec<u8>), Refusal> {
         let id = studio_id.to_domain();
@@ -358,7 +369,7 @@ where
                     )
                 })?;
             node.content()
-                .frame()
+                .frame_of(picture.as_deref())
                 .ok_or_else(|| {
                     self.studio_unacceptable(
                         NO_FRAME_KEPT,
@@ -488,6 +499,18 @@ where
             StudioNodeAdded::Picture { staged } => {
                 return self
                     .picture_added(studio_id, staged, add.position, add.produced_by, by, within)
+                    .await
+            }
+            StudioNodeAdded::Sketch { drawing } => {
+                return self
+                    .sketch_added(
+                        studio_id,
+                        drawing,
+                        add.position,
+                        add.produced_by,
+                        by,
+                        within,
+                    )
                     .await
             }
             StudioNodeAdded::Content(content) => content.to_domain(),
@@ -829,6 +852,15 @@ where
         self.link_relabelled(studio_id, edit, within).await
     }
 
+    async fn edit_studio_sketch(
+        &self,
+        studio_id: ipc::StudioId,
+        edit: EditStudioSketch,
+        within: Option<ManifestId>,
+    ) -> Result<ipc::Studio, Refusal> {
+        self.sketch_redrawn(studio_id, edit, within).await
+    }
+
     async fn settle_contradiction(
         &self,
         studio_id: ipc::StudioId,
@@ -862,7 +894,7 @@ fn frames_kept_by(graph: &StudioGraph, going: &[StudioNodeId]) -> Vec<String> {
         .nodes
         .iter()
         .filter(|node| going.iter().any(|wanted| wanted == node.id()))
-        .filter_map(|node| node.content().frame())
+        .flat_map(|node| node.content().frames())
         .map(|frame| frame.filename.clone())
         .collect()
 }

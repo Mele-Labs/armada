@@ -32,7 +32,9 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             second: text(),
             answer: None,
         },
-        K::Sketch => C::Sketch { body: text() },
+        K::Sketch => C::Sketch {
+            drawing: core_model::SketchDrawing::one_box(text()),
+        },
         K::Link => C::Link {
             address: text(),
             said: Some(text()),

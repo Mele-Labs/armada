@@ -65,7 +65,16 @@ pub(crate) async fn get_studio<D: Studios>(
     answered(&served, StatusCode::OK, studio)
 }
 
-/// The picture one Note kept, answered as the file itself.
+/// `?picture=` on a Sketch's frame: which of its pictures, by its id on the
+/// drawing. Since 20.0.
+#[derive(serde::Deserialize)]
+pub(crate) struct PictureNamed {
+    #[serde(default)]
+    picture: Option<String>,
+}
+
+/// The picture one Note, Picture or Sketch picture kept, answered as the file
+/// itself.
 ///
 /// **`get_frame`'s shape on a Studio**, and for its reason: a frame has no
 /// window, so there is no partial reading for an envelope to describe and
@@ -78,6 +87,7 @@ pub(crate) async fn get_studio<D: Studios>(
 pub(crate) async fn get_studio_frame<D: Studios>(
     State(served): State<Served<D>>,
     Path((studio_id, node_id)): Path<(String, String)>,
+    Query(named): Query<PictureNamed>,
     scope: Scope,
 ) -> Response {
     let kept = served
@@ -85,6 +95,7 @@ pub(crate) async fn get_studio_frame<D: Studios>(
         .get_studio_frame(
             StudioId::carried(studio_id),
             ipc::StudioNodeId::carried(node_id),
+            named.picture,
             within(scope),
         )
         .await;
@@ -494,6 +505,23 @@ pub(crate) async fn edit_studio_link<D: Studios>(
     let edited = served
         .daemon()
         .edit_studio_link(StudioId::carried(studio_id), edit, within(scope))
+        .await;
+    answered(&served, StatusCode::OK, edited)
+}
+
+pub(crate) async fn edit_studio_sketch<D: Studios>(
+    State(served): State<Served<D>>,
+    Path(studio_id): Path<String>,
+    scope: Scope,
+    bytes: Bytes,
+) -> Response {
+    let edit = match body(&served, "a Sketch's drawing", &bytes) {
+        Ok(edit) => edit,
+        Err(response) => return response,
+    };
+    let edited = served
+        .daemon()
+        .edit_studio_sketch(StudioId::carried(studio_id), edit, within(scope))
         .await;
     answered(&served, StatusCode::OK, edited)
 }
