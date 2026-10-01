@@ -253,7 +253,7 @@ export function StudioNode(props: StudioNodeProps) {
   // on: an address wrapped over three lines is what the node was before.
   const address = "address" in props ? props.address : null;
   const untitled = address !== null && address === title;
-  // A path past three lines is cut, so the whole of it is in the title.
+  // A long path is cut in its middle, so the whole of it is in the title.
   const whole = untitled ? title : props.kind === "file" ? props.path : undefined;
   return (
     <Card
@@ -290,7 +290,16 @@ export function StudioNode(props: StudioNodeProps) {
             data-clipped={untitled || undefined}
             title={whole}
           >
-            {title}
+            {props.kind === "file" ? (
+              // The file name never gives way: a long path is cut in its
+              // middle, `crates/…/briefing.rs` — the owner's call, 1 Oct 2026.
+              <>
+                <span className="armada-studio-node__path-head">{title.slice(0, Math.max(0, title.lastIndexOf("/")))}</span>
+                <span className="armada-studio-node__path-tail">{title.slice(Math.max(0, title.lastIndexOf("/")))}</span>
+              </>
+            ) : (
+              title
+            )}
           </p>
           {address === null || untitled ? null : (
             <p className="armada-studio-node__address" title={address}>

@@ -263,6 +263,18 @@ export const File: Story = {
       <StudioNode kind="file" path={LONG_PATH} title={LONG_PATH} />
     </Row>
   ),
+  // A long path is cut in its middle, never at its end: the file name is drawn
+  // whole, inside the card, and the whole path is on the title.
+  play: async ({ canvas }) => {
+    const path = canvas.getByTitle(LONG_PATH);
+    const name = canvas.getByText("/StudioNode.tsx");
+    await expect(path).toContainElement(name);
+    await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+    const drawn = name.getBoundingClientRect();
+    const line = path.getBoundingClientRect();
+    await expect(drawn.width).toBeGreaterThan(0);
+    await expect(drawn.right).toBeLessThanOrEqual(line.right);
+    await expect(drawn.left).toBeGreaterThanOrEqual(line.left);  },
 };
 
 /**
