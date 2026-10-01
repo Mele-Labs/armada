@@ -209,7 +209,8 @@ pub struct JobDetail {
     pub command_waiting: Option<CommandInFlight>,
     /// The Judge question a person is being asked about, right now. **Since
     /// 11.1**, and absent from a Fleet older than that. Filled after
-    /// `JobDetail::of`, like `command_waiting`. See `JudgeQuestion`.
+    /// `JobDetail::of`, like `command_waiting`. See `JudgeQuestion`. **Absent
+    /// on a terminal Job**, which nobody can answer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub judge_question: Option<JudgeQuestion>,
     /// How this Job meets a Judge criterion that refuses. **Since 11.3**, and

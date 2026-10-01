@@ -129,6 +129,8 @@ Why: every extra token is money on a call that fires on every dispatch, and a ca
 
 **`for_requests` is how a request is matched to a workflow at all.** Labels are in the workflow's own vocabulary, so they cannot say whether a request is this kind of work: nothing in Epic's `Plan the wave` is a word somebody asking to finish a milestone uses. The line is written in a requester's words, rendered beside the labels rather than instead of them, and optional — a definition declaring none is shown by its id, name and labels alone. `crates/core-model/domain/workflowdef-fields.toml` holds the field.
 
+**Every workflow Armada ships declares one, read off its own Judge criteria.** Decided 1 Oct 2026, after a request to retire a guide was proposed as Refactor and Refactor's Judge refused the plan for changing what a person sees. The labels had not said that a refactor promises no visible change; the line now does, and each line names what separates it from its nearest neighbour. Fleet's `tests::proposing` refuses a shipped definition without one.
+
 ## It runs on every dispatch
 
 **One dispatch path, not two.** The call runs whether the repository holds one Workspace or several, so there is no case in which a person types the workflow instead of approving one.

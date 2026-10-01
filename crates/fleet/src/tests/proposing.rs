@@ -508,28 +508,7 @@ fn the_call_is_told_the_request_and_every_workflow_with_its_steps() {
 /// list.
 #[test]
 fn the_three_addresses_a_studio_dispatches_reach_the_proposer_whole_beside_a_line_each_can_match() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let manifest = config::Manifest::parse(
-        std::path::Path::new("fixture-armada.yml"),
-        "version: 1\nid: 01FIXTUREMANIFEST\n",
-    )
-    .expect("the fixture manifest parses");
-    let roster = config::Roster::of(adapters::HeadlessAgent::models());
-    let mut catalogue = Vec::new();
-    let mut found: Vec<std::path::PathBuf> = std::fs::read_dir(root.join(".armada/workflows"))
-        .expect("the shipped definitions are there")
-        .map(|entry| entry.expect("a directory entry").path())
-        .collect();
-    found.sort();
-    for path in found {
-        let text = std::fs::read_to_string(&path).expect("a readable definition");
-        let def = config::WorkflowDef::parse(&path, &text, &roster)
-            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
-        catalogue.push(
-            ResolvedWorkflow::resolve(&def, &manifest).expect("a shipped definition resolves"),
-        );
-    }
-    let held = held(catalogue);
+    let held = held(the_shipped_catalogue());
 
     // The three addresses, as `dispatch_studio_draft` sends them: the Link's
     // own address, whole and alone. Spelled with the forge's own host because
@@ -573,6 +552,74 @@ fn the_three_addresses_a_studio_dispatches_reach_the_proposer_whole_beside_a_lin
     assert!(
         !question.contains("code_review\n\n") && !question.contains("run the epic"),
         "nothing on this path tells the proposer which one to pick"
+    );
+}
+
+/// The definitions this repository ships in `.armada/workflows/`, read and
+/// resolved off disk rather than from a fixture.
+fn the_shipped_catalogue() -> Vec<ResolvedWorkflow> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let manifest = config::Manifest::parse(
+        std::path::Path::new("fixture-armada.yml"),
+        "version: 1\nid: 01FIXTUREMANIFEST\n",
+    )
+    .expect("the fixture manifest parses");
+    let roster = config::Roster::of(adapters::HeadlessAgent::models());
+    let mut found: Vec<std::path::PathBuf> = std::fs::read_dir(root.join(".armada/workflows"))
+        .expect("the shipped definitions are there")
+        .map(|entry| entry.expect("a directory entry").path())
+        .collect();
+    found.sort();
+    found
+        .into_iter()
+        .map(|path| {
+            let text = std::fs::read_to_string(&path).expect("a readable definition");
+            let def = config::WorkflowDef::parse(&path, &text, &roster)
+                .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+            ResolvedWorkflow::resolve(&def, &manifest).expect("a shipped definition resolves")
+        })
+        .collect()
+}
+
+/// **Every workflow this repository ships says what requests it is for**, so
+/// the proposer reads each one's promise and not its step labels alone. The
+/// owner's call, 1 Oct 2026: a request to retire a guide was proposed as
+/// `refactor`, and `refactor`'s Judge refused the plan for changing what a
+/// person sees. The Judge was right; nothing the proposer was shown said a
+/// refactor promises no visible change.
+///
+/// The key stays optional to the parser. This holds the repository's own
+/// catalogue to it, so a new definition here without one fails.
+#[test]
+fn every_shipped_workflow_offers_the_proposer_what_it_is_for() {
+    let catalogue = the_shipped_catalogue();
+    assert!(!catalogue.is_empty(), "the shipped definitions were read");
+    let silent: Vec<&str> = catalogue
+        .iter()
+        .filter(|workflow| workflow.for_requests().is_none())
+        .map(|workflow| workflow.id().as_str())
+        .collect();
+    assert!(
+        silent.is_empty(),
+        "these say nothing about what requests they are for: {silent:?}"
+    );
+
+    let held = held(catalogue);
+    let refactor = held
+        .values()
+        .find(|workflow| workflow.id().as_str() == "refactor")
+        .expect("the repository ships `refactor`");
+    let promise = refactor.for_requests().expect("checked above");
+    assert!(
+        promise.contains("nothing anyone can see or use changes"),
+        "refactor's line says plainly that nothing visible changes: {promise}"
+    );
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
+    assert!(
+        question.contains(&format!("  refactor — refactor\n    for: {promise}\n")),
+        "the prompt built from the real catalogue carries refactor's line:\n{question}"
     );
 }
 
