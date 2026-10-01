@@ -2109,8 +2109,8 @@
 }
 
 .armada-overview-board__door:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
-  outline-offset: calc(var(--focus-width) * -1);
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -2);
   border-radius: var(--radius-md);
 }
 

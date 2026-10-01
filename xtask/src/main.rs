@@ -41,6 +41,7 @@ mod rules_tokens;
 mod rules_toolbelt;
 mod rules_transcripts;
 mod rules_unsafe;
+mod rules_var_names;
 mod rules_vocabulary;
 mod tokens;
 mod tokens_emit;
@@ -120,6 +121,7 @@ fn verify_foundations() -> ExitCode {
         rules_tokens::the_tokens_generate_what_is_checked_in(&root),
         rules_tokens::no_media_query_resolves_through_a_custom_property(&root),
         rules_design::no_off_contract_design_value(&root),
+        rules_var_names::every_var_names_a_declared_property(&root),
         rules_docs::every_open_question_is_collected(&root),
         rules_docs::every_document_is_indexed(&root),
         rules_docs::every_path_a_document_names_exists(&root),
