@@ -1,5 +1,6 @@
 // What a Job at its dispatch gate is being approved for, read under Overview's
-// lead: what counts as done, and how each step of its workflow gates.
+// lead: what counts as done, what its workflow promises, and how each step
+// gates.
 //
 // **Read-only, and off what Fleet already sends** — the owner, 1 Oct 2026. He
 // approved Job 1 from the lead on his own Fleet with the request, the
@@ -42,6 +43,13 @@ export type ApprovingProps = {
  */
 export function Approving({ whole, workflows, manifest }: ApprovingProps) {
   const criteria = criteriaRowsOf(criterionViewsOf(whole));
+  // **The catalogue as it is now, not as it froze at dispatch** — `JobDetail`
+  // carries no promise of its own. A Job waiting to be approved has run
+  // nothing the two could disagree about. Rows are per Manifest, so the id
+  // alone could name another repository's workflow of the same id.
+  const forRequests = workflows.find(
+    (one) => one.id === whole.job.workflow_id && one.manifest_id === whole.job.owner_manifest_id,
+  )?.for_requests;
   return (
     <section
       className="armada-overview-board__approving armada-glass"
@@ -51,6 +59,7 @@ export function Approving({ whole, workflows, manifest }: ApprovingProps) {
       <ProposalGates
         workflow={whole.job.workflow_id}
         workflowChoices={workflowChoicesOf(workflows, whole.job.owner_manifest_id)}
+        {...(forRequests === undefined ? {} : { forRequests })}
         steps={gateRowsOf(whole.steps.map(gateViewOf), whole, undefined, repositorySaysOf(manifest))}
       />
     </section>

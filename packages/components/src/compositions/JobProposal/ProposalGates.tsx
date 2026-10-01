@@ -73,6 +73,11 @@ export type ProposalGatesProps = {
   workflowChoices: readonly WorkflowChoice[];
   /** Another workflow picked. Absent draws the name frozen. */
   onWorkflow?: (workflowId: string) => void;
+  /**
+   * What kind of request the workflow is for, in its own definition's words —
+   * `WorkflowSummary.for_requests`. Absent draws nothing under the name.
+   */
+  forRequests?: string;
   steps: readonly ProposalGateRow[];
   /** Approved, so the heading says the gate cannot move any more. */
   frozen?: boolean;
@@ -95,6 +100,7 @@ export function ProposalGates({
   workflow,
   workflowChoices,
   onWorkflow,
+  forRequests,
   steps,
   frozen,
   onGate,
@@ -136,6 +142,13 @@ export function ProposalGates({
             </option>
           ))}
         </Select>
+      )}
+      {/* **What the workflow promises, under its name**, so a workflow picked
+          for the wrong kind of request reads as wrong before it runs — the
+          owner's Job 1 of 1 Oct 2026 ran `refactor`, which promises nothing
+          anyone sees changes, for a visible change. */}
+      {forRequests === undefined ? null : (
+        <p className="armada-proposal__workflow-promise">{forRequests}</p>
       )}
       <ul className="armada-proposal__gates">
         {steps.map((step) => (
