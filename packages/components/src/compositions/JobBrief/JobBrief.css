@@ -82,16 +82,30 @@
   white-space: nowrap;
 }
 
-/* The brief itself. A person's own prose, so sans, at full contrast, and its
-   line breaks kept — a brief written as a list reads as one. */
+/* The brief itself. Sans, at full contrast. Its structure is markdown's,
+   drawn by Prose, so this keeps no line breaks of its own: a list written as
+   one is a list Prose draws, and `pre-wrap` here would break each paragraph
+   again at every soft wrap the writer's editor made. */
 .armada-job-brief__facts {
   margin: 0;
   min-width: 0;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   color: var(--fg-default);
-  white-space: pre-wrap;
   text-wrap: pretty;
+}
+
+/* PROSE IN BLOCK FLOW, because it sits inside `Clamped`. Prose is a flex
+   column, and `-webkit-line-clamp` counts no lines in a flex box — the clamp
+   goes inert and its control never draws (Clamped.css has the account, and
+   DroneBrief.css the time it happened). Block flow keeps the clamp; the
+   sibling margin is the gap the flex column gave. */
+.armada-job-brief__facts .armada-prose {
+  display: block;
+}
+
+.armada-job-brief__facts .armada-prose > * + * {
+  margin-top: var(--space-2);
 }
 
 /* What is absent, and why. Never a labelled blank: a label with nothing under
@@ -108,9 +122,13 @@
    halves by a rule beneath rather than by a hue: it is not a warning and not a
    status, it is a fact that will be gone by the next reading, and giving it a
    colour would make every screen it appears on look like something is wrong.
-   The prose itself reuses `__facts` — a person wrote both, so both are sans at
-   full contrast with their line breaks kept. */
+   The words reuse `__facts`, so both are sans at full contrast; a person's
+   reply is drawn as they typed it, so it keeps its line breaks here. */
 .armada-job-brief__block[data-waiting] {
   padding-bottom: var(--space-3);
   border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-job-brief__block[data-waiting] .armada-job-brief__facts {
+  white-space: pre-wrap;
 }

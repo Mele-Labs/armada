@@ -123,15 +123,14 @@
   white-space: pre;
 }
 
-/* Somebody else's words.
+/* Somebody else's words, drawn by Prose.
  *
- * **`pre-wrap`, so the paragraphs they wrote survive**, and `break-word` so a
- * comment with a long unbroken run in it cannot widen the panel it is drawn in.
- * Nothing here renders markup: the string arrives as a text node and stays one,
- * which is where the guard on text from outside this machine lives on this
- * side of the wire. */
+ * **No `pre-wrap`**: the paragraphs they wrote are markdown's to keep now, and
+ * Prose draws them. `break-word` stays, so a comment with a long unbroken run
+ * in it cannot widen the panel it is drawn in. What the markdown may become is
+ * Prose's rule, which is where the guard on text from outside this machine
+ * lives on this side of the wire. */
 .armada-remarks__body {
-  white-space: pre-wrap;
   overflow-wrap: break-word;
   color: var(--fg-default);
   font-size: var(--text-sm);
