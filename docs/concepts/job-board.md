@@ -84,7 +84,7 @@ trailing; a tab with nothing behind it renders no count rather than a `0`.
 | --- | --- |
 | All | Every Job on the Board |
 | Needs you | The statuses that stop until a person reads them — `awaiting_approval`, `awaiting_attestation`, `awaiting_repair`, `awaiting_review`, `escalated` |
-| Running | Everything in flight, `piloted` included: a Job a person has taken over is still moving |
+| Running | Everything in flight, `piloted` included: a Job a person has taken over is still moving. `proposing` is here too, and the declared row carries no workflow and no steps yet |
 | Queued | `queued`, whatever its reason |
 | Finished | Every terminal status whose worktree has not been reclaimed |
 | Cleared | Every Job whose worktree and branch were given back while its record stayed |

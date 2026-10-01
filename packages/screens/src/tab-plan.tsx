@@ -15,7 +15,7 @@
 // `tab-plan-read.ts`, the lead is `plan-lead.tsx`, an ask is
 // `tab-plan-ask.tsx`, and what it looks like is `PlanBoard`.
 
-import { JudgeRefusal } from "@armada/components";
+import { JudgeRefusal, SkeletonText } from "@armada/components";
 import { useEffect } from "react";
 
 import { TAB_LABEL } from "./detail-tabs";
@@ -43,6 +43,12 @@ export type PlanTabProps = PlanReviewProps & {
   onActHeld: (act: HeldAct, jobId: string) => void;
   /** Hold the patch's read open while this destination is — Overview's own call. */
   onReadDiff?: (jobId: string | null) => void;
+  /**
+   * Whether this Job's own read has yet to answer. The plan stands in with
+   * its shape until then — "records no plan" is an answer, and nothing has
+   * been asked yet.
+   */
+  reading?: boolean;
 };
 
 /** What an ask came to, in the tense the answer earns. */
@@ -151,6 +157,7 @@ export function PlanTab({
   floor,
   onActHeld,
   onReadDiff,
+  reading = false,
   ...review
 }: PlanTabProps) {
   // The patch, read while the destination is open — Overview's own effect,
@@ -187,7 +194,7 @@ export function PlanTab({
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.plan}>
       {/* Why the plan was formed, first — the owner's call of 28 Sep 2026.
           Everything under it is how the work was split to meet it. */}
-      <PlanLead criteria={criteriaOf(whole, draft)} gate={gate} />
+      <PlanLead criteria={criteriaOf(whole, draft)} gate={gate} reading={reading} />
       {/* What the split became, above the plan that drew it: the wave is what
           a person came to this destination to read on a Job that dispatched
           one, and the task board underneath is how it was written. #1544. */}
@@ -197,7 +204,9 @@ export function PlanTab({
         floor={floor}
         onDropFromWave={(jobId) => onActHeld("kill_job", jobId)}
       />
-      {region === undefined ? (
+      {region === undefined && reading ? (
+        <SkeletonText />
+      ) : region === undefined ? (
         /* **A Job whose plan is a wave has recorded one**, and the split above
            is it — so the task board's own absence is not "no plan yet", which
            read as a contradiction under a drawn wave. #1544. */

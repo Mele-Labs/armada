@@ -12,17 +12,15 @@
 // made and checked.
 
 import { beforeEach } from "vitest";
-import { GUIDES } from "@armada/components";
 
-const KEY = "armada.bridge.guides";
+import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
 
 /**
- * Everything a window remembers about how it was last read.
- *
  * **A test starts from a window that remembers nothing**, unless it says
- * otherwise. These keys survive between files in one browser origin, so a
- * test that assumes a default is really asserting on whatever ran before it
- * — and which file that is changes with how the workers are scheduled.
+ * otherwise. The keys `remembered.ts` lists survive between files in one
+ * browser origin, so a test that assumes a default is really asserting on
+ * whatever ran before it — and which file that is changes with how the
+ * workers are scheduled.
  *
  * Three tests paid for this on 30 Sep 2026, all reading as load flakes and
  * none of them load: `canvas-pan` arriving after a test that left Plan on
@@ -34,23 +32,6 @@ const KEY = "armada.bridge.guides";
  * `guides.test.tsx` clears the guides key in its own `beforeEach` to become a
  * first-time reader, which is what keeps that one claim in one place.
  */
-const REMEMBERED = [
-  "armada.bridge.dock-width",
-  "armada.bridge.guide-list-width",
-  "armada.bridge.left-collapsed",
-  "armada.bridge.left-width",
-  "armada.bridge.panels-open",
-  "armada.bridge.plan-view",
-  "armada.bridge.workflow-view",
-];
+beforeEach(forgetHowItWasRead);
 
-beforeEach(() => {
-  for (const key of REMEMBERED) window.localStorage.removeItem(key);
-});
-
-beforeEach(() => {
-  window.localStorage.setItem(
-    KEY,
-    JSON.stringify({ off: false, cardSeen: true, met: GUIDES.map((guide) => guide.piece) }),
-  );
-});
+beforeEach(meetEveryGuide);

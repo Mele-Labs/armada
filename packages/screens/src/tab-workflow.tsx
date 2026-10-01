@@ -15,7 +15,15 @@
 // shrinking the run. The toggle is remembered per viewer, and where it is kept
 // is the caller's: this package holds no storage.
 
-import { Tabs, Tooltip, WorkflowCanvas, WorkflowInspector, WorkflowStacked } from "@armada/components";
+import {
+  RunTreeSkeleton,
+  Tabs,
+  Tooltip,
+  WorkflowCanvas,
+  WorkflowInspector,
+  WorkflowStacked,
+  type RunTreeSkeletonProps,
+} from "@armada/components";
 import { useEffect, useState } from "react";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
@@ -40,6 +48,12 @@ export type WorkflowTabProps = {
   whole: JobWhole | null;
   /** Why there is no run to draw, where there is none. */
   absent?: string;
+  /**
+   * The run as far as it is known while this Job's own read is out — the
+   * workflow's step names, from `whileReading`. **Present only until the read
+   * answers**, and it wins over `absent`, whose sentence is for a read that did.
+   */
+  reading?: RunTreeSkeletonProps;
   /**
    * Whether the window is narrow enough that the inspector takes the whole
    * width of the tab when it opens, rather than a panel's width over one side
@@ -92,6 +106,7 @@ export function WorkflowTab({
   job,
   whole,
   absent,
+  reading: unread,
   narrow,
   view,
   onView,
@@ -145,6 +160,35 @@ export function WorkflowTab({
       onChange={(id) => onView(id as WorkflowView)}
     />
   );
+
+  // **The frame the run lands in, before it has.** The toggle and the
+  // workflow's name are already in hand; the canvas is drawn empty at its own
+  // height, and the stacked run names its steps with a bar where each will say
+  // where it stands.
+  if (whole === null && unread !== undefined) {
+    return (
+      <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.workflow}>
+        <div className="armada-workflow-tab" data-view={view} data-narrow={narrow || undefined}>
+          <div className="armada-workflow-tab__surface">
+            <div className="armada-workflow-tab__modes">{toggle}</div>
+            {view === "canvas" ? (
+              <div className="armada-workflow-tab__stage">
+                <div className="armada-workflow-tab__canvas" role="status" aria-label="Reading the run" aria-busy>
+                  <div className="armada-workflow-tab__where">
+                    <Tooltip label="The workflow this Job froze">
+                      <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
+                    </Tooltip>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <RunTreeSkeleton {...unread} />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (whole === null || whole.steps.length === 0) {
     return (

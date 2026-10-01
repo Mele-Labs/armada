@@ -41,6 +41,9 @@ release/
 # in a public repository.
 .gnhf/
 .lavish/
+# A walk an agent wrote to show somebody one thing, played by the mock and
+# never committed. `docs/practices/running-locally.md`, *Walks*.
+apps/desktop/src/renderer/src/mock/walks/scratch/
 
 # A reviewer's note against a story. The same argument as above — it names
 # whatever the review was about, and this repository is public.

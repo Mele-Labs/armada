@@ -1,5 +1,6 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import { ChevronRight, TriangleAlert } from "lucide-react";
+import { GROUP_STATE } from "../../generated/vocabulary";
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -115,12 +116,34 @@ export function PlanOverlap({ says, paths = [] }: { says: string; paths?: readon
   );
 }
 
+/**
+ * Where a group is: `GROUP_STATE`'s glyph and hue beside its word — the list's
+ * head and the group's panel both draw this, so the two cannot disagree.
+ * Plain text rather than a pill, as before; the hue is the registry's own
+ * token, read the way `Badge` reads its stem, so this file never decides
+ * which states are bad.
+ */
+export function PlanGroupStateWord({ state, says }: { state: PlanGroupState; says: string }) {
+  const rendering = GROUP_STATE[state];
+  const Icon = rendering?.icon;
+  return (
+    <span
+      className="armada-plan-board__state"
+      data-state={state}
+      style={rendering?.statusToken ? { color: `var(${rendering.statusToken})` } : undefined}
+    >
+      {Icon ? <Icon size={12} strokeWidth={2} aria-hidden /> : null}
+      {says}
+    </span>
+  );
+}
+
 export type PlanBoardGroup = {
   id: string;
   /** Its position in the step, counted from one. */
   ordinal: number;
   state: PlanGroupState;
-  /** Where the group is, in words — `working`, `passed`, `failed at its checks`. */
+  /** Where the group is, in words — `GROUP_STATE`'s verb: `running`, `passed`, `retrying`. */
   says: string;
   /**
    * Whether the tasks run at the same time. **Drawn, not named** — `GroupShape`,
@@ -707,9 +730,7 @@ function GroupCard({
         <CardHeader className="armada-plan-board__group-head" {...mover.groupHandle(group)}>
           <PlanGroupName group={group} mover={mover} hint="Drag to move" />
           <PlanGroupShape group={group} />
-          <span className="armada-plan-board__state" data-state={group.state}>
-            {group.says}
-          </span>
+          <PlanGroupStateWord state={group.state} says={group.says} />
           <span className="armada-plan-board__group-gap" />
           <span className="armada-plan-board__scope" title={group.scope.root}>
             <span className="armada-plan-board__scope-root">{group.scope.root}</span>

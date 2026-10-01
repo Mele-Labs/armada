@@ -410,6 +410,44 @@ fn a_row_declaring_nothing_is_named_with_what_the_machine_holds() {
     );
 }
 
+/// A status the walk never reaches, declaring no step state, is the registry
+/// ahead of its implementation one level up — `proposing` (`#1159`) is the first,
+/// a Job dispatched from a request that nothing creates yet. Both halves say
+/// nothing, so they agree, and the reader is told rather than stopped.
+#[test]
+fn a_status_no_path_reaches_declaring_nothing_warns() {
+    let mut report = Report::new("test");
+    let machine = machine();
+    let reachable = machine.reachable();
+    let anywhere: BTreeSet<String> = reachable.values().flatten().cloned().collect();
+    check_statuses(
+        &status_row("proposing", &[]),
+        &reachable,
+        &anywhere,
+        &states(),
+        &mut report,
+    );
+    assert!(!report.failed(), "{:?}", said(&report));
+    let warned = warnings(&report);
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned[0].contains("reaches the status by no path at all"),
+        "{warned:?}"
+    );
+}
+
+/// The same status declaring a state still fails. That is an inbound edge wired
+/// away, which is what the message was written for.
+#[test]
+fn a_status_no_path_reaches_declaring_a_state_still_fails() {
+    let found = run(&status_row("proposing", &["stopped"]));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("reaches the status by no path at all"),
+        "{found:?}"
+    );
+}
+
 #[test]
 fn a_state_no_variant_spells_is_named() {
     let found = run(&status_row("queued", &["not_started", "advancd"]));

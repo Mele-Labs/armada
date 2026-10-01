@@ -138,7 +138,7 @@ export const GroupFailed: Story = {
       {
         ...planned()[1]!,
         state: "retrying",
-        says: "failed at its checks",
+        says: "retrying",
         tasks: [
           { ...planned()[1]!.tasks[0]!, mark: "done", turnsSays: "27 turns", costSays: "~$1.90" },
           {

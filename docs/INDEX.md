@@ -46,7 +46,7 @@ Each ends with the questions it found and did not answer.
 - [`practices/running-locally.md`](practices/running-locally.md) — starting,
   checking and stopping a local Fleet: what it prints, what it refuses before it
   binds a port, what `armada clean` will not delete, and Bridge on a mock Fleet
-  with `pnpm mock`
+  with `pnpm mock`, with a walk to show somebody one thing in it
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see
