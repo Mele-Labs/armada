@@ -92,10 +92,9 @@ async fn a_request_that_fits_one_workflow_reaches_the_approval_gate_under_it() {
         "awaiting_approval",
         "the proposer dispatches nothing — the gate is where it stops"
     );
-    // The system chose the workflow, and the record says so. `manual` stays
-    // what a hand-entered `propose_job` writes, so which of the two happened is
-    // answerable rather than inferred.
-    assert_eq!(job.origin().as_wire(), "auto_detected");
+    // A person typed it, so the row says *Dispatched by you*: the proposer
+    // choosing the workflow does not make the work Fleet's find.
+    assert_eq!(job.origin().as_wire(), "manual");
     assert_eq!(
         job.facts().as_str(),
         A_REQUEST,
@@ -111,6 +110,43 @@ async fn a_request_that_fits_one_workflow_reaches_the_approval_gate_under_it() {
         !job.atomic(),
         "and coupling follows from paths there are none of yet"
     );
+}
+
+/// **A request says who sent it, never *Found by Fleet*.** Decided 1 Oct
+/// 2026: a person's dispatch from the composer reads *Dispatched by you*, and
+/// one Helm placed reads *Drafted in Helm* — `promoting`'s split for a Studio.
+/// Through the trait, because the route's `by` is what decides it.
+#[tokio::test]
+async fn a_request_carries_the_origin_of_whoever_sent_it() {
+    for (by, origin) in [
+        (api::Redirector::Person, "manual"),
+        (api::Redirector::Helm, "helm_drafted"),
+    ] {
+        let home = TempDir::new();
+        let fleet = a_fleet_proposing_through(
+            &home,
+            FakeWorkProduct::changed(&["src/log.rs"]),
+            a_catalogue(),
+            FakeJudge::saying(
+                "workflow: bug\ntitle: The log reader drops the last line\n\
+                 because: a defect with a reproducible symptom\nwrites: src/log.rs",
+            ),
+        );
+        let request = ipc::JobRequest {
+            request: A_REQUEST.to_string(),
+            client_ref: None,
+            attachments: Vec::new(),
+        };
+
+        let plan = api::Commands::propose_from_request(&fleet, request, None, by)
+            .await
+            .expect("a request that fits one workflow");
+
+        let [job] = &plan.jobs[..] else {
+            panic!("one Job, not {}", plan.jobs.len())
+        };
+        assert_eq!(job.origin.as_wire(), origin, "sent by {by:?}");
+    }
 }
 
 /// Entry zero is what says the call ran at all.
@@ -944,7 +980,7 @@ async fn a_single_job_request_carries_its_attachment() {
             vec![attachment],
             &fleet.first(),
             api::Redirector::Person,
-            None,
+            crate::proposal::requested(api::Redirector::Person),
         )
         .await
         .expect("a request that fits one workflow");
@@ -983,7 +1019,7 @@ async fn a_split_request_carries_its_attachment_onto_the_head_job_alone() {
             vec![attachment],
             &fleet.first(),
             api::Redirector::Person,
-            None,
+            crate::proposal::requested(api::Redirector::Person),
         )
         .await
         .expect("a plan");
