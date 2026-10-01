@@ -8,17 +8,40 @@ use crate::{personal_settings, remember_the_rule, Remembered, PERSONAL_SETTINGS}
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-fn scratch_path() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!(
-        "armada-adapters-settings-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ))
+/// One test's directory, removed when the test ends.
+///
+/// **Cleared before use as well as after.** nextest runs each test in its own
+/// process, so the counter is always zero and the name is the pid alone. Before
+/// this removed anything, 1,161 were left in the temp dir, and a reused pid
+/// opened the half-written file another test had planted two days earlier.
+struct Scratch(std::path::PathBuf);
+
+impl Scratch {
+    fn new() -> Scratch {
+        let dir = std::env::temp_dir().join(format!(
+            "armada-adapters-settings-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        Scratch(dir)
+    }
+
+    fn settings(&self) -> std::path::PathBuf {
+        self.0.join(PERSONAL_SETTINGS)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 #[test]
 fn the_rule_lands_under_permissions_allow() {
-    let at = scratch_path().join(PERSONAL_SETTINGS);
+    let scratch = Scratch::new();
+    let at = scratch.settings();
 
     let written = remember_the_rule(&at, "Bash(gh issue list:*)").expect("the file written");
 
@@ -35,7 +58,8 @@ fn the_rule_lands_under_permissions_allow() {
 /// one file over.
 #[test]
 fn every_other_key_and_every_other_rule_comes_back_out() {
-    let at = scratch_path().join(PERSONAL_SETTINGS);
+    let scratch = Scratch::new();
+    let at = scratch.settings();
     std::fs::create_dir_all(at.parent().expect("a parent")).expect("the directory");
     std::fs::write(
         &at,
@@ -56,7 +80,8 @@ fn every_other_key_and_every_other_rule_comes_back_out() {
 /// of nothing.
 #[test]
 fn a_rule_already_there_is_not_written_again() {
-    let at = scratch_path().join(PERSONAL_SETTINGS);
+    let scratch = Scratch::new();
+    let at = scratch.settings();
 
     remember_the_rule(&at, "Bash(gh:*)").expect("the file written");
     let again = remember_the_rule(&at, "Bash(gh:*)").expect("the second answer");
@@ -69,7 +94,8 @@ fn a_rule_already_there_is_not_written_again() {
 /// nothing here replaces what would not parse.
 #[test]
 fn a_settings_file_that_will_not_parse_is_left_exactly_as_it_was() {
-    let at = scratch_path().join(PERSONAL_SETTINGS);
+    let scratch = Scratch::new();
+    let at = scratch.settings();
     std::fs::create_dir_all(at.parent().expect("a parent")).expect("the directory");
     std::fs::write(&at, "{\"permissions\": {").expect("the file planted");
 
