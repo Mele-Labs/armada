@@ -6,8 +6,6 @@ import type { ReactNode } from "react";
 import { ChevronRight, ChevronUp } from "lucide-react";
 import { Fragment, useCallback, useState } from "react";
 import {
-  GuideMark,
-  GUIDE_STEP_BAR,
   RunTree,
   RunTreeSkeleton,
   Sheet,
@@ -372,11 +370,8 @@ export function InsideAJob({
         {/* The run, and the pointers beneath it. Left, at every state. */}
         <div className="armada-inside__run">
           <div className="armada-inside__region-head">
-            {/* The band and its `?` together, so the head's own
-                space-between still puts the workflow's name at the far edge. */}
             <span className="armada-inside__region-name">
               <Eyebrow>{runLabel}</Eyebrow>
-              <GuideMark guide={GUIDE_STEP_BAR} />
             </span>
             {runWorkflowLabel === undefined ? null : (
               <span className="armada-inside__region-meta">{runWorkflowLabel}</span>

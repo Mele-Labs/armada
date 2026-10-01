@@ -39,6 +39,18 @@ describe("the guides", () => {
     }
   });
 
+  test("retire 8, 11 and 20, and keep none of them in the catalogue", () => {
+    // 8 explained the run tree's step bar and 20 the drift piece; no screen
+    // draws either piece, so both went the way 11 did.
+    expect([...RETIRED_GUIDE_NUMBERS].sort((a, b) => a - b)).toEqual([8, 11, 20]);
+    for (const retired of [8, 11, 20]) {
+      expect(GUIDES.some((guide) => guide.number === retired)).toBe(false);
+    }
+    const pieces = GUIDES.map((guide) => guide.piece);
+    expect(pieces).not.toContain("run.step-bar");
+    expect(pieces).not.toContain("run.drift");
+  });
+
   test("account for every number ever issued, in use or retired", () => {
     // What makes the catalogue's order and a guide's number two independent
     // facts: a guide filed at the top of a group still took the next number,

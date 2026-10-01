@@ -3,7 +3,6 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import type { GuideFigureId } from "../../guides/guide";
 import { ADVANCE_GATE, JOB_STATUS, STEP_STATE } from "../../generated/vocabulary";
 import { JobMembers, type JobMemberJoin, type JobMemberRow } from "../JobMembers/JobMembers";
-import { StepBar } from "../StepBar/StepBar";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
 /**
@@ -33,9 +32,6 @@ const READING: Record<GuideFigureId, string> = {
   "group-order":
     "Two groups of a plan, one after the other. The first group's tasks are done and the group " +
     "has passed its checks; the second group and its tasks have not started.",
-  "step-bar":
-    "Two bars. A job's bar with one segment per step, filled as far as the step it is on, and a " +
-    "group's bar with one segment per task, filled as far as the task being worked.",
   "workflow-steps":
     "The four steps of a workflow, in order: plan the change, implement, write tests, review " +
     "the change. The last one waits for a person.",
@@ -71,7 +67,6 @@ export function GuideFigure({ figure, scale }: GuideFigureProps) {
 function Drawing({ figure }: { figure: GuideFigureId }) {
   if (figure === "members-landing") return <MembersLanding />;
   if (figure === "group-order") return <GroupOrder />;
-  if (figure === "step-bar") return <StepBars />;
   return <WorkflowSteps />;
 }
 
@@ -190,42 +185,6 @@ function GroupOrder() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-/**
- * The two bars a run draws, filling. **The real `StepBar`**, revealed left to
- * right by its wrapper rather than by touching a segment: a bar's segments are
- * its own, and the reveal is the same movement filling is.
- *
- * No `label`, so neither bar brings a `Tooltip` and nothing in the figure can
- * take focus.
- */
-function StepBars() {
-  return (
-    <div className="armada-guide-figure__bars">
-      <div className="armada-guide-figure__bar">
-        <span className="armada-guide-figure__bar-name">The job, step by step</span>
-        <Filling at={0}>
-          <StepBar total={4} current={3} activity="running" />
-        </Filling>
-      </div>
-      <div className="armada-guide-figure__bar">
-        <span className="armada-guide-figure__bar-name">Group 2, task by task</span>
-        <Filling at={1}>
-          <StepBar tasks={["done", "done", "working", "open"]} />
-        </Filling>
-      </div>
-    </div>
-  );
-}
-
-/** A bar filling: its wrapper opens from the start of the bar to the end of it. */
-function Filling({ at, children }: { at: number; children: ReactNode }) {
-  return (
-    <div className="armada-guide-figure__filling" style={{ "--armada-figure-order": at } as CSSProperties}>
-      {children}
     </div>
   );
 }
