@@ -191,23 +191,33 @@ export function GraphCanvasNodeBar({ label, nodeIds, children }: GraphCanvasNode
   // node dragged to the top edge — or fitted there, which is where the sketch
   // pad opens — put the bar outside the frame with nothing to say it was
   // there. `NodeToolbar` collides with nothing on its own.
-  const noRoom = useStore((state) => {
+  //
+  // **And over the top of the picked nodes where there is room on neither
+  // side**, held just inside the frame. Every node picked on a fitted Studio
+  // spans the whole canvas, and the bar landed wholly below its bottom edge,
+  // out of reach — the very case #1411 was built for.
+  const placed = useStore((state) => {
     const [, y, zoom] = state.transform;
     let top = Number.POSITIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
     for (const id of nodeIds) {
       const node = state.nodeLookup.get(id);
       if (node === undefined) continue;
-      top = Math.min(top, node.internals.positionAbsolute.y * zoom + y);
+      const at = node.internals.positionAbsolute.y;
+      top = Math.min(top, at * zoom + y);
+      bottom = Math.max(bottom, (at + (node.measured.height ?? 0)) * zoom + y);
     }
-    return Number.isFinite(top) && top < tall;
+    if (!Number.isFinite(top) || top >= tall) return "over";
+    if (bottom + tall <= state.height) return "under";
+    return Math.round(top - tall);
   });
   if (nodeIds.length === 0) return null;
   return (
     <NodeToolbar
       nodeId={[...nodeIds]}
       isVisible
-      offset={gap}
-      position={noRoom ? Position.Bottom : Position.Top}
+      offset={typeof placed === "number" ? placed : gap}
+      position={placed === "under" ? Position.Bottom : Position.Top}
       className="armada-graph-node-bar"
       role="group"
       aria-label={label}
