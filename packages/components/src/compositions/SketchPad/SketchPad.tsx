@@ -30,8 +30,9 @@ import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
  * is `{ body: String }`: no colour, no size, nothing to pick. The pen is this
  * surface's alone and no other canvas inherits it: `Ink`, and `Paste` for ⌘V.
  *
- * **Nothing here stages anything.** What goes out is a PNG Bridge writes; every
- * edit is reported to the caller, so the drawing survives a switch to Write.
+ * **Nothing here stages anything.** `draft/sketch-png.ts` writes the drawing as
+ * a PNG and nothing sends it yet — #1545's. Every edit is reported to the
+ * caller, so the drawing survives a switch to Write.
  */
 export type SketchPadProps = {
   /** What the picture is, read to somebody who cannot see it. */
