@@ -119,11 +119,19 @@ designs had this with more than just a box. We could do a free draw as well."*
 > It is the argument `drawn` already makes against reopening the PNG, one level
 > down.
 
-**A pad with a line and no box still attaches its picture**, because a person
-who drew and put down no box drew something. A join alone does not: it has
-nothing to hang on.
+**A paste aimed at the pad lands on it**, the owner's call of 1 October 2026.
+Text is a new box holding it, put down at the middle of the pad on show with
+no field opening first. A screenshot is a picture on the pad rather than an
+attachment on the Job: scaled down to sit inside the pad on show, never
+resized after, and otherwise a box without words. It moves, joins, takes the
+pen over it and comes off under Remove. A paste into a box's own field types
+into that field and makes nothing.
 
-**What a fit reads is still the boxes.** React Flow fits to its nodes, and ink
+**A pad with a line and no box still attaches its picture**, because a person
+who drew and put down no box drew something. A pasted picture counts the same
+way. A join alone does not: it has nothing to hang on.
+
+**What a fit reads is still the boxes and pictures.** React Flow fits to its nodes, and ink
 drawn well outside them is off screen until somebody pans — the pad pans and
 zooms, so nothing is lost, but Fit does not promise to find it.
 
@@ -132,7 +140,8 @@ zooms, so nothing is lost, but Fit does not promise to find it.
 is meant for. An attachment on the wire carries a staged path, a filename and a
 type and no provenance, so where a sketch was made is a draft field. Nothing
 stages the pad yet either: pressing Dispatch sends the words, and staging the
-PNG belongs with the schema lock.
+PNG belongs with the schema lock. Whatever writes that PNG owes the pasted
+pictures too, each at its own place and size.
 
 ## Approval Rules
 
