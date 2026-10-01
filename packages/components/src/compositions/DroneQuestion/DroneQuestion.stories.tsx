@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, within } from "storybook/test";
 
+import { Prose } from "../../primitives/Prose/Prose";
 import { DroneQuestion } from "./DroneQuestion";
 
 /**
@@ -96,6 +97,41 @@ export const TwoAnswers: Story = {
 
     await userEvent.click(send);
     await expect(args.onAnswer).toHaveBeenCalledWith("Its own job");
+  },
+};
+
+/**
+ * The drone writes its question and its answers in markdown, and they draw as
+ * it: emphasis, a list, a name in code. The caller hands both over as `Prose`,
+ * because it is the one that knows the drone wrote them.
+ */
+export const InMarkdown: Story = {
+  name: "A question in markdown",
+  args: {
+    question: (
+      <Prose
+        text={"The store schema needs a column. **Three jobs** wait on it:\n\n- `settle` reads it\n- the inbox writes it"}
+      />
+    ),
+    options: [
+      {
+        label: "Its own job",
+        consequence: <Prose text={"Dispatch a migration first. **Nothing else starts** until it lands."} />,
+      },
+      {
+        label: "Fold it in",
+        consequence: <Prose text={"The first job that needs `pending_at` adds it."} />,
+      },
+    ],
+    waiting: "12m",
+    onAnswer: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Three jobs").tagName).toBe("STRONG");
+    await expect(canvas.getByText("settle").tagName).toBe("CODE");
+    await expect(canvas.getByText("the inbox writes it").tagName).toBe("LI");
+    await expect(canvas.getByText("Nothing else starts").tagName).toBe("STRONG");
+    await expect(canvas.getByText("pending_at").tagName).toBe("CODE");
   },
 };
 

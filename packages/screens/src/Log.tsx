@@ -19,7 +19,7 @@
 // and the payload id this file already gave every row — both declared here,
 // both read through the helpers, and neither of them a component's internals.
 
-import { Button, LogEntry, PayloadLine, ToolName } from "@armada/components";
+import { Button, LogEntry, PayloadLine, Prose, ToolName } from "@armada/components";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -130,16 +130,21 @@ export function Log({
 /**
  * The line a row shows closed.
  *
- * **The tool's name is the only thing this composes**, because its family's
- * hue is `ToolName`'s own. The sizes and the figure go to `LogEntry` as
- * values: their hues are the row's stylesheet's, and a screen spelling those
- * classes would own a name it cannot see change. #1196.
+ * **A call composes the tool's name**, because its family's hue is
+ * `ToolName`'s own. The sizes and the figure go to `LogEntry` as values: their
+ * hues are the row's stylesheet's, and a screen spelling those classes would
+ * own a name it cannot see change. #1196.
  *
- * A row that is not a call draws its own string, which is every other row.
+ * **The Drone's own sentence is drawn through `Prose`**, because it is
+ * markdown a model wrote. Every other row draws its own string as it is — they
+ * are Armada's and Fleet's words, and a tool name's underscores are not
+ * emphasis.
  */
 function messageOf(row: LogRow): ReactNode {
   const call = row.called;
-  if (call === undefined) return row.message;
+  if (call === undefined) {
+    return row.kind === "said" && row.actor === "drone" ? <Prose text={row.message} /> : row.message;
+  }
   return (
     <>
       <ToolName tool={call.tool} />

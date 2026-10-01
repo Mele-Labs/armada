@@ -106,7 +106,8 @@
 
 /* Where the group writes. One value; a root is short, so it clips from the
    end like any other value rather than taking `PathChip`'s left clip — which
-   reorders a root ending in `/**` and drew `**/packages`. */
+   reorders a root ending in `/**` and drew it as the double star, a slash,
+   then `packages`. */
 .armada-plan-board__scope {
   display: flex;
   align-items: baseline;

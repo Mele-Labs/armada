@@ -52,6 +52,10 @@ export type LogEntryProps = {
    * The line. A tool call is mono because it is a command; a message and a
    * heartbeat are sans because they are sentences. `mono` says which, and the
    * caller knows because the wire told it.
+   *
+   * **The Drone's own sentence arrives as `Prose`**, from the caller, which is
+   * the one that knows who wrote it. Its blocks run on along this one line
+   * rather than stacking, so the row keeps its height and its clip.
    */
   message: ReactNode;
   /** Whether `message` is machine-derived. Sans names work, mono names machinery. */

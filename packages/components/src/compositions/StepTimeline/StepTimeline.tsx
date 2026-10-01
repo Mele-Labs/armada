@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } fr
 
 import { ChevronDown, ChevronRight } from "lucide-react";
 
+import { Prose } from "../../primitives/Prose/Prose";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Chapter } from "../Chapter/Chapter";
 import {
@@ -36,7 +37,11 @@ import {
 export type StepTimelineNow = {
   /** `Editing`. Absent between calls, where a sentence is the whole of it. */
   verb?: ReactNode;
-  /** The path, the command, or the Drone's own sentence. */
+  /**
+   * The path, the command, or the Drone's own sentence. **A sentence — a
+   * string with `mono` off — is drawn through `Prose`**, its markdown kept on
+   * the one line; a path or a command is drawn as its characters.
+   */
   detail?: ReactNode;
   /** How long the call has been open — `3s`. */
   took?: ReactNode;
@@ -345,7 +350,13 @@ function Now({ now }: { now: StepTimelineNow }) {
       {now.verb === undefined ? null : (
         <span className="armada-steps__now-verb">{now.verb} </span>
       )}
-      {now.detail}
+      {now.mono !== true && typeof now.detail === "string" ? (
+        <span className="armada-steps__now-said">
+          <Prose text={now.detail} />
+        </span>
+      ) : (
+        now.detail
+      )}
       {now.took === undefined ? null : (
         <span className="armada-steps__now-took"> · {now.took}</span>
       )}
