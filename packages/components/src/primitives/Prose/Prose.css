@@ -98,7 +98,10 @@
 /* The Table primitive's rules and header contrast, without its sizes: a table
    in a rail reads at the rail's size. Cells wrap rather than scroll, for the
    fenced block's reason below. */
+/* As wide as its content, up to the column: a flex child stretches by default,
+   and at a dialog's width that strands three short columns a screen apart. */
 .armada-prose__table {
+  align-self: flex-start;
   border-collapse: collapse;
 }
 
@@ -107,7 +110,9 @@
   padding: var(--space-1) var(--space-2);
   text-align: left;
   vertical-align: top;
-  overflow-wrap: anywhere;
+  /* Not `anywhere`: that sizes every column to one character and breaks a
+     header like "Before" in two. A path in a cell still breaks, as code. */
+  overflow-wrap: break-word;
 }
 
 .armada-prose__th {
