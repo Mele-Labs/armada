@@ -280,6 +280,7 @@ this page on `?scenario=`, which is the reload that puts the window on it.
 | `arc/<moment>` | One moment of the Feature Job the new boards were drawn against, for each moment `ARC_MOMENTS` lists — from an empty prompt to a merge |
 | `members/<order>` | Several Jobs landing in order under one parent, the last of them stacked on the one before it or merged into it |
 | `epic/wave` | A wave of Jobs dispatched under one plan, some merged and some still out |
+| `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
 | `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
 | `kind/<workflow>` | One of those Jobs, already open |
 | `job/<builder>` | One Job, already open, for each builder `packages/screens/src/fixtures/build/index.ts` exports |
