@@ -82,20 +82,22 @@ pub fn gate(
             state,
             branch,
             OutcomeState::Gating,
-            format!("{} has not moved; reading the gate, and no Check", env.base),
+            format!(
+                "{} has not moved; reading the gate and the Checks the branch hits",
+                env.base
+            ),
             OutcomePatch::default(),
         )?;
     }
     let candidate = super::repo::rev_parse(&where_, "HEAD")?;
 
     seed(repo, &where_, env, logs)?;
-    let mut rerun = Vec::new();
+    let since = super::repo::merge_base(repo, head, base)?;
+    let mut hit: Vec<String> = changed_paths(repo, &since, head)?;
     if moved {
-        let since = super::repo::merge_base(repo, head, base)?;
-        let mut hit: Vec<String> = changed_paths(repo, &since, base)?;
-        hit.extend(changed_paths(repo, &since, head)?);
-        rerun = covers(&env.armada, &where_, &hit)?;
+        hit.extend(changed_paths(repo, &since, base)?);
     }
+    let rerun = covers(&env.armada, &where_, &hit)?;
 
     say(
         state,

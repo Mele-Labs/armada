@@ -24,7 +24,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | Rule | Held by |
 |---|---|
 | `verify-foundations` runs on every turn | A throwaway worktree at the commit being merged |
-| No Check reruns when `main` has not moved | `main` is an ancestor of the branch head |
+| The Checks the branch hits run even when `main` has not moved | `armada covers`, over the branch's own paths |
 | When it has moved, `main` is merged in first | A throwaway detached worktree at the branch head |
 | A Check reruns when its `when:` matches either side | `armada covers`, over both sets of paths |
 | `verify-foundations` reruns, read against `main` | Only a failing line `main` lacks is red |
@@ -47,7 +47,7 @@ runner (holds the turn lock) ----------------------+
         |            | any other conflict -> outcome conflict (keeps its place)
   seed: cp -c the build directories in
   verify-foundations: new FAIL / missing: lines vs main's own run
-  main moved? -- yes -> covers(landed + changed) -> setup -> armada check each
+  covers(changed, + landed if main moved) -> setup -> armada check each
         | red -> outcome red, nothing pushed
         | main moved -> push the merge commit to the branch, wait for GitHub
   ls-remote main == gated base?  -- no -> gate again (bounded rounds)
@@ -86,9 +86,9 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 
-**The gate runs every turn and the Checks only on a moved one.** `verify-foundations` reads the tree, takes seconds, and an unmoved turn is the one way a branch can break it for everybody behind it — with the line the only route to the fix. A Check reads the combination, takes minutes, and there is no combination to read until the base has moved.
+**The gate and the Checks run every turn.** On an unmoved turn the Checks are the ones the branch's own paths hit; on a moved one, those and the ones what landed on `main` hits.
 
-**So the line gates the combination, and trusts the agent for the branch's own Checks.** `work-issue` step 4 is where a branch is measured on its own, and preflight stamps the tree it was measured on.
+**The line used to run no Check on an unmoved turn, trusting the agent's own run.** That trust went when `work-issue` step 4 became a quick self-check of build, typecheck and the tests of what changed, so the line is now where a branch's Checks are measured in full. Preflight still stamps the tree, so what the line measures is what the agent pushed.
 
 **A Check that failed is asked of `main` too, before the branch is blamed.** Only the Checks that failed, only on a turn that had one, and the answer is cached per base commit — so a green turn pays nothing for this and a red one pays for what it already knows is broken. A Check red on both sides is reported as `main`'s, naming it and sending the reader at `main`; a Check red only with `main` merged in stays the branch's. A turn holding one of each says both.
 
