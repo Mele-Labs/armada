@@ -54,9 +54,9 @@ test("pressing Note opens the field beside the rail, already focused, and not in
   expect(aside?.contains(card().element()) ?? false).toBe(false);
 
   // Adding closes it, and the note lands on the board.
-  await userEvent.fill(field, "The legend wraps at 1100px");
+  await userEvent.fill(field, "The legend wraps on a narrow window");
   await card().getByRole("button", { name: "Add note" }).click();
-  await expect.element(node(/^Note: The legend wraps at 1100px/)).toBeVisible();
+  await expect.element(node(/^Note: The legend wraps on a narrow window/)).toBeVisible();
   expect(card().query()).toBeNull();
 });
 
