@@ -114,23 +114,26 @@ was wrong with any of the measurements when they were taken. **Re-read before
 you report, not just before you act** — this repository moved 19 commits in two
 hours that day.
 
-**Rebase before merging, never merge a stale branch.** An agent that started
-before three other merges is not describing today's `main`. `git rebase main`,
-re-run the gate, then `git merge --ff-only`.
+**Land through the line, never by hand.** From the branch's worktree,
+`scripts/land preflight`, then `scripts/land`, then poll `scripts/land
+--status`. The line merges today's `main` in, reruns what the combination hits
+and pushes `main` itself, so a branch that started before three other merges is
+measured against the `main` it lands on. Never rebase to catch up: a red or a
+conflict comes back, and you merge `origin/main` in and land again.
+`docs/practices/running-locally.md`, *Landing a branch*.
 
-**`MERGEABLE` means no conflict, not up to date.** Confirmed 2026-09-11: #634
-merged 16 commits behind `main` on the strength of that word. Its protocol bump
-to 10.3 merged cleanly onto another branch's bump to 10.3, so two wire changes
-now share one version. **A clean merge of `protocol-version.toml` is a
-collision, not an agreement.**
+**A clean merge is not an agreement.** Confirmed 2026-09-11: #634 merged 16
+commits behind `main`, and its protocol bump to 10.3 merged cleanly onto another
+branch's bump to 10.3, so two wire changes now share one version. **A clean
+merge of `protocol-version.toml` is a collision**, and no Check reads it as one.
 
-**Drive it to merged.** Do not stop and hand the owner a branch to merge — that
-is the step this skill owns. Never force a merge past a failing gate, a real
-conflict, or an unresolved question, and never merge a branch this session did
-not produce.
+**Drive it to landed.** Do not stop and hand the owner a branch to land — that
+is the step this skill owns. Never land past a failing gate, a real conflict,
+or an unresolved question, and never land a branch this session did not produce.
 
-**A Job's work is a pull request.** Fleet commits, pushes and opens one; `gh pr
-merge <n> --merge` once `gh pr view <n>` reads `MERGEABLE`. Do not squash.
+**A Job's work is a pull request on a branch.** Check the branch out in a
+worktree and land it through the line like any other; the push of `main`
+closes the pull request as merged.
 
 ## 2. Worktrees given back
 

@@ -20,12 +20,13 @@ pub type Place = i64;
 /// What one stored outcome says about a branch's turn.
 ///
 /// **Not `refused` and not `unknown`.** `scripts/land`'s exit-code table
-/// (`docs/practices/running-locally.md`, "Landing a branch") names ten
+/// (`docs/practices/running-locally.md`, "Landing a branch") names nine
 /// values; two of them never reach this file. `refused` is raised by
 /// `Refused` before a branch joins the line — no outcome exists yet to hold
 /// it — and `unknown` is what `--status` says when [`read_outcome`] returns
-/// `None`, not a value a stored [`Outcome`] carries. The eight left are
-/// exactly this enum.
+/// `None`, not a value a stored [`Outcome`] carries. The seven left are
+/// exactly this enum. Exit 6, `ungated`, went with merging through the forge:
+/// the runner's own push cannot land on a base it was not gated against.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OutcomeState {
@@ -35,7 +36,6 @@ pub enum OutcomeState {
     Landed,
     Red,
     Conflict,
-    Ungated,
     Stopped,
 }
 
@@ -48,7 +48,6 @@ impl OutcomeState {
             OutcomeState::Waiting | OutcomeState::Gating | OutcomeState::Merging => 3,
             OutcomeState::Red => 4,
             OutcomeState::Conflict => 5,
-            OutcomeState::Ungated => 6,
             OutcomeState::Stopped => 7,
         }
     }
@@ -64,7 +63,6 @@ impl OutcomeState {
             OutcomeState::Landed => "landed",
             OutcomeState::Red => "red",
             OutcomeState::Conflict => "conflict",
-            OutcomeState::Ungated => "ungated",
             OutcomeState::Stopped => "stopped",
         }
     }
@@ -93,8 +91,6 @@ pub struct Outcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pushed: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gated_base: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub candidate: Option<String>,
@@ -121,7 +117,6 @@ impl Outcome {
             already: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
-            pushed: None,
             gated_base: None,
             candidate: None,
             merge_commit: None,
@@ -143,7 +138,6 @@ pub struct OutcomePatch {
     pub already: Option<Vec<String>>,
     pub new_lines: Option<Vec<String>>,
     pub conflicts: Option<Vec<String>>,
-    pub pushed: Option<String>,
     pub gated_base: Option<String>,
     pub candidate: Option<String>,
     pub merge_commit: Option<String>,
@@ -180,7 +174,6 @@ pub fn merge_outcome(
     merged.already = patch.already.unwrap_or(merged.already);
     merged.new_lines = patch.new_lines.unwrap_or(merged.new_lines);
     merged.conflicts = patch.conflicts.unwrap_or(merged.conflicts);
-    merged.pushed = patch.pushed.or(merged.pushed);
     merged.gated_base = patch.gated_base.or(merged.gated_base);
     merged.candidate = patch.candidate.or(merged.candidate);
     merged.merge_commit = patch.merge_commit.or(merged.merge_commit);

@@ -24,9 +24,9 @@ type Story = StoryObj<typeof StudioAddNode>;
 export const Control: Story = {};
 
 /**
- * The three kinds a person adds by hand, each with the binding the registry
- * gives it. Nothing else is offered: every other kind is made by the act that
- * earns it, and Fleet refuses it from Bridge by name.
+ * The three kinds a person writes by hand, each with the binding the registry
+ * gives it. A File and a Picture are pasted onto the board rather than written,
+ * and every other kind is made by the act that earns it.
  */
 export const Menu: Story = {
   play: async ({ canvasElement, args }) => {

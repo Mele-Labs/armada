@@ -36,6 +36,20 @@ directory rebuilds; a worktree that nobody removes stays forever and takes a new
 build directory with it the next time anyone touches it. Clearing `target/` and
 leaving the worktree is the move that has to be made twice.
 
+**A worktree the harness locked refuses `remove --force`; unlock it first.**
+`git worktree unlock <path>`, then remove. Confirmed 1 Oct 2026: a cleanup fell
+back to `rm -rf` when the remove refused, which deleted a still-registered tree
+and needed an unlock and a `prune` afterwards to clear the listing. Both trees
+were clean and pushed, so nothing was lost — but that was the three checks
+below, not the fallback.
+
+**`scripts/land` deletes the branch it lands, and GitHub closes every pull
+request based on it.** Confirmed 1 Oct 2026: #1729 was stacked on #1721's
+branch, #1721 landed, and #1729 closed unmerged with its base gone. The work
+survived on its own branch and came back as #1731 after a rebase. Stack a
+branch only if it will be rebased onto `main` before it opens, or open it
+against `main` from the start.
+
 **`Directory not empty` means something is still writing there, and it is
 usually you.** After an `isolation: "worktree"` agent finishes, the dispatching
 session's working directory moves into its worktree and the session's own

@@ -91,7 +91,14 @@ The brief is the only context the agent has, so it carries:
 | The landing | Commit and push after each piece that passes, open a PR, **do not merge**. Run heavy commands in the foreground and wait. A decision it runs into goes in a single `**QUESTION:**` line at the end, and nothing that depends on the answer gets built |
 
 **Verify what comes back yourself.** Read the diff, run its test, and look at
-the screen in the mock. An agent's report of green has been wrong here. To show
+the screen in the mock. **Run the whole suite the change reaches, not only the
+tests it added**: on 1 Oct 2026 the rail change in #1721 broke an existing Link
+test, it was reported to the owner as verified on its three new tests, and the
+next agent found the break.
+
+**A brief forbids the owner's clipboard, screen and apps.** On 1 Oct 2026 an
+agent measuring paste shapes overwrote his clipboard and opened Finder, Safari
+and Terminal on his screen. Playwright's own clipboard answers the same question. An agent's report of green has been wrong here. To show
 the owner the change, send a walk's link or its pictures rather than steps to
 follow (`docs/practices/running-locally.md`, *Walks*). Then
 land it with `scripts/land` without asking, and report the merge commit it landed

@@ -12,11 +12,10 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  * Add a node — the `+ Node` control on an open Studio, and the field behind
  * each of the three kinds a person writes onto one by hand. `#1364`.
  *
- * **Three kinds and no more**, decided with the owner: a Note typed, a Link
- * pasted, a Sketch placed. A File is a fourth by hand, and only ever pasted
- * onto the board, so it has no field here. A Finding comes from a scout, a Run from a run, a
- * Cluster from promotion — and Fleet refuses the rest from Bridge by name, so
- * this menu and that door say the same thing.
+ * **Three kinds have a field**: a Note typed, a Link pasted, a Sketch placed. A
+ * File and a Picture are by hand too, but only ever pasted onto the board, so
+ * they have none here. A Finding comes from a scout, a Run from a run, a
+ * Cluster from promotion — and Fleet refuses those from Bridge by name.
  *
  * **Which kind is being written is the caller's**, because the keys are: `N`,
  * `V` and `S` are live on the open Studio, and a menu holding its own state
