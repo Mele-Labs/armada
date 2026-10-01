@@ -217,6 +217,14 @@ status_token = "--status-piloted"
 vocabulary = "Job status"
 in_code = ""
 
+[verbs.job_status.proposing]
+verb = "proposing"
+icon = "scan-line"
+status_token = "--status-running"
+vocabulary = "Job status"
+in_code = ""
+notes = "**The word the wire already uses**, and the one `docs/concepts/job.md` and `docs/concepts/job-proposer.md` had already written down against `#1159` — `ProposalInFlight` is what a client watches this interval through, and a second word for one interval is what the registry exists to stop. Present participle because the thing is happening while a person reads the badge, which is `running`'s own form; *needs proposing* was refused because the `needs` family means a person must act (`awaiting_approval`'s ruling) and nobody is being asked for anything here, and *reading* was refused because it says nothing about what is being read and collides with a person reading the Board. **The token is `running`'s, aliased rather than minted**, which is `queued` taking `--status-not-started` one row down: `packages/tokens/src/status.css` says status hue is never chosen, and the hue this needs is *active, in flight* — the money is being spent while the row sits here. Grey would say dormant, which is what a person correctly scans past, and amber would say a person is on it. No new value was introduced and no token file was edited. **`scan-line`, minted in `packages/icons/icons.toml` rather than borrowed**, on the owner's decision of 30 Sep 2026: every other Job status carries a glyph, and shipping the only bare row on the Board is what settled it — `wrench`'s row already draws that line between a Job status, where hue is a single channel, and an escalation reason, where this repository sanctions a verb drawn alone. Four corner brackets with a rule across is a machine passing over something a person handed it, and it is the only outline in the badge set that is not a closed shape, which is what keeps it clear of `circle-dot` on the hue the two share. Its own row carries what was refused.
+
 [verbs.job_status.queued]
 verb = "queued"
 icon = "clock"

@@ -69,7 +69,7 @@ step_machine = "Initialised at creation. Frozen where it stood on a re-approval"
 step_states = ["advanced", "awaiting_human", "not_started", "retrying", "running", "stopped"]
 reason_storage = "None"
 reason_vocabulary = "None"
-transitions_in = ["queued -> awaiting_approval", "running -> awaiting_approval"]
+transitions_in = ["proposing -> awaiting_approval", "queued -> awaiting_approval", "running -> awaiting_approval"]
 transitions_out = ["awaiting_approval -> queued", "awaiting_approval -> rejected", "awaiting_approval -> killed"]
 in_code = "Not yet"
 open_questions = ["How are a not-started Job's approval state and readiness state recorded?"]
@@ -179,7 +179,7 @@ step_machine = "Frozen where the step stood — stopped where retries were spent
 step_states = ["advanced", "awaiting_human", "not_started", "retrying", "running", "stopped"]
 reason_storage = "Stored"
 reason_vocabulary = "The escalation trigger enum, which Workflow owns"
-transitions_in = ["queued -> escalated", "running -> escalated", "awaiting_review -> escalated"]
+transitions_in = ["proposing -> escalated", "queued -> escalated", "running -> escalated", "awaiting_review -> escalated"]
 transitions_out = ["escalated -> piloted", "escalated -> queued", "escalated -> running", "escalated -> completed_failed", "escalated -> killed"]
 in_code = "Not yet"
 notes = "Fleet paused the Job; a person must decide, and nothing moves until they do — the worktree and port span are held as-is. A Job interrupted by a Fleet crash also lands here, holding those resources until a person answers; answering takes it terminal. See `piloted` for who holds the worktree, and `awaiting_review` for the liveness clock."
@@ -194,7 +194,7 @@ step_machine = "Frozen where it stood"
 step_states = ["advanced", "awaiting_human", "not_started", "retrying", "running", "stopped"]
 reason_storage = "None"
 reason_vocabulary = "None"
-transitions_in = ["awaiting_approval -> killed", "queued -> killed", "running -> killed", "awaiting_review -> killed", "awaiting_repair -> killed", "escalated -> killed", "piloted -> killed", "awaiting_attestation -> killed"]
+transitions_in = ["awaiting_approval -> killed", "proposing -> killed", "queued -> killed", "running -> killed", "awaiting_review -> killed", "awaiting_repair -> killed", "escalated -> killed", "piloted -> killed", "awaiting_attestation -> killed"]
 in_code = "Not yet"
 notes = "Cleared from the Board — an operator act, carrying no verdict. Reachable from every non-terminal status."
 
@@ -212,6 +212,39 @@ transitions_out = ["piloted -> running", "piloted -> completed_success", "pilote
 in_code = "Not yet"
 notes = "A person is working it: the Drone is gone, the worktree belongs to the engineer, and Fleet must not reclaim it. It is distinguished from `escalated` by who holds the worktree, not by whether anyone has acted — escalated is waited on, piloted is worked."
 why = "Keeping the distinction in the state machine, rather than a UI label, keeps it authoritative over what a surface can say."
+
+[statuses.proposing]
+terminal = false
+mode = "Working"
+who_is_acting = "None"
+drone_process = "None, and no slot either. The proposer is a model call Fleet makes in its own process — `crates/ipc/src/proposing.rs` is what a client watches it through — so there is no worktree, no session, no branch and nothing for `concurrency-cap` to admit. What a person may take away is the call, through `stop_proposal`, and never a Drone."
+step_machine = "There is none, and this is the one row where that is the answer. Every other row says where a frozen step machine stands; this status is the interval before a workflow has been resolved at all, so the Job holds no `job_steps` rows for one to stand in. The machine is initialised on the way out, at `proposing -> awaiting_approval`, which is the moment the proposer's answer freezes a WorkflowDef — `awaiting_approval`'s own \"Initialised at creation\" is what a Job dispatched some other way still gets."
+step_states = []
+reason_storage = "None"
+reason_vocabulary = "None"
+transitions_out = ["proposing -> awaiting_approval", "proposing -> escalated", "proposing -> killed"]
+in_code = "Not yet"
+open_questions = ["Which escalation reasons a declined and a faulted proposal carry. `proposing -> escalated` is wired and no trigger claims it, so nothing can fire it yet: escalation-triggers.toml's header makes a declared edge a trigger's to name, and a trigger with none fires `running -> escalated` alone. **Two rows, not one**, on #334 and #410's rule that two causes wanting opposite responses from a person must not share a word: the proposer finding no workflow that fits (`fleet.no_workflow_fits`) is a request to rewrite, and a call that could not be made or whose answer could not be read (`fleet.proposer_unreachable`, `fleet.proposer_unreadable`) is a call to make again. Those four codes are in `crates/fleet/src/refusing.rs`. **The fault's two codes are one row**, on `not_prepared`'s own argument for folding six paths: a person does the same thing about both, and which it was belongs on the Job's log rather than on a badge. Each row is `level = \"Job\"` — a Job here has no step, so there is nothing for `last_verdict` to hold and `StepLevelTrigger::of` would refuse a step-level one — each declares `job_transitions = [\"proposing -> escalated\"]`, and each is `overrulable = false`, because an override advances a step and nothing weighed any work."]
+notes = """
+A request has been dispatched and the Job proposer is reading it — `docs/concepts/job-proposer.md`, step 3. #1159. **The row exists from the moment Dispatch is pressed**, which is the whole of what this status buys: somebody who sends several requests at once and walks away has an address to come back to for each, and every surface that lists Jobs lists these with no second concept — the Board, search, Stats. Before it, the reading happened inside the dispatch dialog and until it answered there was no row anywhere.
+
+**The Job is created here and nothing arrives here**, which is why there is no `transitions_in`. It is the third entry status, beside `awaiting_approval`'s top-level Job and `queued`'s sub-dispatched one, and it is the only one of the three whose Job has no frozen workflow yet.
+
+**`mode` is `Working` and `who_is_acting` is `None`, and the pair is not a contradiction.** The registry's header keeps them separate questions and this row is where they come apart furthest: something is happening, and it is neither a person nor a Drone. `Working` is what puts the row under the Board's Running tab rather than on somebody's list — `packages/screens/src/needs-you.ts` reads `mode` before the actor — and it is true: the money is being spent while it sits here. `None` is the honest actor because the three values name what a surface can address, a person to prompt or a Drone to poke, and neither exists; a fourth value for Fleet's own call would be a new wire word for a fact `mode` already carries. **Not `Person`**, which would put a dispatched request on the Needs you tab the moment it was sent, when there is nothing to answer. **Not `Drone`**, which would claim a process with a worktree and a slot.
+
+**Three roads out and each is a different ending**, which is what the existing call already does with its three answers. The proposer answers with Jobs and the head Job becomes the first of them, so the row that was being proposed is the row at the gate — `proposing -> awaiting_approval`, which is where `propose_from_request` already lands every Job it mints, and the extras it splits off carry `dispatched_by` rather than a relation of their own. A person who has waited long enough presses stop, and `stop_proposal` kills the call — `proposing -> killed`, the operator act that carries no verdict, from a non-terminal status as every other one reaches it. A proposer that declines to find a workflow and a call that faulted are both Fleet stopping with a person owed a decision, which is `escalated`, and they are told apart by its stored reason rather than by two statuses: rephrasing and dispatching again is `escalated -> killed` with `redispatched_from`, exactly as that edge already reads.
+
+**Nothing creates a Job here yet.** `in_code` is `Not yet`, as it is for `awaiting_approval`, `awaiting_repair` and `awaiting_attestation`: what exists is the vocabulary, the edges and the wire, and Fleet still answers a request with the Jobs it became.
+"""
+why = """
+Put to the owner on 30 Sep 2026 against the alternative — the Board drawing proposals as a second kind of row, with their own list, their own search and their own counts — and he chose Fleet making it a Job at dispatch. What that costs is this row, and a stretch during which a Job has no workflow, no steps and no plan for every reader to draw without looking broken. What it buys is that nothing else has to learn a new concept.
+
+**Not a `queued` reason.** A readiness reason says the Job is approved and waiting for room, and this Job is neither approved nor waiting: it has not been read yet, and what it is waiting on is a model call rather than a slot. `queued`'s own reasons all clear when the fleet or a person changes something, and this one clears when an answer arrives.
+
+**Not `running`.** That status means the frozen workflow's current step is being worked, and there is no workflow to have a step of. Sharing it would make `current_step_id` null under a status whose whole meaning is that it is not, and would put a Job with nothing to show on the screen `running` draws.
+
+**Not a second status for classifying the work.** Working out what kind of work a request is and which workflow it runs under is one reading and one call — `docs/concepts/job-proposer.md`, step 3 — so it is this status and not a pair.
+"""
 
 [statuses.queued]
 terminal = false

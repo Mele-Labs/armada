@@ -12,6 +12,7 @@
     "package": "electron-vite build && electron-builder",
     "start": "electron-vite preview",
     "mock": "vite --config vite.mock.config.ts --open",
+    "walk": "node capture/walk.mjs",
     "typecheck": "tsc -b --force",
     "test": "vitest run"
   },
@@ -23,6 +24,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/browser": "4.1.11",
     "@vitest/browser-playwright": "4.1.11",
+    "dom-accessibility-api": "0.6.3",
     "electron": "^40.0.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
