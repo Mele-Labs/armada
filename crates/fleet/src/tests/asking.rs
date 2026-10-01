@@ -340,3 +340,33 @@ async fn a_killed_job_serves_no_judge_question() {
         "frozen where it stood"
     );
 }
+
+/// **Nor does an escalated one.** `awaiting_review -> escalated` is the
+/// restart reconciliation's edge, and it leaves the question on record; served
+/// there it is an offer `answer_judge` refuses, the same false one a killed
+/// Job made.
+#[tokio::test]
+async fn an_escalated_job_serves_no_judge_question() {
+    let home = TempDir::new();
+    let (fleet, job_id, _asked_at) = asking_a_question(&home).await;
+
+    let job = fleet.load(&job_id).await.expect("the Job");
+    let escalated = fleet
+        .move_job(
+            &job,
+            core_model::Target::Escalated(EscalationTrigger::Interrupted),
+            core_model::Actor::Fleet,
+        )
+        .await
+        .expect("interrupted at the gate");
+    let detail = api::Queries::get_job(&fleet, ipc::JobId::from(&job_id))
+        .await
+        .expect("the Job reads");
+
+    assert_eq!(escalated.status(), JobStatus::Escalated);
+    assert!(
+        detail.judge_question.is_none(),
+        "{:?}",
+        detail.judge_question
+    );
+}
