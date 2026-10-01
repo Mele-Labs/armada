@@ -90,8 +90,8 @@ The brief is the only context the agent has, so it carries:
 the screen in the mock. An agent's report of green has been wrong here. To show
 the owner the change, send a walk's link or its pictures rather than steps to
 follow (`docs/practices/running-locally.md`, *Walks*). Then
-report the PR to the owner and merge only when he asks. Whoever merges gives the
-worktree back, as `work-issue` says.
+land it with `scripts/land` without asking, and report the merge commit it landed
+as. Whoever merges gives the worktree back, as `work-issue` says.
 
 **A component change is still a component change.** `armada-components` applies:
 the contract wins, and the proof is a story or a mock test, not a screenshot.

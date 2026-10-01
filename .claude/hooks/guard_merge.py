@@ -22,10 +22,10 @@ SAY = (
     "Merges to `main` go through `scripts/land`, which reruns the Checks a "
     "moved `main` hits — the check a merge by hand skips, and the reason two "
     "green branches can leave `main` red.\n"
-    "  scripts/land preflight   # once the branch's own Checks pass\n"
+    "  scripts/land preflight   # once the branch's self-check passes\n"
     "  scripts/land             # joins the line and returns\n"
     "  scripts/land --status    # poll this until it stops exiting 3\n"
-    "Run it once the owner has said to merge. "
+    "Run it as soon as the work is committed; nobody approves it first. "
     "docs/capabilities/merge-line.md says what it does."
 )
 
