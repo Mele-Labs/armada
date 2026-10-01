@@ -41,6 +41,8 @@ const NOT_WRITABLE_UP: &str = "fleet.studio_not_writable_up";
 const NOT_A_DRAFT: &str = "fleet.studio_not_a_draft";
 /// A line written on, or a read-in asked of, a node that is not a Link. A 422.
 pub(crate) const NOT_A_LINK: &str = "fleet.studio_not_a_link";
+/// A drawing asked of a node that is not a Sketch. A 422.
+pub(crate) const NOT_A_SKETCH: &str = "fleet.studio_not_a_sketch";
 /// An outcome asked of a node that is not a Contradiction. A 422.
 const NOT_A_CONTRADICTION: &str = "fleet.studio_not_a_contradiction";
 
@@ -111,7 +113,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// A rewrite the node would not take, as the wire says it.
-    fn not_rewritable(&self, code: &'static str, fault: NotRewritable) -> Refusal {
+    pub(crate) fn not_rewritable(&self, code: &'static str, fault: NotRewritable) -> Refusal {
         let said = format!("a {} node does not take that", fault.kind.as_wire());
         match fault.state {
             // A Contradiction of the right kind that would not take it has
@@ -132,7 +134,7 @@ where
     }
 
     /// The node `node_id` names, on this Studio.
-    fn node_on<'a>(
+    pub(crate) fn node_on<'a>(
         &self,
         graph: &'a StudioGraph,
         node_id: &StudioNodeId,

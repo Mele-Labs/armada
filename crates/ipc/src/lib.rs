@@ -154,6 +154,9 @@ mod showing;
 mod since;
 /// A Studio, its nodes and edges, and the acts a client asks of one. `#1285`.
 mod studio;
+/// What `add_studio_node` carries: any content, a Picture staged rather than kept.
+mod studio_added;
+mod studio_sketch;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
 /// Check's log is read over.
@@ -268,7 +271,10 @@ pub use manifest_proposal::{
 };
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
-pub use proposing::{ProposalInFlight, ProposalReach, ProposalStopped, StopProposal};
+pub use proposing::{
+    ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
+    StopProposal,
+};
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{
     what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote, ReadInRelation,
@@ -318,6 +324,11 @@ pub use studio::{
     StudioEdge, StudioHelmActed, StudioList, StudioNode, StudioNodeContent, StudioPosition,
     StudioRunHeld, StudioRunKept, StudioRunStarted, StudioServerStarted, StudioSummary,
     WriteUpStudioNode,
+};
+pub use studio_added::{AddedContent, StudioNodeAdded};
+pub use studio_sketch::{
+    EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
+    SketchPictureDrawn, SketchPoint, SketchStroke,
 };
 pub use turn::{
     BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,

@@ -21,11 +21,11 @@ nothing but `HOME` moves them. So a second Fleet shares the owner's store, and
 at boot it reconciles. Every Job it finds `running` with no Drone behind it is
 escalated `interrupted`. That is written into the owner's record, and it is not
 undone by stopping the second Fleet. Served against the main checkout, it also
-appends to the transcripts under `.armada/`.
+cuts its Jobs' worktrees there.
 
-`scripts/dev-fleet` avoids all three: a scratch `HOME`, a local clone with the
-Fleet data copied in, and `ARMADA_AGENT_BINARY` set to a program that exits at
-once. **A Job it dispatches escalates rather than spending anything.**
+`scripts/dev-fleet` avoids all three: a scratch `HOME`, a local clone with
+`.armada/workflows/` copied in, and `ARMADA_AGENT_BINARY` set to a program that
+exits at once. **A Job it dispatches escalates rather than spending anything.**
 
 ## Starting and stopping it
 
@@ -36,7 +36,9 @@ once. **A Job it dispatches escalates rather than spending anything.**
 - **The scratch directory goes outside the repository.** The script refuses one
   inside it — a copy of the owner's transcripts is one `git add -A` from a public
   commit. Your session scratchpad is the right place.
-- **`--copy-store` brings the owner's Jobs.** Leave it off for an empty store.
+- **`--copy-store` brings the owner's Jobs**, and the records under his
+  `repos/<key>` moved to the key the clone is served under, so a copied Job
+  opens with its transcript and Check output. Leave it off for an empty store.
   The copy is taken once, with SQLite's online backup, so it is safe while his
   Fleet is running. A second start reuses what the first one set up.
 - **Run it with `run_in_background` and keep the handle.** It ends by exec-ing

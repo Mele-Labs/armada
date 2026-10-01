@@ -32,11 +32,22 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             second: text(),
             answer: None,
         },
-        K::Sketch => C::Sketch { body: text() },
+        K::Sketch => C::Sketch {
+            drawing: core_model::SketchDrawing::one_box(text()),
+        },
         K::Link => C::Link {
             address: text(),
             said: Some(text()),
             named: None,
+        },
+        K::File => C::file("crates/fleet/src/briefing.rs"),
+        K::Picture => C::Picture {
+            frame: core_model::CaptureFrame {
+                filename: "01PICTURE.png".to_string(),
+                byte_size: 2048,
+                width: 1280,
+                height: 800,
+            },
         },
         // **Built through the domain's own constructor**, which is the only
         // way to reach one of the three — `#1394`. Nothing in this crate
@@ -171,6 +182,124 @@ fn a_proposal_naming_the_produced_edge_does_not_decode() {
 fn a_node_of_a_kind_the_studio_has_no_name_for_does_not_decode() {
     let body = br#"{"kind":"observation","said":"not a node"}"#;
     decode::<StudioNodeContent>("content", body).expect_err("not a kind");
+}
+
+/// **No node is `frozen`** since 21.0, decided with the owner on 1 Oct 2026:
+/// a Finding or an Outline naming it does not decode, and each without it does.
+#[test]
+fn a_finding_or_an_outline_naming_frozen_does_not_decode() {
+    let tail = r#""position":{"x":0,"y":0},"created_at":"2026-10-01T09:00:00.000Z"}"#;
+    let finding = r#"{"id":"01F","kind":"finding","asked":"how is routing decided","#;
+    let outline = r#"{"id":"01O","kind":"outline","body":"Capture on Bridge","#;
+    for node in [finding, outline] {
+        let frozen = format!(r#"{node}"state":"frozen",{tail}"#);
+        decode::<crate::StudioNode>("a node", frozen.as_bytes()).expect_err("frozen is gone");
+        let without = format!("{node}{tail}");
+        decode::<crate::StudioNode>("a node", without.as_bytes()).expect("a node");
+    }
+}
+
+/// **A File is its path and nothing else**, so an `add_node` body naming the
+/// kind without a path, or with a path that is not text, is refused by the
+/// decoder before any daemon is asked.
+#[test]
+fn a_file_without_a_path_as_text_does_not_decode() {
+    let at = r#""position":{"x":0,"y":0}"#;
+    for body in [
+        format!(r#"{{"kind":"file",{at}}}"#),
+        format!(r#"{{"kind":"file","path":7,{at}}}"#),
+        format!(r#"{{"kind":"file","path":null,{at}}}"#),
+    ] {
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err(&body);
+    }
+    let body = format!(r#"{{"kind":"file","path":" ~/plan.md ",{at}}}"#);
+    let added = decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect("a File");
+    let crate::StudioNodeAdded::Content(content) = added.content else {
+        panic!("a File is content");
+    };
+    assert_eq!(
+        content.to_domain(),
+        core_model::StudioNodeContent::File {
+            path: "~/plan.md".to_string()
+        },
+        "trimmed on the way in"
+    );
+}
+
+/// **A Picture reads back as the frame Fleet kept**, in a Note's
+/// `capture.frame` field names, and is added as the file Bridge staged.
+#[test]
+fn a_picture_reads_as_its_frame_and_is_added_as_its_staged_file() {
+    let read = StudioNodeContent::from(&content_of(core_model::StudioNodeKind::Picture));
+    assert_eq!(
+        encode(&read).expect("plain data"),
+        r#"{"kind":"picture","frame":{"filename":"01PICTURE.png","byte_size":2048,"width":1280,"height":800}}"#
+    );
+
+    let body = br#"{"kind":"picture","staged":{"staged_path":"/tmp/a.png","width":640,"height":400},"position":{"x":3,"y":4}}"#;
+    let added = decode::<crate::AddStudioNode>("a node", body).expect("a Picture");
+    assert_eq!(
+        added.content,
+        crate::StudioNodeAdded::Picture {
+            staged: crate::StagedFrame {
+                staged_path: "/tmp/a.png".to_string(),
+                width: 640,
+                height: 400,
+            },
+        }
+    );
+    assert_eq!(added.position.x, 3);
+    assert_eq!(
+        encode(&added).expect("plain data").as_bytes(),
+        body,
+        "and writes back as it was sent"
+    );
+}
+
+/// **A request never names a kept frame.** A Picture's `frame` is a file name
+/// Fleet chose and `get_studio_frame` opens, so a body naming one — instead of
+/// `staged`, or beside it — is refused by the decoder, and so is a Picture with
+/// nothing staged. A Picture as read cannot be made into a write either.
+#[test]
+fn a_picture_naming_a_kept_frame_or_nothing_staged_does_not_decode() {
+    let at = r#""position":{"x":0,"y":0}"#;
+    let frame = r#""frame":{"filename":"../../elsewhere.png","byte_size":1,"width":1,"height":1}"#;
+    let staged = r#""staged":{"staged_path":"/tmp/a.png","width":1,"height":1}"#;
+    for body in [
+        format!(r#"{{"kind":"picture",{frame},{at}}}"#),
+        format!(r#"{{"kind":"picture",{frame},{staged},{at}}}"#),
+        format!(r#"{{"kind":"picture",{at}}}"#),
+        format!(r#"{{"kind":"picture","staged":"/tmp/a.png",{at}}}"#),
+    ] {
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err(&body);
+    }
+    let read = StudioNodeContent::from(&content_of(core_model::StudioNodeKind::Picture));
+    crate::StudioNodeAdded::try_from(read).expect_err("a Picture as read is no write");
+}
+
+/// **Nor does a Note's capture name one.** A captured Note's frame arrives
+/// staged, through `capture_note`; through `add_node` a Note may carry where a
+/// person pointed and never a file name. The same capture without `frame`
+/// still decodes.
+#[test]
+fn a_note_whose_capture_names_a_kept_frame_does_not_decode() {
+    let pointed = r#""selector":"button","element":{"tag":"button","text":"Queued 3"},"location":"/","bounds":{"x":0,"y":0,"width":1,"height":1},"window":{"width":1,"height":1},"markup":"<button>""#;
+    let frame = r#""frame":{"filename":"../../x","byte_size":1,"width":1,"height":1}"#;
+    let at = r#""position":{"x":0,"y":0}"#;
+    let body =
+        format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed},{frame}}},{at}}}"#);
+    let refused =
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err("a frame named");
+    assert!(refused.to_string().contains("capture.frame"), "{refused}");
+
+    let body = format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed}}},{at}}}"#);
+    decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect("a capture with no frame");
+    let named = decode::<StudioNodeContent>(
+        "content",
+        format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed},{frame}}}}}"#).as_bytes(),
+    )
+    .expect("a read carries one");
+    crate::StudioNodeAdded::try_from(named).expect_err("a Note naming a frame is no write");
 }
 
 /// **Helm's act is its own kind**, flat: which act beside the ids, and the

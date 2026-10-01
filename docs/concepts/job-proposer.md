@@ -40,14 +40,29 @@ Doing that by hand means knowing the workflow catalogue before you can ask for a
 > **Rule.** There is no hand-entry form. Describing the work is the only way a person makes a Job from Bridge, and a decision the proposer would take is overridden on the dispatch card's own Settings block — the workflow among them.
 > Why: the owner, 23 September 2026 — *"I think with all of the settings, this is really not needed anymore."* This reverses the earlier reading that hand entry stays as the override. The form carried a title, a brief, a workflow, a model, an urgency and a land-as-one switch, and every decision in it but the title and the brief is now a field beside the request — which the proposer writes for you.
 
+**30 September 2026: the last clause is narrower than it reads, and the rule above is unchanged.** *Which the proposer writes for you* named three settings. Two of them it does write — the model and the urgency, which is what 19.1 built. **Land-as-one it does not, and that is a decision rather than a gap**: how the work lands follows from having read the code, and this call has read none. The 3 September 2026 ruling is in `crates/fleet/src/proposal.rs`'s own header, which records that four documents were corrected against that module rather than the other way round; put beside the model on 30 September, the owner kept it. *Scope is not among them*, below, is the same argument for `write_targets`.
+
+**What that costs is one field.** Land-as-one is still on the dispatch card and still a person's to set, so the rule above — every decision overridden on the Settings block — holds exactly as written. What a person does not get is a proposed value to react to for that one field.
+
 ## What it proposes
 
 | Output | Detail |
 | --- | --- |
-| `title` | What the Job is called, written from the description or the prompt |
 | `workflow_id` | Which WorkflowDef the work should run under |
+| `title` | What the Job is called, written from the description or the prompt |
+| `acceptance_criteria` | What the Job is held to, one line each, where the request says |
+| `urgency` | `incident` where something is broken for people right now; `normal` otherwise |
+| `model` | Which model a Drone on this Job is spawned as, picked from what this machine holds. Absent is configuration deciding |
 | A graph, where the work is several Jobs | The order they must land in |
 | `facts`, where the work is several Jobs | What each one is for, and none of what the others are |
+
+**The first four are in the owner's order and it is not a layout** (30 Sep 2026): the workflow decides the Job's shape, the title is what makes the row recognisable, done-when is the goal, and the settings are the part he can still change. The answer format asks for them in that order because a person watches the answer arrive and each line fills a place on their screen as it lands — `crates/fleet/src/proposing.rs`, `ANSWER_FORMAT`.
+
+**The settings it answers are the urgency and the model**, and both arrive on one line of the answer — so they settle together and the fourth field is one field. **Land-as-one is not among them**, on the 3 September ruling above. What a proposal reaches the gate with is still a person's to change.
+
+**The model is picked from a list, never invented.** The question carries every model `list_models` serves and the answer names one of them; a name this machine does not hold refuses the request, which comes back unchanged. **Naming none is configuration deciding** — the value `model` has always had when absent — and never a model this call picked as a default.
+
+**It is refused for a workflow's reason and not through a workflow's words.** `fleet.proposer_model_not_held` is its own code, naming the model asked for and the models this machine runs. Collapsing it into *no workflow fits* told a person to rephrase a request that had been read correctly, which cannot change which models a machine runs — the rule in [When it cannot resolve a workflow](#when-it-cannot-resolve-a-workflow)'s neighbourhood, and `#334` and `#410`'s: two causes wanting opposite responses must not share a word.
 
 **Naming the Job is part of the same reading**, so nobody types a title for work they have already described — the call has the description in front of it and a [Job](job.md) requires a name.
 
@@ -128,22 +143,30 @@ Skipping it where the answer looks obvious would cost the Job its entry zero, wh
 | --- | --- |
 | 1 | A person opens Dispatch a Job |
 | 2 | They describe the work — typed, or a link to a ticket or a Notion document |
-| 3 | They dispatch. The proposer reads the request and every Job it became is created |
-| 4 | The wait says what the call is doing, and offers the stop |
-| 5 | The person approves. That is what starts the work |
+| 3 | They dispatch. **The press leaves the composer**, and the request is a row |
+| 4 | The proposer reads it. The row's own page says how far the call has got, and offers the stop |
+| 5 | The person comes back to the row and approves. That is what starts the work |
 
-At step 3 the proposer works out what kind of work it is and which workflow it runs under. **Declared, not yet built:** it does that in a status of its own, `proposing`, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed — #1159. The status, its three edges out and its word are in `crates/core-model/domain/job-statuses.toml` at `in_code = "Not yet"`; nothing here creates a Job at dispatch, and this call still answers with the Jobs the request became. What it proposes is editable until step 5, and step 5 is what freezes it, never step 3. See [Job](job.md), Reading the request is a status, and approval is what locks.
+At step 3 the proposer works out what kind of work it is and which workflow it runs under. It does that in a status of its own, `proposing`, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed — #1159. **Declared and not served:** the status, its three edges out and its word are in `crates/core-model/domain/job-statuses.toml` at `in_code = "Not yet"`, so nothing in Fleet creates a Job at dispatch and this call still answers with the Jobs the request became. Bridge draws the status, against the mock. What the proposer proposes is editable until step 5, and step 5 is what freezes it, never step 3. See [Job](job.md), Reading the request is a status, and approval is what locks.
 
-**Step 4 draws the call, not a partial proposal.** This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress — how far it has reached, how long it has been out against Fleet's budget, which model is reading it — and past a mark the surface says so and offers the stop. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens. Corrected 2026-09-08, against the built surface.
+**Step 4 is a row somebody comes back to, never a screen they sit on.** The owner, 30 Sep 2026: *"I want it to be like a job. Something where I can propose multiple things at once and they go off and get proposed. I dont need to sit on the screen and watch it."* So the press takes the composer away and opens nothing — several requests go off at once, and each has an address. The wait is `ProposerWait` inside Overview's lead on the Job's own page: how far the call has reached, how long it has been out against Fleet's budget, which model is reading it, and the stop. *A dispatched request is a job*, 30 Sep 2026, in the decisions register.
+
+**Step 4 draws the call, and the Job filling in as the call writes it.** The four fields the proposer settles — the workflow, the title, what the Job is held to, and its settings — reach the Job one at a time as the answer is written, in that order. Protocol 19.1, and `.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md`.
+
+**What this paragraph said, and why it said it.** *This page asked for the proposal to fill in progressively; what shipped is one request and one response, so the Jobs arrive whole, once, at the end. What moves during the wait is the call's own progress alone. A skeleton of Job rows would claim rows are arriving one at a time, which is not what happens.* Corrected 2026-09-08, against the built surface — and **correct as written**: nothing existed until the answer landed, so a skeleton of rows would have claimed something false.
+
+**30 Sep 2026 changed what there is to fill in.** A dispatched request is a Job from the press, so there is one row from the moment Dispatch is pressed and the fields are that row's own. **What the 8 Sep correction refused is still refused**: nothing draws a skeleton of Job rows, because a plan of several is still one answer read at the end — what fills in is the head Job's four fields, on the row that already exists. The owner's words: *"Now that we have this I would really push for us to find a way to make the proposer not report the job whole. Is there anyway for it to fill in as it goes?"*
 
 **Every Job exists before any of them is approved.** Step 3 creates each at `awaiting_approval` and step 5 dispatches the one it is pressed on — see [Job Board](job-board.md), Job status on the Board.
 
 **Approving a Job dispatches that Job, and it is the only approval act on this path.**
 Why: every Job the request became already stands at `awaiting_approval`, so a plan-level act would have nothing left to create.
 
-**Step 5 happens on the proposal, not on Job detail.** The head of the proposal carries its own approval control, beside the Review that opens it. Everything the gate approves — the workflow, the name and the split — is already on the screen the proposal is drawn on, so sending a person to detail to say yes to what they are reading is a second surface for no second fact. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
+**Step 5 happens on the proposal, not at a gate of its own.** Everything the gate approves — the workflow, the name and the split — is already on the screen the proposal is drawn on, so sending a person somewhere else to say yes to what they are reading is a second surface for no second fact. Settled 2026-09-08, from the owner's own complaint: *"I would love if I didn't need to click Review just to get to the approval button."*
 
-**Only the head of a proposal is approvable, and Review is still there.** A chained Job is not at its gate until the one before it completes, so the rows under the first offer no approval. Review opens any of them, for the case where the title is not enough to decide on.
+**30 Sep 2026: the surface that answered it is gone, and the rule is held another way.** What carried the proposal in 2026-09-08 was the composer, after the press. The ruling at step 3 takes the press out of the composer, so there is nowhere in that flow for a proposal to be drawn at all. What holds the complaint instead is that a Job which has not been approved draws its **proposal in Overview's own place** — `ProposalTab` in `packages/screens`, reached by opening the row — with `Approve dispatch` on the header above it. So it is still one press off the Board and nothing sits behind a Review. What it costs is that the proposal is now read one press later than it was: the row has to be opened first, where before the answer arrived on the screen the request was typed on.
+
+**Only the head of a proposal is approvable, and the rest are still openable.** A chained Job is not at its gate until the one before it completes, so those rows carry no approval. Each is a row on the [Job Board](job-board.md) like any other and opens like one, for the case where the title is not enough to decide on — they were rows in the composer's own list until 30 Sep 2026, and a request becoming several Jobs is read off `dispatched_by` now.
 
 | What was proposed | What step 5 dispatches | What is left at the gate |
 | --- | --- | --- |
@@ -154,13 +177,13 @@ Why: every Job the request became already stands at `awaiting_approval`, so a pl
 
 **It is the dispatch gate, not a gate of its own.** A proposal is approved where a mid-flight scope revision is approved, so the things called approval on a Job's path stay two — this gate, and a workflow's own human gate over finished work.
 
-**Cost accepted:** one tap for a Job whose proposal is obvious — the approval sits on the proposal, so nobody opens a Job in order to agree with what is already on screen. What is given up is that the reading and the release are one gesture apart rather than two; the [Job Board](job-board.md) keeps the stricter arrangement, because there the proposal is not on screen.
+**Cost accepted:** the reading and the release are one gesture apart rather than two — the approval sits on the proposal, so nobody reads it in one place and agrees to it in another. Since 30 Sep 2026 the proposal is drawn on the Job rather than in the composer, which puts one press in front of both halves and none between them.
 
-**The surface is drawn.** It is `DispatchRequest` in `packages/components`, whose own note carries what it decided and why; Dispatch a Job is design order 1 and everything else reuses its approval pattern.
+**The surface is drawn.** The composer is `DispatchRequest` in `packages/components` and the proposal is `ProposalTab` in `packages/screens`, each carrying its own note; Dispatch a Job is design order 1 and everything else reuses its approval pattern.
 
 ## What is recorded
 
-**Its output is not stored as its own record.** `workflow_id`, `title` and the Job's own brief land on the [Job](job.md) — the last as `facts` — and no field says a proposal happened.
+**Its output is not stored as its own record.** `workflow_id`, `title`, the lines it is held to, its urgency, its model and the Job's own brief land on the [Job](job.md) — the brief as `facts` — and no field says a proposal happened.
 
 **Its reasoning is.** Entry zero of a Job's `scope_revisions[]` carries a `rationale` — why that workflow. It names no paths, because none were proposed; the step's own declaration is the entry that names them. That rationale is the only durable trace the call ever ran.
 

@@ -5,8 +5,8 @@
 use core_model::{
     ManifestId, ScoutCheckout, ScoutEnded, ScoutLook, ScoutOutcome, Studio, StudioAuthor,
     StudioEdge, StudioEdgeId, StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioId,
-    StudioName, StudioNode, StudioNodeContent, StudioNodeId, StudioNodeState, StudioPosition,
-    StudioRelation, Timestamp, Ulid,
+    StudioName, StudioNode, StudioNodeContent, StudioNodeId, StudioPosition, StudioRelation,
+    Timestamp, Ulid,
 };
 
 use crate::migrations::tables_pointing_at_a_job;
@@ -298,10 +298,11 @@ fn a_node_whose_content_does_not_read_back_is_refused_by_name() {
 }
 
 /// `#1292`: **a Finding is the one node rewritten, and only as its scout
-/// moves it.** Gathering, it is listed as one a restart has to settle; Frozen,
-/// it reads back after a reopen with every file, its checkout and its cost.
+/// moves it.** Gathering, it is listed as one a restart has to settle; ended,
+/// it reads back after a reopen with no state, every file, its checkout and
+/// its cost.
 #[test]
-fn a_scouts_finding_is_kept_as_it_gathers_and_reads_back_frozen_after_a_reopen() {
+fn a_scouts_finding_is_kept_as_it_gathers_and_reads_back_ended_after_a_reopen() {
     let dir = TempDir::new();
     let studio = {
         let mut store = open(&dir);
@@ -329,7 +330,7 @@ fn a_scouts_finding_is_kept_as_it_gathers_and_reads_back_frozen_after_a_reopen()
         let listed = store.gathering_findings().expect("read");
         assert_eq!(listed, vec![(studio.clone(), gathering.clone())]);
 
-        let frozen = gathering.frozen(
+        let ended = gathering.end(
             Some("By weight.".to_string()),
             ScoutEnded {
                 outcome: ScoutOutcome::Failed {
@@ -338,7 +339,7 @@ fn a_scouts_finding_is_kept_as_it_gathers_and_reads_back_frozen_after_a_reopen()
                 cost_micros: Some(420),
             },
         );
-        store.keep_scouted(&studio, &frozen, &at(3)).expect("kept");
+        store.keep_scouted(&studio, &ended, &at(3)).expect("kept");
         assert!(store.gathering_findings().expect("read").is_empty());
         studio
     };
@@ -346,7 +347,7 @@ fn a_scouts_finding_is_kept_as_it_gathers_and_reads_back_frozen_after_a_reopen()
     let store = open(&dir);
     let graph = store.studio(&studio).expect("reads back");
     let node = &graph.nodes[0];
-    assert_eq!(node.state(), Some(StudioNodeState::Frozen));
+    assert_eq!(node.state(), None, "an ended Finding holds no state");
     let StudioNodeContent::Finding(finding) = node.content() else {
         panic!("a Finding");
     };

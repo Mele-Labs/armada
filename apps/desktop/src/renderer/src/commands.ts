@@ -27,6 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -54,11 +55,10 @@ import type {
 } from "@armada/protocol";
 import type { HelmContext, JobSummary } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
-import type { ActAnswer, ActingAct, Answered, ConfirmableAct, DecidingAct, Taken, TakenAct, TaskAct } from "@armada/screens";
+import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, Taken, TakenAct, TaskAct } from "@armada/screens";
 import { takenNotice, takenStands } from "@armada/screens";
 import { patternFor, useHaptics } from "@armada/components";
 import { proposeRequest } from "./dispatch";
-import type { Proposing } from "./dispatch";
 
 /* The host calls the screens make, bound once at module scope.
  *
@@ -81,6 +81,13 @@ export const createStudio = (manifestId: string) => window.armada.createStudio(m
 export const renameStudio = (studioId: string, name: string) => window.armada.renameStudio(studioId, name);
 export const addStudioNode = (studioId: string, node: StudioNodeByHand, position: { x: number; y: number }) =>
   window.armada.addStudioNode(studioId, node, position);
+export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
+export const addStudioPicture = (studioId: string, bytes: Uint8Array, position: { x: number; y: number }) =>
+  window.armada.addStudioPicture(studioId, bytes, position);
+export const addStudioSketch = (studioId: string, drawing: SketchToKeep, position: { x: number; y: number }) =>
+  window.armada.addStudioSketch(studioId, drawing, position);
+export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
+  window.armada.saveStudioSketch(studioId, nodeId, drawing);
 export const moveStudioNode = (studioId: string, nodeId: string, position: { x: number; y: number }) =>
   window.armada.moveStudioNode(studioId, nodeId, position);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>
@@ -91,8 +98,8 @@ export const decideStudioEdge = (studioId: string, edgeId: string, accepted: boo
 export const captureStudioNote = (studioId: string, said: string, capture: StudioCapture) =>
   window.armada.captureStudioNote(studioId, said, capture);
 /** The picture one Note kept — #1352. The bytes become a `blob:` this window owns and revokes. */
-export const readStudioFrame = (studioId: string, nodeId: string) =>
-  window.armada.readStudioFrame(studioId, nodeId);
+export const readStudioFrame = (studioId: string, nodeId: string, picture?: string) =>
+  window.armada.readStudioFrame(studioId, nodeId, picture);
 export const promoteOnStudio = (studioId: string, promotion: StudioPromotion) =>
   window.armada.promoteOnStudio(studioId, promotion);
 export const startStudioRun = (studioId: string, name: string, position: StudioPosition) =>
@@ -280,7 +287,6 @@ export function useCommands(sending: Sending) {
   // branch a base cannot reach, which is the whole reason a person is told
   // rather than left to notice a branch nothing deleted.
   const [givenBack, setGivenBack] = useState<WorktreeReclaimed[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   // Which bulk sweep of finished Jobs is out, so its control waits and a second press sends nothing. #1117.
   const [sweeping, setSweeping] = useState<"clear" | "forget" | null>(null);
   // What Fleet said to the last act on a Job, named, so only the control that
@@ -320,13 +326,14 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * The app's half of a proposer answer: a refusal the dispatch surface has no
-   * drawing for goes to the same pipeline every other command failure uses.
-   * `dispatch.ts` makes the call and decides which half an answer is.
+   * The app's half of a proposer answer, now that nothing is waiting for it:
+   * a failure goes to the same pipeline every other command failure uses, and
+   * what is left is answered to the caller as a sentence to tell. `dispatch.ts`
+   * makes the call and `answeredAs` decides which of the two an answer is.
    *
-   * **What it is read against comes from the render.** The workflow roster and
-   * Bridge's identity are published state, so they arrive as an argument rather
-   * than being reached for here.
+   * **`null` is the ordinary answer.** The Jobs the request became are rows on
+   * the Board and a person's own stop is not news, so most presses land here
+   * saying nothing.
    *
    * `repository` is the root New job's own ask answered, on All — #959, so the
    * request names it rather than the pick, which stays on All while composing.
@@ -334,12 +341,11 @@ export function useCommands(sending: Sending) {
   async function proposeFrom(
     request: string,
     attachments: readonly StagedAttachment[],
-    proposing: Proposing,
     repository: string | null = null,
-  ): Promise<Answered> {
-    const read = await proposeRequest(request, attachments, proposing, repository);
+  ): Promise<string | null> {
+    const read = await proposeRequest(request, attachments, repository);
     if (read.outcome !== null) setOutcome(read.outcome);
-    return read;
+    return read.told;
   }
 
   /** Hold `acting` on a Job, with the act named, for as long as `work` is out. #1117. */
@@ -864,12 +870,7 @@ export function useCommands(sending: Sending) {
    * not fix one that is.
    */
   async function refresh(): Promise<void> {
-    setRefreshing(true);
-    try {
-      sending.onRead(await window.armada.state());
-    } finally {
-      setRefreshing(false);
-    }
+    sending.onRead(await window.armada.state());
   }
 
   return {
@@ -891,7 +892,6 @@ export function useCommands(sending: Sending) {
     fileFindingIssue,
     givenBack,
     setGivenBack,
-    refreshing,
     sweeping,
     stopProposal,
     proposeFrom,

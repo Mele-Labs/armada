@@ -464,8 +464,15 @@ export async function frameOf(port: number, jobId: string, kept: string): Promis
  * a Studio keeps one frame per node**, and Fleet reads the file's name off the
  * node's own record, so nothing composed here reaches a path.
  */
-export async function studioFrameOf(port: number, studioId: string, nodeId: string): Promise<FrameRead> {
-  const at = `/studios/${encodeURIComponent(studioId)}/frames/${encodeURIComponent(nodeId)}`;
+export async function studioFrameOf(
+  port: number,
+  studioId: string,
+  nodeId: string,
+  picture?: string,
+): Promise<FrameRead> {
+  // A Sketch keeps one frame per picture, named by `?picture=` — since 20.0.
+  const which = picture === undefined ? "" : `?picture=${encodeURIComponent(picture)}`;
+  const at = `/studios/${encodeURIComponent(studioId)}/frames/${encodeURIComponent(nodeId)}${which}`;
   return await fileAt(port, at);
 }
 

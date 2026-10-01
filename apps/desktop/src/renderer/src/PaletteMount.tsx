@@ -6,7 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { Palette, type PaletteSurface } from "@armada/shell";
+import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf, studioName } from "@armada/screens";
@@ -29,6 +29,10 @@ export type PaletteMountProps = {
   checkoutRunSheet: BridgeState["checkoutRunSheet"];
   cursor: string | null;
   failing: unknown | null;
+  /** Whether Fleet is connected. */
+  live: boolean;
+  /** Reported and the two bulk sweeps, as `App.tsx` worded them. */
+  board: readonly PaletteBoardRow[];
   /** Everything a choice can do, in `carryOut`'s own shape. */
   acts: Parameters<typeof carryOut>[2];
   /** A destructive act chosen from the palette, handed on to confirm. */
@@ -50,6 +54,8 @@ export function PaletteMount({
   checkoutRunSheet,
   cursor,
   failing,
+  live,
+  board,
   acts,
   onConfirmAct,
 }: PaletteMountProps) {
@@ -79,11 +85,12 @@ export function PaletteMount({
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
+      board={board}
       jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${job.title}` }))}
       // Fleet settings is the section's first row. It carries no value, because
       // choosing it opens the sheet rather than stating a field.
       settings={[{ id: "fleet_settings", label: "Fleet settings" }]}
-      dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null })}
+      dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live })}
       absent={absentIn({ reading: reading !== null, cursor })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) => carryOut(choice, on?.id ?? null, acts)}
       // Every destructive act confirms, even from the palette. It hands the act

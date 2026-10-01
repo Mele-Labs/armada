@@ -6,19 +6,27 @@ import {
   applyNodeChanges,
   getBezierPath,
   useReactFlow,
+  useStore,
   type Edge,
   type EdgeProps,
   type Node,
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
-import { STUDIO_NODE_KIND, StudioNode, studioNodeLabel, type StudioNodeOf } from "../StudioNode/StudioNode";
+import {
+  STUDIO_NODE_KIND,
+  StudioNode,
+  StudioNodeDraft,
+  studioNodeLabel,
+  type StudioNodeKind,
+  type StudioNodeOf,
+} from "../StudioNode/StudioNode";
 
 /**
  * Studio whiteboard — a Studio's nodes and edges, placed freely: drag, pan,
@@ -43,6 +51,24 @@ export type StudioWhiteboardNode = {
   /** Where the node sits, in the whiteboard's own coordinates. */
   position: { x: number; y: number };
   node: StudioNodeOf & { title: string; facts?: readonly string[] };
+};
+
+/**
+ * A node still being written, drawn where it will land — the owner's notes of
+ * 1 Oct 2026. **Bridge's and nobody else's** until the caller sends it: its
+ * moves go to `onMoved` rather than `onNodeMoved`, it is never reported as
+ * selected, and the field is the caller's.
+ */
+export type StudioWhiteboardDraft = {
+  /** A fresh id per draft, so a second draft is a fresh field rather than the first one re-kinded. */
+  id: string;
+  kind: StudioNodeKind;
+  position: { x: number; y: number };
+  /** The field. Focused once the board has drawn the card. */
+  field: ReactNode;
+  pending?: boolean;
+  /** Dragged somewhere else, so what is sent lands where it was dropped. */
+  onMoved?: (position: { x: number; y: number }) => void;
 };
 
 export type StudioEdgeRelation = "same_as" | "blocks" | "answers";
@@ -90,12 +116,26 @@ export type StudioWhiteboardProps = {
   onDecide?: (edgeId: string, accepted: boolean) => void;
   /** The relation whose answer is out to Fleet. Its Accept spins, and every answer waits. */
   deciding?: string | null;
+  /** The node a press on the canvas put down, with its field in it. Absent is none. */
+  draft?: StudioWhiteboardDraft | null;
+  /** A press on empty board, where a kind armed on the rail goes. `GraphCanvas`'s rule. */
+  onPanePress?: (at: { x: number; y: number }) => void;
+  /** A kind is armed, and the board draws a crosshair. */
+  placing?: boolean;
   /**
-   * The field behind whatever the rail opened, over the board's top-right
-   * corner. **This and nothing else** — it drew the relations waiting on a
-   * person too, and a panel doing two jobs with neither of them named is what
-   * the owner read on 28 Sep 2026 as a card showing when nothing was selected.
-   * What waits on a person is answered on its own edge.
+   * ⌘V while the board has focus and no field does — the owner's note of
+   * 1 Oct 2026. `at` is under the pointer where it is over the board, and the
+   * middle of the view where it is not. Answers whether it took the paste;
+   * one it did not is left to the browser. Absent, a paste does nothing here.
+   */
+  onPaste?: (clipboard: DataTransfer, at: { x: number; y: number }) => boolean;
+  /**
+   * What sits over the board's top-right corner — a Studio's Run control.
+   * **Never the field behind a rail press**: that is the draft, put down where
+   * the person pressed (the owner, 1 Oct 2026). Nor the relations
+   * waiting on a person — a panel doing two jobs with neither of them named is
+   * what the owner read on 28 Sep 2026 as a card showing when nothing was
+   * selected. What waits on a person is answered on its own edge.
    */
   children?: ReactNode;
   /**
@@ -131,7 +171,8 @@ export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
 };
 
 type BoardNodeData = StudioWhiteboardNode["node"];
-type BoardNode = Node<BoardNodeData, "studio">;
+type DraftNodeData = { kind: StudioNodeKind; field: ReactNode; pending: boolean };
+type BoardNode = Node<BoardNodeData, "studio"> | Node<DraftNodeData, "draft">;
 /** A proposed relation's card: who drew it, the sentence its buttons are named by, and the answer. */
 type Proposal = {
   proposer: string;
@@ -148,7 +189,7 @@ type BoardEdge = Edge<BoardEdgeData, "studio">;
  * an edge takes is chosen from where the two nodes sit — `facingSides`.
  * Nothing connects by hand, so none is drawn.
  */
-function BoardNodeView({ data, selected }: NodeProps<BoardNode>) {
+function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio">>) {
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
@@ -159,6 +200,53 @@ function BoardNodeView({ data, selected }: NodeProps<BoardNode>) {
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
     </>
+  );
+}
+
+/**
+ * A draft's card. **Focused once React Flow has measured it**, not on mount:
+ * a node is drawn `visibility: hidden` until its size is known, and focus on a
+ * hidden field does nothing — so `autoFocus` alone left the caret nowhere.
+ *
+ * **And brought into view when it is not.** A press near the board's edge, or
+ * a Link's offer arriving under its address, can put the field half past it,
+ * and a caret below the fold is not typing straight in. The focus takes no scroll of its own:
+ * the browser would scroll React Flow's clipped pane, which nothing pans back.
+ */
+function DraftNodeView({
+  data,
+  width = 0,
+  height = 0,
+  positionAbsoluteX,
+  positionAbsoluteY,
+}: NodeProps<Node<DraftNodeData, "draft">>) {
+  const at = useRef<HTMLDivElement>(null);
+  const flow = useReactFlow();
+  const shown = width > 0;
+  useEffect(() => {
+    const card = at.current;
+    if (!shown || card === null) return;
+    card.querySelector<HTMLElement>("textarea, input")?.focus({ preventScroll: true });
+  }, [shown]);
+  useEffect(() => {
+    const card = at.current;
+    if (!shown || card === null) return;
+    const board = card.closest(".react-flow")?.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    if (board === undefined) return;
+    const inView =
+      box.left >= board.left && box.right <= board.right && box.top >= board.top && box.bottom <= board.bottom;
+    if (inView) return;
+    void flow.setCenter(positionAbsoluteX + width / 2, positionAbsoluteY + height / 2, { zoom: flow.getZoom() });
+    // When it is drawn and when it grows — a Link's offer arrives with the
+    // address — and never otherwise: a person who pans away is not pulled back.
+  }, [shown, height]);
+  return (
+    <div ref={at}>
+      <StudioNodeDraft kind={data.kind} pending={data.pending}>
+        {data.field}
+      </StudioNodeDraft>
+    </div>
   );
 }
 
@@ -262,11 +350,29 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
  */
 const JOINS_THE_SELECTION = ["Meta", "Control"];
 
-const NODE_TYPES = { studio: BoardNodeView };
+const NODE_TYPES = { studio: BoardNodeView, draft: DraftNodeView };
 const EDGE_TYPES = { studio: BoardEdgeView };
 
 function toBoardNode({ id, position, node }: StudioWhiteboardNode): BoardNode {
   return { id, position, type: "studio", data: node, ariaLabel: studioNodeLabel(node) };
+}
+
+/** What a draft is read aloud as: the kind, and that it is not on the Studio yet. */
+function toDraftNode({ id, kind, position, field, pending = false }: StudioWhiteboardDraft): BoardNode {
+  return {
+    id,
+    position,
+    type: "draft",
+    data: { kind, field, pending },
+    ariaLabel: `New ${STUDIO_NODE_KIND[kind]}`,
+    // Named as every node is, though it takes no focus stop of its own: the field inside is the stop.
+    ariaRole: "group",
+    // Dragged by its head and its edge; the field inside is `nodrag`, so a
+    // press there is a press on the text.
+    draggable: true,
+    selectable: false,
+    focusable: false,
+  };
 }
 
 /**
@@ -274,12 +380,16 @@ function toBoardNode({ id, position, node }: StudioWhiteboardNode): BoardNode {
  * its measured size, whether it is selected. A node's kind, title and state
  * always come from the caller, so a Finding that freezes redraws in place.
  */
-function merged(given: readonly StudioWhiteboardNode[], kept: readonly BoardNode[]): BoardNode[] {
+function merged(
+  given: readonly StudioWhiteboardNode[],
+  draft: StudioWhiteboardDraft | null,
+  kept: readonly BoardNode[],
+): BoardNode[] {
   const byId = new Map(kept.map((node) => [node.id, node]));
-  return given.map((entry) => {
-    const fresh = toBoardNode(entry);
-    const held = byId.get(entry.id);
-    return held === undefined ? fresh : { ...held, data: fresh.data, ariaLabel: fresh.ariaLabel };
+  const fresh = [...given.map(toBoardNode), ...(draft === null ? [] : [toDraftNode(draft)])];
+  return fresh.map((node) => {
+    const held = byId.get(node.id);
+    return held === undefined ? node : ({ ...held, data: node.data, ariaLabel: node.ariaLabel } as BoardNode);
   });
 }
 
@@ -325,6 +435,48 @@ export function useStudioPlacement(): () => { x: number; y: number } {
   }, [flow]);
 }
 
+/** A paste aimed at somewhere a person types, which is that field's and not the board's. */
+function typing(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea") !== null);
+}
+
+/**
+ * The board's ⌘V. **Inside the board**, for `useStudioPlacement`'s reason: where
+ * a paste lands is read off the viewport React Flow holds.
+ *
+ * **The board is a focus target, and so takes focus from a press on it.** React
+ * Flow's pane is none, so a press on empty board left focus on the body and ⌘V
+ * never reached here. `-1` keeps it out of the Tab order.
+ */
+function BoardPaste({ onPaste }: { onPaste: NonNullable<StudioWhiteboardProps["onPaste"]> }) {
+  const board = useStore((state) => state.domNode);
+  const flow = useReactFlow();
+  const middle = useStudioPlacement();
+  const latest = useRef(onPaste);
+  latest.current = onPaste;
+  useEffect(() => {
+    if (board === null) return;
+    let pointer: { x: number; y: number } | null = null;
+    if (!board.hasAttribute("tabindex")) board.tabIndex = -1;
+    const moved = (event: PointerEvent) => void (pointer = { x: event.clientX, y: event.clientY });
+    const left = () => void (pointer = null);
+    const pasted = (event: ClipboardEvent) => {
+      if (event.clipboardData === null || typing(event.target)) return;
+      const at = pointer === null ? middle() : flow.screenToFlowPosition(pointer);
+      if (latest.current(event.clipboardData, { x: Math.round(at.x), y: Math.round(at.y) })) event.preventDefault();
+    };
+    board.addEventListener("pointermove", moved);
+    board.addEventListener("pointerleave", left);
+    board.addEventListener("paste", pasted);
+    return () => {
+      board.removeEventListener("pointermove", moved);
+      board.removeEventListener("pointerleave", left);
+      board.removeEventListener("paste", pasted);
+    };
+  }, [board, flow, middle]);
+  return null;
+}
+
 function Board({
   nodes: given,
   edges: givenEdges,
@@ -334,6 +486,10 @@ function Board({
   readOnly = false,
   onDecide,
   deciding = null,
+  draft = null,
+  onPanePress,
+  placing = false,
+  onPaste,
   children,
   rail,
   nodeBar,
@@ -348,20 +504,21 @@ function Board({
   const [kept, setKept] = useState<BoardNode[]>(() =>
     given.map((entry) => ({ ...toBoardNode(entry), selected: pick !== null && entry.id === pick })),
   );
-  const nodes = useMemo(() => merged(given, kept), [given, kept]);
+  const nodes = useMemo(() => merged(given, draft, kept), [given, draft, kept]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<BoardNode>[]) => {
-      setKept((current) => applyNodeChanges(changes, merged(given, current)));
+      setKept((current) => applyNodeChanges(changes, merged(given, draft, current)));
       // `dragging: false` is a node put down: a drag ending, or an arrow key.
       for (const change of changes) {
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
-          onNodeMoved?.(change.id, change.position);
+          if (change.id === draft?.id) draft.onMoved?.(change.position);
+          else onNodeMoved?.(change.id, change.position);
         }
       }
     },
-    [given, onNodeMoved, readOnly],
+    [given, draft, onNodeMoved, readOnly],
   );
 
   const edges = useMemo<BoardEdge[]>(() => {
@@ -400,9 +557,12 @@ function Board({
       nodesDraggable={!readOnly}
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
+      {...(onPanePress === undefined ? {} : { onPanePress })}
+      placing={placing}
       aside={children}
     >
       {nodeBar}
+      {onPaste === undefined || readOnly ? null : <BoardPaste onPaste={onPaste} />}
     </GraphCanvas>
   );
 }

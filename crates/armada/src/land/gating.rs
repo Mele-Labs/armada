@@ -1,104 +1,37 @@
-//! One gate: read the candidate worktree, merge the base in where it moved,
-//! and rerun whatever the combination hits. `scripts/land`'s own `gate`.
+//! One gate over a built candidate: `verify-foundations` read against the
+//! base, and every Check the combination hits. `scripts/land`'s own `gate`.
 
 use std::path::Path;
 
 use super::armada_cli::{check, covers};
+use super::batch::{tell, Built};
 use super::caches::{base_foundations, checks_on_the_base};
 use super::dir::StateDir;
 use super::env::Env;
 use super::gate::{foundations_delta, not_installed, FoundationsComparison};
-use super::git::best_effort;
-use super::merge_in::{merge_in, MergeInFailed};
-use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
-use super::prepare::{nothing_left, seed, setup};
-use super::prove::wait_for_head;
+use super::outcome::{OutcomePatch, OutcomeState};
+use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
-use super::repo::changed_paths;
-use super::say::say;
+use super::shell::spoken;
 use super::stop::Stopped;
-use super::worktree::{reused_keeping, LandWorktree};
 
-/// Read the tree in this line's candidate worktree, and where `base` has
-/// moved, merge it in first, rerun what the combination hits and push the
-/// merge onto the branch. Returns the commit that will be merged.
+/// Measure what [`super::batch::build`] built for `group` against `base`.
+/// `Ok` is green; nothing is pushed here.
 pub fn gate(
     repo: &Path,
     state: &StateDir,
     env: &Env,
-    entry: &QueueEntry,
-    head: &str,
+    group: &[QueueEntry],
     base: &str,
+    built: &Built,
     logs: &Path,
-    moved: bool,
-) -> Result<String, Stopped> {
-    let branch = entry.branch.as_str();
-    let keep = env.keep_refs();
-    let where_ = reused_keeping(repo, LandWorktree::Candidate, head, logs, &keep)
-        .map_err(|why| Stopped::stopped(why.to_string()))?;
+) -> Result<(), Stopped> {
+    let (where_, moved, regenerated) = (&built.worktree, built.moved, built.regenerated);
+    let rerun = covers(&env.armada, where_, &built.hit)?;
 
-    if moved {
-        say(
-            state,
-            branch,
-            OutcomeState::Gating,
-            format!("merging {} ({}) in", env.base, short(base)),
-            OutcomePatch::default(),
-        )?;
-        if let Err(failed) = merge_in(&where_, branch, base, logs) {
-            let _ = best_effort(&where_, &["merge", "--abort"]);
-            return Err(match failed {
-                MergeInFailed::Conflict { files } => {
-                    let place = read_outcome(state, branch)
-                        .ok()
-                        .flatten()
-                        .and_then(|outcome| outcome.place)
-                        .or(Some(entry.place));
-                    Stopped::conflict(
-                        format!(
-                            "{base} does not merge into {branch} cleanly. Merge {}/{} in, \
-                             commit, push, preflight and land again — it keeps its place in line.",
-                            env.remote, env.base
-                        ),
-                        OutcomePatch {
-                            conflicts: Some(if files.is_empty() {
-                                vec!["the merge failed without naming a file; see merge-in.log"
-                                    .to_string()]
-                            } else {
-                                files
-                            }),
-                            place,
-                            ..OutcomePatch::default()
-                        },
-                    )
-                }
-                MergeInFailed::Stopped(detail) => Stopped::stopped(detail),
-            });
-        }
-        nothing_left(&where_, "the merge")?;
-    } else {
-        say(
-            state,
-            branch,
-            OutcomeState::Gating,
-            format!("{} has not moved; reading the gate, and no Check", env.base),
-            OutcomePatch::default(),
-        )?;
-    }
-    let candidate = super::repo::rev_parse(&where_, "HEAD")?;
-
-    seed(repo, &where_, env, logs)?;
-    let mut rerun = Vec::new();
-    if moved {
-        let since = super::repo::merge_base(repo, head, base)?;
-        let mut hit: Vec<String> = changed_paths(repo, &since, base)?;
-        hit.extend(changed_paths(repo, &since, head)?);
-        rerun = covers(&env.armada, &where_, &hit)?;
-    }
-
-    say(
+    tell(
         state,
-        branch,
+        group,
         OutcomeState::Gating,
         format!("reading verify-foundations against {}", env.base),
         OutcomePatch::default(),
@@ -125,14 +58,15 @@ pub fn gate(
 
     let mut failed = Vec::new();
     let mut uninstalled = Vec::new();
+    let mut timed_out = Vec::new();
     if !rerun.is_empty() {
         setup(&where_, env, logs)?;
         nothing_left(&where_, "preparing the gate")?;
     }
     for name in &rerun {
-        say(
+        tell(
             state,
-            branch,
+            group,
             OutcomeState::Gating,
             format!("running {name} ({})", rerun.join(", ")),
             OutcomePatch {
@@ -142,8 +76,13 @@ pub fn gate(
         )?;
         let log = logs.join(format!("{name}.log"));
         log_paths.push(path_string(&log));
-        let ran = check(&env.armada, &where_, name, &log)?;
+        let ran = check(&env.armada, &where_, name, &log, env.check_limit)?;
         if ran.passed {
+            continue;
+        }
+        if ran.timed_out {
+            timed_out.push(name.clone());
+            failed.push(name.clone());
             continue;
         }
         match not_installed(&ran.output) {
@@ -155,9 +94,9 @@ pub fn gate(
 
     let mut already = Vec::new();
     if !failed.is_empty() {
-        say(
+        tell(
             state,
-            branch,
+            group,
             OutcomeState::Gating,
             format!(
                 "{} failed; asking whether {} fails them too",
@@ -202,9 +141,24 @@ pub fn gate(
         }));
     }
 
+    let killed = |names: &[String]| {
+        let past: Vec<String> = names
+            .iter()
+            .filter(|name| timed_out.contains(*name))
+            .cloned()
+            .collect();
+        (!past.is_empty()).then(|| {
+            format!(
+                "{} timed out after {} and was killed",
+                past.join(", "),
+                spoken(env.check_limit)
+            )
+        })
+    };
     let theirs = (!already.is_empty()).then(|| {
         format!(
-            "{} already fails on {} itself, so that much is not this branch's — fix {} and land that first",
+            "{}{} already fails on {} itself, so that much is not this branch's — fix {} and land that first",
+            killed(&already).map_or(String::new(), |said| format!("{said}, and ")),
             already.join(", "),
             env.base,
             env.base
@@ -217,9 +171,15 @@ pub fn gate(
             format!("against {}", env.base)
         };
         let mut parts = Vec::new();
-        if !failed.is_empty() {
-            parts.push(format!("{} failed", failed.join(", ")));
+        let red: Vec<String> = failed
+            .iter()
+            .filter(|name| !timed_out.contains(*name))
+            .cloned()
+            .collect();
+        if !red.is_empty() {
+            parts.push(format!("{} failed", red.join(", ")));
         }
+        parts.extend(killed(&failed));
         if let Some(crashed) = &crashed {
             parts.push(crashed.clone());
         }
@@ -259,51 +219,33 @@ pub fn gate(
         );
     }
 
-    if !moved {
-        return Ok(candidate);
-    }
-
-    let pushed = best_effort(
-        &where_,
-        &[
-            "push",
-            "--quiet",
-            &env.remote,
-            &format!("{candidate}:refs/heads/{branch}"),
-        ],
-    );
-    if !pushed.map(|out| out.status.success()).unwrap_or(false) {
-        return Err(Stopped::stopped(format!(
-            "{branch} moved on {} while it was gated — preflight and land again",
-            env.remote
-        )));
-    }
-    say(
+    tell(
         state,
-        branch,
+        group,
         OutcomeState::Gating,
         format!(
-            "{} passed with {} merged in; waiting for the forge to see {}",
+            "{} passed{}",
             if rerun.is_empty() {
-                "no Check".to_string()
+                "the gate".to_string()
             } else {
-                rerun.join(", ")
+                format!("the gate and {}", rerun.join(", "))
             },
-            env.base,
-            short(&candidate)
+            match (moved, regenerated) {
+                (false, false) => String::new(),
+                (true, false) => format!(" with {} merged in", env.base),
+                (false, true) => " with its generated files regenerated".to_string(),
+                (true, true) => format!(
+                    " with {} merged in and its generated files regenerated",
+                    env.base
+                ),
+            },
         ),
         OutcomePatch {
-            pushed: Some(candidate.clone()),
             logs: Some(log_paths),
             ..OutcomePatch::default()
         },
     )?;
-    wait_for_head(repo, env, entry.pr, &candidate)?;
-    Ok(candidate)
-}
-
-fn short(sha: &str) -> &str {
-    sha.get(..10).unwrap_or(sha)
+    Ok(())
 }
 
 fn path_string(path: &Path) -> String {

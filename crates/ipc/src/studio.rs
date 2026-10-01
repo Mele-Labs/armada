@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::capturing::StudioCapture;
+use crate::capturing::{CaptureFrame, StudioCapture};
 use crate::enums::{
     StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeState, StudioRelation,
 };
@@ -19,6 +19,7 @@ use crate::ids::{Instant, JobId, ManifestId, StudioEdgeId, StudioId, StudioNodeI
 use crate::rehearsal::CheckoutRunUnderway;
 use crate::scouting::{ScoutCheckout, ScoutEnded, ScoutSource};
 use crate::servers::ServerState;
+use crate::studio_added::StudioNodeAdded;
 
 /// Every Studio one repository keeps, the last touched first — `list_studios`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,7 +69,8 @@ pub struct StudioNode {
     pub id: StudioNodeId,
     #[serde(flatten)]
     pub content: StudioNodeContent,
-    /// Absent on a kind with no states, and always on a Run or a Job, whose
+    /// Absent on a kind with no states, on a Finding whose scout has ended
+    /// (since 21.0, where it was `frozen`), and always on a Run or a Job, whose
     /// state is read off the run or the Job and never copied here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<StudioNodeState>,
@@ -145,8 +147,13 @@ pub enum StudioNodeContent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         answer: Option<String>,
     },
+    /// The drawing the dispatch composer's pad makes. Since 20.0, where it was
+    /// `body`, a diagram written as text: a Sketch kept as text reads as one
+    /// box holding it. **Never in a write as read**: its pictures name kept
+    /// frames, so `add_studio_node` takes a [`StudioNodeAdded`] whose Sketch
+    /// carries [`SketchDrawn`](crate::SketchDrawn).
     Sketch {
-        body: String,
+        drawing: crate::SketchDrawing,
     },
     Link {
         address: String,
@@ -162,6 +169,18 @@ pub enum StudioNodeContent {
         /// person's own. `#1293`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         named: Option<String>,
+    },
+    /// A path to a file, as a person pasted it. Since 19.3. **Kept as pasted,
+    /// trimmed**: Fleet neither resolves it nor checks that it exists.
+    File {
+        path: String,
+    },
+    /// An image a person pasted: the frame Fleet kept, named as a Note's
+    /// `capture.frame` is and fetched by `get_studio_frame` the same way. Since
+    /// 19.3. **Never in a write**: `add_studio_node` takes a [`StudioNodeAdded`]
+    /// whose Picture carries the staged file instead.
+    Picture {
+        frame: CaptureFrame,
     },
     /// An issue on a forge — `#1394`. `address` and `number` were read off the
     /// address when the node was made; `title` and `state` were read off the
@@ -467,8 +486,9 @@ pub struct RenameStudio {
 /// kind's first one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddStudioNode {
+    /// Any content but a Picture as read: a Picture arrives staged. Since 19.3.
     #[serde(flatten)]
-    pub content: StudioNodeContent,
+    pub content: StudioNodeAdded,
     pub position: StudioPosition,
     /// The node on this Studio that made this one. The Studio draws the
     /// `produced` edge itself.
@@ -818,7 +838,9 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 second,
                 answer,
             },
-            C::Sketch { body } => StudioNodeContent::Sketch { body },
+            C::Sketch { drawing } => StudioNodeContent::Sketch {
+                drawing: crate::SketchDrawing::from(&drawing),
+            },
             C::Link {
                 address,
                 said,
@@ -827,6 +849,15 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 address,
                 said,
                 named,
+            },
+            C::File { path } => StudioNodeContent::File { path },
+            C::Picture { frame } => StudioNodeContent::Picture {
+                frame: CaptureFrame {
+                    filename: frame.filename,
+                    byte_size: frame.byte_size,
+                    width: frame.width,
+                    height: frame.height,
+                },
             },
             C::Issue {
                 address,
@@ -924,12 +955,29 @@ impl StudioNodeContent {
                 second,
                 answer,
             },
-            StudioNodeContent::Sketch { body } => C::Sketch { body },
+            // Only ever a read, as a Picture is: a write's pictures arrive
+            // staged, through `StudioNodeAdded::Sketch`.
+            StudioNodeContent::Sketch { drawing } => C::Sketch {
+                drawing: drawing.to_domain(),
+            },
             // The line is trimmed here, and a blank one is no line at all.
             // **`named` does not decode into a write**: what a source calls
             // itself is a read-in's to record, so a request naming one is
             // dropped the way a Run's `kept` is.
             StudioNodeContent::Link { address, said, .. } => C::link(address, said),
+            // Trimmed here, as a Link's line is; a blank path is refused by
+            // `blank`, on the way in.
+            StudioNodeContent::File { path } => C::file(&path),
+            // Only ever a read: no write carries one, because `AddedContent`
+            // cannot hold a Picture and a Picture's write is its staged file.
+            StudioNodeContent::Picture { frame } => C::Picture {
+                frame: core_model::CaptureFrame {
+                    filename: frame.filename,
+                    byte_size: frame.byte_size,
+                    width: frame.width,
+                    height: frame.height,
+                },
+            },
             // **The number does not decode into a write either.** What an
             // address names on a forge is `crates/adapters`' reading, made
             // once when the node was made, so a request naming a kind and a

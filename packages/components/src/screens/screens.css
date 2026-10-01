@@ -314,17 +314,6 @@
   flex: none;
 }
 
-/* The Board's own menu, at the top of its content since #1090 removed the
-   panel head it used to sit in. Right-aligned above the list's own search
-   and tabs — nothing sits to its left because the screen carries no title
-   any more. */
-/* A surface's own control row, at the top of its content — #1090 moved it off
-   the page head. The Board's while the Board existed, Overview's since. */
-.armada-screen__surface-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* Where the list mounts on the shell screen. The drawing draws the region
    dashed and says which screen fills it, rather than drawing the list twice. */
 .armada-screen__mount {
@@ -2120,8 +2109,8 @@
 }
 
 .armada-overview-board__door:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
-  outline-offset: calc(var(--focus-width) * -1);
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -2);
   border-radius: var(--radius-md);
 }
 

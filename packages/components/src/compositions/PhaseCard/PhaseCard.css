@@ -36,28 +36,16 @@
 
 /* The arrow, pointing back at the stage that opened it.
 
-   **Where it points is handed in, because this card cannot know.** The card is
-   anchored to the graph rather than to the node — a card hanging off a node
-   inside a scroll container gets clipped — so its own position says nothing
-   about which node opened it. It sat at a fixed inset instead, which pointed at
-   the first node on a leading card and the last on a trailing one whatever was
-   hovered; at 880px of card that is unmistakably the wrong node. `PhaseStrip`
-   measures the node and writes --armada-phase-arrow, from the edge this card is
-   aligned to.
-
-   Clamped inside the card, so a node near either end keeps the arrow on the
-   edge instead of past the corner. The fallback is the inset the card drew
-   before anything measured it, which is what a card on a surface with no strip
-   still wants. --space-1 is half the arrow's box: it turns a point into a
-   position. */
+   **Where it points has to be handed in, because this card cannot know.** The
+   card is anchored to the graph rather than to the node — a card hanging off a
+   node inside a scroll container gets clipped — so its own position says
+   nothing about which node opened it. `PhaseStrip` measured the node and handed
+   it in; it went in ad7b548d5 and nothing has measured since, so the arrow sits
+   at the fixed inset the card drew before anything did. */
 .armada-phase-card[data-floating]::before {
   content: "";
   position: absolute;
-  --armada-phase-point: clamp(
-    var(--space-4),
-    calc(var(--armada-phase-arrow, calc(var(--space-4) + var(--space-1))) - var(--space-1)),
-    calc(100% - var(--space-4) - var(--space-2))
-  );
+  --armada-phase-point: var(--space-4);
   top: calc(var(--space-1) / 2 * -1 - var(--border-width) * 2);
   width: var(--space-2);
   height: var(--space-2);

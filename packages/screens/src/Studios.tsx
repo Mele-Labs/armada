@@ -10,7 +10,7 @@
 // **The whiteboard's selection is held here, not in `App`.** Clustering is of several nodes, and
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -44,6 +44,7 @@ import type {
   GraphCanvasRailAct,
   StudioNodeByHand,
   StudioNodeByHandKind,
+  StudioNodeWrittenKind,
   StudioPickedAct,
 } from "@armada/components";
 import { captureOn, type OpenCaptureWindow } from "./capturing";
@@ -52,6 +53,7 @@ import type {
   JobSummary,
   Outcome,
   ServerState,
+  SketchToKeep,
   Studio,
   StudioPosition,
   StudioPromotion,
@@ -67,10 +69,14 @@ import {
   whiteboardEdges,
   whiteboardNodes,
 } from "./studio";
-import { useStudioFrames, type ReadStudioFrame } from "./studio-frames";
+import { frameKey, useStudioFrames, type ReadStudioFrame } from "./studio-frames";
+import { useStudioSketch } from "./StudioSketch";
+import { padOf } from "./studio-sketch";
+import type { Drawing } from "./draft/sketch";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
 import { useAddNodeKeys } from "./studio-keys";
+import { landingOf, pastedOf } from "./studio-paste";
 import { studioStartEntries, studioStarts, type StudioStart } from "./studio-starting";
 import type { StudioAnswer, StudioRead, StudiosRead } from "./studio-reads";
 import { useStudioPromotion } from "./StudioPromotion";
@@ -116,6 +122,17 @@ const RAIL_LABEL = "What you can put on this Studio";
 
 const PICKED_LABEL = "What is picked";
 
+/**
+ * A node a person is writing, before Fleet has it. **Its id is never a
+ * node's**: Fleet mints those, and nothing here is on the Studio yet.
+ */
+type Draft = { id: string; kind: StudioNodeWrittenKind; position: StudioPosition };
+
+const DRAFT = "draft";
+
+/** How many drafts this window has put down, so each has an id of its own. */
+let drafted = 0;
+
 /** Two selections that name the same nodes in the same order. */
 const same = (held: readonly string[], ids: readonly string[]): boolean =>
   held.length === ids.length && held.every((id, at) => id === ids[at]);
@@ -143,8 +160,25 @@ export type StudiosProps = {
   onCreate: () => Promise<StudioAnswer>;
   /** Name a Studio, or name it again. Reaches the list's rows and the open Studio alike. */
   onRename: (studioId: string, name: string) => Promise<Outcome>;
-  /** Put a Note, a Link or a Sketch on the open Studio, where the person is looking. */
+  /** Put a Note, a Link, a Sketch or a File on the open Studio, where the person is looking. */
   onAddNode: (node: StudioNodeByHand, position: StudioPosition) => Promise<Outcome>;
+  /** Where a pasted file is on disk, or `""` for one that is not — a screenshot. Main's to know. */
+  pathOfFile: (file: File) => string;
+  /** Put a pasted picture on the open Studio, as a Picture. Main stages the bytes; Fleet keeps them. */
+  onAddPicture: (bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
+  /**
+   * Put a Sketch drawn on the pad on the open Studio — 1 Oct 2026. Bytes in for
+   * a new picture, as a pasted Picture's; main stages them.
+   */
+  onAddSketch: (drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  /** Keep the whole drawing a person left on a Sketch's pad. */
+  onSaveSketch: (nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
+  /**
+   * Open the composer with a Sketch's drawing on its pad, made from that node —
+   * the owner's call of 1 Oct 2026. **The pictures are copies the composer
+   * owns**, so leaving the Studio does not take them off its pad.
+   */
+  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
@@ -408,22 +442,56 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   /** Every node picked on the whiteboard. A cluster is of several, and `App` keeps one. */
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [naming, setNaming] = useState(false);
-  // Which kind is being written, and whether it is out to Fleet — #1364. Held
-  // here rather than in the control, because `N`, `V` and `S` open it too.
-  const [adding, setAdding] = useState<StudioNodeByHandKind | null>(null);
-  const [addingOut, setAddingOut] = useState(false);
+  // The kind armed on the rail, the node being written where it was put down,
+  // which draft is out to Fleet, and why Fleet did not take one — #1364, and
+  // the owner's notes of 1 Oct 2026. Held here rather than in the rail, because
+  // `N`, `V` and `S` arm a kind too. **A draft is Bridge's alone until it is
+  // sent**: Fleet never holds a blank node.
+  const [arming, setArming] = useState<StudioNodeByHandKind | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [out, setOut] = useState<string | null>(null);
+  const [addRefused, setAddRefused] = useState<{ id: string; said: string } | null>(null);
+  /** What the open draft would send now, so a second placement can send it. */
+  const written = useRef<StudioNodeByHand | null>(null);
+  const onWritten = useCallback((node: StudioNodeByHand | null) => void (written.current = node), []);
+  /** The draft on the board as of the last render, which an answer from Fleet is read against. */
+  const showing = useRef<string | null>(null);
+  showing.current = draft?.id ?? null;
   /** A start is out to Fleet: the menu does not send a second — #1345. */
   const [starting, setStarting] = useState(false);
-  useAddNodeKeys(open.editable && live, setAdding);
+  /** One press arms a kind, the same press again puts it away, and another kind takes its place. */
+  const arm = useCallback(
+    (kind: StudioNodeByHandKind) => setArming((held) => (held === kind ? null : kind)),
+    [],
+  );
+  useAddNodeKeys(open.editable && live, arm);
+  // Esc puts an armed kind away. A draft's own Esc stops at its field.
+  useEffect(() => {
+    if (arming === null) return;
+    const away = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setArming(null);
+    };
+    window.addEventListener("keydown", away);
+    return () => window.removeEventListener("keydown", away);
+  }, [arming]);
   // The pictures the Notes kept, and the `blob:` each one becomes — #1352.
   const frames = useStudioFrames(props.onReadFrame, open.id);
+  const editable = open.editable && live;
   const drawn = framesDrawn(studio, selectedNode);
   // `want` sends nothing twice, so asking again on every render asks once.
   useEffect(() => void frames.want([...drawn]), [drawn, frames]);
   const frameOf = (nodeId: string) =>
     drawn.has(nodeId) ? (frames.of(nodeId) ?? {}) : { why: PAST_THE_BOUND };
-  const openedNote = studio.nodes.find((node) => node.id === opened && node.kind === "note");
-  const editable = open.editable && live;
+  // The Sketch open on the pad, placed or opened — 1 Oct 2026.
+  const sketch = useStudioSketch({
+    editable,
+    srcOf: (nodeId, pictureId) => frames.of(frameKey(nodeId, pictureId))?.src,
+    onAdd: (drawing, position) => props.onAddSketch(drawing, position),
+    onSave: (nodeId, drawing) => props.onSaveSketch(nodeId, drawing),
+  });
+  const openedNote = studio.nodes.find(
+    (node) => node.id === opened && (node.kind === "note" || node.kind === "picture"),
+  );
   const onBoard = picked.filter((id) => studio.nodes.some((node) => node.id === id));
   const selected = onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
   const board = { servers: props.servers, now: props.now };
@@ -440,8 +508,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   // read — and the node draws its id, which is what says so.
   const openable = selected?.kind === "job" ? jobs.find((job) => job.id === selected.job_id) : undefined;
 
+  // A refusal says Fleet's own why, as other surfaces' do: `said` leaves a refused one blank.
   function answered(outcome: Outcome): void {
-    setRefused(outcome.ok ? null : said(outcome));
+    setRefused(outcome.ok ? null : outcome.why === "refused" ? outcome.error.message : said(outcome));
   }
 
   const promotion = useStudioPromotion({
@@ -459,13 +528,63 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     });
   }
 
-  function add(node: StudioNodeByHand, position: StudioPosition): void {
-    setAddingOut(true);
-    void props.onAddNode(node, position).then((outcome) => {
-      setAddingOut(false);
-      answered(outcome);
-      if (outcome.ok) setAdding(null);
+  /**
+   * Put the armed kind down where the board was pressed, and disarm: the tool
+   * is one-shot. **A fresh id every time**, so the field mounts empty.
+   *
+   * A draft already open goes first — written, it is sent; blank, it is
+   * dropped. Two open at once would be two fields with one caret.
+   */
+  function place(at: { x: number; y: number }): void {
+    if (arming === null) return;
+    if (draft !== null && out !== draft.id && written.current !== null) add(draft, written.current);
+    // A Sketch is drawn rather than written, so it opens the pad where it was
+    // put down, and lands on the Studio when the pad closes.
+    if (arming === "sketch") {
+      setDraft(null);
+      setArming(null);
+      sketch.placed({ x: Math.round(at.x), y: Math.round(at.y) });
+      return;
+    }
+    drafted += 1;
+    written.current = null;
+    setAddRefused(null);
+    setDraft({ id: `${DRAFT}-${drafted}`, kind: arming, position: { x: Math.round(at.x), y: Math.round(at.y) } });
+    setArming(null);
+  }
+
+  /**
+   * Send a draft. **Its refusal is drawn on the node**, which is where the
+   * person is looking. It is only taken off once Fleet has the node, and only
+   * if it is still the one on the board; one a placement already replaced has
+   * no node left to say it was refused on, so it says so over the board.
+   */
+  function add(sent: Draft, node: StudioNodeByHand): void {
+    setOut(sent.id);
+    setAddRefused(null);
+    void props.onAddNode(node, sent.position).then((outcome) => {
+      setOut((held) => (held === sent.id ? null : held));
+      if (outcome.ok) setDraft((held) => (held?.id === sent.id ? null : held));
+      else if (showing.current === sent.id) setAddRefused({ id: sent.id, said: said(outcome) });
+      else answered(outcome);
     });
+  }
+
+  /**
+   * ⌘V on the board — the owner, 1 Oct 2026: it **lands at once**, with no
+   * draft and no field. A refusal — a picture over Fleet's bound — is said
+   * over the board, as every refusal here is.
+   */
+  function pasted(clipboard: DataTransfer, at: StudioPosition): boolean {
+    const landing = landingOf(pastedOf(clipboard, props.pathOfFile));
+    if (landing === null) return false;
+    if (landing.kind === "picture") {
+      void landing.bytes
+        .arrayBuffer()
+        .then((read) => props.onAddPicture(new Uint8Array(read), at))
+        .then(answered);
+    } else void props.onAddNode(landing, at).then(answered);
+    return true;
   }
 
   /**
@@ -495,7 +614,17 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected !== undefined && keepsAnAddress(selected)
       ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
       : []),
-    ...(selected?.kind === "note" && selected.capture?.frame !== undefined
+    // **The pad is how a Sketch is read**, so a read-only Studio opens it too,
+    // drawn on by nobody. Dispatch opens the composer with the drawing on it.
+    ...(selected?.kind === "sketch"
+      ? [
+          { id: "sketch", label: "Open", press: () => sketch.opened(selected) },
+          ...(live
+            ? [{ id: "sketch-dispatch", label: "Dispatch", press: () => dispatchSketch(selected) }]
+            : []),
+        ]
+      : []),
+    ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
     ...(openable === undefined
@@ -547,6 +676,22 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
         ]
       : []),
   ];
+
+  /**
+   * The composer, with this Sketch's drawing on its pad. **Each picture is read
+   * again into a `blob:` of the composer's own**: the board's are revoked when
+   * it goes, and the composer outlives it.
+   */
+  function dispatchSketch(node: Extract<typeof studio.nodes[number], { kind: "sketch" }>): void {
+    const drawing = padOf(node.drawing);
+    void Promise.all(
+      drawing.pictures.map(async (one) => {
+        const read = await props.onReadFrame(studio.id, node.id, one.id);
+        const src = read.ok ? URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })) : "";
+        return { ...one, src };
+      }),
+    ).then((pictures) => props.onDispatchSketch(node.id, { ...drawing, pictures }));
+  }
 
   /** Hand the node's address to whatever browses the web here — #1406. */
   function openAddress(nodeId: string): void {
@@ -616,7 +761,37 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             onSelectNode(ids[0] ?? null);
           }}
           rail={
-            editable ? <AddRail adding={adding} onAdding={setAdding} /> : undefined
+            editable ? <AddRail armed={arming} onArm={arm} /> : undefined
+          }
+          placing={editable && arming !== null}
+          {...(editable ? { onPaste: pasted } : {})}
+          {...(editable && arming !== null ? { onPanePress: place } : {})}
+          draft={
+            editable && draft !== null
+              ? {
+                  id: draft.id,
+                  kind: draft.kind,
+                  position: draft.position,
+                  pending: out === draft.id,
+                  onMoved: (at) =>
+                    setDraft((held) =>
+                      held?.id === draft.id ? { ...held, position: { x: Math.round(at.x), y: Math.round(at.y) } } : held,
+                    ),
+                  field: (
+                    <StudioAddNode
+                      inPlace
+                      adding={draft.kind}
+                      // Esc. The menu that would name another kind is never drawn here.
+                      onAdding={(kind) => (kind === null ? setDraft(null) : undefined)}
+                      onWritten={onWritten}
+                      onAdd={(node) => add(draft, node)}
+                      readIn={READING_IN_UNBUILT}
+                      saving={out === draft.id}
+                      {...(addRefused?.id === draft.id ? { refused: addRefused.said } : {})}
+                    />
+                  ),
+                }
+              : null
           }
           nodeBar={
             <GraphCanvasNodeBar label={PICKED_LABEL} nodeIds={onBoard}>
@@ -632,22 +807,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             </GraphCanvasNodeBar>
           }
         >
-          {/* The field is drawn only while a kind is being written: the rail is
-              what asks for one now, so `StudioAddNode`'s own menu is a door
-              this screen no longer opens. */}
-          {editable && adding !== null ? (
-            <Card aria-label="Add a node">
-              <CardContent>
-                <AddNode
-                  adding={adding}
-                  onAdding={setAdding}
-                  onAdd={add}
-                  saving={addingOut}
-                  disabled={!editable}
-                />
-              </CardContent>
-            </Card>
-          ) : null}
           {editable && starts.length > 0 ? (
             <Card aria-label="Run">
               <CardContent>
@@ -665,10 +824,11 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside
           its own subtree, so a layer drawn in there is read through the Notes it is about. */}
       {editable ? promotion.dialog : null}
-      {openedNote === undefined || openedNote.kind !== "note" ? null : (
+      {sketch.sheet}
+      {openedNote === undefined ? null : (
         <StudioFrameSheet
           open
-          said={openedNote.said}
+          {...(openedNote.kind === "note" ? { said: openedNote.said } : { picture: true })}
           frame={frameOf(openedNote.id)}
           onClose={() => setOpened(null)}
         />
@@ -697,20 +857,12 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 }
 
 /**
- * The `+ Node` control, drawn on the board's own aside.
- *
- * **A component and not markup**, because `useStudioPlacement` reads the
- * viewport React Flow is holding and only a component rendered inside the
- * board is inside that provider. What it buys is the rule: a node lands where
- * the person is looking rather than at the origin.
- */
-/**
  * The `Run` control, on the board's own aside — #1345.
  *
- * **`AddNode`'s shape for `AddNode`'s reason**: `useStudioPlacement` reads the
+ * **A component and not markup**, because `useStudioPlacement` reads the
  * viewport React Flow holds, and only a component drawn inside the board is
- * inside that provider. What it buys is the same rule — the Run node lands
- * where the person is looking rather than at the origin.
+ * inside that provider. What it buys is the rule: the Run node lands where the
+ * person is looking rather than at the origin.
  */
 function StartRun(props: {
   starts: readonly StudioStart[];
@@ -737,44 +889,25 @@ function StartRun(props: {
  * The rail's tool group: one icon per kind a person puts on a Studio by hand.
  *
  * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
- * 2026, which asked for a vertical bar of icons on the canvas's left. The field
- * behind a press is still drawn in the board's aside, where it has room for a
- * paragraph.
+ * 2026, which asked for a vertical bar of icons on the canvas's left. **A press
+ * arms the kind and puts nothing down**: the next press on empty board puts it
+ * there — the owner's notes of 1 Oct 2026, which refused the panel the field
+ * was written in, and then a node that landed wherever placement chose.
  */
 function AddRail({
-  adding,
-  onAdding,
+  armed,
+  onArm,
 }: {
-  adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind) => void;
+  armed: StudioNodeByHandKind | null;
+  onArm: (kind: StudioNodeByHandKind) => void;
 }) {
   const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
     icon,
-    pressed: adding === kind,
+    pressed: armed === kind,
     ...(shortcut === undefined ? {} : { shortcut }),
-    onPress: () => onAdding(kind),
+    onPress: () => onArm(kind),
   }));
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
-}
-
-function AddNode(props: {
-  adding: StudioNodeByHandKind | null;
-  onAdding: (kind: StudioNodeByHandKind | null) => void;
-  onAdd: (node: StudioNodeByHand, position: StudioPosition) => void;
-  saving: boolean;
-  disabled: boolean;
-}) {
-  const place = useStudioPlacement();
-  return (
-    <StudioAddNode
-      adding={props.adding}
-      onAdding={props.onAdding}
-      onAdd={(node) => props.onAdd(node, place())}
-      readIn={READING_IN_UNBUILT}
-      saving={props.saving}
-      disabled={props.disabled}
-    />
-  );
 }

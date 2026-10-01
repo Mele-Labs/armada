@@ -299,6 +299,14 @@
   color: var(--fg-muted);
 }
 
+/* A worktree's size over its own age, at the row's end. */
+.armada-holds__sized {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
 .armada-holds__stack {
   display: flex;
   flex-direction: column;

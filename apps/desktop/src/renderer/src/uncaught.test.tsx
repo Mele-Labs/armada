@@ -74,6 +74,10 @@ function board(pass: number): StudioWhiteboardNode[] {
       kind,
       title: `${kind} ${"word ".repeat(1 + ((pass + i) % 14))}`,
       facts: ["one", "two"].slice(0, 1 + ((pass + i) % 2)),
+      // A Sketch says what it says in its boxes, so its words change there.
+      ...(kind === "sketch"
+        ? { drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "word ".repeat(1 + ((pass + i) % 14)) }], lines: [], strokes: [], pictures: [] } }
+        : {}),
     },
   })) as StudioWhiteboardNode[];
 }

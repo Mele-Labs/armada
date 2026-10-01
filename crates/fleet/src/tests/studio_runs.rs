@@ -205,7 +205,9 @@ async fn a_run_node_cannot_be_added_by_hand() {
                     run_id: String::from("01NEVERRAN"),
                     held: None,
                     kept: None,
-                },
+                }
+                .try_into()
+                .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
             },

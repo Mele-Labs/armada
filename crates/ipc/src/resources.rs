@@ -97,14 +97,22 @@ pub struct WorktreeOnDisk {
     /// which is the failure `#428` was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bytes: Option<u64>,
+    /// When the walk that found `bytes` ran. **Present exactly where `bytes`
+    /// is**: Fleet keeps a size for `fleet::resources::SIZED_FOR`, so it can
+    /// be older than [`JobResources::read_at`], and a walk that did not finish
+    /// measured nothing to put an instant on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured_at: Option<Instant>,
 }
 
 /// What one Job holds on this machine, at one instant.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JobResources {
     pub job_id: JobId,
-    /// When Fleet read the machine. **Every figure below is as of this**, and a
-    /// surface that draws them without it is claiming they are current.
+    /// When Fleet read the machine. **Every figure below is as of this except
+    /// the worktree's size**, which Fleet keeps between reads and which carries
+    /// its own [`WorktreeOnDisk::measured_at`]. A surface that draws a figure
+    /// without its instant is claiming it is current.
     pub read_at: Instant,
     pub held: Held,
     /// The recorded process and everything descended from it, that one first.

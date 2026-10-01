@@ -15,6 +15,7 @@ import type {
 import { STUDIO_NODE_KIND } from "@armada/components";
 
 import { runOutcomeOf } from "./rehearsal";
+import { frameKey } from "./studio-frames";
 import { span } from "./duration";
 
 /**
@@ -208,19 +209,29 @@ export const MOST_FRAMES_DRAWN = 24;
 
 /** Whether this node kept a picture, which is what decides that a plate is drawn at all. */
 function keptAFrame(node: StudioNode): boolean {
-  return node.kind === "note" && node.capture?.frame !== undefined;
+  return node.kind === "picture" || (node.kind === "note" && node.capture?.frame !== undefined);
 }
 
-/** The Notes whose frames this window asks for: the first `MOST_FRAMES_DRAWN`, and the selected one. */
+/** Every frame one node keeps, by `frameKey`: its own, or a Sketch's one per picture. */
+function framesOf(node: StudioNode): string[] {
+  if (node.kind === "sketch") return node.drawing.pictures.map((one) => frameKey(node.id, one.id));
+  return keptAFrame(node) ? [node.id] : [];
+}
+
+/**
+ * The frames this window asks for, by `frameKey`: the first `MOST_FRAMES_DRAWN`,
+ * and every one the selected node keeps.
+ */
 export function framesDrawn(studio: Studio, selected: string | null): ReadonlySet<string> {
-  const kept = studio.nodes.filter(keptAFrame).map((node) => node.id);
+  const kept = studio.nodes.flatMap(framesOf);
   const drawn = new Set(kept.slice(0, MOST_FRAMES_DRAWN));
-  if (selected !== null && kept.includes(selected)) drawn.add(selected);
+  const picked = studio.nodes.find((node) => node.id === selected);
+  for (const key of picked === undefined ? [] : framesOf(picked)) drawn.add(key);
   return drawn;
 }
 
-/** What a node's frame is, as the window holds it. A node that kept none takes none. */
-export type FrameOf = (nodeId: string) => StudioNodeFrame;
+/** What one frame is, by `frameKey`, as the window holds it. A node that kept none takes none. */
+export type FrameOf = (key: string) => StudioNodeFrame;
 
 /** For a caller whose subject is not the pictures — every Note reads as one still being fetched. */
 export const NO_FRAME_HELD: FrameOf = () => ({});
@@ -283,9 +294,11 @@ function cardOf(
     case "finding":
       // What it was handed beyond the checkout, and what did not fit. A scout
       // asked about the code alone has none and says nothing about sources.
+      // **No state is a Finding its scout ended**, never one nobody started:
+      // `frozen` went on 1 Oct 2026, and Fleet sends a Proposed one's state.
       return {
         kind: "finding",
-        state: stateOf(node, "proposed"),
+        ...(node.state === undefined ? {} : { state: node.state as "proposed" | "gathering" }),
         title: node.asked,
         facts: (node.sources ?? []).map(sourceRead),
       };
@@ -299,13 +312,30 @@ function cardOf(
         facts: node.answer === undefined ? [node.second] : [node.second, node.answer],
       };
     case "sketch":
-      return { kind: "sketch", state: "frozen", title: firstLine(node.body) };
+      // The drawing, and no title: a Sketch's words are in its boxes — 1 Oct 2026.
+      return {
+        kind: "sketch",
+        title: "",
+        drawing: {
+          boxes: node.drawing.boxes,
+          lines: node.drawing.joins,
+          strokes: node.drawing.strokes,
+          pictures: node.drawing.pictures.map(({ id, x, y, width, height }) => {
+            const { src } = frameOf(frameKey(node.id, id));
+            return src === undefined ? { id, x, y, width, height } : { id, x, y, width, height, src };
+          }),
+        },
+      };
     case "link":
       // **The title is the person's own line first, then what a read-in
       // learned the source calls itself, then the address** — #1378, #1293.
       // A person's line wins because it is theirs, and the address is drawn
       // under whichever it was, so nothing is said twice.
       return { kind: "link", address: node.address, title: node.said ?? node.named ?? node.address };
+    case "file":
+      return { kind: "file", path: node.path, title: node.path };
+    case "picture":
+      return { kind: "picture", title: "", frame: frameOf(node.id) };
     // The three kinds a forge address makes — #1394. The title follows a
     // Link's rule, with what the forge calls it where a read-in learned one;
     // everything else the kind holds is a fact rather than a sentence.

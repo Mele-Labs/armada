@@ -27,6 +27,8 @@ import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { CaptureWindows } from "./capture/windows";
 import { coalesce } from "./coalesce";
+import { stagePng, stagedPicture } from "./staging";
+import { handleSketches } from "./sketches";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
@@ -166,13 +168,7 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  stage: async (png, width, height) => {
-    const dir = join(app.getPath("temp"), "armada-frames", randomUUID());
-    await mkdir(dir, { recursive: true });
-    const staged = join(dir, "frame.png");
-    await writeFile(staged, png);
-    return { staged_path: staged, width, height };
-  },
+  stage: stagePng,
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -980,12 +976,15 @@ void app.whenReady().then(() => {
       ? { x: at.x as number, y: at.y as number }
       : null;
   };
-  /** One of the three kinds a person adds by hand, with its own field filled. */
+  /**
+   * One of the three kinds a person writes by hand. Never a Picture or a Sketch,
+   * whose staged files only main names.
+   */
   const byHand = (value: unknown): value is StudioNodeByHand => {
-    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; body?: unknown };
+    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; path?: unknown };
     if (node.kind === "note") return text(node.said);
     if (node.kind === "link") return text(node.address);
-    return node.kind === "sketch" && text(node.body);
+    return node.kind === "file" && text(node.path);
   };
   ipcMain.handle(CHANNELS.watchStudios, (_event, manifestId: unknown) =>
     text(manifestId) || manifestId === null ? connection?.studios.watchList(manifestId) : undefined,
@@ -1009,6 +1008,15 @@ void app.whenReady().then(() => {
     if (!text(studioId) || at === null || !byHand(node)) return undefined;
     return (await connection?.studios.addNode(studioId, node, at)) ?? unsent;
   });
+  // A pasted picture — 1 Oct 2026. Bytes in; main stages them (`staging.ts`).
+  ipcMain.handle(CHANNELS.addStudioPicture, async (_event, studioId: unknown, bytes: unknown, position: unknown) => {
+    const at = whole(position);
+    if (!text(studioId) || at === null || !(bytes instanceof Uint8Array)) return undefined;
+    const staged = await stagedPicture(bytes);
+    if (staged === null) return undefined;
+    return (await connection?.studios.addNode(studioId, { kind: "picture", staged }, at)) ?? unsent;
+  });
+  handleSketches({ ipc: ipcMain, studios: () => connection?.studios, whole, unsent });
   ipcMain.handle(CHANNELS.moveStudioNode, async (_event, studioId: unknown, nodeId: unknown, position: unknown) => {
     const at = whole(position);
     if (!text(studioId) || !text(nodeId) || at === null) return undefined;
@@ -1032,9 +1040,10 @@ void app.whenReady().then(() => {
   // The other half of the capture: the bytes of the picture one Note kept, read
   // by main and handed over for a `blob:`. **No new scheme and no CSP change** —
   // `img-src 'self' blob:` already draws one — and no path crosses either way.
-  ipcMain.handle(CHANNELS.readStudioFrame, async (_event, studioId: unknown, nodeId: unknown) =>
-    text(studioId) && text(nodeId)
-      ? ((await connection?.studios.frameOf(studioId, nodeId)) ?? { ok: false, outcome: unsent })
+  // A Sketch's picture is named by `picture`, its id on the drawing — 20.0.
+  ipcMain.handle(CHANNELS.readStudioFrame, async (_event, studioId: unknown, nodeId: unknown, picture: unknown) =>
+    text(studioId) && text(nodeId) && (picture === undefined || text(picture))
+      ? ((await connection?.studios.frameOf(studioId, nodeId, picture)) ?? { ok: false, outcome: unsent })
       : undefined,
   );
   // Starting one entry from a Studio — #1289, #1345. **The position is checked

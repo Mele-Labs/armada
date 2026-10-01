@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use ipc::{
     AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio,
-    DispatchStudioDraft, EditStudioDraft, EditStudioLink, GroupStudioNodes, ManifestId,
-    MoveStudioNode, ProposeStudioEdge, ReadInLink, RemoveStudioNodes, RenameStudio,
+    DispatchStudioDraft, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
+    ManifestId, MoveStudioNode, ProposeStudioEdge, ReadInLink, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, Studio,
     StudioDeleted, StudioId, StudioList, StudioNodeId, StudioRunStarted, StudioServerStarted,
     WriteUpStudioNode,
@@ -37,7 +37,7 @@ pub trait Studios: Send + Sync + 'static {
         within: Option<ManifestId>,
     ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 
-    /// `get_studio_frame` — the picture one Note kept, as the file itself:
+    /// `get_studio_frame` — the picture one Note or Picture kept, as the file itself:
     /// the name Fleet stored it under, and its bytes.
     ///
     /// **The node names it and the record holds the file name**, so nothing a
@@ -47,6 +47,7 @@ pub trait Studios: Send + Sync + 'static {
         &self,
         studio_id: StudioId,
         node_id: StudioNodeId,
+        picture: Option<String>,
         within: Option<ManifestId>,
     ) -> impl Future<Output = Result<(String, Vec<u8>), Refusal>> + Send;
 
@@ -262,6 +263,14 @@ pub trait Studios: Send + Sync + 'static {
         &self,
         studio_id: StudioId,
         edit: EditStudioLink,
+        within: Option<ManifestId>,
+    ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
+
+    /// `edit_studio_sketch` — the drawing a person left on a Sketch's pad.
+    fn edit_studio_sketch(
+        &self,
+        studio_id: StudioId,
+        edit: EditStudioSketch,
         within: Option<ManifestId>,
     ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 

@@ -16,12 +16,13 @@ mod finding;
 mod forge;
 mod note;
 mod promotion;
+mod sketch;
 
 use alloc::string::String;
 
 pub use edge::{EdgeRefused, StudioEdge, ToItself};
 pub use finding::{
-    FrozenFinding, GatheringFinding, NotScoutable, ScoutCheckout, ScoutEnded, ScoutLook,
+    EndedFinding, GatheringFinding, NotScoutable, ScoutCheckout, ScoutEnded, ScoutLook,
     ScoutOutcome, ScoutSource, Scouted, StudioFinding,
 };
 pub use forge::{EpicRead, ForgeFacts, Recognised};
@@ -29,6 +30,10 @@ pub use note::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow, StudioCapture,
 };
 pub use promotion::{ContradictionOutcome, NotRewritable, Rewritten};
+pub use sketch::{
+    Drawing, SketchBox, SketchDrawing, SketchJoin, SketchMalformed, SketchPicture, SketchPoint,
+    SketchStroke,
+};
 
 use crate::envelope::{Timestamp, Ulid};
 use crate::job::{id_newtype, JobId, ManifestId};
@@ -134,6 +139,10 @@ spelled! {
         Contradiction => "contradiction",
         Sketch => "sketch",
         Link => "link",
+        /// A path to a file, as a person pasted it.
+        File => "file",
+        /// An image a person pasted, kept as a file the way a Note's frame is.
+        Picture => "picture",
         /// An issue on a forge. **The concept, never the vendor** — which
         /// forge served the address is `adapters`' to know, and the node is an
         /// Issue whoever hosts it. `#1394`.
@@ -158,7 +167,6 @@ spelled! {
     StudioNodeState {
         Proposed => "proposed",
         Gathering => "gathering",
-        Frozen => "frozen",
         Reported => "reported",
         IssueDraft => "issue_draft",
         Deferral => "deferral",
@@ -292,11 +300,14 @@ impl StudioNodeKind {
             | StudioNodeKind::Note
             | StudioNodeKind::Cluster
             | StudioNodeKind::Link
+            | StudioNodeKind::File
+            | StudioNodeKind::Picture
+            | StudioNodeKind::Sketch
             | StudioNodeKind::Issue
             | StudioNodeKind::PullRequest
             | StudioNodeKind::Epic
             | StudioNodeKind::Job => &[],
-            StudioNodeKind::Finding => &[S::Proposed, S::Gathering, S::Frozen],
+            StudioNodeKind::Finding => &[S::Proposed, S::Gathering],
             StudioNodeKind::Contradiction => &[
                 S::Reported,
                 S::IssueDraft,
@@ -304,18 +315,19 @@ impl StudioNodeKind {
                 S::NotAProblem,
                 S::ResolvedHere,
             ],
-            StudioNodeKind::Sketch => &[S::Frozen],
             StudioNodeKind::Deferral => &[S::Open, S::Answered],
-            StudioNodeKind::Outline => &[S::Draft, S::Frozen],
+            StudioNodeKind::Outline => &[S::Draft],
             StudioNodeKind::IssueDraft => &[S::Draft],
         }
     }
 
-    /// Whether `state` is one this kind holds. `None` fits only a kind with no
-    /// states, so a Finding never reads back stateless.
+    /// Whether `state` is one this kind holds. `None` fits a kind with no
+    /// states, and a Finding whose scout has ended — which its content has to
+    /// say, [`StudioFinding::fits`]. There is no `frozen` to end in: the owner,
+    /// 1 Oct 2026.
     pub fn admits(&self, state: Option<StudioNodeState>) -> bool {
         match state {
-            None => self.states().is_empty(),
+            None => self.states().is_empty() || *self == StudioNodeKind::Finding,
             Some(state) => self.states().contains(&state),
         }
     }
@@ -326,7 +338,8 @@ impl StudioNodeKind {
     }
 
     /// A kind a person may put on a Studio by hand — `#1364`, decided with the
-    /// owner. A Note typed here, a Link pasted, a Sketch placed.
+    /// owner. A Note typed here, a Link pasted, a Sketch placed, a File's path
+    /// pasted, a Picture's image pasted.
     ///
     /// **Every other kind is made by the act that earns it**, and adding one by
     /// hand would be a claim nothing stands behind: a Finding comes from a
@@ -342,7 +355,11 @@ impl StudioNodeKind {
     pub fn added_by_hand(&self) -> bool {
         matches!(
             self,
-            StudioNodeKind::Note | StudioNodeKind::Link | StudioNodeKind::Sketch
+            StudioNodeKind::Note
+                | StudioNodeKind::Link
+                | StudioNodeKind::Sketch
+                | StudioNodeKind::File
+                | StudioNodeKind::Picture
         )
     }
 }
@@ -460,8 +477,9 @@ pub enum StudioNodeContent {
         second: String,
         answer: Option<String>,
     },
-    /// A diagram or mockup, as text.
-    Sketch { body: String },
+    /// The drawing the dispatch composer's pad makes: boxes, joins, lines
+    /// drawn by hand and pasted pictures. Decided with the owner, 1 Oct 2026.
+    Sketch { drawing: SketchDrawing },
     /// A board, document, issue, page or session, kept as its address, the
     /// line a person wrote beside it, and what the source calls itself.
     ///
@@ -478,6 +496,14 @@ pub enum StudioNodeContent {
         said: Option<String>,
         named: Option<String>,
     },
+    /// A path to a file, kept exactly as a person pasted it — absolute, under
+    /// `~`, or relative to the repository. **Never resolved and never checked
+    /// for**: what it names is the person's to say.
+    File { path: String },
+    /// An image a person pasted, decided with the owner on 28 Sep 2026. **The
+    /// frame alone**: no words are asked for, and the file is kept beside the
+    /// Studio's records exactly as a Note's capture keeps one.
+    Picture { frame: CaptureFrame },
     /// An issue on a forge, made by pasting its address. `#1394`.
     ///
     /// **`address` and `number` are read off the address the moment the node
@@ -542,6 +568,13 @@ impl StudioNodeContent {
         }
     }
 
+    /// A File, its path trimmed of the space a paste carries around it.
+    pub fn file(path: &str) -> StudioNodeContent {
+        StudioNodeContent::File {
+            path: String::from(path.trim()),
+        }
+    }
+
     /// A Link a read-in made, carrying the issue's own address and the line
     /// naming it. **No `said`**: a person has not written one on a node that
     /// did not exist a moment ago. `#1293`.
@@ -562,6 +595,8 @@ impl StudioNodeContent {
             StudioNodeContent::Contradiction { .. } => StudioNodeKind::Contradiction,
             StudioNodeContent::Sketch { .. } => StudioNodeKind::Sketch,
             StudioNodeContent::Link { .. } => StudioNodeKind::Link,
+            StudioNodeContent::File { .. } => StudioNodeKind::File,
+            StudioNodeContent::Picture { .. } => StudioNodeKind::Picture,
             StudioNodeContent::Issue { .. } => StudioNodeKind::Issue,
             StudioNodeContent::PullRequest { .. } => StudioNodeKind::PullRequest,
             StudioNodeContent::Epic { .. } => StudioNodeKind::Epic,
@@ -582,12 +617,17 @@ impl StudioNodeContent {
             StudioNodeContent::Contradiction { first, second, .. } => {
                 &[("first", first), ("second", second)]
             }
-            StudioNodeContent::Sketch { body } | StudioNodeContent::Outline { body } => {
-                &[("body", body)]
+            StudioNodeContent::Outline { body } => &[("body", body)],
+            // Blank is nothing drawn, which no field's text can say.
+            StudioNodeContent::Sketch { drawing } => {
+                return drawing.is_empty().then_some("drawing");
             }
             // Neither `said` nor `named` is here: a Link with no line and no
             // name is a Link, and both are normalised to absent, never blank.
             StudioNodeContent::Link { address, .. } => &[("address", address)],
+            StudioNodeContent::File { path } => &[("path", path)],
+            // The frame is Fleet's to name, so nothing a person typed is here.
+            StudioNodeContent::Picture { .. } => &[],
             // Neither `title` nor `state` is here: what the forge says is
             // absent until the node is read in, never blank.
             StudioNodeContent::Issue {
@@ -639,6 +679,43 @@ impl StudioNodeContent {
                 kept: None,
             } => Some(id),
             _ => None,
+        }
+    }
+
+    /// The frame a node keeps beside the Studio's records: a Picture's, and a
+    /// Note's where its capture took one. A Sketch keeps one per picture, and
+    /// answers through [`frames`](Self::frames) and [`frame_of`](Self::frame_of).
+    pub fn frame(&self) -> Option<&CaptureFrame> {
+        match self {
+            StudioNodeContent::Picture { frame } => Some(frame),
+            StudioNodeContent::Note {
+                capture: Some(capture),
+                ..
+            } => capture.frame.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Every frame a node keeps. **The one place that says which content keeps
+    /// a file**, so deleting a node and redrawing a Sketch ask the same.
+    pub fn frames(&self) -> alloc::vec::Vec<&CaptureFrame> {
+        match self {
+            StudioNodeContent::Sketch { drawing } => {
+                drawing.pictures().iter().map(|one| &one.frame).collect()
+            }
+            content => content.frame().into_iter().collect(),
+        }
+    }
+
+    /// The frame `picture` names on a Sketch, or the node's own frame where
+    /// no picture is named. `None` where that names nothing kept.
+    pub fn frame_of(&self, picture: Option<&str>) -> Option<&CaptureFrame> {
+        match (self, picture) {
+            (StudioNodeContent::Sketch { drawing }, Some(id)) => {
+                drawing.picture(id).map(|one| &one.frame)
+            }
+            (_, Some(_)) => None,
+            (content, None) => content.frame(),
         }
     }
 

@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { expect } from "storybook/test";
 
 import { JOB_STATUS } from "../../generated/vocabulary";
-import { StudioNode } from "./StudioNode";
+import { StudioAddNode } from "../StudioAddNode/StudioAddNode";
+import { StudioNode, StudioNodeDraft } from "./StudioNode";
 
 /**
  * One story per kind on `docs/concepts/studio.md`, each drawing every state the
@@ -134,6 +135,24 @@ export const NoteFrames: Story = {
   },
 };
 
+/**
+ * A picture pasted onto the board — the owner, 1 Oct 2026. **The picture and
+ * nothing else**: no words were pasted with it, so no title is drawn and the
+ * node is named by its kind.
+ */
+export const Picture: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="picture" title="" frame={{ src: shot("darkslategray", "Job Board") }} />
+      <StudioNode kind="picture" title="" frame={{}} />
+    </Row>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+    await expect(canvas.getByText("reading…")).toBeVisible();
+  },
+};
+
 export const Cluster: Story = {
   args: { kind: "cluster", title: "The Board's legend is illegible", facts: ["3 notes"] },
   play: async ({ canvas }) => {
@@ -142,19 +161,24 @@ export const Cluster: Story = {
   },
 };
 
-/** Proposed, gathering and frozen. Gathering is the one that pulses — with no hue. */
+/**
+ * Proposed, gathering, and ended with no state. Gathering is the one that
+ * pulses — with no hue. **No `frozen`** (the owner, 1 Oct 2026).
+ */
 export const Finding: Story = {
   render: () => (
     <Row>
       <StudioNode kind="finding" state="proposed" title="What writes the runtime file?" facts={["about $0.40"]} />
       <StudioNode kind="finding" state="gathering" title="Where the legend's colours come from" facts={["$0.12", "14 files read"]} />
-      <StudioNode kind="finding" state="frozen" title="Fleet writes fleet.json once, at start" facts={["$0.31", "22 files read"]} />
+      <StudioNode kind="finding" title="Fleet writes fleet.json once, at start" facts={["$0.31", "22 files read"]} />
     </Row>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("gathering").closest("[aria-busy]")).not.toBeNull();
     await expect(canvas.getByText("proposed").closest("[aria-busy]")).toBeNull();
-    await expect(canvas.getByText("frozen").closest("[aria-busy]")).toBeNull();
+    const ended = canvas.getByText("Fleet writes fleet.json once, at start");
+    await expect(ended.closest("[aria-busy]")).toBeNull();
+    await expect(canvas.queryByText("frozen")).toBeNull();
   },
 };
 
@@ -176,11 +200,30 @@ export const Contradiction: Story = {
   },
 };
 
+/**
+ * The pad's drawing, drawn in the plate a Picture uses, and no title: a Sketch
+ * says nothing in words of its own beyond what is in its boxes. **No state
+ * either** — it is drawn on whenever it is opened (the owner, 1 Oct 2026).
+ */
 export const Sketch: Story = {
-  args: { kind: "sketch", state: "frozen", title: "The whiteboard's rail", facts: ["diagram"] },
+  args: {
+    kind: "sketch",
+    title: "",
+    drawing: {
+      boxes: [
+        { id: "b1", x: 0, y: 0, body: "The rail" },
+        { id: "b2", x: 360, y: 40, body: "The board" },
+      ],
+      lines: [{ id: "b1-b2", from: "b1", to: "b2" }],
+      strokes: [],
+      pictures: [],
+    },
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Sketch")).toBeVisible();
-    await expect(canvas.getByText("frozen")).toBeVisible();
+    await expect(canvas.queryByText("frozen")).toBeNull();
+    await expect(canvas.getByRole("img", { name: "The sketch drawn on this Studio" })).toBeVisible();
+    await expect(canvas.getByText("The rail")).toBeInTheDocument();
   },
 };
 
@@ -227,6 +270,35 @@ export const LinkWithNoLine: Story = {
     await expect(clipped.length).toBe(2);
     await expect(canvas.getByText("Where the review comments on the retry land")).toBeVisible();
   },
+};
+
+const LONG_PATH = "/Users/user/Development/armada/packages/components/src/compositions/StudioNode/StudioNode.tsx";
+
+/**
+ * A path a person pasted, kept as pasted — absolute, under home, or from the
+ * repository's root. Drawn mono, as an address is, with the whole of a long
+ * one on the title.
+ */
+export const File: Story = {
+  render: () => (
+    <Row>
+      <StudioNode kind="file" path="crates/fleet/src/briefing.rs" title="crates/fleet/src/briefing.rs" />
+      <StudioNode kind="file" path="~/Desktop/notes.md" title="~/Desktop/notes.md" />
+      <StudioNode kind="file" path={LONG_PATH} title={LONG_PATH} />
+    </Row>
+  ),
+  // A long path is cut in its middle, never at its end: the file name is drawn
+  // whole, inside the card, and the whole path is on the title.
+  play: async ({ canvas }) => {
+    const path = canvas.getByTitle(LONG_PATH);
+    const name = canvas.getByText("/StudioNode.tsx");
+    await expect(path).toContainElement(name);
+    await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+    const drawn = name.getBoundingClientRect();
+    const line = path.getBoundingClientRect();
+    await expect(drawn.width).toBeGreaterThan(0);
+    await expect(drawn.right).toBeLessThanOrEqual(line.right);
+    await expect(drawn.left).toBeGreaterThanOrEqual(line.left);  },
 };
 
 /**
@@ -286,12 +358,12 @@ export const Outline: Story = {
   render: () => (
     <Row>
       <StudioNode kind="outline" state="draft" title="Run colours, then the pulse" facts={["4 parts"]} />
-      <StudioNode kind="outline" state="frozen" title="Capture on Bridge" facts={["3 parts"]} />
     </Row>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("draft")).toBeVisible();
-    await expect(canvas.getByText("frozen")).toBeVisible();
+    // An Outline stays a draft: `frozen` went on 1 Oct 2026.
+    await expect(canvas.queryByText("frozen")).toBeNull();
   },
 };
 
@@ -339,6 +411,33 @@ export const RunAndJobNotRead: Story = {
     <Row>
       <StudioNode kind="run" title="01RUN00000000000000000000A" />
       <StudioNode kind="job" title="01JOB00000000000000000000B" />
+    </Row>
+  ),
+};
+
+/** What `Studios.tsx` passes while #1293 is unbuilt. */
+const READ_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+
+const noop = () => undefined;
+
+/**
+ * A node still being written, one per kind a person writes by hand — the owner's
+ * note of 1 Oct 2026. The field is the card's body, under the kind; the last is
+ * out to Fleet, and says so. The keys and the press off it are proved through
+ * `App`, in `mock/studios.test.tsx`.
+ */
+export const Draft: Story = {
+  render: () => (
+    <Row>
+      <StudioNodeDraft kind="note">
+        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+      </StudioNodeDraft>
+      <StudioNodeDraft kind="link">
+        <StudioAddNode inPlace adding="link" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+      </StudioNodeDraft>
+      <StudioNodeDraft kind="note" pending>
+        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} saving />
+      </StudioNodeDraft>
     </Row>
   ),
 };

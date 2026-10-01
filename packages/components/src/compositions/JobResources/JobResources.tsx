@@ -10,12 +10,14 @@ import { useState } from "react";
 
 import type { Artifact, JobExamined, Look } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
+import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DestinationCard } from "../DestinationCard/DestinationCard";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_LOOK, GUIDE_PROCESSES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "../../guides";
 import {
+  ago,
   ANY,
   CPU_USAGE,
   KillHold,
@@ -61,6 +63,12 @@ export type JobResourcesProps = {
    * machine, and the instant under the tables does not qualify them.
    */
   figures?: Figure[];
+  /**
+   * The Job those figures come off has not been read yet. **Bars stand where
+   * they will land**, because `Checks running 0` before the read is a count
+   * nobody took. `figures` is not drawn while this holds.
+   */
+  figuresReading?: boolean;
   /** Why there is no reading, where there is none. */
   note?: string;
   /** How old the reading is, as a phrase — `4s`. Formatted by the caller. */
@@ -111,6 +119,7 @@ export type JobResourcesProps = {
 export function JobResources({
   reading,
   figures = [],
+  figuresReading = false,
   note,
   age,
   examined,
@@ -160,7 +169,11 @@ export function JobResources({
           </>
         }
       >
-        {figures.length === 0 ? null : <FigureList figures={figures} column="strip" />}
+        {figuresReading ? (
+          <SkeletonText />
+        ) : figures.length === 0 ? null : (
+          <FigureList figures={figures} column="strip" />
+        )}
         {examined === null ? null : <Looks looks={examined.looks} />}
         {reading === null ? (
           <p className="armada-holds__note">
@@ -262,7 +275,7 @@ const STATS = "Stats";
 
 /** When the figures were true — `Updated 4s ago`, and nothing beside it. */
 function readAt(reading: PulseReading, age?: string): string {
-  return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${age} ago`;
+  return age === undefined ? `Updated at ${reading.readAt}` : `Updated ${ago(age)}`;
 }
 
 /**

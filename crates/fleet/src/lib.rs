@@ -243,10 +243,13 @@ pub mod spawning;
 /// What the fleet has spent, and which Jobs a ceiling is holding.
 mod spending;
 mod stuck;
+/// A Picture a person pastes onto a Studio, kept as a Note's frame is.
+mod studio_pictures;
 /// Runs a Studio holds, and what a node keeps of one past retention. `#1289`.
 pub mod studio_runs;
 /// Servers a Studio holds: started from one, and kept when they end. `#1345`.
 pub mod studio_servers;
+mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
 pub mod sub_dispatch;

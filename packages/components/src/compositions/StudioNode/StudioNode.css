@@ -114,6 +114,32 @@
   text-overflow: ellipsis;
 }
 
+/* A File's title is its path, and a path is a value: mono, as an address is. */
+.armada-studio-node[data-kind="file"] .armada-studio-node__title {
+  font-family: var(--font-mono);
+  display: flex;
+  white-space: nowrap;
+  /* Whole characters only, so the ellipsis sits flush against the name and
+     the part of a character it could not draw is not left as a space. */
+  max-width: round(down, 100%, 1ch);
+}
+
+/* One line, cut in the middle: the directories give way with an ellipsis and
+   the file name never does — the owner's call, 1 Oct 2026. A name wider than
+   the whole card is the one case the name is cut, at its end. */
+.armada-studio-node__path-head {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-studio-node__path-tail {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* A title that is itself an address — a Link nobody wrote a line on — is one
    line and not three. The clamp above already ends it in an ellipsis; what
    this changes is how many lines a URL is allowed to take, which is what the

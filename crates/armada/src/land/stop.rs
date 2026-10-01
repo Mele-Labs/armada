@@ -30,7 +30,7 @@ impl From<GitFailed> for Refused {
 /// Ends one branch's turn, once it is in the runner. Caught exactly once, in
 /// the runner loop, which is what turns this into a stored [`Outcome`](super::outcome::Outcome)
 /// via [`merge_outcome`](super::outcome::merge_outcome).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Stopped {
     pub state: OutcomeState,
     pub detail: String,
@@ -69,8 +69,7 @@ impl Stopped {
 
     /// A `Stopped` in a state neither [`stopped`](Stopped::stopped),
     /// [`red`](Stopped::red) nor [`conflict`](Stopped::conflict) covers —
-    /// `prove`'s own `ungated` and `landed`, which are constructed nowhere
-    /// else.
+    /// `landed`, which only [`super::onto_main::landed`] constructs.
     pub fn of(state: OutcomeState, detail: impl Into<String>, patch: OutcomePatch) -> Stopped {
         Stopped {
             state,

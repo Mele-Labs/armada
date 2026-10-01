@@ -46,6 +46,7 @@ import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from
 import type { Pattern } from "./haptics";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import type { SketchToKeep } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type {
   ManifestEditAnswer,
@@ -827,9 +828,9 @@ export type BridgeApi = {
    */
   renameStudio: (studioId: string, name: string) => Promise<Outcome>;
   /**
-   * Put a Note, a Link or a Sketch on a Studio, where the person is looking — #1364.
+   * Put a Note, a Link, a Sketch or a File on a Studio, where the person is looking — #1364.
    *
-   * **Three kinds, and the type is what says so.** Every other kind is made by
+   * **Four kinds, and the type is what says so.** Every other kind is made by
    * the act that earns it, and Fleet refuses one from Bridge by name; a
    * capability wide enough to ask for a Finding would be a capability the
    * renderer has and the door has to keep taking away.
@@ -839,6 +840,25 @@ export type BridgeApi = {
     node: StudioNodeByHand,
     position: StudioPosition,
   ) => Promise<Outcome>;
+  /**
+   * Where a file pasted onto a Studio is on disk, or `""` for one that is not —
+   * a screenshot. **The path and nothing else**: Electron hands the renderer a
+   * name, and this reads no file.
+   */
+  pathOfFile: (file: File) => string;
+  /**
+   * Put a pasted picture on a Studio as a Picture, where the person is looking.
+   * **Bytes in, never a path**: main stages them and names the staged file to
+   * Fleet, so the renderer cannot point Fleet at a file of its choosing.
+   */
+  addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
+  /**
+   * Put a Sketch drawn on the pad on a Studio, and keep a Sketch's drawing as it
+   * was left — 1 Oct 2026. **Bytes in for a new picture, never a path**, a
+   * pasted Picture's rule: main stages them and names each staged file to Fleet.
+   */
+  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
   /** Save where a person put a node down. Position only: nothing else about a node is written. */
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition) => Promise<Outcome>;
   /**
@@ -867,7 +887,7 @@ export type BridgeApi = {
    * a `blob:` of what comes back and revokes it; the CSP already draws one,
    * so nothing about this reaches outside the app.
    */
-  readStudioFrame: (studioId: string, nodeId: string) => Promise<FrameRead>;
+  readStudioFrame: (studioId: string, nodeId: string, picture?: string) => Promise<FrameRead>;
   /**
    * Group, defer, write up, edit a draft, end a Contradiction or dispatch —
    * #1291. **One capability rather than six**: what `act` names is the route

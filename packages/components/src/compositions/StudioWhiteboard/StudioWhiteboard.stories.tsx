@@ -28,9 +28,11 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "note-width", position: { x: 340, y: 260 }, node: { kind: "note", title: "The legend wraps at 720 wide", facts: ["Board"] } },
   { id: "contradiction", position: { x: 340, y: 520 }, node: { kind: "contradiction", state: "reported", title: "bridge.md and react.md disagree on the pulse", facts: ["2 sources"] } },
   { id: "finding-colours", position: { x: 680, y: -260 }, node: { kind: "finding", state: "gathering", title: "Where the legend's colours come from", facts: ["$0.12", "14 files read"] } },
-  { id: "finding-file", position: { x: 680, y: 0 }, node: { kind: "finding", state: "frozen", title: "Fleet writes fleet.json once, at start", facts: ["$0.31"] } },
+  { id: "finding-file", position: { x: 680, y: 0 }, node: { kind: "finding", title: "Fleet writes fleet.json once, at start", facts: ["$0.31"] } },
   { id: "cluster", position: { x: 680, y: 260 }, node: { kind: "cluster", title: "The Board's legend is illegible", facts: ["2 notes"] } },
-  { id: "sketch", position: { x: 680, y: 520 }, node: { kind: "sketch", state: "frozen", title: "The legend, redrawn", facts: ["diagram"] } },
+  { id: "sketch", position: { x: 680, y: 520 }, node: { kind: "sketch", title: "", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "The legend, redrawn" }], lines: [], strokes: [], pictures: [] } } },
+  { id: "picture", position: { x: 1020, y: 520 }, node: { kind: "picture", title: "", frame: {} } },
+  { id: "file", position: { x: 680, y: 780 }, node: { kind: "file", title: "packages/components/src/compositions/StatusLegend/StatusLegend.css", path: "packages/components/src/compositions/StatusLegend/StatusLegend.css" } },
   { id: "deferral", position: { x: 1020, y: -130 }, node: { kind: "deferral", state: "open", title: "Does the legend belong on the Board?", facts: ["blocks 1"] } },
   { id: "outline", position: { x: 1020, y: 260 }, node: { kind: "outline", state: "draft", title: "Legend, then width", facts: ["3 parts"] } },
   // The three kinds a forge address makes — #1394. Each is a record of
@@ -73,7 +75,8 @@ export const EveryKind: Story = {
   play: async ({ canvas, args, userEvent, step }) => {
     await step("one node of every kind, each named for a reader", async () => {
       for (const kind of Object.values(STUDIO_NODE_KIND)) {
-        const named = await canvas.findAllByRole("group", { name: new RegExp(`^${kind}: `) });
+        // A Picture and a Sketch have no title, and are named by their kind and any state.
+        const named = await canvas.findAllByRole("group", { name: new RegExp(`^${kind}(: |, |$)`) });
         await expect(named.length).toBeGreaterThan(0);
       }
     });
@@ -87,7 +90,7 @@ export const EveryKind: Story = {
     });
 
     await step("a proposed relation is answered on its own label, which names who proposed it", async () => {
-      const proposal = canvas.getByRole("group", { name: /^Helm proposes: Sketch The legend, redrawn same as / });
+      const proposal = canvas.getByRole("group", { name: /^Helm proposes: Sketch\s+same as / });
       await userEvent.click(within(proposal).getByRole("button", { name: /^Accept: / }));
       await expect(args.onDecide).toHaveBeenCalledWith("r2", true);
       // Where the record names nobody, the label says the bare fact.

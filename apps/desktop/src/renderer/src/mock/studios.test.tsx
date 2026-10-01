@@ -45,20 +45,43 @@ const bar = () => page.getByRole("group", { name: "What is picked" });
  * `aria-label` and the glyph is what a reader sees.
  */
 const offered = (name: string) => bar().getByRole("button", { name, exact: true });
-/** Reach one act. **One press, never two** — there is no menu to open first. */
+/**
+ * Reach one act. **One press, never two** — there is no menu to open first.
+ *
+ * **Only where a pointer reaches it.** Playwright scrolls a press into view,
+ * and a bar past the board's edge sits in a wrapper React Flow scrolls straight
+ * back, so the press landed or not by which scroll won: a flake, and a bar a
+ * person could not reach. Now it fails every time, and names the act.
+ */
 async function act(name: string): Promise<void> {
+  await expect.element(offered(name)).toBeVisible();
+  const press = offered(name).element();
+  await expect
+    .poll(() => document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button") === press, {
+      message: `${name} is where a pointer reaches it`,
+    })
+    .toBe(true);
   await offered(name).click();
 }
 const asked = (name: string) => page.getByRole("dialog").getByRole("button", { name, exact: true });
+
+/** Chromium's, and not yet in TypeScript's DOM types. */
+const VISIBLY: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
 
 /**
  * Pick one node, the way React Flow's own keyboard contract does. **Not a pointer click**: a node
  * the board has just drawn passes a visibility check before it has settled, and a click that lands
  * in that window selects nothing — which failed under a full parallel suite and nowhere else.
+ *
+ * **Focused as a keyboard focuses it**, so React Flow pans the node into the window as it does
+ * for a person tabbing to it. A bare `focus()` is not `:focus-visible` after a pointer press, so
+ * nothing panned: the Epic's third Issue was picked with its bar 44px below the window, and the
+ * press reached it only by Playwright scrolling the board's wrapper, which React Flow scrolls
+ * straight back. 1 run in 20, the pane was under the pointer by the time it landed.
  */
 async function pick(name: RegExp): Promise<void> {
   await expect.element(node(name)).toBeVisible();
-  node(name).element().focus();
+  node(name).element().focus(VISIBLY);
   await userEvent.keyboard("{Enter}");
 }
 const centre = (element: Element) => {
@@ -73,6 +96,26 @@ function drag(element: Element, dx: number, dy: number): void {
   element.dispatchEvent(new MouseEvent("mousedown", at(0, 0)));
   for (const step of [0.1, 0.5, 1]) window.dispatchEvent(new MouseEvent("mousemove", at(dx * step, dy * step)));
   window.dispatchEvent(new MouseEvent("mouseup", at(dx, dy)));
+}
+
+/**
+ * Press the whiteboard where nothing is drawn — the `nth` such point, so two
+ * presses land apart — and say where, in the window's coordinates. **React
+ * Flow's pane has no role**, so it is found by its class, and each point is
+ * checked to be the pane itself rather than a node over it.
+ */
+async function pressBoard(nth: number): Promise<{ x: number; y: number }> {
+  const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
+  const box = pane.getBoundingClientRect();
+  const free: { x: number; y: number }[] = [];
+  for (let y = box.top + 40; y < box.bottom - 240; y += 60) {
+    for (let x = box.left + 40; x < box.right - 280; x += 60) {
+      if (document.elementFromPoint(x, y) === pane) free.push({ x, y });
+    }
+  }
+  const at = free[nth * 7]!;
+  await userEvent.click(page.elementLocator(pane), { position: { x: at.x - box.left, y: at.y - box.top } });
+  return at;
 }
 
 test("a Studio started, laid out, closed, reopened read-only, continued, and a relation accepted", async () => {
@@ -148,6 +191,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   // menu in a panel over the board until the owner asked for a rail of icons
   // down the canvas's left on 28 Sep 2026.
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await pressBoard(0);
   // A single key is suppressed while a field holds focus: the `V` in this note
   // stays in the note rather than opening a Link beside it.
   await userEvent.fill(page.getByLabelText("Note", { exact: true }), "The legend is unreadable in View");
@@ -156,12 +200,13 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   await expect.element(node(/^Note: The legend is unreadable in View/)).toBeVisible();
 
   await userEvent.keyboard("V");
+  await pressBoard(1);
   await userEvent.fill(page.getByLabelText("Link", { exact: true }), "docs/contracts/design-system.md");
   await page.getByRole("button", { name: "Keep the link" }).click();
   await expect.element(node(/^Link: docs\/contracts\/design-system\.md/)).toBeVisible();
 
-  // Both are a person's, and neither landed at the origin: a node goes where
-  // the person is looking, and two at one point would read as one node.
+  // Both are a person's, and each landed where the board was pressed, so two
+  // pressed apart are two places.
   const [kept] = fleet.studios();
   expect(kept!.nodes.map((one) => one.added_by)).toEqual(["person", "person"]);
   expect(kept!.nodes[0]!.position).not.toEqual(kept!.nodes[1]!.position);
@@ -322,6 +367,191 @@ test("the whiteboard's rail places a node, and the acts on one hover over it", a
   expect(named[named.length - 1]).toBe("Delete 1 node");
 });
 
+/** The whiteboard's pane, in the window's coordinates. React Flow's pane has no role. */
+const board = () => document.querySelector(".armada-studio-whiteboard .react-flow__pane")!.getBoundingClientRect();
+
+/** Drag the board sideways by `dx`, from a point where nothing is drawn. */
+function panBoard(dx: number): void {
+  const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
+  const frame = pane.getBoundingClientRect();
+  let from = { x: frame.left, y: frame.top };
+  for (let y = frame.top + 20; y < frame.bottom; y += 20) {
+    if (document.elementFromPoint(frame.left + frame.width / 2, y) === pane) {
+      from = { x: frame.left + frame.width / 2, y };
+      break;
+    }
+  }
+  const at = (x: number) => ({ clientX: from.x + x, clientY: from.y, button: 0, bubbles: true, view: window });
+  pane.dispatchEvent(new MouseEvent("mousedown", at(0)));
+  for (const step of [0.1, 0.5, 1]) window.dispatchEvent(new MouseEvent("mousemove", at(dx * step)));
+  window.dispatchEvent(new MouseEvent("mouseup", at(dx)));
+}
+
+/** Every act on the bar that is outside the board, or under something else, by name. */
+function outOfReach(): (string | null)[] {
+  const frame = board();
+  return bar()
+    .getByRole("button")
+    .elements()
+    .filter((press) => {
+      const box = press.getBoundingClientRect();
+      const inside = box.left >= frame.left && box.right <= frame.right && box.top >= frame.top && box.bottom <= frame.bottom;
+      return !inside || document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button") !== press;
+    })
+    .map((press) => press.getAttribute("aria-label"));
+}
+
+/**
+ * The owner's decision of 1 Oct 2026: a node picked at the board's edge has its
+ * bar centred over it and hanging out of the frame, so **the board pans to it** —
+ * the bar is never clamped. React Flow pans a focused node in only when none of
+ * it shows, so a node half out stays where it is without this.
+ */
+test("a node picked half off either side of the board is panned in with its bar, at the same zoom", async () => {
+  open(studying().scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Issue draft: The Board's legend is illegible/)).toBeVisible();
+  for (const [name, side] of [
+    [/^Issue draft: The Board's legend is illegible/, "right"],
+    [/^Note: The legend under the step bar/, "left"],
+  ] as const) {
+    // Dragged across by its empty board until the card's middle is on that edge.
+    const card = node(name).element();
+    const middle = centre(card).x;
+    panBoard((side === "right" ? board().right : board().left) - middle);
+    // Half off that side, and half on it: the case React Flow's own focus pan leaves alone.
+    await expect
+      .poll(() => {
+        const box = card.getBoundingClientRect();
+        return side === "right" ? box.right > board().right && box.left < board().right : box.left < board().left && box.right > board().left;
+      }, { message: `the ${side} node hangs off the board` })
+      .toBe(true);
+    const wide = card.getBoundingClientRect().width;
+
+    await pick(name);
+    await expect.element(bar()).toBeVisible();
+    await expect.poll(outOfReach, { message: `every act on the ${side} node's bar is in reach` }).toEqual([]);
+    const box = card.getBoundingClientRect();
+    expect(box.left >= board().left && box.right <= board().right).toBe(true);
+    expect(box.width).toBe(wide);
+  }
+});
+
+/**
+ * The owner's notes of 1 Oct 2026, option 2 and his answer to it: *when I
+ * select the item in the vertical toolbar, it just becomes a selection. Then I
+ * can click anywhere on the canvas to add it to where I clicked*, and *I should
+ * be able to drag the node around. Right now its very sensitive that if I click
+ * anywhere on the node or outside of it, the node goes away.*
+ *
+ * **A mock test rather than a story, because the claim is about where the
+ * node lands** and what reaches Fleet: nothing until it is sent, and nothing at
+ * all for one abandoned.
+ */
+test("a rail press arms a kind, a press on the board puts it there, and it goes only by Esc or by being sent", async () => {
+  const fleet = studying();
+  open(fleet.scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
+  const kept = () => fleet.studios().find((one) => one.name === "The Board's legend")!.nodes;
+  const before = kept().length;
+  const drafted = (kind: string) => page.getByRole("group", { name: `New ${kind}`, exact: true });
+  const railNote = page.getByRole("button", { name: "Add a Note", exact: true });
+
+  // Armed, and nothing is on the board yet.
+  await railNote.click();
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "true");
+  expect(drafted("Note").query()).toBeNull();
+  // The same press again puts it away, and Esc does too.
+  await railNote.click();
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  await userEvent.keyboard("N");
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "true");
+  await userEvent.keyboard("{Escape}");
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  // Disarmed, a press on the board puts nothing down.
+  await pressBoard(0);
+  expect(drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before);
+
+  // Armed, the press lands the draft's corner where it was made, with the caret in its field.
+  await railNote.click();
+  const at = await pressBoard(0);
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  const box = drafted("Note").element().getBoundingClientRect();
+  expect(Math.abs(box.left - at.x)).toBeLessThan(3);
+  expect(Math.abs(box.top - at.y)).toBeLessThan(3);
+  // One-shot: the rail is back to normal, and the corner the panel stood in holds no field.
+  await expect.element(railNote).toHaveAttribute("aria-pressed", "false");
+  expect(document.querySelector(".armada-graph-canvas__aside textarea, .armada-graph-canvas__aside input")).toBeNull();
+  expect(kept()).toHaveLength(before);
+
+  // A press inside it, and a press on the board, both leave it where it is.
+  await drafted("Note").getByText("Note", { exact: true }).click();
+  await pressBoard(1);
+  await expect.element(drafted("Note")).toBeVisible();
+  expect(kept()).toHaveLength(before);
+
+  // Dragged by its head, it goes where it is dropped, and what is sent lands there.
+  drag(drafted("Note").getByText("Note", { exact: true }).element(), 120, 80);
+  await expect.poll(() => drafted("Note").element().getBoundingClientRect().left).toBeGreaterThan(box.left + 60);
+  const dropped = drafted("Note").element().getBoundingClientRect();
+  expect(dropped.top).toBeGreaterThan(box.top + 40);
+  await drafted("Note").getByLabelText("Note", { exact: true }).click();
+  await userEvent.keyboard("Dragged here");
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(node(/^Note: Dragged here/)).toBeVisible();
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+  const landed = node(/^Note: Dragged here/).element().getBoundingClientRect();
+  expect(Math.abs(landed.left - dropped.left)).toBeLessThan(3);
+  expect(Math.abs(landed.top - dropped.top)).toBeLessThan(3);
+
+  // Esc takes a draft off with nothing sent.
+  await userEvent.keyboard("N");
+  await pressBoard(2);
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before + 1);
+});
+
+/**
+ * Putting a second draft down while one is open — Option 2's own call, not the
+ * owner's: a written one is sent, a blank one is dropped.
+ */
+test("putting a draft down sends the written one already open, and drops a blank one", async () => {
+  const fleet = studying();
+  open(fleet.scenario);
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
+  const kept = () => fleet.studios().find((one) => one.name === "The Board's legend")!.nodes;
+  const before = kept().length;
+  const drafted = (kind: string) => page.getByRole("group", { name: `New ${kind}`, exact: true });
+
+  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await pressBoard(0);
+  await expect.element(drafted("Note").getByLabelText("Note", { exact: true })).toHaveFocus();
+  await page.getByRole("button", { name: "Add a Link", exact: true }).click();
+  await pressBoard(1);
+  await expect.element(drafted("Link").getByLabelText("Link", { exact: true })).toHaveFocus();
+  expect(drafted("Note").query()).toBeNull();
+  expect(kept()).toHaveLength(before);
+
+  await userEvent.keyboard("https://example.invalid/legend");
+  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await pressBoard(2);
+  await expect.poll(() => kept().length).toBe(before + 1);
+  await expect.element(drafted("Note")).toBeVisible();
+  expect(drafted("Link").query()).toBeNull();
+});
+
 /**
  * The owner's note of 29 Sep 2026 (g0zl): *This approval box is so disconnected
  * from the node … I could see exactly where this note is going to be added on
@@ -447,7 +677,8 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await asked("Write up").click();
   await expect.element(node(/^Issue draft: Counts go stale after what they count changes/)).toBeVisible();
 
-  // Edited before it is sent: what is dispatched is what the person left.
+  // Edited before it is sent: what is dispatched is what the person left. The
+  // draft lands hanging off the board's right edge, and picking it pans it in.
   await pick(/^Issue draft: Counts go stale after what they count changes/);
   await act("Edit draft");
   await page.getByRole("textbox", { name: "Body" }).fill("Both counts are read off a row that is stale.");
@@ -521,7 +752,9 @@ test("a pasted address is asked about, takes a line of its own, and keeps it acr
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
 
+  // `V` arms a Link and a press on the board puts it down.
   await userEvent.keyboard("V");
+  await pressBoard(0);
   // Nothing is offered until there is an address to offer it about.
   expect(page.getByLabelText("Your line", { exact: true }).query()).toBeNull();
   await userEvent.fill(page.getByLabelText("Link", { exact: true }), PASTED);
@@ -571,7 +804,7 @@ test("an issue is read in and an epic fills the board, with each address node le
   await pick(/^Issue: Read a source a person already has/);
   await act("Read in");
   await asked("Read in").click();
-  await expect.element(node(/^Finding: Read in https:\/\/example\.invalid\/o\/r\/issues\/1293, frozen/)).toBeVisible();
+  await expect.element(node(/^Finding: Read in https:\/\/example\.invalid\/o\/r\/issues\/1293$/)).toBeVisible();
   await expect.element(node(/^Note: The issue wants Links read in/)).toBeVisible();
   await expect.element(node(/^Contradiction: The issue says Connections have no home yet/)).toBeVisible();
 
@@ -829,8 +1062,9 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   await pickEvery();
   // Counted, never named, and the single-node act is not what is offered here.
   await expect.element(offered("Delete 18 nodes")).toBeVisible();
-
-  await offered("Delete 18 nodes").click();
+  // Picked whole, a fitted board leaves no room above the nodes or below them,
+  // and the bar sat past the bottom edge until it learned to sit over them.
+  await act("Delete 18 nodes");
   const confirm = page.getByRole("dialog");
   await entered(confirm);
   await expect.element(page.getByRole("button", { name: "Cancel" })).toHaveFocus();

@@ -18,6 +18,8 @@ import type { JobRequest, ProposedPlan } from "@armada/protocol";
 import {
   FLEET_FAULT,
   NO_WORKFLOW_FITS,
+  PROPOSER_MODEL_NOT_HELD,
+  PROPOSER_STOPPED,
   PROPOSER_UNREACHABLE,
   PROPOSER_UNREADABLE,
 } from "@armada/protocol";
@@ -155,6 +157,19 @@ function notProposed(request: string, outcome: Outcome): Proposed {
   switch (outcome.error.code) {
     case NO_WORKFLOW_FITS:
       return { ok: false, why: "unresolved", request: carried, outcome };
+    // A model this machine does not run. Its own arm because the advice is
+    // the opposite of the one above: nothing a person typed was wrong, so
+    // rephrasing is the one thing that cannot help. A refusal with no arm
+    // falls through to `refused` and a bare notice, which is what
+    // `fleet.proposer_stopped` already got its own arm to avoid.
+    case PROPOSER_MODEL_NOT_HELD:
+      return { ok: false, why: "model_unavailable", request: carried, outcome };
+    // A person pressed the stop this window offered them. Its own arm because
+    // it is not a failure: falling through to `refused` drew it as a red
+    // failure notice on whatever surface was up, which is exactly what
+    // `refusing.rs` gives the code its own name to prevent.
+    case PROPOSER_STOPPED:
+      return { ok: false, why: "stopped", request: carried, outcome };
     case PROPOSER_UNREACHABLE:
     // The proposer answered twice and neither reply read — still not the
     // caller's doing, and still reasonable to ask again.

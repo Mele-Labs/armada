@@ -88,9 +88,12 @@ fn land_verb(act: LandAct) -> ExitCode {
         LandAct::Preflight => match land::preflight(&cwd, &env) {
             Ok(done) => {
                 println!(
-                    "ready: {}, pull request #{}, tree {}",
+                    "ready: {}, {}, tree {}",
                     done.branch,
-                    done.pull_request,
+                    done.pull_request
+                        .map_or("no pull request".to_string(), |pr| format!(
+                            "pull request #{pr}"
+                        )),
                     short(&done.tree)
                 );
                 let checks = if done.checks.is_empty() {
@@ -98,20 +101,18 @@ fn land_verb(act: LandAct) -> ExitCode {
                 } else {
                     done.checks.join(", ")
                 };
-                println!(
-                    "Checks this change hits: {checks}. Each should have passed on this tree."
-                );
-                println!("When the owner says merge: armada land");
+                println!("Checks this change hits: {checks}. The line runs each of them.");
+                println!("Once the self-check passes: armada land");
                 ExitCode::SUCCESS
             }
             Err(why) => refused(&why),
         },
         LandAct::Join => match land::land(&cwd, &env) {
             Ok(queued) => {
-                println!(
-                    "queued: {}, #{}, {} ahead",
-                    queued.branch, queued.pull_request, queued.ahead
-                );
+                let pr = queued
+                    .pull_request
+                    .map_or(String::new(), |pr| format!(", #{pr}"));
+                println!("queued: {}{pr}, {} ahead", queued.branch, queued.ahead);
                 println!("poll: armada land --status {}", queued.branch);
                 ExitCode::SUCCESS
             }

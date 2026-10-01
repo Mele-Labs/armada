@@ -190,10 +190,13 @@ owner's own `com.armada.fleet`.
 ## A Fleet of your own
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
-has its own home, its own store, a local clone of this repository with the Fleet
-data copied in, and a Drone that exits at once — so a Job it dispatches
-escalates rather than doing work or spending anything. Add `--copy-store` to
-start it on a copy of your Jobs; leave it off for an empty store.
+has its own home, its own store, a local clone of this repository with
+`.armada/workflows/` copied in, and a Drone that exits at once — so a Job it
+dispatches escalates rather than doing work or spending anything. Add
+`--copy-store` to start it on a copy of your Jobs and the records each one is
+read from — transcripts, logs, briefs, Check output, attachments; leave it off
+for an empty store. Nothing else under `.armada/` is copied: the rest is build
+caches and Job checkouts, hundreds of gigabytes.
 
 **Reach for it when you want a Job as Fleet serves it, without your Fleet** — to
 record one for the mock with `scripts/record-job.mjs`, or to point a surface at a
@@ -206,8 +209,8 @@ needs `sqlite3`, which macOS ships. **It prints what `armada serve` prints**,
 because it ends by running it, and the port is also in
 `<scratch-dir>/home/user/Library/Application Support/Armada/fleet.json`. It refuses a
 scratch directory inside the repository and answers a second start with the pid
-already running. Stop it the way you stop Fleet, then delete the directory — it
-holds a copy of your transcripts.
+already running. Stop it the way you stop Fleet, then delete the directory — with
+`--copy-store` it holds a copy of your transcripts.
 
 ## Recording a Job for the mock
 
@@ -250,15 +253,17 @@ for. It needs `pnpm install` and nothing else, and it opens the page itself.
 Vite prints the address and reloads the page as you edit. Ctrl-C stops it, and
 nothing is left running or written.
 
-**`?scenario=<name>` picks what the window shows**, and the picker in the
-bottom-right corner switches by reloading onto another. An unknown name falls
+**`?scenario=<name>` picks what the window shows**, and the picker at the foot
+of the left column switches by reloading onto another. An unknown name falls
 back to the first scenario and says so in the browser console.
 
-**The picker moves, so it never sits over the thing you are reading.** Drag it
-by its own name, or focus that and use the arrow keys; *Minimize* leaves a strip
-that still says which scenario is on. Where it was left and whether it was
-minimized both survive the reload choosing a scenario causes, and Home on the
-grip puts it back in the corner.
+**The picker is in the left column, so it never sits over the thing you are
+reading.** It rests as one control saying which scenario is on — a glyph alone
+where the column is at its rail, with the scenario in its tooltip. Pressing it
+opens the list over the content, and only then: type to narrow it, which is a
+fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
+what is left, Enter takes the top row and Esc gives up. Every row is a link to
+this page on `?scenario=`, which is the reload that puts the window on it.
 
 | Scenario | What the window holds |
 |---|---|
@@ -581,39 +586,45 @@ already a file read away.
 ## Landing a branch
 
 ```sh
-scripts/land preflight              # once the branch's Checks have passed
-scripts/land                        # once the owner has said merge
+scripts/land preflight              # once the branch's self-check has passed
+scripts/land                        # straight after, without waiting to be told
 scripts/land --status [<branch>]    # poll, in short foreground calls
 ```
 
-**It merges your branch's pull request to `main`, in turn with every other
-branch landing from this clone.** Every turn runs `cargo xtask verify-foundations`
-against the commit being merged and reads it as a delta against `main`'s own run.
-Where `main` moved since your branch was cut or caught up, it also merges `main`
-in and reruns every Check whose `when:` matches what landed on `main` or what
-your branch changed. The design is
+**It merges your branch to `main` and pushes `main` itself, in turn with every
+other branch landing from this clone.** Every turn runs `cargo xtask verify-foundations`
+against the commit being merged and reads it as a delta against `main`'s own run,
+and runs every Check whose `when:` matches what your branch changed. Where `main`
+moved since your branch was cut or caught up, it merges `main` in first and adds
+every Check what landed on `main` hits. The design is
 [Merge line](../capabilities/merge-line.md).
 
 | `main` has | What the turn runs |
 |---|---|
-| Not moved | The gate, and no Check — seconds |
-| Moved | The gate, and every Check either side hits — minutes |
+| Not moved | The gate, and every Check the branch hits |
+| Moved | The gate, and every Check either side hits |
 
-**The split is what each one reads.** The gate reads the tree, and a branch that
-breaks it takes the line down for everybody behind it, so it runs whatever `main`
-did. A Check reads the combination, and there is no combination until the base
-has moved — your own step 4 run is what the branch stands on until then.
+**Your step 4 self-check is not the full run; this is.** A Check that fails here
+is asked of `main` too, so only a red `main` lacks is the branch's.
 
-**When you run it:** from the branch's own worktree, after your Checks passed and
-the owner said merge. `gh pr merge` and a push to `main` are refused by
+**When you run it:** from the branch's own worktree, as soon as the work is
+committed and its quick self-check passed (`work-issue` step 4). Nobody approves
+it first: the line is the guard, and the owner reads what landed afterwards.
+`gh pr merge` and a push to `main` are refused by
 `.claude/hooks/guard_merge.py`, which names this command instead — they land a
-combination nothing checked. `armada check hooks_test` proves the hook, and
-needs nothing built.
+combination nothing checked. The line's own push of `main` is made by its
+runner, outside the Bash tool, so the hook never sees it. `armada check
+hooks_test` proves the hook, and needs nothing built.
 
-**What it needs:** a clean tree, the branch pushed, an open pull request against
-`main`, `gh` signed in, and an `armada` on `PATH` that knows the `land` verb —
-`scripts/land` is a shim that execs into `armada land`. `ARMADA_LAND_ARMADA`
-is the one knob for which `armada` that is, read both for this and for what a
+**What it needs:** a clean tree with commits ahead of `main`, push access to
+`origin`, and an `armada` on `PATH` that knows the `land` verb — `scripts/land`
+is a shim that execs into `armada land`. The branch need not be pushed and
+needs no pull request: the runner reads it from this clone. Where a pull request
+is open for it, the push of `main` closes it as merged on GitHub; if GitHub has
+not read it so within 30 seconds (`ARMADA_LAND_PR_WAIT`), the line closes it with
+a comment naming the merge. A remote branch whose head landed is deleted; one
+holding commits that did not land is kept, and so is its pull request.
+`ARMADA_LAND_ARMADA` is the one knob for which `armada` that is, read both for this and for what a
 *gated turn* shells out to for `covers`, `check` and `run`; unset, both
 default to `PATH`. Give it an **absolute** path when you set it — the gate
 runs in a worktree of its own, so a relative one is refused.
@@ -645,11 +656,10 @@ saying the branch is in line.
 | Exit | Outcome | What to do |
 |---|---|---|
 | 0 | Landed, queued, or ready | Landed: remove your worktree with the printed commands |
-| 1 | Refused before joining | Read the line; usually commit, push or preflight |
+| 1 | Refused before joining | Read the line; usually commit or preflight |
 | 3 | Still in line | Poll again |
 | 4 | Red | Read the named logs; fix on your branch, then preflight and land |
-| 5 | Conflict | Merge `origin/main` in, commit, push, preflight and land |
-| 6 | Ungated | Landed, but `main` moved in the last instant; tell the owner |
+| 5 | Conflict | Merge `origin/main` in, commit, preflight and land |
 | 7 | Stopped | Read the reason; nothing was merged unless it says so. A Check naming a command this machine does not have lands here, not in red |
 | 8 | Nothing known | This branch has never been queued from this clone |
 
@@ -665,13 +675,29 @@ does not print. Red already on
 new one. A red and a conflict both keep their place, so a branch that comes back
 is served where it was.
 
-**A turn that stopped may already have pushed its merge of `main` onto your
-branch.** `preflight` then tells you to take it with `git fetch` and
-`git reset --hard`; never force-push over it.
+**Nothing is pushed onto your branch.** What the turn adds, `main` merged in
+and any regenerated file, goes into the merge on `main` and nowhere else, so
+your branch is never ahead of your worktree. Each merge on `main` is a `--no-ff`
+merge commit carrying a `Landed-from: <branch>` trailer, and names the pull
+request where there is one.
+
+**A push of `main` that is not a fast-forward means `main` moved** while the
+turn ran. The turn gates again against the new `main`, up to five times, so
+nothing reaches `main` that was not gated against it.
+
+**A turn takes up to four branches in line and gates them together**
+(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red, or
+two of them that clash, splits the batch until each is alone, so a red you are
+told about is your branch's own. While yours is gating, `--status` ends its line
+with the branches it is gating together with.
 
 **A conflict in a generated file is not one.** A file whose head says
 `GENERATED by` is rebuilt with the command it names, such as
 `cargo xtask verify-docs --write` for `docs/OPEN.md`.
+
+**Nor is a stale one.** Every turn reruns `verify-docs --write` and
+`verify-tokens --write` on the candidate before the gate, and commits what they
+change into what lands.
 
 **What gates the line itself:** `armada check scripts_test` runs
 `scripts/test_land.py` against a throwaway repository with a stub `gh` and

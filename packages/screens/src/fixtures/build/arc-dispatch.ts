@@ -15,7 +15,7 @@ import { lightFixture } from "./light";
 import type { BranchesAnswer, LandingRule, ProposalView, SketchAttachment } from "../../draft";
 import type { JobFixture } from "../fixture";
 
-const PROMPT =
+export const PROMPT =
   "The rail says Drones 1 of 2 and nothing says what the 2 is. Make the stat say what is " +
   "running, and let a press on it list the Drone, its Job and its step.";
 
@@ -154,6 +154,7 @@ function sketch(): SketchAttachment {
           ],
         },
       ],
+      pictures: [],
     },
   };
 }

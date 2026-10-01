@@ -19,7 +19,9 @@ use super::outcome::Place;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueueEntry {
     pub branch: String,
-    pub pr: u64,
+    /// The open pull request for the branch, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr: Option<u64>,
     pub head: String,
     pub tree: String,
     pub place: Place,

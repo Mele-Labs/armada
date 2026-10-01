@@ -9,10 +9,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LeftOutWorkflow, ManifestReading, ManifestSummary, RepositorySummary } from "@armada/protocol";
 import { Button, Dialog, KbdBinding } from "@armada/components";
-import { AskRepository, DispatchJob, watchOf } from "@armada/screens";
+import { AskRepository, DispatchJob } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
 import { dispatchSettingsOf } from "@armada/screens/src/draft/dispatch";
+import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { landingRuleOf } from "@armada/screens/src/draft/landing";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -64,18 +65,17 @@ const UNREAD: { leftOut: readonly LeftOutWorkflow[]; reading: ManifestReading | 
 export function Composing({
   state,
   commands,
-  now,
   live,
   all,
   repositories,
   scoped,
-  onOpen,
   onClose,
+  onSaid,
   onCopied,
+  sketch,
 }: {
   state: BridgeState;
   commands: ReturnType<typeof useCommands>;
-  now: number;
   live: boolean;
   /** On All repositories, so no Manifest is picked for the Job to belong to. */
   all: boolean;
@@ -89,9 +89,16 @@ export function Composing({
    * scope — still passes it.
    */
   onPick: (root: string) => void;
-  onOpen: (jobId: string) => void;
   onClose: () => void;
+  /**
+   * Tell somebody something the press produced. **One sentence, and only for
+   * Fleet declining to find a workflow** — nothing else a dispatch answers is
+   * news, and a failure goes to the app's own pipeline rather than here.
+   */
+  onSaid: (said: string) => void;
   onCopied: (value: string) => void;
+  /** A Studio Sketch's drawing, dispatched from its node — 1 Oct 2026. Absent is a blank pad. */
+  sketch?: SketchOpening | undefined;
 }) {
   // The repository the ask answered, held apart from the rail's pick so
   // answering it never narrows the Board — #959. `null` until answered; this
@@ -174,21 +181,21 @@ export function Composing({
           existed. */}
       <Boundary region="the job composer" {...guarded}>
       <DispatchJob
-        // What the reading is read against is published state, so it is
-        // handed over at the press rather than held by the command. On All,
-        // the request names the answered repository rather than the pick,
-        // which #959 keeps on All — `null` off All, where it already did.
-        onPropose={(request, attachments) =>
-          commands.proposeFrom(
-            request,
-            attachments,
-            {
-              workflows: state.holds.workflows,
-              bridge: state.bridge,
-            },
-            all ? answered : null,
-          )
-        }
+        // **The press leaves.** A dispatched request is a Job from the press —
+        // `job-statuses.toml`, `proposing` — so the composer closes and the
+        // row on the Board is what he comes back to: he sends several and
+        // walks away. Nothing here opens the new Job either.
+        //
+        // On All, the request names the answered repository rather than the
+        // pick, which #959 keeps on All — `null` off All, where it already did.
+        onPropose={(request, attachments) => {
+          onClose();
+          void commands
+            .proposeFrom(request, attachments, all ? answered : null)
+            .then((told) => {
+              if (told !== null) onSaid(told);
+            });
+        }}
         onStage={stageAttachment}
         onSearchFiles={searchFiles}
         {...(manifest === undefined ? {} : { repository: manifest.repository })}
@@ -216,33 +223,13 @@ export function Composing({
           ? {}
           : { settings: dispatchSettingsOf(drafted.proposal) })}
         {...(drafted.prompt === undefined ? {} : { opensOn: drafted.prompt })}
-        {...(drafted.sketch === undefined ? {} : { sketch: drafted.sketch })}
+        {...((sketch ?? drafted.sketch) === undefined ? {} : { sketch: sketch ?? drafted.sketch })}
         // On the head of each card this surface draws, since each is its own
         // way out of the same composer.
         close={<WayOut ground="card" onClose={leave} />}
         // What the request field and its attachments would lose.
         onTyped={setTyped}
-        // What Fleet says the call is doing, against the same `now`
-        // every other elapsed figure on screen is drawn from.
-        watching={watchOf(state.proposing, now)}
-        onStop={() => void commands.stopProposal()}
-        // A proposed Job is opened where somebody wants to read it
-        // first, which is the same signpost the Board's own
-        // `awaiting_approval` row carries.
-        onOpen={(jobId) => {
-          onClose();
-          onOpen(jobId);
-        }}
-        // And released without leaving, on the head of the proposal.
-        // The same command the detail's own gate calls, so a second
-        // approval is refused by the one guard rather than by two.
-        onApprove={(jobId) => void commands.approve(jobId)}
-        approving={state.approving}
-        // What the board says each proposed Job is at now. The fold
-        // `approveDispatch` does is what moves the row off its gate.
-        statusOf={(jobId) => state.jobs.find((job) => job.id === jobId)?.status}
         disabled={!live}
-        onCopied={onCopied}
       />
       </Boundary>
       {/* The ask, and only where something would be lost. Every destructive

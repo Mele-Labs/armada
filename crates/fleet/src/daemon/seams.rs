@@ -281,6 +281,9 @@ where
                 // Judge and a proposer call carry neither.
                 &[],
             )?,
+            // The same list `list_models` serves, so what the proposer may pick
+            // and what a picker offers cannot disagree.
+            choices: self.models.models.clone(),
         })
     }
 
@@ -540,6 +543,9 @@ where
     }
     pub(crate) fn servers(&self) -> &crate::servers::Servers {
         &self.servers
+    }
+    pub(crate) fn sizes(&self) -> &crate::resources::Sizes {
+        &self.sizes
     }
     pub(crate) fn noticing(&self) -> Noticing {
         self.noticing

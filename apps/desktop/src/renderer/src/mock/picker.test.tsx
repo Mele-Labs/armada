@@ -1,255 +1,175 @@
 // The mock's own scenario picker, through `mountPicker` — the mount the page
-// uses, so what is asserted here is the card the owner drags.
+// uses, so what is asserted here is the control the owner presses.
 //
-// **The picker is not part of the app**, so nothing in `testing.ts` reaches it:
-// `mount` puts up `App` and the picker is a second root beside it on the page.
+// **The picker is not part of the app**, but it is drawn inside it: its root
+// is a second one beside the app's, and what it renders goes into the app's
+// own left column through a portal. So a test here puts up both.
+//
+// The owner, 30 Sep 2026: *"I still would like to find a better way to overlay
+// the mock scenarios. What if we put it in the left side panel? Also I would
+// love other be able to fuzzy search the scenario so I can quickly select
+// one."*
 
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import "../styles/index.css";
 import { mountPicker } from "./Picker";
-import { clampSpot, forgetSpot, writeCollapsed, writeSpot } from "./picker-place";
+import { mountApp } from "./mount";
+import { SCENARIOS } from "./scenario";
+import { mount, onScreen, unmountAfterEach } from "./testing";
+
+unmountAfterEach();
 
 const SCENARIO = "arc/executing-concurrent";
 
-/** One `--space-4`, the step the grip takes per arrow press. */
-const STEP = 16;
-
-let unmount: (() => void) | null = null;
+let takePicker: (() => void) | null = null;
 let host: HTMLElement | null = null;
+let stopIntercepting: (() => void) | null = null;
 
-/** The picker on a page of its own, as `main.tsx` mounts it beside the app. */
-function show(): void {
+afterEach(() => {
+  takePicker?.();
+  host?.remove();
+  stopIntercepting?.();
+  takePicker = null;
+  host = null;
+  stopIntercepting = null;
+});
+
+/** The app up, and the picker mounted beside it as `main.tsx` mounts the pair. */
+async function show(): Promise<void> {
+  mount("every-state");
+  await onScreen();
   host = document.createElement("div");
   host.id = "picker";
   document.body.append(host);
-  unmount = mountPicker(SCENARIO, host);
-}
-
-/** Down and up again, which is what a reload of the mock does to it. */
-function remount(): void {
-  take();
-  show();
-}
-
-function take(): void {
-  unmount?.();
-  host?.remove();
-  unmount = null;
-  host = null;
-}
-
-beforeEach(() => {
-  // Nothing remembered from the test before it, and nothing from the page.
-  forgetSpot();
-  writeCollapsed(false);
-});
-
-afterEach(() => {
-  take();
-  forgetSpot();
-  writeCollapsed(false);
-});
-
-// Not the whole name: each label carries the scenario on the end of it, since
-// the grip draws no text and the chip's own name has to say what pressing does.
-const grip = () => page.getByRole("button", { name: "Move the scenario picker" });
-const chip = () => page.getByRole("button", { name: "Expand the scenario picker" });
-
-/** The picker's own frame — the box that is moved, collapsed or not. */
-const pickerEl = (): HTMLElement => document.querySelector<HTMLElement>(".armada-mock-picker")!;
-const frame = (): DOMRect => pickerEl().getBoundingClientRect();
-
-/** A token's own value, in px — so a bound is the stylesheet's rather than a literal. */
-function token(name: string): number {
-  return Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  takePicker = mountPicker(SCENARIO, host);
+  await expect.element(said()).toBeVisible();
 }
 
 /**
- * Every leaf inside the picker whose whole text is `text`. Leaves, because an
- * ancestor contains what its child draws and would count it twice — and the
- * question is how many places say the scenario, not how deep they are nested.
+ * Where a press would have taken the page. **A row is a link**, so this is the
+ * navigation itself held back rather than a stand-in for it — `window.location`
+ * cannot be replaced in a browser, and a real reload would take the test runner
+ * with it.
  */
-function drawing(text: string): Element[] {
-  return [...pickerEl().querySelectorAll("*")].filter(
-    (one) => one.children.length === 0 && one.textContent?.trim() === text,
-  );
-}
-
-/**
- * One drag of the grip, in pointer events dispatched by hand — `sketch-pen.test.tsx`'s
- * reason: the browser helper drags between two locators, and where a card ends up
- * is a position rather than another element.
- */
-function dragBy(dx: number, dy: number, handle: Element = grip().element()): void {
-  const from = handle.getBoundingClientRect();
-  const x = from.left + from.width / 2;
-  const y = from.top + from.height / 2;
-  const event = (kind: string, atX: number, atY: number) =>
-    new PointerEvent(kind, { clientX: atX, clientY: atY, bubbles: true, button: 0, isPrimary: true });
-
-  handle.dispatchEvent(event("pointerdown", x, y));
-  for (const part of [0.25, 0.5, 0.75, 1]) {
-    handle.dispatchEvent(event("pointermove", x + dx * part, y + dy * part));
+function intercept(): string[] {
+  const went: string[] = [];
+  function held(event: MouseEvent): void {
+    const link = (event.target as Element | null)?.closest?.("a");
+    if (link === null || link === undefined) return;
+    event.preventDefault();
+    went.push(link.href);
   }
-  handle.dispatchEvent(event("pointerup", x + dx, y + dy));
+  document.addEventListener("click", held, true);
+  stopIntercepting = () => document.removeEventListener("click", held, true);
+  return went;
 }
 
-test("dragged by its grip, the picker stays where it was left — across the reload a scenario causes", async () => {
-  show();
-  await expect.element(grip()).toBeVisible();
-  const rested = frame();
+const said = () => page.getByRole("button", { name: `Mock scenario — ${SCENARIO}` });
+const field = () => page.getByRole("textbox", { name: "Find a scenario" });
+const rows = () => [...document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row")];
+const names = () => rows().map((row) => row.textContent ?? "");
 
-  // Polled, not read: a press dispatched by hand schedules React's commit
-  // rather than flushing it, so the box right after the lift is the old one.
-  dragBy(-500, -400);
-  await expect.poll(() => frame().left).toBeCloseTo(rested.left - 500, 0);
-  expect(frame().top).toBeCloseTo(rested.top - 400, 0);
-  const moved = frame();
+/** What the picker drew, so a claim about where it is can be made about the element itself. */
+const pickerEl = (): HTMLElement => document.querySelector<HTMLElement>(".armada-mock-picker")!;
 
-  // Choosing a scenario reloads the page, which is this: the card comes back
-  // where he put it rather than back in the corner.
-  remount();
-  await expect.element(grip()).toBeVisible();
-  expect(frame().left).toBeCloseTo(moved.left, 0);
-  expect(frame().top).toBeCloseTo(moved.top, 0);
+/** Typed into the field, replacing whatever was there. */
+async function find(query: string): Promise<void> {
+  await userEvent.fill(field().element() as HTMLInputElement, query);
+}
+
+test("the picker is in the app's left column, not over the content", async () => {
+  await show();
+
+  // Not a coordinate: being a child of the column is what makes it impossible
+  // for it to cover anything, and a box that happens to miss the content today
+  // would still be a layer over it.
+  expect(pickerEl().closest(".armada-shell__left")).not.toBeNull();
+  expect(document.getElementById("picker")?.children.length).toBe(0);
+  expect(getComputedStyle(pickerEl()).position).not.toBe("fixed");
 });
 
-test("the arrow keys move it too, so a drag is not the only way — and Home returns it to the corner", async () => {
-  show();
-  await expect.element(grip()).toBeVisible();
-  const rested = frame();
-
-  // Focused and pressed for real — the grip is a button, so a keyboard has it.
-  grip().element().focus();
-  expect(document.activeElement).toBe(grip().element());
-  await userEvent.keyboard("{ArrowUp}{ArrowLeft}");
-  await expect.poll(() => frame().top).toBeCloseTo(rested.top - STEP, 0);
-  expect(frame().left).toBeCloseTo(rested.left - STEP, 0);
-
-  // Home is the way back for a card left somewhere awkward, with no drag in it.
-  await userEvent.keyboard("{Home}");
-  await expect.poll(() => frame().left).toBeCloseTo(rested.left, 0);
-  expect(frame().top).toBeCloseTo(rested.top, 0);
+test("it says which scenario is on without being opened", async () => {
+  await show();
+  await expect.element(said()).toHaveTextContent(SCENARIO);
 });
 
-test("minimized, it still says which scenario is on, and one press brings the picker back", async () => {
-  show();
-  await expect.element(page.getByRole("combobox", { name: "Mock scenario" })).toBeVisible();
-  const open = frame();
+test("typing part of a name narrows to it", async () => {
+  await show();
+  await said().click();
+  await expect.element(field()).toBeVisible();
 
-  await page.getByRole("button", { name: "Minimize" }).click();
+  // Every scenario is listed before a word is typed — the list is the roster.
+  expect(rows().length).toBe(SCENARIOS.length);
 
-  // Small enough to ignore, and it never has to be opened to know where he is.
-  expect(page.getByRole("combobox", { name: "Mock scenario" }).query()).toBeNull();
-  await expect.element(chip()).toHaveTextContent(SCENARIO);
-  expect(frame().height).toBeLessThan(open.height);
-
-  // Collapsed across the reload too, and one press is the way back. The chip
-  // is waited on first: a select that has not drawn yet is absent for the
-  // wrong reason, and this assertion would pass on an empty page.
-  remount();
-  await expect.element(chip()).toHaveTextContent(SCENARIO);
-  expect(page.getByRole("combobox", { name: "Mock scenario" }).query()).toBeNull();
-
-  await chip().click();
-  await expect.element(page.getByRole("combobox", { name: "Mock scenario" })).toBeVisible();
+  await find("fleetnot");
+  expect(names().length).toBeLessThan(SCENARIOS.length);
+  expect(names()[0]).toBe("fleet-not-running");
 });
 
-test("a spot remembered outside this window comes back inside it, rather than trapping the card off screen", async () => {
-  // What a narrower window, or a wilder drag than this window allows, leaves
-  // behind. Written straight to storage: the clamp on the way out is what stops
-  // a drag reaching here, and this is the read-back half.
-  writeSpot({ x: 9000, y: 9000 });
-  show();
-  await expect.element(grip()).toBeVisible();
+test("every row is a line tall, however many there are", async () => {
+  await show();
+  await said().click();
+  await expect.element(field()).toBeVisible();
 
-  const at = frame();
-  expect(at.left).toBeGreaterThanOrEqual(0);
-  expect(at.top).toBeGreaterThanOrEqual(0);
-  expect(at.right).toBeLessThanOrEqual(window.innerWidth);
-  expect(at.bottom).toBeLessThanOrEqual(window.innerHeight);
-
-  // And the recovery is remembered, or the next reload reads 9000 back again.
-  remount();
-  await expect.element(grip()).toBeVisible();
-  expect(frame().left).toBeCloseTo(at.left, 0);
-
-  // A card wider or taller than its window has no spot inside both edges. It
-  // goes to the leading one, where the grip is, because that is the half that
-  // moves it again.
-  expect(clampSpot({ x: 500, y: 500 }, { width: 400, height: 300 }, { width: 200, height: 100 })).toEqual({
-    x: 0,
-    y: 0,
-  });
+  // 1 Oct 2026: the open list drew as one thin bar. Each row is a flex item
+  // with `overflow: hidden`, so the list shrank all of them to their padding.
+  const line = parseFloat(getComputedStyle(rows()[0]!).lineHeight);
+  for (const row of rows()) expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(line);
 });
 
-test("a drag cannot leave the card outside the window it was dragged in", async () => {
-  show();
-  await expect.element(grip()).toBeVisible();
+test("the search is fuzzy — the initials of a long name reach it", async () => {
+  await show();
+  await said().click();
 
-  dragBy(4000, 4000);
-  await expect.poll(() => frame().right).toBeCloseTo(window.innerWidth, 0);
-  expect(frame().bottom).toBeCloseTo(window.innerHeight, 0);
-
-  dragBy(-4000, -4000);
-  await expect.poll(() => frame().left).toBeCloseTo(0, 0);
-  expect(frame().top).toBeCloseTo(0, 0);
+  // Nothing in `arc/executing-concurrent` spells `arcex`; every letter of it
+  // is in that name in that order, which is the whole ask.
+  await find("arcex");
+  expect(names()).toContain(SCENARIO);
+  for (const one of names()) expect(one).toMatch(/a.*r.*c.*e.*x/);
 });
 
-test("expanded, one thing draws the scenario and it is the select — the grip does not repeat it", async () => {
-  show();
-  await expect.element(page.getByRole("combobox", { name: "Mock scenario" })).toBeVisible();
+test("choosing one mounts it — the reload `?scenario=` is read on", async () => {
+  await show();
+  const went = intercept();
 
-  const said = drawing(SCENARIO);
-  expect(said).toHaveLength(1);
-  expect(said[0]!.tagName).toBe("OPTION");
-  expect(said[0]!.closest("select")).toBe(page.getByRole("combobox", { name: "Mock scenario" }).element());
+  await said().click();
+  await find("fleetnot");
+  await page.getByRole("link", { name: "fleet-not-running" }).click();
+
+  expect(went).toHaveLength(1);
+  const asked = new URL(went[0]!).searchParams.get("scenario");
+  expect(asked).toBe("fleet-not-running");
+
+  // And the page that reload lands on is the app on that scenario — the other
+  // half of the claim, which a URL on its own does not make.
+  const host2 = document.createElement("div");
+  document.body.append(host2);
+  const app = mountApp(asked!, host2);
+  await app.onScreen;
+  await expect.element(page.getByText("Fleet is not running").first()).toBeVisible();
+  app.unmount();
+  host2.remove();
 });
 
-test("expanded, no label is drawn over the one control — the select's name is for a screen reader alone", async () => {
-  show();
-  const select = page.getByRole("combobox", { name: "Mock scenario" });
-  await expect.element(select).toBeVisible();
+test("Enter takes the top row, so a narrowed query is two keys", async () => {
+  await show();
+  const went = intercept();
 
-  // The name is still on it, which is the half that has to survive the deletion.
-  expect(select.element()).toHaveAccessibleName("Mock scenario");
-  expect(pickerEl().textContent).not.toContain("Mock scenario");
-  expect(page.getByText("Mock scenario").query()).toBeNull();
+  await said().click();
+  await find("fleetnot");
+  await userEvent.keyboard("{Enter}");
+
+  expect(new URL(went[0]!).searchParams.get("scenario")).toBe("fleet-not-running");
 });
 
-test("collapsed it draws the scenario and nothing else, and pressing the chip anywhere expands it", async () => {
-  writeCollapsed(true);
-  show();
-  await expect.element(chip()).toBeVisible();
+test("Esc gives it up, and the scenario is still readable", async () => {
+  await show();
+  await said().click();
+  await expect.element(field()).toBeVisible();
 
-  // No word beside the name: the chip is the control, so its label says the act.
-  expect(pickerEl().textContent).toBe(SCENARIO);
-  expect(page.getByText("Expand", { exact: true }).query()).toBeNull();
-  expect(chip().element()).toHaveAccessibleName(`Expand the scenario picker — ${SCENARIO}`);
-
-  // Anywhere: the leading edge, well away from the words at its centre.
-  const at = chip().element().getBoundingClientRect();
-  await chip().click({ position: { x: 2, y: Math.round(at.height / 2) } });
-  await expect.element(page.getByRole("combobox", { name: "Mock scenario" })).toBeVisible();
-});
-
-test("collapsed, the picker is one small control tall — a chip, not a card", async () => {
-  writeCollapsed(true);
-  show();
-  await expect.element(chip()).toBeVisible();
-
-  // The token, not a number: --h-control-sm is what `sm` on a button is.
-  expect(frame().height).toBeLessThanOrEqual(token("--h-control-sm"));
-  expect(frame().height).toBeGreaterThan(0);
-
-  // And it is still the grip, so a chip is not a card that stopped moving.
-  const rested = frame();
-  dragBy(-300, -200, chip().element());
-  await expect.poll(() => frame().left).toBeCloseTo(rested.left - 300, 0);
-  expect(frame().top).toBeCloseTo(rested.top - 200, 0);
-
-  // A drag is not a press: the chip is still collapsed after being moved.
-  expect(page.getByRole("combobox", { name: "Mock scenario" }).query()).toBeNull();
+  await userEvent.keyboard("{Escape}");
+  expect(field().query()).toBeNull();
+  await expect.element(said()).toHaveTextContent(SCENARIO);
 });

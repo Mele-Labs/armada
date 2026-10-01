@@ -52,6 +52,9 @@ flowchart LR
 
 **The kinds are `crates/core-model/domain/studio-kinds.toml`** — each with what it holds, the states it may take, whether it draws in Job colours, whether a person adds one by hand and whether it offers Dispatch. The rules below are what the gate holds that file and its three readers to.
 
+> **Rule.** No node is frozen. A Finding whose scout has ended holds no state, and says how it ended; an Outline stays a draft.
+> Why: *frozen*, done changing, gated nothing, and the owner cut it: *"I hate this frozen shit. Its overcomplicating it."* A Finding cannot stay *gathering*, because that says a scout still reads. `.claude/decisions/2026-10-01-no-studio-node-is-frozen.md`.
+
 > **Rule.** Run and Job nodes are the only nodes that take status colour, and each Run state aliases a Job status in `packages/tokens/src/status.css`.
 > Why: a run reads the same on a Studio, on the Manifest surface and on a Job's run sheet. See [Run and edit a Manifest](../journeys/run-and-edit-a-manifest.md).
 
@@ -98,8 +101,20 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A person adds a Note, an address and a Sketch by hand, and no other kind. Every other kind is made by the act that earns it.
-> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364.
+> **Rule.** A person adds a Note, an address, a Sketch, a File and a Picture by hand, and no other kind. Every other kind is made by the act that earns it.
+> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026.
+
+> **Rule.** A Picture is a picture and nothing else. It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
+> Why: a screenshot pasted onto the board has no words, and a Note is never wordless. The owner chose a kind of its own over a Note made to carry it. `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
+
+> **Rule.** A Sketch is the dispatch composer's pad, kept on the Studio: boxes, the joins between them, lines drawn by hand and pasted pictures. Placing one from the rail, or opening one, opens the pad over the board, and closing the pad keeps the whole drawing. Each pasted picture is a frame Fleet names and keeps as a Picture's is, and goes with the Sketch.
+> Why: the owner asked why the two were different things, and chose to make them one; a Sketch was text only because of the rule against pictures on a Studio, which he had already cut. A Sketch written as text before became one box holding its words. `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
+
+> **Rule.** A Sketch dispatches through the composer, never through the dispatch gate. Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio until a Job comes of it.
+> Why: a drawing is not a request — the composer is where a person says what the picture is for — and the registry's `dispatch` rung, which writes a Job node, stays the Issue draft's and the three forge kinds'.
+
+> **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
+> Why: the path is what the person meant to point at, and a File that rewrote it, or refused one not yet on disk, would be Fleet deciding what they meant. Decided with the owner, 1 Oct 2026.
 
 > **Rule.** An address is pasted, and never named as a kind. What arrives is an address; what it becomes is the adapter's answer.
 > Why: nobody may say *this is an Issue* — the address earns the kind or it does not. See #1394.
@@ -122,8 +137,11 @@ flowchart LR
 > **Rule.** A node with an address never stops being its address. Whatever is typed beside it is additional, and one with no line is drawn by its address.
 > Why: the address is what a scout reads in. See #1378.
 
-> **Rule.** Pasting an address offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
+> **Rule.** Pasting an address into a Link's field offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
 > Why: a node that appears and offers nothing is the surface saying the person's paste did not matter.
+
+> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Picture, and other text is a Note. It lands under the pointer, or in the middle of the view where the pointer is off the board. A paste into a field is that field's.
+> Why: the owner asked to paste whatever is on his clipboard, and a field opening first is the panel he had just asked to be rid of. A file copied in Finder is a File, since what Chromium is handed beside it is its icon. Decided with him, 1 Oct 2026; `.claude/decisions/2026-10-01-a-paste-lands-at-once.md`.
 
 > **Rule.** A node lands where the person is looking, not at the origin.
 > Why: a Studio is laid out by hand, and a node placed off-screen is a node a person has to go and find.

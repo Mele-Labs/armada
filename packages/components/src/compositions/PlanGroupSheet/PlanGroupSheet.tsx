@@ -6,6 +6,7 @@ import { keyFor } from "../../actions";
 import {
   PlanGroupBody,
   PlanGroupShape,
+  PlanGroupStateWord,
   usePlanMover,
   type PlanBoardAdd,
   type PlanBoardGroup,
@@ -92,9 +93,7 @@ export function PlanGroupSheet({
               </span>
             </Tooltip>
           )}
-          <span className="armada-plan-board__state" data-state={group.state}>
-            {group.says}
-          </span>
+          <PlanGroupStateWord state={group.state} says={group.says} />
         </span>
       }
       controls={

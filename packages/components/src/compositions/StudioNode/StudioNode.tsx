@@ -1,7 +1,10 @@
+import type { ReactNode } from "react";
+
 import { Badge } from "../../primitives/Badge/Badge";
 import { Card } from "../../primitives/Card/Card";
 import { JOB_STATUS, type Rendering } from "../../generated/vocabulary";
 import { FactChip } from "../FactChip/FactChip";
+import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchPreview";
 
 /**
  * Studio node — one node on a Studio's whiteboard, of any kind on
@@ -30,7 +33,7 @@ import { FactChip } from "../FactChip/FactChip";
  */
 export type StudioRunState = "running" | "starting" | "serving" | "passed" | "failed" | "stopped";
 
-export type StudioFindingState = "proposed" | "gathering" | "frozen";
+export type StudioFindingState = "proposed" | "gathering";
 export type StudioContradictionState =
   | "reported"
   | "issue_draft"
@@ -38,7 +41,7 @@ export type StudioContradictionState =
   | "not_a_problem"
   | "resolved_here";
 export type StudioDeferralState = "open" | "answered";
-export type StudioOutlineState = "draft" | "frozen";
+export type StudioOutlineState = "draft";
 
 /**
  * The picture a Note kept, as the caller resolved it — #1352.
@@ -65,15 +68,24 @@ export type StudioNodeOf =
   | { kind: "run"; state?: StudioRunState }
   | { kind: "note"; frame?: StudioNodeFrame }
   | { kind: "cluster" }
-  | { kind: "finding"; state: StudioFindingState }
+  /** `state` absent: its scout ended, and how is one of its facts. Never `frozen` (1 Oct 2026). */
+  | { kind: "finding"; state?: StudioFindingState }
   | { kind: "contradiction"; state: StudioContradictionState }
-  | { kind: "sketch"; state: "frozen" }
+  /**
+   * The pad's drawing, drawn read-only in the card's picture plate — the
+   * owner's call of 1 Oct 2026. No words of its own, so no title is drawn.
+   */
+  | { kind: "sketch"; drawing: StudioNodeDrawing }
   /**
    * A Link keeps its address, whatever is typed beside it — `#1378`. The
    * card's title is the person's own line, and this is drawn under it; where
    * they typed none the title *is* the address, and it is not said twice.
    */
   | { kind: "link"; address: string }
+  /** A path a person pasted, kept as pasted. The card's title is the path. */
+  | { kind: "file"; path: string }
+  /** A picture pasted onto the board, and nothing else: no words, so no title is drawn. */
+  | { kind: "picture"; frame: StudioNodeFrame }
   /**
    * The three kinds a forge address makes — `#1394`. Each draws its address
    * the way a Link does; what it holds besides is a fact, not a sentence.
@@ -92,6 +104,9 @@ export type StudioNodeOf =
   | { kind: "job"; state?: string };
 
 export type StudioNodeKind = StudioNodeOf["kind"];
+
+/** A Sketch's drawing, as the card draws it. Its pictures' `src` is the caller's, as a frame's is. */
+export type StudioNodeDrawing = Omit<SketchPreviewProps, "label">;
 
 export type StudioNodeProps = StudioNodeOf & {
   title: string;
@@ -114,6 +129,8 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
   contradiction: "Contradiction",
   sketch: "Sketch",
   link: "Link",
+  file: "File",
+  picture: "Picture",
   issue: "Issue",
   pull_request: "Pull request",
   epic: "Epic",
@@ -127,7 +144,6 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
 const NEUTRAL_STATE: Readonly<Record<string, string>> = {
   proposed: "proposed",
   gathering: "gathering",
-  frozen: "frozen",
   reported: "reported",
   issue_draft: "issue draft",
   deferral: "deferral",
@@ -183,7 +199,7 @@ export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
     const working = node.state === "running" || node.state === "starting" || node.state === "serving";
     return { words: node.state, status: null, run: node.state, missing: null, working };
   }
-  if (!("state" in node)) return { words: null, status: null, run: null, missing: null, working: false };
+  if (!("state" in node) || node.state === undefined) return { words: null, status: null, run: null, missing: null, working: false };
   return {
     words: NEUTRAL_STATE[node.state] ?? node.state,
     status: null,
@@ -196,12 +212,19 @@ export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
 /** The node's accessible name: kind, title, then state. */
 export function studioNodeLabel(node: StudioNodeOf & { title: string }): string {
   const { words } = studioNodeReading(node);
-  const head = `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
+  // A Picture has no words, and is named by its kind alone.
+  const head = node.title === "" ? STUDIO_NODE_KIND[node.kind] : `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
   return words === null ? head : `${head}, ${words}`;
 }
 
 /** What a frame is called where it is read aloud. The Note's own words are already above it. */
 export const STUDIO_FRAME_LABEL = "The screen this Note was captured from";
+
+/** What a Picture's image is called where it is read aloud. */
+export const STUDIO_PICTURE_LABEL = "The picture pasted onto this Studio";
+
+/** What a Sketch's drawing is called where it is read aloud. */
+export const STUDIO_SKETCH_LABEL = "The sketch drawn on this Studio";
 
 /**
  * The picture on the card: what was on screen when the Note was made.
@@ -214,7 +237,7 @@ export const STUDIO_FRAME_LABEL = "The screen this Note was captured from";
  * board does not jump as the pictures arrive — `FramesShown`'s rule, and the
  * same reason: a reflow is how a person loses the node they were reading.
  */
-function Frame({ frame }: { frame: StudioNodeFrame }) {
+function Frame({ frame, alt }: { frame: StudioNodeFrame; alt: string }) {
   if (frame.src === undefined) {
     return (
       <span className="armada-studio-node__frame" data-empty>
@@ -227,7 +250,7 @@ function Frame({ frame }: { frame: StudioNodeFrame }) {
   }
   return (
     <span className="armada-studio-node__frame">
-      <img className="armada-studio-node__image" src={frame.src} alt={STUDIO_FRAME_LABEL} />
+      <img className="armada-studio-node__image" src={frame.src} alt={alt} />
     </span>
   );
 }
@@ -241,6 +264,8 @@ export function StudioNode(props: StudioNodeProps) {
   // on: an address wrapped over three lines is what the node was before.
   const address = "address" in props ? props.address : null;
   const untitled = address !== null && address === title;
+  // A long path is cut in its middle, so the whole of it is in the title.
+  const whole = untitled ? title : props.kind === "file" ? props.path : undefined;
   return (
     <Card
       // A card on the canvas is glass. `docs/contracts/design-system.md`, Depth.
@@ -268,21 +293,40 @@ export function StudioNode(props: StudioNodeProps) {
       </div>
       {/* One box for what the card says, sized by the kind rather than by the
           words — see `StudioNode.css`. */}
-      <div className="armada-studio-node__said">
-        <p
-          className="armada-studio-node__title"
-          data-clipped={untitled || undefined}
-          title={untitled ? title : undefined}
-        >
-          {title}
-        </p>
-        {address === null || untitled ? null : (
-          <p className="armada-studio-node__address" title={address}>
-            {address}
+      {/* A Picture and a Sketch say nothing in words of their own, so neither
+          has a box for words — default to no text. */}
+      {props.kind === "picture" || props.kind === "sketch" ? null : (
+        <div className="armada-studio-node__said">
+          <p
+            className="armada-studio-node__title"
+            data-clipped={untitled || undefined}
+            title={whole}
+          >
+            {props.kind === "file" ? (
+              // The file name never gives way: a long path is cut in its
+              // middle, `crates/…/briefing.rs` — the owner's call, 1 Oct 2026.
+              <>
+                <span className="armada-studio-node__path-head">{title.slice(0, Math.max(0, title.lastIndexOf("/")))}</span>
+                <span className="armada-studio-node__path-tail">{title.slice(Math.max(0, title.lastIndexOf("/")))}</span>
+              </>
+            ) : (
+              title
+            )}
           </p>
-        )}
-      </div>
-      {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} />}
+          {address === null || untitled ? null : (
+            <p className="armada-studio-node__address" title={address}>
+              {address}
+            </p>
+          )}
+        </div>
+      )}
+      {props.kind === "picture" ? <Frame frame={props.frame} alt={STUDIO_PICTURE_LABEL} /> : null}
+      {props.kind === "sketch" ? (
+        <span className="armada-studio-node__frame">
+          <SketchPreview label={STUDIO_SKETCH_LABEL} {...props.drawing} />
+        </span>
+      ) : null}
+      {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} alt={STUDIO_FRAME_LABEL} />}
       {facts.length === 0 ? null : (
         <ul className="armada-studio-node__facts">
           {facts.map((fact) => (
@@ -292,6 +336,44 @@ export function StudioNode(props: StudioNodeProps) {
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+export type StudioNodeDraftProps = {
+  kind: StudioNodeKind;
+  /** The field a person is typing into. The caller's, so its keys and its offer stay one thing. */
+  children: ReactNode;
+  /** Out to Fleet: the card says it is busy, as a working node does. */
+  pending?: boolean;
+};
+
+/**
+ * A node still being written — the owner's note of 1 Oct 2026: a press on the
+ * rail puts the node on the board, and the person types into the node itself
+ * rather than into a panel at the far side of the window.
+ *
+ * **The same card, with the field where the title goes.** The kind heads it
+ * as it heads every node, so what is being written reads as what it will be.
+ *
+ * **Bridge's alone until it is sent.** Nothing here is on the Studio yet, so
+ * it is drawn selected but never reported as a selection. **It drags by its
+ * head and its edge, never by its field**: the field is `nodrag`, React
+ * Flow's own word, so a press there selects text. `nowheel` lets a long field
+ * scroll rather than zoom the board.
+ */
+export function StudioNodeDraft({ kind, children, pending = false }: StudioNodeDraftProps) {
+  return (
+    <Card
+      className="armada-studio-node armada-glass nowheel"
+      data-kind={kind}
+      data-selected
+      aria-busy={pending || undefined}
+    >
+      <div className="armada-studio-node__head">
+        <span className="armada-studio-node__kind">{STUDIO_NODE_KIND[kind]}</span>
+      </div>
+      <div className="nodrag">{children}</div>
     </Card>
   );
 }

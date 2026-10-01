@@ -13,6 +13,9 @@
 
 import type {
   EpicTake,
+  Outcome,
+  SketchDrawing,
+  SketchToKeep,
   Studio,
   StudioCapture,
   StudioEdge,
@@ -31,6 +34,35 @@ import type { FleetHandle, Scenario } from "./moment";
 const OK = { ok: true } as const;
 const MANIFEST_ID = repository().manifest!.id;
 
+/** The files a test says are on disk, by path. **The mock has no disk**, so every other one has none. */
+const ON_DISK = new WeakMap<File, string>();
+
+/** Say `file` is on disk at `path`, the way Finder's copy of one is. */
+export function onDisk(file: File, path: string): File {
+  ON_DISK.set(file, path);
+  return file;
+}
+
+/** `pathOfFile`, as main answers it: the path of a file on disk, and `""` for a screenshot. */
+export const pathOnDisk = (file: File): string => ON_DISK.get(file) ?? "";
+
+/** Fleet's bound on a kept frame, `MOST_A_FRAME_MAY_WEIGH` in `crates/fleet/src/studios.rs`. */
+export const MOST_A_FRAME_MAY_WEIGH = 4 * 1024 * 1024;
+
+/** A refusal, in Fleet's own code and words. */
+const refusedAs = (code: string, message: string): Outcome => ({
+  ok: false,
+  why: "refused",
+  error: { code, message, run_id: "mock", fields: {}, chain: [] },
+});
+
+/** What Fleet answers a picture over that bound with, in Fleet's own words. */
+const tooLarge = (weighs: number): Outcome =>
+  refusedAs(
+    "fleet.studio_frame_too_large",
+    `a frame weighs at most ${MOST_A_FRAME_MAY_WEIGH} bytes and this one weighs ${weighs}`,
+  );
+
 /**
  * Every Studio call a mock Fleet answers. **Named one by one**, so a Studio capability added to
  * `BridgeApi` fails typecheck here rather than going unanswered at runtime — `fake.ts`'s own rule.
@@ -40,6 +72,10 @@ export type StudioRoutes = Pick<
   | "watchStudios"
   | "watchStudio"
   | "createStudio"
+  | "pathOfFile"
+  | "addStudioPicture"
+  | "addStudioSketch"
+  | "saveStudioSketch"
   | "renameStudio"
   | "addStudioNode"
   | "captureStudioNote"
@@ -126,7 +162,7 @@ function legend(): Studio {
       // One Note with the picture it kept and one without: both are Notes, and only one draws a plate.
       { id: "legend-note", kind: "note", said: "The legend under the step bar is unreadable", capture: pointedAt("legend-note"), position: { x: 0, y: 0 }, created_at: at },
       { id: "legend-width", kind: "note", said: "It wraps at 720 wide", position: { x: 0, y: 300 }, created_at: at },
-      { id: "legend-finding", kind: "finding", asked: "Where do the legend's colours come from?", state: "frozen", position: { x: 340, y: 0 }, created_at: at },
+      { id: "legend-finding", kind: "finding", asked: "Where do the legend's colours come from?", position: { x: 340, y: 0 }, created_at: at },
       { id: "legend-draft", kind: "issue_draft", title: "The Board's legend is illegible", body: "…", state: "draft", position: { x: 680, y: 110 }, created_at: at },
       // Two addresses to read in — #1293. An Issue, and an Epic, which fills
       // the board with a node per issue and runs no scout.
@@ -178,6 +214,49 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   }
 
   const browsed: string[] = [];
+  /**
+   * Each Picture's bytes, by node, and each Sketch picture's by node and picture
+   * — `frameKey`'s spelling — so a frame reads back as what was pasted.
+   */
+  const pictures = new Map<string, Uint8Array>();
+
+  /**
+   * A drawing as Fleet keeps it: a new picture's bytes held under a name it
+   * chose, a kept one read off what the node already holds, and Fleet's two
+   * refusals — nothing drawn, and a picture named that was never kept.
+   */
+  function sketchKept(
+    nodeId: string,
+    drawing: SketchToKeep,
+    held: SketchDrawing | undefined,
+  ): { ok: true; drawing: SketchDrawing; bytes: [string, Uint8Array][] } | { ok: false; outcome: Outcome } {
+    if (drawing.boxes.length === 0 && drawing.strokes.length === 0 && drawing.pictures.length === 0) {
+      return { ok: false, outcome: refusedAs("fleet.studio_node_blank", "a sketch node's `drawing` cannot be blank") };
+    }
+    const bytes: [string, Uint8Array][] = [];
+    const kept: SketchDrawing["pictures"] = [];
+    for (const { bytes: pasted, ...picture } of drawing.pictures) {
+      if (pasted === undefined) {
+        const was = held?.pictures.find((one) => one.id === picture.id);
+        if (was === undefined) {
+          return {
+            ok: false,
+            outcome: refusedAs(
+              "fleet.studio_sketch_picture_not_kept",
+              `picture \`${picture.id}\` carries no staged file, and this sketch keeps no picture by that id`,
+            ),
+          };
+        }
+        kept.push({ ...picture, frame: was.frame });
+        continue;
+      }
+      if (pasted.byteLength > MOST_A_FRAME_MAY_WEIGH) return { ok: false, outcome: tooLarge(pasted.byteLength) };
+      const filename = `${nodeId}-${mint("frame")}.png`;
+      bytes.push([`${nodeId}/${picture.id}`, pasted]);
+      kept.push({ ...picture, frame: { filename, byte_size: pasted.byteLength, width: picture.width, height: picture.height } });
+    }
+    return { ok: true, drawing: { boxes: drawing.boxes, joins: drawing.joins, strokes: drawing.strokes, pictures: kept }, bytes };
+  }
 
   const routes = (handle: FleetHandle): StudioRoutes => {
     fleet = handle;
@@ -203,10 +282,14 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         const answer = write(studioId, (studio) => ({ ...studio, name, named_by: "person" }));
         return answer.ok ? OK : answer.outcome;
       },
-      // A node by hand — #1364. **The three kinds and no more**, the way Fleet
+      pathOfFile: pathOnDisk,
+      // A node by hand — #1364. **The four kinds and no more**, the way Fleet
       // refuses the rest from Bridge: a mock that took a Finding here would let
       // a test pass against a door that would not open.
       addStudioNode: async (studioId, node: StudioNodeByHand, position) => {
+        // Main refuses these from a renderer: each names a file only main stages.
+        if (node.kind === "picture") throw new Error("a Picture is added with its bytes, by addStudioPicture");
+        if (node.kind === "sketch") throw new Error("a Sketch is added with its pictures' bytes, by addStudioSketch");
         const answer = write(studioId, (studio) => {
           const added: StudioNode = {
             ...node,
@@ -214,7 +297,6 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
             position,
             created_at: tick(),
             added_by: "person",
-            ...(node.kind === "sketch" ? { state: "frozen" as const } : {}),
           };
           return { ...studio, nodes: [...studio.nodes, added] };
         });
@@ -241,7 +323,63 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
       // The bytes of one Note's picture. A node that kept none is refused the
       // way Fleet refuses it, so the surface draws its sentence rather than an
       // image that never arrives.
-      readStudioFrame: async (studioId, nodeId) => {
+      // Fleet's own bound and refusal, so the board says why as it would on Bridge.
+      addStudioPicture: async (studioId, bytes, position) => {
+        if (bytes.byteLength > MOST_A_FRAME_MAY_WEIGH) return tooLarge(bytes.byteLength);
+        const id = mint("picture-");
+        const size = await createImageBitmap(new Blob([bytes as BlobPart])).catch(() => null);
+        const frame = {
+          filename: `${id}.png`,
+          byte_size: bytes.byteLength,
+          width: size?.width ?? 0,
+          height: size?.height ?? 0,
+        };
+        const answer = write(studioId, (studio) => ({
+          ...studio,
+          nodes: [
+            ...studio.nodes,
+            { kind: "picture", frame, id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
+          ],
+        }));
+        if (answer.ok) pictures.set(id, bytes);
+        return answer.ok ? OK : answer.outcome;
+      },
+      // A Sketch drawn on the pad — 1 Oct 2026.
+      addStudioSketch: async (studioId, drawing, position) => {
+        const id = mint("sketch-");
+        const kept = sketchKept(id, drawing, undefined);
+        if (!kept.ok) return kept.outcome;
+        const answer = write(studioId, (studio) => ({
+          ...studio,
+          nodes: [
+            ...studio.nodes,
+            { kind: "sketch", drawing: kept.drawing, id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
+          ],
+        }));
+        if (answer.ok) for (const [key, bytes] of kept.bytes) pictures.set(key, bytes);
+        return answer.ok ? OK : answer.outcome;
+      },
+      saveStudioSketch: async (studioId, nodeId, drawing) => {
+        const node = store.get(studioId)?.nodes.find((one) => one.id === nodeId);
+        if (node?.kind !== "sketch") return refusedAs("fleet.studio_not_a_sketch", "this node is not drawn on");
+        const kept = sketchKept(nodeId, drawing, node.drawing);
+        if (!kept.ok) return kept.outcome;
+        const answer = write(studioId, (studio) => ({
+          ...studio,
+          nodes: studio.nodes.map((one) => (one.id === nodeId && one.kind === "sketch" ? { ...one, drawing: kept.drawing } : one)),
+        }));
+        if (answer.ok) for (const [key, bytes] of kept.bytes) pictures.set(key, bytes);
+        return answer.ok ? OK : answer.outcome;
+      },
+      readStudioFrame: async (studioId, nodeId, picture) => {
+        if (picture !== undefined) {
+          const kept = pictures.get(`${nodeId}/${picture}`);
+          return kept === undefined
+            ? { ok: false, outcome: unanswered(`/studios/${studioId}/frames/${nodeId}?picture=${picture}`) }
+            : { ok: true, bytes: kept, type: "image/png" };
+        }
+        const pasted = pictures.get(nodeId);
+        if (pasted !== undefined) return { ok: true, bytes: pasted, type: "image/png" };
         const node = store.get(studioId)?.nodes.find((one) => one.id === nodeId);
         if (node?.kind !== "note" || node.capture?.frame === undefined) {
           return { ok: false, outcome: unanswered(`/studios/${studioId}/frames/${nodeId}`) };
@@ -470,7 +608,7 @@ export function everyKind(jobId: string): Studio {
       position: place(1, 2),
       created_at: MADE,
     },
-    { id: "every-finding", kind: "finding", asked: "Where do the legend's colours come from?", state: "frozen", position: place(2, 2), created_at: MADE },
+    { id: "every-finding", kind: "finding", asked: "Where do the legend's colours come from?", position: place(2, 2), created_at: MADE },
     { id: "every-finding-asked", kind: "finding", asked: "Which states share a token?", state: "proposed", position: place(2, 3), created_at: MADE },
     {
       id: "every-contradiction",
@@ -481,7 +619,8 @@ export function everyKind(jobId: string): Studio {
       position: place(0, 3),
       created_at: MADE,
     },
-    { id: "every-sketch", kind: "sketch", body: "Legend on its own row\nunder the step bar", state: "frozen", position: place(1, 3), created_at: MADE },
+    // A Sketch written as text before 1 Oct 2026, as V85 left it: one box holding the words.
+    { id: "every-sketch", kind: "sketch", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "Legend on its own row\nunder the step bar" }], joins: [], strokes: [], pictures: [] }, position: place(1, 3), created_at: MADE },
     { id: "every-deferral", kind: "deferral", what: "Whether the legend collapses under 720", state: "open", position: place(2, 4), created_at: MADE },
     { id: "every-outline", kind: "outline", body: "Give the legend its own row\nThen fix the contrast", state: "draft", position: place(1, 4), created_at: MADE },
     { id: "every-draft", kind: "issue_draft", title: "The Board's legend is illegible", body: "…", state: "draft", position: place(0, 4), created_at: MADE },
@@ -652,7 +791,7 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
 /**
  * An address read in — #1293, #1394. **What Fleet fetched is decided here by
  * the address**, since a mock has no network: an Epic fills in as one Issue per
- * issue with no scout, and every other source leaves a frozen Finding beside
+ * issue with no scout, and every other source leaves an ended Finding beside
  * the Notes and the Contradiction its scout asked for.
  */
 function readIn(studio: Studio, nodeId: string, position: { x: number; y: number }, take: EpicTake): Studio {
@@ -670,11 +809,8 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     learned: "Two claims, and one of them disagrees with the checkout.",
     ended: { outcome: "answered", cost_micros: 3_100 },
   };
-  const frozen = made(studio, finding, [nodeId], down(0));
-  const marked = {
-    ...frozen,
-    nodes: frozen.nodes.map((node) => (node.kind === "finding" && node.state === undefined ? { ...node, state: "frozen" } : node)),
-  };
+  // Ended, so no state: `frozen` went on 1 Oct 2026.
+  const marked = made(studio, finding, [nodeId], down(0));
   const noted = made(marked, { kind: "note", said: "The issue wants Links read in as a second, refusable step" }, [nodeId], { x: position.x + 340, y: position.y });
   const twice = made(noted, { kind: "note", said: "It names the forge, web pages, sessions and Helm threads as the first sources" }, [nodeId], { x: position.x + 340, y: position.y + 180 });
   const contradicted = made(

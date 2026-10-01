@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -7,6 +7,7 @@ import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened } from "@armada/protocol";
+import type { SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { Pattern } from "../shared/haptics";
 import type {
@@ -536,10 +537,17 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.createStudio, manifestId),
   renameStudio: (studioId: string, name: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.renameStudio, studioId, name),
-  // Three kinds and no more: the type is as narrow as the act, so the surface
-  // this bridge gains is a note, a link or a sketch rather than any node.
+  // Four kinds and no more: the type is as narrow as the act, so the surface
+  // this bridge gains is a note, a link, a sketch or a file rather than any node.
   addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position),
+  pathOfFile: (file: File): string => webUtils.getPathForFile(file),
+  addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioPicture, studioId, bytes, position),
+  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position),
+  saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.saveStudioSketch, studioId, nodeId, drawing),
   moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position),
   // The frame is main's: this hands over what was pointed at and nothing else,
@@ -548,8 +556,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.captureStudioNote, studioId, said, capture),
   // Reading one, where the capture above takes one: the bytes come back to be
   // drawn and nothing about the file's place on disk crosses with them.
-  readStudioFrame: (studioId: string, nodeId: string): Promise<FrameRead> =>
-    ipcRenderer.invoke(CHANNELS.readStudioFrame, studioId, nodeId),
+  readStudioFrame: (studioId: string, nodeId: string, picture?: string): Promise<FrameRead> =>
+    ipcRenderer.invoke(CHANNELS.readStudioFrame, studioId, nodeId, picture),
   removeStudioNodes: (studioId: string, nodeIds: readonly string[]): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.removeStudioNodes, studioId, [...nodeIds]),
   decideStudioEdge: (studioId: string, edgeId: string, accepted: boolean): Promise<Outcome> =>

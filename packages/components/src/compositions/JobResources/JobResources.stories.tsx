@@ -59,7 +59,7 @@ function reading(over: Partial<PulseReading> = {}): PulseReading {
         path: "/Users/user/armada/.armada/worktrees/01JOBHOLDS001",
         branch: BRANCH,
         state: "on disk",
-        bytes: 1_073_741_824,
+        bytes: 1_073_741_824, age: "21s",
       },
     ],
     logs: [{ kind: "job", owner: null, writing: true }],
@@ -103,6 +103,27 @@ export const NobodyHasAsked: Story = {
     examined: null,
     age: "3s",
     onExamine: () => {},
+  },
+};
+
+/**
+ * **The Job those figures come off has not been read yet.** Bars stand where
+ * they land, and no count is drawn: `Checks running 0` before the read is a
+ * number nobody took (owner, 1 Oct 2026).
+ */
+export const FiguresNotYetRead: Story = {
+  args: {
+    reading: null,
+    figures: FIGURES,
+    figuresReading: true,
+    note: "Reading the machine.",
+    examined: null,
+    onExamine: () => {},
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("status")).toBeVisible();
+    await expect(canvas.queryByText("Checks running")).toBeNull();
+    await expect(canvas.queryByText("Judges running")).toBeNull();
   },
 };
 

@@ -1,7 +1,7 @@
 //! Bringing the base into the candidate worktree, on top of
 //! [`Delivery::bring_up_to_date`] — the clean and conflicted cases are that
 //! call's; regenerating a conflicted generated file is this line's own, on
-//! top of it. `#1315`.
+//! top of it. `#1315`. [`regenerate`] is the same for a stale one.
 //!
 //! **Built on `bring_up_to_date` rather than a call of its own.** That call
 //! already merges the base in with no hooks, as this crate's own commit
@@ -96,9 +96,7 @@ pub fn merge_in(
     }
     let log = logs.join("regenerate.log");
     for command in &distinct_commands {
-        let argv: Vec<&str> = command.split_whitespace().collect();
-        let ran = run(&argv, worktree_path, None, Some(&log));
-        if !matches!(ran, Ok(ran) if ran.success()) {
+        if !generate(worktree_path, command, &log) {
             let _ = best_effort(worktree_path, &["merge", "--abort"]);
             return Err(MergeInFailed::Stopped(format!(
                 "`{command}` failed while regenerating a conflicted file; see {}",
@@ -126,6 +124,69 @@ pub fn merge_in(
         ));
     }
     Ok(())
+}
+
+/// Run every generator in `commands` on the committed candidate, and commit
+/// whatever it rewrote, so a stale output lands regenerated rather than
+/// failing the gate. `Ok(true)` when it made a commit; `Err` says what failed.
+pub fn regenerate(worktree: &Path, commands: &[String], logs: &Path) -> Result<bool, String> {
+    // Not `add -A`: the seed's build directories are untracked here too.
+    let before = untracked(worktree);
+    let log = logs.join("regenerate.log");
+    for command in commands {
+        if !generate(worktree, command, &log) {
+            return Err(format!(
+                "`{command}` failed while regenerating the generated files; see {}",
+                log.display()
+            ));
+        }
+    }
+    if !ok(best_effort(worktree, &["add", "-u"])) {
+        return Err("`git add -u` failed on what regeneration rewrote".to_string());
+    }
+    let written: Vec<String> = untracked(worktree)
+        .into_iter()
+        .filter(|path| !before.contains(path))
+        .collect();
+    if !written.is_empty() {
+        let mut add = vec!["add", "--"];
+        add.extend(written.iter().map(String::as_str));
+        if !ok(best_effort(worktree, &add)) {
+            return Err("`git add` failed on what regeneration wrote".to_string());
+        }
+    }
+    if ok(best_effort(worktree, &["diff", "--cached", "--quiet"])) {
+        return Ok(false);
+    }
+    let message = format!(
+        "Regenerate stale generated files on the merge line\n\nWritten by `{}`.",
+        commands.join("`, `")
+    );
+    let committed = best_effort(
+        worktree,
+        &["commit", "--quiet", "--no-verify", "-m", &message],
+    );
+    if !ok(committed) {
+        return Err("`git commit` failed on what regeneration rewrote".to_string());
+    }
+    Ok(true)
+}
+
+fn untracked(worktree: &Path) -> Vec<String> {
+    best_effort(worktree, &["ls-files", "--others", "--exclude-standard"])
+        .map(|out| {
+            String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// One generator command, split on whitespace, its output appended to `log`.
+fn generate(worktree: &Path, command: &str, log: &Path) -> bool {
+    let argv: Vec<&str> = command.split_whitespace().collect();
+    !argv.is_empty() && matches!(run(&argv, worktree, None, Some(log)), Ok(ran) if ran.success())
 }
 
 fn ok(run: std::io::Result<std::process::Output>) -> bool {

@@ -471,7 +471,7 @@ export function arcResources(
     read_at: "2026-09-22T11:18:00.000Z",
     held,
     processes,
-    worktree: { path: ARC_WORKTREE, branch: ARC_BRANCH, bytes: 1_020_054_016 },
+    worktree: { path: ARC_WORKTREE, branch: ARC_BRANCH, bytes: 1_020_054_016, measured_at: "2026-09-22T11:17:40.000Z" },
   };
 }
 

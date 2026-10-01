@@ -1763,6 +1763,187 @@ every other row, and the bounded drop-oldest broadcast in
 dispatch, several requests sent at once will publish one `job.created` each,
 which is the same one-message-per-row the approval gate already published.
 
+## Protocol 19.1: a proposal fills in as it is written
+
+`ProposalInFlight.settled` and the two DTOs behind it, `ProposalSettled` and
+`ProposalSettings` — additive on a message that already existed, so the minor
+moves. A Bridge built before this ignores the field and draws the wait exactly as
+it did at 19.0.
+
+The owner, 30 Sep 2026, having looked at a proposing Job on screen: *"I would
+really push for us to find a way to make the proposer not report the job whole.
+Is there anyway for it to fill in as it goes?"* Four fields, in his order —
+workflow, title, done-when, settings — and
+`.claude/decisions/2026-09-30-a-proposal-fills-in-as-it-is-written.md` carries the
+order's reasoning, the option he turned down and the cost he took.
+
+**The settings are one field carrying two**, because both arrive on one line of
+the answer: `urgency`, and `model` — which model a Drone on this Job is spawned
+as. The owner took the model over the argument that a model choosing which model
+runs the work is the dial every later call's cost hangs off. **It picks from
+`list_models`' own set**, and a name that set does not hold refuses the request
+through `fleet.proposer_model_not_held` — **its own code, and never
+`fleet.no_workflow_fits`**. That refusal's advice is to say the request again
+differently, which cannot fix a model name and is about a workflow that was not
+wrong; `#334` and `#410`'s rule is that two causes wanting opposite responses
+must not share a word. The refusal carries the model asked for and the set this
+machine runs, and Bridge mirrors the code the way it mirrors
+`fleet.proposer_stopped`.
+**Absent stays absent**: a call that names no model reaches `ProposeJob.model`
+null, which has always meant configuration decides. Land-as-one is deliberately
+not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
+that how the work lands follows from having read the code, and the owner kept it
+when it was put beside the model.
+
+**Fields that are settled, never a transcript.** Fleet reads the answer's prefix
+in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
+crosses only once its own line has ended — so a client either has a title or has
+none, and never has `Say which of the two giv`. The raw text does not cross:
+`answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
+the dated correction of the rule that used to make it the whole of what a surface
+could say.
+
+**What the correction turns on is the premise, not the reasoning.** *A channel
+carrying the answer as it was written would be a second, earlier, worse copy of
+the Jobs it minted* was right while nothing existed until the answer landed. A
+dispatched request is a Job from the press since 19.0, so a field read early is
+that row becoming more complete rather than a rival to it — and the objection
+still stands for the text itself, which is why nothing beside the count carries
+one.
+
+**Bridge draws each field where the Job already draws it**, through one fold
+(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+row's Workflow column, the settled title is the row's title, the done-when lines
+are the Job's criteria and the settings are its urgency. The wait inside
+Overview's lead says which of the four the call has got to, because that is the
+one region on a proposing Job's page whose subject is the call.
+
+**Fleet publishes it and nothing folds it yet.** `job-statuses.toml` still reads
+`in_code = "Not yet"` for `proposing`, so no Fleet creates a Job at dispatch and
+`proposal.moved` names no Job for `arrivals.ts` to fold onto. The mock is what
+mints the row and applies the fold; when Fleet's half lands, `arrivals.ts` calls
+`filled` on the Job the message names and nothing in `packages/` changes.
+
+**It makes the back-pressure question neither better nor worse.** No new queue,
+no new channel and no per-client state: `settled` rides on `proposal.moved`, which
+is already on the one bounded drop-oldest broadcast, and a dropped message costs
+a reading that the next one supersedes — the field is the whole prefix re-read
+rather than a delta, so a client that lost one is not missing a field, it is a
+beat behind. What it does add is messages: a field settling publishes
+immediately rather than waiting for `TOKEN_TICK`, which is four more messages per
+one-Job answer plus one per done-when line. That is bounded by the answer's own
+shape and not by the frame rate, which is the property `TOKEN_TICK` exists to
+hold.
+
+## Protocol 19.2: a worktree's size says when it was walked
+
+One optional field added to `WorktreeOnDisk` — `measured_at`, the instant the `du` that found
+`bytes` ran. Additive: a Bridge built before this ignores it, and draws the size under the
+reading's age as it always did.
+
+**Fleet now keeps a worktree's size for 30 s** rather than walking it on every read, so the size
+can be up to that much older than `read_at`. `read_at` used to say every figure was as of it; it
+now says every figure but this one, and Pulse draws the size's own age under it.
+
+**Present exactly where `bytes` is.** A walk that did not finish measured nothing, so there is no
+instant to put on it; an absent `measured_at` beside a present `bytes` is a Fleet older than 19.2.
+
+## Protocol 19.3: a pasted path is a File, and a pasted image a Picture
+
+Two node kinds a person adds by hand: a File, decided with the owner on 1 Oct 2026, and a Picture,
+decided with him on 28 Sep 2026.
+
+**A File is the path and nothing else.** `StudioNodeContent` gains `file`,
+`{ "kind": "file", "path": "…" }`, and `StudioNodeByHand` gains the same shape. Kept as pasted —
+absolute, under `~` or relative to the repository — and trimmed on the way in; Fleet neither
+resolves it nor checks that it exists. A blank one is refused as `fleet.studio_node_blank`, and a
+body with no `path`, or one that is not text, does not decode.
+
+**A Picture is the frame and nothing else, and it is read and written in two shapes.** Read, in
+`StudioNodeContent`, it is the frame Fleet kept, in a Note's `capture.frame` field names:
+`{ "kind": "picture", "frame": { "filename", "byte_size", "width", "height" } }`, fetched from
+`get_studio_frame` by its node exactly as a Note's is. Written, in `add_node` and `StudioNodeByHand`,
+it is the PNG Bridge's main staged, `{ "kind": "picture", "staged": { "staged_path", "width",
+"height" } }` — `capture_note`'s `StagedFrame` — and Fleet copies it into the Studio's own keeping
+through the same path a capture's frame takes, under the same 4 MiB cap. Over the cap is
+`fleet.studio_frame_too_large`, a file Fleet cannot read is `fleet.studio_frame_unreadable`, and
+from Helm a Picture is `fleet.studio_node_not_helms`, each before anything is written. Deleting the
+node deletes the file.
+
+**A write never names a kept frame.** A kept frame is a file name Fleet chose, and
+`get_studio_frame` opens what a node names, so an `add_node` body with `"kind": "picture"` decodes
+as the staged shape alone: one naming `frame`, beside `staged` or instead of it, or naming nothing
+staged, does not decode. On Fleet's side the request is `ipc::StudioNodeAdded`, whose other variant
+holds an `AddedContent` that cannot be a Picture; TypeScript's `AddStudioNode` says the same with
+`Exclude`. Only Bridge's main builds the staged shape, from bytes it staged itself — the renderer
+never names a path.
+
+**Nor does a Note's `capture.frame`, which closed a hole older than the Picture.** A Note through
+`add_node` could carry any file name there, and `get_studio_frame` joined it onto the Studio's
+directory. Such a body no longer decodes; a captured Note's frame arrives staged, through
+`capture_note`, as it always has, and no Bridge sent one the other way. Behind the record, Fleet
+also refuses to open or delete a kept name that is not one plain path component — a row holding
+`../x` reads as `fleet.studio_frame_unreadable` and is skipped by a delete.
+
+**Additive by 14.7's and 14.18's reading**, which added node kinds the same way. Nothing an older
+Bridge already parses changes; one meeting a File or a Picture draws no card for it, which is
+`packages/screens`' `cardOf` default for a kind it does not know.
+
+## Protocol 20.0: a Sketch is the pad's drawing
+
+Decided with the owner on 1 Oct 2026: a Studio's Sketch and the dispatch composer's Sketch pad are
+one drawing. `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
+
+**Major, because a field an older Bridge reads is gone.** `StudioNodeContent`'s `sketch` was
+`{ "kind": "sketch", "body": "…" }`, the diagram written as text, and is now
+`{ "kind": "sketch", "drawing": { "boxes", "joins", "strokes", "pictures" } }`. A Bridge built
+before this reads `body` off every Sketch on a Studio and finds nothing, which is the table's
+*field removed* row. Keeping a derived `body` beside the drawing would have bought a minor at the
+cost of a field nothing new reads, and Armada has no Bridge in the field to keep it for.
+
+**The drawing is the pad's own four parts**, in the pad's coordinates as whole numbers: a box is
+`{ id, x, y, body }`, a join `{ id, from, to }` naming a box or a picture, a stroke
+`{ id, points: [{ x, y }] }`, and a picture `{ id, x, y, width, height, frame }`, where `width` and
+`height` are the size it is drawn at and `frame` is the file Fleet kept, in a Note's
+`capture.frame` shape. Every array is sent, empty or not. **It is checked on decode**, by
+`core_model::Drawing::drawn`: an id on two parts, a blank id, a join to nothing or to itself, a
+stroke of fewer than two points and a picture at no size do not decode, and nor does an unknown
+field anywhere in it. Fleet's store holds a row to the same rule on read. Every Sketch written as
+text is migrated by store V85 to one box, `b1` at the origin, holding the old body. **A Sketch
+carries no `state`**, where it carried `frozen`: it is drawn on whenever its pad is opened, and V85
+clears the state on every Sketch row. Finding's and Outline's `frozen` went in 21.0.
+
+**Written, a picture is its staged file or nothing**, the way a Picture is written (19.3). `add_node`
+takes `{ "kind": "sketch", "drawing": … }` with each picture carrying `staged`, decoded apart from
+every other kind as a Picture is; Fleet copies each into the Studio's keeping under a name it mints,
+`<node>-<ulid>.png`, under the 4 MiB cap. **`edit_studio_sketch`**, new and `Bridge only`,
+`POST /studios/:studio_id/edit_sketch` with `{ node_id, drawing }`, replaces the whole drawing; a
+picture carrying nothing keeps the frame the node already holds under that id, and one it holds
+none under is `fleet.studio_sketch_picture_not_kept`. A picture naming `frame` in a write does not
+decode, so no client names a file Fleet opens. Frames the new drawing no longer names are deleted
+once it is written. A drawing with nothing on it is `fleet.studio_node_blank`, and a redraw of any
+other kind `fleet.studio_not_a_sketch`.
+
+**`get_studio_frame` takes `?picture=`**, the picture's id on a Sketch, read off that picture's own
+`frame` — the record is still the allowlist. Deleting a Sketch deletes every frame it kept.
+
+## Protocol 21.0: no Studio node is `frozen`
+
+Decided with the owner on 1 Oct 2026, asked about a Finding's and an Outline's `frozen` after a
+Sketch lost it in 20.0: *"I hate this frozen shit. Its overcomplicating it,"* and then **"Remove it
+everywhere"**. `.claude/decisions/2026-10-01-no-studio-node-is-frozen.md`.
+
+**Major, because a state value a client reads is gone.** `StudioNodeState` loses `frozen`, which is
+the table's *variant the other side matches on* row: a body naming it no longer decodes, and a
+Bridge built before this would draw a Finding with no state where it drew `frozen`.
+
+**A Finding whose scout has ended carries no `state`.** How it ended is already `ended` on its
+content, and `gathering` would say a scout still reads — Bridge pulses one, and a restart settles it
+as failed. A Finding without `state` is always one with `ended`; Fleet's store refuses any other on
+read. **An Outline is `draft`**, its only state. Store V86 moved every frozen Finding to no state and
+every frozen Outline to `draft`, and narrowed the column's `CHECK` so neither comes back. Minor
+resets to 0.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

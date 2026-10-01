@@ -40,6 +40,13 @@ See [Job Board](../concepts/job-board.md) for the full board mechanics — what 
 | Settings | Optional, and closed to start. Its head says how many are set |
 | What happens next | Armada reads the request and names the Job; you adjust and approve it; a planning Drone splits the work and a Judge reads what comes back |
 
+**The press leaves this card, and it holds no wait.** A dispatched request is a
+Job from the press — `proposing` in
+[Job proposer](../concepts/job-proposer.md) — so the composer closes, the
+request is a row on Overview, and how far the call has got is drawn on that
+Job's own page. Nothing opens: several requests go off at once, and each is an
+address to come back to.
+
 **There is no hand-entry form.** `Enter by hand` and the Job it built are gone
 — the owner's call of 23 September 2026, once Settings carried every decision
 the form did. [Job proposer](../concepts/job-proposer.md) has the rule.
@@ -94,10 +101,21 @@ different question and still has its draft — `packages/screens/src/draft/peers
 
 ### The sketch, and what of it reaches Fleet
 
-A sketch attaches to the prompt as a chip reading *From a Studio · sketch 1*,
-and the words typed under Write stay where they are while it is drawn. The chip
+A sketch attaches to the prompt as a chip reading *sketch 1* — its name
+alone, because the pad's own line says which Studio node it was made from
+(the owner, 28 September 2026) — and the words typed under Write stay where
+they are while it is drawn. The chip
 takes no removal control: a picture is taken back on the pad, where the boxes
 going are visible.
+
+**A Studio's Sketch is this pad's drawing**, kept on the Studio (the owner's
+call of 1 October 2026, `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`).
+Dispatch on a Sketch node opens the composer with that drawing on the pad and
+the chip already attached, made from that node, and the pad says which. The
+request opens on Write, empty, because a drawing is not yet a request. Its
+pictures are the composer's own copies, so leaving the Studio takes nothing
+off the pad; what is drawn here afterwards is the request's and never goes back
+to the Studio.
 
 **The pad draws boxes and it draws by hand.** A box is words and a place and a
 join says what feeds what; a line drawn freehand is what neither says — a ring
@@ -119,20 +137,40 @@ designs had this with more than just a box. We could do a free draw as well."*
 > It is the argument `drawn` already makes against reopening the PNG, one level
 > down.
 
-**A pad with a line and no box still attaches its picture**, because a person
-who drew and put down no box drew something. A join alone does not: it has
-nothing to hang on.
+**A paste aimed at the pad lands on it**, the owner's call of 1 October 2026.
+Text is a new box holding it, put down in view with no field opening first.
+A screenshot is a picture on the pad rather than an
+attachment on the Job: scaled down to sit inside the pad on show, never
+resized after, and otherwise a box without words. It moves, joins, takes the
+pen over it and comes off under Remove. A paste into a box's own field types
+into that field and makes nothing.
 
-**What a fit reads is still the boxes.** React Flow fits to its nodes, and ink
+> **Rule.** Whatever lands on the pad — pasted or added — lands where it can
+> be seen: the free spot nearest the middle of the pad on show, or the middle
+> itself where none is free. A box is drawn over a picture, never under one.
+> Why: a box placed by stepping clear of every other box walked below a pad
+> that already held a drawing, so links pasted onto it landed out of sight.
+> The owner read that as paste not working, 1 October 2026.
+
+**A pad with a line and no box still attaches its picture**, because a person
+who drew and put down no box drew something. A pasted picture counts the same
+way. A join alone does not: it has nothing to hang on.
+
+**What a fit reads is still the boxes and pictures.** React Flow fits to its nodes, and ink
 drawn well outside them is off screen until somebody pans — the pad pans and
 zooms, so nothing is lost, but Fit does not promise to find it.
 
 **The picture is draft and the wire is unchanged** —
 `packages/screens/src/draft/sketch.ts`, which names the `crates/ipc` module it
 is meant for. An attachment on the wire carries a staged path, a filename and a
-type and no provenance, so where a sketch was made is a draft field. Nothing
-stages the pad yet either: pressing Dispatch sends the words, and staging the
-PNG belongs with the schema lock.
+type and no provenance, so where a sketch was made is a draft field.
+
+**Bridge can write the pad as a PNG, and nothing sends it yet.**
+`packages/screens/src/draft/sketch-png.ts` paints boxes, joins, strokes and
+pasted pictures at their own place and size, in the pad's own tokens. The
+owner had it built ahead of the wire on 1 October 2026, knowing it waits.
+Pressing Dispatch still sends the words; staging the PNG and putting it on
+the wire belong with the schema lock (#1545).
 
 ## Approval Rules
 
@@ -152,9 +190,9 @@ A Job proposal is approved or overridden inside the dispatch flow itself, not at
 
 What the proposer proposes is the workflow, the title, and the split where the work is several Jobs. Scope is not among them — [Job proposer](../concepts/job-proposer.md) owns why, and none of that argument is restated here.
 
-Where the Job proposer emits several Jobs, all of them stand at the gate and each takes its own one-by-one dispatch approval when its turn comes, so the strictly-one-by-one rule and the no-batch-approve rule both stay intact. There is no plan-level approval, and [Job proposer](../concepts/job-proposer.md) owns why. The head of a proposal is approved on the proposal itself, so a Job whose proposal is obvious costs one tap — the trip to detail is for reading it, not for agreeing with it.
+Where the Job proposer emits several Jobs, all of them stand at the gate and each takes its own one-by-one dispatch approval when its turn comes, so the strictly-one-by-one rule and the no-batch-approve rule both stay intact. There is no plan-level approval, and [Job proposer](../concepts/job-proposer.md) owns why. The head of a proposal is approved on the Job's own page, where the proposal is what Overview draws until it is approved — so a Job whose proposal is obvious still costs one press off its row.
 
-What the structural decision deliberately leaves open is what the surface looks like. No UI/UX design had started on any journey when this was decided, and this journey is design order 1 precisely because everything else reuses its approval pattern — forcing a surface before that pass would have designed the convention backwards. What has since taken its place is the Job proposer's own order: a person describes the work or links a ticket, the wait says what the call is doing and offers the stop, the Jobs arrive whole, and approval is the act that starts the work — on the proposal itself.
+What the structural decision deliberately leaves open is what the surface looks like. No UI/UX design had started on any journey when this was decided, and this journey is design order 1 precisely because everything else reuses its approval pattern — forcing a surface before that pass would have designed the convention backwards. What has since taken its place is the Job proposer's own order: a person describes the work or links a ticket, **the press leaves the composer and the request is a row**, the Job's own page says how far the call has got and offers the stop, the Jobs arrive whole, and approval is the act that starts the work.
 
 **Approving is not the only act at the gate, and what locks, locks at approval.** A proposal is a reading a person corrects: the request in its own words, the title, which workflow runs and the gate on each of its steps, which model each tier runs, how many Drones this Job may take, how it lands, and what the Job is held to. The workflow and the gates were once frozen when the Job was created, which made every correction a rejection and a retyped request; the decision of 22 Sep 2026 moves that freeze to the approval press. Bridge draws it — the proposal while it is yours to change, and the same values with the instant they froze at. **Fleet still freezes at creation and carries no per-Job gate, no tier map and no criterion origin**, so what Bridge holds lives in the draft schema under `packages/screens/src/draft/` and reaches no operation; the schema lock (#1545) is where each shape moves onto the wire.
 

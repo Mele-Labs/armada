@@ -13,7 +13,7 @@
 //
 // A process can exit between the sample and the render. `read_at` is on the
 // reading rather than beside it, so a surface cannot draw the figures without
-// the instant they belong to.
+// the instant they belong to. The worktree's size carries its own `measured_at`.
 //
 // # Absent is never empty
 //
@@ -62,12 +62,20 @@ export type WorktreeOnDisk = {
   branch: string;
   /** Absent is a walk that did not finish inside its bound, never zero. */
   bytes?: number;
+  /**
+   * When the walk that found `bytes` ran, which can be older than `read_at`.
+   * Present exactly where `bytes` is.
+   */
+  measured_at?: string;
 };
 
 /** `GET /jobs/:job_id/resources` — what one Job holds, at one instant. */
 export type JobResources = {
   job_id: string;
-  /** Every figure here is as of this. A panel drawing them without it lies. */
+  /**
+   * Every figure here is as of this, except the worktree's size, which has its
+   * own `measured_at`. A panel drawing a figure without its instant lies.
+   */
   read_at: string;
   held: Held;
   /**

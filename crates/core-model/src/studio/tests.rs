@@ -23,7 +23,7 @@ fn at() -> Timestamp {
 
 #[test]
 fn every_set_reads_back_from_its_own_spelling() {
-    assert_eq!(StudioNodeKind::ALL.len(), 14, "studio.md's fourteen kinds");
+    assert_eq!(StudioNodeKind::ALL.len(), 16, "studio.md's sixteen kinds");
     for kind in StudioNodeKind::ALL {
         assert_eq!(StudioNodeKind::from_wire(kind.as_wire()), Some(*kind));
     }
@@ -57,12 +57,14 @@ fn no_relation_is_the_studios_own_produced_edge() {
 }
 
 /// **A Run or a Job reads its state off what it references**, so neither
-/// holds one here; a Finding never reads back without one.
+/// holds one here; a Finding reads back without one only once its scout
+/// ended, which its content has to say.
 #[test]
 fn a_state_is_held_only_by_a_kind_that_has_it() {
     assert!(StudioNodeKind::Run.admits(None));
-    assert!(!StudioNodeKind::Job.admits(Some(StudioNodeState::Frozen)));
-    assert!(!StudioNodeKind::Finding.admits(None));
+    assert!(!StudioNodeKind::Job.admits(Some(StudioNodeState::Draft)));
+    assert!(StudioNodeKind::Finding.admits(None));
+    assert!(!StudioNodeKind::Outline.admits(None));
     assert!(StudioNodeKind::Contradiction.admits(Some(StudioNodeState::ResolvedHere)));
     assert!(!StudioNodeKind::Note.admits(Some(StudioNodeState::Draft)));
     let proposed: alloc::vec::Vec<_> = StudioNodeKind::ALL
@@ -77,12 +79,12 @@ fn a_state_is_held_only_by_a_kind_that_has_it() {
             said: String::from("the count is stale"),
             capture: None,
         },
-        Some(StudioNodeState::Frozen),
+        Some(StudioNodeState::Draft),
         StudioPosition { x: 0, y: 0 },
         at(),
         Some(StudioAuthor::Person),
     );
-    assert!(refused.is_err(), "a Note has no state to be frozen in");
+    assert!(refused.is_err(), "a Note has no state to be a draft in");
 }
 
 #[test]
@@ -161,11 +163,11 @@ fn checked_out() -> ScoutCheckout {
     }
 }
 
-/// **A Finding moves Proposed, Gathering, Frozen, and only its scout moves
-/// it.** Each step keeps what the one before recorded, and a file read twice
+/// **A Finding moves Proposed, Gathering, then ends with no state, and only
+/// its scout moves it.** Each step keeps what the one before recorded, and a file read twice
 /// is listed once.
 #[test]
-fn a_finding_is_started_gathers_what_it_read_and_freezes_with_how_it_ended() {
+fn a_finding_is_started_gathers_what_it_read_and_ends_with_how_it_ended() {
     let proposed = a_proposed_finding();
     let mut gathering = proposed
         .scouting(checked_out())
@@ -175,15 +177,15 @@ fn a_finding_is_started_gathers_what_it_read_and_freezes_with_how_it_ended() {
     assert!(!gathering.looked(ScoutLook::File(String::from("crates/fleet/src/routing.rs"))));
     assert!(gathering.looked(ScoutLook::Search(String::from("route in crates"))));
 
-    let frozen = gathering.frozen(
+    let ended = gathering.end(
         Some(String::from("By weight.")),
         ScoutEnded {
             outcome: ScoutOutcome::Answered,
             cost_micros: Some(18_020),
         },
     );
-    let node = frozen.node();
-    assert_eq!(node.state(), Some(StudioNodeState::Frozen));
+    let node = ended.node();
+    assert_eq!(node.state(), None, "an ended Finding holds no state");
     let StudioNodeContent::Finding(finding) = node.content() else {
         panic!("still a Finding");
     };
@@ -217,12 +219,12 @@ fn only_a_proposed_finding_is_started() {
         .expect("a proposed Finding");
     assert_eq!(
         started.node().scouting(checked_out()),
-        Err(NotScoutable::NotProposed(StudioNodeState::Gathering))
+        Err(NotScoutable::NotProposed(Some(StudioNodeState::Gathering)))
     );
 }
 
 /// **A Finding's content says which state it is in**, so a row claiming a
-/// Frozen Finding that never recorded its checkout does not read back.
+/// Finding that ended without recording its checkout does not read back.
 #[test]
 fn a_finding_whose_content_does_not_fit_its_state_is_refused() {
     let claimed = StudioFinding::recorded(
@@ -234,15 +236,138 @@ fn a_finding_whose_content_does_not_fit_its_state_is_refused() {
         None,
         None,
     );
-    for state in [StudioNodeState::Proposed, StudioNodeState::Frozen] {
+    for state in [Some(StudioNodeState::Proposed), None] {
         let read = StudioNode::recorded(
             node_id("01FINDING"),
             StudioNodeContent::Finding(claimed.clone()),
-            Some(state),
+            state,
             StudioPosition { x: 0, y: 0 },
             at(),
             Some(StudioAuthor::Person),
         );
         assert!(read.is_err(), "{state:?}");
+    }
+}
+
+mod sketch {
+    use alloc::string::String;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::studio::{
+        Drawing, SketchBox, SketchJoin, SketchMalformed, SketchPicture, SketchPoint, SketchStroke,
+    };
+
+    fn a_box(id: &str) -> SketchBox {
+        SketchBox {
+            id: String::from(id),
+            x: 0,
+            y: 0,
+            body: String::from("a panel"),
+        }
+    }
+
+    fn join(id: &str, from: &str, to: &str) -> SketchJoin {
+        SketchJoin {
+            id: String::from(id),
+            from: String::from(from),
+            to: String::from(to),
+        }
+    }
+
+    fn picture(id: &str, width: i64) -> SketchPicture<()> {
+        SketchPicture {
+            id: String::from(id),
+            x: 0,
+            y: 0,
+            width,
+            height: 40,
+            frame: (),
+        }
+    }
+
+    fn drawn(
+        boxes: Vec<SketchBox>,
+        joins: Vec<SketchJoin>,
+        strokes: Vec<SketchStroke>,
+        pictures: Vec<SketchPicture<()>>,
+    ) -> Result<Drawing<()>, SketchMalformed> {
+        Drawing::drawn(boxes, joins, strokes, pictures)
+    }
+
+    #[test]
+    fn a_join_between_a_box_and_a_picture_is_a_drawing() {
+        let drawing = drawn(
+            vec![a_box("b1")],
+            vec![join("b1-p1", "b1", "p1")],
+            Vec::new(),
+            vec![picture("p1", 80)],
+        )
+        .expect("a box joined to a picture");
+        assert!(!drawing.is_empty());
+    }
+
+    #[test]
+    fn every_malformed_drawing_is_refused_by_what_is_wrong() {
+        let refused = |result: Result<Drawing<()>, SketchMalformed>| result.unwrap_err();
+        assert_eq!(
+            refused(drawn(vec![a_box(" ")], vec![], vec![], vec![])),
+            SketchMalformed::BlankId
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![],
+                vec![],
+                vec![picture("b1", 80)]
+            )),
+            SketchMalformed::IdTwice {
+                id: String::from("b1")
+            }
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![join("j", "b1", "b9")],
+                vec![],
+                vec![]
+            )),
+            SketchMalformed::JoinToNothing {
+                join: String::from("j"),
+                end: String::from("b9")
+            }
+        );
+        assert_eq!(
+            refused(drawn(
+                vec![a_box("b1")],
+                vec![join("j", "b1", "b1")],
+                vec![],
+                vec![]
+            )),
+            SketchMalformed::JoinToItself {
+                join: String::from("j")
+            }
+        );
+        let dot = SketchStroke {
+            id: String::from("s1"),
+            points: vec![SketchPoint { x: 1, y: 1 }],
+        };
+        assert_eq!(
+            refused(drawn(vec![], vec![], vec![dot], vec![])),
+            SketchMalformed::StrokeTooShort {
+                stroke: String::from("s1")
+            }
+        );
+        assert_eq!(
+            refused(drawn(vec![], vec![], vec![], vec![picture("p1", 0)])),
+            SketchMalformed::PictureWithNoSize {
+                picture: String::from("p1")
+            }
+        );
+    }
+
+    #[test]
+    fn nothing_drawn_is_empty() {
+        assert!(drawn(vec![], vec![], vec![], vec![]).unwrap().is_empty());
     }
 }

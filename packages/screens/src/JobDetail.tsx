@@ -47,6 +47,7 @@ import { WorkflowTab } from "./tab-workflow";
 import { type WaveRegionProps } from "./tab-wave";
 import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
+import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
@@ -183,6 +184,15 @@ function OneJob(props: JobDetailProps) {
   // reading Overview's run column takes, so the two never give a Job's empty
   // workflow two different reasons.
   const absent = whyNoSteps(props.watched, props.job.id);
+  // What a destination stands in with while this Job's own read is out, and
+  // `undefined` once it has answered either way — `while-reading.ts`. A region
+  // drawn from the read draws its shape until then, never its empty answer.
+  const unread = whileReading(
+    props.watched,
+    job,
+    props.workflows.find((held) => held.id === job.workflow_id),
+    null,
+  );
 
   // Stable across a tick of `now`, which is what keeps the wave's canvas from
   // rebuilding its nodes every second.
@@ -339,6 +349,7 @@ function OneJob(props: JobDetailProps) {
           job={job}
           whole={whole}
           {...(absent === undefined ? {} : { absent })}
+          {...(unread === undefined ? {} : { reading: unread.run })}
           narrow={narrow}
           view={props.workflowView ?? FIRST_WORKFLOW_VIEW}
           onView={(view) => props.onWorkflowView?.(view)}
@@ -368,6 +379,7 @@ function OneJob(props: JobDetailProps) {
         <PlanTab
           job={job}
           whole={whole}
+          reading={unread !== undefined}
           wave={wave}
           floor={floor}
           view={props.planView ?? FIRST_PLAN_VIEW}
@@ -434,6 +446,7 @@ function OneJob(props: JobDetailProps) {
       ) : tab === "record" ? (
         <RecordTab
           {...recordOf(props, whole)}
+          reading={unread !== undefined}
           jobId={job.id}
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
@@ -455,6 +468,7 @@ function OneJob(props: JobDetailProps) {
         <DronesTab
           job={job}
           whole={whole}
+          reading={unread !== undefined}
           {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           now={props.now}
@@ -479,7 +493,11 @@ function OneJob(props: JobDetailProps) {
           trail={trail.of("drones")}
         />
       ) : (
-        <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
+        <PulseTab
+          holds={{ ...pulseOf(props, whole, job.id, caps), figuresReading: unread !== undefined }}
+          jobId={job.id}
+          onNeedPulse={props.onNeedPulse}
+        />
       )}
     </div>
   );
@@ -544,7 +562,7 @@ function pulseOf(
   const examined = looked?.state === "found" ? looked.examined : null;
   const nothing = nothingToAsk(props.resources);
   return {
-    reading: view === null ? null : pulseReadingOf(view, examined, whole),
+    reading: view === null ? null : pulseReadingOf(view, examined, whole, props.now),
     figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),

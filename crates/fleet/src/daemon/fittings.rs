@@ -390,6 +390,7 @@ where
             rechecking: crate::rechecking::Rechecking::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
+            sizes: crate::resources::Sizes::default(),
             allowance: fittings.allowance,
             polled: Mutex::new(None),
             drones: std::sync::Mutex::new(Drones::default()),

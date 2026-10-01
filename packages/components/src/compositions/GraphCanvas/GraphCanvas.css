@@ -203,3 +203,9 @@
     margin-block-end: var(--space-1);
   }
 }
+
+/* A kind armed on the rail: the next press on empty canvas puts it there. Over
+   React Flow's own grab hand, which still pans on a drag. */
+.armada-graph-canvas[data-placing] .react-flow__pane {
+  cursor: crosshair;
+}

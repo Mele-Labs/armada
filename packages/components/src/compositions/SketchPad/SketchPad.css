@@ -19,6 +19,20 @@
   overflow: hidden;
 }
 
+/* Filling what it is put in — a Studio's Sketch, open in its sheet (1 Oct
+   2026). The canvas takes whatever the column leaves, and the composer's
+   height is still its floor, so a short window draws the pad the composer
+   draws rather than a sliver. */
+.armada-sketch-pad[data-fills] {
+  height: 100%;
+}
+
+.armada-sketch-pad[data-fills] .armada-sketch-pad__canvas {
+  flex: 1;
+  height: auto;
+  min-height: var(--h-sketch-pad);
+}
+
 /* The acts stood in a wrapping row over the top-right corner until the owner
    asked for a rail on 28 Sep 2026. Both halves are shared now — the pen, Undo
    and Add a box on `GraphCanvasRail`, Join and Remove hovering over the boxes
@@ -118,5 +132,22 @@
 /* Selected. An outline rather than a border, so nothing reflows and the well
    inside keeps its own edge. */
 .armada-sketch-box[aria-current] {
+  outline: var(--border-width) solid var(--edge-focus);
+}
+
+/* One pasted picture, at the size it landed at. The image is the whole of it:
+   no fill and no padding, because a frame round a screenshot reads as a box
+   holding one. Cornered like a box, so the two read as one vocabulary. */
+.armada-sketch-picture {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.armada-sketch-picture img {
+  display: block;
+}
+
+/* Selected, the way a box is. */
+.armada-sketch-picture[aria-current] {
   outline: var(--border-width) solid var(--edge-focus);
 }

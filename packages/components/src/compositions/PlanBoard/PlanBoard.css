@@ -91,29 +91,17 @@
   min-width: 0;
 }
 
-/* Where the group is, as a word. Plain sans: a group is not a Job, so it
-   takes no badge. Only the two outcomes below take a hue. */
+/* Where the group is: `GROUP_STATE`'s glyph and word. Plain sans: a group is
+   not a Job, so it takes no pill. The hue is the registry's status token, set
+   by `PlanGroupStateWord`; `--fg-muted` stands where a state carries none. */
 .armada-plan-board__state {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
-}
-
-.armada-plan-board__state[data-state="running"],
-.armada-plan-board__state[data-state="checking"],
-.armada-plan-board__state[data-state="joining"] {
-  color: var(--run-running);
-}
-
-.armada-plan-board__state[data-state="passed"],
-.armada-plan-board__state[data-state="landed"] {
-  color: var(--run-passed);
-}
-
-.armada-plan-board__state[data-state="failed"],
-.armada-plan-board__state[data-state="retrying"] {
-  color: var(--run-failed);
 }
 
 /* Where the group writes. One value; a root is short, so it clips from the

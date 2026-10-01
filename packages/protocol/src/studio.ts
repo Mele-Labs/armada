@@ -55,7 +55,12 @@ export type StudioNodeContent =
   | ({ kind: "finding" } & StudioFinding)
   /** `answer` only where a person ended it as Resolved here. Since 14.11. */
   | { kind: "contradiction"; first: string; second: string; answer?: string }
-  | { kind: "sketch"; body: string }
+  /**
+   * The drawing the dispatch composer's pad makes, kept on the Studio — the
+   * owner's call of 1 Oct 2026. Since 20.0, where it was `body`, the diagram
+   * written as text; a Sketch kept as text reads as one box holding it.
+   */
+  | { kind: "sketch"; drawing: SketchDrawing }
   /**
    * A board, document, page or session — **an address no adapter recognised**
    * — kept with the line a person wrote beside it (`said`, since 14.15,
@@ -67,6 +72,18 @@ export type StudioNodeContent =
    * 14.18, #1394. A Link offers no Dispatch.
    */
   | { kind: "link"; address: string; said?: string; named?: string }
+  /**
+   * A path to a file, kept as a person pasted it — absolute, under `~` or
+   * relative to the repository — and trimmed. Fleet neither resolves it nor
+   * checks that it exists. Since 19.3.
+   */
+  | { kind: "file"; path: string }
+  /**
+   * An image a person pasted: the frame Fleet kept, named as a Note's
+   * `capture.frame` is and fetched from `get_studio_frame` the same way. No
+   * words are asked for. Since 19.3.
+   */
+  | { kind: "picture"; frame: CaptureFrame }
   /**
    * An issue on a forge. Since 14.18, #1394.
    *
@@ -144,7 +161,8 @@ export type StudioPosition = { x: number; y: number };
 export type StudioNode = StudioNodeContent & {
   id: string;
   /**
-   * Absent on a kind with no states, and always on a Run or a Job: their state
+   * Absent on a kind with no states, on a Finding whose scout has ended (since
+   * 21.0, where it was `frozen`), and always on a Run or a Job: their state
    * is read off the run or the Job.
    */
   state?: string;
@@ -197,6 +215,71 @@ export type HelmStudioAct =
   | { act: "read_in"; from: string; node_ids: string[] }
   | { act: "dispatched"; from: string; node_ids: string[] };
 
+/** One box on a Sketch: where a person put it, and the words in it. Since 20.0. */
+export type SketchBox = { id: string; x: number; y: number; body: string };
+
+/** Two parts joined, boxes or pictures, in the direction drawn. */
+export type SketchJoin = { id: string; from: string; to: string };
+
+/** One place on a Sketch, in whole pad units. */
+export type SketchPoint = { x: number; y: number };
+
+/** A line drawn by hand, as its points. Two at least. */
+export type SketchStroke = { id: string; points: SketchPoint[] };
+
+/**
+ * A picture on a Sketch: where it sits, the size it is drawn at, and the frame
+ * Fleet kept — fetched from `get_studio_frame` with `?picture=` its id.
+ */
+export type SketchPicture = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  frame: CaptureFrame;
+};
+
+/**
+ * A Sketch's drawing, as a read answers it. **Every array is sent**, empty or
+ * not. Fleet refuses one whose join reaches nothing, whose ids repeat, or
+ * whose stroke is a single point. Since 20.0.
+ */
+export type SketchDrawing = {
+  boxes: SketchBox[];
+  joins: SketchJoin[];
+  strokes: SketchStroke[];
+  pictures: SketchPicture[];
+};
+
+/**
+ * A picture on a Sketch as a write carries it: `staged` is a new image main
+ * wrote, and absent keeps the one the node already holds under `id`. **Never
+ * `frame`**: a kept frame is a file name Fleet chose, and Fleet's decoder
+ * refuses a write naming one.
+ */
+export type SketchPictureDrawn = Omit<SketchPicture, "frame"> & { staged?: StagedFrame };
+
+/** A Sketch's drawing as `add_node` and `edit_sketch` carry it. Since 20.0. */
+export type SketchDrawn = Omit<SketchDrawing, "pictures"> & { pictures: SketchPictureDrawn[] };
+
+/**
+ * `POST /studios/:studio_id/edit_sketch`: the whole drawing a person left on
+ * a Sketch's pad. A picture with nothing staged under an id the node keeps
+ * none under is `fleet.studio_sketch_picture_not_kept`; a drawing with nothing
+ * on it is `fleet.studio_node_blank`. Since 20.0.
+ */
+export type EditStudioSketch = { node_id: string; drawing: SketchDrawn };
+
+/**
+ * A drawing as the renderer hands it to main to keep. **Bytes in, never a
+ * path**, a pasted Picture's rule: a new picture carries its bytes and main
+ * stages them; one with no bytes is a picture the node already keeps.
+ */
+export type SketchToKeep = Omit<SketchDrawing, "pictures"> & {
+  pictures: (Omit<SketchPicture, "frame"> & { bytes?: Uint8Array })[];
+};
+
 /** `POST /studios/create?manifest_id=`. A blank or absent name is untitled. */
 export type CreateStudio = { name?: string };
 
@@ -206,15 +289,23 @@ export type RenameStudio = { name: string };
 /**
  * `POST /studios/:studio_id/add_node`. A node starts in its kind's first state.
  * `produced_by` names the node that made this one, and the Studio draws the edge.
+ *
+ * **A Picture is added staged, never kept**: a body naming `frame` is refused
+ * by Fleet's decoder, since a kept frame is a file name Fleet chose. Since 19.3.
  */
-export type AddStudioNode = StudioNodeContent & {
+export type AddStudioNode = (
+  | Exclude<StudioNodeContent, { kind: "picture" } | { kind: "sketch" }>
+  | { kind: "picture"; staged: StagedFrame }
+  | { kind: "sketch"; drawing: SketchDrawn }
+) & {
   position: StudioPosition;
   produced_by?: string;
 };
 
 /**
  * What a person puts on a Studio by hand — a Note typed, a Link pasted, a
- * Sketch placed. Since 14.12, #1364.
+ * Sketch placed, a File's path pasted, a Picture pasted. Since 14.12, #1364; a
+ * File and a Picture since 19.3.
  *
  * **Narrower than `StudioNodeContent` on purpose.** Fleet refuses every other
  * kind from Bridge as `fleet.studio_node_not_a_persons`, because each is made
@@ -222,9 +313,8 @@ export type AddStudioNode = StudioNodeContent & {
  * cannot ask for a Finding no scout read for and a capability added to the
  * preload bridge stays as small as the act it carries.
  *
- * **A Sketch is structured content and never pixels** — `docs/concepts/studio.md`
- * has it that an agent can read a record and cannot read a drawing — so `body`
- * is the diagram written out, the way an Outline's is.
+ * A Sketch is its drawing, each picture staged — so, like a Picture, only
+ * Bridge's main builds one, from a [`SketchToKeep`] the renderer hands it.
  */
 export type StudioNodeByHand =
   /** Typed here rather than pointed at, so it carries no `capture`: that is `capture_studio_note`'s. */
@@ -239,7 +329,17 @@ export type StudioNodeByHand =
    * and writes the kind that follows. #1394.
    */
   | { kind: "link"; address: string; said?: string }
-  | { kind: "sketch"; body: string };
+  | { kind: "sketch"; drawing: SketchDrawn }
+  /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 19.3. */
+  | { kind: "file"; path: string }
+  /**
+   * An image, as the PNG staged on disk. **Only Bridge's main builds this**,
+   * from bytes it staged itself: the renderer never names a path, and Fleet
+   * copies the file into its own keeping and answers with the Picture naming
+   * it. Over 4 MiB is refused as `fleet.studio_frame_too_large`, and a file
+   * Fleet cannot read as `fleet.studio_frame_unreadable`. Since 19.3.
+   */
+  | { kind: "picture"; staged: StagedFrame };
 
 /**
  * What a Note keeps of where a person pointed — the development annotation
@@ -268,7 +368,7 @@ export type StudioCapture = {
    */
   source?: string;
   /** The frame Fleet kept beside the Studio's records. */
-  frame?: { filename: string; byte_size: number; width: number; height: number };
+  frame?: CaptureFrame;
   /**
    * The server this Note was captured on, in the capture window — #1294, since
    * 17.1. **Absent on every Note captured on Bridge**, which is every Note
@@ -283,6 +383,13 @@ export type StudioCapture = {
  * was pinned to. `location` above is the path within that origin.
  */
 export type CaptureServed = { run: string; name: string; address: string };
+
+/**
+ * A frame Fleet kept beside the Studio's records: its file name under the
+ * Studio's own directory, what it weighs, and its pixels. A Note's capture
+ * keeps one, and a Picture is one.
+ */
+export type CaptureFrame = { filename: string; byte_size: number; width: number; height: number };
 
 /** The PNG Bridge took, written to disk before the request. Never read back. */
 export type StagedFrame = { staged_path: string; width: number; height: number };
@@ -376,7 +483,7 @@ export type StartScout = { node_id: string };
 
 /**
  * `POST /studios/:studio_id/stop_scout`. Answers the Studio before the Finding
- * freezes; the frozen one arrives on `studio.changed`.
+ * ends; the ended one, with no state, arrives on `studio.changed`.
  */
 export type StopScout = { node_id: string };
 

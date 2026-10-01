@@ -10,12 +10,12 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 
 /**
  * Add a node — the `+ Node` control on an open Studio, and the field behind
- * each of the three kinds a person puts on one by hand. `#1364`.
+ * each of the two kinds a person writes onto one by hand. `#1364`.
  *
- * **Three kinds and no more**, decided with the owner: a Note typed, a Link
- * pasted, a Sketch placed. A Finding comes from a scout, a Run from a run, a
- * Cluster from promotion — and Fleet refuses the rest from Bridge by name, so
- * this menu and that door say the same thing.
+ * **Two kinds have a field**: a Note typed and a Link pasted. A Sketch is on the
+ * menu and drawn on the pad (1 Oct 2026); a File and a Picture are only ever
+ * pasted onto the board. A Finding comes from a scout, a Run from a run, a
+ * Cluster from promotion — and Fleet refuses those from Bridge by name.
  *
  * **Which kind is being written is the caller's**, because the keys are: `N`,
  * `V` and `S` are live on the open Studio, and a menu holding its own state
@@ -24,15 +24,19 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 
 export type StudioNodeByHandKind = "note" | "link" | "sketch";
 
+/** The kinds written in a field here. A Sketch is drawn on the pad instead. */
+export type StudioNodeWrittenKind = Exclude<StudioNodeByHandKind, "sketch">;
+
 export type StudioNodeByHand =
   | { kind: "note"; said: string }
   /** `said` is the line beside the address, absent where none was typed. `#1378`. */
   | { kind: "link"; address: string; said?: string }
-  | { kind: "sketch"; body: string };
+  /** A path, pasted onto the board. **No field writes one**, so it is no `StudioNodeByHandKind`. */
+  | { kind: "file"; path: string };
 
 export type StudioAddNodeProps = {
   /** The kind being written, or `null` for the menu alone. */
-  adding: StudioNodeByHandKind | null;
+  adding: StudioNodeWrittenKind | null;
   onAdding: (kind: StudioNodeByHandKind | null) => void;
   /** What was written. Never called with a blank field. */
   onAdd: (node: StudioNodeByHand) => void;
@@ -50,6 +54,17 @@ export type StudioAddNodeProps = {
   refused?: string;
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
+  /**
+   * The field inside the node it makes — the owner's notes of 1 Oct 2026, which
+   * asked that a kind be put down on the board rather than written in a panel.
+   * The node's head names the kind, so the label is read aloud and not drawn.
+   * **No Cancel, and no press off the node does anything**: Esc is the way out,
+   * since a draft that went with a stray press was what he called too
+   * sensitive.
+   */
+  inPlace?: boolean;
+  /** What a send would carry now, or `null` while blank — for a caller that sends it on another press. */
+  onWritten?: (node: StudioNodeByHand | null) => void;
 };
 
 /** Each kind's act in the registry, which is the one place a binding is written. */
@@ -60,10 +75,16 @@ const ACT: Readonly<Record<StudioNodeByHandKind, string>> = {
 };
 
 /** What the field is called, what it asks for, and how tall it is drawn. */
-const FIELD: Readonly<Record<StudioNodeByHandKind, { label: string; asks: string; rows: number }>> = {
+const FIELD: Readonly<Record<StudioNodeWrittenKind, { label: string; asks: string; rows: number }>> = {
   note: { label: "Note", asks: "What you noticed", rows: 3 },
   link: { label: "Link", asks: "A board, document, issue, page or session, as its address", rows: 0 },
-  sketch: { label: "Sketch", asks: "The diagram in words — boxes, arrows, an order", rows: 6 },
+};
+
+/** What the menu calls each kind, the Sketch it opens the pad on included. */
+const NAMED: Readonly<Record<StudioNodeByHandKind, string>> = {
+  note: "Note",
+  link: "Link",
+  sketch: "Sketch",
 };
 
 const KINDS: readonly StudioNodeByHandKind[] = ["note", "link", "sketch"];
@@ -77,16 +98,13 @@ const READING_IN_MAKES =
   "to the Link. The Link stays where it is.";
 
 /** What a person wrote, as the node it makes. Blank is nothing, and sends nothing. */
-function written(kind: StudioNodeByHandKind, draft: string, line: string): StudioNodeByHand | null {
+function written(kind: StudioNodeWrittenKind, draft: string, line: string): StudioNodeByHand | null {
   const said = draft.trim();
   if (said === "") return null;
   if (kind === "note") return { kind, said };
   // A Link is its address whatever is typed beside it, so a blank line is left
   // out rather than sent — one shape for a Link nobody wrote a line on.
-  if (kind === "link") {
-    return line.trim() === "" ? { kind, address: said } : { kind, address: said, said: line.trim() };
-  }
-  return { kind, body: said };
+  return line.trim() === "" ? { kind, address: said } : { kind, address: said, said: line.trim() };
 }
 
 export function StudioAddNode({
@@ -97,6 +115,8 @@ export function StudioAddNode({
   saving = false,
   refused,
   disabled = false,
+  inPlace = false,
+  onWritten,
 }: StudioAddNodeProps) {
   const [draft, setDraft] = useState("");
   const [line, setLine] = useState("");
@@ -108,6 +128,10 @@ export function StudioAddNode({
     setLine("");
   }, [adding]);
 
+  useEffect(() => {
+    if (adding !== null) onWritten?.(written(adding, draft, line));
+  }, [adding, draft, line, onWritten]);
+
   if (adding === null) {
     return (
       <DropdownMenu
@@ -116,7 +140,7 @@ export function StudioAddNode({
         entries={KINDS.map((kind) => ({
           kind: "item" as const,
           id: kind,
-          label: FIELD[kind].label,
+          label: NAMED[kind],
           shortcut: keyFor(ACT[kind]),
         }))}
         onSelect={(id) => onAdding(id as StudioNodeByHandKind)}
@@ -151,7 +175,7 @@ export function StudioAddNode({
         <Input
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           value={draft}
           mono
@@ -165,7 +189,7 @@ export function StudioAddNode({
         <Textarea
           key={adding}
           autoFocus
-          label={label}
+          {...(inPlace ? { "aria-label": label } : { label })}
           placeholder={asks}
           rows={rows}
           value={draft}
@@ -176,12 +200,6 @@ export function StudioAddNode({
           onKeyDown={keyed}
         />
       )}
-      {adding === "sketch" ? (
-        <p className="armada-studio-add-node__says">
-          The diagram written out. A Studio is read by agents, and an agent reads a record rather than a
-          drawing.
-        </p>
-      ) : null}
       {adding === "link" && draft.trim() !== "" ? (
         <PastedOffer line={line} onLine={setLine} onKeyDown={keyed} readIn={readIn} />
       ) : null}
@@ -202,9 +220,11 @@ export function StudioAddNode({
             Read it in
           </Button>
         ) : null}
-        <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
-          Cancel
-        </Button>
+        {inPlace ? null : (
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => onAdding(null)}>
+            Cancel
+          </Button>
+        )}
         {adding === "link" ? <Kbd>Enter</Kbd> : <KbdChord keys={["⌘", "Enter"]} />}
       </div>
     </div>

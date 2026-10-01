@@ -1,83 +1,117 @@
-/* The picker rests in the trailing bottom corner and is dragged anywhere from
-   there. It used to sit over Helm's column on the assumption that column is
-   empty below its composer — it is not, on the screens being annotated. */
+/* The mock's scenario picker, in the app's own left column — the owner asked
+   for it there on 30 Sep 2026. It used to float in the trailing bottom corner
+   and be dragged out of the way; wherever it was dropped it was still over
+   something, which is what the drag was already the second answer to. */
 .armada-mock-picker {
-  position: fixed;
-  right: var(--space-6);
-  bottom: var(--space-6);
-  z-index: var(--z-menu);
-  /* Flex, so the frame is exactly what it holds: a block around an inline-flex
-     button takes a line box's descender space, and collapsed the frame's height
-     is the whole promise — one small control, not a card. */
   display: flex;
-}
-
-/* Placed by hand: the resting corner has to let go, or `right` and `left`
-   would both apply and the card would stretch between them. */
-.armada-mock-picker[data-placed] {
-  right: auto;
-  bottom: auto;
-}
-
-.armada-mock-picker__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* The grip is a handle and not a row of text — `.armada-dock-handle`
-   turned for a row: a short bar at the centre of the hit area, drawn at
-   --border-default so it is there at rest, and stepping to --border-strong and
-   twice the width on hover, focus or drag. It says nothing: the select carries
-   the scenario, once. `grab` beats `.armada-button`'s own `pointer`. */
-.armada-mock-picker [data-grip] {
+  position: relative;
   flex: none;
-  width: var(--space-4);
-  padding: 0;
-  cursor: grab;
-  touch-action: none;
-}
-
-.armada-mock-picker [data-grip]::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--border-width);
-  height: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--border-default);
-  transform: translate(-50%, -50%);
-  transition:
-    background-color var(--duration-fast) var(--ease),
-    width var(--duration-fast) var(--ease);
-}
-
-.armada-mock-picker [data-grip]:hover::before,
-.armada-mock-picker [data-grip]:focus-visible::before,
-.armada-mock-picker[data-dragging] [data-grip]::before {
-  width: calc(var(--border-width) * 2);
-  background: var(--border-strong);
-}
-
-.armada-mock-picker[data-dragging] [data-grip],
-.armada-mock-picker[data-dragging] [data-chip] {
-  cursor: grabbing;
-}
-
-.armada-mock-picker__field {
-  flex: 1;
   min-width: 0;
-  max-width: var(--w-menu);
 }
 
-/* Collapsed it is a chip, not a smaller card: one small control tall, its own
-   ground since there is no card behind it, and the whole of it is the press
-   that reopens the picker. It drags too, which is the cursor. */
-.armada-mock-picker [data-chip] {
-  max-width: var(--w-menu);
-  cursor: grab;
-  touch-action: none;
+/* The one control at rest: the scenario, and nothing beside it saying so —
+   the button's own name and tooltip carry that for a reader. It fills the
+   column so the name has every pixel the column has. */
+.armada-mock-picker [data-said] {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-mock-picker__current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* At the column's rail the name has nowhere to go, so the button is its glyph
+   alone — what every other row in the rail is there. The scenario is still in
+   the tooltip and in the accessible name. Keyed off the app's own collapsed
+   rail rather than a breakpoint, because a person can choose the rail at any
+   width (#1591). */
+.armada-shell__left:has(.armada-sidebar[data-collapsed]) .armada-mock-picker [data-said] {
+  justify-content: center;
+}
+
+.armada-shell__left:has(.armada-sidebar[data-collapsed]) .armada-mock-picker__current {
+  display: none;
+}
+
+/* The list, while it is open. **Fixed, not absolute**: the column scrolls and
+   clips, and a layer anchored inside it would be cut off at the fold. It is
+   pinned to the column's trailing edge and to the bottom of the window, so it
+   grows upward out of the control rather than down off the screen. */
+.armada-mock-picker__layer {
+  position: fixed;
+  left: var(--space-4);
+  /* Clear of the control, so the scenario it says is still readable while the
+     list is up — the one thing the picker has to draw at all times. */
+  bottom: calc(var(--space-6) + var(--h-control-sm) + var(--space-2));
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: var(--w-menu);
+  max-height: 60vh;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-mock-picker__list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* `flex: none`: a row is a flex item with `overflow: hidden`, so its minimum
+   height is zero and the list would shrink every row to its padding. */
+.armada-mock-picker__row {
+  display: block;
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.armada-mock-picker__row[data-current] {
+  color: var(--fg-default);
+}
+
+.armada-mock-picker__row:hover,
+.armada-mock-picker__row[data-at] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-mock-picker__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* What the query matched, so a subsequence hit reads as one rather than as a
+   row that turned up for no reason. */
+.armada-mock-picker__hit {
+  color: var(--accent);
+  font-weight: var(--weight-medium);
 }
 
 /* A walk, `WalkPlayer.tsx`: a ring on the step's target and the caption in a card.
