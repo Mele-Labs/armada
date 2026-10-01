@@ -235,3 +235,120 @@ fn a_picture_as_read_is_no_write() {
     let body = br#"{"kind":"picture","frame":{"filename":"../../elsewhere.png","byte_size":1,"width":1,"height":1},"position":{"x":0,"y":0}}"#;
     ipc::decode::<AddStudioNode>("a node", body).expect_err("a frame named on a write");
 }
+
+/// A frame named `filename`, as a row nothing in Fleet minted would hold it.
+fn a_frame_named(filename: &str) -> core_model::CaptureFrame {
+    core_model::CaptureFrame {
+        filename: filename.to_string(),
+        byte_size: 6,
+        width: 1,
+        height: 1,
+    }
+}
+
+/// A Note whose capture names `frame`, as `capture_studio_note` writes one.
+fn a_captured_note(frame: core_model::CaptureFrame) -> core_model::StudioNodeContent {
+    core_model::StudioNodeContent::Note {
+        said: "pointed".to_string(),
+        capture: Some(core_model::StudioCapture {
+            component: None,
+            owners: Vec::new(),
+            selector: "button".to_string(),
+            element: core_model::CaptureElement {
+                tag: "button".to_string(),
+                text: "Queued 3".to_string(),
+                label: None,
+            },
+            screen: None,
+            layer: None,
+            location: "/".to_string(),
+            bounds: core_model::CaptureBounds {
+                x: 0,
+                y: 0,
+                width: 1,
+                height: 1,
+            },
+            window: core_model::CaptureWindow {
+                width: 1,
+                height: 1,
+            },
+            styles: Default::default(),
+            markup: "<button>".to_string(),
+            source: None,
+            frame: Some(frame),
+            served: None,
+        }),
+    }
+}
+
+/// **A kept frame's name is one plain path component, or no file is opened
+/// or deleted for it.** Fleet mints every name it keeps, so a row naming
+/// `../x` is one nothing here wrote — and a real file sits at that path,
+/// beside the Studio's directory, so a read or a delete that followed the
+/// name would reach it. A Note's capture and a Picture are both held to it.
+#[tokio::test]
+async fn a_frame_name_reaching_outside_the_studio_is_neither_read_nor_deleted() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    let frames = Path::new(&fleet.host().studio_frames_dir);
+    std::fs::create_dir_all(frames.join(studio.id.as_str())).expect("the Studio's directory");
+    let outside = frames.join("x");
+    std::fs::write(&outside, b"secret").expect("a file outside the Studio");
+
+    let id = studio.id.to_domain();
+    let at = fleet.now();
+    let planted_as = [
+        ("01PLANTEDNOTE", a_captured_note(a_frame_named("../x"))),
+        (
+            "01PLANTEDPICTURE",
+            core_model::StudioNodeContent::Picture {
+                frame: a_frame_named("../x"),
+            },
+        ),
+    ];
+    let mut planted = Vec::new();
+    for (named, content) in planted_as {
+        let node_id = core_model::StudioNodeId::carried(core_model::Ulid::carried(named));
+        let node = core_model::StudioNode::added(
+            node_id.clone(),
+            content,
+            core_model::StudioPosition { x: 0, y: 0 },
+            at.clone(),
+            core_model::StudioAuthor::Person,
+        );
+        fleet
+            .store()
+            .lock()
+            .await
+            .add_studio_node(&id, &node, None, &at)
+            .expect("a row straight into the store");
+        planted.push(ipc::StudioNodeId::from(&node_id));
+    }
+
+    for node_id in &planted {
+        let refused = fleet
+            .get_studio_frame(studio.id.clone(), node_id.clone(), None)
+            .await
+            .expect_err("a name that leaves the Studio's directory");
+        assert_eq!(code(&refused), "fleet.studio_frame_unreadable");
+    }
+
+    fleet
+        .remove_studio_nodes(
+            studio.id.clone(),
+            RemoveStudioNodes {
+                node_ids: planted.clone(),
+            },
+            None,
+        )
+        .await
+        .expect("the delete itself still happens");
+    assert_eq!(
+        std::fs::read(&outside).expect("still there"),
+        b"secret",
+        "nothing outside the Studio was deleted"
+    );
+    let read = fleet.get_studio(studio.id, None).await.expect("read back");
+    assert!(read.nodes.is_empty(), "both nodes went");
+}

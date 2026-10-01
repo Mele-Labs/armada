@@ -5,8 +5,9 @@
 //! chose under the Studio's own directory, and `get_studio_frame` opens what a
 //! node names — so a client that could write one would choose what Fleet
 //! opens. A body with `"kind": "picture"` decodes as the staged shape alone,
-//! with no other field beside it, and [`AddedContent`] cannot hold a Picture,
-//! so no write reaches Fleet carrying one.
+//! with no other field beside it, and [`AddedContent`] holds neither a Picture
+//! nor a Note whose capture names a frame, so no write reaches Fleet carrying
+//! one. A captured Note's frame arrives staged, through `capture_studio_note`.
 
 use serde::de::Error as _;
 use serde::ser::SerializeMap;
@@ -29,9 +30,9 @@ pub enum StudioNodeAdded {
     Content(AddedContent),
 }
 
-/// A node's content that is not a Picture. **The field is private**, and both
-/// ways in — the decoder and [`StudioNodeAdded`]'s `TryFrom` — refuse a
-/// Picture.
+/// A node's content that names no kept frame: not a Picture, and not a Note
+/// whose capture carries `frame`. **The field is private**, and both ways in —
+/// the decoder and [`StudioNodeAdded`]'s `TryFrom` — refuse either.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AddedContent(StudioNodeContent);
 
@@ -49,14 +50,27 @@ impl From<AddedContent> for StudioNodeContent {
 }
 
 impl TryFrom<StudioNodeContent> for StudioNodeAdded {
-    /// A Picture as read, handed back: its frame is Fleet's to name.
+    /// Content naming a kept frame, handed back: the frame is Fleet's to name.
     type Error = StudioNodeContent;
 
     fn try_from(content: StudioNodeContent) -> Result<StudioNodeAdded, StudioNodeContent> {
-        match content {
-            StudioNodeContent::Picture { .. } => Err(content),
-            content => Ok(StudioNodeAdded::Content(AddedContent(content))),
+        match names_a_kept_frame(&content) {
+            Some(_) => Err(content),
+            None => Ok(StudioNodeAdded::Content(AddedContent(content))),
         }
+    }
+}
+
+/// Which field names a kept frame, on content that does — the one question
+/// both ways into [`AddedContent`] ask.
+fn names_a_kept_frame(content: &StudioNodeContent) -> Option<&'static str> {
+    match content {
+        StudioNodeContent::Picture { .. } => Some("frame"),
+        StudioNodeContent::Note {
+            capture: Some(capture),
+            ..
+        } if capture.frame.is_some() => Some("capture.frame"),
+        _ => None,
     }
 }
 
@@ -86,9 +100,15 @@ impl<'de> Deserialize<'de> for StudioNodeAdded {
                 staged: picture.staged,
             });
         }
-        StudioNodeContent::deserialize(Value::Object(body))
-            .map(|content| StudioNodeAdded::Content(AddedContent(content)))
-            .map_err(D::Error::custom)
+        let content =
+            StudioNodeContent::deserialize(Value::Object(body)).map_err(D::Error::custom)?;
+        if let Some(field) = names_a_kept_frame(&content) {
+            return Err(D::Error::custom(format!(
+                "`{field}` is a file Fleet kept and names itself, so no request may carry one: a \
+                 captured Note's frame is staged, through `capture_note`"
+            )));
+        }
+        Ok(StudioNodeAdded::Content(AddedContent(content)))
     }
 }
 

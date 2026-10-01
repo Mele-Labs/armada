@@ -186,6 +186,20 @@ where
         std::path::Path::new(&self.host().studio_frames_dir).join(studio_id.as_str())
     }
 
+    /// Where a kept frame named `filename` is, and `None` where the name is not
+    /// one plain path component. **Fleet mints every name it keeps**, so a
+    /// legitimate one always passes; this stands behind the record for the
+    /// row that holds a name nothing here minted, so it reaches no file
+    /// outside the Studio's own directory.
+    pub(crate) fn kept_frame(
+        &self,
+        studio_id: &StudioId,
+        filename: &str,
+    ) -> Option<std::path::PathBuf> {
+        crate::check_output::one_component(filename)
+            .then(|| self.studio_frames(studio_id).join(filename))
+    }
+
     /// Whether `by` may add a node of `kind` at all, asked before anything is
     /// written — a Picture's file included.
     pub(crate) fn addable_by(&self, kind: StudioNodeKind, by: Redirector) -> Result<(), Refusal> {
@@ -354,7 +368,15 @@ where
                 .filename
                 .clone()
         };
-        let path = self.studio_frames(&id).join(&filename);
+        let path = self.kept_frame(&id, &filename).ok_or_else(|| {
+            self.studio_unacceptable(
+                FRAME_UNREADABLE,
+                format!(
+                    "node `{}` names `{filename}` as its frame, which is no file name Fleet keeps",
+                    wanted.as_str()
+                ),
+            )
+        })?;
         std::fs::read(&path)
             .map(|bytes| (filename, bytes))
             .map_err(|cause| {
@@ -633,12 +655,13 @@ where
             let after = store.studio(&id).map_err(|why| self.studio_refusal(why))?;
             (ipc::Studio::of(&after), frames)
         };
-        let dir = self.studio_frames(&id);
         for filename in frames {
             // Nothing else reads these, and the node that named this one is
             // gone. A file that will not go is not worth failing a delete that
-            // already happened.
-            let _ = std::fs::remove_file(dir.join(filename));
+            // already happened, and a name that is no kept frame's is skipped.
+            if let Some(path) = self.kept_frame(&id, &filename) {
+                let _ = std::fs::remove_file(path);
+            }
         }
         self.events()
             .publish(ipc::Event::StudioChanged(studio.clone()));

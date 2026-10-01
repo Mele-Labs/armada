@@ -1878,6 +1878,13 @@ holds an `AddedContent` that cannot be a Picture; TypeScript's `AddStudioNode` s
 `Exclude`. Only Bridge's main builds the staged shape, from bytes it staged itself — the renderer
 never names a path.
 
+**Nor does a Note's `capture.frame`, which closed a hole older than the Picture.** A Note through
+`add_node` could carry any file name there, and `get_studio_frame` joined it onto the Studio's
+directory. Such a body no longer decodes; a captured Note's frame arrives staged, through
+`capture_note`, as it always has, and no Bridge sent one the other way. Behind the record, Fleet
+also refuses to open or delete a kept name that is not one plain path component — a row holding
+`../x` reads as `fleet.studio_frame_unreadable` and is skipped by a delete.
+
 **Additive by 14.7's and 14.18's reading**, which added node kinds the same way. Nothing an older
 Bridge already parses changes; one meeting a File or a Picture draws no card for it, which is
 `packages/screens`' `cardOf` default for a kind it does not know.

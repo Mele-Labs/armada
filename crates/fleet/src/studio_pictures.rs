@@ -49,7 +49,7 @@ where
         }
         let node_id = StudioNodeId::carried(self.mint().ulid());
         let frame = self.frame_kept(&id, &node_id, staged)?;
-        let kept = self.studio_frames(&id).join(&frame.filename);
+        let kept = self.kept_frame(&id, &frame.filename);
         let at = self.now();
         let node = StudioNode::added(
             node_id,
@@ -68,7 +68,7 @@ where
                 store.add_studio_node(id, &node, produced_by, &at)
             })
             .await;
-        if written.is_err() {
+        if let (Err(_), Some(kept)) = (&written, kept) {
             let _ = std::fs::remove_file(kept);
         }
         written

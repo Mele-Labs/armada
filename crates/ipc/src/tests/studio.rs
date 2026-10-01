@@ -260,6 +260,31 @@ fn a_picture_naming_a_kept_frame_or_nothing_staged_does_not_decode() {
     crate::StudioNodeAdded::try_from(read).expect_err("a Picture as read is no write");
 }
 
+/// **Nor does a Note's capture name one.** A captured Note's frame arrives
+/// staged, through `capture_note`; through `add_node` a Note may carry where a
+/// person pointed and never a file name. The same capture without `frame`
+/// still decodes.
+#[test]
+fn a_note_whose_capture_names_a_kept_frame_does_not_decode() {
+    let pointed = r#""selector":"button","element":{"tag":"button","text":"Queued 3"},"location":"/","bounds":{"x":0,"y":0,"width":1,"height":1},"window":{"width":1,"height":1},"markup":"<button>""#;
+    let frame = r#""frame":{"filename":"../../x","byte_size":1,"width":1,"height":1}"#;
+    let at = r#""position":{"x":0,"y":0}"#;
+    let body =
+        format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed},{frame}}},{at}}}"#);
+    let refused =
+        decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect_err("a frame named");
+    assert!(refused.to_string().contains("capture.frame"), "{refused}");
+
+    let body = format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed}}},{at}}}"#);
+    decode::<crate::AddStudioNode>("a node", body.as_bytes()).expect("a capture with no frame");
+    let named = decode::<StudioNodeContent>(
+        "content",
+        format!(r#"{{"kind":"note","said":"pointed","capture":{{{pointed},{frame}}}}}"#).as_bytes(),
+    )
+    .expect("a read carries one");
+    crate::StudioNodeAdded::try_from(named).expect_err("a Note naming a frame is no write");
+}
+
 /// **Helm's act is its own kind**, flat: which act beside the ids, and the
 /// repository at the top level where a poll's tally reads it.
 #[test]

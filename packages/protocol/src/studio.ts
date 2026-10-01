@@ -241,9 +241,8 @@ export type AddStudioNode = (
  * cannot ask for a Finding no scout read for and a capability added to the
  * preload bridge stays as small as the act it carries.
  *
- * **A Sketch is structured content and never pixels** — `docs/concepts/studio.md`
- * has it that an agent can read a record and cannot read a drawing — so `body`
- * is the diagram written out, the way an Outline's is.
+ * A Sketch's `body` is the diagram written out, the way an Outline's is. An
+ * image goes on a Studio as a Picture.
  */
 export type StudioNodeByHand =
   /** Typed here rather than pointed at, so it carries no `capture`: that is `capture_studio_note`'s. */

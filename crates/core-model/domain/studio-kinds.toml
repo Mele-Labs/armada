@@ -102,7 +102,7 @@ status_colour = false
 added_by_hand = true
 dispatches = false
 not_called = []
-notes = "Structured content and never pixels: an agent can read a record and cannot read a drawing."
+notes = "The diagram written out, as structured content. An image is a Picture."
 
 [nodes.link]
 name = "Link"
