@@ -5,8 +5,9 @@
 // surface working beneath it — which is the design contract's own definition of
 // a banner, and the reason none of it belongs in the status bar.
 //
-// **A press that failed is not a standing condition, so it is not here.** It
-// pops up as a toast over everything, panels included — `raised.tsx`.
+// **A press that failed, or that the form would not send, is not a standing
+// condition, so it is not here.** It pops up as a toast over everything,
+// panels included — `raised.tsx`.
 //
 // # Why it is its own file
 //
@@ -22,10 +23,10 @@
 
 import type { ReactNode } from "react";
 import { Alert, Button, ManifestNotice } from "@armada/components";
-import type { ManifestReading, Outcome, WorktreeReclaimed } from "@armada/protocol";
+import type { ManifestReading, WorktreeReclaimed } from "@armada/protocol";
 import type { Failure } from "@armada/shell";
 import { FailureBlock } from "@armada/shell";
-import { reclaimed, said, TakenNotice } from "@armada/screens";
+import { reclaimed, TakenNotice } from "@armada/screens";
 
 export type StandingProps = {
   /** Fleet, where the one connection is not one. */
@@ -48,12 +49,6 @@ export type StandingProps = {
    */
   givenBack: WorktreeReclaimed[];
   onGivenBack: (given: WorktreeReclaimed[]) => void;
-  /**
-   * The last command's answer, where it is the form's guidance. A command that
-   * failed pops up as a toast over everything instead — `raised.tsx`.
-   */
-  outcome: Outcome | null;
-  onOutcome: (outcome: Outcome | null) => void;
   /** A press a freeze took and holds, while it holds. */
   taken: { title: string; body: string; onDismiss: () => void } | null;
   /** A clone that finished after its dialog closed — `LocatedNotice`, held by Locate. */
@@ -72,8 +67,6 @@ export function Standing({
   onAcknowledged,
   givenBack,
   onGivenBack,
-  outcome,
-  onOutcome,
   taken,
   located,
 }: StandingProps) {
@@ -139,22 +132,6 @@ export function Standing({
       )}
 
       {taken === null ? null : <TakenNotice {...taken} />}
-
-      {/* The form telling you what it will not send, which is guidance and
-          not a failure. A refusal Fleet named, and a command it did not
-          answer, are failures and pop up as toasts — `raised.tsx`. */}
-      {outcome === null || outcome.ok ? null : (
-        <Alert
-          tone="escalated"
-          action={
-            <Button variant="ghost" size="sm" onClick={() => onOutcome(null)}>
-              Dismiss
-            </Button>
-          }
-        >
-          {said(outcome)}
-        </Alert>
-      )}
     </>
   );
 }

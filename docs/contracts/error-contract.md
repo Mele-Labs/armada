@@ -258,6 +258,7 @@ state stays a banner. The line is drawn by what the failure is about:
 | A command Fleet did not answer | a command somebody pressed | Toast |
 | `bridge.not_implemented` | a command somebody pressed | Toast |
 | A throw no boundary saw | a click or a preload call, in this process | Toast |
+| A press the form would not send — Fleet not connected, and the rest of its guidance | a command somebody pressed | Toast |
 | Fleet unreachable, or the window stale | the connection | Banner |
 | A row Fleet refused | the board as read | Inline, beside its row |
 | A region that threw while drawing | a render | Full-surface, in that region |
@@ -268,6 +269,13 @@ carries the notice whole — headline, the fault in a line, the code, the fold
 (`What is not built` with the issue link, on a not-implemented failure), Copy
 debug info, File an issue and Dismiss. Several stack, and **none goes on a
 timer**: a failure is evidence, and stays until somebody dismisses it.
+
+**A press the form would not send is a toast too, though it is not a failure.**
+"Fleet is not connected. Nothing was sent." names what happened and what to
+do, and carries no code, so its toast has the sentence and Dismiss and no Copy
+debug info. It is one per kind: pressing five times while Fleet is down replaces
+one toast rather than stacking five. Fleet being down is still the banner; the
+toast is about the press.
 
 ### Which class a failure is
 

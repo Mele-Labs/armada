@@ -432,7 +432,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower } = useRaised(commands.outcome);
-  const { statement, fleet, commandFailure, failing } = failingIn({
+  const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
     readAt: state.readAt,
@@ -700,9 +700,6 @@ export function App({ draft }: AppProps = {}) {
             onAcknowledged={setAcknowledged}
             givenBack={commands.givenBack}
             onGivenBack={commands.setGivenBack}
-            // A command that failed is a toast; only the form's guidance is here.
-            outcome={commandFailure === null ? commands.outcome : null}
-            onOutcome={commands.setOutcome}
             taken={commands.taken}
             located={<LocatedNotice locating={locate} repositories={repositories} />}
           />

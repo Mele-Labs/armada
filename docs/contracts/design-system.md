@@ -2246,7 +2246,7 @@ nothing but the edge.
 | Placement | Where | Rule |
 | --- | --- | --- |
 | Inline | In the row, or beside the act | Contained to the thing you touched |
-| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed, which carries its acts and stays until dismissed |
+| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed |
 | Banner | Above the surface, inside it | Persistent. The surface works beneath |
 | Full-surface | Replaces the surface | The one placement that takes the screen |
 
@@ -2262,6 +2262,11 @@ boundary saw each pop up as a toast over every layer, because they come from a
 press and a panel may be open over the surface. Fleet unreachable, a stale
 window and every other standing condition stay banners above the surface:
 they are true until something changes, not something that happened.
+
+**A press the form would not send is a toast as well.** "Fleet is not
+connected. Nothing was sent." and the rest of the form's guidance pop up the
+same way, with the sentence and Dismiss and no Copy debug info, since there is
+no code to hand on. One stands per kind, so a press repeated replaces it.
 
 **Several failure toasts stack, newest nearest the corner, and none is on a
 timer.** A failure is evidence, and one that expired while somebody read the

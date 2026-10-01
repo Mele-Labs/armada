@@ -10,16 +10,20 @@
 // **Several stack, and none goes on a timer.** A failure is evidence; one that
 // expired while somebody read the panel it came from is one they cannot get
 // back. A copy confirmation still goes on its own, below them.
+//
+// **Guidance is one per kind.** A press the form would not send says the same
+// sentence every time, so pressing five times while Fleet is not connected
+// replaces one toast rather than stacking five.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeIdentity, Outcome } from "@armada/protocol";
-import { CopiedToast, FailureToast, SaidToast, ToastRegion, watchUncaught } from "@armada/shell";
+import { CopiedToast, FailureToast, GuidanceToast, SaidToast, ToastRegion, watchUncaught } from "@armada/shell";
 import type { Raised } from "./failing";
-import { failedCommand, raisedFailure } from "./failing";
+import { failedCommand, guidanceOf, raisedFailure } from "./failing";
 
 /**
  * The toasts standing, oldest first. Each command answer that failed raises
- * one, and so does each throw no boundary saw.
+ * one, and so does each throw no boundary saw; guidance replaces its own kind.
  */
 export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void } {
   const [raised, setRaised] = useState<Raised[]>([]);
@@ -30,11 +34,22 @@ export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (
   }, []);
   // Each answer is a new object, so a second failed press is a second toast.
   useEffect(() => {
-    if (outcome !== null && failedCommand(outcome)) raise({ outcome });
+    if (outcome === null) return;
+    if (failedCommand(outcome)) raise({ outcome });
+    else if (guidanceOf(outcome) !== null) {
+      setRaised((held) => held.filter((one) => !sameGuidance(one, outcome)));
+      raise({ outcome });
+    }
   }, [outcome, raise]);
   useEffect(() => watchUncaught((uncaught) => raise({ uncaught })), [raise]);
   const lower = useCallback((key: number) => setRaised((held) => held.filter((one) => one.key !== key)), []);
   return { raised, lower };
+}
+
+/** Whether a toast is guidance of the same kind as this answer. */
+function sameGuidance(one: Raised, outcome: Outcome): boolean {
+  if (!("outcome" in one) || guidanceOf(one.outcome) === null) return false;
+  return !one.outcome.ok && !outcome.ok && one.outcome.why === outcome.why;
 }
 
 export type ToastsProps = {
@@ -52,6 +67,8 @@ export function Toasts({ raised, bridge, onLower, copied, said, onCopied }: Toas
     <ToastRegion>
       {raised.map((one) => {
         const failure = raisedFailure(one, bridge);
+        const guidance = "outcome" in one ? guidanceOf(one.outcome) : null;
+        if (guidance !== null) return <GuidanceToast key={one.key} said={guidance} onDismiss={() => onLower(one.key)} />;
         return failure === null ? null : (
           <FailureToast
             key={one.key}

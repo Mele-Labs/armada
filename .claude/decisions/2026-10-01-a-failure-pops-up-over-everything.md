@@ -8,4 +8,6 @@ A press inside a panel that failed (Save on Edit this task, Pilot, Restart, a dr
 
 **Then, as a second thing:** *"Maybe we have a notifications area as well?"* A place that keeps what has popped up, so a dismissed one can be found again. This is not decided, and nothing waits on it.
 
+**Then, the same day:** the form's guidance — "Fleet is not connected. Nothing was sent." — still drew in the banner band, under a panel's dim. The owner chose to toast it too: a press that didn't happen pops up over everything, and Fleet being down keeps its own banner.
+
 **Where it landed:** `plan/group-glyphs`.

@@ -6,6 +6,7 @@
 // six failures given one *sentence*, which is what this repairs.
 
 import {
+  Alert,
   Button,
   COPY_DEBUG_INFO,
   copyDebugInfo,
@@ -191,23 +192,51 @@ export type FailureToastProps = {
  * under it keeps its own Esc for every press made outside the toast.
  */
 export function FailureToast({ failure, onCopied, onDismiss, reloadable = false }: FailureToastProps) {
-  function pressed(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
-    event.preventDefault();
-    // File an issue opens its review inside this element, and Esc there
-    // cancels the review: the dialog's own listener, on the window, still
-    // hears it. Marked taken so nothing under the toast answers it too.
-    if ((event.target as Element).closest('[role="dialog"]') !== null) return;
-    event.stopPropagation();
-    onDismiss();
-  }
   return (
-    <div onKeyDown={pressed}>
+    <div onKeyDown={(event) => escDismisses(event, onDismiss)}>
       <Toast>
         <FailureBlock failure={failure} onCopied={onCopied} reloadable={reloadable} onDismiss={onDismiss} />
       </Toast>
     </div>
   );
+}
+
+/**
+ * A press the form would not send, popped up over everything like a failure.
+ *
+ * **Guidance, so no Copy debug info.** It carries no code and nothing Fleet
+ * said; the sentence names what happened and what to do, and that is all a
+ * person could hand on. The same toast and the same Esc as a failure, so a
+ * press inside a panel is answered over the panel.
+ */
+export function GuidanceToast({ said, onDismiss }: { said: string; onDismiss: () => void }) {
+  return (
+    <div onKeyDown={(event) => escDismisses(event, onDismiss)}>
+      <Toast>
+        <Alert
+          tone="escalated"
+          action={
+            <Button variant="ghost" size="sm" onClick={onDismiss}>
+              Dismiss
+            </Button>
+          }
+        >
+          {said}
+        </Alert>
+      </Toast>
+    </div>
+  );
+}
+
+function escDismisses(event: KeyboardEvent<HTMLDivElement>, onDismiss: () => void): void {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  event.preventDefault();
+  // File an issue opens its review inside this element, and Esc there
+  // cancels the review: the dialog's own listener, on the window, still
+  // hears it. Marked taken so nothing under the toast answers it too.
+  if ((event.target as Element).closest('[role="dialog"]') !== null) return;
+  event.stopPropagation();
+  onDismiss();
 }
 
 export type FailureSurfaceProps = {

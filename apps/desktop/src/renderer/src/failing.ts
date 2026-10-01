@@ -23,7 +23,9 @@
 //
 // A press that failed pops up as a toast, over every layer, and stays until it
 // is dismissed: a command Fleet refused or did not answer, a route it does not
-// serve yet, and a throw no boundary saw. A state is not a press, so Fleet
+// serve yet, and a throw no boundary saw. So does a press the form would not
+// send — Fleet not connected, and the rest of its guidance — though it is not a
+// failure and carries nothing to copy. A state is not a press, so Fleet
 // unreachable stays a banner, and so do the board's unreadable rows.
 //
 // The board's own unreadable rows are not in this order and never were. Each is
@@ -33,7 +35,7 @@ import type { BridgeIdentity, Connection, Outcome } from "@armada/protocol";
 import type { Failure, Statement, Uncaught } from "@armada/shell";
 import { fleetFailure, refusalFailure, transportFailure, uncaughtFailure } from "@armada/shell";
 import { statementOf } from "@armada/shell";
-import { servesNothing } from "@armada/screens";
+import { said, servesNothing } from "@armada/screens";
 
 /** What the window has been published, as far as a failure is concerned. */
 export type Published = {
@@ -71,7 +73,7 @@ export function failingIn(published: Published): Failing {
   // envelope, and a transport failure is a command it did not answer at all —
   // which used to be a single line of copy with no code and nothing to copy.
   // Everything else `Outcome` carries is the form saying what it will not send,
-  // which is guidance and takes the `Alert` the surface draws.
+  // which is guidance: a toast of its own, one per kind — `raised.tsx`.
   const commandFailure = commandFailureOf(outcome, bridge);
 
   return {
@@ -96,7 +98,16 @@ function commandFailureOf(outcome: Outcome | null, bridge: BridgeIdentity): Fail
   return null;
 }
 
-/** One toast: a command that failed, or a throw no boundary saw. */
+/**
+ * What a press the form would not send says, or null where the answer was not
+ * guidance. Its toast has no Copy debug info: there is no code to hand on.
+ */
+export function guidanceOf(outcome: Outcome | null): string | null {
+  if (outcome === null || outcome.ok || failedCommand(outcome)) return null;
+  return said(outcome) || null;
+}
+
+/** One toast: a command that failed or was not sent, or a throw no boundary saw. */
 export type Raised = { key: number } & ({ outcome: Outcome } | { uncaught: Uncaught });
 
 /** The failure a toast draws. */
