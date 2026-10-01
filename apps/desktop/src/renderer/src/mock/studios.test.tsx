@@ -656,7 +656,9 @@ test("a pasted address is asked about, takes a line of its own, and keeps it acr
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
 
+  // `V` arms a Link and a press on the board puts it down.
   await userEvent.keyboard("V");
+  await pressBoard(0);
   // Nothing is offered until there is an address to offer it about.
   expect(page.getByLabelText("Your line", { exact: true }).query()).toBeNull();
   await userEvent.fill(page.getByLabelText("Link", { exact: true }), PASTED);
