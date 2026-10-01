@@ -975,6 +975,12 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   await pickEvery();
   // Counted, never named, and the single-node act is not what is offered here.
   await expect.element(offered("Delete 18 nodes")).toBeVisible();
+  // **Where a pointer reaches it**, not past the board's bottom edge: picked
+  // whole, a fitted board leaves no room above the nodes or below them, and a
+  // bar outside the frame was clicked only by Playwright scrolling a wrapper
+  // React Flow scrolls straight back — 1 run in 3 under a loaded machine.
+  const press = offered("Delete 18 nodes").element();
+  expect(document.elementFromPoint(centre(press).x, centre(press).y)?.closest("button")).toBe(press);
 
   await offered("Delete 18 nodes").click();
   const confirm = page.getByRole("dialog");
