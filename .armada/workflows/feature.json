@@ -32,6 +32,14 @@
 # **`scope` carries two criteria rather than one.** A note can address the
 # request and still be too vague to scope anything, and the two failures look
 # nothing alike to whoever reads the refusal.
+#
+# **`addresses_the_request` names what every change here carries, because the
+# Judge cannot see the repository's rules.** Owner's call, 1 Oct 2026: a plan
+# to retire two guides was refused on *"scope expands beyond what was
+# requested"* for its task to fix the prose that pointed at them -- prose the
+# docs gate refuses to leave behind. Docs the change makes wrong, tests that
+# prove it and files it regenerates are the request; an unasked-for feature or
+# refactor is still refused.
 {
   "version": 1,
   "workflow_id": "feature",
@@ -61,7 +69,7 @@
           "criteria": [
             {
               "criterion_id": "addresses_the_request",
-              "question": "Does this scope note address what was actually requested, without expanding beyond it?"
+              "question": "Does this scope note address what was actually requested, without adding a feature or refactor nobody asked for? Fixing prose the change makes wrong, tests that prove the change, and files the change regenerates are part of addressing the request, not an expansion of it."
             },
             {
               "criterion_id": "names_what_it_will_touch",
