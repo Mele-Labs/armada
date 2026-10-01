@@ -20,12 +20,6 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  * **Which kind is being written is the caller's**, because the keys are: `N`,
  * `V` and `S` are live on the open Studio, and a menu holding its own state
  * would answer a press and the key would not.
- *
- * **`inPlace` is the field inside the node it makes** — the owner's note of
- * 1 Oct 2026, which asked that a rail press put the node on the board rather
- * than open a panel. The node's own head names the kind, so the field's label
- * is read aloud and not drawn; there is no Cancel, because pressing anywhere
- * off the node is the answer: written, it is sent, and blank, it is gone.
  */
 
 export type StudioNodeByHandKind = "note" | "link" | "sketch";
@@ -56,7 +50,13 @@ export type StudioAddNodeProps = {
   refused?: string;
   /** A Studio reopened read-only, or a window with no connection. */
   disabled?: boolean;
-  /** Drawn inside the node it makes rather than in a panel. A press off it sends or abandons. */
+  /**
+   * The field inside the node it makes — the owner's note of 1 Oct 2026, which
+   * asked that a rail press put the node on the board rather than open a panel.
+   * The node's head names the kind, so the label is read aloud and not drawn.
+   * **No Cancel: a press off the node is the answer** — written, it is sent;
+   * blank, it is gone.
+   */
   inPlace?: boolean;
 };
 

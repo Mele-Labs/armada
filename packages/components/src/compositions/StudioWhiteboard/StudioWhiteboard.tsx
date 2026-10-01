@@ -192,13 +192,40 @@ function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio
  * A draft's card. **Focused once React Flow has measured it**, not on mount:
  * a node is drawn `visibility: hidden` until its size is known, and focus on a
  * hidden field does nothing — so `autoFocus` alone left the caret nowhere.
+ *
+ * **And brought into view when it is not.** A placement that steps off a
+ * taken spot can land a field half under the board's edge, and a caret below
+ * the fold is not typing straight in. The focus takes no scroll of its own:
+ * the browser would scroll React Flow's clipped pane, which nothing pans back.
  */
-function DraftNodeView({ data, width }: NodeProps<Node<DraftNodeData, "draft">>) {
+function DraftNodeView({
+  data,
+  width = 0,
+  height = 0,
+  positionAbsoluteX,
+  positionAbsoluteY,
+}: NodeProps<Node<DraftNodeData, "draft">>) {
   const at = useRef<HTMLDivElement>(null);
-  const shown = (width ?? 0) > 0;
+  const flow = useReactFlow();
+  const shown = width > 0;
   useEffect(() => {
-    if (shown) at.current?.querySelector<HTMLElement>("textarea, input")?.focus();
+    const card = at.current;
+    if (!shown || card === null) return;
+    card.querySelector<HTMLElement>("textarea, input")?.focus({ preventScroll: true });
   }, [shown]);
+  useEffect(() => {
+    const card = at.current;
+    if (!shown || card === null) return;
+    const board = card.closest(".react-flow")?.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    if (board === undefined) return;
+    const inView =
+      box.left >= board.left && box.right <= board.right && box.top >= board.top && box.bottom <= board.bottom;
+    if (inView) return;
+    void flow.setCenter(positionAbsoluteX + width / 2, positionAbsoluteY + height / 2, { zoom: flow.getZoom() });
+    // When it is drawn and when it grows — a Link's offer arrives with the
+    // address — and never otherwise: a person who pans away is not pulled back.
+  }, [shown, height]);
   return (
     <div ref={at}>
       <StudioNodeDraft kind={data.kind} pending={data.pending}>
