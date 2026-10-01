@@ -11,7 +11,7 @@ import type {
   ViewStepRow,
 } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
-import { Prose } from "../../primitives/Prose/Prose";
+import { Prose, proseText } from "../../primitives/Prose/Prose";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import {
   Captured,
@@ -411,7 +411,7 @@ function Findings({
             </td>
             {viewable && (
               <ViewCell
-                title={row.finding.replaceAll("`", "")}
+                title={proseText(row.finding)}
                 finding={row.finding}
                 view={row.view}
                 onView={onView}

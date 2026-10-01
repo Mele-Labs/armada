@@ -2273,6 +2273,16 @@
   text-wrap: pretty;
 }
 
+/* The Drone's question, as the markdown it wrote: the second line's size and
+   tone, with Prose's blocks left as blocks. The lead holds no clamp, so a list
+   or a code block under the headline reads as the structure it is. */
+.armada-lead__asked {
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
 /* The order left, the decision right. The same pair of floors the run and its
    inspector keep, so the two columns of job detail never disagree about how
    much a column of reading needs — and they hold below --layout-breakpoint,

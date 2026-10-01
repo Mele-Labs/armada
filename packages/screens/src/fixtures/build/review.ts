@@ -157,7 +157,7 @@ const CONFIDENCE: JobConfidence = {
   small_fixes: [{ finding: "`selectors.ts` still exports a helper nothing calls", why: "In scope. Delete it with the split." }],
   for_context: [
     {
-      finding: "The consumers still import the old path",
+      finding: "The consumers still import the **old** path, `settings_store`",
       why: "The next step checks them",
       view: [
         {

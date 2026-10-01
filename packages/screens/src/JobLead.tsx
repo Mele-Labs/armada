@@ -5,12 +5,18 @@
 // that says why: a sentence spelled twice came back wrong the first time one
 // of the two was fixed.
 
-import { SkeletonText } from "@armada/components";
+import { Prose, SkeletonText } from "@armada/components";
 import type { ReactNode } from "react";
 
 export type JobLeadProps = {
   said: string;
   because: string;
+  /**
+   * The Drone's own question, drawn through `Prose` above `because`. **Its
+   * words are a model's markdown and Armada's are not**, so the two are never
+   * one string: joined, Armada's tail would be parsed as markdown too.
+   */
+  asked?: string;
   /** Colours the edge — the thing outstanding is found before a word is read. */
   tone?: "awaiting-review" | "completed-failed";
   /** How long the thing under it has waited, already rendered. Top right. */
@@ -34,7 +40,16 @@ export type JobLeadProps = {
   reading?: boolean;
 };
 
-export function JobLead({ said, because, tone, elapsed, act, waiting, reading = false }: JobLeadProps) {
+export function JobLead({
+  said,
+  because,
+  asked,
+  tone,
+  elapsed,
+  act,
+  waiting,
+  reading = false,
+}: JobLeadProps) {
   return (
     <div className="armada-lead" data-tone={tone}>
       <div className="armada-lead__head">
@@ -48,6 +63,11 @@ export function JobLead({ said, because, tone, elapsed, act, waiting, reading = 
           ) : (
             <>
               <h2 className="armada-lead__headline">{said}</h2>
+              {asked === undefined ? null : (
+                <div className="armada-lead__asked">
+                  <Prose text={asked} />
+                </div>
+              )}
               {because === "" ? null : <p className="armada-lead__because">{because}</p>}
             </>
           )}
