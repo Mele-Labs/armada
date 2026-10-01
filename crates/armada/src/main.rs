@@ -66,7 +66,7 @@ async fn main() -> ExitCode {
     }
 }
 
-/// `armada land`'s three visible forms, plus the hidden `--runner` the
+/// `armada land`'s four visible forms, plus the hidden `--runner` the
 /// detached runner starts itself with. Every message here closely
 /// paraphrases `scripts/land`'s own prints — this is a person-facing CLI,
 /// not a wire contract — and every exit code matches
@@ -120,6 +120,26 @@ fn land_verb(act: LandAct) -> ExitCode {
         },
         LandAct::Status { branch } => match land::status(&cwd, branch.as_deref()) {
             Ok(code) => ExitCode::from(code),
+            Err(why) => refused(&why),
+        },
+        LandAct::Withdraw { branch } => match land::withdraw(&cwd, branch.as_deref()) {
+            Ok(land::Withdrawn::NotInLine(branch)) => {
+                println!("{branch}: not in line, so nothing was withdrawn");
+                ExitCode::SUCCESS
+            }
+            Ok(land::Withdrawn::Waiting(branch)) => {
+                println!(
+                    "withdrew {branch}: it was waiting, and nothing of it was gated or merged"
+                );
+                ExitCode::SUCCESS
+            }
+            Ok(land::Withdrawn::InTurn(branch)) => {
+                println!(
+                    "withdrew {branch}. It is in a turn now: a gate it is already in will still \
+                     finish, and can land it; a gate it is waiting for will not take it"
+                );
+                ExitCode::SUCCESS
+            }
             Err(why) => refused(&why),
         },
     }

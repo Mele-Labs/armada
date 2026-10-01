@@ -280,6 +280,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     startServer: async () => OK,
     stopServer: async () => OK,
     openServerLink: async () => ({ ok: false, why: "no_address" }),
+    openLink: async () => ({ ok: true }),
     // The capture window is a second window main opens — #1294. The mock has
     // none, so this says what a Studio nothing is holding would say.
     openCaptureWindow: async () => ({ ok: false, why: "no_studio" }),
