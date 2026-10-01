@@ -1621,6 +1621,34 @@ no longer bounds Helm's reach on its own — Helm may end a Job the same way it 
 redispatch or restart one, when asked to.
 """
 
+[operations.kill_process]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Ends one process a Job holds, and everything under it"
+notes = """
+`POST /jobs/:job_id/processes/:pid/kill`, from a row of Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
+
+**The pid names a process and never grants one.** Fleet reads the Job's process tree again at the act — the recorded Drone, proved to be the process recorded at the spawn, and everything descended from it — and refuses a pid outside it with `fleet.not_the_jobs_process`, a 409 carrying the pid. That one reading also catches a pid that exited after the screen was drawn and came back as another process. A Drone that is gone, replaced or unreadable has no tree, so every pid is refused against it.
+
+**A child of the Drone is not the Drone dying.** Killing a runaway `cargo` ends it, leaves the Drone, its step and the Job as they were, and writes nothing to the record: the Drone sees a tool call fail and carries on. What the process started goes with it, leaves first, because a build killed at its root leaves its compilers reparented out of the Job's tree, past every later reading and every later kill.
+
+**The Drone's own pid is `kill_drone`**, so its step stops under `drone_killed` exactly as there, and its descendants go as `kill_processes` says.
+"""
+
+[operations.kill_processes]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Ends every process a Job holds; the Job survives"
+notes = """
+`POST /jobs/:job_id/processes/kill`, from Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
+
+**`kill_drone`, and then what its group signal misses.** The Drone is in the tree, so its step stops by hand as there. A Drone leads its own process group and `kill_drone` signals that group; a tool that started a group of its own — a shell with job control does — is not in it, and would outlive the Drone reparented and invisible. This reaches every descendant the tree holds, leaves first, before the Drone ends.
+
+**Not `kill_job`.** The Job survives with its worktree held, and a restart lands on the stopped step. Where the tree will not read, or the Drone is gone, this is `kill_drone` alone.
+"""
+
 [operations.forget_job]
 kind = "command"
 transport = "HTTP"

@@ -49,6 +49,7 @@ use crate::fleetwide::{
 };
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
+use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
     explain_command, get_call, get_capacity, get_check_output, get_diff, get_evidence, get_frame,
     get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
@@ -269,6 +270,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/raise_turn_cap", post(raise_turn_cap::<D>))
         .route("/jobs/:job_id/kill_drone", post(kill_drone::<D>))
         .route("/jobs/:job_id/kill_job", post(kill_job::<D>))
+        .route("/jobs/:job_id/processes/:pid/kill", post(kill_process::<D>))
+        .route("/jobs/:job_id/processes/kill", post(kill_processes::<D>))
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",
