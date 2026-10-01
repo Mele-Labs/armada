@@ -866,7 +866,9 @@ export function OverviewTab(props: OverviewTabProps) {
 
   const inside = (
     <OverviewBoard
-      lead={{ ...lead, act: leadAct }}
+      // The quiet line stands in while the read is out; any other lead is
+      // the Board row's to say at once (owner, 1 Oct 2026).
+      lead={{ ...lead, act: leadAct, reading: lead.quiet === true && stillReading(watched, job.id) }}
       waiting={waiting}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }

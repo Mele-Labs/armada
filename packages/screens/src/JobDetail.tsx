@@ -493,7 +493,11 @@ function OneJob(props: JobDetailProps) {
           trail={trail.of("drones")}
         />
       ) : (
-        <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
+        <PulseTab
+          holds={{ ...pulseOf(props, whole, job.id, caps), figuresReading: unread !== undefined }}
+          jobId={job.id}
+          onNeedPulse={props.onNeedPulse}
+        />
       )}
     </div>
   );
