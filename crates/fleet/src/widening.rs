@@ -278,13 +278,6 @@ where
             return Err(NotWidened::AlreadyInScope);
         }
 
-        let brief = WideningBrief::about(
-            declared,
-            Request::of(&record),
-            &held,
-            &adding,
-            &request.reason,
-        );
         let served = self
             .served_by(&record)
             .map_err(|why| NotWidened::CouldNotAsk {
@@ -295,6 +288,14 @@ where
             .map_err(|why| NotWidened::CouldNotAsk {
                 cause: format!("{why:?}"),
             })?;
+        let brief = WideningBrief::about(
+            declared,
+            Request::of(&record),
+            &judging.standing,
+            &held,
+            &adding,
+            &request.reason,
+        );
         let answer = judging::widening(declared, &brief, &judging)
             .await
             .map_err(|why| NotWidened::CouldNotAsk {

@@ -323,6 +323,7 @@ impl Bench {
                 // `ipc`, which is the hermetic rule this file's header states.
                 marking: Marking::detached(),
                 asked: Asked::nowhere(),
+                standing: verification::Standing::unstated(),
             },
             moves: RefCell::new(Vec::new()),
             step_moves: RefCell::new(Vec::new()),
