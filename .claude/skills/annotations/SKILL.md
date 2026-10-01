@@ -88,6 +88,7 @@ The brief is the only context the agent has, so it carries:
 | Where it is | The component and file already found in step 2, and the mock `?scenario=` that reproduces it |
 | The decision | The option the owner picked, and its stated cost, word for word |
 | The proof | `armada-components`: a story `play` or a mock test through `App`, run once against the change broken on purpose. A screenshot is how it is looked at, not the proof |
+| The evidence | For a visual change, a walk under `mock/walks/` covering every surface it changed, on fixture data that shows the change. The report names the walk and the worktree's absolute path, so the mock can be served from it |
 | The landing | Commit and push after each piece that passes, open a PR, **do not merge**. Run heavy commands in the foreground and wait. A decision it runs into goes in a single `**QUESTION:**` line at the end, and nothing that depends on the answer gets built |
 
 **Verify what comes back yourself.** Read the diff, run its test, and look at
@@ -98,11 +99,21 @@ next agent found the break.
 
 **A brief forbids the owner's clipboard, screen and apps.** On 1 Oct 2026 an
 agent measuring paste shapes overwrote his clipboard and opened Finder, Safari
-and Terminal on his screen. Playwright's own clipboard answers the same question. An agent's report of green has been wrong here. To show
-the owner the change, send a walk's link or its pictures rather than steps to
-follow (`docs/practices/running-locally.md`, *Walks*). Then
-land it with `scripts/land` without asking, and report the merge commit it landed
-as. Whoever merges gives the worktree back, as `work-issue` says.
+and Terminal on his screen. Playwright's own clipboard answers the same question. An agent's report of green has been wrong here.
+
+**A visual change lands only after the owner has looked at it.** It ships with a
+walk committed under `apps/desktop/src/renderer/src/mock/walks/` covering every
+surface it changed, on fixture data that shows the change
+(`docs/practices/running-locally.md`, *Walks*). Serve the mock from the agent's
+worktree (`pnpm -C <worktree>/apps/desktop mock`), send him `?walk=<name>` on
+it, and wait for his OK before `scripts/land`. A renderer change with no screen
+to reach yet sends a Storybook story link instead. Confirmed 1 Oct 2026: five
+agents were dispatched on the markdown change, and the plan landed them with no
+step where he saw the app.
+
+**Any other green change lands with `scripts/land` without asking**; report the
+merge commit it landed as. Whoever merges gives the worktree back, as
+`work-issue` says.
 
 **A component change is still a component change.** `armada-components` applies:
 the contract wins, and the proof is a story or a mock test, not a screenshot.
@@ -124,5 +135,7 @@ owner's notes were in that worktree when the cleanup commands were printed.
 
 ### 6. Report
 
-One line per note: its text, what you did, and the PR, issue or question it
-became. Notes you left open, and why, go first. Name any agent still running.
+**Lead with the walk link for each visual change, and say which changes are
+waiting on his look** — they are not landed until he says so. Then one line per
+note: its text, what you did, and the PR, issue or question it became. Notes you
+left open, and why, come next. Name any agent still running.

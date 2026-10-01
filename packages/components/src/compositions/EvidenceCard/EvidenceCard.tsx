@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Prose } from "../../primitives/Prose/Prose";
+
 /**
  * Evidence card — one work submission, read while the job is still running.
  *
@@ -19,7 +21,8 @@ import type { ReactNode } from "react";
  *
  * **Hedge by source.** `shown_by` names an artifact Armada can reach — a file
  * set, a command and its exit code — so it is mono. `claimed` and
- * `not_claimed` are the Drone's own words and render as prose.
+ * `not_claimed` are the Drone's own words, drawn through `Prose` so the
+ * markdown a Drone writes in them reads as its structure.
  *
  * The card is the trail's entry seen alone: on a running job there is one
  * submission per advanced step, and the newest is the whole reading. The
@@ -37,12 +40,12 @@ export type EvidenceCardProps = {
   step: ReactNode;
   /** When it was submitted. Machine-derived, so mono, and set back. */
   time?: ReactNode;
-  /** What the work now does, as an observable. */
-  claimed: ReactNode;
+  /** What the work now does, as an observable. The Drone's own markdown. */
+  claimed: string;
   /** The artifact demonstrating it. Mono. */
   shownBy: ReactNode;
-  /** What the submission does not claim. Required, and may be empty. */
-  notClaimed?: ReactNode;
+  /** What the submission does not claim, in the Drone's markdown. Required, and may be empty. */
+  notClaimed?: string;
   /** The word an empty `not_claimed` renders. */
   emptyNotClaimed?: ReactNode;
 };
@@ -73,7 +76,9 @@ export function EvidenceCard({
       </div>
       <div className="armada-evidence-card__field">
         <span className="armada-evidence-card__label">Claimed</span>
-        <span className="armada-evidence-card__value">{claimed}</span>
+        <div className="armada-evidence-card__value">
+          <Prose text={claimed} />
+        </div>
       </div>
       <div className="armada-evidence-card__field">
         <span className="armada-evidence-card__label">Shown by</span>
@@ -85,9 +90,9 @@ export function EvidenceCard({
           claims, and only one of them is a Drone saying "nothing". */}
       <div className="armada-evidence-card__field">
         <span className="armada-evidence-card__label">Not claimed</span>
-        <span className="armada-evidence-card__value">
-          {notClaimed ? notClaimed : emptyNotClaimed}
-        </span>
+        <div className="armada-evidence-card__value">
+          {notClaimed ? <Prose text={notClaimed} /> : emptyNotClaimed}
+        </div>
       </div>
     </div>
   );

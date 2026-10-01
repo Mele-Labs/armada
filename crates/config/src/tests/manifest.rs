@@ -8,6 +8,7 @@
 mod ports;
 mod seed;
 mod servers;
+mod standing;
 
 use crate::error::Fault;
 use crate::manifest::Manifest;
@@ -117,7 +118,8 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "after_merge",
             "auto_merge",
             "review_gate",
-            "freeze"
+            "freeze",
+            "standing_rules"
         ]
     );
 }

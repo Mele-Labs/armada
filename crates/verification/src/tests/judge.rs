@@ -99,6 +99,7 @@ pub(super) fn brief_told(
         step,
         &step.judge_checks()[0].criteria()[0],
         Request::of(testkit::asked_for()),
+        &crate::Standing::unstated(),
         &product,
         references,
         answered,

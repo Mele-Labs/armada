@@ -243,14 +243,14 @@ function withReview(review: JobWhole["review"]): JobWhole {
 }
 
 describe("the served review — one builder, issue 665", () => {
-  it("reads the brief Fleet composed, with the pull request's Markdown stripped", () => {
+  it("reads the brief Fleet composed, Markdown and all, for the sheet to draw", () => {
     const whole = withReview({
       why: "The **export** button the brief asked for, over `src/export.ts`.",
       outcome: "",
       risks: "",
       evidence: "",
     });
-    expect(briefOf(whole)).toBe("The export button the brief asked for, over src/export.ts.");
+    expect(briefOf(whole)).toBe("The **export** button the brief asked for, over `src/export.ts`.");
   });
 
   it("is absent where Fleet has composed no review yet", () => {
@@ -258,7 +258,7 @@ describe("the served review — one builder, issue 665", () => {
     expect(briefOf(null)).toBeUndefined();
   });
 
-  it("reads the risks Fleet composed, trimmed and with Markdown stripped", () => {
+  it("reads the risks Fleet composed, trimmed", () => {
     const whole = withReview({
       why: "",
       outcome: "",

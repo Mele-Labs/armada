@@ -1,4 +1,5 @@
-// Every Drone a Job has used, one per task, with its whole transcript. Draft,
+// Every Drone a Job has used, one per task and the one on a step that works no
+// task, with its whole transcript. Draft,
 // for `crates/ipc/src/drones.rs`.
 //
 // Source of truth today: `DroneList` and `DroneDetail`, which serve **live
@@ -8,7 +9,7 @@
 // pulled out of the Job's stream. What is added is the Drone's state after it
 // stopped, its turns and cost, and its transcript keyed by its id.
 
-import type { Turn } from "@armada/protocol";
+import type { JobDetail, Turn } from "@armada/protocol";
 
 import type { GroupView } from "./group";
 
@@ -22,8 +23,11 @@ export type DroneState = "running" | "done" | "failed" | "killed";
 export type DroneView = {
   /** The Drone's id, as `DroneSummary.drone_id`. */
   id: string;
-  /** The task it was put on, by id. */
-  task: string;
+  /**
+   * The task it was put on, by id. **Absent on a Drone working the step
+   * itself** — a plan step's, which writes the tasks rather than working one.
+   */
+  task?: string;
   /** The step it ran under. */
   step: string;
   state: DroneState;
@@ -70,8 +74,30 @@ export type DroneThought =
 /**
  * Today's wire: the Drone on each task that names one, with no transcript.
  * A task's `failed` is its Drone's; nothing today can say a person ended one.
+ *
+ * **And the Job's own Drone, given the Job, where no running Drone already
+ * stands on its step.** A Drone on a planning step works no task, so no task
+ * names it, and Job 2's Drones tab was empty while one worked (owner, 1 Oct
+ * 2026). `assigned_drone` is presence — a process is on the Job — so it reads
+ * running, on the step the Job is on. **Past Drones are not here**: Fleet
+ * serves live ones only.
  */
-export function droneViewsOf(groups: readonly GroupView[]): DroneView[] {
+export function droneViewsOf(groups: readonly GroupView[], whole?: JobDetail): DroneView[] {
+  const onTasks = taskDronesOf(groups);
+  const id = whole?.job.assigned_drone;
+  const step = whole?.job.current_step_id;
+  if (id === undefined || step === undefined) return onTasks;
+  if (onTasks.some((one) => one.id === id || (one.step === step && one.state === "running"))) return onTasks;
+  const view: DroneView = { id, step, state: "running" };
+  // **The step's live run began when its Drone was spawned for it**, so that
+  // run's start is the Drone's — `GET /drones`' `since` differs by the spawn's
+  // milliseconds. A run that has ended says nothing about this Drone.
+  const run = whole?.steps.find((one) => one.step_id === step)?.attempts.at(-1);
+  if (run !== undefined && run.ended_at === undefined) view.since = run.started_at;
+  return [...onTasks, view];
+}
+
+function taskDronesOf(groups: readonly GroupView[]): DroneView[] {
   return groups.flatMap((group) => group.tasks).flatMap((task): DroneView[] => {
     if (task.drone_id === undefined) return [];
     const state: DroneState | undefined =

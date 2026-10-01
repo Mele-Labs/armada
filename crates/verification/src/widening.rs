@@ -18,6 +18,7 @@ use core_model::{under, RepoPath, ResolvedStep, WriteTargets};
 
 use crate::judge::{field, Unreadable};
 use crate::request::Request;
+use crate::standing::Standing;
 
 /// The two words the look may answer with, and the line the second owes.
 const ANSWER_FORMAT: &str = "\
@@ -144,6 +145,7 @@ impl WideningBrief {
     pub fn about(
         step: &ResolvedStep,
         request: Request<'_>,
+        standing: &Standing,
         held: &WriteTargets,
         asked: &[RepoPath],
         reason: &str,
@@ -154,6 +156,7 @@ impl WideningBrief {
              question at the end.\n\n",
         );
         question.push_str(&request.told());
+        question.push_str(&standing.told());
         question.push_str(&format!("The step being worked: {}\n", step.label()));
         if let Some(deliverable) = step.deliverable() {
             question.push_str(&format!(

@@ -761,7 +761,7 @@ notes = """
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "What one Job holds on this machine — its processes, what each is burning, the disk its worktree has taken, and when its own log was last written"
+description = "What one Job holds on this machine — its processes, what each is burning, the disk its worktree has taken, when its own log was last written, and each of its log files with its size and whether a writer holds it"
 notes = """
 **The other axis from `spend`.** That answers what a Job cost in model terms — `cost_micros`, `turns`, `ran_ms`, `drones` — and on the wedged Job of 4 Sep 2026 every one of the four read zero, which was true and told nobody anything: a Job between phases and a Job hung are the same four zeros. Establishing that the Job held no process at all took a process listing against Fleet's own pid, a `du` on the worktree and a look at a log file's mtime, none of which Armada served.
 
@@ -773,9 +773,11 @@ notes = """
 
 **Absent is never empty.** `worktree` absent is a Job with no checkout — one at the approval gate, one already reclaimed — and is a different answer from a checkout that measures nothing. `bytes` absent is a walk that did not finish inside its bound, which is what keeps a 1.0 GB worktree from turning this into the timeout `#428` was.
 
+**`logs` says whether a file is being written by whether a process holds it open for writing, never by its mtime** — a Drone paused for ten minutes and a Drone that died read the same off a timestamp (#1648). The processes asked are the Job's tree and Fleet's own, because Fleet appends every transcript and the Job's log from its own process for as long as a Drone's stdout is open. A field on this reading rather than a stream: Pulse polls it, so #1545's bounded-stream note for a live log list does not apply.
+
 A route of its own rather than a field on `get_job`, which is read on every open of a Job and again on every event naming it. This one walks a process table and a directory; paying for that continuously to answer a question asked rarely is exactly what the Board's 250ms turn interval makes unaffordable.
 
-`agent_access` is `Yes` for the reason the other queries have it: reading the machine decides nothing, and it is three short lists.
+`agent_access` is `Yes` for the reason the other queries have it: reading the machine decides nothing, and it is four short lists.
 """
 
 [operations.get_manifest]

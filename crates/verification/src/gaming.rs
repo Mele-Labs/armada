@@ -23,6 +23,7 @@ use core_model::{DecidedBy, GamingFlag, GamingPattern, ResolvedStep, StepEvidenc
 use adapter_traits::Patch;
 
 use crate::judge::Unreadable;
+use crate::standing::Standing;
 
 /// The two words a gaming answer may use, and the citation a flag owes.
 ///
@@ -137,9 +138,11 @@ impl GamingBrief {
         pattern: GamingPattern,
         patch: &Patch,
         baseline: Option<Baseline<'_>>,
+        standing: &Standing,
     ) -> Option<GamingBrief> {
         let asked = pattern.question()?;
         let mut shown = format!("Step: {}\n\n", step.label());
+        shown.push_str(&standing.told());
         match baseline {
             Some(baseline) => {
                 shown.push_str(&format!(
