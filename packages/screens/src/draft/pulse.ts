@@ -39,6 +39,8 @@ export type PulseWorktree = {
   branch: string;
   /** Absent is a walk that did not finish inside its bound, never zero. */
   bytes?: number;
+  /** When `bytes` was walked, which can be older than `read_at`. */
+  measured_at?: string;
 };
 
 /** What one log is, who owns it, and whether anything is writing to it. */
@@ -56,7 +58,10 @@ export type PulseLog = {
 /** Everything a Job holds, at one instant. */
 export type PulseView = {
   job: string;
-  /** Every figure here is as of this. **A panel drawing them without it lies.** */
+  /**
+   * Every figure here is as of this except a worktree's size, which has its
+   * own `measured_at`. **A panel drawing a figure without its instant lies.**
+   */
   read_at: string;
   /** Fleet's reading of its recorded Drone: `running`, `gone`, `replaced`, … */
   held: string;

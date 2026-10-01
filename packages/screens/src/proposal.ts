@@ -23,7 +23,15 @@
 // a fault into something quotable.
 
 import type { ProposalWatch } from "@armada/components";
-import type { Outcome, ProposalInFlight, Proposed } from "@armada/protocol";
+import type {
+  Criterion,
+  JobDetail,
+  JobSummary,
+  Outcome,
+  ProposalInFlight,
+  ProposalSettled,
+  Proposed,
+} from "@armada/protocol";
 
 export type { Proposed };
 
@@ -48,11 +56,101 @@ const NO_WORKFLOW_FITS =
   "No workflow in this repository fits that request, so no Job was created. " +
   "Rephrase it and dispatch again.";
 
+/**
+ * What a model nothing holds says. **The sentence above is the one it must not
+ * say**: the request was read, the workflow was fine, and rephrasing cannot
+ * change which models this machine runs. It names what was asked for and what
+ * is available, both off the envelope's own fields, so the next act is on
+ * screen rather than somewhere to go and look up.
+ */
+function modelUnavailable(outcome: Outcome): string {
+  const fields = outcome.ok ? {} : "error" in outcome ? outcome.error.fields : {};
+  const asked = fields["model"];
+  const held = fields["models"];
+  const named = typeof asked === "string" && asked !== "" ? `\u201c${asked}\u201d` : "a model";
+  const runs =
+    typeof held === "string" && held !== ""
+      ? ` This machine runs ${held}.`
+      : " This machine names no model at all.";
+  return (
+    `The proposer asked for ${named}, which this machine does not run, so no Job was created.` +
+    `${runs} Dispatch again once it is available, or pick a model yourself.`
+  );
+}
+
 export function answeredAs(answer: Proposed): Answered {
   if (answer.ok) return { outcome: null, told: null };
   if (answer.why === "stopped") return { outcome: null, told: null };
   if (answer.why === "unresolved") return { outcome: null, told: NO_WORKFLOW_FITS };
+  // Told rather than raised, for the decline's reason: Armada worked, and the
+  // machine not holding a model is not a failure to draw in red.
+  if (answer.why === "model_unavailable") {
+    return { outcome: null, told: modelUnavailable(answer.outcome) };
+  }
   return { outcome: answer.outcome, told: null };
+}
+
+/**
+ * The Job a proposal has settled some of, and its detail.
+ *
+ * **One function, because a field settles in one place.** What the proposer has
+ * decided is the Job becoming more complete — the owner's decision of 30 Sep
+ * 2026 that a dispatched request *is* a Job is what makes that true — so a
+ * settled field is folded onto the row and the detail rather than drawn from a
+ * channel of its own beside them. Every reader on the Board and on the Job's
+ * page then draws it with no arm for a proposal at all.
+ *
+ * **Fleet does not call this yet, and that is `in_code = "Not yet"`.**
+ * `job-statuses.toml` says no Fleet creates a Job at dispatch, so there is no
+ * row on the far side for `proposal.moved` to be folded onto — the mock is what
+ * mints the row and what applies this. When Fleet's half lands,
+ * `apps/desktop/src/main/arrivals.ts` calls this on the Job the message names
+ * and nothing here changes.
+ */
+export function filled(
+  job: JobSummary,
+  detail: JobDetail,
+  settled: ProposalSettled | undefined,
+): { job: JobSummary; detail: JobDetail } {
+  if (settled === undefined) return { job, detail };
+  const title = settled.title;
+  // **The request is not thrown away when the title replaces it.** Until a
+  // title lands the row's title *is* the request as it was typed — which is
+  // what `whyNoBrief` says on the page — so the moment the title changes under
+  // somebody, the words they wrote move into the brief, which is where Fleet
+  // puts them when the call answers anyway. Nothing a person typed stops being
+  // on screen because the proposer got further.
+  const facts = title === undefined ? detail.facts : (detail.facts ?? job.title);
+  const moved: JobSummary = {
+    ...job,
+    ...(settled.workflow_id === undefined ? {} : { workflow_id: settled.workflow_id }),
+    ...(title === undefined ? {} : { title }),
+    ...(settled.settings?.urgency === undefined ? {} : { urgency: settled.settings.urgency }),
+    ...(settled.settings?.model === undefined ? {} : { model: settled.settings.model }),
+  };
+  return {
+    job: moved,
+    detail: {
+      ...detail,
+      job: moved,
+      ...(facts === undefined ? {} : { facts }),
+      acceptance_criteria: criteriaOf(settled.done_when) ?? detail.acceptance_criteria,
+    },
+  };
+}
+
+/**
+ * The lines the proposer has written, as criteria. `undefined` where it has
+ * written none, so a fold never replaces criteria with an empty list.
+ *
+ * **The Judge is the source, and Fleet writes the same value** — these are
+ * prose, and prose is what the Judge reads. The id is the position, because the
+ * record has not minted one yet and a Judge citation names a criterion by where
+ * it sits.
+ */
+function criteriaOf(doneWhen: readonly string[] | undefined): Criterion[] | undefined {
+  if (doneWhen === undefined || doneWhen.length === 0) return undefined;
+  return doneWhen.map((text, at) => ({ criterion_id: String(at + 1), text, source: "judge" }));
 }
 
 /**
@@ -102,5 +200,38 @@ export function watchOf(proposing: ProposalInFlight | null, now: number): Propos
     ...(proposing.answered_characters === undefined
       ? {}
       : { answeredCharacters: proposing.answered_characters }),
+    ...(settledRows(proposing.settled).length === 0
+      ? {}
+      : { settled: settledRows(proposing.settled) }),
   };
+}
+
+/**
+ * What the proposer has decided, as rows the wait draws.
+ *
+ * **The owner's order, and nothing sorts it** — the fields are written in that
+ * order, so the rows are built in it: the workflow decides the Job's shape, the
+ * title is what makes the row recognisable, done-when is the goal, and the
+ * settings are the part he can still change.
+ *
+ * **A row per criterion rather than a count.** Never draw a count beside the
+ * items it counts (29 Sep 2026), and the lines arrive one at a time anyway.
+ */
+function settledRows(
+  settled: ProposalSettled | undefined,
+): { label: string; said: string }[] {
+  if (settled === undefined) return [];
+  return [
+    ...(settled.workflow_id === undefined
+      ? []
+      : [{ label: "Workflow", said: settled.workflow_id }]),
+    ...(settled.title === undefined ? [] : [{ label: "Title", said: settled.title }]),
+    ...(settled.done_when ?? []).map((said) => ({ label: "Done when", said })),
+    ...(settled.settings?.urgency === undefined
+      ? []
+      : [{ label: "Urgency", said: settled.settings.urgency }]),
+    ...(settled.settings?.model === undefined
+      ? []
+      : [{ label: "Model", said: settled.settings.model }]),
+  ];
 }

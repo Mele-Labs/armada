@@ -230,6 +230,14 @@ export function Row({
   // its neighbours' do with nothing naming them. The table view is unaffected,
   // since there the header names each column once for the whole list.
   const beingProposed = job.status === BEING_PROPOSED;
+  // **The workflow is the one of the three that arrives before the Job does.**
+  // A proposal fills in as the proposer writes it (30 Sep 2026), and the
+  // workflow is the first field to settle — so this cell is blank while nothing
+  // has chosen one and is an ordinary Workflow cell, heading and all, the moment
+  // something has. Progress and Run time stay blank for the whole status: the
+  // step machine is initialised on the way out, at `proposing ->
+  // awaiting_approval`, and nothing has run.
+  const noWorkflowYet = beingProposed && job.workflow_id === "";
   const elapsedNow = elapsedOf(job, now);
   const createdAt = absoluteOf(job.created_at) ?? undefined;
   // **When it ended, preferred over when it was created.** `ended_at` is what
@@ -264,7 +272,7 @@ export function Row({
   // so the column says Workflow and carries the workflow. The branch is a fact
   // the detail holds.
   const facts: JobRowField[] = [
-    beingProposed
+    noWorkflowYet
       ? { value: undefined }
       : {
           label: "Workflow",

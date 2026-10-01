@@ -69,3 +69,32 @@
   line-height: var(--leading-sm);
   text-wrap: pretty;
 }
+
+/* What the proposer has decided, as it decides it. A field run rather than
+   prose: each row is one decision, and the label is what says which. */
+.armada-proposer-wait__settled {
+  display: grid;
+  gap: var(--space-1);
+  margin-block-start: var(--space-1);
+  min-width: 0;
+}
+
+.armada-proposer-wait__field {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-proposer-wait__field dt {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-proposer-wait__field dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-default);
+  text-wrap: pretty;
+}

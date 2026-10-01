@@ -543,9 +543,18 @@ export function whyNoSteps(watched: Watched, jobId: string): string | undefined 
     // workflow at all — `job-statuses.toml` says this is the one status where
     // that is the answer — so *this Job's frozen workflow has no steps* would
     // name a workflow nobody has chosen and read as a Job that arrived broken.
-    return watched.detail.job.status === "proposing"
-      ? "The proposer has not chosen a workflow yet."
-      : "This Job's frozen workflow has no steps.";
+    //
+    // **Two sentences on that status since 30 Sep 2026**, because a proposal
+    // fills in as it is written and the workflow is the first field to settle.
+    // Once one has, the Job has a workflow and still has no steps, and the
+    // first sentence would be false — what is missing then is the freeze, not
+    // the choice, and the freeze is a press away.
+    if (watched.detail.job.status === "proposing") {
+      return watched.detail.job.workflow_id === ""
+        ? "The proposer has not chosen a workflow yet."
+        : "The proposer has chosen a workflow. Its steps freeze when you approve the dispatch.";
+    }
+    return "This Job's frozen workflow has no steps.";
   }
   if (watched.state === "failed" && watched.jobId === jobId) {
     return "Fleet did not answer";

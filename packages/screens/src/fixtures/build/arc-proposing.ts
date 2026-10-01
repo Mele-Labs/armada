@@ -14,7 +14,7 @@
 // map are editable up to the press and frozen after it. `approvedFrozen` is
 // the moment after, and it is the one that says the issue has moved since.
 
-import type { ProposalInFlight } from "@armada/protocol";
+import type { ProposalInFlight, ProposalSettled } from "@armada/protocol";
 import type { GateView, LedgerRow, ProposalView } from "../../draft";
 import type { ArcMoment } from "./arc-base";
 import {
@@ -100,6 +100,7 @@ function callOut(
   outForMs: number,
   reached: ProposalInFlight["reached"],
   thinkingTokens?: number,
+  settled?: ProposalSettled,
 ): ProposalInFlight {
   return {
     proposal_id: proposalId,
@@ -109,7 +110,124 @@ function callOut(
     budget_ms: PROPOSER_BUDGET_MS,
     reached,
     ...(thinkingTokens === undefined ? {} : { thinking_tokens: thinkingTokens }),
+    ...(settled === undefined ? {} : { settled }),
   };
+}
+
+/**
+ * The four fields, each as the moment it has just landed.
+ *
+ * **The owner's order, and it is his reasoning rather than a layout** (30 Sep
+ * 2026): the workflow decides the Job's shape, the title is what makes the row
+ * recognisable, done-when is the goal, and the settings are the part he can
+ * still change. Each entry here holds everything the one before it held, because
+ * that is what a person watching one answer arrive sees — nothing is taken away
+ * as the next field lands.
+ */
+const FILLING: readonly { name: string; says: string; settled: ProposalSettled }[] = [
+  {
+    name: "proposingWorkflowLanded",
+    says: "Proposing — the workflow has landed and the row's title is still the request",
+    settled: { workflow_id: "feature" },
+  },
+  {
+    name: "proposingTitleLanded",
+    says: "Proposing — the title has landed, and the row changed under the reader",
+    settled: { workflow_id: "feature", title: "Say which of the two a clear gave back" },
+  },
+  {
+    name: "proposingDoneWhenLanded",
+    says: "Proposing — two done-when lines in, one line at a time",
+    settled: {
+      workflow_id: "feature",
+      title: "Say which of the two a clear gave back",
+      done_when: [
+        "The Cleared tab names the branch on every row whose worktree is gone",
+        "A row whose branch was also given back says so, and does not say it twice",
+      ],
+    },
+  },
+  {
+    name: "proposingSettingsLanded",
+    says: "Proposing — the settings have landed, model and all, and the answer is about to",
+    settled: {
+      workflow_id: "feature",
+      title: "Say which of the two a clear gave back",
+      done_when: [
+        "The Cleared tab names the branch on every row whose worktree is gone",
+        "A row whose branch was also given back says so, and does not say it twice",
+      ],
+      // **Both on one line of the answer, so both settle together** — the
+      // settings are one field. The model is picked from what this machine
+      // holds, which is the guard the owner took with it on 30 Sep 2026.
+      settings: { urgency: "normal", model: "opus" },
+    },
+  },
+  {
+    name: "proposingModelLeftToConfiguration",
+    says: "Proposing — the settings named no model, so configuration decides",
+    settled: {
+      workflow_id: "feature",
+      title: "Say which of the two a clear gave back",
+      done_when: [
+        "The Cleared tab names the branch on every row whose worktree is gone",
+        "A row whose branch was also given back says so, and does not say it twice",
+      ],
+      // **Absent stays absent**, which is the moment beside the one above: a
+      // call that declines to name a model reaches configuration's choice and
+      // never a default the proposer picked. Nothing stands in for it.
+      settings: { urgency: "incident" },
+    },
+  },
+];
+
+/**
+ * The second request, one field further on at each step. **The fixture the
+ * owner watches fill**: four moments, one per field, each the same Job with one
+ * more field settled than the moment before it.
+ *
+ * It is the second request rather than the arc's own, because that one is the
+ * Job every later moment is about and its title is `ARC_TITLE` from
+ * `proposingReview` onwards — a title landing here would be the arc's answer
+ * arriving two moments early.
+ */
+export function proposingFilling(): ArcMoment[] {
+  return FILLING.map((step) => ({
+    name: step.name,
+    says: step.says,
+    fixtures: [
+      dispatchedFixture(
+        {
+          id: ARC_JOB_ID,
+          handle: ARC_HANDLE,
+          request: PROMPT,
+          created_at: new Date(ARC_NOW - JUST_SENT_MS).toISOString(),
+          says: "proposing — dispatched a moment ago, and the call has not reached the model",
+        },
+        ARC_NOW,
+      ),
+      dispatchedFixture(
+        {
+          id: SECOND_ID,
+          handle: SECOND_HANDLE,
+          request: SECOND_REQUEST,
+          created_at: new Date(ARC_NOW - READING_FOR_MS).toISOString(),
+          says: step.says,
+          settled: step.settled,
+        },
+        ARC_NOW,
+      ),
+      ...dispatchTyping().fixtures,
+    ],
+    proposing: callOut(
+      "01M2D3ZF41002PROPOSAL002",
+      READING_FOR_MS,
+      "answering",
+      1_840,
+      step.settled,
+    ),
+    draft: {},
+  }));
 }
 
 /**

@@ -571,7 +571,7 @@ export function resources(held: Held, over: Partial<JobResources> = {}): JobReso
     read_at: "2026-09-10T14:31:00.000Z",
     held,
     processes: [],
-    worktree: { path: WORKTREE, branch: BRANCH, bytes: 1_288_490_188 },
+    worktree: { path: WORKTREE, branch: BRANCH, bytes: 1_288_490_188, measured_at: "2026-09-10T14:30:40.000Z" },
     ...over,
   };
 }

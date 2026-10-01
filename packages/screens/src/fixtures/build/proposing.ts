@@ -10,8 +10,9 @@
 // `ProposalInFlight`, which hangs off no Job — so a moment carrying one
 // publishes it as `BridgeState.proposing` and this file carries none.
 
-import type { JobDetail, JobSummary, Watched } from "@armada/protocol";
+import type { JobDetail, JobSummary, ProposalSettled, Watched } from "@armada/protocol";
 import type { JobFixture } from "../fixture";
+import { filled } from "../../proposal";
 import { CREATED_AT, JOB_HANDLE, JOB_ID, MANIFEST_ID, manifest, NOW } from "./base";
 
 /**
@@ -33,6 +34,15 @@ export type Dispatched = {
   says: string;
   /** Which model is reading it. */
   model?: string;
+  /**
+   * What the proposer has settled so far, where it has settled anything.
+   *
+   * **Folded onto the row and the detail, through the one function that folds
+   * it** — `filled`. A settled field is the Job becoming more complete, so a
+   * fixture carrying one is a fixture whose Job has that field, and every reader
+   * on the Board and on the page draws it with no arm for a proposal.
+   */
+  settled?: ProposalSettled;
 };
 
 /**
@@ -82,18 +92,21 @@ function dispatchedDetail(row: JobSummary, created: string): JobDetail {
  * rather than reading a machine this Job is not on.
  */
 export function dispatchedFixture(one: Dispatched, now: number): JobFixture {
-  const row = dispatchedRow(one);
+  const settling = filled(dispatchedRow(one), dispatchedDetail(dispatchedRow(one), one.created_at), one.settled);
+  const row = settling.job;
   const watched: Watched = {
     state: "read",
     jobId: one.id,
-    detail: dispatchedDetail(row, one.created_at),
+    detail: settling.detail,
   };
   return {
     name: one.says,
     job: row,
     watched,
-    // No workflow is chosen, so this Job's own roster is empty. The Board still
-    // holds whatever its other Jobs declare.
+    // No workflow is **frozen**, so this Job's own roster is empty — a settled
+    // workflow is a choice and not a freeze, and the freeze is what
+    // `proposing -> awaiting_approval` does. The Board still holds whatever its
+    // other Jobs declare.
     workflows: [],
     manifests: [manifest()],
     observed: { state: "none" },
