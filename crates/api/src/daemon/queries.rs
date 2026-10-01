@@ -19,9 +19,10 @@ use crate::reference::Resolved;
 use ipc::{
     AlertList, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet, CommandExplained,
     DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail,
-    JobDiff, JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame,
-    ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary,
-    ModelChoices, ReportList, RunList, RunOutput, RunSheet, WorkflowSummary, WorktreesHeld,
+    JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources,
+    KeptFrame, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
+    ManifestSummary, ModelChoices, ReportList, RunList, RunOutput, RunSheet, WorkflowSummary,
+    WorktreesHeld,
 };
 
 /// What a caller asked for of a frame's bytes.
@@ -174,6 +175,18 @@ pub trait Queries: Send + Sync + 'static {
         &self,
         drone_id: DroneId,
     ) -> impl Future<Output = Result<DroneDetail, Refusal>> + Send;
+
+    /// `list_job_drones` — every Drone one Job has had, the exited ones too,
+    /// with its state, its times and what it spent.
+    ///
+    /// **Off the Job's history and its spend rows, never the roster**, which
+    /// is the difference from [`Queries::list_drones`]: that list loses a
+    /// Drone the moment it exits. [`Refusal::NoSuchJob`] where the id names no
+    /// Job; a Job that has never run answers with no Drones.
+    fn list_job_drones(
+        &self,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<JobDrones, Refusal>> + Send;
 
     /// `get_health` — the probes Fleet can run on itself.
     ///
