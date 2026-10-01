@@ -87,6 +87,15 @@ dropped that line and detached twenty more.
 - **Bound the load.** `timeout 60` around a load generator makes the worst case
   a minute, not a weekend.
 - **Say what you started and that you stopped it**, the same as a window.
+- **A review mock that has to outlive the agents is the one exception, and its
+  stop is owed by port and working directory.** Confirmed 30 Sep – 1 Oct 2026:
+  a mock on the session's own port, started with `run_in_background`, ended
+  with exit 144 four times across one review, with nothing in its log. Twice,
+  a dispatched agent had restarted it. Each time, the owner's next look found
+  nothing serving. It stayed up once it was started detached. So when the
+  worktree is given back, find it with `lsof -ti tcp:<port>`, confirm its `cwd`
+  is that worktree (`lsof -a -p <pid> -d cwd`), and kill it. Tell agents not to
+  restart a mock they did not start, unless it is down.
 
 **A waiter is backgrounded work too.** A loop watching somebody else's output
 file does not look like the thing this rule covers, and it is the shape that
