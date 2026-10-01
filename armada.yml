@@ -530,6 +530,13 @@ drone:
 # not to reintroduce one. Turning it on is two lines and is a decision somebody
 # takes deliberately, which is the whole reason absent means off.
 
+# What this repository requires of every change, read into every Judge brief
+# so that fixing the prose a change made wrong is not refused as scope
+# expansion. Read from this checkout, never a Job's worktree, and cut at the
+# `judge-brief-standing-rules-cap` setting. docs/concepts/manifest.md, *What
+# every change here carries*.
+standing_rules: docs/instructions/every-change.md
+
 # What has to have run before any step starts in a fresh worktree. Names a
 # Command above; a name nothing declares is refused at load. Fleet runs it once
 # where the worktree is cut, not once per Drone, and has no opinion about what
