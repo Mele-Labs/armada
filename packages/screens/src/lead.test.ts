@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ARC_MOMENTS, FIXTURES, arcMoment } from "./fixtures/build/index";
+import { agentText } from "./fixtures/build/markdown";
 import type { JobFixture } from "./fixtures/fixture";
 import { leadOf } from "./lead";
 import { detailOf } from "./mine";
@@ -78,6 +79,17 @@ describe("the headline names the thing and stops", () => {
         "Check the consumers still compile and 1 more do not start until you answer",
     );
     expect(lead.act).toBe("Review it");
+  });
+
+  it("a Drone's question is its own, apart from the sentence Armada says about it", () => {
+    const asking = agentText().fixtures[0] as JobFixture;
+    const lead = leadFor(asking);
+    expect(lead.said).toBe("A Drone asked you something");
+    // The model's markdown, whole, for `Prose` to draw.
+    expect(lead.asked).toBe(asking.watched.state === "read" ? asking.watched.detail.asking?.question : undefined);
+    // Armada's own words, with none of the Drone's run into them.
+    expect(lead.because).not.toContain("**");
+    expect(lead.because).not.toContain("heading");
   });
 
   it("a Check that failed names the Check, not the step it ran on", () => {

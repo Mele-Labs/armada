@@ -44,6 +44,11 @@ export type LeadOpens = { tab: DetailTab } | { check: CheckAt };
 export type JobLead = {
   said: string;
   because: string;
+  /**
+   * A Drone's own words the lead quotes, kept out of `because` so they draw as
+   * the markdown they were written in while Armada's sentence stays plain.
+   */
+  asked?: string;
   /** Colours the edge. One of the state machine's own hues, never a fourth. */
   tone?: "awaiting-review" | "completed-failed";
   /**
@@ -351,7 +356,8 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   if (!over && whole?.asking !== undefined) {
     return {
       said: "A Drone asked you something",
-      because: because(whole.asking.question, holdsUp(whole, step)),
+      asked: whole.asking.question,
+      because: holdsUp(whole, step),
       tone: "awaiting-review",
       elapsed: span(whole.asking.asked_at, now) ?? undefined,
       act: "Answer it",
