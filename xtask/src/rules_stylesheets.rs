@@ -192,5 +192,7 @@ fn normalize(spec: &str) -> String {
     parts.join("/")
 }
 
+pub mod claims;
+
 #[cfg(test)]
 mod tests;
