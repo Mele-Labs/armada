@@ -46,6 +46,30 @@ export type SketchPoint = { x: number; y: number };
 export type SketchStroke = { id: string; points: readonly SketchPoint[] };
 
 /**
+ * A picture pasted onto the pad — a screenshot, most often — at a place and a
+ * size.
+ *
+ * **On the pad and not attached to the Job**: the owner's call of 1 Oct 2026,
+ * so a screenshot can be drawn over, joined to a box and moved like one.
+ *
+ * **The size is the one it is drawn at**, unlike a box's, because a picture
+ * has no words to grow with: a screenshot is scaled down to sit on the pad
+ * when it lands, and nothing resizes it after.
+ *
+ * `src` is a `blob:` address the window made from the pasted bytes, which is
+ * what `img-src 'self' blob:` already draws (`docs/practices/bridge.md`). It
+ * lives as long as the window, as the rest of the pad does.
+ */
+export type SketchPicture = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  src: string;
+};
+
+/**
  * What is on the pad while a person is still drawing on it.
  *
  * **Held apart from the attachment, because it is the half that never
@@ -56,6 +80,7 @@ export type Drawing = {
   shapes: readonly SketchShape[];
   joins: readonly SketchJoin[];
   strokes: readonly SketchStroke[];
+  pictures: readonly SketchPicture[];
 };
 
 /** A picture attached to a prompt, with what produced it. */
@@ -115,7 +140,7 @@ export function sketchFromFrame(
 }
 
 /** A pad with nothing on it. What Sketch opens on where no moment carries one. */
-export const NOTHING_DRAWN: Drawing = { shapes: [], joins: [], strokes: [] };
+export const NOTHING_DRAWN: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
 
 /** What a sketch was drawn from, or an empty pad where it carries none. */
 export function drawingOf(sketch: SketchAttachment | undefined): Drawing {
@@ -128,10 +153,11 @@ export function drawingOf(sketch: SketchAttachment | undefined): Drawing {
  *
  * A stroke counts on its own: a pad somebody drew on and put no box on is a
  * picture, and a chip that appeared only for boxes would drop it silently.
- * A join still does not, because a join needs the two boxes it hangs on.
+ * So does a pasted picture. A join still does not, because a join needs the
+ * two things it hangs on.
  */
 export function isDrawn(drawing: Drawing): boolean {
-  return drawing.shapes.length > 0 || drawing.strokes.length > 0;
+  return drawing.shapes.length > 0 || drawing.strokes.length > 0 || drawing.pictures.length > 0;
 }
 
 /**
@@ -160,15 +186,33 @@ export function withShape(drawing: Drawing, shape: SketchShape): Drawing {
 }
 
 /**
- * Boxes taken off, **and every join that hung on one of them**. A join to a
- * box that is gone draws as a line into nothing, which is the one thing a
- * picture must not do.
+ * The id the next pasted picture takes: the lowest `p<n>` nothing on the pad
+ * holds. `p` rather than `b`, because a join names either and the two must
+ * never collide.
+ */
+export function nextPictureId(drawing: Drawing): string {
+  const held = new Set(drawing.pictures.map((picture) => picture.id));
+  let at = 1;
+  while (held.has(`p${String(at)}`)) at += 1;
+  return `p${String(at)}`;
+}
+
+/** A picture put down, on top of what is already there. */
+export function withPicture(drawing: Drawing, picture: SketchPicture): Drawing {
+  return { ...drawing, pictures: [...drawing.pictures, picture] };
+}
+
+/**
+ * Boxes and pictures taken off, **and every join that hung on one of them**.
+ * A join to a box that is gone draws as a line into nothing, which is the one
+ * thing a picture must not do.
  */
 export function withoutShapes(drawing: Drawing, ids: readonly string[]): Drawing {
   const going = new Set(ids);
   return {
     ...drawing,
     shapes: drawing.shapes.filter((shape) => !going.has(shape.id)),
+    pictures: drawing.pictures.filter((picture) => !going.has(picture.id)),
     joins: drawing.joins.filter((join) => !going.has(join.from) && !going.has(join.to)),
   };
 }
@@ -237,11 +281,12 @@ export function withBody(drawing: Drawing, id: string, body: string): Drawing {
   return { ...drawing, shapes: drawing.shapes.map((one) => (one.id === id ? { ...one, body } : one)) };
 }
 
-/** A box put down somewhere new. */
+/** A box or a picture put down somewhere new. */
 export function withPlace(drawing: Drawing, id: string, at: { x: number; y: number }): Drawing {
   return {
     ...drawing,
     shapes: drawing.shapes.map((one) => (one.id === id ? { ...one, x: at.x, y: at.y } : one)),
+    pictures: drawing.pictures.map((one) => (one.id === id ? { ...one, x: at.x, y: at.y } : one)),
   };
 }
 

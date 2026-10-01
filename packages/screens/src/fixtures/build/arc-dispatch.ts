@@ -154,6 +154,7 @@ function sketch(): SketchAttachment {
           ],
         },
       ],
+      pictures: [],
     },
   };
 }

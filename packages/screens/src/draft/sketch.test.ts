@@ -8,12 +8,14 @@ import {
   NOTHING_DRAWN,
   drawingOf,
   isDrawn,
+  nextPictureId,
   nextShapeId,
   sketchDrawn,
   sketchFromFrame,
   sketchOf,
   withBody,
   withJoin,
+  withPicture,
   withPlace,
   withShape,
   withStroke,
@@ -101,6 +103,7 @@ function pad(): Drawing {
     ],
     joins: [{ id: "b1-b2", from: "b1", to: "b2" }],
     strokes: [],
+    pictures: [],
   };
 }
 
@@ -240,5 +243,35 @@ describe("joining two boxes", () => {
 
   it("refuses to join a box to itself", () => {
     expect(withJoin(pad(), "b1", "b1")).toEqual(pad());
+  });
+});
+
+/** A screenshot pasted onto the pad, already scaled to sit there. */
+const SHOT = { id: "p1", x: 40, y: 200, width: 360, height: 225, src: "blob:armada/1" };
+
+describe("a picture pasted onto the pad", () => {
+  it("counts as drawn on its own, so a pad holding only a screenshot still attaches", () => {
+    expect(isDrawn(withPicture(NOTHING_DRAWN, SHOT))).toBe(true);
+  });
+
+  it("takes a `p` id, so a join naming it never names a box", () => {
+    expect(nextPictureId(pad())).toBe("p1");
+    expect(nextPictureId(withPicture(pad(), SHOT))).toBe("p2");
+  });
+
+  it("moves like a box, and keeps its size", () => {
+    const moved = withPlace(withPicture(pad(), SHOT), "p1", { x: 0, y: 0 });
+
+    expect(moved.pictures[0]).toEqual({ ...SHOT, x: 0, y: 0 });
+    expect(moved.shapes).toEqual(pad().shapes);
+  });
+
+  it("joins to a box, and comes off under Remove with the join that hung on it", () => {
+    const joined = withJoin(withPicture(pad(), SHOT), "b1", "p1");
+    expect(joined.joins.map((join) => join.id)).toEqual(["b1-b2", "b1-p1"]);
+
+    const gone = withoutShapes(joined, ["p1"]);
+    expect(gone.pictures).toEqual([]);
+    expect(gone.joins.map((join) => join.id)).toEqual(["b1-b2"]);
   });
 });
