@@ -35,7 +35,7 @@ describe("a step", () => {
   it("names the step, where it sits and its state, and the plan as a card of its groups", () => {
     expect(reading.kind).toBe("step");
     expect(reading.name).toBe(whole.steps[1]!.label);
-    expect(reading.eyebrow).toBe(`Step ${whole.steps[1]!.ordinal}`);
+    expect(reading.eyebrow).toBe(`Step ${whole.steps[1]!.ordinal + 1}`);
     expect(reading.state?.activity).toBe("running");
     // The step that works the plan links to it and lists none of its tasks
     // (owner, 28 and 29 Sep 2026, `25i2`, `nm0h`, `dco5`).
