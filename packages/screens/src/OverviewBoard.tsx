@@ -132,6 +132,9 @@ export function OverviewBoard({
           ) : brief === undefined ? (
             <p className="armada-overview-board__brief">{briefAbsent ?? "No brief was written."}</p>
           ) : (
+            // **The requester's words as the structure they carry.** An issue
+            // body Fleet pastes in has headings, code and paragraphs, and drawn
+            // as one `<p>` it ran together — the owner's Job 1, 1 Oct 2026.
             <div className="armada-overview-board__brief">
               <Prose text={brief} />
             </div>

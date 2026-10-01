@@ -514,6 +514,40 @@ async fn a_step_sent_back_twice_files_each_pass_apart_from_the_last() {
     );
 }
 
+/// **A killed Job has no note waiting**: it is never re-admitted, so no Drone
+/// opens with it, and a screen saying one is waiting would be a promise nothing
+/// keeps.
+#[tokio::test]
+async fn a_killed_job_serves_no_note_waiting() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reviewing_the_first_step(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job_id = at_the_gate(&fleet, &home).await;
+    let other = fleet
+        .propose(a_proposal("a second Job, holding the only slot"))
+        .await
+        .expect("a proposal");
+    worktree_directory(&home, &other);
+    dispatched(&fleet, other.id())
+        .await
+        .expect("the second Job takes the slot");
+    let said = crate::resume::Redirection::saying("name the cause, not the symptom")
+        .expect("a note with something in it");
+    fleet
+        .request_changes(&job_id, &said)
+        .await
+        .expect("a note at a boundary has somewhere to wait");
+    assert!(detail(&fleet, &job_id).await.redirect_waiting.is_some());
+
+    fleet.kill_job(&job_id).await.expect("killed while queued");
+
+    let killed = detail(&fleet, &job_id).await;
+    assert!(
+        killed.redirect_waiting.is_none(),
+        "{:?}",
+        killed.redirect_waiting
+    );
+}
+
 /// One Job, as `GET /jobs/:job_id` serves it. The wire answer and not the
 /// record, because what `#212` is about is the difference between the two.
 async fn detail(fleet: &Fixture, job: &core_model::JobId) -> ipc::JobDetail {
