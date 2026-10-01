@@ -11,6 +11,7 @@ import type {
   ViewStepRow,
 } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
+import { Prose } from "../../primitives/Prose/Prose";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import {
   Captured,
@@ -22,7 +23,6 @@ import {
   type ConfidenceCaptured,
   type ConfidenceGrounds,
 } from "./Grounds";
-import { withCode } from "./withCode";
 
 export type { ConfidenceCaptured, ConfidenceGrounds, GroundRow } from "./Grounds";
 
@@ -33,6 +33,12 @@ export type { ConfidenceCaptured, ConfidenceGrounds, GroundRow } from "./Grounds
  * Every other section folds to one summary line. Tests in the change opens itself when a test
  * was removed or loosened with no reason, under a callout naming it, with its row marked, and
  * What the verdict rests on opens itself on a row that did not hold.
+ *
+ * **What the reviewer wrote draws through `Prose`** — a finding, its reason, what
+ * an area changed, what the tests prove, why a test changed or matters. Each is
+ * a model's markdown in a table cell, so a code span, weight or a list reads as
+ * the structure written. What Armada names itself — an area, a file, a test —
+ * stays literal.
  */
 export type ConfidenceSheetProps = {
   confidence: JobConfidence;
@@ -175,8 +181,12 @@ export function ConfidenceSheet({ confidence, onView, grounds, captured, ci, fol
             <tbody>
               {dismissed.map((row) => (
                 <tr key={row.finding}>
-                  <td>{withCode(row.finding)}</td>
-                  <td className="armada-confidence__muted">{withCode(row.reason)}</td>
+                  <td>
+                    <Prose text={row.finding} />
+                  </td>
+                  <td className="armada-confidence__muted">
+                    <Prose text={row.reason} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -274,7 +284,9 @@ function Areas({ areas, onView }: { areas: readonly AreaRow[]; onView: OnView })
         {areas.map((area) => (
           <tr key={area.name}>
             <td className="armada-confidence__muted">{area.name}</td>
-            <td>{area.what}</td>
+            <td>
+              <Prose text={area.what} />
+            </td>
             <td className="armada-confidence__files">
               {area.files.map((file) => (
                 <code key={file} className="armada-confidence__path">
@@ -308,7 +320,9 @@ function Tests({ tests }: { tests: TestsSection }) {
             {tests.proves.map((row) => (
               <tr key={`${row.area}-${row.what}`}>
                 <td className="armada-confidence__muted">{row.area}</td>
-                <td>{row.what}</td>
+                <td>
+                  <Prose text={row.what} />
+                </td>
                 <td className="armada-confidence__number">{row.tests}</td>
               </tr>
             ))}
@@ -339,7 +353,9 @@ function Tests({ tests }: { tests: TestsSection }) {
                     </>
                   )}
                 </td>
-                <td className="armada-confidence__muted">{row.why ?? "No reason given"}</td>
+                <td className="armada-confidence__muted">
+                  <Prose text={row.why ?? "No reason given"} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -357,7 +373,9 @@ function Tests({ tests }: { tests: TestsSection }) {
             {tests.untested.map((row) => (
               <tr key={row.code}>
                 <td>{row.code}</td>
-                <td className="armada-confidence__muted">{row.why}</td>
+                <td className="armada-confidence__muted">
+                  <Prose text={row.why} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -397,9 +415,11 @@ function Findings({
       <tbody>
         {findings.map((row) => (
           <tr key={row.finding}>
-            <td>{withCode(row.finding)}</td>
+            <td>
+              <Prose text={row.finding} />
+            </td>
             <td className="armada-confidence__muted">
-              {withCode(row.why)}
+              <Prose text={row.why} />
               {/* Under the reason rather than in a column of its own, which clipped it. */}
               {followUp && <FollowUp finding={row.finding} followed={followed} followUp={followUp} />}
             </td>
