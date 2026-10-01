@@ -93,10 +93,7 @@ impl Brief {
     /// scope note address what was actually requested*, *does this plan address
     /// what was actually asked* — is answerable here because every call carries
     /// it, and there is no arrangement of arguments that assembles a brief
-    /// without it.
-    ///
-    /// `standing` is what the repository requires of every change, placed
-    /// after the request; [`Standing::unstated`] adds nothing.
+    /// without it. `standing` sits after it; [`Standing::unstated`] adds nothing.
     pub fn about(
         step: &ResolvedStep,
         criterion: &JudgeCriterion,
