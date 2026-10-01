@@ -24,12 +24,16 @@ import type {
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import { droneViewsOf } from "./draft/drone";
-import type { GroupState, GroupView } from "./draft/group";
+import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type GroupView } from "./draft/group";
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
 import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
+
+// Where the groups were made and are worked is the groups' own fact, and lives
+// beside them; the canvas and its readers still ask here.
+export { stepTheGroupsWereMadeAt, stepThatWorksTheGroups };
 
 /**
  * The layout, in the canvas's own coordinates. **The spine runs down** (owner,
@@ -208,34 +212,6 @@ function stepCard(
     ...(needs.length === 0 ? {} : { needs }),
     ...(working && groups.length > 0 ? { bar: barOf(groups) } : {}),
   };
-}
-
-/**
- * The step that made the groups: the one the plan was recorded at.
- *
- * Absent where no plan was recorded and where a person wrote it — a plan no
- * step produced has no node to come off, so its groups are left undrawn rather
- * than hung somewhere they were not made.
- */
-export function stepTheGroupsWereMadeAt(whole: JobWhole): string | undefined {
-  const at = whole.work_plan?.recorded_by;
-  if (at === undefined || at.by !== "step") return undefined;
-  return ordered(whole).some((step) => step.step_id === at.step_id) ? at.step_id : undefined;
-}
-
-/**
- * The step that works the groups: the one after the step the plan was recorded
- * at, since a plan is written at one step and worked at the next.
- *
- * Absent where the recording step is the last. **Nothing on this canvas comes
- * off it any more** — it is read for what a step's own card counts, and for
- * what its panel says about the plan.
- */
-export function stepThatWorksTheGroups(whole: JobWhole): string | undefined {
-  const made = stepTheGroupsWereMadeAt(whole);
-  if (made === undefined) return undefined;
-  const steps = ordered(whole);
-  return steps[steps.findIndex((step) => step.step_id === made) + 1]?.step_id;
 }
 
 export type WorkflowRunReading = {

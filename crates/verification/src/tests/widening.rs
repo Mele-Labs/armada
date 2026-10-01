@@ -39,6 +39,7 @@ fn brief(job: &Job, workflow: &ResolvedWorkflow) -> WideningBrief {
     WideningBrief::about(
         &workflow.steps()[0],
         Request::of(job),
+        &crate::Standing::unstated(),
         &held(),
         &[RepoPath::new("crates/store/src/schema.rs")],
         "the column the fix needs is declared here",
@@ -93,6 +94,7 @@ fn a_declaration_of_nothing_reads_as_nothing_rather_than_as_absence() {
     let brief = WideningBrief::about(
         &workflow.steps()[0],
         Request::of(&job),
+        &crate::Standing::unstated(),
         &WriteTargets::nothing(),
         &[RepoPath::new("crates/store/src/schema.rs")],
         "the column the fix needs is declared here",

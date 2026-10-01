@@ -45,6 +45,7 @@ fn judged_by(client: FakeJudge) -> Judging {
         environment: Environment::nothing(),
         marking: Marking::detached(),
         asked: Asked::nowhere(),
+        standing: verification::Standing::unstated(),
     }
 }
 
@@ -380,6 +381,7 @@ async fn a_step_that_declares_no_criterion_never_asks() {
         environment: Environment::nothing(),
         marking: Marking::detached(),
         asked: Asked::nowhere(),
+        standing: verification::Standing::unstated(),
     };
 
     let ruling = rule_on(
@@ -442,6 +444,7 @@ async fn a_failing_check_never_reaches_the_judge() {
         environment: Environment::nothing(),
         marking: Marking::detached(),
         asked: Asked::nowhere(),
+        standing: verification::Standing::unstated(),
     };
 
     let ruling = rule_on(

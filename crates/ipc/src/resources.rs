@@ -130,6 +130,51 @@ pub struct JobResources {
     /// which is ordinary and is not silence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wrote_last_at: Option<Instant>,
+    /// Every log file the Job has on disk: its own log, then each Drone's
+    /// transcript, then each kept Judge brief.
+    ///
+    /// **Absent is a Job that has written no file yet**, and a Fleet older
+    /// than 21.2. Every row is this Job's own; there is no sub-job owner until
+    /// one exists to name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<LogFile>,
+}
+
+/// Which of a Job's records a log file is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LogKind {
+    /// The Job's own log, `.armada/logs/<handle>.jsonl`.
+    Job,
+    /// One Drone's transcript, `.armada/transcripts/<handle>/<drone-id>.jsonl`.
+    Transcript,
+    /// One kept Judge brief, `.armada/briefs/<handle>/<name>`.
+    Brief,
+}
+
+/// One log file a Job has, what it weighs and whether a writer holds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogFile {
+    pub kind: LogKind,
+    /// Relative to `records_root`, the way `Judged::brief_path` is.
+    pub path: String,
+    /// What the file holds. **Absent is a file Fleet listed and could not
+    /// `stat`**, never zero — [`WorktreeOnDisk::bytes`]'s rule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<u64>,
+    /// Whether a process holds the file open for writing, as `lsof` reports
+    /// it. **Never inferred from when it was last written**: a Drone paused
+    /// for ten minutes and a Drone that died read the same off an mtime.
+    ///
+    /// The processes asked are the Job's tree — [`JobResources::processes`] —
+    /// and Fleet's own, because Fleet is the writer: a Drone's stdout is read
+    /// by Fleet's line loop, and its transcript and the Job's log are held
+    /// open by Fleet for exactly as long as that Drone's output is being read.
+    /// A Drone that dies closes its stdout, and Fleet closes both files.
+    ///
+    /// **Absent is `lsof` not answering**, never `false`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub being_written: Option<bool>,
 }
 
 /// What one look came to, and what the whole examination came to.

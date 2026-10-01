@@ -43,6 +43,7 @@ mod scanned;
 mod scope;
 mod second_opinion;
 mod shown;
+mod standing;
 mod submission;
 mod widening;
 
@@ -73,5 +74,6 @@ pub use scanned::in_the_diff;
 pub use scope::{drifted, InScope, Lifted, OutsideScope};
 pub use second_opinion::SecondOpinion;
 pub use shown::{digest, digest_of};
+pub use standing::{Standing, STANDING_RULES};
 pub use submission::{Claimed, NotASubmission, NotClaimed, ShownBy, Submission};
 pub use widening::{NotWidened, Widened, WideningBrief};

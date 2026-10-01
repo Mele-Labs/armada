@@ -98,6 +98,7 @@ mod left_behind;
 mod limits;
 mod linking;
 mod listener;
+mod log_rows;
 mod looping;
 mod manifest_proposals;
 mod mending;

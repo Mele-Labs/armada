@@ -297,7 +297,8 @@ pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
 pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
 pub use repositories::{AddRepository, CloneRepository, RepositoryList, RepositorySummary};
 pub use resources::{
-    Asked, Finding, Held, JobExamined, JobProcess, JobResources, Look, WorktreeOnDisk,
+    Asked, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind, Look,
+    WorktreeOnDisk,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,

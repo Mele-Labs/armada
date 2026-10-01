@@ -645,6 +645,20 @@ A step may declare `manifest_rule:review_gate` and no Judge criterion — Code R
 
 The gate names a tier the step never declared, so advancing would advance on the mechanical tier alone while reading as judged. That is what a workflow file spelling `auto_if_judge_passes` outright is refused for at parse time; it cannot be refused there through a policy, because the file does not say what the policy is. So it is refused where the resolution happens, and refusing means holding rather than failing: the step passed every tier it declared, and nothing a Drone can do from a worktree would fix a configuration mismatch. Fleet writes a line into the Job's log naming the file to fix.
 
+## What every change here carries
+
+**`standing_rules: <path>` names a file in the repository, and every Judge brief carries it** as what this repository requires of every change, labelled as a standard rather than the work and placed after the request. Without it, a Judge asked whether work stays inside the request reads a repository's own rules as scope expansion: one refused a plan for fixing the prose its change made wrong, in a repository whose gate refuses a change that leaves prose wrong.
+
+| | |
+| --- | --- |
+| Absent | Every brief is exactly what it was before the key existed |
+| The path | One file inside the checkout, refused at the key otherwise — a deliverable's rules |
+| Read from | The repository's own checkout, never the Job's worktree, so a Drone cannot rewrite what its Judge is told |
+| Over the bound | Cut on a whole line at the `judge-brief-standing-rules-cap` setting, and the brief says it was cut |
+| Not there | The brief says the file could not be read |
+
+**The repository writes it, and Fleet never guesses.** A file found by convention would put whatever sat at that path in front of every Judge.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here. The full set of dials scoped to a Manifest is a row in the Configuration Settings registry; `../contracts/configuration.md` owns the tiering rule, which is why no list of them appears in prose here.

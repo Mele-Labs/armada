@@ -17,6 +17,7 @@
 mod brief;
 mod marking;
 mod ruling;
+mod standing;
 
 use config::ResolvedWorkflow;
 use testkit::{Gate, Sketch};
