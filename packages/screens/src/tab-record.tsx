@@ -11,7 +11,7 @@
 // row's reading is `record-read.tsx`, and the modules it names.
 
 import { useEffect, useMemo, useState } from "react";
-import { DropdownMenu, JobLedger } from "@armada/components";
+import { DropdownMenu, JobLedger, SkeletonText } from "@armada/components";
 import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
@@ -36,6 +36,11 @@ export type RecordTabProps = {
   jobId: string;
   /** The Job whole, where Fleet answered for it. */
   detail: JobWhole | null;
+  /**
+   * Whether this Job's own read has yet to answer. `detail` is `null` both
+   * then and once Fleet refused, and only the refusal is told in words.
+   */
+  reading?: boolean;
   /** Every row of the Record, newest first. */
   rows: readonly LedgerRow[];
   /** The window is at `--window-floor`. */
@@ -108,6 +113,7 @@ function taskRowOf(rows: readonly LedgerRow[], taskId: string): string | undefin
 export function RecordTab({
   jobId,
   detail,
+  reading = false,
   rows,
   floor,
   onReadCheckOutput,
@@ -173,7 +179,9 @@ export function RecordTab({
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.record}>
-      {detail === null ? (
+      {detail === null && reading ? (
+        <SkeletonText />
+      ) : detail === null ? (
         <p className="armada-inside__absent" role="note">
           Fleet has not answered for this job, so there is nothing to read back.
         </p>
