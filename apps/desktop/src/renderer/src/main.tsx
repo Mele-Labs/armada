@@ -5,7 +5,7 @@ import "./styles/index.css";
 import type { BridgeIdentity } from "@armada/protocol";
 import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
-import { HapticsProvider } from "@armada/components";
+import { HapticsProvider, ProseLinks } from "@armada/components";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -36,7 +36,10 @@ function Root() {
     >
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
-        <App />
+        {/* What a link in a model's text opens with. `main/links.ts`. */}
+        <ProseLinks.Provider value={(address) => void window.armada.openLink(address)}>
+          <App />
+        </ProseLinks.Provider>
       </HapticsProvider>
     </Boundary>
   );

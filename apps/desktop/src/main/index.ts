@@ -36,6 +36,7 @@ import { openArtifact } from "./open";
 import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } from "./forge";
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
+import { openLink } from "./links";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
 import { Attention, soundOf } from "./telling";
@@ -239,8 +240,9 @@ function createWindow(): BrowserWindow {
   // forge would be a window with no rail, no shell and no way back: Electron's
   // version of the frozen surface this app was built to escape.
   //
-  // `openExternal` is `forge.ts`'s, on a channel, from an address main read
-  // off its own state. Nothing the renderer initiates reaches it.
+  // `openExternal` is reached on a channel, never by navigating: `forge.ts`
+  // from an address main read off its own state, and `links.ts` from a link in
+  // a model's text, `http(s):` only.
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
 
@@ -898,6 +900,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.openServerLink, (_event, serverId: string, url: string) =>
     openServerLink(published, serverId, url),
   );
+  // A link in a model's text: the one opener whose address the renderer sends. `links.ts`.
+  ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
