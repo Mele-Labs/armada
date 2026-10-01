@@ -185,25 +185,14 @@ export function criteriaOf(whole: JobWhole | null): string[] {
 }
 
 /**
- * Fleet's `**bold**` and `` `code` `` spans, read as plain text.
- *
- * **`review`'s Markdown is written for the pull request's own renderer.** The
- * words are one builder's — that is the whole point of `#665` — but the
- * marks around them are not; a sheet with no Markdown renderer would draw the
- * asterisks and backticks themselves, and that is not the same words.
- */
-function plainTextOf(markdown: string): string {
-  return markdown.replaceAll("**", "").replaceAll("`", "");
-}
-
-/**
  * The brief — Fleet's own `why` section, the same words the pull request's
- * "Why was the change needed?" carries. Absent where Fleet has composed no
- * review yet: a Job still running, or read off a Fleet older than 10.10.
+ * "Why was the change needed?" carries, and in the same Markdown: the sheet
+ * draws it through `Prose`. Absent where Fleet has composed no review yet: a
+ * Job still running, or read off a Fleet older than 10.10.
  */
 export function briefOf(whole: JobWhole | null): string | undefined {
   const why = whole?.review?.why;
-  return why === undefined || why.length === 0 ? undefined : plainTextOf(why);
+  return why === undefined || why.length === 0 ? undefined : why;
 }
 
 /**
@@ -213,7 +202,7 @@ export function briefOf(whole: JobWhole | null): string | undefined {
  */
 export function risksOf(whole: JobWhole | null): string | undefined {
   const risks = whole?.review?.risks;
-  return risks === undefined || risks.trim().length === 0 ? undefined : plainTextOf(risks.trim());
+  return risks === undefined || risks.trim().length === 0 ? undefined : risks.trim();
 }
 
 /** The figures, in the order the drawing runs them. */

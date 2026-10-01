@@ -6,6 +6,7 @@ import {
   JUDGE_FINDING_SAID,
   type JudgeFindingField,
 } from "../../judge-record";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -113,9 +114,10 @@ export type JudgeRefusalProps = {
    *
    * **Not prose.** `agent-copy.md` specifies a refusal this way and
    * `CriterionVerdicts` has always drawn it so; a paragraph here was this
-   * component inventing a second shape for one record.
+   * component inventing a second shape for one record. Within its field, each
+   * is the Judge's own markdown and is drawn through `Prose`.
    */
-  finding: Partial<Record<JudgeFindingField, ReactNode>>;
+  finding: Partial<Record<JudgeFindingField, string>>;
   /** What the quote is of — `The case that stopped existing: …`. */
   quoteLead?: ReactNode;
   /**
@@ -243,7 +245,7 @@ export function JudgeRefusal({
                   <dt className="armada-judge-refusal__field">{JUDGE_FINDING_LABEL[field]}</dt>
                 </Tooltip>
                 <dd className="armada-judge-refusal__value" data-field={field}>
-                  {finding[field]}
+                  <Prose text={finding[field] ?? ""} />
                 </dd>
               </Fragment>
             ))}

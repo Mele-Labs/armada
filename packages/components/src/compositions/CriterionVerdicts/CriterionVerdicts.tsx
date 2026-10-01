@@ -2,6 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { Fragment, useCallback } from "react";
 
+import { Prose } from "../../primitives/Prose/Prose";
+
 /**
  * Criterion verdicts — what the Judge answered, beneath the step it judged.
  *
@@ -50,12 +52,15 @@ export type CriterionVerdict = {
   verdict?: ReactNode;
   /** The glyph, from the `circle-*` family the Judge owns. */
   icon?: LucideIcon;
-  /** What should be seen if the work were right. A refusal owes it. */
-  expected?: ReactNode;
+  /**
+   * What should be seen if the work were right. A refusal owes it. This and
+   * the two below are the Judge's own markdown, drawn through `Prose`.
+   */
+  expected?: string;
   /** What is seen instead. */
-  produced?: ReactNode;
+  produced?: string;
   /** What that difference does to whoever consumes it. The triage line. */
-  consequence?: ReactNode;
+  consequence?: string;
   /**
    * Where the whole brief this verdict answers was written, relative to the
    * repository root. **The path, never the question** — Bridge does not read
@@ -172,7 +177,7 @@ export function CriterionVerdicts({ rows, label, onCopied }: CriterionVerdictsPr
                     <Fragment key={field}>
                       <dt className="armada-verdicts__cite-label">{LABELLED[field]}</dt>
                       <dd className="armada-verdicts__cite-value" data-field={field}>
-                        {row[field]}
+                        <Prose text={row[field] ?? ""} />
                       </dd>
                     </Fragment>
                   ))}
