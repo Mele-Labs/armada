@@ -239,6 +239,17 @@ async fn resolved(call: &LookupCall) -> Result<String, String> {
     }
 }
 
+/// The origin a Job read from a typed request carries: **who sent it.** A
+/// person at the composer is *Dispatched by you*, a Helm session *Drafted in
+/// Helm* — the proposer choosing the workflow does not make it Fleet's find.
+/// `promoting::pressed` is the same split for a Studio. Decided 1 Oct 2026.
+pub(crate) fn requested(by: api::Redirector) -> core_model::TopLevelOrigin {
+    match by {
+        api::Redirector::Person => core_model::TopLevelOrigin::Manual,
+        api::Redirector::Helm => core_model::TopLevelOrigin::HelmDrafted,
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -275,7 +286,7 @@ where
             Vec::new(),
             &served,
             api::Redirector::Person,
-            None,
+            requested(api::Redirector::Person),
         )
         .await
     }
@@ -290,6 +301,12 @@ where
     /// `by` is the transport's word, `Fleet::propose`'s reason: the door lets
     /// a Helm session read a request too, and `job.created` for every Job
     /// this mints is published against that caller. `#943`.
+    ///
+    /// `dispatched_as` is the origin every Job this mints carries, and **every
+    /// caller names one**: there is no default for it to fall through to,
+    /// because the default was *Found by Fleet* and it was wrong on a request
+    /// a person typed. [`requested`] for the composer, `promoting::pressed`
+    /// for a Studio.
     pub async fn propose_from_with_attachments(
         &self,
         request: &str,
@@ -297,7 +314,7 @@ where
         attachments: Vec<ipc::AttachmentRef>,
         served: &crate::repositories::Served,
         by: api::Redirector,
-        dispatched_as: Option<core_model::TopLevelOrigin>,
+        dispatched_as: core_model::TopLevelOrigin,
     ) -> Result<Vec<Job>, Adrift> {
         let request = request.trim();
         if request.is_empty() {
@@ -436,23 +453,18 @@ where
         job: &ProposedJob,
         dependencies: Vec<ipc::DependencyEdge>,
         attachments: Vec<ipc::AttachmentRef>,
-        dispatched_as: Option<core_model::TopLevelOrigin>,
+        dispatched_as: core_model::TopLevelOrigin,
     ) -> ipc::ProposeJob {
         ipc::ProposeJob {
             title: job.title.clone(),
             workflow_id: ipc::WorkflowId::from(&job.workflow_id),
             owner_manifest_id: ipc::ManifestId::from(served.manifest().id()),
-            // The system determined the workflow, which is what this value
-            // names. `manual` stays the hand-entered path, so which of the two
-            // happened is answerable from the record rather than inferred.
-            //
-            // **A caller that already knows who dispatched says so** — `#1291`:
-            // a dispatch from a Studio is a person or Helm pressing it on text
-            // they wrote up, and *Found by Fleet* is what a row would say about
-            // work Armada noticed on its own.
-            origin: ipc::TopLevelOrigin::from(
-                dispatched_as.unwrap_or(core_model::TopLevelOrigin::AutoDetected),
-            ),
+            // **Who dispatched it, which the caller knows** — `#1291`. The
+            // proposer choosing the workflow does not make the work Fleet's
+            // find: a request is a person or Helm sending work they picked,
+            // and *Found by Fleet* is what a row says about work Armada
+            // noticed on its own.
+            origin: ipc::TopLevelOrigin::from(dispatched_as),
             // **What the `settings` line said, and `normal` where it said
             // nothing** — `ProposedJob::urgency`. It was hard-coded normal
             // until 30 Sep 2026, which made the settings block on the gate a
