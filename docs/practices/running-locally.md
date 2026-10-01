@@ -190,10 +190,13 @@ owner's own `com.armada.fleet`.
 ## A Fleet of your own
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
-has its own home, its own store, a local clone of this repository with the Fleet
-data copied in, and a Drone that exits at once — so a Job it dispatches
-escalates rather than doing work or spending anything. Add `--copy-store` to
-start it on a copy of your Jobs; leave it off for an empty store.
+has its own home, its own store, a local clone of this repository with
+`.armada/workflows/` copied in, and a Drone that exits at once — so a Job it
+dispatches escalates rather than doing work or spending anything. Add
+`--copy-store` to start it on a copy of your Jobs and the records each one is
+read from — transcripts, logs, briefs, Check output, attachments; leave it off
+for an empty store. Nothing else under `.armada/` is copied: the rest is build
+caches and Job checkouts, hundreds of gigabytes.
 
 **Reach for it when you want a Job as Fleet serves it, without your Fleet** — to
 record one for the mock with `scripts/record-job.mjs`, or to point a surface at a
@@ -206,8 +209,8 @@ needs `sqlite3`, which macOS ships. **It prints what `armada serve` prints**,
 because it ends by running it, and the port is also in
 `<scratch-dir>/home/user/Library/Application Support/Armada/fleet.json`. It refuses a
 scratch directory inside the repository and answers a second start with the pid
-already running. Stop it the way you stop Fleet, then delete the directory — it
-holds a copy of your transcripts.
+already running. Stop it the way you stop Fleet, then delete the directory — with
+`--copy-store` it holds a copy of your transcripts.
 
 ## Recording a Job for the mock
 
