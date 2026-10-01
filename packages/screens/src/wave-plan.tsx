@@ -1,30 +1,32 @@
-// The wave on the Plan destination: every pass of the split, the Judge that
-// read the live one, and one Job's inspector. `#1544`.
+// The wave on the Plan destination, and one Job of it read in a panel. `#1544`.
 //
-// **An earlier pass is history, not a second plan.** A loop return replaces
-// `plan.md` whole (`.armada/workflows/epic.json`), so only the live round is
-// drawn as the split and the rest are listed as what was tried.
+// **The panel is Plan's task panel's frame** (owner, 30 Sep 2026): the same
+// floating `Sheet` that dims the work area, its head the Job's title with its
+// state tag and Close in the corner, resized by the same handle. What the Job
+// is asking you sits at its top, so a line in Needs you and its answer are one
+// press apart.
 
-import { Badge, HoldButton, Sheet } from "@armada/components";
-import { JOB_STATUS } from "@armada/components/src/generated/vocabulary";
-import { useState } from "react";
+import { Badge, Button, HoldButton, Input, RowLink, Sheet, Textarea, Tooltip, type SheetBack } from "@armada/components";
+import type { EditJob } from "@armada/protocol";
+import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/vocabulary";
+import { useCallback, useState, type ReactNode } from "react";
 
-import type { StepDetail } from "@armada/protocol";
-
-import { Eyebrow } from "./regions";
 import type { WaveJobView, WaveView } from "./draft/wave";
-import { WaveRegion, type WaveRegionProps } from "./tab-wave";
-import { waveLandedSaid } from "./wave";
+import { useTaskWidth } from "./task-width";
+import { JobAnswer, WaveRegion, blocksOf, waitsOf, type WaveRegionProps } from "./tab-wave";
+import { waveSpentSaid } from "./wave";
 
 /** What dropping a Job from the wave does, said where a person is about to do it. */
 const DROP_SAID =
   "The Job ends at killed, which is terminal and carries no verdict. Nothing resumes it, " +
   "anything its Drone wrote stays on its branch, and the rest of the wave carries on.";
 
+/** The same, for a Job of the proposed wave, which has not run. */
+const DROP_PROPOSED_SAID =
+  "The Job ends at killed before it runs. Approving the plan releases the rest of the wave without it.";
+
 export type WavePlanProps = WaveRegionProps & {
-  /** The step that recorded the split, where one did. Its Judge is read off it. */
-  planStep?: StepDetail;
-  /** The window is at `--window-floor`, so the inspector goes flush. */
+  /** The window is at `--window-floor`, so the panel goes flush. */
   floor: boolean;
   /**
    * Drop one Job from the wave, held rather than pressed.
@@ -36,141 +38,321 @@ export type WavePlanProps = WaveRegionProps & {
   onDropFromWave: (jobId: string) => void;
 };
 
-/** What the Judge made of the split, off the step that recorded it. */
-function judgedSaid(step: StepDetail | undefined): string | undefined {
-  if (step === undefined || step.judged.length === 0) return undefined;
-  // `criterion_verdict_judge`: `met` or `not_met`. The refusals are what a
-  // person reads the split's Judge for.
-  const refused = step.judged.filter((one) => one.verdict === "not_met");
-  if (refused.length === 0) {
-    return `The Judge read the split and refused nothing — ${String(step.judged.length)} criteria.`;
-  }
-  return `The Judge refused ${String(refused.length)} of ${String(step.judged.length)} criteria on the split.`;
-}
-
-/** Every pass of the split, the live one first said to be live. */
-function Rounds({ wave }: { wave: WaveView }) {
-  if (wave.rounds.length === 0) return null;
+/** One labelled part of the panel's body, on the task panel's own field. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section className="armada-detail-tab__region" aria-label="Every pass of the split">
-      <Eyebrow>Every pass of the split</Eyebrow>
-      <ul className="armada-wave__rounds">
-        {wave.rounds.map((round) => (
-          <li key={round.round} data-live={round.live || undefined}>
-            <span className="armada-wave__round-at">Pass {round.round}</span>
-            <span className="armada-wave__round-says">{round.says}</span>
-            <span className="armada-wave__round-live">
-              {round.live
-                ? `${String(wave.jobs.filter((one) => one.round === round.round).length)} Jobs, the plan being run now`
-                : "Replaced by the pass after it"}
-            </span>
-          </li>
-        ))}
-      </ul>
+    <section className="armada-task-sheet__field" aria-label={label}>
+      <h3 className="armada-task-sheet__label">{label}</h3>
+      {children}
     </section>
   );
 }
 
-/** One Job of the wave, read whole, with the one act this surface offers. */
-function JobInspector({
+/** A mark is 12px at stroke 2, `TaskMark`'s own geometry. */
+const MARK_ICON = 12;
+const MARK_STROKE = 2;
+
+/**
+ * The Jobs one Job waits for, or that wait for it, each a line that opens its
+ * own panel — `RowLink`, the one treatment a press to another row takes: the
+ * status glyph, the handle, and the status's verb at its end.
+ */
+function Related({
+  label,
+  jobs,
+  onOpen,
+}: {
+  label: string;
+  jobs: readonly WaveJobView[];
+  onOpen: (jobId: string) => void;
+}) {
+  if (jobs.length === 0) return null;
+  return (
+    <Field label={label}>
+      <ul className="armada-wave__related">
+        {jobs.map((one) => {
+          const rendering = JOB_STATUS[one.status];
+          const Icon = rendering?.icon ?? undefined;
+          return (
+            <li key={one.job}>
+              <Tooltip label={one.title}>
+                <RowLink
+                  mono
+                  {...(Icon == null
+                    ? {}
+                    : { mark: <Icon size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden /> })}
+                  says={rendering?.verb ?? one.status}
+                  {...(one.status === "completed_success" ? { tone: "passed" as const } : {})}
+                  {...(one.status === "completed_failed" ? { tone: "failed" as const } : {})}
+                  label={`${one.title}, ${rendering?.verb ?? one.status}`}
+                  onOpen={() => onOpen(one.job)}
+                >
+                  {one.handle ?? one.title}
+                </RowLink>
+              </Tooltip>
+            </li>
+          );
+        })}
+      </ul>
+    </Field>
+  );
+}
+
+/** One line each, blank lines and stray spaces dropped. */
+function linesOf(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+/**
+ * Edit this Job: title, brief and what it expects, filled from the Job as the
+ * panel draws it — Edit this task's form, on the fields a proposed Job has.
+ * **Cancel restores** by unmounting, so the next Edit starts from the Job
+ * again. Save sends only what differs, and is off until something does.
+ */
+function EditJobForm({
   job,
-  waits,
-  stale,
-  acting,
-  floor,
-  onOpenJob,
-  onDrop,
+  disabled,
+  onEdit,
   onClose,
 }: {
   job: WaveJobView;
-  waits: readonly WaveJobView[];
-  stale: boolean;
-  acting: boolean;
+  disabled: boolean;
+  onEdit: (edit: EditJob) => Promise<boolean>;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(job.title);
+  const [brief, setBrief] = useState(job.brief ?? "");
+  const [expects, setExpects] = useState((job.expects ?? []).join("\n"));
+  const [saving, setSaving] = useState(false);
+
+  const listed = linesOf(expects);
+  const changed: EditJob = {
+    ...(title.trim() === job.title ? {} : { title: title.trim() }),
+    ...(brief.trim() === (job.brief ?? "") ? {} : { brief: brief.trim() }),
+    ...(listed.join("\n") === (job.expects ?? []).join("\n") ? {} : { expects: listed }),
+  };
+  const untitled = title.trim() === "";
+  const same = Object.keys(changed).length === 0;
+
+  async function save(): Promise<void> {
+    setSaving(true);
+    try {
+      if (await onEdit(changed)) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="armada-task-sheet__edit" aria-label="Edit this Job">
+      <Input
+        label="Title"
+        value={title}
+        invalid={untitled}
+        disabled={saving}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <Textarea label="Brief" rows={4} value={brief} disabled={saving} onChange={(event) => setBrief(event.target.value)} />
+      <Textarea
+        label="Expects"
+        rows={3}
+        value={expects}
+        disabled={saving}
+        onChange={(event) => setExpects(event.target.value)}
+      />
+      <div className="armada-task-sheet__drop-acts">
+        <Button variant="secondary" size="sm" ground="sunken" disabled={saving} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="sunken"
+          pending={saving}
+          disabled={untitled || same || disabled}
+          onClick={() => void save()}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** One Job of the wave, read whole, with what it asks of you at the top. */
+function JobSheet({
+  wave,
+  job,
+  region,
+  floor,
+  width,
+  onResize,
+  back,
+  onOpenRelated,
+  onDrop,
+  onClose,
+}: {
+  wave: WaveView;
+  job: WaveJobView;
+  region: WaveRegionProps;
   floor: boolean;
-  onOpenJob: (jobId: string) => void;
+  width: number | undefined;
+  onResize: (width: number) => void;
+  back: SheetBack | undefined;
+  onOpenRelated: (jobId: string) => void;
   onDrop: () => void;
   onClose: () => void;
 }) {
   const rendering = JOB_STATUS[job.status];
-  const landed = waveLandedSaid(job);
+  const spent = waveSpentSaid(job);
+  // Edit this Job's form, open under the acts. **Only a proposed Job**: one
+  // that has run is a scope change, a different act.
+  // Held by the Job's id, so pressing to another Job in Waits for or Blocks
+  // never carries an open form across.
+  const [editingJob, setEditing] = useState<string | null>(null);
+  const editing = editingJob === job.job;
+  const onEditJob = region.onEditJob;
+  const editable = onEditJob !== undefined && job.status === "awaiting_approval";
   return (
-    <Sheet open title={job.title} subtitle={job.handle} floor={floor} onClose={onClose}>
-      <div className="armada-wave__inspector">
-        {rendering?.badgeStatus == null || rendering.icon == null ? (
-          <p className="armada-wave__needs-said">{job.status}</p>
+    <Sheet
+      open
+      floating
+      {...(width === undefined ? {} : { width })}
+      onResize={onResize}
+      floor={floor}
+      title={job.title}
+      subtitle={
+        rendering?.badgeStatus == null || rendering.icon == null ? (
+          job.status
         ) : (
           <Badge status={rendering.badgeStatus} icon={rendering.icon}>
             {rendering.verb}
           </Badge>
+        )
+      }
+      back={back}
+      closeLabel="Close"
+      closeBinding="Esc"
+      onClose={onClose}
+    >
+      <div className="armada-task-sheet__body">
+        <JobAnswer
+          jobId={job.job}
+          board={region.board}
+          questions={region.questions}
+          repositories={region.repositories}
+          now={region.now}
+          stale={region.stale}
+          acting={region.acting}
+          onAnswerJudge={region.onAnswerJudge}
+          onAnswerCommand={region.onAnswerCommand}
+        />
+        {job.brief === undefined ? null : <Field label="Brief">{job.brief}</Field>}
+        {job.expects === undefined || job.expects.length === 0 ? null : (
+          <Field label="Expects">
+            <ul className="armada-wave__expects">
+              {job.expects.map((one) => (
+                <li key={one}>{one}</li>
+              ))}
+            </ul>
+          </Field>
         )}
-        <dl className="armada-wave__facts">
-          <dt>Waits on</dt>
-          <dd>{waits.length === 0 ? "nothing" : waits.map((one) => one.title).join(", ")}</dd>
-          <dt>Pull request</dt>
-          <dd>{landed ?? "not settled"}</dd>
-          <dt>Dispatched by</dt>
-          <dd>Pass {job.round}</dd>
-        </dl>
-        <div className="armada-wave__inspector-acts">
-          <button
-            type="button"
-            className="armada-screen__eyebrow-act"
-            onClick={() => onOpenJob(job.job)}
-          >
-            Open this Job
-          </button>
-          <HoldButton
-            askLabel="Drop from the wave"
-            description={DROP_SAID}
-            disabled={stale || acting}
-            onAsk={onDrop}
-            onCommit={onDrop}
-          >
-            Hold to drop from the wave
-          </HoldButton>
+        <Related label="Waits for" jobs={waitsOf(wave, job)} onOpen={onOpenRelated} />
+        <Related label="Blocks" jobs={blocksOf(wave, job)} onOpen={onOpenRelated} />
+        {spent === undefined ? null : <Field label="Spent">{spent}</Field>}
+        <div className="armada-task-sheet__acts">
+          {!editable || editing ? null : (
+            <Button size="sm" ground="sunken" disabled={region.stale} onClick={() => setEditing(job.job)}>
+              Edit this Job
+            </Button>
+          )}
+          <Button size="sm" ground="sunken" onClick={() => region.onOpenJob(job.job)}>
+            Open job
+          </Button>
+          {/* **Only on a Job that has not ended.** Killing one that has is no
+              act at all, and a button that does nothing is a promise. */}
+          {JOB_LIFECYCLE[job.status]?.terminal !== false ? null : (
+            <HoldButton
+              askLabel="Drop from the wave"
+              description={job.status === "awaiting_approval" ? DROP_PROPOSED_SAID : DROP_SAID}
+              disabled={region.stale || region.acting}
+              onAsk={onDrop}
+              onCommit={onDrop}
+            >
+              Hold to drop from the wave
+            </HoldButton>
+          )}
         </div>
+        {!editable || !editing ? null : (
+          <EditJobForm
+            key={job.job}
+            job={job}
+            disabled={region.stale}
+            onEdit={async (edit) => (await onEditJob(job.job, edit)).ok}
+            onClose={() => setEditing(null)}
+          />
+        )}
       </div>
     </Sheet>
   );
 }
 
-export function WavePlan({ planStep, floor, onDropFromWave, ...region }: WavePlanProps) {
-  // Which Job the inspector is on. **This destination's own state**: a sheet
-  // that survived leaving the Plan would open over a board nobody is reading.
+export function WavePlan({ floor, onDropFromWave, ...region }: WavePlanProps) {
+  // Which Job the panel is on. **This destination's own state**: a panel that
+  // survived leaving the Plan would open over a board nobody is reading.
   const [open, setOpen] = useState<string | null>(null);
+  // The Jobs the open one was reached from, pressed in Waits for or Blocks —
+  // the group-to-task step back, on the same terms: Back and Close land on the
+  // one before, and it never leaves the plan.
+  const [from, setFrom] = useState<readonly string[]>([]);
+  const [width, resize] = useTaskWidth();
+  // **Stable across a tick of `now`**: the region memoises the canvas's nodes
+  // on it, and a fresh function each second left every card hidden.
+  const opening = useCallback((jobId: string) => {
+    setFrom([]);
+    setOpen(jobId);
+  }, []);
 
   const wave = region.draft?.wave ?? undefined;
   if (wave === undefined) return <WaveRegion {...region} />;
 
   const byId = new Map(wave.jobs.map((one) => [one.job, one]));
   const reading = open === null ? undefined : byId.get(open);
-  const judged = judgedSaid(planStep);
+  const before = from.length === 0 ? undefined : byId.get(from[from.length - 1]!);
+  const goBack = () => {
+    setOpen(from[from.length - 1] ?? null);
+    setFrom(from.slice(0, -1));
+  };
+  const back: SheetBack | undefined =
+    before === undefined
+      ? undefined
+      : { label: `Back to ${before.title}`, tooltip: `Back to ${before.title}`, onBack: goBack };
 
   return (
     <>
-      <WaveRegion {...region} onOpenJob={setOpen} />
-      {judged === undefined ? null : (
-        <p className="armada-wave__judged" role="note">
-          {judged}
-        </p>
-      )}
-      <Rounds wave={wave} />
+      <WaveRegion {...region} onOpenJob={opening} />
       {reading === undefined ? null : (
-        <JobInspector
+        <JobSheet
+          wave={wave}
           job={reading}
-          waits={reading.waits_on.flatMap((id) => {
-            const held = byId.get(id);
-            return held === undefined ? [] : [held];
-          })}
-          stale={region.stale}
-          acting={region.acting}
+          region={region}
           floor={floor}
-          onOpenJob={region.onOpenJob}
+          width={width}
+          onResize={resize}
+          back={back}
+          onOpenRelated={(jobId) => {
+            setFrom([...from, reading.job]);
+            setOpen(jobId);
+          }}
           onDrop={() => {
             onDropFromWave(reading.job);
             setOpen(null);
+            setFrom([]);
           }}
-          onClose={() => setOpen(null)}
+          onClose={before === undefined ? () => setOpen(null) : goBack}
         />
       )}
     </>

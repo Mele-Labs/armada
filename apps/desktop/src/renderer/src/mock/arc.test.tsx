@@ -14,8 +14,10 @@
 // written against what is on screen survives the rename and fails the day the
 // sentence stops being true.
 
-import { expect, test, describe } from "vitest";
-import { page } from "vitest/browser";
+import { expect, test, describe, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { issueLink } from "@armada/protocol";
 
 import {
   GUIDE_ALWAYS_LOOKS,
@@ -27,7 +29,7 @@ import {
 import type { Guide } from "@armada/components";
 
 import { SCENARIOS, scenarioNamed } from "./scenario";
-import { mount, listed, rows, unmountAfterEach } from "./testing";
+import { entered, mount, listed, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -914,28 +916,27 @@ describe("the wave", () => {
   const waveCard = (title: string) =>
     wave().getByRole("button", { name: new RegExp(`^${title}, `) });
 
-  test(
-    "epic/wave: five Jobs are drawn under one plan with what each has reached, and the two " +
-      "that merged are told apart from the three still out",
-    async () => {
-      mount("epic/wave");
-      await expect
-        .element(page.getByText("5 Jobs under one plan — 2 merged, 3 still out."))
-        .toBeVisible();
+  /** A wave Job's panel, once it has travelled in. */
+  async function panelOf(title: string) {
+    const panel = page.getByRole("dialog", { name: title });
+    await entered(panel);
+    return panel;
+  }
 
-      // Each card names the Job and the verb the registry gives its status, so
-      // "what it has reached" is read off the card and not counted from a list.
-      for (const [title, said] of [
-        ["Refuse an unknown code at the seam", "done"],
-        ["Name the fault in the toast", "done"],
-        ["Carry the code into the journal", "awaiting review"],
-        ["Say which half refused", "needs you"],
-        ["Drop the second error shape", "running"],
-      ] as const) {
-        await expect.element(waveCard(title)).toHaveAccessibleName(`${title}, ${said}`);
-      }
-    },
-  );
+  test("epic/wave: each Job of the live wave is drawn with what it has reached", async () => {
+    mount("epic/wave");
+    // Each card names the Job and the verb the registry gives its status, so
+    // "what it has reached" is read off the card and not counted from a list.
+    for (const [title, said] of [
+      ["Refuse an unknown code at the seam", "done"],
+      ["Name the fault in the toast", "done"],
+      ["Carry the code into the journal", "awaiting review"],
+      ["Say which half refused", "needs you"],
+      ["Drop the second error shape", "running"],
+    ] as const) {
+      await expect.element(waveCard(title)).toHaveAccessibleName(`${title}, ${said}`);
+    }
+  });
 
   test("epic/wave: the graph draws a Job that waits on another behind it", async () => {
     mount("epic/wave");
@@ -951,8 +952,8 @@ describe("the wave", () => {
 
   test("epic/wave: the same five Jobs are a list, with what each waits on", async () => {
     mount("epic/wave");
-    await page.getByRole("tab", { name: "Stacked" }).last().click();
-    const list = page.getByRole("listbox", { name: "The wave, as a list" });
+    await wave().getByRole("tab", { name: "List" }).click();
+    const list = page.getByRole("listbox", { name: "Wave 2, as a list" });
     await expect.element(list).toBeVisible();
     await expect.poll(() => list.element().querySelectorAll('[role="option"]').length).toBe(5);
     // The order the graph draws is the order the list says in words.
@@ -962,33 +963,29 @@ describe("the wave", () => {
   });
 
   test(
-    "epic/wave: what needs you is split into the Jobs holding a Drone and the ones resting " +
-      "at a gate, and each is answered where it is read",
+    "epic/wave: Needs you is a line per Job, and a line opens that Job's panel with its " +
+      "answer at the top",
     async () => {
       mount("epic/wave");
-      // Two hold a Drone and a worktree; one is at a gate with its slot given back.
-      const blocked = page.getByRole("region", { name: "Blocked, holding a Drone" });
-      const waiting = page.getByRole("region", { name: "Waiting at a gate" });
-      await expect.element(blocked.getByText("Blocked · 2")).toBeVisible();
-      await expect.element(waiting.getByText("Waiting · 1")).toBeVisible();
+      const needs = page.getByRole("listbox", { name: "Needs you" });
+      await expect.poll(() => needs.element().querySelectorAll('[role="option"]').length).toBe(3);
 
-      // The Judge's refusal, answered inline rather than by opening the Job.
+      // The Judge's refusal, answered in the panel rather than by opening the Job.
+      await needs.getByRole("option", { name: /Say which half refused/ }).click();
+      const blocked = await panelOf("Say which half refused");
       await expect
         .element(blocked.getByText("Does the message say which half refused — Bridge or Fleet?"))
         .toBeVisible();
       await expect
         .element(blocked.getByRole("button", { name: "Disagree, just this step" }))
         .toBeVisible();
-      // The one at the gate carries its own, and it is a different refusal.
-      await expect
-        .element(
-          waiting.getByText("Does every refusal the seam produces reach the journal with its code?"),
-        )
-        .toBeVisible();
+      await blocked.getByRole("button", { name: /^Close/ }).click();
 
       // The permission ask: a command the Manifest has not cleared, with the
       // three answers Fleet offered.
-      const ask = blocked.getByRole("article", {
+      await needs.getByRole("option", { name: /Drop the second error shape/ }).click();
+      const asking = await panelOf("Drop the second error shape");
+      const ask = asking.getByRole("article", {
         name: /^The drone wants to run a command it was not given/,
       });
       await expect.element(ask).toBeVisible();
@@ -998,45 +995,154 @@ describe("the wave", () => {
     },
   );
 
-  test("epic/wave: the loop says which pass it is on, and of how many", async () => {
+  test("epic/wave: the strip names each wave, and the loop how many it may run", async () => {
     mount("epic/wave");
+    await expect.element(wave().getByRole("tab", { name: "Wave 1 · the seam" })).toBeVisible();
     await expect
-      .element(
-        wave().getByText(
-          "Pass 2 of 5 — Plan the wave, then Dispatch the wave, then Roll up the wave, and " +
-            "back to plan the wave.",
-        ),
-      )
-      .toBeVisible();
+      .element(wave().getByRole("tab", { name: "Wave 2 · every surface" }))
+      .toHaveAttribute("aria-selected", "true");
+    await expect.element(wave().getByText("Up to 5 waves")).toBeVisible();
   });
 
-  test("epic/wave: pressing one of the wave's Jobs opens that Job", async () => {
+  // The owner, 30 Sep 2026: "I can't seem to scroll when I have a wave
+  // selected." The wave sat outside Overview's scroller and squeezed the board
+  // under it to nothing, so the wheel moved nothing.
+  test("epic/wave: Overview scrolls from the wave down through the board under it", async () => {
+    mount("epic/wave");
+    await expect.element(wave().getByText("Up to 5 waves")).toBeVisible();
+    const board = page.getByRole("tabpanel", { name: "Overview" }).element() as HTMLElement;
+    let scroller: HTMLElement | null = board;
+    while (scroller !== null && getComputedStyle(scroller).overflowY !== "auto") {
+      scroller = scroller.parentElement;
+    }
+    expect(scroller).not.toBeNull();
+    const box = scroller!;
+    expect(box.contains(wave().element())).toBe(true);
+    expect(box.clientHeight).toBeGreaterThan(200);
+    box.scrollTop = box.scrollHeight;
+    await expect.poll(() => box.scrollTop).toBeGreaterThan(0);
+  });
+
+  test("epic/wave: pressing a past wave draws its Jobs on the graph", async () => {
+    mount("epic/wave");
+    await wave().getByRole("tab", { name: "Wave 1 · the seam" }).click();
+    await expect.element(waveCard("Handle every refusal at the seam")).toBeVisible();
+    expect(waveCard("Say which half refused").query()).toBeNull();
+  });
+
+  test("epic/wave: a Job's panel opens that Job", async () => {
     mount("epic/wave");
     await waveCard("Carry the code into the journal").click();
+    const panel = await panelOf("Carry the code into the journal");
+    await panel.getByRole("button", { name: "Open job" }).click();
     await expect
       .element(page.getByRole("button", { name: "34-carry-the-code-into-the-log" }).first())
       .toBeVisible();
   });
 
-  test("epic/wave: Plan draws every pass of the split, and the Judge that read it", async () => {
+  test("epic/wave: Plan names the model that judged the split, and each criterion", async () => {
     await at("epic/wave", "Plan");
-    const passes = page.getByRole("region", { name: "Every pass of the split" }).last();
-    await expect
-      .element(passes.getByText("The seam, then every surface that reads a refusal"))
-      .toBeVisible();
-    // An earlier pass is history: a loop return replaces `plan.md` whole.
-    await expect.element(passes.getByText("Replaced by the pass after it")).toBeVisible();
-    await expect
-      .element(page.getByText("The Judge read the split and refused nothing — 2 criteria."))
-      .toBeVisible();
+    const judged = page.getByRole("note", { name: "How the Judge read the split" });
+    await expect.element(judged.getByText("draws_the_split")).toBeVisible();
+    await expect.element(judged.getByText("each_piece_carries_its_own_brief")).toBeVisible();
+    await expect.element(judged.getByText("haiku")).toBeVisible();
   });
 
-  test("epic/wave: a Job's inspector on Plan offers dropping it from the wave", async () => {
+  test("epic/wave: a Job's panel on Plan offers dropping it from the wave", async () => {
     await at("epic/wave", "Plan");
     await waveCard("Drop the second error shape").click();
+    const panel = await panelOf("Drop the second error shape");
+    await expect.element(panel.getByRole("button", { name: /drop from the wave$/i })).toBeVisible();
+  });
+
+  // The owner's, 30 Sep 2026: the split being approved is drawn, as real Jobs
+  // at awaiting approval, and one Approve the plan releases every one of them.
+  // Fleet has no route for that yet, so it says so, naming #1694 and the Jobs.
+  test("epic/plan-review: the gate draws the proposed wave, and Approve the plan asks Fleet to release it all, which is not built", async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    });
+    const app = mount("epic/plan-review");
+    const approveWave = vi.spyOn(app.api, "approveWave");
+    await page.getByRole("tab", { name: /^Plan/ }).click();
     await expect
-      .element(page.getByRole("button", { name: /drop from the wave$/i }).first())
-      .toBeVisible();
+      .element(wave().getByRole("tab", { name: "Wave 2 · every surface" }))
+      .toHaveAttribute("aria-selected", "true");
+    const proposed = [
+      "Refuse an unknown code at the seam",
+      "Name the fault in the toast",
+      "Carry the code into the journal",
+      "Say which half refused",
+      "Drop the second error shape",
+    ];
+    for (const title of proposed) {
+      await expect.element(waveCard(title)).toHaveAccessibleName(`${title}, needs approval`);
+    }
+    // The gate's one approve answers them, so none is a line of its own.
+    expect(page.getByRole("listbox", { name: "Needs you" }).query()).toBeNull();
+
+    await page.getByRole("button", { name: "Approve the plan" }).click();
+    await expect.poll(() => approveWave.mock.calls.length).toBe(1);
+    const [, sent] = approveWave.mock.calls[0]!;
+    expect(sent.jobs).toHaveLength(proposed.length);
+    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Copy debug info" }).click();
+    await expect.poll(() => written).toHaveLength(1);
+    expect(written[0]).toContain("bridge.not_implemented");
+    expect(written[0]).toContain(issueLink(1694));
+    expect(written[0]).toContain("POST /jobs/{job_id}/approve_wave");
+    for (const id of sent.jobs) expect(written[0]).toContain(id);
+  });
+
+  // The owner's, 30 Sep 2026: a proposed Job is edited in its own panel,
+  // directly through Fleet, and never by opening it — the Job's own screen
+  // would offer approving it alone. Fleet has no route yet, so Save says so,
+  // naming #1699 and carrying the edit.
+  test("epic/plan-review: a proposed Job's panel edits it directly, which Fleet has not built", async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    });
+    const app = mount("epic/plan-review");
+    const editJob = vi.spyOn(app.api, "editJob");
+    await page.getByRole("tab", { name: /^Plan/ }).click();
+    await waveCard("Say which half refused").click();
+    const panel = await panelOf("Say which half refused");
+    await panel.getByRole("button", { name: "Edit this Job" }).click();
+    const form = panel.getByRole("region", { name: "Edit this Job" });
+    const save = form.getByRole("button", { name: "Save", exact: true });
+    await expect.element(save).toBeDisabled();
+    await form.getByLabelText("Title").fill("Say which half refused, in the toast");
+    await save.click();
+
+    await expect.poll(() => editJob.mock.calls.length).toBe(1);
+    const [, sent] = editJob.mock.calls[0]!;
+    expect(sent).toEqual({ title: "Say which half refused, in the toast" });
+    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
+    // Nothing was done, so what was typed stays.
+    await expect.element(form.getByLabelText("Title")).toHaveValue("Say which half refused, in the toast");
+    // The failure is drawn under the panel's dim, so the panel goes first.
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
+    await page.getByRole("button", { name: "Copy debug info" }).click();
+    await expect.poll(() => written).toHaveLength(1);
+    expect(written[0]).toContain("bridge.not_implemented");
+    expect(written[0]).toContain(issueLink(1699));
+    expect(written[0]).toContain("POST /jobs/{job_id}/edit");
+    expect(written[0]).toContain("Say which half refused, in the toast");
+  });
+
+  test("epic/wave: Waits for opens the Job waited on, with a way back", async () => {
+    await at("epic/wave", "Plan");
+    await waveCard("Say which half refused").click();
+    const panel = await panelOf("Say which half refused");
+    await panel.getByRole("button", { name: /^Name the fault in the toast, done/ }).click();
+    const next = await panelOf("Name the fault in the toast");
+    await next.getByRole("button", { name: "Back to Say which half refused" }).click();
+    await panelOf("Say which half refused");
   });
 });
 
