@@ -81,7 +81,7 @@ import { pulseViewOf } from "./draft/pulse";
 import { jobMembersOf } from "./draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
-import { whyNoBrief } from "./work";
+import { stillReading, whyNoBrief } from "./work";
 
 
 
@@ -916,6 +916,7 @@ export function OverviewTab(props: OverviewTabProps) {
       // What froze, and whether anybody has moved a setting since. `changedOf`
       // is the same count the strip's own Settings tab carries.
       settings={settingsSaid(props.draft?.landing, changedOf(whole))}
+      reading={stillReading(watched, job.id)}
       onOpenTab={props.onOpenTab}
     />
   );

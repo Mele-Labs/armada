@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones } from "@armada/components";
+import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones, SkeletonText } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -39,6 +39,12 @@ import type { TrailProps } from "./trail";
 export type DronesTabProps = {
   job: JobSummary;
   whole: JobWhole | null;
+  /**
+   * Whether this Job's own read has yet to answer. With no Drone in hand the
+   * tab stands in with rows, because "No Drone has run on this Job yet" before
+   * the read is a wrong answer.
+   */
+  reading?: boolean;
   /** Every Drone, where the draft holds them. Absent reads the plan's tasks. */
   drones?: readonly DroneView[];
   /** The plan's groups, where the draft holds them. Absent reads the wire's. */
@@ -74,6 +80,7 @@ export type DronesTabProps = {
 export function DronesTab({
   job,
   whole,
+  reading = false,
   drones: given,
   groups: givenGroups,
   now,
@@ -146,6 +153,14 @@ export function DronesTab({
   const open = drones.find((drone) => drone.id === openRow);
   useEffect(() => trail?.onHere(open === undefined ? null : { id: open.id, label: labelOf(open) }), [open?.id]);
   const steering = steeringOf(job, whole);
+
+  if (reading && drones.length === 0) {
+    return (
+      <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.drones}>
+        <SkeletonText />
+      </div>
+    );
+  }
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.drones}>
