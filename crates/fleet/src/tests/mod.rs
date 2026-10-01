@@ -57,6 +57,7 @@ mod dismissing;
 mod door_per_repository;
 mod drifting;
 mod drone;
+mod drones_had;
 mod dry_run;
 mod editing;
 mod epic;

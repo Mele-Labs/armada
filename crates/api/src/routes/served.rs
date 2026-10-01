@@ -450,6 +450,13 @@ pub const SERVED: &[Route] = &[
         method: "GET",
         path: "/jobs/:job_id/resources",
     },
+    // Every Drone the Job has had, exited ones too. `list_drones` is the
+    // roster and loses a Drone the moment it exits; this is the record.
+    Route {
+        operation: "list_job_drones",
+        method: "GET",
+        path: "/jobs/:job_id/drones",
+    },
     Route {
         operation: "examine_job",
         method: "POST",

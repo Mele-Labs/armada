@@ -211,7 +211,7 @@ pub use detail::{
     Settled, StepDetail, StepFacts, StepPass, Stuck, Verdict,
 };
 pub use drift::{Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed};
-pub use drones::{DroneDetail, DroneList, DroneSummary};
+pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, JobDrones};
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
