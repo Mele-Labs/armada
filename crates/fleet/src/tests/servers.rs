@@ -110,14 +110,21 @@ const BAND_FLOOR: u16 = 20_000;
 /// so the first slot tried is usually free, and the walk settles the rest
 /// without two processes racing from the same starting point.
 fn a_range_of_its_own() -> PortRange {
+    let (base, _released) = a_span_held_below_the_floor();
+    PortRange::of(base, base + SPAN - 1, 1)
+}
+
+/// The base of a free span below the ephemeral floor, with every port in it
+/// still bound by the caller.
+fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let top = detect_ceiling().saturating_sub(SPAN);
     let slots = top.saturating_sub(BAND_FLOOR) / SPAN;
     assert!(slots > 0, "no room for a span below {top}");
     let first = u16::try_from(std::process::id() % u32::from(slots)).unwrap_or(0);
     for step in 0..slots {
         let base = BAND_FLOOR + ((first + step) % slots) * SPAN;
-        if a_span_is_free(base) {
-            return PortRange::of(base, base + SPAN - 1, 1);
+        if let Some(held) = a_span_held(base) {
+            return (base, held);
         }
     }
     panic!("no run of {SPAN} free ports in {slots} slots below {top}");
@@ -129,10 +136,14 @@ fn a_range_of_its_own() -> PortRange {
 /// it before taking the next is how the span comes back part-claimed by
 /// somebody else while this is still counting.
 fn a_span_is_free(base: u16) -> bool {
-    let held: Vec<_> = (0..SPAN)
-        .map(|step| std::net::TcpListener::bind(("127.0.0.1", base + step)))
-        .collect();
-    held.iter().all(Result::is_ok)
+    a_span_held(base).is_some()
+}
+
+/// Every port from `base` up, bound, or `None` if any one of them is taken.
+fn a_span_held(base: u16) -> Option<Vec<std::net::TcpListener>> {
+    (0..SPAN)
+        .map(|step| std::net::TcpListener::bind(("127.0.0.1", base + step)).ok())
+        .collect()
 }
 
 /// A Job whose worktree is cut and whose span is claimed, with a Drone on it.
@@ -638,13 +649,19 @@ async fn a_job_with_no_readable_snapshot_finds_its_servers_in_the_live_file() {
 /// reached for that port exited with `exit 1` in the middle of somebody else's
 /// merge. Deterministic, unlike the failure it is for — the occupied port is
 /// held here rather than waited for.
+///
+/// **The span is the test's own, below the ephemeral floor.** Built around a
+/// `bind(:0)` port instead, the release half failed on the merge line (`the
+/// span is free once 49395 is let go`): any process's next connection can be
+/// handed a port in the ephemeral band.
 #[test]
 fn a_span_holding_one_taken_port_is_not_free() {
-    let taken = std::net::TcpListener::bind("127.0.0.1:0").expect("a port to hold");
-    let port = taken.local_addr().expect("its own address").port();
+    let (base, mut held) = a_span_held_below_the_floor();
 
     // Above the base and inside the span, which is exactly what went unchecked.
-    let base = port.checked_sub(SPAN / 2).expect("room below it");
+    let taken = held.swap_remove(usize::from(SPAN / 2));
+    let port = taken.local_addr().expect("its own address").port();
+    drop(held);
     assert!(!a_span_is_free(base), "a span holding {port} is not free");
 
     // And the same span once it is released, so this is measuring the port

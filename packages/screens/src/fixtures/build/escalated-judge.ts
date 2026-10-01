@@ -115,7 +115,7 @@ function regressionRefusedStep(): StepDetail {
   return {
     step_id: "regression_verify",
     label: "Regression check",
-    ordinal: 4,
+    ordinal: 3,
     state: "stopped",
     checks: [NEXTEST_CHECK],
     check_runs: [nextestPassed()],
