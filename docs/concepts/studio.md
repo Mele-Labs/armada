@@ -104,6 +104,12 @@ flowchart LR
 > **Rule.** A Picture is a picture and nothing else. It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
 > Why: a screenshot pasted onto the board has no words, and a Note is never wordless. The owner chose a kind of its own over a Note made to carry it. `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
 
+> **Rule.** A Sketch is the dispatch composer's pad, kept on the Studio: boxes, the joins between them, lines drawn by hand and pasted pictures. Placing one from the rail, or opening one, opens the pad over the board, and closing the pad keeps the whole drawing. Each pasted picture is a frame Fleet names and keeps as a Picture's is, and goes with the Sketch.
+> Why: the owner asked why the two were different things, and chose to make them one; a Sketch was text only because of the rule against pictures on a Studio, which he had already cut. A Sketch written as text before became one box holding its words. `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
+
+> **Rule.** A Sketch dispatches through the composer, never through the dispatch gate. Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio until a Job comes of it.
+> Why: a drawing is not a request — the composer is where a person says what the picture is for — and the registry's `dispatch` rung, which writes a Job node, stays the Issue draft's and the three forge kinds'.
+
 > **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
 > Why: the path is what the person meant to point at, and a File that rewrote it, or refused one not yet on disk, would be Fleet deciding what they meant. Decided with the owner, 1 Oct 2026.
 

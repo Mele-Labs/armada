@@ -26,9 +26,9 @@ import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
  * they type a paragraph describing a picture and the Drone reads the paragraph.
  *
  * **`GraphCanvas` is the graph half** (`#1539`) — no second canvas and no
- * drawing library. A box is words and a place, the way a Studio's `Sketch` node
- * is `{ body: String }`: no colour, no size, nothing to pick. The pen is this
- * surface's alone and no other canvas inherits it: `Ink`, and `Paste` for ⌘V.
+ * drawing library. A box is words and a place: nothing to pick. A Studio's
+ * Sketch is this drawing too (1 Oct 2026), so the pad opens over a Studio. The
+ * pen is this surface's alone: `Ink`, and `Paste` for ⌘V.
  *
  * **Nothing here stages anything.** `draft/sketch-png.ts` writes the drawing as
  * a PNG and nothing sends it yet — #1545's. Every edit is reported to the
@@ -77,10 +77,11 @@ export type SketchPadProps = {
   /**
    * What a person said about the picture. **Beside the pad and not in a box**:
    * it is about the whole sketch, and a box holding it would be read as part
-   * of the shape.
+   * of the shape. **Absent draws no field**: a Studio's Sketch is the drawing
+   * alone, and the line is about a request.
    */
-  said: string;
-  onSaid: (said: string) => void;
+  said?: string;
+  onSaid?: (said: string) => void;
   /**
    * The Studio node this was made from. **Absent is a pad opened blank**, which
    * is a real answer (`draft/sketch.ts`), so it draws no line rather than an
@@ -89,6 +90,8 @@ export type SketchPadProps = {
   from?: string;
   /** Nothing may be drawn while the connection is not live. */
   disabled?: boolean;
+  /** Fill its box, `--h-sketch-pad` the floor: a Studio's Sketch in its sheet, 1 Oct 2026. */
+  fills?: boolean;
 };
 
 /** One box: where a person put it, and the words in it. */
@@ -428,7 +431,7 @@ export function SketchPad(props: SketchPadProps) {
   }, [lines, boxes, pictures]);
 
   return (
-    <div className="armada-sketch-pad">
+    <div className="armada-sketch-pad" data-fills={props.fills || undefined}>
       <div className="armada-sketch-pad__canvas" ref={frame} tabIndex={-1}>
         <GraphCanvas<PadNode, PadEdge>
           surface="armada-sketch-pad__graph"
@@ -471,14 +474,16 @@ export function SketchPad(props: SketchPadProps) {
           </p>
         )}
       </div>
-      <Textarea
-        label={SAID_LABEL}
-        rows={2}
-        value={said}
-        placeholder={SAID_PLACEHOLDER}
-        disabled={disabled}
-        onChange={(event) => onSaid(event.target.value)}
-      />
+      {said === undefined || onSaid === undefined ? null : (
+        <Textarea
+          label={SAID_LABEL}
+          rows={2}
+          value={said}
+          placeholder={SAID_PLACEHOLDER}
+          disabled={disabled}
+          onChange={(event) => onSaid(event.target.value)}
+        />
+      )}
       {/* **`a Studio` is said once, and it is said here** — the owner, 28 Sep
           2026, reading this line against the chip below it. Two facts, not
           one: this says which node the picture was made from, the chip says

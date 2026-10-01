@@ -368,6 +368,8 @@ export * from "./compositions/JobProposal/ProposalGates";
 export * from "./compositions/JobProposal/ProposalLanding";
 // The picture a person draws beside a prompt, on the one graph surface. #1547.
 export * from "./compositions/SketchPad/SketchPad";
+// A pad's drawing, read-only at the size it is given: a Studio Sketch on the board.
+export * from "./compositions/SketchPreview/SketchPreview";
 // A Job whose members are Jobs — pull requests landing in order. #1543.
 export * from "./compositions/JobMembers/JobMembers";
 export * from "./compositions/JobMembers/MemberDecision";

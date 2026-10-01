@@ -18,14 +18,23 @@ import type { FrameRead } from "@armada/protocol";
  * and not a global**, which is `ReadFrame`'s rule: the bytes come from the
  * process that can reach Fleet, and a story passes its own.
  */
-export type ReadStudioFrame = (studioId: string, nodeId: string) => Promise<FrameRead>;
+export type ReadStudioFrame = (studioId: string, nodeId: string, picture?: string) => Promise<FrameRead>;
+
+/**
+ * What one frame is held under: the node's id, and on a Sketch the picture's
+ * after it — a Sketch keeps one frame per picture (1 Oct 2026). A node id is
+ * Fleet's ULID and never holds a `/`, so the two cannot be mistaken.
+ */
+export function frameKey(nodeId: string, picture?: string): string {
+  return picture === undefined ? nodeId : `${nodeId}/${picture}`;
+}
 
 /** What one Studio's frames come to: what is held for a node, and how to ask. */
 export type StudioFrames = {
-  /** What to draw on a node, or `undefined` where nothing has asked for it. */
-  of: (nodeId: string) => StudioNodeFrame | undefined;
-  /** Ask for every node in this list that has not been asked for yet. */
-  want: (nodeIds: readonly string[]) => void;
+  /** What to draw for one `frameKey`, or `undefined` where nothing has asked for it. */
+  of: (key: string) => StudioNodeFrame | undefined;
+  /** Ask for every `frameKey` in this list that has not been asked for yet. */
+  want: (keys: readonly string[]) => void;
 };
 
 /**
@@ -46,8 +55,16 @@ export function useStudioFrames(read: ReadStudioFrame, studioId: string): Studio
     };
   }, [studioId]);
 
+  // One key in, the node and the picture out — `frameKey`, the other way.
+  const byKey = useCallback(
+    (scope: string, key: string) => {
+      const at = key.indexOf("/");
+      return at < 0 ? read(scope, key) : read(scope, key.slice(0, at), key.slice(at + 1));
+    },
+    [read],
+  );
   const { of, fetch } = useHeldReads<FrameRead, StudioNodeFrame>({
-    read,
+    read: byKey,
     // `useHeldReads` calls its scope `jobId`; here the scope is the Studio.
     jobId: studioId,
     settle: (answer) => drawn(answer, minted),

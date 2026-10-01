@@ -27,6 +27,7 @@ import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { CaptureWindows } from "./capture/windows";
 import { stagePng, stagedPicture } from "./staging";
+import { handleSketches } from "./sketches";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
@@ -966,13 +967,15 @@ void app.whenReady().then(() => {
       ? { x: at.x as number, y: at.y as number }
       : null;
   };
-  /** One of the four kinds a person writes by hand. Never a Picture, whose staged file only main names. */
+  /**
+   * One of the three kinds a person writes by hand. Never a Picture or a Sketch,
+   * whose staged files only main names.
+   */
   const byHand = (value: unknown): value is StudioNodeByHand => {
-    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; body?: unknown; path?: unknown };
+    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; path?: unknown };
     if (node.kind === "note") return text(node.said);
     if (node.kind === "link") return text(node.address);
-    if (node.kind === "file") return text(node.path);
-    return node.kind === "sketch" && text(node.body);
+    return node.kind === "file" && text(node.path);
   };
   ipcMain.handle(CHANNELS.watchStudios, (_event, manifestId: unknown) =>
     text(manifestId) || manifestId === null ? connection?.studios.watchList(manifestId) : undefined,
@@ -1004,6 +1007,7 @@ void app.whenReady().then(() => {
     if (staged === null) return undefined;
     return (await connection?.studios.addNode(studioId, { kind: "picture", staged }, at)) ?? unsent;
   });
+  handleSketches({ ipc: ipcMain, studios: () => connection?.studios, whole, unsent });
   ipcMain.handle(CHANNELS.moveStudioNode, async (_event, studioId: unknown, nodeId: unknown, position: unknown) => {
     const at = whole(position);
     if (!text(studioId) || !text(nodeId) || at === null) return undefined;
@@ -1027,9 +1031,10 @@ void app.whenReady().then(() => {
   // The other half of the capture: the bytes of the picture one Note kept, read
   // by main and handed over for a `blob:`. **No new scheme and no CSP change** —
   // `img-src 'self' blob:` already draws one — and no path crosses either way.
-  ipcMain.handle(CHANNELS.readStudioFrame, async (_event, studioId: unknown, nodeId: unknown) =>
-    text(studioId) && text(nodeId)
-      ? ((await connection?.studios.frameOf(studioId, nodeId)) ?? { ok: false, outcome: unsent })
+  // A Sketch's picture is named by `picture`, its id on the drawing — 20.0.
+  ipcMain.handle(CHANNELS.readStudioFrame, async (_event, studioId: unknown, nodeId: unknown, picture: unknown) =>
+    text(studioId) && text(nodeId) && (picture === undefined || text(picture))
+      ? ((await connection?.studios.frameOf(studioId, nodeId, picture)) ?? { ok: false, outcome: unsent })
       : undefined,
   );
   // Starting one entry from a Studio — #1289, #1345. **The position is checked

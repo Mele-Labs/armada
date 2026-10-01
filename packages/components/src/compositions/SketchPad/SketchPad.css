@@ -19,6 +19,20 @@
   overflow: hidden;
 }
 
+/* Filling what it is put in — a Studio's Sketch, open in its sheet (1 Oct
+   2026). The canvas takes whatever the column leaves, and the composer's
+   height is still its floor, so a short window draws the pad the composer
+   draws rather than a sliver. */
+.armada-sketch-pad[data-fills] {
+  height: 100%;
+}
+
+.armada-sketch-pad[data-fills] .armada-sketch-pad__canvas {
+  flex: 1;
+  height: auto;
+  min-height: var(--h-sketch-pad);
+}
+
 /* The acts stood in a wrapping row over the top-right corner until the owner
    asked for a rail on 28 Sep 2026. Both halves are shared now — the pen, Undo
    and Add a box on `GraphCanvasRail`, Join and Remove hovering over the boxes

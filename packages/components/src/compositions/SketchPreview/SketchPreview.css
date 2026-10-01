@@ -1,0 +1,64 @@
+/* Sketch preview — a pad's drawing, read-only and fitted to its box. Each part
+   takes the token the pad paints it with, the same pairs `sketch-png.ts` reads,
+   so the three drawings of one sketch are one drawing. */
+.armada-sketch-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The pad's box: a raised card with the words in a sunken well. */
+.armada-sketch-preview__box {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-sketch-preview__well {
+  box-sizing: border-box;
+  height: 100%;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A join is an edge, at an edge's colour, keeping its weight however far the
+   drawing is scaled down to fit. */
+.armada-sketch-preview__join {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: var(--border-width);
+  vector-effect: non-scaling-stroke;
+}
+
+.armada-sketch-preview__arrow {
+  fill: var(--border-strong);
+}
+
+/* The pen's line, as `Ink` draws it on the pad. */
+.armada-sketch-preview__stroke {
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: var(--edge-active);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A picture whose bytes are still being read: the space it will take. */
+.armada-sketch-preview__unread {
+  fill: var(--bg-sunken);
+  stroke: var(--border-subtle);
+  vector-effect: non-scaling-stroke;
+}

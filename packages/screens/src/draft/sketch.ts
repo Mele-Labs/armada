@@ -16,8 +16,8 @@ import type { CaptureStudioNote, StagedFrame } from "@armada/protocol";
 /**
  * One box on a sketch: where a person put it, and the words in it.
  *
- * **A Studio's `Sketch` node is `{ body: String }`** (`crates/ipc/src/studio.rs`),
- * and this is that body with a place. Nothing here carries a size — a box is
+ * **A Studio's `Sketch` node keeps these as `boxes`** (`crates/ipc/src/studio_sketch.rs`,
+ * 1 Oct 2026), so a box here and a box there are one thing. Nothing here carries a size — a box is
  * drawn at one width and grows down the page with its words, so a height in
  * the draft would be a measurement Bridge took and a person never chose.
  */
@@ -111,6 +111,14 @@ export type SketchAttachment = {
 };
 
 /**
+ * What the composer's pad opens on: the drawing, what was said about it, and
+ * the Studio node it was made from. **No staged path**, because nothing is
+ * staged until the request goes — a Studio's Sketch opened in the composer
+ * (1 Oct 2026) is a drawing and no PNG yet. A `SketchAttachment` is one.
+ */
+export type SketchOpening = Pick<SketchAttachment, "said" | "produced_by" | "drawn">;
+
+/**
  * The sketch on a Studio note, where it carries one.
  *
  * **`undefined` is a note with no picture**, which is most of them: a note is
@@ -143,7 +151,7 @@ export function sketchFromFrame(
 export const NOTHING_DRAWN: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
 
 /** What a sketch was drawn from, or an empty pad where it carries none. */
-export function drawingOf(sketch: SketchAttachment | undefined): Drawing {
+export function drawingOf(sketch: SketchOpening | undefined): Drawing {
   return sketch?.drawn ?? NOTHING_DRAWN;
 }
 

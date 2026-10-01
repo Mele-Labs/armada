@@ -101,10 +101,21 @@ different question and still has its draft — `packages/screens/src/draft/peers
 
 ### The sketch, and what of it reaches Fleet
 
-A sketch attaches to the prompt as a chip reading *From a Studio · sketch 1*,
-and the words typed under Write stay where they are while it is drawn. The chip
+A sketch attaches to the prompt as a chip reading *sketch 1* — its name
+alone, because the pad's own line says which Studio node it was made from
+(the owner, 28 September 2026) — and the words typed under Write stay where
+they are while it is drawn. The chip
 takes no removal control: a picture is taken back on the pad, where the boxes
 going are visible.
+
+**A Studio's Sketch is this pad's drawing**, kept on the Studio (the owner's
+call of 1 October 2026, `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`).
+Dispatch on a Sketch node opens the composer with that drawing on the pad and
+the chip already attached, made from that node, and the pad says which. The
+request opens on Write, empty, because a drawing is not yet a request. Its
+pictures are the composer's own copies, so leaving the Studio takes nothing
+off the pad; what is drawn here afterwards is the request's and never goes back
+to the Studio.
 
 **The pad draws boxes and it draws by hand.** A box is words and a place and a
 join says what feeds what; a line drawn freehand is what neither says — a ring

@@ -110,7 +110,7 @@ async fn a_person_pastes_a_picture_and_its_frame_is_kept_and_served() {
     );
 
     let (name, bytes) = fleet
-        .get_studio_frame(studio.id.clone(), id.clone(), None)
+        .get_studio_frame(studio.id.clone(), id.clone(), None, None)
         .await
         .expect("the frame that was kept");
     assert_eq!(name, format!("{}.png", id.as_str()));
@@ -328,7 +328,7 @@ async fn a_frame_name_reaching_outside_the_studio_is_neither_read_nor_deleted() 
 
     for node_id in &planted {
         let refused = fleet
-            .get_studio_frame(studio.id.clone(), node_id.clone(), None)
+            .get_studio_frame(studio.id.clone(), node_id.clone(), None, None)
             .await
             .expect_err("a name that leaves the Studio's directory");
         assert_eq!(code(&refused), "fleet.studio_frame_unreadable");

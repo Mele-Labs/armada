@@ -13,6 +13,7 @@ import { AskRepository, DispatchJob } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
 import { dispatchSettingsOf } from "@armada/screens/src/draft/dispatch";
+import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { landingRuleOf } from "@armada/screens/src/draft/landing";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -71,6 +72,7 @@ export function Composing({
   onClose,
   onSaid,
   onCopied,
+  sketch,
 }: {
   state: BridgeState;
   commands: ReturnType<typeof useCommands>;
@@ -95,6 +97,8 @@ export function Composing({
    */
   onSaid: (said: string) => void;
   onCopied: (value: string) => void;
+  /** A Studio Sketch's drawing, dispatched from its node — 1 Oct 2026. Absent is a blank pad. */
+  sketch?: SketchOpening | undefined;
 }) {
   // The repository the ask answered, held apart from the rail's pick so
   // answering it never narrows the Board — #959. `null` until answered; this
@@ -219,7 +223,7 @@ export function Composing({
           ? {}
           : { settings: dispatchSettingsOf(drafted.proposal) })}
         {...(drafted.prompt === undefined ? {} : { opensOn: drafted.prompt })}
-        {...(drafted.sketch === undefined ? {} : { sketch: drafted.sketch })}
+        {...((sketch ?? drafted.sketch) === undefined ? {} : { sketch: sketch ?? drafted.sketch })}
         // On the head of each card this surface draws, since each is its own
         // way out of the same composer.
         close={<WayOut ground="card" onClose={leave} />}

@@ -142,6 +142,16 @@ const args = {
  */
 export const Drawn: Story = { args, render: (props) => <Held {...props} /> };
 
+/** A Studio's Sketch in its sheet: the pad fills its box, with no line about a request. */
+export const Filling: Story = {
+  args: { ...args, said: undefined, onSaid: undefined, from: undefined, fills: true },
+  render: (props) => (
+    <div style={{ height: "calc(var(--h-sketch-pad) * 2)" }}>
+      <Held {...props} />
+    </div>
+  ),
+};
+
 /** The boxes on their own, which is every pad drawn before the pen existed. */
 export const NoHand: Story = {
   args: { ...args, strokes: [] },

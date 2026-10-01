@@ -48,7 +48,7 @@ import {
   withoutLastStroke,
   withoutShapes,
 } from "./draft/sketch";
-import type { Drawing, SketchAttachment } from "./draft/sketch";
+import type { Drawing, SketchOpening } from "./draft/sketch";
 
 /**
  * What the sketch's chip is called. **Numbered because a request may carry
@@ -116,15 +116,16 @@ export type DispatchJobProps = {
   /** What the settings block opens on. Absent is nothing set, which is the ordinary case. */
   settings?: DispatchSettingsView;
   /**
-   * The picture this opens holding, where a moment carries one. **Absent opens
-   * Sketch on a blank pad**, which is every dispatch somebody starts here.
+   * The picture this opens holding, where a moment carries one or a Studio's
+   * Sketch was dispatched from (1 Oct 2026). **Absent opens Sketch on a blank
+   * pad**, which is every dispatch somebody starts here.
    *
    * **Nothing stages it yet.** The wire takes a staged path and a filename, so
    * what goes out with the request is unchanged until #1545 promotes the shape.
    * `draft/sketch-png.ts` already writes the PNG; staging it and sending it
    * are that pull request's.
    */
-  sketch?: SketchAttachment;
+  sketch?: SketchOpening;
   /**
    * Whether the request field or its attachments hold anything closing would
    * throw away. Reported as it changes, and `false` on the way out, so the

@@ -7,12 +7,12 @@ use std::sync::Arc;
 use ipc::{
     AddStudioNode, AskScout, CaptureStudioNote, CheckoutRunUnderway, ContradictionSettled,
     CreateStudio, DecideStudioEdge, DeferOnStudio, DispatchStudioDraft, EditStudioDraft,
-    EditStudioLink, GroupStudioNodes, Instant, ManifestId, MoveStudioNode, ProposeStudioEdge,
-    RemoveStudioNodes, RenameStudio, SettleContradiction, StartScout, StartStudioRun,
-    StartStudioServer, StopScout, Studio, StudioDeleted, StudioEdge, StudioEdgeId, StudioEdgeKind,
-    StudioEdgeStanding, StudioId, StudioList, StudioNode, StudioNodeAdded, StudioNodeContent,
-    StudioNodeId, StudioNodeState, StudioPosition, StudioRunStarted, StudioServerStarted,
-    StudioSummary, WireError, WriteUpStudioNode,
+    EditStudioLink, EditStudioSketch, GroupStudioNodes, Instant, ManifestId, MoveStudioNode,
+    ProposeStudioEdge, RemoveStudioNodes, RenameStudio, SettleContradiction, StartScout,
+    StartStudioRun, StartStudioServer, StopScout, Studio, StudioDeleted, StudioEdge, StudioEdgeId,
+    StudioEdgeKind, StudioEdgeStanding, StudioId, StudioList, StudioNode, StudioNodeAdded,
+    StudioNodeContent, StudioNodeId, StudioNodeState, StudioPosition, StudioRunStarted,
+    StudioServerStarted, StudioSummary, WireError, WriteUpStudioNode,
 };
 
 use super::FakeDaemon;
@@ -114,6 +114,7 @@ impl Studios for FakeDaemon {
         &self,
         studio_id: StudioId,
         node_id: StudioNodeId,
+        picture: Option<String>,
         within: Option<ManifestId>,
     ) -> Result<(String, Vec<u8>), Refusal> {
         self.changing(&studio_id, within, |studio| {
@@ -127,12 +128,21 @@ impl Studios for FakeDaemon {
                         format!("no node of this Studio is `{}`", node_id.as_str()),
                     ))
                 })?;
-            let kept = match &node.content {
-                StudioNodeContent::Note {
-                    capture: Some(capture),
-                    ..
-                } => capture.frame.as_ref(),
-                StudioNodeContent::Picture { frame } => Some(frame),
+            let kept = match (&node.content, picture.as_deref()) {
+                (StudioNodeContent::Sketch { drawing }, Some(id)) => drawing
+                    .pictures()
+                    .iter()
+                    .find(|one| one.id == id)
+                    .map(|one| &one.frame),
+                (_, Some(_)) => None,
+                (
+                    StudioNodeContent::Note {
+                        capture: Some(capture),
+                        ..
+                    },
+                    None,
+                ) => capture.frame.as_ref(),
+                (StudioNodeContent::Picture { frame }, None) => Some(frame),
                 _ => None,
             };
             let frame = kept.ok_or_else(|| {
@@ -225,6 +235,9 @@ impl Studios for FakeDaemon {
                         width: staged.width,
                         height: staged.height,
                     },
+                },
+                StudioNodeAdded::Sketch { drawing } => StudioNodeContent::Sketch {
+                    drawing: as_kept(&drawing),
                 },
                 StudioNodeAdded::Content(content) => content.into(),
             };
@@ -629,6 +642,30 @@ impl Studios for FakeDaemon {
         })
     }
 
+    async fn edit_studio_sketch(
+        &self,
+        studio_id: StudioId,
+        edit: EditStudioSketch,
+        within: Option<ManifestId>,
+    ) -> Result<Studio, Refusal> {
+        self.changing(&studio_id, within, |studio| {
+            let node = studio
+                .nodes
+                .iter_mut()
+                .find(|node| node.id == edit.node_id)
+                .ok_or_else(|| {
+                    Refusal::Unacceptable(refused(
+                        "fake.no_such_studio_node",
+                        format!("no node of this Studio is `{}`", edit.node_id.as_str()),
+                    ))
+                })?;
+            node.content = StudioNodeContent::Sketch {
+                drawing: as_kept(&edit.drawing),
+            };
+            Ok(studio.clone())
+        })
+    }
+
     async fn edit_studio_link(
         &self,
         studio_id: StudioId,
@@ -729,4 +766,16 @@ fn produced(studio: &mut Studio, from: StudioNodeId, to: StudioNodeId) {
         created_at: Instant::carried(AT),
         added_by: None,
     });
+}
+
+/// A written drawing as Fleet would answer it, every picture naming one kept
+/// frame. The fake keeps no files: what it proves is that the routes carry the
+/// drawing, and where its pictures go is `fleet`'s.
+fn as_kept(drawn: &ipc::SketchDrawn) -> ipc::SketchDrawing {
+    drawn.kept_as(|picture| ipc::CaptureFrame {
+        filename: format!("{}.png", picture.id),
+        byte_size: THE_FRAME.len() as u64,
+        width: picture.width,
+        height: picture.height,
+    })
 }

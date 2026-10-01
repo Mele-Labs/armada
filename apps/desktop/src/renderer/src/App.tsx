@@ -46,6 +46,7 @@ import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
+import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { nodeNamed, studioName, type OpenStudio } from "@armada/screens";
 import { Worktrees } from "@armada/screens";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
@@ -182,6 +183,8 @@ export function App({ draft }: AppProps = {}) {
   // request already half typed**, which is the one thing that can be true
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
+  const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
+  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -978,6 +981,7 @@ export function App({ draft }: AppProps = {}) {
               onClose={() => setComposing(false)}
               onSaid={setTelling}
               onCopied={setCopied}
+              sketch={composedFrom}
             />
           ) : studying ? (
             <StudiosSurface
@@ -1000,6 +1004,7 @@ export function App({ draft }: AppProps = {}) {
               // opens one over the list — and Escape comes back here, because
               // `close` clears the Job and leaves the surface alone.
               onOpenJob={setOpenJob}
+              onDispatchSketch={(from, drawn) => (setComposedFrom({ said: "", produced_by: from, drawn }), setComposing(true))}
               // A server node reads the live holder and counts its uptime on
               // the clock the rest of the app already ticks on — #1345.
               now={now}

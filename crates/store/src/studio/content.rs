@@ -7,7 +7,8 @@
 use core_model::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow, EpicRead, EpicTake,
     ForgeFacts, ForgeState, JobId, ScoutCheckout, ScoutEnded, ScoutOutcome, ScoutSource,
-    ScoutSourceKind, StudioCapture, StudioFinding, StudioNodeContent, StudioNodeKind,
+    ScoutSourceKind, SketchBox, SketchDrawing, SketchJoin, SketchMalformed, SketchPicture,
+    SketchPoint, SketchStroke, StudioCapture, StudioFinding, StudioNodeContent, StudioNodeKind,
     StudioPosition, StudioRun, StudioRunKept, Ulid,
 };
 use serde_json::{json, Map, Value};
@@ -35,6 +36,8 @@ pub enum UnreadableContent {
         field: &'static str,
         value: String,
     },
+    /// A Sketch whose parts read but do not make a drawing.
+    MalformedDrawing(SketchMalformed),
 }
 
 /// The object written for `content`.
@@ -83,9 +86,8 @@ pub(super) fn written(content: &StudioNodeContent) -> String {
             None => json!({ "first": first, "second": second }),
             Some(answer) => json!({ "first": first, "second": second, "answer": answer }),
         },
-        StudioNodeContent::Sketch { body } | StudioNodeContent::Outline { body } => {
-            json!({ "body": body })
-        }
+        StudioNodeContent::Outline { body } => json!({ "body": body }),
+        StudioNodeContent::Sketch { drawing } => drawing_written(drawing),
         // Each is left out where there is none, which is what every row
         // written before `#1378` and `#1293` already looks like.
         StudioNodeContent::Link {
@@ -215,7 +217,7 @@ pub(super) fn read(kind: &str, stored: &str) -> Result<StudioNodeContent, Unread
                 .map(str::to_string),
         },
         StudioNodeKind::Sketch => StudioNodeContent::Sketch {
-            body: text("body")?,
+            drawing: drawing_read(&object)?,
         },
         StudioNodeKind::Link => StudioNodeContent::Link {
             address: text("address")?,
@@ -733,4 +735,126 @@ fn frame_read(stored: &Value, byte_size: &'static str) -> Result<CaptureFrame, U
         width: whole("width")?,
         height: whole("height")?,
     })
+}
+
+/// A Sketch's drawing, as four arrays. **Every array is written**, empty or
+/// not, so a row says what it holds without a reader guessing at absence.
+fn drawing_written(drawing: &SketchDrawing) -> Value {
+    let boxes: Vec<Value> = drawing
+        .boxes()
+        .iter()
+        .map(|one| json!({ "id": one.id, "x": one.x, "y": one.y, "body": one.body }))
+        .collect();
+    let joins: Vec<Value> = drawing
+        .joins()
+        .iter()
+        .map(|one| json!({ "id": one.id, "from": one.from, "to": one.to }))
+        .collect();
+    let strokes: Vec<Value> = drawing
+        .strokes()
+        .iter()
+        .map(|one| {
+            let points: Vec<Value> = one
+                .points
+                .iter()
+                .map(|point| json!({ "x": point.x, "y": point.y }))
+                .collect();
+            json!({ "id": one.id, "points": points })
+        })
+        .collect();
+    let pictures: Vec<Value> = drawing
+        .pictures()
+        .iter()
+        .map(|one| {
+            json!({
+                "id": one.id,
+                "x": one.x,
+                "y": one.y,
+                "width": one.width,
+                "height": one.height,
+                "frame": frame_written(&one.frame),
+            })
+        })
+        .collect();
+    json!({ "boxes": boxes, "joins": joins, "strokes": strokes, "pictures": pictures })
+}
+
+/// A Sketch read back, held to the same rules a request's drawing is.
+fn drawing_read(object: &Map<String, Value>) -> Result<SketchDrawing, UnreadableContent> {
+    let missing = |field: &'static str| UnreadableContent::MissingField { field };
+    let items = |field: &'static str| -> Result<&Vec<Value>, UnreadableContent> {
+        object
+            .get(field)
+            .and_then(Value::as_array)
+            .ok_or(missing(field))
+    };
+    let text = |at: &Value, field: &'static str| -> Result<String, UnreadableContent> {
+        at.get(field)
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or(missing(field))
+    };
+    let whole = |at: &Value, field: &'static str| -> Result<i64, UnreadableContent> {
+        at.get(field).and_then(Value::as_i64).ok_or(missing(field))
+    };
+    let boxes = items("boxes")?
+        .iter()
+        .map(|one| {
+            Ok(SketchBox {
+                id: text(one, "id")?,
+                x: whole(one, "x")?,
+                y: whole(one, "y")?,
+                body: text(one, "body")?,
+            })
+        })
+        .collect::<Result<Vec<_>, UnreadableContent>>()?;
+    let joins = items("joins")?
+        .iter()
+        .map(|one| {
+            Ok(SketchJoin {
+                id: text(one, "id")?,
+                from: text(one, "from")?,
+                to: text(one, "to")?,
+            })
+        })
+        .collect::<Result<Vec<_>, UnreadableContent>>()?;
+    let strokes = items("strokes")?
+        .iter()
+        .map(|one| {
+            let points = one
+                .get("points")
+                .and_then(Value::as_array)
+                .ok_or(missing("points"))?
+                .iter()
+                .map(|point| {
+                    Ok(SketchPoint {
+                        x: whole(point, "x")?,
+                        y: whole(point, "y")?,
+                    })
+                })
+                .collect::<Result<Vec<_>, UnreadableContent>>()?;
+            Ok(SketchStroke {
+                id: text(one, "id")?,
+                points,
+            })
+        })
+        .collect::<Result<Vec<_>, UnreadableContent>>()?;
+    let pictures = items("pictures")?
+        .iter()
+        .map(|one| {
+            Ok(SketchPicture {
+                id: text(one, "id")?,
+                x: whole(one, "x")?,
+                y: whole(one, "y")?,
+                width: whole(one, "width")?,
+                height: whole(one, "height")?,
+                frame: frame_read(
+                    one.get("frame").ok_or(missing("frame"))?,
+                    "pictures.frame.byte_size",
+                )?,
+            })
+        })
+        .collect::<Result<Vec<_>, UnreadableContent>>()?;
+    SketchDrawing::drawn(boxes, joins, strokes, pictures)
+        .map_err(UnreadableContent::MalformedDrawing)
 }

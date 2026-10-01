@@ -206,6 +206,11 @@ pub const SERVED: &[Route] = &[
         path: "/studios/:studio_id/edit_link",
     },
     Route {
+        operation: "edit_studio_sketch",
+        method: "POST",
+        path: "/studios/:studio_id/edit_sketch",
+    },
+    Route {
         operation: "settle_contradiction",
         method: "POST",
         path: "/studios/:studio_id/settle",

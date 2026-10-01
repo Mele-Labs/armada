@@ -181,6 +181,7 @@ mod stuck;
 mod studio_pictures;
 mod studio_runs;
 mod studio_servers;
+mod studio_sketches;
 mod studios;
 mod sub_dispatch;
 mod superseding;

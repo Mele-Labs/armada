@@ -44,6 +44,7 @@ import type {
   GraphCanvasRailAct,
   StudioNodeByHand,
   StudioNodeByHandKind,
+  StudioNodeWrittenKind,
   StudioPickedAct,
 } from "@armada/components";
 import { captureOn, type OpenCaptureWindow } from "./capturing";
@@ -52,6 +53,7 @@ import type {
   JobSummary,
   Outcome,
   ServerState,
+  SketchToKeep,
   Studio,
   StudioPosition,
   StudioPromotion,
@@ -67,7 +69,10 @@ import {
   whiteboardEdges,
   whiteboardNodes,
 } from "./studio";
-import { useStudioFrames, type ReadStudioFrame } from "./studio-frames";
+import { frameKey, useStudioFrames, type ReadStudioFrame } from "./studio-frames";
+import { useStudioSketch } from "./StudioSketch";
+import { padOf } from "./studio-sketch";
+import type { Drawing } from "./draft/sketch";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
 import { useAddNodeKeys } from "./studio-keys";
@@ -121,7 +126,7 @@ const PICKED_LABEL = "What is picked";
  * A node a person is writing, before Fleet has it. **Its id is never a
  * node's**: Fleet mints those, and nothing here is on the Studio yet.
  */
-type Draft = { id: string; kind: StudioNodeByHandKind; position: StudioPosition };
+type Draft = { id: string; kind: StudioNodeWrittenKind; position: StudioPosition };
 
 const DRAFT = "draft";
 
@@ -161,6 +166,19 @@ export type StudiosProps = {
   pathOfFile: (file: File) => string;
   /** Put a pasted picture on the open Studio, as a Picture. Main stages the bytes; Fleet keeps them. */
   onAddPicture: (bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
+  /**
+   * Put a Sketch drawn on the pad on the open Studio — 1 Oct 2026. Bytes in for
+   * a new picture, as a pasted Picture's; main stages them.
+   */
+  onAddSketch: (drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  /** Keep the whole drawing a person left on a Sketch's pad. */
+  onSaveSketch: (nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
+  /**
+   * Open the composer with a Sketch's drawing on its pad, made from that node —
+   * the owner's call of 1 Oct 2026. **The pictures are copies the composer
+   * owns**, so leaving the Studio does not take them off its pad.
+   */
+  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
@@ -458,15 +476,22 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   }, [arming]);
   // The pictures the Notes kept, and the `blob:` each one becomes — #1352.
   const frames = useStudioFrames(props.onReadFrame, open.id);
+  const editable = open.editable && live;
   const drawn = framesDrawn(studio, selectedNode);
   // `want` sends nothing twice, so asking again on every render asks once.
   useEffect(() => void frames.want([...drawn]), [drawn, frames]);
   const frameOf = (nodeId: string) =>
     drawn.has(nodeId) ? (frames.of(nodeId) ?? {}) : { why: PAST_THE_BOUND };
+  // The Sketch open on the pad, placed or opened — 1 Oct 2026.
+  const sketch = useStudioSketch({
+    editable,
+    srcOf: (nodeId, pictureId) => frames.of(frameKey(nodeId, pictureId))?.src,
+    onAdd: (drawing, position) => props.onAddSketch(drawing, position),
+    onSave: (nodeId, drawing) => props.onSaveSketch(nodeId, drawing),
+  });
   const openedNote = studio.nodes.find(
     (node) => node.id === opened && (node.kind === "note" || node.kind === "picture"),
   );
-  const editable = open.editable && live;
   const onBoard = picked.filter((id) => studio.nodes.some((node) => node.id === id));
   const selected = onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
   const board = { servers: props.servers, now: props.now };
@@ -513,6 +538,14 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   function place(at: { x: number; y: number }): void {
     if (arming === null) return;
     if (draft !== null && out !== draft.id && written.current !== null) add(draft, written.current);
+    // A Sketch is drawn rather than written, so it opens the pad where it was
+    // put down, and lands on the Studio when the pad closes.
+    if (arming === "sketch") {
+      setDraft(null);
+      setArming(null);
+      sketch.placed({ x: Math.round(at.x), y: Math.round(at.y) });
+      return;
+    }
     drafted += 1;
     written.current = null;
     setAddRefused(null);
@@ -581,6 +614,16 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected !== undefined && keepsAnAddress(selected)
       ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
       : []),
+    // **The pad is how a Sketch is read**, so a read-only Studio opens it too,
+    // drawn on by nobody. Dispatch opens the composer with the drawing on it.
+    ...(selected?.kind === "sketch"
+      ? [
+          { id: "sketch", label: "Open", press: () => sketch.opened(selected) },
+          ...(live
+            ? [{ id: "sketch-dispatch", label: "Dispatch", press: () => dispatchSketch(selected) }]
+            : []),
+        ]
+      : []),
     ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
@@ -633,6 +676,22 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
         ]
       : []),
   ];
+
+  /**
+   * The composer, with this Sketch's drawing on its pad. **Each picture is read
+   * again into a `blob:` of the composer's own**: the board's are revoked when
+   * it goes, and the composer outlives it.
+   */
+  function dispatchSketch(node: Extract<typeof studio.nodes[number], { kind: "sketch" }>): void {
+    const drawing = padOf(node.drawing);
+    void Promise.all(
+      drawing.pictures.map(async (one) => {
+        const read = await props.onReadFrame(studio.id, node.id, one.id);
+        const src = read.ok ? URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })) : "";
+        return { ...one, src };
+      }),
+    ).then((pictures) => props.onDispatchSketch(node.id, { ...drawing, pictures }));
+  }
 
   /** Hand the node's address to whatever browses the web here — #1406. */
   function openAddress(nodeId: string): void {
@@ -765,6 +824,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside
           its own subtree, so a layer drawn in there is read through the Notes it is about. */}
       {editable ? promotion.dialog : null}
+      {sketch.sheet}
       {openedNote === undefined ? null : (
         <StudioFrameSheet
           open
