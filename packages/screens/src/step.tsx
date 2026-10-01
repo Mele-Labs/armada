@@ -27,6 +27,7 @@ import {
   GamingFlags,
   JOB_LIFECYCLE,
   JudgeRefusal,
+  Prose,
   Refusals,
 } from "@armada/components";
 import type { Explaining, JobDetailField } from "@armada/components";
@@ -335,7 +336,8 @@ export function questionOf(
       // The lead says the Drone asked, quotes it and ages it — `commandOf`'s
       // reason for drawing neither head nor question here.
       label={null}
-      options={asking.options}
+      // What each answer commits to is the Drone's own writing, so markdown.
+      options={asking.options.map((option) => ({ ...option, consequence: <Prose text={option.consequence} /> }))}
       disabled={stale || acting}
       disabledNote={stale ? STALE_NOTE : undefined}
       pending={acting && actingAct === "answer"}

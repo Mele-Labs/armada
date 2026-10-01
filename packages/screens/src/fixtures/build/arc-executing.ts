@@ -400,7 +400,7 @@ export function executingConcurrent(): ArcMoment {
     drone_id: ARC_DRONES.T5,
   });
   groups = withTask(groups, "T6", {
-    ...finished(15, 720_000, "Pressing a Drone's row opens that Job"),
+    ...finished(15, 720_000, "Pressing a Drone's row opens **that Job**, in `running-rows.test.tsx`"),
     drone_id: ARC_DRONES.T6,
   });
   // Joining, not checking: both agents have stopped and their work is being
@@ -463,7 +463,10 @@ export function groupFailed(): ArcMoment {
   let groups = executingConcurrent().draft.groups!;
   groups = withTask(groups, "T6", {
     state: "failed",
-    failed_reason: "The row's press opened the Board rather than the Job",
+    failed_reason:
+      "The row's press opened the Board rather than the Job:\n\n" +
+      "- `openBoard` ran on **every** row\n" +
+      "- the Job's id was never read",
   });
   groups = withGroup(groups, "g3", {
     state: "retrying",

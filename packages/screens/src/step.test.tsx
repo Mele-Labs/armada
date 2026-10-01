@@ -13,7 +13,7 @@ import type { JobDetail as JobWhole, JobSummary, StepDetail, Stuck } from "@arma
 
 import { mount, unmount } from "./mounted";
 import type { Opens } from "./phases";
-import { noticeOf } from "./step";
+import { noticeOf, questionOf } from "./step";
 
 afterEach(unmount);
 
@@ -133,4 +133,27 @@ test("no `undecided` sentence where the wire sent none", async () => {
   await expect.element(page.getByText("the gate could not decide", { exact: false })).toBeVisible();
   expect(document.body.textContent).not.toContain(UNDECIDED_RAW);
   expect(document.body.textContent).not.toContain(UNDECIDED_SAID);
+});
+
+// The question a Drone asked, in the slot under Overview's lead. What each
+// answer commits to is the Drone's own writing, so it draws as markdown.
+test("a drone's answers draw their markdown", async () => {
+  const showing = step();
+  const asked: JobWhole = {
+    ...whole(showing),
+    asking: {
+      question_id: "q1",
+      step_id: showing.step_id,
+      asked_at: "2026-09-11T09:40:00Z",
+      question: "Should the column be its own job?",
+      options: [
+        { label: "Its own job", consequence: "Dispatch a migration first. **Nothing else starts** until it lands." },
+        { label: "Fold it in", consequence: "The first job that needs `pending_at` adds it." },
+      ],
+    },
+  };
+  mount(<>{questionOf(asked, JOB_ID, false, false, () => {})}</>);
+  await expect.element(page.getByText("Nothing else starts")).toBeVisible();
+  expect(page.getByText("Nothing else starts").element().tagName).toBe("STRONG");
+  expect(page.getByText("pending_at").element().tagName).toBe("CODE");
 });

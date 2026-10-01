@@ -498,3 +498,40 @@ export const RowsWrittenBeforeTheStepWasRecorded: Story = {
     ],
   },
 };
+
+/**
+ * The Drone writes markdown, and a `said` row draws it: emphasis, a list, a
+ * name in code.
+ *
+ * **Only the Drone's own sentence.** The refusal under it is the harness's
+ * wording, and the underscores in a tool name are not emphasis — so it is
+ * drawn as the characters it is.
+ */
+export const TheDroneWritesMarkdown: Story = {
+  args: {
+    emptyNote: NOTHING_YET,
+    turns: [
+      {
+        id: "1",
+        at: "09:14:02",
+        who: "drone",
+        kind: "said",
+        said: "Splitting the reducer. **The public signature** stays put:\n\n- `selectSettings` keeps its name\n- the tests move with it",
+      },
+      {
+        id: "2",
+        at: "09:14:05",
+        who: "drone",
+        kind: "refused",
+        subject: "mcp__fleet__read",
+        said: "Refused: mcp__fleet__read is not on the allowlist for this drone.",
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("The public signature").tagName).toBe("STRONG");
+    await expect(canvas.getByText("selectSettings").tagName).toBe("CODE");
+    await expect(canvas.getByText("the tests move with it").tagName).toBe("LI");
+    await expect(canvas.getByText("Refused: mcp__fleet__read is not on the allowlist for this drone.")).toBeVisible();
+  },
+};

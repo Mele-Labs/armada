@@ -482,7 +482,9 @@ export function arcWorkPlan(tasks: TaskView[]): WorkPlan {
   return {
     approach:
       "One read of everything running, then the stat's words, then the panel, then what " +
-      "holds the next Drone back.",
+      "holds the next Drone back.\n\n" +
+      "- **Fleet** serves it as `drones_running`\n" +
+      "- Bridge draws it in the stat",
     recorded_by: { by: "step", step_id: "plan", attempt: 1 },
     recorded_at: "2026-09-22T09:21:00Z",
     tasks: tasks.map(planTaskOf),
