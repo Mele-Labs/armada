@@ -1,6 +1,6 @@
-import { NodeToolbar, Position, useStore } from "@xyflow/react";
+import { NodeToolbar, Position, useReactFlow, useStore, useStoreApi } from "@xyflow/react";
 import type { LucideIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -211,6 +211,28 @@ export function GraphCanvasNodeBar({ label, nodeIds, children }: GraphCanvasNode
     if (bottom + tall <= state.height) return "under";
     return Math.round(top - tall);
   });
+  const flow = useReactFlow();
+  const store = useStoreApi();
+  const picked = nodeIds.join(" ");
+  // **Panned to, never clamped** — the owner, 1 Oct 2026. A node picked at the
+  // side of the frame centres its bar past the edge, and React Flow's own focus
+  // pan moves only a node none of which shows. On a pick and not after it, so a
+  // person who pans away is not pulled back.
+  useEffect(() => {
+    // Found by its class: `NodeToolbar` takes no ref, and a canvas draws one bar.
+    const canvas = store.getState().domNode;
+    const bar = canvas?.querySelector(".armada-graph-node-bar")?.getBoundingClientRect();
+    const frame = canvas?.getBoundingClientRect();
+    if (bar === undefined || frame === undefined) return;
+    const bounds = flow.getNodesBounds([...nodeIds]);
+    const near = flow.flowToScreenPosition({ x: bounds.x, y: bounds.y });
+    const far = flow.flowToScreenPosition({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
+    const dx = intoView([Math.min(near.x, bar.left), Math.max(far.x, bar.right)], [bar.left, bar.right], [frame.left, frame.right]);
+    const dy = intoView([Math.min(near.y, bar.top), Math.max(far.y, bar.bottom)], [bar.top, bar.bottom], [frame.top, frame.bottom]);
+    if (dx === 0 && dy === 0) return;
+    const { x, y, zoom } = flow.getViewport();
+    void flow.setViewport({ x: x + dx, y: y + dy, zoom }, { duration: token("--duration-travel") });
+  }, [picked]);
   if (nodeIds.length === 0) return null;
   return (
     <NodeToolbar
@@ -225,6 +247,22 @@ export function GraphCanvasNodeBar({ label, nodeIds, children }: GraphCanvasNode
       {children}
     </NodeToolbar>
   );
+}
+
+type Span = readonly [from: number, to: number];
+
+/**
+ * How far to move `pick` so it lies inside `frame`, the least distance that
+ * does. **The bar alone where the whole pick is wider than the frame**: the bar
+ * is what has to be reached.
+ */
+function intoView(pick: Span, bar: Span, frame: Span): number {
+  const room = frame[1] - frame[0];
+  const [from, to] = pick[1] - pick[0] <= room ? pick : bar;
+  if (to - from > room) return 0;
+  if (from < frame[0]) return frame[0] - from;
+  if (to > frame[1]) return frame[1] - to;
+  return 0;
 }
 
 /**
