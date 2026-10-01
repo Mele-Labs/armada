@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Prose } from "../../primitives/Prose/Prose";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { FramesShown, type ShownFrame } from "../FramesShown/FramesShown";
 import type { ConfidenceCi } from "./ConfidenceSheet";
@@ -22,7 +23,11 @@ export type ConfidenceGrounds = {
   plan?: GroundRow;
 };
 
-/** What the Job captured: the frames its harness kept, and the Drone's own claim. */
+/**
+ * What the Job captured: the frames its harness kept, and the Drone's own claim.
+ * **The claim is the Drone's markdown and draws through `Prose`**; a ground's
+ * `detail` is Armada's own sentence, with backticks it put there itself.
+ */
 export type ConfidenceCaptured = {
   frames: ShownFrame[];
   claim?: { claimed: string; shownBy: string; notClaimed?: string };
@@ -132,13 +137,19 @@ export function Captured({ captured }: { captured: ConfidenceCaptured }) {
           <span className="armada-confidence__sublabel">The Drone&rsquo;s claim</span>
           <dl className="armada-confidence__claim">
             <dt>What it did</dt>
-            <dd>{withCode(claim.claimed)}</dd>
+            <dd>
+              <Prose text={claim.claimed} />
+            </dd>
             <dt>Shown by</dt>
-            <dd>{withCode(claim.shownBy)}</dd>
+            <dd>
+              <Prose text={claim.shownBy} />
+            </dd>
             {claim.notClaimed === undefined ? null : (
               <>
                 <dt>What it left alone</dt>
-                <dd>{withCode(claim.notClaimed)}</dd>
+                <dd>
+                  <Prose text={claim.notClaimed} />
+                </dd>
               </>
             )}
           </dl>

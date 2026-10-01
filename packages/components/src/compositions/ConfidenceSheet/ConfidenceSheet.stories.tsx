@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { ConfidenceSheet } from "./ConfidenceSheet";
 
 /**
@@ -313,9 +313,9 @@ export const WhatTheJobCaptured: Story = {
     captured: {
       frames: [{ kept: "k1", name: "fleet-settings.png", attempt: 1, weight: "84 KB" }],
       claim: {
-        claimed: "Fleet settings opens from the Board's menu and saves a limit.",
+        claimed: "Fleet settings opens from the **Board's menu** and saves a limit.",
         shownBy: "`fleet-settings.png`",
-        notClaimed: "The status bar's own way in.",
+        notClaimed: "Two ways in:\n\n- the status bar's own\n- `open_settings` from Helm",
       },
     },
   },
@@ -329,8 +329,14 @@ export const WhatTheJobCaptured: Story = {
     const captured = canvas.getByRole("button", { name: /What the Job captured/ });
     await expect(captured).toHaveTextContent("1 captured · the Drone's claim");
     await userEvent.click(captured);
-    await expect(canvas.getByText("Fleet settings opens from the Board's menu and saves a limit.")).toBeVisible();
-    await expect(canvas.getByText("The status bar's own way in.")).toBeVisible();
+    // The Drone's claim is its markdown: weight, code and a list, never the marks.
+    const claim = canvas.getByText("What it did").closest("dl") as HTMLElement;
+    await expect(within(claim).getByRole("strong")).toHaveTextContent("Board's menu");
+    const code = within(claim).getAllByRole("code").map((one) => one.textContent);
+    await expect(code).toEqual(["fleet-settings.png", "open_settings"]);
+    const items = within(claim).getAllByRole("listitem").map((one) => one.textContent);
+    await expect(items).toEqual(["the status bar's own", "open_settings from Helm"]);
+    await expect(claim).not.toHaveTextContent(/\*\*|`/);
   },
 };
 
