@@ -21,8 +21,17 @@ one note — a note with `sent` belongs to its Job.
 ### 1. Read the open notes
 
 ```
-ls .armada/annotations/
+ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
+
+**Every worktree's folder, not only the main checkout's.** A mock started from
+a worktree writes its notes into that worktree, so a note pinned on a session's
+review mock is invisible from the main checkout. Confirmed 29 Sep 2026: the
+owner pinned a note on the Workflow mock (`:41060`, run from
+`.claude/worktrees/workflow-board-pass`), the next `/annotations` read only the
+main folder, and he had to ask where his note had gone. A note in a worktree's
+folder is deleted with the worktree, so when it is done, copy it into the main
+checkout's folder, marked `done`, before the worktree is given back.
 
 Read every file. Skip `status: "done"`, and skip any with `sent` — say which Job
 each went to, so the owner knows it is not lost. Group what is left by
@@ -78,9 +87,11 @@ The brief is the only context the agent has, so it carries:
 | The landing | Commit and push after each piece that passes, open a PR, **do not merge**. Run heavy commands in the foreground and wait. A decision it runs into goes in a single `**QUESTION:**` line at the end, and nothing that depends on the answer gets built |
 
 **Verify what comes back yourself.** Read the diff, run its test, and look at
-the screen in the mock. An agent's report of green has been wrong here. Then
-report the PR to the owner and merge only when he asks. Whoever merges gives the
-worktree back, as `work-issue` says.
+the screen in the mock. An agent's report of green has been wrong here. To show
+the owner the change, send a walk's link or its pictures rather than steps to
+follow (`docs/practices/running-locally.md`, *Walks*). Then
+land it with `scripts/land` without asking, and report the merge commit it landed
+as. Whoever merges gives the worktree back, as `work-issue` says.
 
 **A component change is still a component change.** `armada-components` applies:
 the contract wins, and the proof is a story or a mock test, not a screenshot.

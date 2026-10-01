@@ -504,6 +504,19 @@ describe("the judge question at the gate", () => {
           onOpenPullRequest: async () => ({ ok: true }),
           onSaid: () => {},
           onAnswerJudge: () => {},
+          // Read only where the step claimed a plan, which this one did not.
+          plan: {
+            job: job(),
+            whole: whole(),
+            floor: false,
+            view: "graph",
+            onView: () => {},
+            stale: false,
+            acting: args.acting,
+            deciding: args.deciding ?? false,
+            onApproveReview: () => {},
+            onRedirect: () => {},
+          },
         })}
       </>
     );

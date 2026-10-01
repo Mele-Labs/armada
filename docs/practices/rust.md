@@ -409,6 +409,10 @@ being a serial bottleneck. A workspace of twelve crates will have the same shape
 cargo nextest run --workspace
 ```
 
+**Run it through `armada check test`**, which is that line at `${width}`, in
+one of the machine's Check slots — `../concepts/manifest.md`, *How many Checks
+run at once*. Bare, it takes neither.
+
 **It has to be installed before a check needs it, and v1 got that wrong.** The
 setup step claimed to install it and installed nothing; the failure surfaced on
 2026-08-17 as a Job whose first test run said `no such command: nextest`. A check

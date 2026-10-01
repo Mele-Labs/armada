@@ -74,7 +74,7 @@ export const AWaveMidFlight: Story = {
  */
 export const NothingWaitsOnAnything: Story = {
   args: {
-    nodes: nodes.map((node, at) => ({ ...node, position: { x: 0, y: at * DOWN }, card: { ...node.card, facts: node.card.facts?.filter((fact) => !fact.startsWith("waits")) } })),
+    nodes: nodes.map((node, at) => ({ ...node, position: { x: 0, y: at * DOWN }, card: { ...node.card, facts: node.card.facts?.filter((fact) => typeof fact !== "string" || !fact.startsWith("waits")) } })),
     edges: [],
     label: "The wave",
   },

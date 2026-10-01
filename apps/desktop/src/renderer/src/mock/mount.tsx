@@ -4,7 +4,7 @@
 // test asserts against is the window Bridge draws. `main.tsx` is not imported
 // because it mounts itself on import.
 
-import { StrictMode, useEffect } from "react";
+import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
@@ -13,7 +13,8 @@ import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { DraftedFrom } from "../drafted";
-import { fakeBridge } from "./fake";
+import { fakeBridge, liveDraft } from "./fake";
+import type { LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import type { Scenario } from "./scenario";
 
@@ -45,6 +46,22 @@ function OnScreen({ say }: { say: () => void }) {
   return null;
 }
 
+/** The fixed draft a fake that holds none stands in with. */
+const HELD = (draft: Scenario["draft"]): LiveDraft => ({ current: () => draft, subscribe: () => () => undefined });
+
+/**
+ * The app over the draft its fake holds as it stands — **live**, because a
+ * plan edit the fake accepts changes the groups an arc board draws.
+ */
+function Drafted({ draft }: { draft: LiveDraft }) {
+  const held = useSyncExternalStore(draft.subscribe, draft.current);
+  return (
+    <DraftedFrom held={held ?? {}}>
+      <App {...(held === undefined ? {} : { draft: held })} />
+    </DraftedFrom>
+  );
+}
+
 /**
  * Install a fake `window.armada` on `scenario` and mount the app into `host`.
  * **Throws on a name no scenario has**, so a test never passes against a default.
@@ -69,9 +86,7 @@ export function mountApp(scenario: string | Scenario, host: HTMLElement, shared?
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <DraftedFrom held={chosen.draft ?? {}}>
-            <App {...(chosen.draft === undefined ? {} : { draft: chosen.draft })} />
-          </DraftedFrom>
+          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

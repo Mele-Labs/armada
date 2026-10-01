@@ -536,3 +536,15 @@ export const HOLD_SAID: Record<HeldAct, string> = {
   kill_drone: "Kills the drone once held until it fills. Letting go sooner kills nothing. The job stays open.",
   kill_job: "Kills the job once held until it fills. Letting go sooner kills nothing.",
 };
+
+/**
+ * The same held stop, at the foot of a Workflow step's panel, where it names
+ * the step rather than a drone: a step can have several drones running
+ * (owner, 30 Sep 2026). The act underneath is still `kill_drone`, which ends
+ * the Job's one Drone until Fleet runs one per task.
+ */
+export const STEP_STOP = {
+  label: "Hold to stop this step",
+  ask: "Stop this step",
+  said: "Stops the drones working this step once held until it fills. Letting go sooner stops nothing. The job stays open.",
+} as const;

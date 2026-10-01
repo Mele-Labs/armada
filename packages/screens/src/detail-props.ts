@@ -24,6 +24,9 @@ import type { WorkflowView } from "./workflow-view";
 
 import type {
   CommandAnswer,
+  EditJob,
+  EditTask,
+  MovePlan,
   Examination,
   FileReport,
   FollowedLog,
@@ -44,7 +47,7 @@ import type {
   WorkflowSummary,
 } from "@armada/protocol";
 
-import type { ConfirmableAct, HeldAct } from "./Acts";
+import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
 import type { ShowAgainCall } from "./again";
@@ -109,6 +112,22 @@ export type JobDetailProps = {
   onActHeld: (act: HeldAct, jobId: string) => void;
   /** Send a redirect straight through — its own dialog is the confirmation. */
   onRedirect: (jobId: string, instruction: string) => void;
+  /**
+   * A failed plan task's Pilot or Restart, or Edit this task on an open or
+   * failed one with what it changed, pressed on its panel. Each is ahead of
+   * its route, so the answer is `Not implemented` naming the issue.
+   */
+  onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
+  /**
+   * A group or a task dragged somewhere new on the plan, sent straight to
+   * Fleet. Ahead of its route (#1685), so the answer is `Not implemented`.
+   */
+  onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
+  /**
+   * Edit this Job, on a Job of an Epic's proposed wave, with only what
+   * changed. Ahead of its route (#1699), so the answer is `Not implemented`.
+   */
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *
@@ -291,6 +310,11 @@ export type JobDetailProps = {
   /** Open the issue a finding became. #906. */
   onOpenFindingIssue: (jobId: string, finding: string) => void;
   onApproveReview: (jobId: string) => void;
+  /**
+   * Approve an Epic Job's plan, releasing every Job of the wave it proposed.
+   * Ahead of its route (#1694), so the answer is `Not implemented`.
+   */
+  onApproveWave?: (jobId: string, jobs: readonly string[]) => void;
   onRequestChanges: (jobId: string, note: string) => void;
   onReject: (jobId: string) => void;
   /**

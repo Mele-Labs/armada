@@ -25,7 +25,7 @@ import {
   proposingReview,
   proposingSlow,
 } from "./arc-proposing";
-import { plannedMoment, planRevisionRefused } from "./arc-planning";
+import { plannedMoment, planReview, planRevisionRefused } from "./arc-planning";
 import {
   doneTouched,
   executingConcurrent,
@@ -51,7 +51,7 @@ export {
   proposingReview,
   proposingSlow,
 };
-export { plannedMoment, planRevisionRefused };
+export { plannedMoment, planReview, planRevisionRefused };
 export { doneTouched, executingConcurrent, executingSequential, groupFailed };
 export { landed };
 
@@ -68,6 +68,7 @@ export const ARC_MOMENTS: readonly ArcMoment[] = [
   proposingReview(),
   approvedFrozen(),
   plannedMoment(),
+  planReview(),
   planRevisionRefused(),
   executingSequential(),
   executingConcurrent(),

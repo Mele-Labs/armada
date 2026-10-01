@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -54,7 +54,7 @@ import type {
 } from "@armada/protocol";
 import type { HelmContext, JobSummary } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
-import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, Taken, TakenAct } from "@armada/screens";
+import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, Taken, TakenAct, TaskAct } from "@armada/screens";
 import { takenNotice, takenStands } from "@armada/screens";
 import { patternFor, useHaptics } from "@armada/components";
 import { proposeRequest } from "./dispatch";
@@ -279,7 +279,6 @@ export function useCommands(sending: Sending) {
   // branch a base cannot reach, which is the whole reason a person is told
   // rather than left to notice a branch nothing deleted.
   const [givenBack, setGivenBack] = useState<WorktreeReclaimed[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   // Which bulk sweep of finished Jobs is out, so its control waits and a second press sends nothing. #1117.
   const [sweeping, setSweeping] = useState<"clear" | "forget" | null>(null);
   // What Fleet said to the last act on a Job, named, so only the control that
@@ -474,6 +473,37 @@ export function useCommands(sending: Sending) {
         : await window.armada.killProcess(jobId, pid);
     setOutcome(answer);
     tap(patternFor(answer.ok ? "accepted" : "refused"));
+  }
+
+  /**
+   * A failed plan task's Pilot or Restart, or Edit this task, from its panel.
+   * **Not through
+   * `acted`**, `killProcess`'s reason: it names a task, not a header act. The
+   * answer goes where every command's does, so `Not implemented` is drawn with
+   * the issue that builds the route — #250, #1656, #1657.
+   */
+  async function taskAct(act: TaskAct, jobId: string, taskId: string, edit?: EditTask): Promise<Outcome> {
+    const answer =
+      act === "pilot_task"
+        ? await window.armada.pilotTask(jobId, taskId)
+        : act === "restart_task"
+          ? await window.armada.restartTask(jobId, taskId)
+          : await window.armada.editTask(jobId, taskId, edit ?? {});
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
+   * A group or a task dropped somewhere new on the plan. `taskAct`'s reason:
+   * the answer is drawn where every command's is, so `Not implemented` names
+   * #1685 until Fleet serves the route.
+   */
+  async function movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
+    const answer = await window.armada.movePlan(jobId, move);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
   }
 
   /**
@@ -747,6 +777,31 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Approve an Epic Job's plan, releasing every Job of the wave it proposed.
+   * **Under `deciding`, as `approve`**: it is the answer at the plan's gate,
+   * so the button pressed is the one that waits. `Not implemented` names #1694
+   * until Fleet serves the route.
+   */
+  async function approveWave(jobId: string, wave: ApproveWave): Promise<void> {
+    return decided(jobId, "approve", async () => {
+      heard(jobId, "approve", await window.armada.approveWave(jobId, wave));
+    });
+  }
+
+  /**
+   * Edit one Job of an Epic's proposed wave, from its panel. `movePlan`'s
+   * reason: the answer is drawn where every command's is, and the panel's form
+   * closes only on one that was taken. `Not implemented` names #1699 until
+   * Fleet serves the route.
+   */
+  async function editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+    const answer = await window.armada.editJob(jobId, edit);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
    * Hand the comments a person picked off the pull request to a drone.
    *
    * **Under `deciding`, with the four answers at the same gate.** It leaves
@@ -807,12 +862,7 @@ export function useCommands(sending: Sending) {
    * not fix one that is.
    */
   async function refresh(): Promise<void> {
-    setRefreshing(true);
-    try {
-      sending.onRead(await window.armada.state());
-    } finally {
-      setRefreshing(false);
-    }
+    sending.onRead(await window.armada.state());
   }
 
   return {
@@ -834,7 +884,6 @@ export function useCommands(sending: Sending) {
     fileFindingIssue,
     givenBack,
     setGivenBack,
-    refreshing,
     sweeping,
     stopProposal,
     proposeFrom,
@@ -843,6 +892,7 @@ export function useCommands(sending: Sending) {
     forgetTerminal,
     act,
     killProcess,
+    taskAct,
     redirect,
     answer,
     answerCommand,
@@ -864,6 +914,9 @@ export function useCommands(sending: Sending) {
     report,
     addTask,
     dropTask,
+    movePlan,
+    approveWave,
+    editJob,
     decide,
     refresh,
   };

@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronRight, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -145,8 +145,8 @@ export const ACTIONS: readonly Action[] = [
     kind: "Action",
     tier: "Global",
     verb: "Back / forward",
-    icon: null,
-    iconAbsent: "undecided",
+    icon: ChevronLeft,
+    iconAbsent: null,
     shortcut: "⌘[ ⌘]",
     scope: "anywhere",
     destructive: false,
@@ -174,6 +174,19 @@ export const ACTIONS: readonly Action[] = [
     icon: X,
     iconAbsent: null,
     shortcut: "Esc",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "refresh",
+    kind: "Action",
+    tier: "Global",
+    verb: "Refresh",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⇧⌘R",
     scope: "anywhere",
     destructive: false,
     confirms: false,
@@ -421,6 +434,19 @@ export const ACTIONS: readonly Action[] = [
     icon: ChevronRight,
     iconAbsent: null,
     shortcut: "h / l / ← / →",
+    scope: "detail",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "move_in_plan",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Move up / down",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥↑ ⌥↓",
     scope: "detail",
     destructive: false,
     confirms: false,

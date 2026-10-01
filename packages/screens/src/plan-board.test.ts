@@ -61,7 +61,6 @@ describe("one group at a time", () => {
   test("group four has not started, and its Checks read as not run", () => {
     const four = groupAt(executingSequential(), 4);
     expect(four.says).toBe("not started");
-    expect(four.boundary.clause).toBe("will run at this boundary");
     expect(four.boundary.checks).toHaveLength(7);
     expect(new Set(four.boundary.checks.map((one) => one.reads))).toEqual(new Set(["not run"]));
     expect(four.boundary.verdictSays).toBeUndefined();
@@ -112,8 +111,8 @@ describe("fan out, then join", () => {
     expect(shapeSaid({ ...first, tasks: [first.tasks[0]!] })).toBe("1 task, on its own");
   });
 
-  test("the group joining its work says so, which is not the same as checking", () => {
-    expect(groupAt(executingConcurrent(), 3).says).toBe("joining its work");
+  test("the group joining says so, which is not the same as checking", () => {
+    expect(groupAt(executingConcurrent(), 3).says).toBe("joining");
   });
 });
 

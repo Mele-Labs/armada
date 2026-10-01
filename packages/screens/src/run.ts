@@ -512,7 +512,7 @@ export function stateOf(step: StepDetail): string {
  * from the same record: a running step measures to `now`, an unstarted one
  * shows nothing, and a frozen one never measures to a clock that moves.
  */
-function took(step: StepDetail, now: number, frozen: boolean): string | undefined {
+export function took(step: StepDetail, now: number, frozen: boolean): string | undefined {
   if (step.state === "running" && !frozen) return span(step.entered_at, now) ?? undefined;
   if (step.state === "not_started" || step.entered_at === step.updated_at) return undefined;
   return span(step.entered_at, step.updated_at) ?? undefined;

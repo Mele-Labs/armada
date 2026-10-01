@@ -219,7 +219,7 @@ describe("the Record, and the destinations beside it", () => {
       await page.getByRole("button", { name: "Implement", exact: true }).click();
 
       await expect.element(page.getByRole("tabpanel", { name: "Workflow" })).toBeVisible();
-      await expect.element(page.getByRole("heading", { name: "Implement", level: 3 })).toBeVisible();
+      await expect.element(page.getByRole("dialog", { name: "Implement" })).toBeVisible();
     },
   );
 

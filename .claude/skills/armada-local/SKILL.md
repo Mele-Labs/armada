@@ -57,6 +57,11 @@ stopped verifying screens at all.
   yours is broad enough to catch the owner's.
 - **Never leave a dialog up.** Dismiss it, or quit the app.
 
+**To show the owner something, write a walk and send him the link, or capture
+it and send him the pictures.** Never a list of what to open and press. A walk
+plays those steps in the mock, and stops on the one that no longer matches.
+`docs/practices/running-locally.md`, *Walks*.
+
 ## Anything you background, you kill in the same breath
 
 **A Bash call gets a fresh shell.** Whatever you put in the background and do

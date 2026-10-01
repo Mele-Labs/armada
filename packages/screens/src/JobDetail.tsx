@@ -44,11 +44,14 @@ import { RecordTab, type CheckAt } from "./tab-record";
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
-import { WaveRegion, type WaveRegionProps } from "./tab-wave";
+import { type WaveRegionProps } from "./tab-wave";
+import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
+import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
-import { FIRST_WORKFLOW_VIEW, type WorkflowView } from "./workflow-view";
+import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
+import { useTrail } from "./trail";
 
 export type { ConfirmableAct, HeldAct, JobAct } from "./Acts";
 export type { FoldedReads } from "./mine";
@@ -99,9 +102,24 @@ function OneJob(props: JobDetailProps) {
   // Whether the lead's approval act asked for the proposal. Cleared by the
   // strip, on `opensStep`'s terms — the proposal is Overview's, not a tab.
   const [opensProposal, setOpensProposal] = useState(false);
+  const [opensDrone, setOpensDrone] = useState<string | undefined>(undefined);
+  const [opensRow, setOpensRow] = useState<string | undefined>(undefined);
+  // The way back across a jump between destinations — `trail.ts`.
+  const trail = useTrail((to) => {
+    setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
+    setOpensDrone(to.tab === "drones" ? to.open?.id : undefined);
+    setOpensRow(to.tab === "record" ? to.open?.id : undefined);
+    setOpensStep(to.tab === "workflow" ? to.open?.id : undefined);
+    setOpensCheck(undefined);
+    setOpensProposal(false);
+    setTab(to.tab);
+  });
   const toTab = (next: DetailTab) => {
+    trail.clear();
+    setOpensRow(undefined);
     setOpensStep(undefined);
     setOpensTask(undefined);
+    setOpensDrone(undefined);
     setOpensCheck(undefined);
     setOpensProposal(false);
     setTab(next);
@@ -166,11 +184,16 @@ function OneJob(props: JobDetailProps) {
   // reading Overview's run column takes, so the two never give a Job's empty
   // workflow two different reasons.
   const absent = whyNoSteps(props.watched, props.job.id);
+  // What a destination stands in with while this Job's own read is out, and
+  // `undefined` once it has answered either way — `while-reading.ts`. A region
+  // drawn from the read draws its shape until then, never its empty answer.
+  const unread = whileReading(
+    props.watched,
+    job,
+    props.workflows.find((held) => held.id === job.workflow_id),
+    null,
+  );
 
-  // Whether the wave is drawn as the graph or the list. **Held here and not on
-  // a tab**: Overview and Plan draw the same wave, and a toggle that reset on
-  // the way between them would be two readings of one thing.
-  const [waveView, setWaveView] = useState<WorkflowView>(FIRST_WORKFLOW_VIEW);
   // Stable across a tick of `now`, which is what keeps the wave's canvas from
   // rebuilding its nodes every second.
   const opens = props.onOpenJob;
@@ -186,14 +209,18 @@ function OneJob(props: JobDetailProps) {
     now: props.now,
     stale: props.stale,
     acting: props.acting,
-    view: waveView,
-    onView: setWaveView,
+    // Graph or List, **Plan's own remembered choice**: on an Epic Job the wave
+    // is what Plan draws, and Overview draws the same wave, so one toggle
+    // reads it one way everywhere (owner, 30 Sep 2026).
+    view: props.planView ?? FIRST_PLAN_VIEW,
+    onView: (view) => props.onPlanView?.(view),
     // A wave whose caller offers no way to open a Job draws its cards inert
     // rather than pressing into nothing — `onOpenJob` is the shell's, and
     // optional for that reason.
     onOpenJob: openJob,
     onAnswerJudge: props.onAnswerJudge,
     onAnswerCommand: props.onAnswerCommand,
+    ...(props.onEditJob === undefined ? {} : { onEditJob: props.onEditJob }),
   };
 
   // The Job header, and everything that goes in it. `heading.tsx` holds what
@@ -274,11 +301,16 @@ function OneJob(props: JobDetailProps) {
           manifest={manifest}
         />
       ) : tab === "overview" ? (
-        <>
+        // **One box scrolls the wave and the board under it**, as Plan's does:
+        // with the wave outside the board's own scroller, the graph took the
+        // height and the board was squeezed to nothing — nothing under the
+        // wave could be reached.
+        <div className="armada-detail-tab armada-overview-scroll">
         {/* The wave this Job dispatched, above the run — what it dispatched is
             the product of an Epic Job, and the run is how it got there. A Job
-            that dispatched nothing draws nothing. #1544. */}
-        <WaveRegion {...wave} />
+            that dispatched nothing draws nothing. #1544. A Job pressed opens
+            its panel, with what it asks of you at the top — Plan's own. */}
+        <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
         <OverviewTab
           {...props}
           job={job}
@@ -303,13 +335,21 @@ function OneJob(props: JobDetailProps) {
           // proposal to draw**, so a Job at the gate with no proposal read
           // offers no button rather than one that reaches nothing.
           {...(edits === undefined ? {} : { onOpenProposal: () => setOpensProposal(true) })}
+          {...(opensTask === undefined ? {} : { opensTask })}
+          onOpenDrone={(droneId) => {
+            trail.push("overview");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
+          trail={trail.of("overview")}
         />
-        </>
+        </div>
       ) : tab === "workflow" ? (
         <WorkflowTab
           job={job}
           whole={whole}
           {...(absent === undefined ? {} : { absent })}
+          {...(unread === undefined ? {} : { reading: unread.run })}
           narrow={narrow}
           view={props.workflowView ?? FIRST_WORKFLOW_VIEW}
           onView={(view) => props.onWorkflowView?.(view)}
@@ -319,15 +359,27 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
-          // Where the Plan node goes. The strip is this screen's, so the run
-          // asks for the destination rather than moving one itself.
-          onOpenPlan={() => toTab("plan")}
+          // Where a step panel's plan card goes. The strip is this screen's,
+          // so the run asks for the destination rather than moving one itself,
+          // and the jump leaves a way back to the step (`trail.ts`).
+          onOpenPlan={() => {
+            trail.push("workflow");
+            setOpensTask(undefined);
+            setTab("plan");
+          }}
+          onOpenDrone={(droneId) => {
+            trail.push("workflow");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
           {...(opensStep === undefined ? {} : { opensStep })}
+          trail={trail.of("workflow")}
         />
       ) : tab === "plan" ? (
         <PlanTab
           job={job}
           whole={whole}
+          reading={unread !== undefined}
           wave={wave}
           floor={floor}
           view={props.planView ?? FIRST_PLAN_VIEW}
@@ -336,14 +388,32 @@ function OneJob(props: JobDetailProps) {
           acting={props.acting}
           deciding={props.deciding}
           onApproveReview={props.onApproveReview}
+          {...(props.onApproveWave === undefined ? {} : { onApproveWave: props.onApproveWave })}
+          board={props.board ?? []}
           onRedirect={props.onRedirect}
           onActHeld={props.onActHeld}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          {...(props.onTaskAct === undefined ? {} : { onTaskAct: props.onTaskAct })}
+          {...(props.onMovePlan === undefined ? {} : { onMovePlan: props.onMovePlan })}
+          models={props.models?.models ?? []}
+          onAddTask={props.onAddTask}
+          onDropTask={props.onDropTask}
+          onSaid={props.onSaid}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
+          now={props.now}
+          onOpenDrone={(droneId) => {
+            trail.push("plan");
+            setOpensDrone(droneId);
+            setTab("drones");
+          }}
           onOpenCheck={(name, stepAttempt) => {
+            trail.push("plan");
             setOpensCheck({ name, stepAttempt });
             setTab("record");
           }}
+          trail={trail.of("plan")}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -376,6 +446,7 @@ function OneJob(props: JobDetailProps) {
       ) : tab === "record" ? (
         <RecordTab
           {...recordOf(props, whole)}
+          reading={unread !== undefined}
           jobId={job.id}
           floor={floor}
           onReadCheckOutput={props.onReadCheckOutput}
@@ -385,15 +456,19 @@ function OneJob(props: JobDetailProps) {
           {...(props.draft?.cases === undefined ? {} : { cases: props.draft.cases })}
           onSaid={props.onSaid}
           onOpenStep={(stepId) => {
+            trail.push("record");
             setOpensStep(stepId);
             setTab("workflow");
           }}
           {...(opensCheck === undefined ? {} : { opensCheck })}
+          {...(opensRow === undefined ? {} : { opensRow })}
+          trail={trail.of("record")}
         />
       ) : tab === "drones" ? (
         <DronesTab
           job={job}
           whole={whole}
+          reading={unread !== undefined}
           {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           now={props.now}
@@ -405,16 +480,24 @@ function OneJob(props: JobDetailProps) {
           onAct={props.onAct}
           onActHeld={props.onActHeld}
           onOpenStep={(stepId) => {
+            trail.push("drones");
             setOpensStep(stepId);
             setTab("workflow");
           }}
           onOpenTask={(taskId) => {
+            trail.push("drones");
             setOpensTask(taskId);
             setTab("plan");
           }}
+          {...(opensDrone === undefined ? {} : { opensDrone })}
+          trail={trail.of("drones")}
         />
       ) : (
-        <PulseTab holds={pulseOf(props, whole, job.id, caps)} jobId={job.id} onNeedPulse={props.onNeedPulse} />
+        <PulseTab
+          holds={{ ...pulseOf(props, whole, job.id, caps), figuresReading: unread !== undefined }}
+          jobId={job.id}
+          onNeedPulse={props.onNeedPulse}
+        />
       )}
     </div>
   );

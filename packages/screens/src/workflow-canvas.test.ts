@@ -3,20 +3,15 @@
 // story paying a browser's price.
 //
 // **What the plan is made of moved to `plan-canvas.test.ts`** with the code it
-// tests (owner, 25 Sep 2026). What is left here is the run: the steps, and the
-// one Plan node the run draws of the plan.
+// tests (owner, 25 Sep 2026), and on 29 Sep the one Plan node left the canvas
+// too (`nm0h`): what is left here is the run, its steps top to bottom.
 
 import { describe, expect, it } from "vitest";
 
 import { ARC_MOMENTS } from "./fixtures/build/arc";
 import { KIND_FIXTURES, KIND_NAMES } from "./fixtures/build/kinds";
 import { taskGroupsOf } from "./draft/group";
-import {
-  PLAN_NODE_ID,
-  stepNodeId,
-  stepTheGroupsWereMadeAt,
-  workflowRunOf,
-} from "./workflow-canvas";
+import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 
 /** The Job whole, from a fixture's own `GET /jobs/:job_id` answer. */
 function wholeOf(fixture: (typeof KIND_FIXTURES)[number]) {
@@ -42,14 +37,23 @@ describe("every shipped workflow draws", () => {
       expect(run.rows.map((row) => row.id)).toEqual(expect.arrayContaining(steps));
     });
 
-    it(`places ${fixture.job.handle}'s steps left to right, evenly and in order`, () => {
+    it(`places ${fixture.job.handle}'s steps top to bottom, with even air between them and in order`, () => {
       const whole = wholeOf(fixture);
       const run = workflowRunOf({ whole, groups: taskGroupsOf(whole) });
       const spine = run.nodes.filter((node) => node.id.startsWith("step:"));
-      const xs = spine.map((node) => node.position.x);
-      expect([...xs].sort((a, b) => a - b)).toEqual(xs);
-      expect(new Set(xs).size).toBe(xs.length);
-      expect(spine.every((node) => node.position.y === 0)).toBe(true);
+      // The spine runs down (owner, 29 Sep 2026): one column, one step under the last.
+      const ys = spine.map((node) => node.position.y);
+      expect([...ys].sort((a, b) => a - b)).toEqual(ys);
+      expect(new Set(ys).size).toBe(ys.length);
+      expect(spine.every((node) => node.position.x === 0)).toBe(true);
+      // Evenly means the same air between two cards, whatever each draws: a
+      // card leaves out a row it has nothing for (owner, 30 Sep 2026), so the
+      // step to the next one is its rows' height plus one constant.
+      const ROW = 28;
+      const rows = (card: (typeof spine)[number]["card"]) =>
+        (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
+      const air = ys.slice(1).map((y, at) => y - ys[at]! - rows(spine[at]!.card) * ROW);
+      expect(new Set(air).size).toBeLessThanOrEqual(1);
     });
 
     it(`joins ${fixture.job.handle}'s steps one to the next, and no further`, () => {
@@ -67,16 +71,14 @@ describe("every shipped workflow draws", () => {
       expect(spine.filter((edge) => edge.kind === "returns")).toHaveLength(loops);
     });
 
-    it(`draws at most one Plan node on ${fixture.job.handle}, and no group or task`, () => {
+    it(`draws nothing of the plan on ${fixture.job.handle}: no Plan node, no group, no task`, () => {
       const whole = wholeOf(fixture);
-      const groups = taskGroupsOf(whole);
-      const run = workflowRunOf({ whole, groups });
-      // A plan no step recorded has no node to come off, and a step that
-      // recorded none has nothing to summarise.
-      const draws = stepTheGroupsWereMadeAt(whole) !== undefined && groups.length > 0;
-      expect(run.nodes.filter((node) => node.id === PLAN_NODE_ID)).toHaveLength(draws ? 1 : 0);
-      expect(run.nodes.some((node) => node.id.startsWith("group:") || node.id.startsWith("task:"))).toBe(false);
-      expect(run.rows.some((row) => row.id.startsWith("group:") || row.id.startsWith("task:"))).toBe(false);
+      const run = workflowRunOf({ whole, groups: taskGroupsOf(whole) });
+      // The step that makes or works the plan links to it from its own panel
+      // (owner, 29 Sep 2026, `nm0h`), so the canvas and the stacked run are
+      // the steps alone.
+      expect(run.nodes.every((node) => node.id.startsWith("step:"))).toBe(true);
+      expect(run.rows.every((row) => row.id.startsWith("step:"))).toBe(true);
     });
   }
 });
@@ -120,34 +122,14 @@ function dense() {
 }
 
 describe("twelve steps and a plan of four groups", () => {
-  it("draws twelve steps and one node for the whole plan, each somewhere of its own", () => {
+  it("draws twelve steps and nothing else, each somewhere of its own", () => {
     const { whole, groups } = dense();
     const run = workflowRunOf({ whole, groups });
-    // Twelve steps and one Plan node — not twelve plus four groups plus their
-    // twelve tasks, which is what this canvas drew until 25 Sep 2026.
-    expect(run.nodes).toHaveLength(12 + 1);
+    // Twelve steps — not twelve plus a Plan node (until 29 Sep 2026), nor
+    // twelve plus four groups plus their twelve tasks (until 25 Sep).
+    expect(run.nodes).toHaveLength(12);
     const where = run.nodes.map((node) => `${node.position.x},${node.position.y}`);
     expect(new Set(where).size).toBe(where.length);
-
-    // The plan sits under the step that recorded it, indented, and off nothing else.
-    const plan = run.nodes.find((node) => node.id === PLAN_NODE_ID)!;
-    const made = run.nodes.find((node) => node.id === stepNodeId("s1"))!;
-    expect(plan.position.y).toBeGreaterThan(made.position.y);
-    expect(plan.position.x).toBeGreaterThan(made.position.x);
-    expect(plan.position.x).toBeLessThan(run.nodes.find((node) => node.id === stepNodeId("s2"))!.position.x);
-    const into = run.edges.filter((edge) => edge.target === PLAN_NODE_ID);
-    expect(into.map((edge) => ({ source: edge.source, kind: edge.kind }))).toEqual([
-      { source: stepNodeId("s1"), kind: "made" },
-    ]);
-  });
-
-  it("says what the plan holds, and nothing about what is inside it", () => {
-    const { whole, groups } = dense();
-    const run = workflowRunOf({ whole, groups });
-    const card = run.nodes.find((node) => node.id === PLAN_NODE_ID)!.card;
-    expect(card.kind).toBe("plan");
-    expect(card.name).toBe("Plan");
-    expect(card.facts?.map((fact) => fact.value)).toEqual(["4 groups", "12 tasks"]);
   });
 
   it("opens on the step you are on and its neighbours, with no plan hanging off them", () => {
@@ -159,32 +141,73 @@ describe("twelve steps and a plan of four groups", () => {
   });
 });
 
-describe("the plan comes off the step that recorded it", () => {
-  it("hangs one node off that step, and draws the plan nowhere else", () => {
+describe("a step's card", () => {
+  // The owner's combination of 30 Sep 2026: what needs a person first, then
+  // where the work has got to.
+  it("draws the step at work's groups as its bar, with how long and its Drones beside it", () => {
     const { whole, groups } = arc("executingSequential");
     expect(groups.length).toBeGreaterThan(0);
-    const run = workflowRunOf({ whole, groups });
-    const madeAt = stepTheGroupsWereMadeAt(whole);
-    expect(madeAt).toBeDefined();
-    const made = run.edges.filter((edge) => edge.kind === "made");
-    expect(made).toHaveLength(1);
-    expect(made[0]?.source).toBe(stepNodeId(madeAt!));
-    expect(made[0]?.target).toBe(PLAN_NODE_ID);
-    // Stacked says it as one row, indented under the same step.
-    const row = run.rows.find((one) => one.id === PLAN_NODE_ID)!;
-    expect(row.under).toBe(stepNodeId(madeAt!));
-    expect(row.depth).toBe(1);
+    const run = workflowRunOf({ whole, groups, now: Date.parse(whole.job.started_at ?? whole.created_at) + 3_600_000 });
+    const works = stepThatWorksTheGroups(whole)!;
+    const card = run.nodes.find((node) => node.id === stepNodeId(works))!.card;
+    expect(card.activity).toBe("running");
+    expect(card.bar?.groups).toHaveLength(groups.length);
+    // The count is the bar's tooltip, never drawn beside the segments.
+    const done = groups.filter((group) => group.state === "passed" || group.state === "landed").length;
+    expect(card.bar?.label).toBe(`${done} of ${groups.length} groups done`);
+    expect(card.line).toMatch(/ · 1 Drone$/);
+    expect(card.needs).toBeUndefined();
+  });
+
+  it("draws a step nothing has entered as its name alone, and a finished one as how long and its state", () => {
+    const { whole, groups } = arc("executingSequential");
+    const card = (state: string) => {
+      const step = whole.steps.find((one) => one.state === state)!;
+      return workflowRunOf({ whole, groups }).nodes.find((node) => node.id === stepNodeId(step.step_id))!.card;
+    };
+    expect(card("not_started").line).toBeUndefined();
+    expect(card("not_started").bar).toBeUndefined();
+    expect(card("advanced").line).toMatch(/ · advanced$/);
+  });
+
+  it("leads with a failed Check, and then says only how long", () => {
+    const { whole, groups } = arc("groupFailed");
+    const works = stepThatWorksTheGroups(whole)!;
+    const card = workflowRunOf({ whole, groups }).nodes.find((node) => node.id === stepNodeId(works))!.card;
+    expect(card.needs).toEqual([{ says: "screens_test failed", tone: "failed" }]);
+    expect(card.bar?.groups).toContain("failed");
+    expect(card.line).not.toMatch(/Drone|running/);
+  });
+
+  it("says a step is waiting on you, and places the next card by the rows each one draws", () => {
+    const whole = KIND_FIXTURES.map(wholeOf).find((one) => one.steps.some((step) => step.state === "awaiting_human"))!;
+    const run = workflowRunOf({ whole, groups: [] });
+    const waiting = whole.steps.find((step) => step.state === "awaiting_human")!;
+    const card = run.nodes.find((node) => node.id === stepNodeId(waiting.step_id))!.card;
+    expect(card.needs?.[0]).toEqual({ says: "Waiting on you", tone: "waiting" });
+    // A card with fewer rows under its name sits closer to the next one.
+    const quiet = workflowRunOf({ whole: arc("executingSequential").whole, groups: [] });
+    const gaps = quiet.nodes.slice(1).map((node, at) => node.position.y - quiet.nodes[at]!.position.y);
+    expect(new Set(gaps).size).toBeGreaterThan(1);
+  });
+
+  it("draws the gate as a chip only where a person answers", () => {
+    const { whole, groups } = arc("executingSequential");
+    const asking = {
+      ...whole,
+      steps: whole.steps.map((step, at) => (at === whole.steps.length - 1 ? { ...step, advance_gate: "human_always" } : step)),
+    };
+    const run = workflowRunOf({ whole: asking, groups });
+    const gates = run.nodes.map((node) => node.card.gate).filter((gate) => gate !== undefined);
+    expect(gates).toEqual(["will ask you"]);
   });
 
   it("draws no second edge, whatever the groups have got to", () => {
     const { whole, groups } = arc("groupFailed");
-    // The moment has groups off `pending` and one still waiting, which is what
-    // the second edge used to tell apart. Nothing draws that relation now.
     expect(groups.some((group) => group.state !== "pending")).toBe(true);
     expect(groups.some((group) => group.state === "pending")).toBe(true);
     const run = workflowRunOf({ whole, groups });
-    expect(run.edges.filter((edge) => edge.target === PLAN_NODE_ID)).toHaveLength(1);
-    expect(run.edges.map((edge) => edge.kind)).not.toContain("worked");
+    expect(run.edges.map((edge) => edge.kind).every((kind) => kind === "leads" || kind === "returns")).toBe(true);
   });
 
   it("names the step the Job is on, and narrows onto it rather than shrinking", () => {
@@ -194,8 +217,6 @@ describe("the plan comes off the step that recorded it", () => {
     const widest = run.opensOn[0]!;
     // Narrow opens on where you are, which is never the whole run.
     expect(widest.filter((id) => id.startsWith("step:")).length).toBeLessThan(whole.steps.length);
-    // The step the plan was recorded at is a neighbour here, so the plan comes too.
-    expect(widest).toContain(PLAN_NODE_ID);
     // Each choice is narrower than the one before it, and each holds the step
     // a person is on.
     for (const [at, choice] of run.opensOn.entries()) {

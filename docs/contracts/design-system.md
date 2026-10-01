@@ -947,9 +947,9 @@ inside the route rather than over it — below `--layout-breakpoint` it folds to
 a sheet flush to that route's edge, never to the window's. **Helm's dock is the
 one exception**: at `--layout-breakpoint` and wider it draws over the content
 when open, because it answers questions about whatever is on screen rather
-than inspecting one Job, and draws nothing at all when closed — the title
-row's own Helm button is the one way back, since the edge strip that used to
-sit there at any width is gone.
+than inspecting one Job, and draws nothing at all when closed. The title row's
+own Helm button is the one way back at every width, since no edge strip is
+drawn at any; below the breakpoint it opens the dock as a sheet.
 
 > **Rule.** Helm's dock is a layer over the content and never a column in it,
 > and Bridge opens with it shut. Opening it changes nothing about the width of
@@ -1030,16 +1030,17 @@ line of facts beneath.
 
 ### Responsive behaviour
 
-**A floor per client.** The desktop window floors at 768px, half of a
-1536px display and a normal way to run something you glance at beside an
-editor; with the rail at 48px that leaves 720px of content. The touch client
-floors at 390px, which leaves 358px between its gutters.
+**The desktop window has no minimum width.** A person keeps Bridge in a slim
+window beside the work they are doing, and a floor refused them that (the
+owner, 30 Sep 2026). `--window-floor`, 768px, is the narrowest tier a layout
+is drawn for: at it and below, sheets go flush and closes go icon-only. The
+touch client floors at 390px, which leaves 358px between its gutters.
 
-> **Rule.** `--window-floor` is the desktop window's minimum, and the touch
-> client never reads it.
-> Why: the main process sets the window's `minWidth` from it and
-> `packages/shell/src/floor.ts` answers whether the window is at it, and a
-> touch client has no window to bound.
+> **Rule.** The main process sets no `minWidth`. `--window-floor` is a layout
+> tier, and the touch client never reads it.
+> Why: a floor on the window decides for the person how much of their screen
+> Bridge takes. `packages/shell/src/floor.ts` answers whether the window is at
+> or under the tier, and a touch client has no window to bound.
 
 **One breakpoint at ~1100px, and one client boundary at the desktop floor:**
 
@@ -1047,7 +1048,7 @@ floors at 390px, which leaves 358px between its gutters.
 | --- | --- | --- | --- |
 | Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
-| Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | An edge strip; open draws it as a sheet over the content instead | Not built |
+| Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
 | The Workflow canvas's inspector | A layer over the canvas, opened by pressing a node and closed by Close; nothing until a press | The same layer, at the width of the destination | Not built |
 
@@ -1057,9 +1058,9 @@ floors could not both be paid for and the left column went to its rail. The
 dock costs the layout nothing now, so that band reads as the first and the
 table is shorter by a column.
 
-The last column is a client and not a window width. Nothing between 390px and
-768px is drawn, because the desktop window cannot get there and the touch
-client is not resized into it.
+The last column is a client and not a window width. A desktop window under
+768px keeps the < 1100px column's layout, with the floor tier's flush sheets,
+and each surface that crowds there fits itself: under about 924px the title row goes behind one menu.
 
 The stacked row is the status grammar's own shape: headline sentence on
 line one (`Job 12 stalled at step 3`), labelled field run on line two
@@ -1212,11 +1213,21 @@ order is the order a person meets them.
 | `--z-menu` | Dropdown, popover, split-button menu | Opens over the surface |
 | `--z-tooltip` | Tooltip | Explains the thing a menu is over |
 | `--z-modal` | Dialog, sheet | Interrupts both |
-| `--z-toast` | Toast | Reports on the dialog just dismissed |
+| `--z-toast` | Toast | Over every panel, its scrim and every dialog, so a failure raised from inside one is pressable where it appears |
 | `--z-palette` | Command palette | The way out of anything |
 
 A number meaning "above my sibling" means "under every other layer" the moment
 its layer resolves against the window rather than its parent.
+
+**The palette stays over a toast.** A person summons it, it takes the keyboard
+while it is open, and it closes on `Esc`, so a toast is never under it for
+longer than one command. Its own *Copy debug info* acts on the newest failure
+toast, so nothing a toast offers is out of reach while the palette is up.
+
+**Esc belongs to the toast while focus is inside it.** There it dismisses that
+toast and nothing else; the panel under it stays. From anywhere else, `Esc`
+closes the top panel as it always has. A dialog opened from a toast (File an
+issue) takes `Esc` itself.
 
 **`--z-dock` is the layer a person works beside rather than through**, so it is
 the one with no scrim and the only one under `--z-menu`. Two things take it, for
@@ -1284,6 +1295,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 Esc      close an overlay, or return to the list from a detail route
+⇧⌘R      refresh, re-reading everything Fleet holds
 ```
 
 **`⌘Enter` is the one Global binding that needs a focused field**, and it is
@@ -1317,6 +1329,7 @@ v              observe             (detail only)
 u              submit for verification  (piloted job only)
 e              redispatch as a new job
 h / l / ← / →  expand and collapse  (detail only)
+⌥↑ ⌥↓          move up / down       (detail only)
 [ ]            move between chapters  (detail only)
 L              open the log         (detail only)
 f              open the diff        (detail only)
@@ -2234,7 +2247,7 @@ nothing but the edge.
 | Placement | Where | Rule |
 | --- | --- | --- |
 | Inline | In the row, or beside the act | Contained to the thing you touched |
-| Toast | Bottom trailing, inset `--space-6`, shadowed | The only one that may carry no act |
+| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed |
 | Banner | Above the surface, inside it | Persistent. The surface works beneath |
 | Full-surface | Replaces the surface | The one placement that takes the screen |
 
@@ -2244,8 +2257,24 @@ red-serious and affects one row, so it renders in that row and nowhere else.
 **Rows around an inline error are undisturbed.** Same height, same badges, and
 the pulse continues.
 
-**Every placement names the failure and the act.** A toast is the one
-exception, because it reports something already over.
+**A press that failed is a toast; a state is a banner.** A command Fleet
+refused or did not answer, a route it does not serve yet, and a throw no
+boundary saw each pop up as a toast over every layer, because they come from a
+press and a panel may be open over the surface. Fleet unreachable, a stale
+window and every other standing condition stay banners above the surface:
+they are true until something changes, not something that happened.
+
+**A press the form would not send is a toast as well.** "Fleet is not
+connected. Nothing was sent." and the rest of the form's guidance pop up the
+same way, with the sentence and Dismiss and no Copy debug info, since there is
+no code to hand on. One stands per kind, so a press repeated replaces it.
+
+**Several failure toasts stack, newest nearest the corner, and none is on a
+timer.** A failure is evidence, and one that expired while somebody read the
+panel it came from is one they cannot get back.
+
+**Every placement names the failure and the act.** A confirmation toast is the
+one exception, because it reports something already over.
 
 **A toast used to clear the status bar rather than cover it**, because the
 bar spanned the window's bottom edge and a bottom-right toast could
@@ -2264,7 +2293,7 @@ again, not a second decision.
 | Placement | Form |
 | --- | --- |
 | Inline | Ghost control, copying directly. A row has no room for an expanded view |
-| Toast | Its one action. Copies and dismisses in one press, because a toast is often the only sighting |
+| Toast | A failure toast carries the notice whole: Copy debug info, the fold, File an issue and Dismiss. It stays until dismissed, so it is read as well as quoted |
 | Banner | Copy, plus **Details** opening the expanded view. A standing condition gets read, not only quoted |
 | Full-surface | Shown rather than offered. Nothing else is on the screen |
 
@@ -2318,9 +2347,11 @@ one press and **File an issue** opens a dialog first, naming every item that
 would go, showing its text, and offering a control to take it out. **Send is
 never one press from an error.**
 
-**It appears on the full-surface state and in the expanded view, and nowhere
-else.** A review needs the artifact legible in full; an inline error has no room
-for one and a toast is gone before it would be read.
+**It appears on the full-surface state, in the expanded view and on a failure
+toast, and nowhere else.** A review needs the artifact legible in full; an
+inline error has no room for one. A failure toast stays until it is dismissed
+and its review opens over it, so it offers one; a confirmation toast is gone
+before a review would be read, and offers none.
 
 **Armada makes no scrub claim, and the dialog says what it does not do.** Every
 row carries a sentence naming what is unbounded about that item — which is the

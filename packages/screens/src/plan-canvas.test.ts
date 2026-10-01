@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ARC_MOMENTS } from "./fixtures/build/arc";
-import { groupNodeId, planActivityOf, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
+import { groupNodeId, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
 
 /** The arc moment by name, with the plan it opens. */
 function arc(name: string) {
@@ -100,23 +100,5 @@ describe("a press opens a task and nothing else", () => {
   it("reads a task out of a node id, and nothing out of a group's", () => {
     expect(taskOfNodeId(taskNodeId("T3"))).toBe("T3");
     expect(taskOfNodeId(groupNodeId("g1"))).toBeUndefined();
-  });
-});
-
-describe("the plan's own word, for the one node the run draws of it", () => {
-  it("says what is wrong before what is moving, and what is moving before what is done", () => {
-    const groups = arc("groupFailed");
-    const one = groups[0]!;
-    const failed = { ...one, state: "failed" as const };
-    const running = { ...one, state: "running" as const };
-    const passed = { ...one, state: "passed" as const };
-    const pending = { ...one, state: "pending" as const };
-    expect(planActivityOf([passed, running, failed]).said).toBe("failed");
-    expect(planActivityOf([passed, running]).said).toBe("running");
-    // A plan is not done while a group of it has not started.
-    expect(planActivityOf([passed, pending]).said).toBe("pending");
-    expect(planActivityOf([passed, passed]).said).toBe("passed");
-    // And a plan with no group has nothing to have started.
-    expect(planActivityOf([])).toEqual({ activity: "not_started", said: "pending" });
   });
 });

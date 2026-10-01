@@ -19,8 +19,18 @@ const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
 
 /** Add a repository sits inside the rail picker's menu: opening it is opening the picker first. */
 async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page, pickerLabel = MANIFEST_NAME) {
-  await within.getByRole("button", { name: pickerLabel }).click();
-  await page.getByRole("menuitem", { name: "Add a repository" }).click();
+  // A narrow window lists the repositories in the title row's menu. Wait for the
+  // row first: `query` does not, and the window may not have drawn yet.
+  const root = "element" in within ? (within.element() as HTMLElement) : document.body;
+  await expect.poll(() => root.querySelector(".armada-title-bar")).not.toBeNull();
+  const menu = within.getByRole("button", { name: "Menu" });
+  if (menu.query() !== null) {
+    await menu.click();
+    await within.getByRole("button", { name: "Add a repository" }).click();
+  } else {
+    await within.getByRole("button", { name: pickerLabel }).click();
+    await page.getByRole("menuitem", { name: "Add a repository" }).click();
+  }
   await entered(dialog());
   return dialog();
 }
@@ -94,7 +104,8 @@ test("a late clone is heard in another window on the same main, and neither wind
   await expect.element(inOther.getByText("storefront is ready to set up")).toBeInTheDocument();
   await expect.element(inAsked.getByText("storefront is ready to set up")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
-    await expect.element(window.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
+    // Hidden, not absent: each window is narrow, and the picker is behind its menu.
+    await expect.element(window.getByRole("button", { name: MANIFEST_NAME, includeHidden: true })).toBeInTheDocument();
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();

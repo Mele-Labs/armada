@@ -5,17 +5,18 @@
 // the cards and the placement are the ones that used to hang under the step
 // that recorded the plan. What was left behind is the step row above them, and
 // with it the second edge — there are no step nodes here, so nothing can draw
-// *and this step worked it*. That cost was stated and taken; Workflow draws one
-// Plan node now and pressing it lands here.
+// *and this step worked it*. That cost was stated and taken; a Workflow step's
+// panel carries a card of the plan instead, and pressing it lands here.
 //
 // **Placement is computed here, from plan order.** The canvas holds none, so
 // the numbers below are the layout and they are unit-tested in this package.
 
-import type {
-  WorkflowCanvasEdge,
-  WorkflowCanvasNode,
-  WorkflowStepCardProps,
-  StepActivity,
+import {
+  GROUP_STATE,
+  type WorkflowCanvasEdge,
+  type WorkflowCanvasNode,
+  type WorkflowStepCardProps,
+  type StepActivity,
 } from "@armada/components";
 
 import type { GroupState, GroupView } from "./draft/group";
@@ -24,13 +25,15 @@ import type { TaskState, TaskView } from "./draft/task";
 /**
  * The layout, in the canvas's own coordinates.
  *
- * `TASK_ACROSS` is `--w-workflow-group-node` plus room for an arrowhead, so a
- * task column clears its group's card. `TASK_APART` is one task's pitch down
+ * `TASK_ACROSS` is `--w-workflow-group-node` (228) plus an 88 gap: room for a
+ * smooth step to turn twice, clearing each card by the canvas's 20, and still
+ * run straight between. At 28 the turns could not fit and each edge hooked
+ * back on itself (owner, 29 Sep 2026). `TASK_APART` is one task's pitch down
  * that column and `AFTER_GROUP` the gap to the group below. Numbers rather
  * than tokens because React Flow places by number and a `var()` cannot reach
  * it.
  */
-const TASK_ACROSS = 256;
+const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
 /** A group holding no task still takes a row of its own. */
@@ -51,23 +54,11 @@ export function plural(count: number, one: string, many = `${one}s`): string {
 }
 
 /**
- * A group's state mapped to the nearest step activity, for the mark alone.
- *
- * **The group's own word is kept and printed beside it**, so nothing is lost:
- * `joining` and `checking` are not step states and the step machine has no
- * mark for either. This is a drawing decision, which is why it is here and not
- * in the card.
+ * The group states that are still working, so the card sweeps. **The sweep is
+ * all a group's activity decides**: its glyph, hue and word are `GROUP_STATE`'s
+ * row, the one the list's group head reads, handed to the card as `mark`.
  */
-const GROUP_ACTIVITY: Record<GroupState, StepActivity> = {
-  pending: "not_started",
-  running: "running",
-  joining: "running",
-  checking: "running",
-  passed: "advanced",
-  failed: "failed",
-  retrying: "retrying",
-  landed: "advanced",
-};
+const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "checking"]);
 
 /**
  * A task's state mapped the same way. `dropped` takes `stopped`, the step
@@ -82,40 +73,9 @@ const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   dropped: "stopped",
 };
 
-/**
- * The order a plan's own word is chosen in: what is wrong first, then what is
- * moving, then what has not started, then what is done.
- *
- * **A plan has no machine of its own.** `GroupState` is the finest state
- * anything records about the work a plan describes, so the word on the Plan
- * node is one of its groups' words rather than a vocabulary invented for the
- * summary. `pending` outranks `passed` because a plan is not done while a
- * group of it has not started.
- */
-const ROLLS_UP: readonly GroupState[] = [
-  "failed",
-  "retrying",
-  "checking",
-  "joining",
-  "running",
-  "pending",
-  "passed",
-  "landed",
-];
-
-/**
- * Where the plan is, as one mark and one word — what the Plan node on the
- * workflow's canvas says about itself.
- *
- * A plan with no group says `pending`: there is nothing to have started.
- */
-export function planActivityOf(groups: readonly GroupView[]): { activity: StepActivity; said: GroupState } {
-  const said = ROLLS_UP.find((state) => groups.some((group) => group.state === state)) ?? "pending";
-  return { activity: GROUP_ACTIVITY[said], said };
-}
-
-/** One group's card. Its own word, with the nearest step mark behind it. */
+/** One group's card. Its registry row's glyph, hue and verb — what the list says. */
 function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+  const row = GROUP_STATE[group.state];
   const facts = [{ value: plural(group.tasks.length, "task") }];
   if (group.checks_selected.length > 0) facts.push({ value: plural(group.checks_selected.length, "check") });
   if (group.concurrent) facts.push({ value: "at the same time" });
@@ -123,8 +83,9 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
   return {
     kind: "group",
     name: `Group ${group.ordinal}`,
-    activity: GROUP_ACTIVITY[group.state],
-    said: group.state,
+    activity: GROUP_WORKING.has(group.state) ? "running" : "not_started",
+    ...(row?.icon && row.statusToken ? { mark: { icon: row.icon, token: row.statusToken } } : {}),
+    said: row?.verb ?? group.state,
     facts,
     ...(onOpen === undefined ? {} : { onOpen }),
   };
@@ -139,7 +100,7 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
  * what there is to say before, and what it has taken is what there is to say
  * after.
  */
-function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+export function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
@@ -164,6 +125,14 @@ export type PlanGraphReading = {
   onOpenTask?: (taskId: string) => void;
   /** The task a person has open, so the card it came from says which one it is. */
   openTask?: string | null;
+  /**
+   * Opens a group in its own panel — its tasks, Checks and Tests, with Add
+   * task in the head (owner, 30 Sep 2026). Absent draws group cards that are
+   * not controls.
+   */
+  onOpenGroup?: (groupId: string) => void;
+  /** The group a person has open, drawn selected the way an open task is. */
+  openGroup?: string | null;
 };
 
 export type PlanGraph = {
@@ -184,14 +153,19 @@ export type PlanGraph = {
  * it; on this tab there is no step to hang from, so the plan is as many small
  * trees as it has groups.
  */
-export function planGraphOf({ groups, onOpenTask, openTask }: PlanGraphReading): PlanGraph {
+export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGroup }: PlanGraphReading): PlanGraph {
   const nodes: WorkflowCanvasNode[] = [];
   const edges: WorkflowCanvasEdge[] = [];
 
   let down = 0;
   for (const group of groups) {
     const groupId = groupNodeId(group.id);
-    nodes.push({ id: groupId, position: { x: 0, y: down }, card: groupCard(group, undefined) });
+    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id));
+    nodes.push({
+      id: groupId,
+      position: { x: 0, y: down },
+      card: group.id === openGroup ? { ...card, selected: true } : card,
+    });
 
     group.tasks.forEach((task, at) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);

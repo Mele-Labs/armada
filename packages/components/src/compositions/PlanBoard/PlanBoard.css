@@ -60,8 +60,8 @@
   min-width: 0;
 }
 
-/* One line, wrapping: the ordinal, the shape, where it stands, where it
-   writes. The filler between the third and the fourth is what pins the scope
+/* One line, wrapping: the ordinal, the shape drawn, where it stands, where it
+   writes, and Add task where it is offered. The filler between the third and the fourth is what pins the scope
    to the trailing edge at any width. */
 .armada-plan-board__group-head {
   flex-wrap: wrap;
@@ -80,11 +80,10 @@
   color: var(--fg-muted);
 }
 
-.armada-plan-board__shape {
-  flex: none;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
+/* The group's shape, drawn — the Overview Plan card's own. Centred on the
+   head's line rather than sat on its baseline, which an SVG has none of. */
+.armada-plan-board__group-head > .armada-group-shape {
+  align-self: center;
 }
 
 .armada-plan-board__group-gap {
@@ -92,29 +91,17 @@
   min-width: 0;
 }
 
-/* Where the group is, as a word. Plain sans: a group is not a Job, so it
-   takes no badge. Only the two outcomes below take a hue. */
+/* Where the group is: `GROUP_STATE`'s glyph and word. Plain sans: a group is
+   not a Job, so it takes no pill. The hue is the registry's status token, set
+   by `PlanGroupStateWord`; `--fg-muted` stands where a state carries none. */
 .armada-plan-board__state {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
-}
-
-.armada-plan-board__state[data-state="running"],
-.armada-plan-board__state[data-state="checking"],
-.armada-plan-board__state[data-state="joining"] {
-  color: var(--run-running);
-}
-
-.armada-plan-board__state[data-state="passed"],
-.armada-plan-board__state[data-state="landed"] {
-  color: var(--run-passed);
-}
-
-.armada-plan-board__state[data-state="failed"],
-.armada-plan-board__state[data-state="retrying"] {
-  color: var(--run-failed);
 }
 
 /* Where the group writes. One value; a root is short, so it clips from the
@@ -137,16 +124,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* How many paths the root stopped naming. In a chip's register so it does not
-   read as part of the path. */
-.armada-plan-board__scope-count {
-  flex: none;
-  padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
 }
 
 /* Two groups claiming one file, said inside the group that has the clash
@@ -347,3 +324,45 @@
   gap: var(--space-2);
   min-width: 0;
 }
+
+/* A proposed change, opened in place under the acts that hold its control —
+   a group's asks here, a task's acts in its panel. The field, then its two
+   buttons at the end, as the drop's reason puts its own. */
+.armada-plan-propose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-plan-propose__acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Dragging. **The head and the row are the handles** — the icon registry has
+   no grip — so the pointer says so over them, and nothing else changes shape.
+   The target a drag is over takes the focus ring's own line. */
+.armada-plan-board__group-head[data-draggable="true"],
+.armada-plan-board__task[data-draggable="true"] {
+  cursor: grab;
+}
+
+.armada-plan-board__task[data-draggable="true"] .armada-plan-board__task-head {
+  cursor: inherit;
+}
+
+.armada-plan-board__group[data-drop-over="true"] > .armada-card,
+.armada-plan-board__task[data-drop-over="true"] {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* The group's name, where a keyboard focuses it to move the group. */
+.armada-plan-board__group-name:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+

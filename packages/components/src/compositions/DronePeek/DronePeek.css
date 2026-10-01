@@ -1,0 +1,57 @@
+/* Drone peek — a `Card`, so it is glass on the canvas and flat inside a sheet
+   without saying which. The head's state is Job drones' own dot and word,
+   styled in `JobDrones.css`. */
+.armada-drone-peek {
+  min-width: 0;
+}
+
+.armada-drone-peek__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-drone-peek__name {
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-drone-peek__ran {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* Open, at the head's trailing end where the owner's mockup put it. `Button`
+   takes no class, so it is found as the head's one button. */
+.armada-drone-peek__head > .armada-button {
+  margin-left: auto;
+}
+
+/* The tail. A cap rather than a height, so a Drone that has written little
+   draws little. No token names a peek's height; four of the largest spacing
+   step is the owner's ~200px. The transcript's own inline padding is for a
+   sheet's edge, and inside the card it is taken back out. */
+.armada-drone-peek__tail {
+  max-height: calc(var(--space-12) * 4);
+  overflow-y: auto;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+}
+
+.armada-drone-peek__tail:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-drone-peek__tail > .armada-turns {
+  padding: 0;
+}

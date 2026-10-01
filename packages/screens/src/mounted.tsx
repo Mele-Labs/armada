@@ -16,6 +16,8 @@ import "@armada/tokens/base.css";
 import "@armada/components/src/index.css";
 import type { ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { onTestFinished } from "vitest";
+import { commands } from "vitest/browser";
 
 let held: { root: Root; host: HTMLElement } | null = null;
 
@@ -59,4 +61,22 @@ export function unmount(): void {
   held.root.unmount();
   held.host.remove();
   held = null;
+}
+
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    /** `vitest.config.ts`' own: motion on, or back to reduced. */
+    motion: (on: boolean) => Promise<void>;
+  }
+}
+
+/**
+ * Motion on, for the rest of the test that awaits this. **This project runs with reduced motion
+ * emulated**, so a dialog is in place on its first frame (`vitest.config.ts`). A test whose claim
+ * is what a person without the preference sees — a hold filling, a row travelling — awaits this
+ * first, or names it in `beforeEach`, and the test's end puts the preference back.
+ */
+export async function motion(): Promise<void> {
+  await commands.motion(true);
+  onTestFinished(() => commands.motion(false));
 }

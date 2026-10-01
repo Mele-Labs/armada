@@ -39,6 +39,9 @@ import type { PaletteChoice } from "@armada/shell";
 /** What the palette says when the act needs a Job and none is under the cursor. */
 const NO_JOB = "no job focused";
 
+/** What the palette says when the act reads from or sends to Fleet and nothing is connected. */
+export const FLEET_DOWN = "Fleet is not connected";
+
 /** The acts that need a Job to act on. With none focused, the palette leaves them out. */
 const ON_ONE_JOB = ["open", "review", "attest", "redirect", "kill", "redispatch", "restart_step"] as const;
 
@@ -65,6 +68,8 @@ export function dormantIn(where: {
   cursor: string | null;
   /** Whether a failure is on screen for Copy debug info to copy. */
   failing: boolean;
+  /** Whether Fleet is connected, which is what Refresh reads from. */
+  live: boolean;
 }): Readonly<Record<string, string | undefined>> {
   const noJob = !where.reading && where.cursor === null ? NO_JOB : undefined;
   return {
@@ -101,6 +106,7 @@ export function dormantIn(where: {
     open_log: "the story's own chapter",
     open_diff: "the story's own Produced chapter",
     open_stage: "the phase strip",
+    move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 
     // The Studio's own control, for the reason above it: `Studios` holds which
     // kind is being written, and `App` has no handle to it. A wiring gap,
@@ -130,7 +136,11 @@ export function dormantIn(where: {
     // the 48px rail and never hides — #1435 read those as the same thing and
     // was corrected.
     toggle_sidebar: "⌘\\ collapses the column to its rail; not reachable from the palette yet",
-    history: "no back and forward yet",
+    // The Back trail (`packages/screens/src/trail.ts`) answers ⌘[ inside a
+    // Job after a jump between panels, and only there; `App` holds no handle
+    // to it, and there is no forward yet.
+    history: "⌘[ goes back after a jump inside a job; no forward yet",
+    refresh: where.live ? undefined : FLEET_DOWN,
   };
 }
 
@@ -168,6 +178,10 @@ export type PaletteHands = {
    * screen that answers for it.
    */
   openSetting: (id: string) => void;
+  /** Re-read everything Fleet holds — `⇧⌘R`'s act. */
+  refresh: () => void;
+  /** A row about every Job at once, by the id `PaletteBoardRow` was given. */
+  board: (id: string) => void;
 };
 
 /**
@@ -196,6 +210,9 @@ export function carryOut(choice: PaletteChoice, job: string | null, hands: Palet
     case "setting":
       hands.openSetting(choice.id);
       return;
+    case "board":
+      hands.board(choice.id);
+      return;
     case "act":
       act(choice.id, job, hands);
   }
@@ -218,6 +235,9 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
       return;
     case "copy_debug_info":
       hands.copyDebugInfo();
+      return;
+    case "refresh":
+      hands.refresh();
       return;
     case "restart_step":
     case "redispatch":

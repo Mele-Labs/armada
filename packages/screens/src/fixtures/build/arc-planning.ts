@@ -1,4 +1,5 @@
-// Two moments on the plan: the plan as recorded, and a revision refused.
+// Three moments on the plan: the plan as recorded and approved, the plan
+// waiting on its first review, and a revision refused.
 //
 // **The plan step's own Judge is what refuses a revision** (#1552). A person
 // narrowed one task's scope, the Judge answered `not_met` on the criterion
@@ -48,6 +49,19 @@ function planAdvanced(): StepDetail {
       { attempt: 1, criterion_id: "a2", verdict: "met" },
     ],
     deliverables: [{ attempt: 1, path: `.armada/deliverables/3-show-what-s-running/plan.1.md` }],
+  };
+}
+
+/**
+ * The step at its first review: the Judge passed the plan, and it waits on a
+ * person before the groups start. No revision has been asked for yet.
+ */
+function planAwaiting(): StepDetail {
+  return {
+    ...planAdvanced(),
+    state: "awaiting_human",
+    attempts: [{ attempt: 1, outcome: "awaiting_human", started_at: PLAN_ENTERED }],
+    updated_at: PLAN_ENDED,
   };
 }
 
@@ -223,6 +237,54 @@ export function plannedMoment(): ArcMoment {
       // What the press froze, which is what Overview draws at every moment
       // after it — the plan is a destination of its own, not the first thing a
       // person is shown about an approved Job.
+      proposal: arcApproved(),
+      landing: ARC_LANDING,
+      record: plannedRecord(),
+    },
+  };
+}
+
+/**
+ * The Job with the plan step's own submission read. **`evidence_type: "plan"`
+ * is what Overview's gate switches on** to draw Plan's review rather than the
+ * work's (owner, 30 Sep 2026) — Fleet's word off the frozen step, never its name.
+ */
+function claimingAPlan(fixture: JobFixture): JobFixture {
+  return {
+    ...fixture,
+    recorded: {
+      ...fixture.recorded,
+      evidence: {
+        state: "read",
+        jobId: ARC_JOB_ID,
+        steps: [
+          {
+            step_id: "plan",
+            evidence_type: "plan",
+            claimed: "Four groups and eight tasks, each with a tier and an agent of its own.",
+            shown_by: ".armada/deliverables/3-show-what-s-running/plan.1.md",
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * The plan waiting on a person, reviewed for the first time. **What every
+ * review act is drawn on** (owner, 30 Sep 2026): add, edit and drop a task,
+ * and propose a change to a group or a task.
+ */
+export function planReview(): ArcMoment {
+  return {
+    name: "planReview",
+    says: "Plan — recorded and waiting on your review before the groups start",
+    fixtures: [claimingAPlan(planned("awaiting_review", planAwaiting()))],
+    opens: ARC_JOB_ID,
+    draft: {
+      groups: arcGroups(),
+      cases: arcCases(),
+      criteria: arcCriterionViews(),
       proposal: arcApproved(),
       landing: ARC_LANDING,
       record: plannedRecord(),

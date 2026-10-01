@@ -224,7 +224,8 @@ function executing(args: {
     assigned_drone: ARC_DRONES.T5,
   });
   const steps = [planAdvanced(), args.step, ...arcSteps().slice(2)];
-  const whole = arcDetail(job, steps, { work_plan: arcWorkPlan(tasksOf(args.groups)) });
+  const groups = args.groups;
+  const whole = arcDetail(job, steps, { work_plan: arcWorkPlan(tasksOf(groups)) });
   return {
     name: args.says,
     job,

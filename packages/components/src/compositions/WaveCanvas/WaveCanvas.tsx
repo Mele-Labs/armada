@@ -16,6 +16,7 @@ import { useEffect, useMemo } from "react";
 
 import { Badge } from "../../primitives/Badge/Badge";
 import { JOB_STATUS } from "../../generated/vocabulary";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip } from "../FactChip/FactChip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
 
@@ -32,6 +33,14 @@ import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/Gra
  * Studio's whiteboard.
  */
 
+/**
+ * One short value under a card's title. **A bare figure carries its name**,
+ * for the tooltip (owner, 29 Sep 2026: a figure is named by hovering it) —
+ * `~$2.80` alone does not say it is what the Job spent, and `2/7` does not say
+ * it is tasks.
+ */
+export type WaveCanvasFact = string | { said: string; name: string };
+
 /** One Job on the wave, as the card draws it. */
 export type WaveCanvasCard = {
   /** The Job's id. Identity and what a press opens, never drawn. */
@@ -41,8 +50,8 @@ export type WaveCanvasCard = {
   status: string;
   /** What a person calls it, in mono. */
   handle?: string;
-  /** Short values under the title — `merged`, `waits on 2`. */
-  facts?: readonly string[];
+  /** Short values under the title — `merged`, `~$2.80`, `2/7`. */
+  facts?: readonly WaveCanvasFact[];
   /** Open the Job. Absent draws a card that is not a control. */
   onOpen?: () => void;
 };
@@ -111,9 +120,15 @@ function JobCard({ card }: { card: WaveCanvasCard }) {
       <span className="armada-wave-card__title">{card.title}</span>
       {card.facts === undefined || card.facts.length === 0 ? null : (
         <span className="armada-wave-card__facts">
-          {card.facts.map((fact) => (
-            <FactChip key={fact}>{fact}</FactChip>
-          ))}
+          {card.facts.map((fact) =>
+            typeof fact === "string" ? (
+              <FactChip key={fact}>{fact}</FactChip>
+            ) : (
+              <Tooltip key={fact.said} label={fact.name}>
+                <FactChip>{fact.said}</FactChip>
+              </Tooltip>
+            ),
+          )}
         </span>
       )}
     </>

@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
-import { X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import { ChevronLeft, X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
+import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
 
 /**
  * A panel that enters from an edge. The contract gives it exactly one line —
@@ -52,6 +53,25 @@ export type SheetSide = "right" | "left";
  */
 export type SheetSize = "default" | "wide" | "widest" | "reading";
 
+/**
+ * The way back to where a person was before a press elsewhere opened this
+ * sheet — Plan's task panel sending them to its Drone, a Check on the plan
+ * board to its Record row. **One slot for every sheet**, so a jump reads the
+ * same wherever it lands.
+ *
+ * `chevron-left` leads the label, 12px at strokeWidth 2 — the back half of the
+ * registry's `history` act, registered by the owner on 30 Sep 2026. The label
+ * names the thing returned to — `Back to T6` — and the tooltip names the
+ * destination too: `Back to Plan · T6`.
+ */
+export type SheetBack = {
+  label: string;
+  tooltip: string;
+  /** Drawn beside the label, as the close draws `Esc`. */
+  binding?: string;
+  onBack: () => void;
+};
+
 export type SheetProps = {
   open: boolean;
   /** Sentence case. Panel headings may open with a Wh- word; sentences may not. */
@@ -68,6 +88,8 @@ export type SheetProps = {
    * nothing, and the head is laid out exactly as without it.
    */
   leading?: ReactNode;
+  /** The way back, at the head's leading edge before everything else. Absent draws nothing. */
+  back?: SheetBack | undefined;
   children: ReactNode;
   side?: SheetSide;
   size?: SheetSize;
@@ -98,6 +120,43 @@ export type SheetProps = {
    * well, which nothing asked it to.
    */
   contained?: boolean;
+  /**
+   * Beside another floating sheet rather than at the trailing edge — the file
+   * diff to the left of Plan's task panel (owner, 29 Sep 2026), `--space-4`
+   * from it. **Its scrim dims nothing and takes no press**: the sheet it sits
+   * beside already dims the screen once, and a second dim would darken it
+   * again. Read only with `floating`; at `floor` it lies over that sheet.
+   */
+  beside?: boolean;
+  /**
+   * A floating sheet's width in px, where a person has resized it. Absent
+   * draws `--w-dock`. Read only with `onResize`, and clamped to what the work
+   * area leaves before it draws — a width remembered from a wider window
+   * never draws past today's.
+   */
+  width?: number;
+  /**
+   * Drags and arrow-key nudges the floating sheet's leading edge — Helm's own
+   * handle (`dock-handle.tsx`), in the gap beside it. Clamped between
+   * `--w-dock-min` and what the work area leaves once the sheet's margin, the
+   * handle's gap and `--w-work-min` under it are kept uncovered. **Absent
+   * draws no handle**, and neither does a sheet that is not floating or one
+   * at `floor`. Remembering the result is the caller's.
+   */
+  onResize?: (width: number) => void;
+  /**
+   * With `beside`: the width of the sheet this one sits beside, where that
+   * one resizes — its `width`, as given. Clamped here the way that sheet
+   * clamps it, against the same work area, so the `--space-4` between the two
+   * holds at whatever width the other is dragged to. Absent assumes `--w-dock`.
+   */
+  besideWidth?: number;
+  /**
+   * Another layer lies over this one and takes `Esc` first. Both bind on
+   * `window` in the capture phase, where the first one opened runs first, so
+   * the one underneath has to be told to wait.
+   */
+  under?: boolean;
   /**
    * A panel over the whole work area rather than a layer inside one screen:
    * under the title row, held off every edge by `--space-4`, rounded and
@@ -132,6 +191,7 @@ export function Sheet({
   title,
   subtitle,
   leading,
+  back,
   children,
   side = "right",
   size = "default",
@@ -140,6 +200,11 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
+  beside = false,
+  width,
+  onResize,
+  besideWidth,
+  under = false,
   floating = false,
   closeLabel,
   closeBinding,
@@ -148,9 +213,28 @@ export function Sheet({
   onClose,
 }: SheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+
+  // A resizing sheet, or one beside it, reads the work area's width: the
+  // ceiling is what that area leaves, and both scrims cover the same one, so
+  // each computes the same clamp from the same figure. At the floor the sheet
+  // is flush to both edges, and there is nothing to resize.
+  const resizes = floating && !floor && onResize !== undefined;
+  const follows = floating && !floor && beside && besideWidth !== undefined;
+  const room = useWidthOf(scrimRef, open && (resizes || follows));
+  // The chrome beside a floating sheet: its own `--space-4` off the trailing
+  // edge, and the handle's `--space-4` gap on its leading one.
+  const range = dockWidthRange(room - 2 * tokenPx("--space-4"));
+  const drawn = (wanted: number | undefined): number => {
+    const at = wanted ?? defaultDockWidth();
+    // Not measured yet (a first render, or no layout at all): as given.
+    return room === 0 ? at : clampToRange(at, range);
+  };
 
   useEffect(() => {
-    if (open) closeRef.current?.focus();
+    // `preventScroll`: a sheet that is still travelling in sits past the
+    // edge, and focusing its close scrolls whatever holds it to reach it.
+    if (open) closeRef.current?.focus({ preventScroll: true });
   }, [open]);
 
   // Esc closes an overlay, per the global tier — and stops there. Bound in the
@@ -158,7 +242,7 @@ export function Sheet({
   // to the list from a detail route", is bound on `window` too: a bubble-phase
   // listener would run second and both would answer one press.
   useEffect(() => {
-    if (!open) return;
+    if (!open || under) return;
     function onKey(event: KeyboardEvent) {
       // A popover over the sheet is the top layer. Either it took the press already, or it is still
       // open and will: listeners on one window run in no order this can rely on.
@@ -166,6 +250,8 @@ export function Sheet({
       if (closeRef.current?.closest('[role="dialog"]')?.querySelector(".armada-popover__panel")) return;
       // The command palette opens over every surface, a sheet included, and takes the press for the same reason.
       if (document.querySelector(".armada-palette")) return;
+      // A toast stands over the sheet, and a press made inside it is the toast's.
+      if (document.activeElement?.closest(".armada-toast")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -174,30 +260,82 @@ export function Sheet({
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  }, [open, under, onClose]);
 
   if (!open) return null;
 
   const labelled = closeLabel !== undefined && !floor;
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
+  const close = labelled ? (
+    /* A secondary on an overlay is filled one surface step from its
+       ground, which is what `ground="sunken"` spells. */
+    <Button
+      ref={closeRef}
+      variant="secondary"
+      size="sm"
+      ground="sunken"
+      title={tooltip}
+      onClick={onClose}
+    >
+      {closeLabel}
+      {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
+    </Button>
+  ) : (
+    <button
+      ref={closeRef}
+      type="button"
+      className="armada-sheet__close"
+      aria-label="Close"
+      title={tooltip}
+      onClick={onClose}
+    >
+      <X size={16} strokeWidth={2} aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
+      ref={scrimRef}
       className="armada-sheet-scrim"
+      style={follows ? ({ "--armada-sheet-beside": `${drawn(besideWidth)}px` } as CSSProperties) : undefined}
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
+      data-beside={(floating && beside) || undefined}
     >
+      {resizes ? <DockHandle width={drawn(width)} {...range} label={title} onResize={onResize} /> : null}
       <div
         className="armada-sheet"
+        style={resizes ? { width: `${drawn(width)}px` } : undefined}
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
         data-floor={floor || undefined}
         role="dialog"
-        aria-modal="true"
+        // Beside another sheet, the pair is the one modal layer: marking both
+        // modal would hide each from the other.
+        aria-modal={floating && beside ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
+          {back === undefined ? null : (
+            /* The way back and the way out share the head's first line, and
+               the title takes the whole of the line under them: beside the
+               title, a narrow panel's head had room for neither. */
+            <div className="armada-sheet__way">
+              <Button
+                variant="ghost"
+                size="sm"
+                title={back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`}
+                onClick={back.onBack}
+              >
+                <ChevronLeft size={12} strokeWidth={2} aria-hidden="true" />
+                {back.label}
+                {back.binding === undefined ? null : <KbdBinding binding={back.binding} />}
+              </Button>
+              {close}
+            </div>
+          )}
           {leading === undefined ? null : <div className="armada-sheet__leading">{leading}</div>}
           <div className="armada-sheet__titles">
             <h2 className="armada-sheet__title" data-titled={subtitle !== undefined || undefined}>
@@ -210,32 +348,7 @@ export function Sheet({
           {controls === undefined ? null : (
             <div className="armada-sheet__controls">{controls}</div>
           )}
-          {labelled ? (
-            /* A secondary on an overlay is filled one surface step from its
-               ground, which is what `ground="sunken"` spells. */
-            <Button
-              ref={closeRef}
-              variant="secondary"
-              size="sm"
-              ground="sunken"
-              title={tooltip}
-              onClick={onClose}
-            >
-              {closeLabel}
-              {closeBinding === undefined ? null : <KbdBinding binding={closeBinding} />}
-            </Button>
-          ) : (
-            <button
-              ref={closeRef}
-              type="button"
-              className="armada-sheet__close"
-              aria-label="Close"
-              title={tooltip}
-              onClick={onClose}
-            >
-              <X size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-          )}
+          {back === undefined ? close : null}
         </div>
         {bands === undefined ? null : <div className="armada-sheet__bands">{bands}</div>}
         <div ref={bodyRef} className="armada-sheet__body" data-bleed={bleed || undefined}>
@@ -245,4 +358,24 @@ export function Sheet({
       </div>
     </div>
   );
+}
+
+/**
+ * An element's own width, kept current as it resizes — 0 until it is measured,
+ * and while `on` is false. Measured before paint, so a remembered width is
+ * clamped on the frame it first draws rather than one frame late.
+ */
+function useWidthOf(ref: RefObject<HTMLElement | null>, on: boolean): number {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!on || element === null) return;
+    const read = (): void => setWidth(element.getBoundingClientRect().width);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, on]);
+  return width;
 }

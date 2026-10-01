@@ -5,15 +5,16 @@
 // prose, for `StepBar`'s reason: a count in words is copy, and copy has one
 // owner. So does the rule that decides it.
 
-import type { PlanBoardAsk, PlanBoardTest } from "@armada/components";
+import type { PlanBoardTest } from "@armada/components";
 import type { PlanTaskSheetProps, PlanTaskTest, TaskMarkState } from "@armada/components";
+import { GROUP_STATE } from "@armada/components";
 import type { JobDetail, StepDetail } from "@armada/protocol";
 
 import { caseViewsOf, scopeRevisionsOf, type CaseView, type ScopeRevisionView } from "./draft/cases";
 import { criterionViewsOf, type CriterionView } from "./draft/criterion";
 import { taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
 import type { JobDraft } from "./draft/held";
-import { planRevisionsOf, type PlanAskKind, type PlanRevisionView } from "./draft/revision";
+import { planRevisionsOf, type PlanRevisionView } from "./draft/revision";
 import type { TaskView } from "./draft/task";
 import { money } from "./facts";
 
@@ -70,53 +71,11 @@ export function tasksOf(groups: readonly GroupView[]): TaskView[] {
 }
 
 /**
- * Where a group is, in words. **`failed` says what failed** — a group that
- * stopped at its boundary and one whose tasks broke are two different
- * readings, and the boundary is the one this word is about.
+ * Where a group is, in words: `GROUP_STATE`'s verb, from `enum-verbs.toml`, so
+ * the list, the panel, the graph and Overview say one word for one state.
  */
 export function groupSaid(state: GroupState): string {
-  switch (state) {
-    case "pending":
-      return "not started";
-    case "running":
-      return "working";
-    case "joining":
-      return "joining its work";
-    case "checking":
-      return "running its checks";
-    case "passed":
-      return "passed";
-    case "failed":
-      return "failed at its checks";
-    case "retrying":
-      return "failed at its checks, running again";
-    case "landed":
-      return "landed";
-  }
-}
-
-/** Whether a group's boundary has already run. The tense every sentence takes. */
-function hasRun(state: GroupState): boolean {
-  return state === "passed" || state === "failed" || state === "retrying" || state === "landed";
-}
-
-/**
- * `will run at this boundary`, in the tense the group's state earns.
- *
- * **The clause, not the sentence.** The strip draws the count beside it, and
- * `7` next to `7 checks will run` is one number said twice.
- */
-export function boundaryClause(state: GroupState): string {
-  if (state === "checking") return "running at this boundary";
-  if (hasRun(state)) return "ran at this boundary";
-  return "will run at this boundary";
-}
-
-/** `run at this boundary`. Nothing where no case does. */
-export function testsClause(state: GroupState, tests: number): string | undefined {
-  if (tests === 0) return undefined;
-  if (hasRun(state)) return "ran at this boundary";
-  return `${tests === 1 ? "runs" : "run"} at this boundary`;
+  return GROUP_STATE[state]?.verb ?? state;
 }
 
 /**
@@ -224,8 +183,8 @@ export function touchedByOf(groups: readonly GroupView[]): Map<string, string> {
  * measures the diff nor where the next group collides (owner, 28 Sep 2026);
  * the root says the first exactly, and `overlapsOf` says the second.
  */
-export function scopeRootOf(paths: readonly string[]): { root: string; count: number } {
-  if (paths.length === 0) return { root: "the whole repository", count: 0 };
+export function scopeRootOf(paths: readonly string[]): { root: string } {
+  if (paths.length === 0) return { root: "the whole repository" };
   const [first, ...rest] = paths;
   let common = (first ?? "").split("/").slice(0, -1);
   for (const path of rest) {
@@ -235,9 +194,10 @@ export function scopeRootOf(paths: readonly string[]): { root: string; count: nu
     common = common.slice(0, at);
   }
   const root = common.length === 0 ? "**" : `${common.join("/")}/**`;
-  return { root, count: paths.length };
+  return { root };
 }
 
+// The callout's future waits on [case-waits-for-last-group] in docs/concepts/plan.md.
 /**
  * Which files each group shares with another, keyed by group id.
  *
@@ -269,71 +229,18 @@ export function overlapsOf(
 }
 
 /**
- * What may be asked of the Drone about a group, and what each control is
- * called. **A plan is a record, so these are requests** — the verb is what a
- * person wants, and `#1552` is why none of them edits anything.
+ * Proposing a change, on a group or on a task — **one verb for both** (owner,
+ * 30 Sep 2026). Prose the Drone reads and may refuse; every other change to a
+ * plan is a person's own, made directly through Fleet. No placeholder: an
+ * empty field stays empty.
  */
-export const ASK_LABEL: Record<PlanAskKind, string> = {
-  move_up: "Move up",
-  move_down: "Move down",
-  remove: "Remove",
-  rewrite: "Rewrite this task",
-};
-
-/**
- * The rewrite ask's own words. **Prose, because a rewrite is not a field** —
- * what a task should be instead is a sentence the Drone reads, and a picker
- * for each of a task's parts would be editing the record.
- */
-export const REWRITE_ASK = {
-  label: ASK_LABEL.rewrite,
-  lead: "Say what this task should be instead. The Drone that wrote the plan decides, and it may refuse.",
-  placeholder: "Take the panel's rows out of this one and give them a task of their own",
-  send: "Ask the Drone",
+export const PROPOSE_ASK = {
+  label: "Propose a change",
+  send: "Send to the Drone",
 } as const;
 
-/**
- * The asks one group offers. **The first group cannot move up and the last
- * cannot move down**, and both are drawn off rather than left out: a card
- * whose controls change place as it moves is a card a person has to re-read.
- */
-export function asksOf(groups: readonly GroupView[], at: number): PlanBoardAsk[] {
-  return [
-    { id: "move_up", label: ASK_LABEL.move_up, disabled: at === 0 },
-    { id: "move_down", label: ASK_LABEL.move_down, disabled: at === groups.length - 1 },
-    { id: "remove", label: ASK_LABEL.remove },
-  ];
-}
-
-/**
- * Where a reorder would contradict the tasks' declared files.
- *
- * **The one mechanical catch there is** (`#1552`). Two groups claiming one
- * path have an order between them that their own scopes decide, so swapping
- * that pair is the ask whose consequence can be computed rather than guessed.
- * Everything else about a split — why these tasks, why this size — is the
- * Drone's to answer, which is what the ask is for.
- *
- * **A warning and not a refusal**, on `overlapsOf`'s terms: the reorder is
- * legal and what it costs is a file written in the other order.
- */
-export function reorderWarning(
-  groups: readonly GroupView[],
-  groupId: string,
-  ask: PlanAskKind,
-): string | undefined {
-  if (ask !== "move_up" && ask !== "move_down") return undefined;
-  const at = groups.findIndex((one) => one.id === groupId);
-  const other = ask === "move_up" ? at - 1 : at + 1;
-  if (at < 0 || other < 0 || other >= groups.length) return undefined;
-  const moving = groups[at]!;
-  const passed = groups[other]!;
-  const claimed = new Set(passed.scope);
-  const shared = moving.scope.filter((path) => claimed.has(path));
-  if (shared.length === 0) return undefined;
-  const first = at < other ? moving : passed;
-  return `Group ${moving.ordinal} and group ${passed.ordinal} both claim ${shared.join(", ")}. Group ${first.ordinal} writes it first as the plan stands, and this ask reverses that.`;
-}
+/** Removing a group: each of its tasks dropped, with one reason. */
+export const REMOVE_GROUP_LABEL = "Remove";
 
 /** The mark a task's row leads with. `TaskMark` prints no word beside it. */
 export function markOf(state: TaskView["state"]): TaskMarkState {
@@ -427,41 +334,38 @@ export function jobDroneOf(whole: JobDetail | null): { id: string; label: string
 /**
  * The inspector's own reading of one task. `undefined` where the plan holds no
  * task by that id, which is a sheet that should not be open.
+ *
+ * **`beside` stays ids here.** The sheet draws each as the graph's card, and
+ * the card's press is the caller's — `tab-plan.tsx` builds them.
  */
 export function taskSheetOf(
   taskId: string,
   groups: readonly GroupView[],
   cases: readonly CaseView[],
-  touchedBy: Map<string, string>,
-): Omit<PlanTaskSheetProps, "open"> | undefined {
+): (Omit<PlanTaskSheetProps, "open" | "beside"> & { beside: readonly string[] }) | undefined {
   const task = tasksOf(groups).find((one) => one.id === taskId);
   if (task === undefined) return undefined;
   const owed: PlanTaskTest[] = cases
     .filter((one) => one.tasks.includes(task.id) || task.cases.includes(one.id))
     .map(testOf);
-  const note = noteWithFlag(task.note, touchedBy.get(task.id));
+  // The flag the plan list carries as `touched later · T7`, back in the panel
+  // (owner, 30 Sep 2026) after it left with the old brief field.
+  const later = touchedByOf(groups).get(task.id);
   return {
     id: task.id,
     title: task.title,
     state: markOf(task.state),
-    doing: doingOfTask(task),
     scope: task.scope,
+    // Drawn while [case-waits-for-last-group] is open — whether the overlap is worth saying at all.
+    ...(later === undefined ? {} : { overlap: `${later} edited a file this task had already finished` }),
     tier: task.tier,
     model: task.model,
-    runBy: runBySaid(task),
     beside: task.concurrent_with,
     tests: owed,
-    ...(note === undefined ? {} : { note }),
+    ...(task.note === undefined ? {} : { note: task.note }),
     ...(task.expects === undefined ? {} : { expects: task.expects }),
     ...(task.shown === undefined ? {} : { shown: task.shown }),
     ...(task.reason === undefined ? {} : { reason: task.reason }),
     ...(task.failed_reason === undefined ? {} : { failedReason: task.failed_reason }),
   };
-}
-
-/** The flag, carried into the inspector's own brief rather than lost with the row. */
-function noteWithFlag(note: string | undefined, later: string | undefined): string | undefined {
-  if (later === undefined) return note;
-  const flag = `${later} edited a file this task had already finished.`;
-  return note === undefined ? flag : `${note} ${flag}`;
 }

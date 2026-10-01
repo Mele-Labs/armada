@@ -59,6 +59,12 @@ export type JobLead = {
   act?: string;
   /** Where that act goes, where it goes somewhere rather than answering here. */
   opens?: LeadOpens;
+  /**
+   * The lead found nothing to name and fell through to its quiet line. **With
+   * the read still out that line is a guess**, so the screen stands in for it;
+   * every other branch reachable with no read is proven by the Board's row.
+   */
+  quiet?: true;
 };
 
 /** The step a person is being asked about, or the one a Drone is on. */
@@ -464,5 +470,6 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
         ? "Nothing needs you"
         : `${step.label}${on === undefined ? "" : ` · ${on} in`}`,
     because: because(tasksSaid(whole), nextGateSaid(whole, step)),
+    ...(step === undefined ? { quiet: true as const } : {}),
   };
 }

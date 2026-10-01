@@ -108,6 +108,8 @@ export const Live: Story = {
     onToggle: () => {},
     bodyId: "chapter-live",
   },
+  // The loop is the claim; the test run otherwise emulates reduced motion.
+  parameters: { motion: "on" },
   play: async ({ canvasElement }) => {
     const loops = canvasElement
       .getAnimations({ subtree: true })

@@ -11,6 +11,7 @@ import "tailwindcss/preflight.css";
 import "@armada/tokens/base.css";
 import "./preview.css";
 import "../src/index.css";
+import { motionFor } from "./motion";
 
 // Dark is primary. A light story is the secondary case, never the default.
 const preview: Preview = {
@@ -27,6 +28,9 @@ const preview: Preview = {
   // viewport's top edge by it, and running past the viewport's bottom edge by
   // the same amount. #1192. The attribute this sets is `preview.css`'s own,
   // rather than a class Storybook already owns the name of.
+  // Motion back on for a story that says `motion: "on"`, under the test run's reduced motion.
+  // `./motion.ts`; nothing, in `storybook dev`, where the preference is the machine's own.
+  beforeEach: ({ parameters }) => motionFor(parameters),
   decorators: [
     (Story, context) => {
       const fullscreen = context.parameters.layout === "fullscreen";
