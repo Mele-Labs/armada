@@ -7,8 +7,8 @@
 //
 // **A number is the guide's own for good.** A guide added takes the next
 // number above the highest in use and is filed wherever its group wants it, so
-// the catalogue reads in group order and not in number order. Guide 11 is
-// retired and 11 is gone. `guides.test.ts` holds both rules.
+// the catalogue reads in group order and not in number order. Guides 8, 11
+// and 20 are retired and gone. `guides.test.ts` holds both rules.
 
 import type { Guide, GuideGroupId } from "./guide";
 import { GUIDE_COMPLETION } from "./001-when-is-a-job-done";
@@ -18,7 +18,6 @@ import { GUIDE_GROUP_ORDER } from "./004-why-does-only-one-group-run-at-a-time";
 import { GUIDE_GROUP_BOUNDARY } from "./005-when-do-checks-run";
 import { GUIDE_PLAN_ASKS } from "./006-how-do-i-change-the-plan";
 import { GUIDE_TIERS } from "./007-which-model-does-each-task-get";
-import { GUIDE_STEP_BAR } from "./008-what-does-the-progress-bar-show";
 import { GUIDE_ALWAYS_LOOKS } from "./009-what-do-the-tick-boxes-on-a-step-do";
 import { GUIDE_CRITERIA } from "./010-what-does-the-judge-check";
 import { GUIDE_PROCESSES } from "./012-what-are-these-processes";
@@ -29,7 +28,6 @@ import { GUIDE_BEFORE_A_RUN } from "./016-what-can-i-change-before-a-job-runs";
 import { GUIDE_PLAN } from "./017-what-is-a-plan";
 import { GUIDE_DRONE } from "./018-what-is-a-drone";
 import { GUIDE_WORKFLOW } from "./019-what-is-a-workflow";
-import { GUIDE_DRIFT } from "./020-what-if-a-step-changes-a-file-it-never-said-it-would";
 import { GUIDE_PULSE } from "./021-what-is-pulse";
 
 export * from "./guide";
@@ -41,7 +39,6 @@ export {
   GUIDE_GROUP_BOUNDARY,
   GUIDE_PLAN_ASKS,
   GUIDE_TIERS,
-  GUIDE_STEP_BAR,
   GUIDE_ALWAYS_LOOKS,
   GUIDE_CRITERIA,
   GUIDE_PROCESSES,
@@ -52,7 +49,6 @@ export {
   GUIDE_PLAN,
   GUIDE_DRONE,
   GUIDE_WORKFLOW,
-  GUIDE_DRIFT,
   GUIDE_PULSE,
 };
 
@@ -62,8 +58,11 @@ export {
  * 11 explained the second edge a group gets on the Workflow canvas. The plan's
  * graph moved to the Plan tab on 25 September 2026, so the guide had nothing
  * left to explain and was retired rather than rewritten.
+ *
+ * 8 explained the run tree's step bar, which went with the Overview reframe of
+ * 29 September 2026. 20 explained drift, and no screen draws `run.drift`.
  */
-export const RETIRED_GUIDE_NUMBERS: readonly number[] = [11];
+export const RETIRED_GUIDE_NUMBERS: readonly number[] = [8, 11, 20];
 
 export const GUIDES: readonly Guide[] = [
   GUIDE_JOB,
@@ -77,10 +76,8 @@ export const GUIDES: readonly Guide[] = [
   GUIDE_PLAN_ASKS,
   GUIDE_TIERS,
   GUIDE_DRONE,
-  GUIDE_STEP_BAR,
   GUIDE_ALWAYS_LOOKS,
   GUIDE_CRITERIA,
-  GUIDE_DRIFT,
   GUIDE_WORKFLOW,
   GUIDE_PULSE,
   GUIDE_PROCESSES,
