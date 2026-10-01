@@ -10,7 +10,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { Pencil, SquarePlus, Trash2, Undo2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
 import { Textarea } from "../../primitives/Textarea/Textarea";
@@ -30,6 +30,11 @@ import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
  * is `{ body: String }`: no colour, no size, nothing to pick. The pen is this
  * surface's alone and no other canvas inherits it — see `Ink` below.
  *
+ * **A paste aimed at the pad lands on it** (the owner, 1 Oct 2026): text is a
+ * new box holding it, and a screenshot is a picture — moved, joined, drawn
+ * over and removed like a box, and never resized. A paste into a box's own
+ * field is that field's, and makes nothing.
+ *
  * **Nothing here stages anything.** What goes out is a PNG Bridge writes; every
  * edit is reported to the caller, so the drawing survives a switch to Write.
  */
@@ -40,6 +45,8 @@ export type SketchPadProps = {
   lines: readonly SketchLine[];
   /** Everything drawn by hand, in the order it was drawn. */
   strokes: readonly SketchStroke[];
+  /** Everything pasted onto the pad as a picture. */
+  pictures: readonly SketchPicture[];
   /**
    * A box put down somewhere new, by pointer or by arrow key. Reported when it
    * lands, never while it travels.
@@ -47,11 +54,19 @@ export type SketchPadProps = {
   onMove: (id: string, at: { x: number; y: number }) => void;
   /** The words in one box, as they are typed. */
   onBody: (id: string, body: string) => void;
-  /** A box added, in the pad's own coordinates. **The caller mints the id.** */
-  onAdd: (at: { x: number; y: number }) => void;
+  /**
+   * A box added, in the pad's own coordinates, holding `body` — empty from Add
+   * a box, the text from a paste. **The caller mints the id.**
+   */
+  onAdd: (at: { x: number; y: number }, body: string) => void;
+  /**
+   * A picture pasted onto the pad, already scaled to sit on it, placed by its
+   * top-left corner. **The caller mints the id**, as it does for a box.
+   */
+  onPicture: (picture: SketchPictureLanding, at: { x: number; y: number }) => void;
   /** Whatever is selected, taken off. Never called with nothing selected. */
   onRemove: (ids: readonly string[]) => void;
-  /** Two boxes joined. Offered only while exactly two are selected. */
+  /** Two things joined, boxes or pictures. Offered only while exactly two are selected. */
   onJoin: (from: string, to: string) => void;
   /**
    * A line drawn by hand, in the pad's own coordinates. **The caller mints the
@@ -86,6 +101,15 @@ export type SketchBox = { id: string; x: number; y: number; body: string };
 /** One box joined to another, in the direction it was drawn. */
 export type SketchLine = { id: string; from: string; to: string };
 
+/**
+ * One picture pasted onto the pad: where it sits, the size it is drawn at, and
+ * a `blob:` address for its bytes — what the window's `img-src` draws.
+ */
+export type SketchPicture = SketchPictureLanding & { id: string; x: number; y: number };
+
+/** What a paste hands the caller, before it has an id or a place. */
+export type SketchPictureLanding = { src: string; width: number; height: number };
+
 /** The pen's own two, re-exported so a caller reads one module's props. */
 export type { SketchPoint, SketchStroke } from "./Ink";
 
@@ -106,21 +130,45 @@ const BOX_PLACEHOLDER = "A panel, a read, a step";
 /** Where the picture was made, before the node it was made from. */
 const MADE_IN_A_STUDIO = "From a Studio";
 
-type PadNodeData = { body: string; onBody: (body: string) => void; disabled: boolean };
-type PadNode = Node<PadNodeData, "sketch">;
+/** What a pasted picture is called, for somebody who cannot see it. */
+const A_PICTURE = "A pasted picture";
+
+/**
+ * How much of the pad a pasted picture may take, each way. **A screenshot is
+ * the whole screen**, which at the pad's own scale is several pads across; it
+ * is brought down to sit inside the part of the pad on show, with room around
+ * it for the boxes it is about. A smaller picture keeps its own size.
+ */
+const A_PICTURE_FILLS = 0.6;
+
+type BoxNode = Node<{ body: string; onBody: (body: string) => void; disabled: boolean }, "sketch">;
+type PictureNode = Node<SketchPictureLanding, "picture">;
+type PadNode = BoxNode | PictureNode;
 type PadEdge = Edge<Record<string, never>, "default">;
+
+/** A handle on each side, in and out, so a line meets whichever side faces the other end. */
+function Sides({ type }: { type: "source" | "target" }) {
+  const prefix = type === "source" ? "s" : "t";
+  return GRAPH_CANVAS_SIDES.map((side) => (
+    <Handle
+      key={`${prefix}-${side}`}
+      id={`${prefix}-${side}`}
+      type={type}
+      position={side}
+      isConnectable={false}
+    />
+  ));
+}
 
 /**
  * One box. The card is the grip and the well inside it is `nodrag`, so a drag
  * starting in the words selects text rather than moving the box out from under
  * the cursor.
  */
-function BoxView({ data, selected }: NodeProps<PadNode>) {
+function BoxView({ data, selected }: NodeProps<BoxNode>) {
   return (
     <>
-      {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
-      ))}
+      <Sides type="target" />
       <div className="armada-sketch-box" aria-current={selected || undefined}>
         {/* `nodrag` is read by walking up from whatever the pointer hit, so the
             wrapper carries it and the whole well is exempt. */}
@@ -135,14 +183,30 @@ function BoxView({ data, selected }: NodeProps<PadNode>) {
           />
         </div>
       </div>
-      {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
-      ))}
+      <Sides type="source" />
     </>
   );
 }
 
-const NODE_TYPES = { sketch: BoxView };
+/**
+ * One pasted picture, at the size it landed at. **The whole of it is the
+ * grip**, because there is nothing in it to type into; `draggable` is off so a
+ * drag moves the picture rather than starting the browser's own drag of an
+ * image.
+ */
+function PictureView({ data, selected }: NodeProps<PictureNode>) {
+  return (
+    <>
+      <Sides type="target" />
+      <div className="armada-sketch-picture" aria-current={selected || undefined}>
+        <img src={data.src} alt="" width={data.width} height={data.height} draggable={false} />
+      </div>
+      <Sides type="source" />
+    </>
+  );
+}
+
+const NODE_TYPES = { sketch: BoxView, picture: PictureView };
 const EDGE_TYPES = {};
 
 /**
@@ -174,13 +238,54 @@ const RAIL_LABEL = "What you can draw";
 const BOX_ACTS_LABEL = "What you can do with the boxes you picked";
 
 /**
+ * Where a new box lands: the middle of the pad on show, clear of what is
+ * already there. Add a box, a pasted line of text and a pasted picture all put
+ * one down here.
+ *
+ * **A picture is centred both ways and stepped clear of other pictures
+ * only.** Stepped clear of every box, a picture several boxes wide walked
+ * off the side of the pad on show, which is worse than the overlap.
+ *
+ * **A hook inside the board**, because it reads the viewport React Flow holds,
+ * and that only resolves inside the provider — `useStudioPlacement`'s own
+ * finding.
+ */
+function useMiddle() {
+  const flow = useReactFlow();
+  return useCallback(
+    (picture?: { width: number; height: number }) => {
+      const at = document.querySelector(".armada-sketch-pad__canvas")?.getBoundingClientRect();
+      if (at === undefined) return { x: 0, y: 0 };
+      const centre = flow.screenToFlowPosition({ x: at.x + at.width / 2, y: at.y + at.height / 2 });
+      // Half a box back, because a box is placed by its top-left corner. The
+      // width is read off the token it is drawn at rather than restated here.
+      const wide = Number.parseFloat(
+        getComputedStyle(document.body).getPropertyValue("--w-sketch-box"),
+      );
+      const half = Number.isFinite(wide) ? wide / 2 : 0;
+      const corner =
+        picture === undefined
+          ? { x: centre.x - half, y: centre.y }
+          : { x: centre.x - picture.width / 2, y: centre.y - picture.height / 2 };
+      // And off whatever is already there, so two boxes added in a row are two
+      // boxes rather than one with another hidden under it.
+      return clearOf(
+        flow
+          .getNodes()
+          .filter((node) => (node.type === "picture") === (picture !== undefined))
+          .map((node) => node.position),
+        corner,
+        Number.isFinite(wide) ? wide : 0,
+      );
+    },
+    [flow],
+  );
+}
+
+/**
  * The rail down the pad's leading edge — the pen, the line it takes back, and a
  * box added. **The acts on a box are not here**: they hover over the box, which
  * is `BoxActs` below.
- *
- * **A component rather than markup**, because where a new box lands is read off
- * the viewport React Flow holds, and that hook only resolves inside the board —
- * `useStudioPlacement`'s own finding.
  */
 function PadRail({
   onAdd,
@@ -190,32 +295,14 @@ function PadRail({
   onUndo,
   disabled,
 }: {
-  onAdd: (at: { x: number; y: number }) => void;
+  onAdd: (at: { x: number; y: number }, body: string) => void;
   pen: boolean;
   onPen: (pen: boolean) => void;
   drawn: boolean;
   onUndo: () => void;
   disabled: boolean;
 }) {
-  const flow = useReactFlow();
-  const middle = useCallback(() => {
-    const at = document.querySelector(".armada-sketch-pad__canvas")?.getBoundingClientRect();
-    if (at === undefined) return { x: 0, y: 0 };
-    const centre = flow.screenToFlowPosition({ x: at.x + at.width / 2, y: at.y + at.height / 2 });
-    // Half a box back, because a box is placed by its top-left corner. The
-    // width is read off the token it is drawn at rather than restated here.
-    const wide = Number.parseFloat(
-      getComputedStyle(document.body).getPropertyValue("--w-sketch-box"),
-    );
-    const half = Number.isFinite(wide) ? wide / 2 : 0;
-    // And off whatever is already there, so two boxes added in a row are two
-    // boxes rather than one with another hidden under it.
-    return clearOf(
-      flow.getNodes().map((node) => node.position),
-      { x: centre.x - half, y: centre.y },
-      Number.isFinite(wide) ? wide : 0,
-    );
-  }, [flow]);
+  const middle = useMiddle();
 
   const acts: GraphCanvasRailAct[] = [
     {
@@ -241,11 +328,81 @@ function PadRail({
       icon: SquarePlus,
       onPress: () => {
         onPen(false);
-        onAdd(middle());
+        onAdd(middle(), "");
       },
     },
   ];
   return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} disabled={disabled} />;
+}
+
+/** Whether a paste was aimed at somewhere a person types, which takes it as text. */
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]") !== null;
+}
+
+/**
+ * A paste aimed at the pad rather than at a field on it. **A picture wins over
+ * text**, because a copied screenshot often carries a name beside its bytes and
+ * the bytes are what was meant. Text lands at once as a box holding it, with
+ * no field opening first — the rule the owner set for a Studio's paste on
+ * 1 Oct 2026.
+ *
+ * **Listened for on the pad's frame**, which is outside the board; this sits
+ * inside it so where a paste lands is read off the same viewport Add a box
+ * reads.
+ */
+function Paste({
+  pad,
+  onAdd,
+  onPicture,
+}: {
+  pad: RefObject<HTMLDivElement | null>;
+  onAdd: (at: { x: number; y: number }, body: string) => void;
+  onPicture: (picture: SketchPictureLanding, at: { x: number; y: number }) => void;
+}) {
+  const flow = useReactFlow();
+  const middle = useMiddle();
+
+  useEffect(() => {
+    const frame = pad.current;
+    if (frame === null) return;
+
+    const land = async (file: File) => {
+      const bitmap = await createImageBitmap(file);
+      const { width, height } = bitmap;
+      bitmap.close();
+      const shown = frame.getBoundingClientRect();
+      const zoom = flow.getZoom();
+      const scale = Math.min(
+        1,
+        ((shown.width / zoom) * A_PICTURE_FILLS) / width,
+        ((shown.height / zoom) * A_PICTURE_FILLS) / height,
+      );
+      const size = { width: Math.round(width * scale), height: Math.round(height * scale) };
+      onPicture({ src: URL.createObjectURL(file), ...size }, middle(size));
+    };
+
+    const pasted = (event: ClipboardEvent) => {
+      if (isTyping(event.target) || event.clipboardData === null) return;
+      const picture = Array.from(event.clipboardData.items)
+        .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+        ?.getAsFile();
+      if (picture !== null && picture !== undefined) {
+        event.preventDefault();
+        void land(picture);
+        return;
+      }
+      const text = event.clipboardData.getData("text/plain").trim();
+      if (text === "") return;
+      event.preventDefault();
+      onAdd(middle(), text);
+    };
+
+    frame.addEventListener("paste", pasted);
+    return () => frame.removeEventListener("paste", pasted);
+  }, [pad, flow, middle, onAdd, onPicture]);
+
+  return null;
 }
 
 /**
@@ -289,7 +446,7 @@ function BoxActs({
 }
 
 /** One box as React Flow holds it, rebuilt from what the caller gave. */
-function toPadNode(box: SketchBox, props: SketchPadProps): PadNode {
+function toPadNode(box: SketchBox, props: SketchPadProps): BoxNode {
   return {
     id: box.id,
     position: { x: box.x, y: box.y },
@@ -303,6 +460,22 @@ function toPadNode(box: SketchBox, props: SketchPadProps): PadNode {
   };
 }
 
+/** One picture as React Flow holds it. */
+function toPictureNode(picture: SketchPicture): PictureNode {
+  return {
+    id: picture.id,
+    position: { x: picture.x, y: picture.y },
+    type: "picture",
+    data: { src: picture.src, width: picture.width, height: picture.height },
+    ariaLabel: A_PICTURE,
+  };
+}
+
+/** Everything the caller gave, as React Flow holds it — the boxes, then the pictures. */
+function given(props: SketchPadProps): PadNode[] {
+  return [...props.boxes.map((box) => toPadNode(box, props)), ...props.pictures.map(toPictureNode)];
+}
+
 /**
  * What the caller gave, over what React Flow keeps per box — where it sits,
  * what it measured, whether it is selected. The words are always the caller's,
@@ -312,36 +485,37 @@ function toPadNode(box: SketchBox, props: SketchPadProps): PadNode {
  * added after mount is never in the list React Flow measures and stays at
  * `visibility: hidden` forever. `StudioWhiteboard` folds the same way.
  */
-function merged(
-  given: readonly SketchBox[],
-  kept: readonly PadNode[],
-  props: SketchPadProps,
-): PadNode[] {
+function merged(kept: readonly PadNode[], props: SketchPadProps): PadNode[] {
   const byId = new Map(kept.map((node) => [node.id, node]));
-  return given.map((box) => {
-    const fresh = toPadNode(box, props);
-    const held = byId.get(box.id);
-    return held === undefined ? fresh : { ...held, data: fresh.data, ariaLabel: fresh.ariaLabel };
+  return given(props).map((fresh) => {
+    const held = byId.get(fresh.id);
+    return held === undefined
+      ? fresh
+      : ({ ...held, data: fresh.data, ariaLabel: fresh.ariaLabel } as PadNode);
   });
 }
 
 export function SketchPad(props: SketchPadProps) {
-  const { label, boxes, lines, strokes, onMove, onAdd, onRemove, onJoin } = props;
+  const { label, boxes, lines, strokes, pictures, onMove, onAdd, onPicture, onRemove, onJoin } =
+    props;
   const { onDraw, onUndo, said, onSaid, from } = props;
   const disabled = props.disabled ?? false;
   // Placement is the pad's to hold between moves, the way the whiteboard holds
   // it; the caller hears each one through `onMove` and keeps it in the draft.
-  const [kept, setKept] = useState<PadNode[]>(() => boxes.map((box) => toPadNode(box, props)));
+  const [kept, setKept] = useState<PadNode[]>(() => given(props));
   const [picked, setPicked] = useState<readonly string[]>([]);
   // Which of the two the pointer does. A mode the pad holds and never reports:
   // it dies with the surface, and nothing outside it is a picture.
   const [pen, setPen] = useState(false);
-  const nodes = merged(boxes, kept, props);
+  const nodes = merged(kept, props);
   const drawing = pen && !disabled;
+  // The frame a paste is listened for on. It takes focus from a press on the
+  // pane, which is otherwise not focusable, so ⌘V after a click lands here.
+  const frame = useRef<HTMLDivElement>(null);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<PadNode>[]) => {
-      setKept((current) => applyNodeChanges(changes, merged(boxes, current, props)));
+      setKept((current) => applyNodeChanges(changes, merged(current, props)));
       // `dragging: false` is a box put down: a drag ending, or an arrow key.
       for (const change of changes) {
         if (change.type === "position" && change.dragging === false && change.position) {
@@ -349,13 +523,23 @@ export function SketchPad(props: SketchPadProps) {
         }
       }
     },
-    [boxes, props, onMove],
+    [props, onMove],
   );
 
   // Hung off the boxes rather than off `nodes`, which is a fresh array every
   // render — the sides an edge leaves from are decided by where the two sit.
+  // A picture's size is known, so its centre is too.
   const edges = useMemo<PadEdge[]>(() => {
-    const placed = new Map(boxes.map((box) => [box.id, { position: { x: box.x, y: box.y } }]));
+    const placed = new Map<string, { position: { x: number; y: number }; measured?: { width: number; height: number } }>([
+      ...boxes.map((box) => [box.id, { position: { x: box.x, y: box.y } }] as const),
+      ...pictures.map(
+        (one) =>
+          [
+            one.id,
+            { position: { x: one.x, y: one.y }, measured: { width: one.width, height: one.height } },
+          ] as const,
+      ),
+    ]);
     return lines.map((line) => ({
       id: line.id,
       source: line.from,
@@ -364,11 +548,11 @@ export function SketchPad(props: SketchPadProps) {
       ariaLabel: `A line from ${line.from} to ${line.to}`,
       markerEnd: { type: MarkerType.ArrowClosed },
     }));
-  }, [lines, boxes]);
+  }, [lines, boxes, pictures]);
 
   return (
     <div className="armada-sketch-pad">
-      <div className="armada-sketch-pad__canvas">
+      <div className="armada-sketch-pad__canvas" ref={frame} tabIndex={-1}>
         <GraphCanvas<PadNode, PadEdge>
           surface="armada-sketch-pad__graph"
           label={label}
@@ -393,6 +577,7 @@ export function SketchPad(props: SketchPadProps) {
           }
         >
           <Ink strokes={strokes} pen={drawing} onDraw={onDraw} />
+          {disabled ? null : <Paste pad={frame} onAdd={onAdd} onPicture={onPicture} />}
           {/* Not while the pen is down: the layer that catches a stroke covers
               the whole canvas, so a bar drawn under it is one nothing can
               press. Every rail act puts the pen away, which is the way back. */}
@@ -402,7 +587,7 @@ export function SketchPad(props: SketchPadProps) {
         </GraphCanvas>
         {/* A blank canvas under the controls says nothing about what it is for,
             and this is the one moment with no picture to read instead. */}
-        {boxes.length > 0 || strokes.length > 0 ? null : (
+        {boxes.length > 0 || strokes.length > 0 || pictures.length > 0 ? null : (
           <p className="armada-sketch-pad__empty" role="note">
             Nothing is drawn yet. Add a box and write what it is, join the boxes that feed each
             other, or draw on the pad by hand.

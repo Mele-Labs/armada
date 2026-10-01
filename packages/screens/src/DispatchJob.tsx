@@ -38,6 +38,7 @@ import type {
   RequestMode,
   SketchBox,
   SketchLine,
+  SketchPicture,
   SketchStroke,
 } from "@armada/components";
 import type { LeftOutWorkflow, StagedAttachment, WorkflowSummary } from "@armada/protocol";
@@ -49,9 +50,11 @@ import type { LandingRule } from "./draft/landing";
 import {
   drawingOf,
   isDrawn,
+  nextPictureId,
   nextShapeId,
   withBody,
   withJoin,
+  withPicture,
   withPlace,
   withShape,
   withStroke,
@@ -349,12 +352,16 @@ export function DispatchJob({
           boxes={drawing.shapes.map(asBox)}
           lines={drawing.joins.map(asLine)}
           strokes={drawing.strokes.map(asStroke)}
+          pictures={drawing.pictures.map(asPicture)}
           said={said}
           onSaid={setSaid}
           {...(sketch?.produced_by === undefined ? {} : { from: sketch.produced_by })}
-          onAdd={(at) =>
+          onAdd={(at, body) =>
+            setDrawing((one) => withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body }))
+          }
+          onPicture={(picture, at) =>
             setDrawing((one) =>
-              withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body: "" }),
+              withPicture(one, { id: nextPictureId(one), x: at.x, y: at.y, ...picture }),
             )
           }
           onBody={(id, body) => setDrawing((one) => withBody(one, id, body))}
@@ -435,7 +442,8 @@ function asDrafted(chosen: DispatchSettingsValue): DispatchSettingsView {
 }
 
 /**
- * The draft's boxes, joins and strokes as the pad holds them, and nothing else.
+ * The draft's boxes, joins, strokes and pictures as the pad holds them, and
+ * nothing else.
  *
  * **Two spellings of one shape, mapped in one function each** — the same seam
  * `asChosen` is, and for the same reason: the draft is wire-shaped because
@@ -451,4 +459,9 @@ function asLine(join: Drawing["joins"][number]): SketchLine {
 
 function asStroke(stroke: Drawing["strokes"][number]): SketchStroke {
   return { id: stroke.id, points: stroke.points };
+}
+
+function asPicture(picture: Drawing["pictures"][number]): SketchPicture {
+  const { id, x, y, width, height, src } = picture;
+  return { id, x, y, width, height, src };
 }
