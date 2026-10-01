@@ -451,6 +451,11 @@ pub const SERVED: &[Route] = &[
         path: "/jobs/:job_id/resources",
     },
     Route {
+        operation: "list_job_drones",
+        method: "GET",
+        path: "/jobs/:job_id/drones",
+    },
+    Route {
         operation: "examine_job",
         method: "POST",
         path: "/jobs/:job_id/examine",

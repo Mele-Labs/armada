@@ -224,6 +224,21 @@ pub(crate) async fn get_diff<D: Queries>(
     }
 }
 
+/// Every Drone one Job has had, running or not, with what each spent.
+///
+/// **Its own route rather than a field on `get_job`**, which is re-read on
+/// every event naming the Job; this one reads the Job's whole history and a
+/// transcript per running Drone.
+pub(crate) async fn list_job_drones<D: Queries>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+) -> Response {
+    match served.daemon().list_job_drones(job.id()).await {
+        Ok(drones) => answer(StatusCode::OK, &drones, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What this Job holds on this machine — its processes, what each is burning,
 /// the disk its worktree has taken, and when its own log was last written.
 ///

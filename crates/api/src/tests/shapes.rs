@@ -15,12 +15,13 @@
 
 use ipc::{
     Actor, Alert, AlertList, Asked, CallArguments, CheckOutput, CommandExplained, DroneDetail,
-    DroneId, DroneSummary, EvidenceType, Finding, FleetCapacity, FleetHealth, FleetUsage, Held,
-    HelmActionAuthority, Instant, JobDetail, JobDiff, JobEvidence, JobExamined, JobHistory, JobId,
-    JobProcess, JobRemarks, JobResources, JobStatus, JobSummary, KeptFrame, Look, ManifestConfig,
-    ManifestId, ManifestSummary, ModelChoices, Movement, NotedField, Origin, Overspending, Probe,
-    ReclaimedBranch, ReclaimedWorktree, Recorded, RunId, StatusMoved, StepId, Submitted, Unprobed,
-    Urgency, Work, WorkflowId, WorkflowSummary, WorktreeReclaimed,
+    DroneId, DroneState, DroneSummary, EvidenceType, Finding, FleetCapacity, FleetHealth,
+    FleetUsage, Held, HelmActionAuthority, Instant, JobDetail, JobDiff, JobDrone, JobDrones,
+    JobEvidence, JobExamined, JobHistory, JobId, JobProcess, JobRemarks, JobResources, JobStatus,
+    JobSummary, KeptFrame, Look, ManifestConfig, ManifestId, ManifestSummary, ModelChoices,
+    Movement, NotedField, Origin, Overspending, Probe, ReclaimedBranch, ReclaimedWorktree,
+    Recorded, RunId, StatusMoved, StepId, Submitted, Unprobed, Urgency, Work, WorkflowId,
+    WorkflowSummary, WorktreeReclaimed,
 };
 
 mod scanning;
@@ -490,6 +491,20 @@ pub fn resources(job_id: JobId) -> JobResources {
             measured_at: Some(Instant::carried("2026-09-04T04:06:41.120Z")),
         }),
         wrote_last_at: Some(Instant::carried("2026-09-04T04:06:12.001Z")),
+        logs: vec![
+            ipc::LogFile {
+                kind: ipc::LogKind::Job,
+                path: ".armada/logs/01JOB.jsonl".to_string(),
+                bytes: Some(18_204),
+                being_written: Some(true),
+            },
+            ipc::LogFile {
+                kind: ipc::LogKind::Transcript,
+                path: ".armada/transcripts/01JOB/01DRONE.jsonl".to_string(),
+                bytes: Some(912_377),
+                being_written: Some(true),
+            },
+        ],
     }
 }
 
@@ -757,6 +772,45 @@ pub fn drone() -> DroneSummary {
         worktree: Some("/worktrees/1-a-job".to_string()),
         pid: 4242,
         since: Some(Instant::carried("2026-09-11T09:00:00Z")),
+    }
+}
+
+/// Every Drone one Job has had, **in the three shapes Fleet sends**: one a
+/// person killed, carrying its row; one that finished, carrying its row; and
+/// one running, carrying what its transcript's terminating lines add up to.
+/// The running one is [`THE_DRONE`], so this and [`drone`] agree.
+pub fn job_drones(job_id: JobId) -> JobDrones {
+    JobDrones {
+        job_id,
+        drones: vec![
+            JobDrone {
+                drone_id: DroneId::carried("01DRONEKILLED"),
+                step_id: StepId::carried("implement"),
+                state: DroneState::Killed,
+                since: Instant::carried("2026-09-11T08:00:00Z"),
+                ended_at: Some(Instant::carried("2026-09-11T08:20:00Z")),
+                turns: Some(7),
+                cost_micros: Some(146_473),
+            },
+            JobDrone {
+                drone_id: DroneId::carried("01DRONEDONE"),
+                step_id: StepId::carried("implement"),
+                state: DroneState::Done,
+                since: Instant::carried("2026-09-11T08:21:00Z"),
+                ended_at: Some(Instant::carried("2026-09-11T08:55:00Z")),
+                turns: Some(12),
+                cost_micros: Some(388_120),
+            },
+            JobDrone {
+                drone_id: DroneId::carried(THE_DRONE),
+                step_id: StepId::carried("review"),
+                state: DroneState::Running,
+                since: Instant::carried("2026-09-11T09:00:00Z"),
+                ended_at: None,
+                turns: Some(3),
+                cost_micros: Some(41_002),
+            },
+        ],
     }
 }
 

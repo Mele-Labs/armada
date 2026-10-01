@@ -29,7 +29,7 @@ use api::{FramePart, FrameSpan, Observed, ObservedCheckoutRun, Queries, Refusal,
 use core_model::JobReference;
 use ipc::{
     AlertList, CallArguments, DroneDetail, DroneId, DroneList, FleetCapacity, FleetHealth,
-    FleetUsage, JobDetail, JobDiff, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
+    FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
     JobResources, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
     ManifestSummary, ModelChoices, Work, WorkflowSummary, WorktreesHeld,
 };
@@ -163,6 +163,10 @@ where
 
     async fn get_drone(&self, drone_id: DroneId) -> Result<DroneDetail, Refusal> {
         self.drone_detail(drone_id).await
+    }
+
+    async fn list_job_drones(&self, job_id: JobId) -> Result<JobDrones, Refusal> {
+        self.job_drones(job_id).await
     }
 
     /// The probes Fleet can run on itself — `crate::probing`.

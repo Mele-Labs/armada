@@ -38,7 +38,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{Environment, Model, ModelClient};
-use verification::{NothingToJudge, Unreadable};
+use verification::{NothingToJudge, Standing, Unreadable};
 
 use crate::asked::Asked;
 
@@ -91,6 +91,23 @@ pub struct Judging {
     /// against what it was answering. Bound to one Job for `marking`'s reason —
     /// the path is a function of the Job.
     pub asked: Asked,
+    /// What the repository requires of every change, which every look's brief
+    /// carries. Read from the repository's checkout, never a Job's worktree.
+    pub standing: Standing,
+}
+
+/// The file `armada.yml`'s `standing_rules` names, read from `root`.
+///
+/// `root` is the repository's own checkout and never a Job's worktree, so a
+/// Drone cannot rewrite what its Judge is told the repository requires.
+pub(crate) fn standing(manifest: &config::Manifest, root: &str) -> Standing {
+    let Some(path) = manifest.standing_rules() else {
+        return Standing::unstated();
+    };
+    match std::fs::read_to_string(std::path::Path::new(root).join(path)) {
+        Ok(text) => Standing::read(path, &text),
+        Err(_) => Standing::unreadable(path),
+    }
 }
 
 /// Which of Fleet's five Judge calls is out.

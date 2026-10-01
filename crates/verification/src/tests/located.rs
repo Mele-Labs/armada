@@ -57,6 +57,7 @@ fn located(cited: &str) -> Option<CitedAt> {
         GamingPattern::AssertionWeakened,
         &patch(),
         None::<Baseline<'_>>,
+        &crate::Standing::unstated(),
     )
     .expect("a judged pattern has a question");
     brief

@@ -77,6 +77,7 @@ pub mod drafting;
 mod drifting;
 pub mod drone;
 mod drone_moves;
+mod drones_had;
 pub mod dry_run;
 /// The Manifest file itself, read and written — the half of Journey 9's
 /// *Editing* a person acts with. Save stops at the bytes.

@@ -2,7 +2,16 @@
 // test needs. Moved here from the `Screens/Job detail` stories that built
 // them — #1224.
 
-import type { ClaimedBreakage, DeclaredJudge, JobSummary, Refusal, StepDetail } from "@armada/protocol";
+import type {
+  ClaimedBreakage,
+  DeclaredCheck,
+  DeclaredJudge,
+  JobSummary,
+  PlanTask,
+  Refusal,
+  StepDetail,
+  WorkflowSummary,
+} from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 import { escalatedEvidenceSuspect, review } from "@armada/screens/src/fixtures/build/index";
 import { awaitingApproval, running } from "@armada/screens/src/fixtures/build/index";
@@ -305,22 +314,23 @@ export function refactorAtApproval(): JobFixture {
     model: "sonnet",
     current_step_id: "plan",
   };
+  const steps: StepDetail[] = [
+    {
+      ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
+      checks: [{ kind: "plan_recorded" }],
+      judge_checks: [{ criteria: 1, gaming_check: false }],
+    },
+    {
+      ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
+      judge_checks: [{ criteria: 4, gaming_check: true }],
+    },
+    { ...step("handoff", "Review the change", 2, "human_always"), delivers: true },
+  ];
   const detail = {
     ...base.watched.detail,
     job,
-    steps: [
-      {
-        ...step("plan", "Scope the refactor", 0, "auto_if_judge_passes"),
-        checks: [{ kind: "plan_recorded" }],
-        judge_checks: [{ criteria: 1, gaming_check: false }],
-      },
-      {
-        ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
-        checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
-        judge_checks: [{ criteria: 4, gaming_check: true }],
-      },
-      { ...step("handoff", "Review the change", 2, "human_always"), delivers: true },
-    ],
+    steps,
     acceptance_criteria: [
       { criterion_id: "c1", text: "Guide 8 is removed from the catalogue", source: "judge" },
       {
@@ -330,7 +340,155 @@ export function refactorAtApproval(): JobFixture {
       },
     ],
   };
-  return { ...base, job, watched: watchedRead(detail) };
+  // `refactor` as `GET /workflows` lists it since 21.1, with the line its
+  // definition declares — and the same id under another repository, whose
+  // line is not this Job's to read.
+  const refactor = (manifest_id: string, for_requests: string): WorkflowSummary => ({
+    id: "refactor",
+    name: "refactor",
+    version: 1,
+    manifest_id,
+    steps: steps.map((one) => ({
+      step_id: one.step_id,
+      label: one.label,
+      checks: one.checks ?? [],
+      judge_checks: one.judge_checks ?? [],
+      advance_gate: one.advance_gate ?? "human_always",
+      delivers: one.delivers ?? false,
+    })),
+    for_requests,
+  });
+  return {
+    ...base,
+    job,
+    watched: watchedRead(detail),
+    workflows: [
+      ...base.workflows,
+      refactor(job.owner_manifest_id, REFACTOR_FOR_REQUESTS),
+      refactor("elsewhere", "Another repository's refactor, for another kind of request."),
+    ],
+  };
+}
+
+/** `.armada/workflows/refactor.json`'s `for_requests`, as that file declares it. */
+export const REFACTOR_FOR_REQUESTS =
+  "Reorganising code without changing what it does: moving, renaming, splitting or tidying, " +
+  "where nothing anyone can see or use changes -- no screen, no output, no behaviour. A " +
+  "request that adds, removes or changes anything a person sees or can do, however small, is " +
+  "a feature and not a refactor.";
+
+/**
+ * `implement`'s Checks, as `GET /jobs/2` served them on 1 Oct 2026, commands
+ * left out. So is `hooks_test`, whose one path names a vendor's directory and
+ * which reaches none of these tasks.
+ */
+const JOB_2_CHECKS: DeclaredCheck[] = [
+  { kind: "every_manifest_check" },
+  { kind: "manifest_check", name: "build", when: ["crates/**", "xtask/**", "Cargo.toml", "Cargo.lock", ".cargo/**", "protocol-version.toml", ".armada/workflows/**", "armada.yml"] },
+  { kind: "manifest_check", name: "test", when: ["crates/**", "xtask/**", "apps/**", "packages/**", "Cargo.toml", "Cargo.lock", ".cargo/**", "protocol-version.toml", ".armada/workflows/**", "armada.yml"] },
+  { kind: "manifest_check", name: "acceptance", when: ["crates/**", "Cargo.toml", "Cargo.lock"] },
+  { kind: "manifest_check", name: "typecheck", when: ["apps/**", "packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"] },
+  { kind: "manifest_check", name: "bridge_build", when: ["apps/**", "packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"] },
+  { kind: "manifest_check", name: "storybook", when: ["packages/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], runs_at: "gate" },
+  { kind: "manifest_check", name: "desktop_test", when: ["apps/**", "packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"] },
+  { kind: "manifest_check", name: "screens_test", when: ["packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"] },
+  { kind: "manifest_check", name: "components_test", when: ["packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], runs_at: "gate" },
+  { kind: "manifest_check", name: "scripts_test", when: ["scripts/**", "crates/armada/src/land/**", "crates/adapter-traits/src/delivery.rs", "crates/adapters/src/delivery.rs", "crates/adapters/src/landing.rs", "armada.yml"] },
+  { kind: "manifest_check", name: "format", when: ["**/*.rs", "Cargo.toml", "rustfmt.toml", "armada.yml"] },
+  { kind: "diff_nonempty" },
+];
+
+/**
+ * A `feature` Job on its plan step, **in the shape `GET /jobs/2` served for the
+ * owner's Job 2 on 1 Oct 2026**: the plan recorded at `plan`, four tasks every
+ * one `open`, no groups, and the Job's one Drone on the step — `assigned_drone`
+ * on the row, named by no task. `tasks` moves a task on, as a later read would.
+ */
+export function featureOnItsPlan(tasks: Partial<Record<string, PlanTask["state"]>> = {}): JobFixture {
+  const base = recorded("done-worktree-given-back");
+  const created = "2026-10-01T20:22:43.311Z";
+  const at = "2026-10-01T20:23:51.575Z";
+  const step = (step_id: string, label: string, ordinal: number, checks: DeclaredCheck[]): StepDetail => ({
+    step_id,
+    label,
+    ordinal,
+    state: "not_started",
+    checks,
+    check_runs: [],
+    judge_checks: [{ criteria: 1, gaming_check: false }],
+    advance_gate: "auto_if_judge_passes",
+    delivers: false,
+    overridden: false,
+    judged: [],
+    flagged: [],
+    attempts: [],
+    verdicts: [],
+    entered_at: created,
+    updated_at: created,
+  });
+  const plan: StepDetail = {
+    ...step("plan", "Plan the change", 0, [{ kind: "plan_recorded" }]),
+    state: "running",
+    attempts: [{ attempt: 1, outcome: "running", started_at: at }],
+    entered_at: at,
+    updated_at: at,
+  };
+  if (base.watched.state !== "read") return base;
+  const task = (id: string, title: string, scope: string[]): PlanTask => ({
+    id,
+    title,
+    scope,
+    state: tasks[id] ?? "open",
+  });
+  const planned = [
+    task("T1", "Remove guides 8 and 20 from the catalogue and retire their numbers", [
+      "packages/components/src/guides/index.ts",
+      "packages/components/src/guides/008-what-does-the-progress-bar-show.ts",
+      "packages/components/src/guides/020-what-if-a-step-changes-a-file-it-never-said-it-would.ts",
+    ]),
+    task("T2", "Remove what only guide 8 used: the InsideAJob mark and the step-bar guide figure", [
+      "packages/screens/src/InsideAJob.tsx",
+      "packages/components/src/guides/guide.ts",
+      "packages/components/src/compositions/GuideFigure/GuideFigure.tsx",
+      "packages/components/src/compositions/GuideFigure/GuideFigure.stories.tsx",
+    ]),
+    task("T3", "Add the xtask rule that every guide's piece is drawn somewhere", [
+      "xtask/src/rules_guides.rs",
+      "xtask/src/main.rs",
+    ]),
+    task("T4", "Document the rule and fix prose that pointed at the retired guides", [
+      "docs/contracts/design-system.md",
+      "docs/INDEX.md",
+      "docs/concepts",
+    ]),
+  ];
+  const count = (state: string) => planned.filter((one) => one.state === state).length;
+  const job = {
+    ...base.job,
+    title: "Retire guides 8 and 20, add validation that every guide's piece is drawn somewhere",
+    workflow_id: "feature",
+    status: "running",
+    current_step_id: "plan",
+    assigned_drone: "01M3WJ6FGZ003DCX123T7W6YP1",
+    tasks: { done: count("done"), working: count("working"), open: count("open"), dropped: count("dropped") },
+  };
+  const detail = {
+    ...base.watched.detail,
+    job,
+    steps: [
+      plan,
+      step("implement", "Implement", 1, JOB_2_CHECKS),
+      step("tests", "Write tests", 2, JOB_2_CHECKS),
+      { ...step("handoff", "Review the change", 3, []), advance_gate: "human_always", delivers: true },
+    ],
+    work_plan: {
+      approach: "Retire guides 8 and 20 the way guide 11 was retired, then add the rule that every guide's piece is drawn.",
+      recorded_by: { by: "step" as const, step_id: "plan", attempt: 1 },
+      recorded_at: "2026-10-01T20:24:44.953Z",
+      tasks: planned,
+    },
+  };
+  return { ...base, job, watched: { ...base.watched, detail } };
 }
 
 /** The command a Job waits on, as Helm's dock lists it. */

@@ -66,3 +66,61 @@ pub struct DroneDetail {
     /// started from a tail would be reading the window rather than the Drone.
     pub older: u64,
 }
+
+/// Where one of a Job's Drones is, as `list_job_drones` reads it off the Job's
+/// history.
+///
+/// **`killed` and `failed` are two answers, because they want two responses.**
+/// `killed` is a person ending it: the step it was on stopped under
+/// `drone_killed`, or the Job it worked was killed, as it left. `failed` is a
+/// Drone that left without its step passing, on its own. `done` is one whose
+/// step passed its advance gate, or reached a person's gate, while it was the
+/// one on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DroneState {
+    Running,
+    Done,
+    Failed,
+    Killed,
+}
+
+/// One Drone a Job has had, running or not.
+///
+/// **Off the record, never the roster**, which is [`DroneSummary`]'s source
+/// and the reason that list loses a Drone the moment it exits.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobDrone {
+    pub drone_id: DroneId,
+    /// The step it was put on. A slot does not outlive a step boundary, so a
+    /// Drone has one.
+    pub step_id: StepId,
+    pub state: DroneState,
+    /// When it was spawned onto the step, off `drone_spawned`.
+    pub since: Instant,
+    /// When it left, off `drone_exited`. **Absent while it runs.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<Instant>,
+    /// How many turns it has taken, summed across every terminating line of
+    /// its session. **Absent where none has been seen**: a running Drone in its
+    /// first invocation has taken turns the harness has not counted yet, and
+    /// nought would say otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turns: Option<u64>,
+    /// What it has cost, in millionths of a dollar, as of its last terminating
+    /// line, which carries the session's running total. **Absent is a Drone
+    /// that never named a price**, which is not a price of nothing.
+    ///
+    /// Once it has stopped this is the row the Job's spend is summed from.
+    /// While it runs it is read off its transcript, so it trails the Drone by
+    /// whatever it has done since that line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_micros: Option<u64>,
+}
+
+/// Every Drone a Job has had, in the order they were spawned.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobDrones {
+    pub job_id: JobId,
+    pub drones: Vec<JobDrone>,
+}

@@ -1961,6 +1961,40 @@ workflow, which `core-model` holds without the line, so Bridge reads it off `GET
 Job's `workflow_id` and `manifest_id`. The list is the catalogue as it stands now, not the
 definition the Job froze; a line edited since dispatch reads as the new one.
 
+## Protocol 21.2: a Job's log files say what they weigh and whether they are being written
+
+One optional field added to `JobResources`, `logs` — every log file the Job has: its own log,
+each Drone's transcript, and each kept Judge brief, as a `LogFile` carrying `kind` (`job`,
+`transcript`, `brief`), `path` relative to `records_root`, `bytes` and `being_written`. Additive
+by 18.4's reading: a Bridge built before this ignores it, and a Fleet built before this sends
+none, which reads the same as a Job with no file yet.
+
+**`being_written` is an open file with write access, never an mtime** (#1648). Fleet asks `lsof`
+about the Job's process tree and about Fleet's own pid, because Fleet is the writer: it appends a
+Drone's transcript and the Job's log from its own process for as long as that Drone's stdout is
+open. Asking the tree alone would read `false` on every live Drone.
+
+**Absent is not zero, and not `false`.** `bytes` is left out for a file Fleet listed and could
+not `stat`; `being_written` is left out where `lsof` did not answer. There is no owner on a row:
+every one is the Job's own until a sub job exists to name.
+
+## Protocol 21.3: a Job's Drones, the exited ones too
+
+One route, `GET /jobs/:job_id/drones` (`list_job_drones`), answering `JobDrones`: every Drone the
+Job has had, each with its step, its state (`running`, `done`, `failed`, `killed`), when it was
+spawned and when it left, and its turns and cost. Additive: a new DTO on a new route.
+
+**`GET /drones` is the roster and loses a Drone the moment it exits.** This reads the Job's own
+history and the per-Drone spend rows instead, so a stopped Drone stays. The state rule, and why
+`killed` is told apart from `failed`, is the operation's note in `crates/ipc/operations.toml`.
+
+**`ended_at`, `turns` and `cost_micros` are left out where there is nothing**, never nought. A
+running Drone has no `ended_at`, and one still in its first invocation has no terminating line yet,
+so no turns and no cost. A running Drone's figures come off its transcript and trail it; a stopped
+one's are the row the Job's spend is summed from.
+
+There is no task on a row. Fleet runs one Drone per step and nothing joins a Drone to a plan task.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

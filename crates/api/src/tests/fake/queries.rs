@@ -10,7 +10,7 @@
 
 use ipc::{
     AlertList, CallArguments, CheckOutput, CommandExplained, DroneDetail, DroneId, DroneList,
-    FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobEvidence,
+    FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence,
     JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame, ManifestConfig, ManifestDrift,
     ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices, WorkflowSummary,
     WorktreesHeld,
@@ -418,6 +418,16 @@ impl Queries for FakeDaemon {
     /// **The refusal is what matters here too**: an id naming nothing is a 404
     /// rather than a panel of empty lists, which is the one thing a client
     /// cannot tell apart on its own.
+    /// **A Job that names nothing is a 404**, never an empty list: a Job that
+    /// has never run is a real answer with no Drones in it.
+    async fn list_job_drones(&self, job_id: JobId) -> Result<JobDrones, Refusal> {
+        let jobs = self.jobs.lock().expect("not poisoned");
+        if !jobs.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        Ok(shapes::job_drones(job_id))
+    }
+
     async fn get_job_resources(&self, job_id: JobId) -> Result<JobResources, Refusal> {
         let jobs = self.jobs.lock().expect("not poisoned");
         if !jobs.iter().any(|job| job.id == job_id) {
