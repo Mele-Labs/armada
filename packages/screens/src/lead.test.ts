@@ -207,10 +207,12 @@ describe("the three states that were saying the wrong thing", () => {
     expect(lead.act).toBeUndefined();
   });
 
-  it("awaiting_approval opens the proposal, and is told apart by having no branch", () => {
+  it("awaiting_approval offers the approval itself, and is told apart by having no branch", () => {
     const lead = leadFor(named("awaiting_approval"));
     expect(lead.said).toBe("Waiting for your approval");
-    expect(lead.opens).toEqual({ proposal: true });
+    expect(lead.act).toBe("Approve dispatch");
+    expect(lead.approves).toBe(true);
+    expect(lead.opens).toBeUndefined();
     // And a Job that has run is never read as one waiting to be dispatched,
     // however few of its steps have started.
     const peer = arcMoment("dispatchTyping")?.fixtures.find(

@@ -99,9 +99,6 @@ function OneJob(props: JobDetailProps) {
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
-  // Whether the lead's approval act asked for the proposal. Cleared by the
-  // strip, on `opensStep`'s terms — the proposal is Overview's, not a tab.
-  const [opensProposal, setOpensProposal] = useState(false);
   const [opensDrone, setOpensDrone] = useState<string | undefined>(undefined);
   const [opensRow, setOpensRow] = useState<string | undefined>(undefined);
   // The way back across a jump between destinations — `trail.ts`.
@@ -111,7 +108,6 @@ function OneJob(props: JobDetailProps) {
     setOpensRow(to.tab === "record" ? to.open?.id : undefined);
     setOpensStep(to.tab === "workflow" ? to.open?.id : undefined);
     setOpensCheck(undefined);
-    setOpensProposal(false);
     setTab(to.tab);
   });
   const toTab = (next: DetailTab) => {
@@ -121,7 +117,6 @@ function OneJob(props: JobDetailProps) {
     setOpensTask(undefined);
     setOpensDrone(undefined);
     setOpensCheck(undefined);
-    setOpensProposal(false);
     setTab(next);
   };
 
@@ -281,12 +276,12 @@ function OneJob(props: JobDetailProps) {
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
       <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
-      {tab === "overview" && edits !== undefined && (edits.proposal.approved_at === undefined || opensProposal) ? (
+      {tab === "overview" && edits !== undefined && edits.proposal.approved_at === undefined ? (
         // A Job at its approval gate: the proposal is what Overview has to
         // draw, because no step has run and approving it is the one thing
         // waiting. **And no wave**: a Job not approved has dispatched nothing.
         //
-        // **Only until it is approved, or until the lead asks for it.** After
+        // **Only until it is approved.** After
         // the press the frozen values are a reading that never changes and
         // Settings holds them — the owner, 29 Sep 2026; a Job sent back to the
         // gate is read here again because that is where it is answered.
@@ -331,10 +326,8 @@ function OneJob(props: JobDetailProps) {
             setOpensCheck(at);
             setTab("record");
           }}
-          // The lead's approval act. **Handed down only where there is a
-          // proposal to draw**, so a Job at the gate with no proposal read
-          // offers no button rather than one that reaches nothing.
-          {...(edits === undefined ? {} : { onOpenProposal: () => setOpensProposal(true) })}
+          // The lead's approval act: the header's own control, drawn twice.
+          headerActs={heading.actions}
           {...(opensTask === undefined ? {} : { opensTask })}
           onOpenDrone={(droneId) => {
             trail.push("overview");
