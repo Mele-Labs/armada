@@ -677,12 +677,8 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await asked("Write up").click();
   await expect.element(node(/^Issue draft: Counts go stale after what they count changes/)).toBeVisible();
 
-  // Edited before it is sent: what is dispatched is what the person left.
-  // **Fitted first, as a person would.** The draft lands hanging off the
-  // board's right edge, so the bar centred over it put "Edit draft" past the
-  // frame — pressed only when Playwright's scroll beat React Flow's scroll
-  // back, which lost on the merge line on 1 Oct 2026.
-  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  // Edited before it is sent: what is dispatched is what the person left. The
+  // draft lands hanging off the board's right edge, and picking it pans it in.
   await pick(/^Issue draft: Counts go stale after what they count changes/);
   await act("Edit draft");
   await page.getByRole("textbox", { name: "Body" }).fill("Both counts are read off a row that is stale.");
