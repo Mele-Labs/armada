@@ -229,6 +229,25 @@ exist or did not say it. Write it where the next agent will hit it.
 **A skill earns its lines by naming what the mistake cost.** A rule with no
 incident behind it is advice, and advice is skipped.
 
+**Waste is a mistake too, and nothing else will catch it.** A session can land
+every branch green and still have spent half its context on work that bought
+nothing. Read back over the session's own tool calls for it:
+
+- a file read whole when a line range or a grep would have answered;
+- the same file or command output read twice, or re-read after an edit;
+- a broad search repeated with small variations instead of delegated once;
+- a subagent dispatched for a lookup one command answers, or several where one
+  would have done;
+- a cold build forced by a shared or deleted target directory;
+- a fact in a skill or doc that the session rediscovered from code because
+  nothing routed it there.
+
+For each, propose the edit that would have avoided it: a line in the skill that
+was loaded, a routing row in `CLAUDE.md`, a pointer in a doc. Name what it cost
+in calls or in output read, the same bar as any other rule here. Land the edits
+on this skill's worktree. A habit no file could have prevented goes in the
+history file's one line, not in a skill.
+
 ## Output
 
 | Check | Status | Detail |
