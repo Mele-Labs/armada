@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 #
 # `scripts/land` against a throwaway repository with a local bare remote, a
-# stub `gh` that merges into it with `--merge` as GitHub would, and a stub
-# `armada` whose Checks are shell files in the tree being gated. Nothing here
+# stub `gh` that reads a pull request as merged once its head is on `main` as
+# GitHub would, and a stub `armada` whose Checks are shell files in the tree
+# being gated. Nothing here
 # reaches GitHub or runs a real Check.
 #
 #   python3 scripts/test_land.py

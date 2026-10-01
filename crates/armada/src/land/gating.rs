@@ -57,7 +57,7 @@ pub fn gate(
                     Stopped::conflict(
                         format!(
                             "{base} does not merge into {branch} cleanly. Merge {}/{} in, \
-                             commit, push, preflight and land again — it keeps its place in line.",
+                             commit, preflight and land again — it keeps its place in line.",
                             env.remote, env.base
                         ),
                         OutcomePatch {
