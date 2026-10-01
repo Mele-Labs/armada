@@ -12,6 +12,6 @@ The paste was built to land a screenshot as a Note carrying the picture, through
 - One over 4 MiB is refused by Fleet, and the board says why, as it says every refusal.
 - **Bytes in, never a path.** The renderer hands main the bytes. Main stages them, and only main ever names a staged file to Fleet.
 
-**Cost he took:** a second new kind in the same change. It is folded into the File's migration, V84, and its protocol bump, 18.5, since neither had merged.
+**Cost he took:** a second new kind in the same change. It is folded into the File's migration, V84, and its protocol bump, 19.2, since neither had merged.
 
 **Where it landed:** `studios/paste`, PR 1729.

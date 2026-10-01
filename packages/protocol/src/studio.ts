@@ -70,13 +70,13 @@ export type StudioNodeContent =
   /**
    * A path to a file, kept as a person pasted it — absolute, under `~` or
    * relative to the repository — and trimmed. Fleet neither resolves it nor
-   * checks that it exists. Since 18.5.
+   * checks that it exists. Since 19.2.
    */
   | { kind: "file"; path: string }
   /**
    * An image a person pasted: the frame Fleet kept, named as a Note's
    * `capture.frame` is and fetched from `get_studio_frame` the same way. No
-   * words are asked for. Since 18.5.
+   * words are asked for. Since 19.2.
    */
   | { kind: "picture"; frame: CaptureFrame }
   /**
@@ -220,7 +220,7 @@ export type RenameStudio = { name: string };
  * `produced_by` names the node that made this one, and the Studio draws the edge.
  *
  * **A Picture is added staged, never kept**: a body naming `frame` is refused
- * by Fleet's decoder, since a kept frame is a file name Fleet chose. Since 18.5.
+ * by Fleet's decoder, since a kept frame is a file name Fleet chose. Since 19.2.
  */
 export type AddStudioNode = (
   | Exclude<StudioNodeContent, { kind: "picture" }>
@@ -233,7 +233,7 @@ export type AddStudioNode = (
 /**
  * What a person puts on a Studio by hand — a Note typed, a Link pasted, a
  * Sketch placed, a File's path pasted, a Picture pasted. Since 14.12, #1364; a
- * File and a Picture since 18.5.
+ * File and a Picture since 19.2.
  *
  * **Narrower than `StudioNodeContent` on purpose.** Fleet refuses every other
  * kind from Bridge as `fleet.studio_node_not_a_persons`, because each is made
@@ -259,14 +259,14 @@ export type StudioNodeByHand =
    */
   | { kind: "link"; address: string; said?: string }
   | { kind: "sketch"; body: string }
-  /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 18.5. */
+  /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 19.2. */
   | { kind: "file"; path: string }
   /**
    * An image, as the PNG staged on disk. **Only Bridge's main builds this**,
    * from bytes it staged itself: the renderer never names a path, and Fleet
    * copies the file into its own keeping and answers with the Picture naming
    * it. Over 4 MiB is refused as `fleet.studio_frame_too_large`, and a file
-   * Fleet cannot read as `fleet.studio_frame_unreadable`. Since 18.5.
+   * Fleet cannot read as `fleet.studio_frame_unreadable`. Since 19.2.
    */
   | { kind: "picture"; staged: StagedFrame };
 

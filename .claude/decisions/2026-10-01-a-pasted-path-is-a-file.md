@@ -11,6 +11,6 @@ Pasting a path was one of the three things his annotation `20261001-123631-62n3`
 - No rail button and no key. It arrives by paste, and the registry asked for neither.
 - No rung starts from it, so nothing reads it in, writes it up or dispatches it.
 
-**Cost he took:** a kind is a migration and the four-spelling gate. That meant store V84, which rebuilds both Studio tables to widen the `CHECK`, and protocol 18.5, a minor bump on 14.7's and 14.18's reading.
+**Cost he took:** a kind is a migration and the four-spelling gate. That meant store V84, which rebuilds both Studio tables to widen the `CHECK`, and protocol 19.2, a minor bump on 14.7's and 14.18's reading.
 
 **Where it landed:** `studios/paste`, in `crates/core-model/domain/studio-kinds.toml` and its readers.

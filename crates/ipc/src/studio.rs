@@ -164,14 +164,14 @@ pub enum StudioNodeContent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         named: Option<String>,
     },
-    /// A path to a file, as a person pasted it. Since 18.5. **Kept as pasted,
+    /// A path to a file, as a person pasted it. Since 19.2. **Kept as pasted,
     /// trimmed**: Fleet neither resolves it nor checks that it exists.
     File {
         path: String,
     },
     /// An image a person pasted: the frame Fleet kept, named as a Note's
     /// `capture.frame` is and fetched by `get_studio_frame` the same way. Since
-    /// 18.5. **Never in a write**: `add_studio_node` takes a [`StudioNodeAdded`]
+    /// 19.2. **Never in a write**: `add_studio_node` takes a [`StudioNodeAdded`]
     /// whose Picture carries the staged file instead.
     Picture {
         frame: CaptureFrame,
@@ -480,7 +480,7 @@ pub struct RenameStudio {
 /// kind's first one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddStudioNode {
-    /// Any content but a Picture as read: a Picture arrives staged. Since 18.5.
+    /// Any content but a Picture as read: a Picture arrives staged. Since 19.2.
     #[serde(flatten)]
     pub content: StudioNodeAdded,
     pub position: StudioPosition,
