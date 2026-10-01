@@ -65,15 +65,27 @@ pub fn heard(line: &str) -> Heard {
                 .map(|tokens| CallProgress::Thinking { tokens }),
             _ => None,
         }),
-        // The answer is being written. **Counted, not carried**: the text
-        // itself arrives whole on the `assistant` line, and a progress channel
-        // that also carried it would be a second copy of the answer arriving
-        // before the answer.
+        // The answer is being written, and this is the frame of it.
+        //
+        // **Counted *and* carried, since 30 Sep 2026.** It was counted alone,
+        // on the argument that a progress channel also carrying the text would
+        // be a second copy of the answer arriving before the answer — true
+        // while nothing existed until the answer landed, and not true now: a
+        // dispatched request is a Job from the press, so a prefix of the answer
+        // is that Job's own fields settling rather than a rival to them.
+        // `crates/fleet/src/proposing.rs` reads the prefix for fields;
+        // `CallProgress::Answering` says why this file is still not the place
+        // that reads it.
+        //
+        // **This file still knows nothing about what the text says.** It passes
+        // the frame on exactly as the vendor wrote it — a schema read here
+        // would be Fleet's question answered in a vendor adapter.
         Line::StreamEvent(event) => moved(match event.event.delta {
             Some(Delta {
                 text: Some(text), ..
             }) => Some(CallProgress::Answering {
                 characters: text.chars().count() as u64,
+                text,
             }),
             _ => None,
         }),

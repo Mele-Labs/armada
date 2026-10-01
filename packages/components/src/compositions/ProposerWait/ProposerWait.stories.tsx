@@ -30,7 +30,7 @@ type Story = StoryObj<typeof ProposerWait>;
 export const NothingSaid: Story = {
   args: {},
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByText(/answers once, whole/)).toBeVisible();
+    await expect(canvas.getByText(/fills this Job in as it writes/)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Stop the proposer" }));
     await expect(args.onStop).toHaveBeenCalled();
   },
@@ -154,5 +154,98 @@ export const NoWayToStop: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Asking the model")).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Stop the proposer" })).toBeNull();
+  },
+};
+
+/**
+ * The four fields, as the third of them is arriving.
+ *
+ * **The owner asked for this on 30 Sep 2026** — *"Is there anyway for it to fill
+ * in as it goes?"* — and named the four in this order, which is his reasoning
+ * rather than a layout: the workflow decides the Job's shape, the title is what
+ * makes the row recognisable, done-when is the goal, and the settings are the
+ * part he can still change.
+ *
+ * **A row per criterion and never a count**: the lines arrive one at a time, and
+ * a count beside the items it counts is refused (29 Sep 2026).
+ */
+export const FillingIn: Story = {
+  args: {
+    watch: {
+      reached: "answering",
+      elapsedMs: 21_000,
+      budgetMs: 600_000,
+      model: "sonnet",
+      thinkingTokens: 1_840,
+      answeredCharacters: 212,
+      settled: [
+        { label: "Workflow", said: "feature" },
+        { label: "Title", said: "Say which of the two a clear gave back" },
+        {
+          label: "Done when",
+          said: "The Cleared tab names the branch on every row whose worktree is gone",
+        },
+      ],
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("feature")).toBeVisible();
+    await expect(canvas.getByText("Say which of the two a clear gave back")).toBeVisible();
+    // The fourth has not landed, and nothing stands in for it: an empty slot
+    // stays empty (29 Sep 2026).
+    await expect(canvas.queryByText("Urgency")).toBeNull();
+    await expect(canvas.queryByText("Model")).toBeNull();
+  },
+};
+
+/**
+ * The fourth field, whole. **The urgency and the model are one line of the
+ * answer**, so they settle together — the settings are one field, not two.
+ *
+ * The owner took the model on 30 Sep 2026 over the argument that a model
+ * choosing which model runs the work is the dial every later call's cost hangs
+ * off. It picks from what this machine holds, and naming one it does not is
+ * refused exactly as naming a workflow nothing holds is.
+ */
+export const SettingsLanded: Story = {
+  args: {
+    watch: {
+      reached: "answering",
+      elapsedMs: 26_000,
+      budgetMs: 600_000,
+      model: "sonnet",
+      answeredCharacters: 318,
+      settled: [
+        { label: "Workflow", said: "feature" },
+        { label: "Title", said: "Say which of the two a clear gave back" },
+        {
+          label: "Done when",
+          said: "The Cleared tab names the branch on every row whose worktree is gone",
+        },
+        { label: "Urgency", said: "normal" },
+        { label: "Model", said: "opus" },
+      ],
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("opus")).toBeVisible();
+    // The proposer's own model is the wait's `model`; the one it picked for the
+    // work is a settled field. Two different dials, and both are on screen.
+    await expect(canvas.getByText(/sonnet/)).toBeVisible();
+  },
+};
+
+/**
+ * Nothing has settled, so nothing is drawn for it. **The absence is the
+ * design**: a label over a blank is the placeholder *an empty slot stays empty*
+ * refuses, and a call that has not started writing has decided nothing.
+ */
+export const NothingSettledYet: Story = {
+  args: {
+    watch: { reached: "thinking", elapsedMs: 9_000, budgetMs: 600_000, model: "sonnet" },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText("Workflow")).toBeNull();
+    await expect(canvas.queryByText("Title")).toBeNull();
   },
 };

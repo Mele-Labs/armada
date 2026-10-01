@@ -49,9 +49,18 @@ fn held(workflows: Vec<ResolvedWorkflow>) -> BTreeMap<WorkflowId, ResolvedWorkfl
         .collect()
 }
 
+/// The models this machine holds, as `list_models` would serve them. Three,
+/// because picking correctly from one proves nothing — `a_catalogue`'s reason.
+pub(crate) fn a_models() -> Vec<String> {
+    ["haiku", "sonnet", "opus"]
+        .into_iter()
+        .map(str::to_string)
+        .collect()
+}
+
 pub(crate) fn read(answer: &str) -> Result<Proposal, NotProposed> {
     let held = held(a_catalogue());
-    Brief::about(A_REQUEST, &held).read(answer, &held)
+    Brief::about(A_REQUEST, &held, &a_models()).read(answer, &held, &a_models())
 }
 
 /// A request that fits one workflow becomes a Job at the gate, under that one.
@@ -425,7 +434,9 @@ fn declining_is_read_as_declining_and_not_as_a_workflow_named_none() {
 fn the_call_is_told_the_request_and_every_workflow_with_its_steps() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(question.contains(A_REQUEST), "the request, verbatim");
     for id in ["bug", "feature", "revert"] {
@@ -493,7 +504,9 @@ fn the_three_addresses_a_studio_dispatches_reach_the_proposer_whole_beside_a_lin
         (format!("https://{host}o/r/pull/1391"), Some("code_review")),
         (format!("https://{host}o/r/milestone/17"), Some("epic")),
     ] {
-        let question = Brief::about(&address, &held).question().to_string();
+        let question = Brief::about(&address, &held, &a_models())
+            .question()
+            .to_string();
         assert!(
             question.contains(&format!(
                 "The request, as the person wrote it:\n\n{address}\n"
@@ -518,7 +531,7 @@ fn the_three_addresses_a_studio_dispatches_reach_the_proposer_whole_beside_a_lin
     }
 
     // And the one thing a Studio never does: name a workflow.
-    let question = Brief::about("https://example.invalid/anything", &held)
+    let question = Brief::about("https://example.invalid/anything", &held, &a_models())
         .question()
         .to_string();
     assert!(
@@ -557,7 +570,9 @@ fn a_workflow_that_says_what_it_is_for_is_offered_with_it_beside_its_steps() {
     catalogue.push(workflow_for("epic", "Finishing a milestone"));
     let held = held(catalogue);
 
-    let question = Brief::about(A_REQUEST, &held).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(
         question.contains("  epic — epic\n    for: Finishing a milestone\n    only_in_epic\n"),
@@ -572,7 +587,9 @@ fn a_workflow_that_says_what_it_is_for_is_offered_with_it_beside_its_steps() {
 fn a_workflow_that_says_nothing_about_what_it_is_for_is_offered_as_before() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     assert!(
         question.contains(
@@ -590,7 +607,9 @@ fn a_workflow_that_says_nothing_about_what_it_is_for_is_offered_as_before() {
 fn the_call_is_told_nothing_about_the_repository_or_the_board() {
     let held = held(a_catalogue());
 
-    let question = Brief::about(A_REQUEST, &held).question().to_string();
+    let question = Brief::about(A_REQUEST, &held, &a_models())
+        .question()
+        .to_string();
 
     for withheld in ["armada.yml", "mechanical_checks", "advance_gate", "/tmp"] {
         assert!(
@@ -668,6 +687,59 @@ pub(crate) mod over_http {
             error.fields.get("request"),
             Some(&WireValue::Str(A_REQUEST.to_string())),
             "unchanged, so what the person retypes is what they wrote"
+        );
+    }
+
+    /// **A model this machine does not run refuses with its own code**, and
+    /// never the one above.
+    ///
+    /// This shipped as `fleet.no_workflow_fits` for half a day, which told a
+    /// person to say the request again differently — advice that cannot fix a
+    /// model name and is about a workflow that was never wrong. Two causes
+    /// wanting opposite responses must not share a word, `#334` and `#410`.
+    ///
+    /// The fields are the other half: a refusal naming only what was wrong
+    /// leaves somebody to go and look up what would have been right.
+    #[tokio::test]
+    async fn a_model_this_machine_does_not_run_refuses_with_its_own_code() {
+        let home = TempDir::new();
+        let app = served(
+            &home,
+            FakeJudge::saying(
+                "workflow: bug\ntitle: The log reader drops the last line\n\
+                 settings: model=gpt-9",
+            ),
+        );
+
+        let (status, body) = call(&app, "POST", "/jobs/from_request", A_BODY).await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let error: WireError = ipc::decode("a refusal", &body).expect("a WireError");
+        assert_eq!(
+            error.code, "fleet.proposer_model_not_held",
+            "a model nothing runs was refused as a workflow nothing fits, whose \
+             advice is to rephrase — which cannot fix it"
+        );
+        assert_ne!(error.code, "fleet.no_workflow_fits");
+        assert!(
+            !error.message.contains("say it again"),
+            "the sentence told a person to rephrase a request that was read fine: {}",
+            error.message
+        );
+        assert_eq!(
+            error.fields.get("model"),
+            Some(&WireValue::Str("gpt-9".to_string())),
+            "the refusal did not name the model that could not be run"
+        );
+        assert!(
+            error.fields.contains_key("models"),
+            "the refusal did not say what this machine does run, so there is \
+             nothing on screen to act on"
+        );
+        assert_eq!(
+            error.fields.get("request"),
+            Some(&WireValue::Str(A_REQUEST.to_string())),
+            "unchanged, as the decline beside it does"
         );
     }
 

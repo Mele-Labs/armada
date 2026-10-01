@@ -167,3 +167,60 @@ test("an unreadable instant reads as no wait", () => {
   );
   expect(watch).toBeNull();
 });
+
+/**
+ * **A model this machine does not run is told, and never in the decline's
+ * words.** It shipped as `fleet.no_workflow_fits` for half a day, whose
+ * sentence tells a person to rephrase — which cannot change which models a
+ * machine runs, and is advice about a workflow that was never wrong. Two
+ * causes wanting opposite responses must not share a word.
+ */
+test("a model nothing holds is told in its own words, naming it and what is available", () => {
+  const answer: Proposed = {
+    ok: false,
+    why: "model_unavailable",
+    request: SENT,
+    outcome: {
+      ok: false,
+      why: "refused",
+      error: error({
+        code: "fleet.proposer_model_not_held",
+        fields: { request: SENT, model: "gpt-9", models: "haiku, sonnet, opus" },
+      }),
+    },
+  };
+
+  const read = answeredAs(answer);
+
+  // Told, never raised: Armada worked, so this does not wear the error
+  // treatment — the decline beside it makes the same argument.
+  expect(read.outcome).toBeNull();
+  expect(read.told).toContain("gpt-9");
+  expect(read.told).toContain("haiku, sonnet, opus");
+  // **The one sentence it must not be.**
+  expect(read.told).not.toContain("Rephrase");
+  expect(read.told).not.toContain("No workflow");
+});
+
+/**
+ * A machine that names no model at all says so rather than drawing an empty
+ * list. **Absent is not an empty set on screen** — a sentence trailing off
+ * after "it runs" reads as a value that failed to load.
+ */
+test("a machine holding no model says that, rather than listing nothing", () => {
+  const answer: Proposed = {
+    ok: false,
+    why: "model_unavailable",
+    request: SENT,
+    outcome: {
+      ok: false,
+      why: "refused",
+      error: error({
+        code: "fleet.proposer_model_not_held",
+        fields: { request: SENT, model: "gpt-9" },
+      }),
+    },
+  };
+
+  expect(answeredAs(answer).told).toContain("names no model at all");
+});
