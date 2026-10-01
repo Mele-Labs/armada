@@ -341,7 +341,11 @@ export function refactorAtApproval(): JobFixture {
   return { ...base, job, watched: watchedRead(detail) };
 }
 
-/** `implement`'s Checks, as `GET /jobs/2` served them on 1 Oct 2026, commands left out. */
+/**
+ * `implement`'s Checks, as `GET /jobs/2` served them on 1 Oct 2026, commands
+ * left out. So is `hooks_test`, whose one path names a vendor's directory and
+ * which reaches none of these tasks.
+ */
 const JOB_2_CHECKS: DeclaredCheck[] = [
   { kind: "every_manifest_check" },
   { kind: "manifest_check", name: "build", when: ["crates/**", "xtask/**", "Cargo.toml", "Cargo.lock", ".cargo/**", "protocol-version.toml", ".armada/workflows/**", "armada.yml"] },
@@ -354,7 +358,6 @@ const JOB_2_CHECKS: DeclaredCheck[] = [
   { kind: "manifest_check", name: "screens_test", when: ["packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"] },
   { kind: "manifest_check", name: "components_test", when: ["packages/**", "crates/core-model/domain/**", "protocol-version.toml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], runs_at: "gate" },
   { kind: "manifest_check", name: "scripts_test", when: ["scripts/**", "crates/armada/src/land/**", "crates/adapter-traits/src/delivery.rs", "crates/adapters/src/delivery.rs", "crates/adapters/src/landing.rs", "armada.yml"] },
-  { kind: "manifest_check", name: "hooks_test", when: [".claude/hooks/**"] },
   { kind: "manifest_check", name: "format", when: ["**/*.rs", "Cargo.toml", "rustfmt.toml", "armada.yml"] },
   { kind: "diff_nonempty" },
 ];
