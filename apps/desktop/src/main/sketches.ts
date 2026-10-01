@@ -20,7 +20,7 @@ type Hosts = {
   ipc: IpcMain;
   /** The Studio writes, or `undefined` with no connection open. */
   studios: () => Writes | undefined;
-  /** A position in whole canvas units, or `null` where it is not one — `index.ts`'s own check. */
+  /** A position in whole canvas units, or `null` where it is not one — `studio-channels.ts`'s own check. */
   whole: (value: unknown) => StudioPosition | null;
   /** What a write answers with no connection open. */
   unsent: Outcome;
