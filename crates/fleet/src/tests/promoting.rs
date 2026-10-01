@@ -254,10 +254,8 @@ async fn two_notes_are_clustered_written_up_edited_and_dispatched_to_a_job_at_th
 /// `awaiting_approval` like any other, and carries the draft's own text — the
 /// title, then the body — as what its Drone is told.
 ///
-/// **And its origin is whoever pressed it.** Every other request through the
-/// proposer is one Fleet read, which a row draws as *Found by Fleet*; a
-/// dispatch from a Studio is a person sending a draft they wrote up, and a row
-/// saying Armada found it would be a sentence nobody could act on.
+/// **And its origin is whoever pressed it, and that it came off a Studio.** A
+/// row saying Armada found it would be a sentence nobody could act on.
 #[tokio::test]
 async fn a_job_dispatched_from_a_draft_stands_at_the_gate_with_the_drafts_own_words() {
     let home = TempDir::new();

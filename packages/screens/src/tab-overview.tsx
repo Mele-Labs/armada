@@ -17,6 +17,7 @@ import {
   worktreesTotal,
 } from "@armada/components";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
 import { heldForMoney, heldForTurns } from "./Acts";
@@ -125,11 +126,12 @@ export type OverviewTabProps = JobDetailProps & {
    */
   onOpenCheck: (at: CheckAt) => void;
   /**
-   * Draw the proposal this Job is waiting to have approved. **Absent where
-   * there is no proposal read to draw**, and then the lead offers no act —
-   * a dead press is what `#1675` was filed against.
+   * The Job header's own acts, drawn again as the lead's where the lead's act
+   * is approving the dispatch. **The same element, not a second control**, so
+   * the press, the face while it is out and the menu behind the caret cannot
+   * drift apart from the header's.
    */
-  onOpenProposal?: () => void;
+  headerActs: ReactNode;
   /**
    * What a plan at the review gate takes that only the screen holds: a Drone
    * opened from a task's peek, the task to land on, and the way back —
@@ -834,15 +836,15 @@ export function OverviewTab(props: OverviewTabProps) {
   // that selection since `InsideAJob` was deleted — four buttons, four dead
   // presses, which is what the owner pressed and reported.
   //
-  // **And no act where the route cannot land.** The approval act reaches
-  // `ProposalTab`, which draws nothing without a proposal read, so the screen
-  // hands `onOpenProposal` down only where it has one.
+  // **The approval is the header's own control, drawn here too**, rather than
+  // a route to the proposal: that route reached `ProposalTab`, which draws only
+  // off a draft no real Fleet serves, so on the owner's Job of 1 Oct 2026 the
+  // lead said *Waiting for your approval* and offered nothing.
   const opens = lead.opens;
-  const openProposal = props.onOpenProposal;
-  const reaches =
-    opens === undefined || !("proposal" in opens) || openProposal !== undefined;
   const leadAct =
-    lead.act === undefined || open === undefined || waiting !== undefined || !reaches ? undefined : (
+    lead.act === undefined || waiting !== undefined ? undefined : lead.approves === true ? (
+      props.headerActs
+    ) : open === undefined ? undefined : (
       <Button
         onClick={() => {
           if (opens === undefined) {
@@ -852,7 +854,6 @@ export function OverviewTab(props: OverviewTabProps) {
             return;
           }
           if ("check" in opens) props.onOpenCheck(opens.check);
-          else if ("proposal" in opens) openProposal?.();
           else props.onOpenTab(opens.tab);
         }}
       >

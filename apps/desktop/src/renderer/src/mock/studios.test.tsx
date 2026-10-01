@@ -962,14 +962,15 @@ test("an issue read in is dispatched, its Job opens from the node, and the node 
   await act("Open Job");
   // The gate is unchanged: a Job from a Studio stands at `awaiting_approval`
   // like any other, and this is where it is approved.
-  await expect.element(page.getByRole("button", { name: "Approve dispatch" })).toBeVisible();
+  // The header's, and the lead's under it: one act, reached two ways.
+  await expect.element(page.getByRole("button", { name: "Approve dispatch" }).first()).toBeVisible();
   // The origin, in the registry's own words. Spelled whole rather than as the
   // trailing clause: `getByText` matches a substring without case, so the
   // shorter `Dispatched by you` passed against `From a Studio, dispatched by
   // you` and would pass against a row that had lost the Studio entirely.
   await expect.element(page.getByText("From a Studio, by you")).toBeVisible();
 
-  await page.getByRole("button", { name: "Approve dispatch" }).click();
+  await page.getByRole("button", { name: "Approve dispatch" }).first().click();
   await userEvent.keyboard("{Escape}");
 
   // Back on the Studio it was left on, and the node reads what the Job is
