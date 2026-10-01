@@ -41,6 +41,7 @@ mod rules_tokens;
 mod rules_toolbelt;
 mod rules_transcripts;
 mod rules_unsafe;
+mod rules_var_names;
 mod rules_vocabulary;
 mod tokens;
 mod tokens_emit;
@@ -120,6 +121,7 @@ fn verify_foundations() -> ExitCode {
         rules_tokens::the_tokens_generate_what_is_checked_in(&root),
         rules_tokens::no_media_query_resolves_through_a_custom_property(&root),
         rules_design::no_off_contract_design_value(&root),
+        rules_var_names::every_var_names_a_declared_property(&root),
         rules_docs::every_open_question_is_collected(&root),
         rules_docs::every_document_is_indexed(&root),
         rules_docs::every_path_a_document_names_exists(&root),
@@ -133,6 +135,7 @@ fn verify_foundations() -> ExitCode {
         rules_bundled::no_workspace_package_is_left_for_node(&root),
         rules_node::the_pinned_node_satisfies_the_declared_floor(&root),
         rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads(&root),
+        rules_stylesheets::claims::no_two_compositions_claim_one_class(&root),
         rules_tests::every_test_file_is_declared(&root),
         rules_transcripts::no_bare_transcript_read_in_a_test(&root),
         rules_protocol::the_router_serves_what_the_inventory_names(&root),
