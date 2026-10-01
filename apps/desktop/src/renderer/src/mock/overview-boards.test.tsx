@@ -223,6 +223,20 @@ describe("the proposal — Overview at and just past the approval gate", () => {
   });
 });
 
+describe("the brief — the Proposer's words, as the markdown they were written in", () => {
+  // **The card the owner pinned the ask on**, 1 Oct 2026: *"Can we please
+  // support markdown when displaying text from agents?"*
+  test("a backticked name in the brief is drawn as code, not as backticks", async () => {
+    await drawn("arc/executing-concurrent", ".armada-overview-board__brief");
+
+    const brief = page.getByRole("region", { name: "Brief" });
+    const name = brief.getByText("get_capacity");
+    await expect.element(name).toBeVisible();
+    expect(name.element().tagName).toBe("CODE");
+    expect(brief.element().textContent).not.toContain("`");
+  });
+});
+
 describe("the strip, and the header above it", () => {
   test("Settings is the sixth destination and the header button is gone", async () => {
     await drawn("arc/proposing-review", ".armada-destinations");

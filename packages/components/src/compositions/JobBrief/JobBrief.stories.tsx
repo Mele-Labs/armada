@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect } from "storybook/test";
+
 import { JobBrief, JobBriefSkeleton } from "./JobBrief";
 
 /**
@@ -21,15 +23,30 @@ type Story = StoryObj<typeof JobBrief>;
 const criteria = [
   { text: "A burst of 401s produces one refresh call, not one per request.", source: "check" },
   { text: "The retry ceiling is unchanged.", source: "check" },
-  { text: "No token is written to a log line at any sink.", source: "judge" },
+  { text: "No token is written to a log line at **any** sink.", source: "judge" },
 ];
 
 const facts =
   "The refresh path is in `auth/session.ts`. Two callers hit it concurrently on " +
   "a cold start, and the second one wins. Keep the public signature.";
 
+/**
+ * Both halves, written the way a model writes them — in markdown.
+ *
+ * **What was told and what done means are drawn through `Prose`**, the owner's
+ * ask of 1 Oct 2026: a brief with a list in it reads as a list, not as hyphens.
+ */
 export const Brief: Story = {
-  args: { criteria, facts },
+  args: {
+    criteria,
+    facts: `${facts}\n\n- Do not touch **the retry ceiling**\n- Leave the logger alone`,
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("any", { selector: "strong" })).toBeVisible();
+    await expect(canvas.getByText("auth/session.ts", { selector: "code" })).toBeVisible();
+    await expect(canvas.getByText("the retry ceiling", { selector: "strong" })).toBeVisible();
+    await expect(canvas.getByText("Leave the logger alone", { selector: "li" })).toBeVisible();
+  },
 };
 
 /**

@@ -124,6 +124,9 @@ export function OverviewBoard({
             the brief should replace where the figures list is right now."*
             The one card with no destination behind it. */}
         <DestinationCard label="Brief">
+          {/* The Proposer's words through `Prose`, so a brief written in
+              markdown reads as its structure — the owner's ask of 1 Oct 2026.
+              The sentences for an absent brief are Bridge's own and stay text. */}
           {brief === undefined && reading ? (
             <JobBriefSkeleton />
           ) : brief === undefined ? (

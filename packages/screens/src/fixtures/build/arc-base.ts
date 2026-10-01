@@ -432,8 +432,10 @@ export function arcDetail(
     branch: ARC_BRANCH,
     steps,
     acceptance_criteria: ARC_CRITERIA,
+    // Backticked as a model writes a name, so the mock shows the brief drawn
+    // as markdown rather than as the characters.
     facts:
-      "The stat reads its two numbers off get_capacity, and nothing on it leads to the one " +
+      "The stat reads its two numbers off `get_capacity`, and nothing on it leads to the one " +
       "Drone that is running or to anything else the machine has out.",
     write_targets: ["crates/api/src/", "crates/fleet/src/", "packages/screens/src/"],
     dependencies: [],
@@ -480,7 +482,9 @@ export function arcWorkPlan(tasks: TaskView[]): WorkPlan {
   return {
     approach:
       "One read of everything running, then the stat's words, then the panel, then what " +
-      "holds the next Drone back.",
+      "holds the next Drone back.\n\n" +
+      "- **Fleet** serves it as `drones_running`\n" +
+      "- Bridge draws it in the stat",
     recorded_by: { by: "step", step_id: "plan", attempt: 1 },
     recorded_at: "2026-09-22T09:21:00Z",
     tasks: tasks.map(planTaskOf),

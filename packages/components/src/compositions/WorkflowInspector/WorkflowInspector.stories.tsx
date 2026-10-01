@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
 import { WorkflowInspector } from "./WorkflowInspector";
 
@@ -183,5 +183,38 @@ export const OneTaskWithNothingRead: Story = {
     lastEditAbsent: "Nothing this task wrote has been read on this step yet.",
     log: [],
     logAbsent: "Nothing is watching this Job's turns, so this task's own lines are not being read.",
+  },
+};
+
+/**
+ * The planner's brief and the Drone's own lines are markdown, and draw as it.
+ *
+ * **A `play`, because half the rule is what is *not* drawn.** A line Armada
+ * assembled — a call and its argument — stays literal: a glob read as markdown
+ * loses its stars to emphasis, and the path a reader came for reads wrong.
+ */
+export const OneTaskInMarkdown: Story = {
+  args: {
+    name: "T5 · Draw what is running, in four lists",
+    kind: "task",
+    doing: "Its agent is working — 14 turns so far.",
+    brief: "Proves it: the panel lists **four** things, read from `drones_running`:\n\n- Drones\n- Checks",
+    scope: ["packages/screens/src/Running.tsx"],
+    beside: [],
+    log: [
+      { id: "1", at: "10:14:02", said: "Read **one** list, then `Running.tsx`", words: true },
+      { id: "2", at: "10:16:40", said: "Glob packages/screens/src/**/*.tsx" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const told = within(canvas.getByRole("region", { name: "What its Drone was told" }));
+    await expect(told.getByRole("strong")).toHaveTextContent("four");
+    await expect(told.getByRole("code")).toHaveTextContent("drones_running");
+    await expect(told.getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Drones", "Checks"]);
+
+    const log = within(canvas.getByRole("region", { name: "Its log" }));
+    await expect(log.getByRole("strong")).toHaveTextContent("one");
+    await expect(log.getByRole("code")).toHaveTextContent("Running.tsx");
+    await expect(log.getByText("Glob packages/screens/src/**/*.tsx")).toBeVisible();
   },
 };
