@@ -1,10 +1,9 @@
 // What the panel says about the step you are looking at: the box a question is
 // answered in, and the command a drone is waiting on.
 //
-// Split out of `JobDetail.tsx` at the 900-line line, for `chapters.tsx`'s
-// reason and on the seam beside it: that file assembles a Job's screen and
-// holds the open state of one reading, and everything here is a sentence about
-// one step, decided from what arrived. Nothing here holds state, and nothing
+// Split out of `JobDetail.tsx` at the 900-line line: that file assembles a
+// Job's screen and holds the open state of one reading, and everything here is
+// a sentence about one step, decided from what arrived. Nothing here holds state, and nothing
 // here knows which step is selected — it is handed the one that is.
 //
 // The header's counterpart is `heading.tsx`: what is there changes when the Job

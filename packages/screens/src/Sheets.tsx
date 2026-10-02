@@ -381,9 +381,8 @@ function DiffSheet({
  *
  * **`EvidenceSheet`, wired in for the first time.** It existed as a component
  * and a story — `AChecksConsoleOutput` — and neither was built into the screen
- * that ships, which is exactly the gap `evidence.tsx`'s own header names for
- * the Checks and Verdicts chapters. A check's console output is the artifact
- * that sheet was drawn for.
+ * that ships. A check's console output is the artifact that sheet was drawn
+ * for.
  *
  * **`checkSheetOf` decides live or kept, every render.** A Check open in this
  * sheet while the gate rules moves from one to the other without the sheet

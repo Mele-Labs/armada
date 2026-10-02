@@ -321,9 +321,8 @@ export const ABodyLineThatLooksLikeAHeading: Story = {
  * in the order they arrive**, titled with the heading's own words in sentence
  * case — `JOB BRIEF` reads `Job brief`, never a second vocabulary's guess at
  * what to call it. `standing` folds shut by default and says why collapsed;
- * `steps`/`checks` draw the structured reading `chapters.tsx` builds off data
- * Bridge already holds, with Fleet's own words still one press away, folded,
- * underneath.
+ * `steps`/`checks` draw a structured reading built off data Bridge already
+ * holds, with Fleet's own words still one press away, folded, underneath.
  */
 const SECTIONED_BRIEF = [
   "JOB BRIEF",

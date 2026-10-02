@@ -1,9 +1,9 @@
 // The Overview tab — today's arrangement, and every reading it is built from.
 //
 // This file holds the open state of one reading: which step, which sheet, where
-// the log was held. What any region says, it does not decide — the step's
-// facts, band and question box are `step.tsx`, the story is `chapters.tsx`, the
-// sheets are `Sheets.tsx`, and the board itself is `OverviewBoard.tsx`.
+// the log was held. What any region says, it does not decide — the question box
+// is `step.tsx`, the sheets are `Sheets.tsx`, and the board itself is
+// `OverviewBoard.tsx`.
 //
 // **The Job header and the tab strip belong to `JobDetail.tsx`.** An addition
 // to a region goes in that region's file; an addition to the screen goes there.
@@ -30,14 +30,9 @@ import { useFrames } from "./frames";
 import { openArtifact, openPullRequest } from "./opening";
 import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
-import { DIFF_CHAPTER, LOG_CHAPTER, useDetailKeys } from "./detail-keys";
+import { useDetailKeys } from "./detail-keys";
 import { DetailSheet, holdOf, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
-import { chaptersOf } from "./chapters";
-import { landingsOf, stepTimelineOf, turnsOfAttempt, wroteIn } from "./timeline";
-import { keepingProduced } from "./produced-panel";
-import type { AttemptRead } from "./timeline";
-import type { StepChapter } from "@armada/components";
-import { againOf, useShowAgain } from "./again";
+import { turnsOfAttempt } from "./timeline";
 import { leadOf } from "./lead";
 import { OverviewBoard } from "./OverviewBoard";
 import { Approving } from "./approving";
@@ -61,17 +56,14 @@ import { ordered } from "./facts";
 import { holdingOf, logOf, lookOf, turnsOf } from "./mine";
 import { verdictSlotOf } from "./verdict-answered";
 import { useDiffAgain } from "./produced";
-import { checkEntryId, useRunSheet } from "./rehearsal";
-// Which Check's output `o` opens. **The same call the Checks chapter's own act
-// makes**, so the key and the control cannot open different files.
-import { checksOf, outputOf } from "./gates";
-import { openKept } from "./phases";
-import { CHECKS_CHAPTER } from "./checks";
-import { runOf, whyNoSteps } from "./run";
+import { useRunSheet } from "./rehearsal";
+// Which Check's output `o` opens.
+import { outputOf } from "./gates";
+import { whyNoSteps } from "./run";
 import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
 import { proposerWaitOf } from "./proposing";
 import { taskGroupsOf } from "./draft/group";
-import { entriesOf, hideUnread, whyNotWatching } from "./story";
+import { entriesOf, hideUnread } from "./story";
 import {
   LOOK_FAILED,
   nothingToAsk,
@@ -229,7 +221,6 @@ export function OverviewTab(props: OverviewTabProps) {
     recorded,
     onRedirect,
     onAnswerJudge,
-    onShowAgain,
     onCopied,
     onSaid,
     rehearsal,
@@ -279,8 +270,8 @@ export function OverviewTab(props: OverviewTabProps) {
   // The diff, for every Job that is open rather than only for one at review.
   // **A produced file opens to what it actually wrote**, and it did that on one
   // status because the review block was the only thing asking for the read. It
-  // is still the expensive read, so the Produced chapter and the review
-  // decision draw from this one answer.
+  // is still the expensive read, so the diff sheet and the review decision draw
+  // from this one answer.
   useEffect(() => {
     onReadDiff(job.id);
     return () => {
@@ -321,25 +312,7 @@ export function OverviewTab(props: OverviewTabProps) {
   // in place of the idle step view `open` above would otherwise draw. #1149.
   // What a Job that has finished shows, above the run that finished it. #1542.
   const landed = landedOf({ job, whole, draft, manifest, holding });
-  // What the observe socket says about itself, where it is not reading. **A
-  // third answer the story needs**: four of the five states carry no rows, and
-  // a chapter drawn from the rows alone reads every one of them as a step that
-  // has not started. `story.ts` holds the sentences. #324.
-  const transcript = whyNotWatching(observed);
 
-  // What the keyboard can name, built before it is drawn. **The three regions
-  // the contextual tier reaches are values here rather than queries later** —
-  // the run, the story and the strip — which is what lets `detail-keys` open a
-  // step, a chapter or a stage by name. #271.
-  // The moment this Job's Drone handed in, where one arrived and it is this
-  // Job's. A moment held for another Job would draw a submission under a step
-  // that has not made one — `mine.ts`'s rule for every other read here. `#813`.
-  const handed =
-    recorded.handed.state === "heard" && recorded.handed.jobId === job.id
-      ? recorded.handed.moment
-      : undefined;
-  const run =
-    whole === null ? [] : runOf(whole, now, selected ?? undefined, watching?.rows ?? [], handed);
   // The strip's rows carry the three records a person reads because a verdict
   // went against them, and each opens. The Job id and the toast are the panel's,
   // so they are handed down rather than reached for; `phases.tsx` says why.
@@ -369,32 +342,14 @@ export function OverviewTab(props: OverviewTabProps) {
     () => ({ jobId: job.id, open: onOpenArtifact, onSaid }),
     [job.id, onSaid],
   );
-  // The open step's own submission, which the strip's Submitted tier draws and
-  // its Judge tier points at. Read off the same `evidence` the trail below is
-  // built from rather than fetched again — one call, drawn twice, which is the
-  // rule `chapters.tsx` already follows for the same records.
-  // `read` is the only state carrying rows, and a read that has not arrived is
-  // not a step that claimed nothing — the tier draws its documents either way.
-  // The criterion a live judge question holds open on this step. Read here and
-  // handed to the story; the strip that also took it is gone.
-  const asking =
-    whole?.judge_question?.step_id === open?.step_id
-      ? whole?.judge_question?.criterion_id
-      : undefined;
-
   // The detail's contextual tier, and the open state it moves. Bound while a
   // Job is open and not before, so nothing on the Board listens for a key that
   // means nothing there — and the press is swallowed only where something
-  // answered it. The story is read back through a function because it is built
-  // from what this holds; see `DetailShape.chapters`.
+  // answered it.
   const keys = useDetailKeys({
-    run,
-    landings: () => landingsOf(timeline ?? []),
     // `f`, from `actions.toml` — `open_diff`, scope `detail`. It opens the
     // layer now rather than a chapter: the patch stopped being something the
-    // panel draws. `Enter` needs nothing here, because `[` `]` land focus on
-    // the chapter's own control and Enter is what a focused control already
-    // answers — which is the reading `open_log`'s registry row gives it.
+    // panel draws.
     onOpenSheet: () => openSheet("diff"),
     // `L`, from `actions.toml` — `open_log`, scope `detail`. **This is the line
     // that was missing.** The registry carried the key, `detail-keys` carried
@@ -432,9 +387,8 @@ export function OverviewTab(props: OverviewTabProps) {
   });
 
   // The rest of any call argument the socket cut, for as long as this Job is
-  // open. **Held for the Job rather than for a log**, because the story draws
-  // the same row twice — chapter one's turns and chapter two's preview — and a
-  // fetch made in one is the same argument in the other.
+  // open. **Held for the Job rather than for a log**, so a fetch made once is
+  // not made again when the sheet reopens on the same row.
   const calls = useCallArguments(onReadCall, job.id);
 
   // What each Check printed, for as long as this Job is open. **Held for the
@@ -461,9 +415,6 @@ export function OverviewTab(props: OverviewTabProps) {
   useEffect(() => {
     if (shownBy !== undefined && shownBy.length > 0) frames.want(shownBy);
   }, [shownBy, frames]);
-  // Asking the Job to show its work again, and the frames its presses kept on
-  // the open step. `again.tsx` holds all of it.
-  const pressing = useShowAgain(onShowAgain, job.id, whole?.show_again, open?.step_id, frames);
 
   const turns = watching === null ? [] : watching.rows;
   // The sheet's turns: one attempt's where it was opened from one, the step's
@@ -493,120 +444,10 @@ export function OverviewTab(props: OverviewTabProps) {
     });
   }
 
-  /** Open one plan task's reading. The rail draws a title and a count; `#1421`'s
-   *  fields are this sheet's. */
-  /**
-   * Open the Check output sheet on the current attempt's Check — live where
-   * the gate is still running it, kept once it has ruled. `checkSheetOf` in
-   * `Sheets.tsx` is what reads that off the step; this only names the Check.
-   * #1021.
-   */
-  function openCheck(checkId: string): void {
-    move({ move: "open", which: "check", checkId });
-  }
-
-  /**
-   * Close it, and put focus back where it came from. **The chapter line is the
-   * way back** — `4k`'s third still — so `[` `]` carry on from the chapter the
-   * reader opened rather than from the top of the story.
-   *
-   * **The holdings sheet lands nowhere, because it came from nowhere in the
-   * story.** It opens from the run column rather than from a chapter, and
-   * putting a reader who closed it onto a chapter they never opened would move
-   * them further than `Esc` promised. Its control is the natural landing and
-   * the summary is not part of the keyboard's chapter line. Reported.
-   */
+  /** Close it. */
   function closeSheet(): void {
-    const was = sheet;
     move({ move: "close" });
-    if (was === "log" || was === "diff") {
-      keys.onFocusChapter(was === "log" ? LOG_CHAPTER : DIFF_CHAPTER);
-    }
-    if (was === "check") keys.onFocusChapter(CHECKS_CHAPTER);
   }
-
-  /**
-   * The step's story, **built for one of its runs rather than for the step**.
-   * `read` is that run narrowed by `asAttempt`, and every chapter narrows
-   * itself to the attempt it is handed — so the timeline can ask for each.
-   *
-   * A run that is over gets nothing that means *right now*: no live mark, no
-   * Judge's open question, no harness to run again, and no patch.
-   */
-  function storyOf(read: AttemptRead, over: boolean): StepChapter[] {
-    if (open === undefined) return [];
-    const step = read.step;
-    const attempt = step.attempts[0]?.attempt;
-    const ended = over ? wroteIn(read.turns) : undefined;
-    return chaptersOf({
-      job,
-      whole,
-      step,
-      // Every step, in the frozen workflow's order, for the Drone brief's
-      // `steps` section. Same nullable read as `criteria` below: a Job
-      // whose detail has not arrived yet has no order to report.
-      steps: whole?.steps ?? [],
-      // The Job's frozen criteria, for the Verdicts chapter. The same list
-      // the phase strip's Judge tier joins against, from the same reading.
-      criteria: whole?.acceptance_criteria ?? [],
-      watching: watching === null ? watching : { ...watching, rows: read.turns },
-      footprint: recorded.footprint,
-      kept: whole?.footprint,
-      diff: recorded.diff,
-      live: ended === undefined && observed.state === "watching",
-      transcript,
-      log: keys.inLog,
-      calls,
-      frames,
-      ...(ended !== undefined
-        ? {}
-        : {
-            again: againOf(
-              onShowAgain === undefined ? undefined : whole?.show_again,
-              open.step_id,
-              frames,
-              pressing,
-            ),
-          }),
-      sheet: ended === undefined ? sheet : null,
-      // The Produced chapter opens the step's deliverable, which the phase
-      // strip's Submitted tier was the only route to. Same handler, because
-      // two would be two vocabularies for one failed open — #307.
-      opens: opensRecords,
-      onOpenSheet: openSheet,
-      onRedirect,
-      now,
-      // Scoped to the step `stuck` is actually about — a reader may have
-      // navigated to a different step, and `stuck.undecided` is not that
-      // step's reason for anything.
-      undecided:
-        ended === undefined && whole?.stuck?.step_id === open.step_id
-          ? whole?.stuck?.undecided
-          : undefined,
-      asking: ended === undefined ? asking : undefined,
-      onRunHere: (checkId) => runHook.open(checkEntryId(checkId)), // Journey 9
-      // **The sheet only ever reads the current attempt.** `checkSheetOf`
-      // reads `open` — this Job's current step — so a press on an earlier
-      // attempt's row goes straight to the editor instead, the way it always
-      // did: that attempt's own kept path, read off `step` here rather than
-      // `open`, is still exactly attributable without the sheet's help.
-      openCheckId: ended === undefined ? openCheckId : undefined,
-      onOpenCheck:
-        ended === undefined
-          ? openCheck
-          : (checkId) => {
-              const kept = checksOf(step).find((one) => one.name === checkId)?.run?.output_path;
-              if (kept !== undefined) openKept(opensRecords, { kept, what: "check" });
-            },
-      ...(attempt === undefined ? {} : { attempt }),
-      ...(ended === undefined ? {} : { ended }),
-    });
-  }
-
-  // The timeline arranges what the story builds, run by run; it derives
-  // nothing either of them holds.
-  const produced = keepingProduced(storyOf);
-  const timeline = open && stepTimelineOf(open, turns, now, produced.storyOf);
 
   // The verdict sheet's slot: `Decide`'s place at the gate, and the finished
   // Job's own place, whichever of the three arrangements the render is —
@@ -759,14 +600,13 @@ export function OverviewTab(props: OverviewTabProps) {
             rows={rows}
             {...(logAttempt === null ? {} : { ofAttempt: logAttempt })}
             // The turns those rows were folded from, which carry the tool and
-            // the timing a row no longer does. The sheet folds runs of one tool
-            // the way the chapter does, and this is what it folds them by.
+            // the timing a row no longer does. The sheet folds runs of one tool,
+            // and this is what it folds them by.
             turns={read}
             observed={observed}
             diff={recorded.diff}
             calls={calls}
-            // Its own name, so a row opened in the sheet is not a row opened in
-            // the chapter's preview. Two logs over one stream hold equal ids.
+            // Its own name, which is what `detail-keys` keys the open row by.
             log={keys.inLog("sheet")}
             held={held}
             now={now}

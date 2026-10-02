@@ -653,8 +653,8 @@ actLines.push("// `crates/core-model/domain/actions.toml`, which is the artifact
 actLines.push("// `docs/contracts/design-system.md` promises under \"One artifact, three");
 actLines.push("// columns\" and the authority on all three.");
 actLines.push("//");
-actLines.push("// **A Motion is here and is not an act.** `move_focus`, `open_focused` and");
-actLines.push("// `focus_chapter` move the cursor and act on nothing; the registry says they");
+actLines.push("// **A Motion is here and is not an act.** `move_focus` and `open_focused`");
+actLines.push("// move the cursor and act on nothing; the registry says they");
 actLines.push("// appear in no palette and carry no glyph, so they are emitted for");
 actLines.push("// completeness and filtered out by anything that draws a list of acts.");
 actLines.push("//");
