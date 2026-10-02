@@ -26,7 +26,7 @@
 
 use std::path::Path;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
     Actor, Component, Envelope, EscalationTrigger, Job, JobId, JobStatus, Level, StepId, StepState,
     StepTarget, Target, TransitionReason,
@@ -35,6 +35,7 @@ use core_model::{
 use crate::adrift::Adrift;
 use crate::briefing::Stopped;
 use crate::daemon::Fleet;
+use crate::leasing::JobTree;
 use crate::reviewing::Said;
 use crate::session::{LiveSession, Occasion};
 use crate::working::Working;
@@ -590,14 +591,25 @@ where
     /// silently becoming one. `armada clean` keeps a branch the base cannot
     /// reach, and a worktree can still be reclaimed — at which point the
     /// earlier steps' work is not on disk and there is nothing to resume onto.
+    ///
+    /// **A slot the Job no longer holds is [`Adrift::SlotLost`]**, and never a
+    /// reason to lease another: the earlier steps' work was in that slot.
     pub(crate) fn surviving_worktree(&self, job: &Job) -> Result<Worktree, Adrift> {
         let served = self.served_by(job)?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).map_err(|cause| {
-            Adrift::Unworkable {
-                job: job.id().clone(),
-                cause,
+        let unworkable = |cause| Adrift::Unworkable {
+            job: job.id().clone(),
+            cause,
+        };
+        let spec = match self.job_tree(&served, job).map_err(unworkable)? {
+            JobTree::Here(spec) => spec,
+            JobTree::Lost { slot, why } => {
+                return Err(Adrift::SlotLost {
+                    job: job.id().clone(),
+                    slot,
+                    why,
+                })
             }
-        })?;
+        };
         if !Path::new(&spec.worktree_path()).is_dir() {
             return Err(Adrift::WorktreeGone {
                 job: job.id().clone(),

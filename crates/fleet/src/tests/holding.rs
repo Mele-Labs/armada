@@ -220,7 +220,7 @@ async fn a_piloted_job_is_held_as_piloted_and_is_never_offered() {
         .propose(a_proposal("somebody took this one over"))
         .await
         .expect("a Job at the gate");
-    a_worktree_for(&home, &job.handle());
+    crate::tests::reclaim::a_slot_for(&home, &job.handle());
     let running = dispatched(&fleet, job.id()).await.expect("running");
     fleet
         .move_job(
@@ -469,7 +469,7 @@ async fn a_piloted_jobs_checkout_is_not_served_at_all() {
         .propose(a_proposal("somebody is in this one"))
         .await
         .expect("a Job at the gate");
-    a_worktree_for(&home, &job.handle());
+    crate::tests::reclaim::a_slot_for(&home, &job.handle());
     let running = dispatched(&fleet, job.id()).await.expect("running");
     fleet
         .move_job(

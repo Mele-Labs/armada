@@ -27,6 +27,7 @@ pub struct Lease {
     pub(super) reclaimed_from: Option<String>,
     pub(super) seeded_from: Option<String>,
     pub(super) unfetched: Option<String>,
+    pub(super) made: bool,
 }
 
 impl Lease {
@@ -42,6 +43,12 @@ impl Lease {
     /// back.
     pub fn reclaimed_from(&self) -> Option<&str> {
         self.reclaimed_from.as_deref()
+    }
+
+    /// Whether this lease made the slot, rather than taking one already made
+    /// with the last lease's build in it.
+    pub fn made(&self) -> bool {
+        self.made
     }
 
     /// The base commit whose warm build a new slot was cloned from.
@@ -75,6 +82,9 @@ pub enum SlotState {
         branch: String,
         holder: Holder,
         since: u64,
+        /// Why the holder's release was refused, where a Job ended and could
+        /// not give the slot back.
+        kept: Option<String>,
     },
     /// Its holder is gone and it is clean with nothing unlanded: the next
     /// lease takes it.
@@ -110,6 +120,8 @@ pub enum ReleaseRefused {
     /// The path is not one of this pool's slots.
     NotASlot(PathBuf),
     NotLeased(PathBuf),
+    /// Somebody else holds it, named for a person.
+    HeldByAnother(String),
     Dirty {
         path: PathBuf,
         files: Vec<String>,
@@ -119,6 +131,34 @@ pub enum ReleaseRefused {
         commits: usize,
     },
     Vcs(String),
+}
+
+impl ReleaseRefused {
+    /// One sentence, for a person and for the slot's own record.
+    pub fn said(&self) -> String {
+        match self {
+            ReleaseRefused::NotASlot(path) => format!(
+                "{} is not one of this repository's worktree slots",
+                path.display()
+            ),
+            ReleaseRefused::NotLeased(path) => format!(
+                "{} is not leased, so there is nothing to give back",
+                path.display()
+            ),
+            ReleaseRefused::HeldByAnother(holder) => format!("{holder} holds it"),
+            ReleaseRefused::Dirty { path, files } => format!(
+                "{} has {} uncommitted, first {}. Commit or remove them, then release",
+                path.display(),
+                files.len(),
+                files.first().map(String::as_str).unwrap_or_default()
+            ),
+            ReleaseRefused::Unlanded { branch, commits } => format!(
+                "{branch} has {commits} commits on neither the remote nor the base. \
+                 Land or push them, then release"
+            ),
+            ReleaseRefused::Vcs(why) => why.clone(),
+        }
+    }
 }
 
 /// What a release gave back.
