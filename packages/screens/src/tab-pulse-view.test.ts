@@ -13,6 +13,8 @@ import { detail, job, spend } from "./fixtures/build/base";
 import { checksRunning, judgesRunning, pulseFiguresOf, pulseReadingOf } from "./resources";
 
 const BRANCH = "armada/1538-pulse";
+const JOB_LOG = ".armada/logs/1538-pulse.jsonl";
+const TRANSCRIPT = ".armada/transcripts/1538-pulse/01DRONE.jsonl";
 
 function view(over: Partial<PulseView> = {}): PulseView {
   return {
@@ -31,7 +33,7 @@ function view(over: Partial<PulseView> = {}): PulseView {
       },
     ],
     worktrees: [{ path: "/repo/.armada/worktrees/1538", branch: BRANCH, bytes: 1_020_054_016 }],
-    logs: [{ kind: "job", owner: null, writing: false }],
+    logs: [{ kind: "job", path: JOB_LOG, owner: null, writing: false }],
     ...over,
   };
 }
@@ -121,18 +123,57 @@ describe("the rows the board draws", () => {
     expect(idle?.state).toBe("no drone working");
   });
 
-  it("offers Open on the Job's own log, and on no member's", () => {
+  it("offers Open on the Job's own log, and on no transcript", () => {
     const logs = pulseReadingOf(
       view({
         logs: [
-          { kind: "job", owner: null, writing: false },
-          { kind: "transcript", owner: BRANCH, writing: false },
+          { kind: "job", path: JOB_LOG, owner: null, writing: false },
+          { kind: "transcript", path: TRANSCRIPT, owner: null, writing: false },
         ],
       }),
       null,
     ).logs;
 
     expect(logs.map((one) => one.open)).toEqual(["log", undefined]);
+  });
+
+  it("names a transcript by its Drone, so two of them are two rows", () => {
+    const one = view({ logs: [{ kind: "transcript", path: TRANSCRIPT, owner: null, writing: true }] });
+
+    expect(pulseReadingOf(one, null).logs[0]?.about).toBe("01DRONE");
+  });
+
+  it("draws a brief on both reads once: named by the Job, weighed by the reading", () => {
+    const judged = { attempt: 1, criterion_id: "no_drift", verdict: "met", brief_path: "briefs/no_drift-1.md" };
+    const whole = detail(job("running"), [step({ judged: [judged] })]);
+    const read = view({
+      logs: [
+        { kind: "job", path: JOB_LOG, owner: null, bytes: 18_204, writing: true },
+        { kind: "brief", path: "briefs/no_drift-1.md", owner: null, bytes: 6_204, writing: false },
+      ],
+    });
+
+    expect(pulseReadingOf(read, null, whole).logs).toEqual([
+      { kind: "job", owner: null, bytes: 18_204, writing: true, open: "log" },
+      {
+        kind: "brief",
+        owner: null,
+        about: "implement · no_drift",
+        bytes: 6_204,
+        writing: false,
+        open: { kept: "briefs/no_drift-1.md", what: "brief" },
+      },
+    ]);
+  });
+
+  it("draws a brief only the reading lists by its file, with no Open main would refuse", () => {
+    const read = view({
+      logs: [{ kind: "brief", path: "briefs/regression_verify.1.gaming.md", owner: null, bytes: 5_377, writing: false }],
+    });
+
+    expect(pulseReadingOf(read, null, null).logs).toEqual([
+      { kind: "brief", owner: null, about: "regression_verify.1.gaming", bytes: 5_377, writing: false },
+    ]);
   });
 
   it("lists each brief the Judge was asked with once, off the Job rather than the reading", () => {
@@ -153,7 +194,7 @@ describe("the rows the board draws", () => {
   });
 
   it("marks a log that is still being written", () => {
-    const one = view({ logs: [{ kind: "job", owner: null, writing: true }] });
+    const one = view({ logs: [{ kind: "job", path: JOB_LOG, owner: null, writing: true }] });
 
     expect(pulseReadingOf(one, null).logs[0]?.writing).toBe(true);
   });

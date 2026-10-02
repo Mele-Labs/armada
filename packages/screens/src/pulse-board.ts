@@ -6,7 +6,7 @@
 
 import type { Figure, PulseLogRow, PulseReading, PulseWorktreeRow } from "@armada/components";
 import type { JobDetail as JobWhole, JobExamined, StepDetail } from "@armada/protocol";
-import type { PulseView } from "./draft/pulse";
+import type { PulseLog, PulseView } from "./draft/pulse";
 import { span } from "./duration";
 import { ordered, spent } from "./facts";
 import { cap } from "./RaiseCap";
@@ -20,10 +20,11 @@ import { checksOf, isRunning } from "./gates";
  * would be a finding about members nothing looked at. So is `Open`: the host
  * opens a worktree by the Job's id, which names one checkout.
  *
- * **The Judge's briefs come off the Job, not the reading.** `get_job` names
- * each one a step's criteria were asked with, and the host opens it by that
- * path. `whole` is optional because the job sheet draws this board from a
- * caller that does not pass it; that board lists the Job's own log alone.
+ * **A Judge's brief is named by the Job and weighed by the reading.**
+ * `get_job` names each one a step's criteria were asked with, and the host
+ * opens it by that path; `logRowsOf` joins the two. `whole` is optional
+ * because the job sheet draws this board from a caller that does not pass it;
+ * that board lists the reading's files alone, a brief with no `Open`.
  * A size's age is off its own `measured_at`: Fleet keeps a size between reads.
  */
 export function pulseReadingOf(
@@ -52,17 +53,61 @@ export function pulseReadingOf(
       ...sizeAge(worktree.measured_at, now),
       ...(one ? { ...standing(view.held, examined), open: "worktree" as const } : { state: ON_DISK }),
     })),
-    logs: [
-      ...view.logs.map((log) => ({
-        kind: log.kind,
-        owner: log.owner,
-        ...(log.bytes === undefined ? {} : { bytes: log.bytes }),
-        writing: log.writing,
-        ...(log.kind === "job" && log.owner === null ? { open: "log" as const } : {}),
-      })),
-      ...briefsOf(whole ?? null),
-    ],
+    logs: logRowsOf(view.logs, whole ?? null),
   };
+}
+
+/**
+ * Fleet's files, then the briefs, each once.
+ *
+ * **A brief is on both reads, and `get_job` names it.** Its row takes the step
+ * and criterion and the `Open` from the Job, because main opens a brief only by
+ * a path the Job named; the reading adds what it weighs and whether it is held
+ * open. Two paths that are equal are one file, since both are relative to
+ * `records_root`. A brief only the reading lists — the board drawn without the
+ * Job, or a brief kept before its verdict landed — is named by its file and
+ * offers no `Open`, for the same reason.
+ *
+ * **A transcript offers no `Open` either.** The host opens `transcript` by the
+ * Job's assigned Drone, which is not the row's file once there are two.
+ */
+function logRowsOf(logs: readonly PulseLog[], whole: JobWhole | null): PulseLogRow[] {
+  const read = new Map(logs.filter((one) => one.kind === "brief").map((one) => [one.path, one]));
+  const named = briefsOf(whole).map(({ path, row }) => {
+    const log = read.get(path);
+    read.delete(path);
+    return log === undefined ? row : { ...row, ...weighed(log), writing: log.writing };
+  });
+  const files = logs.filter((one) => one.kind !== "brief").map(fileRowOf);
+  return [...files, ...named, ...[...read.values()].map(fileRowOf)];
+}
+
+/** One file as the reading lists it. */
+function fileRowOf(log: PulseLog): PulseLogRow {
+  const own = log.kind === "job" && log.owner === null;
+  return {
+    kind: log.kind,
+    owner: log.owner,
+    ...(own ? {} : { about: stem(log.path) }),
+    ...weighed(log),
+    writing: log.writing,
+    ...(own ? { open: "log" as const } : {}),
+  };
+}
+
+/** What the file weighs, where Fleet measured it. Absent is never zero. */
+function weighed(log: PulseLog): { bytes?: number } {
+  return log.bytes === undefined ? {} : { bytes: log.bytes };
+}
+
+/**
+ * A file's name without its directory or its extension: a transcript's Drone
+ * id, a brief's step, run and criterion. What tells two rows of a kind apart.
+ */
+function stem(path: string): string {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
 }
 
 function sizeAge(measuredAt: string | undefined, now: number | undefined): { age?: string } {
@@ -90,23 +135,26 @@ function standing(held: string, examined: JobExamined | null): Pick<PulseWorktre
 /**
  * One row per brief the Judge was asked with, across every step and run.
  *
- * **Unweighed, and never `being written`.** Fleet names the path once the
- * brief is kept, so a listed brief is finished; what it weighs is not served.
+ * **Unweighed here, and not `being written`.** What it weighs and whether it
+ * is held open are the reading's, which `logRowsOf` lays over these.
  */
-function briefsOf(whole: JobWhole | null): PulseLogRow[] {
+function briefsOf(whole: JobWhole | null): { path: string; row: PulseLogRow }[] {
   const seen = new Set<string>();
-  const rows: PulseLogRow[] = [];
+  const rows: { path: string; row: PulseLogRow }[] = [];
   for (const step of ordered(whole)) {
     for (const judged of step.judged) {
       const path = judged.brief_path;
       if (path === undefined || seen.has(path)) continue;
       seen.add(path);
       rows.push({
-        kind: "brief",
-        owner: null,
-        about: `${step.step_id} · ${judged.criterion_id}`,
-        writing: false,
-        open: { kept: path, what: "brief" },
+        path,
+        row: {
+          kind: "brief",
+          owner: null,
+          about: `${step.step_id} · ${judged.criterion_id}`,
+          writing: false,
+          open: { kept: path, what: "brief" },
+        },
       });
     }
   }

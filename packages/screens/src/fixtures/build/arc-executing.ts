@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, LogFile, StepDetail } from "@armada/protocol";
 import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -19,6 +19,7 @@ import { arcDrones, t6Retry } from "./arc-drones";
 import {
   ARC_APPROVED_AT,
   ARC_BRANCH,
+  ARC_HANDLE,
   ARC_JOB_ID,
   ARC_NOW,
   ARC_WORKTREE,
@@ -51,10 +52,43 @@ function planAdvanced(): StepDetail {
     ...arcAdvanced(arcStep("plan", "Plan the change", 1), "2026-09-22T09:15:00Z", "2026-09-22T09:21:00Z"),
     judge_checks: [{ criteria: 2, gaming_check: false }],
     judged: [
-      { attempt: 1, criterion_id: "a1", verdict: "met" },
-      { attempt: 1, criterion_id: "a2", verdict: "met" },
+      { attempt: 1, criterion_id: "a1", verdict: "met", brief_path: PLAN_BRIEF("a1") },
+      { attempt: 1, criterion_id: "a2", verdict: "met", brief_path: PLAN_BRIEF("a2") },
     ],
   };
+}
+
+/** Where the plan's Judge brief for one criterion was kept. */
+const PLAN_BRIEF = (criterion: string) => `.armada/briefs/${ARC_HANDLE}/plan.1.${criterion}.md`;
+
+/** The transcript of one task's Drone, as the reading lists it. */
+function transcript(task: string, bytes: number | undefined, writing: boolean | undefined): LogFile {
+  return {
+    kind: "transcript",
+    path: `.armada/transcripts/${ARC_HANDLE}/${ARC_DRONES[task] ?? task}.jsonl`,
+    ...(bytes === undefined ? {} : { bytes }),
+    ...(writing === undefined ? {} : { being_written: writing }),
+  };
+}
+
+/**
+ * Every file the Job has by group three: its own log and T5's transcript held
+ * open, the four finished transcripts, and the plan's two briefs.
+ *
+ * **T3's would not `stat`**, so it has no size and no answer about a writer:
+ * with no inode to match, Fleet learns neither.
+ */
+function sequentialLogs(): LogFile[] {
+  return [
+    { kind: "job", path: `.armada/logs/${ARC_HANDLE}.jsonl`, bytes: 96_412, being_written: true },
+    transcript("T1", 1_288_304, false),
+    transcript("T2", 402_118, false),
+    transcript("T3", undefined, undefined),
+    transcript("T4", 517_930, false),
+    transcript("T5", 611_205, true),
+    { kind: "brief", path: PLAN_BRIEF("a1"), bytes: 14_870, being_written: false },
+    { kind: "brief", path: PLAN_BRIEF("a2"), bytes: 15_032, being_written: false },
+  ];
 }
 
 /** One Drone's process, as `ps` reports it. */
@@ -88,7 +122,7 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
       owner: ARC_BRANCH,
     })),
     worktrees: [{ path: ARC_WORKTREE, branch: ARC_BRANCH, bytes: 1_020_054_016 }],
-    logs: [{ kind: "job", owner: null, writing: processes.length > 0 }],
+    logs: [{ kind: "job", path: `.armada/logs/${ARC_HANDLE}.jsonl`, owner: null, writing: processes.length > 0 }],
   };
 }
 
@@ -217,6 +251,8 @@ function executing(args: {
   status?: string;
   /** The Job's diff, where this moment serves one. */
   diff?: Diff;
+  /** The files the reading lists, where this moment serves them. */
+  logs?: LogFile[];
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -237,7 +273,7 @@ function executing(args: {
     resources: {
       state: "read",
       jobId: ARC_JOB_ID,
-      resources: arcResources(args.processes.length === 0 ? "none" : "running", args.processes),
+      resources: arcResources(args.processes.length === 0 ? "none" : "running", args.processes, args.logs),
     },
     recorded: {
       footprint: { state: "none" },
@@ -341,6 +377,7 @@ export function executingSequential(): ArcMoment {
         groups,
         step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:20:00Z"),
         processes: [droneProcess(52_118, "06:12")],
+        logs: sequentialLogs(),
       }),
     ],
     opens: ARC_JOB_ID,

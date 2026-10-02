@@ -236,9 +236,9 @@
   grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
 }
 
-/* kind · whose and what · Open or being written */
+/* kind · whose and what · size · Open or being written */
 .armada-holds__rows[data-list="logs"] {
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
 }
 
 .armada-holds__row {

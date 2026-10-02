@@ -97,7 +97,7 @@ export type PulseLogRow = {
   about?: string;
   /** What `Open` hands the host. Absent draws no control. */
   open?: Artifact;
-  /** What it weighs. **Not drawn**: Fleet does not send it yet. */
+  /** What it weighs. **Absent draws nothing**, never `0` and never a dash. */
   bytes?: number;
   /** Whether something is writing to it right now. */
   writing: boolean;
@@ -332,6 +332,9 @@ export function Worktrees({
  * **Being written is the fact the list exists for.** A log that stopped
  * growing while its Job reads running is the shape of a hang, so a file still
  * open says so where its `Open` would be.
+ *
+ * **A size Fleet could not measure is an empty cell** (owner, 29 Sep: "We dont
+ * need to say anything"). The cell stays, so the column still lines up.
  */
 export function Logs({
   logs,
@@ -353,6 +356,13 @@ export function Logs({
         <li key={`${one.owner ?? ""}/${one.kind}/${one.about ?? ""}`} className="armada-holds__row">
           <span className="armada-holds__kind">{KIND[one.kind] ?? one.kind}</span>
           <span className="armada-holds__name armada-holds__mono">{whoseLog(one)}</span>
+          {one.bytes === undefined ? (
+            <span />
+          ) : (
+            <Tooltip label={SIZE_ON_DISK} asChild>
+              <span className="armada-holds__weight">{sized(one.bytes)}</span>
+            </Tooltip>
+          )}
           {one.writing ? (
             <span className="armada-holds__writing">being written</span>
           ) : (

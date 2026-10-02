@@ -459,9 +459,9 @@ export const SeveralMembers: Story = {
     await expect(
       within(whose).getAllByRole("option").map((one) => one.textContent),
     ).toEqual(["All sub jobs", "armada/24-drop-the-store-singleton"]);
-    // Both rows here carry `bytes`, and the list draws no size for either:
-    // Fleet does not send it yet, so the column went (owner, 29 Sep).
-    await expect(logs.queryAllByText(/\d (B|KiB|MiB|GiB)$/)).toHaveLength(0);
+    // Both rows here carry `bytes`, and each draws its own.
+    await expect(logs.getByText("180.0 KiB")).toBeVisible();
+    await expect(logs.getByText("2.0 MiB")).toBeVisible();
   },
 };
 
