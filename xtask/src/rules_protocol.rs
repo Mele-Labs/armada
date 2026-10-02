@@ -14,7 +14,8 @@
 //! **Two files, read as one text.** `SERVED` moved out of `routes.rs` when
 //! that file crossed the 900-line rule; the router and the table it is
 //! compared against are still one subject to this rule, so both are read and
-//! joined before anything is parsed.
+//! joined before anything is parsed. The table is itself three files since it
+//! reached the 1200-line rule, and [`served_rows`] reads them as one.
 //!
 //! **The other direction is [`unserved`](mod@unserved)**, and it is a second
 //! rule rather than a second loop here: what it fails on is a name with nothing
@@ -45,6 +46,12 @@ const INVENTORY: &str = "crates/ipc/operations.toml";
 const TABLE: &str = "crates/api/src/routes.rs";
 /// The inventory half of the same subject: every `SERVED` row.
 const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
+/// The tables [`SERVED_TABLE`] joins into `SERVED`, split out of it at the
+/// 1200-line rule. Read with it as one text, by [`served_rows`].
+const SERVED_PARTS: &[&str] = &[
+    "crates/api/src/routes/served/studios.rs",
+    "crates/api/src/routes/served/events.rs",
+];
 const EVENT_ENUM: &str = "crates/ipc/src/event.rs";
 
 pub fn the_router_serves_what_the_inventory_names(root: &Path) -> Report {
@@ -58,8 +65,7 @@ pub fn the_router_serves_what_the_inventory_names(root: &Path) -> Report {
         report.fail(format!("{TABLE} — the router itself"));
         return report;
     };
-    let Ok(rows) = fs::read_to_string(root.join(SERVED_TABLE)) else {
-        report.fail(format!("{SERVED_TABLE} — the route table itself"));
+    let Some(rows) = served_rows(root, &mut report) else {
         return report;
     };
     let table = format!("{rows}\n{router}");
@@ -233,6 +239,21 @@ pub(crate) fn operations(inventory: &str) -> BTreeMap<String, String> {
         }
     }
     found
+}
+
+/// The `SERVED` table's source, every file it is joined from, as one text —
+/// or a failure naming the one that would not read.
+pub(crate) fn served_rows(root: &Path, report: &mut Report) -> Option<String> {
+    let mut text = String::new();
+    for file in std::iter::once(&SERVED_TABLE).chain(SERVED_PARTS) {
+        let Ok(part) = fs::read_to_string(root.join(file)) else {
+            report.fail(format!("{file} — the route table itself"));
+            return None;
+        };
+        text.push_str(&part);
+        text.push('\n');
+    }
+    Some(text)
 }
 
 /// Every row of the `SERVED` table, as (operation, method, path).

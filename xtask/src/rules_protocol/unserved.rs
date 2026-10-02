@@ -16,7 +16,7 @@ use std::path::Path;
 
 use crate::Report;
 
-use super::{operations, rows, INVENTORY, SERVED_TABLE};
+use super::{operations, rows, served_rows, INVENTORY, SERVED_TABLE};
 
 /// An operation the inventory names, that nothing serves, and why not.
 ///
@@ -61,8 +61,7 @@ pub fn every_operation_the_inventory_names_is_served(root: &Path) -> Report {
         report.fail(format!("{INVENTORY} — the operation inventory itself"));
         return report;
     };
-    let Ok(table) = fs::read_to_string(root.join(SERVED_TABLE)) else {
-        report.fail(format!("{SERVED_TABLE} — the route table itself"));
+    let Some(table) = served_rows(root, &mut report) else {
         return report;
     };
 

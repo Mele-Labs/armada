@@ -4,11 +4,21 @@
 //! The router and the table it is compared against are two different things,
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
+//!
+//! **Split again at the 1200-line rule**, into three tables joined at compile
+//! time: Studios' in [`studios`](mod@studios), the published event kinds in
+//! [`events`](mod@events), and every other row here. Each is a subject a
+//! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
+//! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
+
+mod events;
+mod studios;
 
 /// One operation, and where it is served.
 ///
 /// `operation` is the key in `crates/ipc/operations.toml`, spelled exactly as
 /// that file spells it, so comparing the two needs a set lookup and no mapping.
+#[derive(Clone, Copy)]
 pub struct Route {
     pub operation: &'static str,
     pub method: &'static str,
@@ -26,7 +36,32 @@ pub struct Route {
 /// `redispatch`, with no `redispatch_drone` to tell apart, nor Pulse's kills,
 /// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
 /// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
-pub const SERVED: &[Route] = &[
+pub const SERVED: &[Route] = &joined::<
+    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() },
+>([ROUTES, studios::ROUTES, events::ROUTES]);
+
+/// The three tables as one, in order. A count that disagrees with `N` fails
+/// the build rather than serving a short table.
+const fn joined<const N: usize>(tables: [&[Route]; 3]) -> [Route; N] {
+    // Filled from the first row and overwritten below: a literal `Route` here
+    // would read as a row to the gate rule, which parses this file as text.
+    let mut out = [tables[0][0]; N];
+    let (mut table, mut at) = (0, 0);
+    while table < tables.len() {
+        let mut row = 0;
+        while row < tables[table].len() {
+            out[at] = tables[table][row];
+            at += 1;
+            row += 1;
+        }
+        table += 1;
+    }
+    assert!(at == N, "the joined table is the sum of its parts");
+    out
+}
+
+/// Every row that is neither a Studio's nor a published event kind.
+const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
         method: "GET",
@@ -111,149 +146,6 @@ pub const SERVED: &[Route] = &[
         operation: "answer_helm_call",
         method: "POST",
         path: "/helm/calls/answer",
-    },
-    // A repository's Studios, `#1285`: the collection reads `?manifest_id=`,
-    // a member is its id, and each act is spelled in the last segment without
-    // `studio_`, which the segment before it already says.
-    Route {
-        operation: "list_studios",
-        method: "GET",
-        path: "/studios",
-    },
-    Route {
-        operation: "create_studio",
-        method: "POST",
-        path: "/studios/create",
-    },
-    Route {
-        operation: "get_studio",
-        method: "GET",
-        path: "/studios/:studio_id",
-    },
-    // The picture one Note kept, answered as the file. One segment and not two,
-    // unlike a step's frame: a Studio keeps one frame per node under the node's
-    // own id, so the node names the file and the record supplies its name.
-    Route {
-        operation: "get_studio_frame",
-        method: "GET",
-        path: "/studios/:studio_id/frames/:node_id",
-    },
-    Route {
-        operation: "rename_studio",
-        method: "POST",
-        path: "/studios/:studio_id/rename",
-    },
-    Route {
-        operation: "delete_studio",
-        method: "POST",
-        path: "/studios/:studio_id/delete",
-    },
-    Route {
-        operation: "add_studio_node",
-        method: "POST",
-        path: "/studios/:studio_id/add_node",
-    },
-    Route {
-        operation: "capture_studio_note",
-        method: "POST",
-        path: "/studios/:studio_id/capture_note",
-    },
-    Route {
-        operation: "move_studio_node",
-        method: "POST",
-        path: "/studios/:studio_id/move_node",
-    },
-    Route {
-        operation: "remove_studio_nodes",
-        method: "POST",
-        path: "/studios/:studio_id/remove_nodes",
-    },
-    Route {
-        operation: "propose_studio_edge",
-        method: "POST",
-        path: "/studios/:studio_id/propose_edge",
-    },
-    Route {
-        operation: "decide_studio_edge",
-        method: "POST",
-        path: "/studios/:studio_id/decide_edge",
-    },
-    Route {
-        operation: "group_studio_nodes",
-        method: "POST",
-        path: "/studios/:studio_id/group_nodes",
-    },
-    Route {
-        operation: "defer_on_studio",
-        method: "POST",
-        path: "/studios/:studio_id/defer",
-    },
-    Route {
-        operation: "write_up_studio_node",
-        method: "POST",
-        path: "/studios/:studio_id/write_up",
-    },
-    Route {
-        operation: "edit_studio_draft",
-        method: "POST",
-        path: "/studios/:studio_id/edit_draft",
-    },
-    Route {
-        operation: "edit_studio_link",
-        method: "POST",
-        path: "/studios/:studio_id/edit_link",
-    },
-    Route {
-        operation: "edit_studio_sketch",
-        method: "POST",
-        path: "/studios/:studio_id/edit_sketch",
-    },
-    Route {
-        operation: "settle_contradiction",
-        method: "POST",
-        path: "/studios/:studio_id/settle",
-    },
-    Route {
-        operation: "dispatch_studio_draft",
-        method: "POST",
-        path: "/studios/:studio_id/dispatch_draft",
-    },
-    Route {
-        operation: "ask_scout",
-        method: "POST",
-        path: "/studios/:studio_id/ask_scout",
-    },
-    Route {
-        operation: "start_scout",
-        method: "POST",
-        path: "/studios/:studio_id/start_scout",
-    },
-    Route {
-        operation: "stop_scout",
-        method: "POST",
-        path: "/studios/:studio_id/stop_scout",
-    },
-    // A Link read in, `#1293`. `read_in` rather than `read_in_link`: the node
-    // the body names is the Link.
-    Route {
-        operation: "read_in_link",
-        method: "POST",
-        path: "/studios/:studio_id/read_in",
-    },
-    // A run started from a Studio, `#1289`. `start_run` rather than
-    // `start_studio_run`: the segment before it says which Studio.
-    Route {
-        operation: "start_studio_run",
-        method: "POST",
-        path: "/studios/:studio_id/start_run",
-    },
-    // A server started from a Studio, `#1345`. Beside `start_run` and not
-    // folded into it: a server is held rather than run, and the two answers
-    // are read back by different readers.
-    Route {
-        operation: "start_studio_server",
-        method: "POST",
-        path: "/studios/:studio_id/start_server",
     },
     // Fleet's reading of its own Manifest, and singular where `/manifests` is
     // plural on purpose: that route lists what Fleet holds, and this one is the
@@ -948,183 +840,6 @@ pub const SERVED: &[Route] = &[
         operation: "observe_server",
         method: "GET",
         path: "/servers/:server_id/observe",
-    },
-    // Every event kind is served on the one socket, and every one is named:
-    // `SERVED` is what a rule compares to the inventory, so a kind published
-    // and not listed here is a kind no rule can see. The rule also compares
-    // this group to `crates/ipc/src/event.rs`'s `Event` enum, which is the
-    // closed set of kinds that can actually be published — a variant there
-    // with no row here now fails the gate rather than reading as complete
-    // while two kinds went unlisted.
-    Route {
-        operation: "job.created",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.state_changed",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.step_advanced",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "drone.spawned",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "drone.exited",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.files_changed",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.judging",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.checking",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.dry_run",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "evidence.submitted",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.asking",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.command_waiting",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.forgotten",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.landed",
-        method: "GET",
-        path: "/events",
-    },
-    // The forge's comments on a Job's pull request changed since the last
-    // sweep found it open. `#661`.
-    Route {
-        operation: "job.remarks_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // A Job's plan was recorded or a task changed. The counts ride along; the
-    // plan is `get_job`'s. `#893`.
-    Route {
-        operation: "job.plan_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // The one kind on this stream that names no Job. A proposal is the interval
-    // before any exists, which is why it carries an id of its own.
-    Route {
-        operation: "proposal.moved",
-        method: "GET",
-        path: "/events",
-    },
-    // The other kind that names no Job, and it names no Drone or step either.
-    // A Manifest is Fleet's own, so nothing on the Board moves when it arrives.
-    Route {
-        operation: "manifest.reread",
-        method: "GET",
-        path: "/events",
-    },
-    // Fleet's own list, carried whole, so a picker replaces it rather than patching.
-    Route {
-        operation: "repositories.changed",
-        method: "GET",
-        path: "/events",
-    },
-    // A Studio after a write, whole, and a Studio deleted.
-    Route {
-        operation: "studio.changed",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "studio.deleted",
-        method: "GET",
-        path: "/events",
-    },
-    // Helm's act on a Studio, beside the `studio.changed` it made. `#1288`.
-    Route {
-        operation: "studio.helm_acted",
-        method: "GET",
-        path: "/events",
-    },
-    // A Helm session held inside a call the person's own settings do not cover,
-    // and what became of it. `#1389`.
-    Route {
-        operation: "helm.asking_to_run",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "helm.call_answered",
-        method: "GET",
-        path: "/events",
-    },
-    // Helm writing a file in the repository's own checkout, which it does on a
-    // person's ask and in no worktree. `#1373`.
-    Route {
-        operation: "helm.changed_checkout",
-        method: "GET",
-        path: "/events",
-    },
-    // A person's run ending. It names a Job and moves nothing on it; what the
-    // run prints is `observe_run`'s, never this stream's.
-    Route {
-        operation: "run.finished",
-        method: "GET",
-        path: "/events",
-    },
-    // The same, for a run in the main checkout. Its own kind because it names
-    // no Job, so a reader folding the one above by `job_id` cannot be given it.
-    Route {
-        operation: "checkout_run.finished",
-        method: "GET",
-        path: "/events",
-    },
-    // A server's three lifecycle facts. Its output is `observe_server`'s.
-    Route {
-        operation: "server.starting",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "server.serving",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "server.exited",
-        method: "GET",
-        path: "/events",
     },
     // The four narrowings of `/jobs`, each its own route rather than a filter
     // on the list: what counts as waiting on a person is a rule, and a rule
