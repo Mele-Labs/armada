@@ -788,11 +788,11 @@ peer_polarity = "Member of the Kit set"
 owner = "Judge"
 read_by = "adapters, verification"
 notes = """
-Added by the Aug 2026 config review. Judge had no row among the original 45: the only tier in the system that measures correctness was unconfigured, unbudgeted and unversioned. Runs through ModelClient — one-shot, no tools, cheap model, tight latency budget.
+Added by the Aug 2026 config review. Judge had no row among the original 45: the only tier in the system that measures correctness was unconfigured, unbudgeted and unversioned. Runs through ModelClient — cheap model, tight latency budget, and since 2 Oct 2026 read-only access to the repository's checkout for `judge-read-turns` turns.
 
 DECIDED 28 Aug 2026: haiku. It was already the value in the adapter, written there as a stand-in for this row; it is now this row's decision and the adapter derives it rather than stating it. What changed is not the string but who owns it.
 
-Why the cheapest tier is the right floor, rather than the safe-looking stronger one. The Judge is veto-only and one-shot: no tools, no repository, one turn, and one narrow yes/no about a diff it was handed. That is the smallest question in the system, and the tier that answers it is the cheapest one that can read a patch. A stronger default would not make the Judge see more — it cannot go looking, by construction — it would only make every criterion cost more and take longer.
+Why the cheapest tier is the right floor, rather than the safe-looking stronger one. The Judge is veto-only: one narrow yes/no about a diff it was handed, decided 28 Aug 2026 when it had no tools, no repository and one turn. That is the smallest question in the system, and the tier that answers it is the cheapest one that can read a patch. A stronger default would not make the Judge see more — it reads the same checkout under the same turn cap whatever the model — it would only make every criterion cost more and take longer.
 
 Why it must be a floor and not a middle. Model is a deliberate per-step dial and the reference Bug workflow already varies it: four steps on haiku, review on sonnet. A dial is only meaningful against a default it moves away from, and a default already at the middle of the roster leaves the cheap direction unreachable — the step that wants rigour can no longer be told apart from the step that got it by inheritance.
 
@@ -811,7 +811,7 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-Added with the Job proposer. Its own row rather than a second reading of judge-model: the two are the same shape of call and are raised for opposite reasons, and a machine that raised one by raising the other would pay the raise on every dispatch as well as on every criterion. One turn, no tools, no directory — the same shape as a Judge call. Overridden by ARMADA_PROPOSER_MODEL, resolved at the composition root, and nothing below Fleet reads it. Carries no value yet, so the default is the adapter's own stand-in. judge-model was in the same arrangement until 28 Aug 2026 and is now decided; this row was left where it was rather than being carried along, because the two are raised for different reasons and the proposer's own reasons have not been worked through.
+Added with the Job proposer. Its own row rather than a second reading of judge-model: the two are the same shape of call and are raised for opposite reasons, and a machine that raised one by raising the other would pay the raise on every dispatch as well as on every criterion. One turn, no tools, no directory — the shape a Judge call had until it was let read the repository on 2 Oct 2026. Overridden by ARMADA_PROPOSER_MODEL, resolved at the composition root, and nothing below Fleet reads it. Carries no value yet, so the default is the adapter's own stand-in. judge-model was in the same arrangement until 28 Aug 2026 and is now decided; this row was left where it was rather than being carried along, because the two are raised for different reasons and the proposer's own reasons have not been worked through.
 """
 
 [settings.judge-confidence-threshold]
@@ -841,7 +841,7 @@ Added by the Aug 2026 config review. Without it a Judge Check bills against the 
 
 STAYS OPEN 28 Aug 2026, and the reason is now written rather than absent. It was reviewed alongside judge-model, which was decided in the same pass; a number was deliberately not invented for this one.
 
-Nothing can read what a Judge call cost. A Judge is rendered with --output-format text and --max-turns 1, so the call answers in prose and emits no result envelope. The cost figure this cap would be compared against — total_cost_usd, read as cost_micros — reaches Armada only on a Drone's stream-json transcript, which a Judge call deliberately is not. So a dollar written into this row today would be enforced by nothing while reading, to anyone who found it, as a limit that was set. That is the failure this row is more dangerous than useful in: an unenforced cap is worse than an absent one, because only one of the two is visible as missing.
+Nothing can read what a Judge call cost. A Judge is rendered with --output-format text, so the call answers in prose and emits no result envelope. The cost figure this cap would be compared against — total_cost_usd, read as cost_micros — reaches Armada only on a Drone's stream-json transcript, which a Judge call deliberately is not. So a dollar written into this row today would be enforced by nothing while reading, to anyone who found it, as a limit that was set. That is the failure this row is more dangerous than useful in: an unenforced cap is worse than an absent one, because only one of the two is visible as missing.
 
 What is actually open has therefore changed, and is no longer 'what is the number'. It is: does a Judge call get a cost readout at all — which means an output format that carries a result line, and a reader for it, in adapters and fleet — and if it does, is a per-check dollar cap the right shape, given that the two bounds that exist today are both shaped differently. judge-call-count-ceiling bounds criteria x panel_size per step and needs no price to enforce; budget-cost-cap-per-job bounds the Job, enforced at admission, and since Sept 2026 a repository and a Job may each state their own — which changes who can move that bound but not its shape, and adds no sub-limit here. Between them the product is already bounded, and v1's measurement of a judgment at roughly 4k input / 300 output tokens puts a fully fanned-out step in cents.
 
@@ -863,6 +863,23 @@ The most of the file `armada.yml`'s `standing_rules` names that one brief carrie
 **One bound for both readers, and named for neither.** It was `judge-brief-standing-rules-cap` until 1 Oct 2026, when the Drone's opening brief began carrying the same file from the same read. Two bounds would let a Drone be told less of the rules than its Judge measures the work against, or more, and the point of telling the Drone is that the two read the same text.
 
 **A judgement, not a measurement.** The text rides every Judge call, times `panel_size`, beside a brief already carrying the request, the Check tails and often the whole diff, so it must stay a small part of one. Four kibibytes is roughly a thousand tokens and nearly three times `docs/instructions/every-change.md`, the file Armada's own `armada.yml` names. It is a list of what every change carries, and a file that needs more is a contract to point at rather than to paste.
+"""
+
+[settings.judge-read-turns]
+name = "Judge read turns"
+scope = "Machine"
+default = "8"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "Lower is stricter"
+owner = "Judge"
+read_by = "fleet"
+notes = """
+How many turns one Judge call may take, its reads of the repository's checkout and its answer together — `--max-turns` on the call. Decided 2 Oct 2026, when the Judge was let read the repository so it learns what a repository requires of a change the way a Drone does. `JUDGE_READ_TURNS` in `crates/fleet/src/judging.rs`.
+
+**Eight, a judgement and not a measurement.** A lookup is reading CLAUDE.md, a search or two for the doc it points at, reading one to three of them, and answering: five to seven turns, and reads asked together in one turn count once. Eight leaves one spare. Fewer would cut a Judge off mid-lookup, and a call that runs out of turns fails rather than answers — `CallFailed::Refused`, which is never a verdict. More is a Judge exploring rather than looking something up, and every turn is paid on every criterion times `panel_size` at a gate a person is waiting behind, under `PROVISIONAL_JUDGE_BUDGET`'s 120 seconds.
+
+**Not measured on a real gate.** How many turns Judges actually take, and how much a reading call adds to a gate's wait, are the numbers that would move this.
 """
 
 [settings.judge-trigger-set-which-mechanical-results-fire-a-judge-check]

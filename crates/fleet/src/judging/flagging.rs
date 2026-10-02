@@ -66,7 +66,8 @@ pub(crate) async fn gaming(
                 judging
                     .asked
                     .kept_gaming(step.id(), at.attempt(), pattern, brief.question());
-            let ask = judging.ask(&model, brief.question())
+            let ask = judging
+                .ask(&model, brief.question())
                 .map_err(|_| CallFailed::NothingToAsk)?;
             nth += 1;
             let answer = {
