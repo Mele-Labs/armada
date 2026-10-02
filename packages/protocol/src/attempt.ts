@@ -55,4 +55,12 @@ export type ResolvedPolicies = {
   auto_merge: string;
   /** `human_always` or `auto_if_judge_passes`. */
   review_gate: string;
+  /**
+   * Whether the run reached the advance gate, where these policies decide.
+   * `false` is a run that ended earlier — its Checks failed, the Judge refused
+   * it, or a gaming check flagged it — so the policies were read and decided
+   * nothing. Absent on a Fleet that recorded the policies only at the advance
+   * gate, which is the same as `true`.
+   */
+  decided?: boolean;
 };
