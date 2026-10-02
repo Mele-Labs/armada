@@ -104,6 +104,8 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 ### Overview — one arrangement, until the Job is over
 
+**The run tree, the plan rail and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
+
 **The run is a tree on the left, the selected step fills the inspector, and the step's story reads in the order it happened.** Why: the screen had an arrangement per state, and below the header no region sat in the same place twice. Everything from The run down describes Overview.
 
 **A Job that has finished draws the Land board here instead** — how it was answered, what it delivered, what it left on the machine, what it cost, and the test set as it was run before the pull request was offered. Why this is not the per-state arrangement the rule above was written against: the run, the plan and the record each have a destination of their own now, so a finished Job's Overview is not one of several arrangements competing for a panel — it is the one question a Job nobody is waiting on is opened to answer. The board carries the run as a list of steps and their verdicts, so nothing that stood here goes unanswered.

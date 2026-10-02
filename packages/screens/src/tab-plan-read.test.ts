@@ -17,7 +17,6 @@ import {
   retrySaid,
   revisionsOf,
   runBySaid,
-  spentSaid,
   taskSheetOf,
   tasksOf,
   overlapsOf,
@@ -85,22 +84,10 @@ describe("a case reads what it is, never green", () => {
 });
 
 describe("what a task has spent", () => {
-  test("a task nothing has run has spent nothing to read", () => {
-    const task = tasksOf(GROUPS).find((one) => one.id === "T1")!;
-    expect(spentSaid(task)).toBeUndefined();
-  });
-
-  test("a working task shows turns and no cost", () => {
-    const moment = groupsOf(wholeOf(doneTouched()), doneTouched().draft);
-    const working = tasksOf(moment).find((one) => one.id === "T7")!;
-    expect(spentSaid(working)).toBe("6 turns");
-  });
-
   test("a finished task shows what its own agent cost", () => {
     const moment = groupsOf(wholeOf(doneTouched()), doneTouched().draft);
     const done = tasksOf(moment).find((one) => one.id === "T1")!;
-    expect(spentSaid(done)).toBe("34 turns · ~$2.40");
-    // The row splits the pair into two columns so they line up down a card.
+    // Two columns, so turns and cost line up down a card.
     expect(turnsSaid(done)).toBe("34 turns");
     expect(costSaid(done)).toBe("~$2.40");
   });
