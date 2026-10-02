@@ -228,9 +228,6 @@ export const NOTHING_YET_ON_THIS_STEP =
  * started. A step that genuinely has not started must still read as one, which
  * is why this answers `undefined` rather than a sentence of its own while the
  * socket is carrying rows. #324.
- *
- * `whyNoFootprint` in `files.ts` is the precedent: a surface that cannot read
- * something says which reading failed.
  */
 export function whyNotWatching(observed: Observed): string | undefined {
   switch (observed.state) {

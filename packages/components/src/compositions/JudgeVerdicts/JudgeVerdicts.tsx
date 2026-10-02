@@ -272,7 +272,7 @@ export function JudgeVerdicts({
                       title by 16px and left the unrefused ones where they
                       were, so a column of criteria no longer shared a left
                       edge — the control was setting the alignment of the
-                      content beside it. `RunTree` puts its chevron in a gutter
+                      content beside it. `StepRow` puts its chevron in a gutter
                       for the same reason and this now matches it.
 
                       A row with nothing to open draws the column and leaves it

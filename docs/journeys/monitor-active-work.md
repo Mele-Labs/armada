@@ -96,6 +96,8 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **A task opens into the Plan tab's own sheet, from either view**: where its own agent got to, what its Drone is told, what it may touch, what it runs beside, the tests for it, and — past the plan's gate — **a redirect addressed to that task's own Drone**, which is the only way in the app to reach one. Review and reply are one loop, so the box is in the surface the task is read in, and it names what it reaches: a task with an agent of its own is not the Job's one Drone. Before the gate the same sheet offers the rewrite ask instead, because two boxes about one task would be two ways to say the same thing. Fleet has no operation to redirect one Drone of several, so it is mocked against the Job's own.
 
+**A task with a Drone of its own also says what that Drone is doing now, the last file it wrote, and offers Hold to stop this task.** Why: the owner, 2 October 2026, choosing to put #1536's per-task panel into this sheet rather than back on Workflow, which keeps his 28 September call; the Workflow inspector's task reading was deleted with it. Its live log is the Drone's own tail, which the sheet already drew. **None of the three draws on today's Fleet**, where every task is worked by the Job's one Drone: they read off the mock's draft until slices 1 and 5 of `docs/spikes/022-the-wire-lock-for-the-new-job.md`. The stop is mocked as the Drones sheet's per-Drone kill is, by ending the Job's Drone, until #1666.
+
 **A label and its value are two registers, and the value sits in a box.** The task inspector draws each field as a tracked uppercase label over its value on `--bg-sunken` inside `--border-default`. Why: the owner, 28 September 2026, on the fourth surface to draw the pair — *they are all the same color and weight just a slight difference to the font size*. It is `JobProposal`'s `ProposalFields` treatment with the label above rather than beside, because 392px has no room for two tracks. **It is the panel's own component and not the app's**: one shared component for every label and value in Bridge is a separate piece of work.
 
 **A task's file list stops at twelve and offers the rest.** Why: the owner, 28 September 2026, asking what twenty would do. A list that long pushes the evidence, the tests and the box that reaches the Drone off the panel. What the plan never named sorts last and is never cut, because those are the rows worth stopping on.
@@ -104,7 +106,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 ### Overview — one arrangement, until the Job is over
 
-**The run tree, the plan rail and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
+**The run tree, the plan rail, *Where things are* and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
 
 **The run is a tree on the left, the selected step fills the inspector, and the step's story reads in the order it happened.** Why: the screen had an arrangement per state, and below the header no region sat in the same place twice. Everything from The run down describes Overview.
 
@@ -174,7 +176,7 @@ sheet.
 
 ### The inspector
 
-**The story is Drone instructions, then Activity log.** Each is a card with its own header. **Produced is the Job's own panel beside the run**, not a chapter inside the step: one card carrying both the work and what the work changed was doing two jobs, and the second shortcut in its header was the tell. Working keeps "Open the log"; Produced carries "Open the diff". #1187.
+**The story is Drone instructions, then Activity log.** Each is a card with its own header. **Produced is the Job's own panel beside the run**, not a chapter inside the step: one card carrying both the work and what the work changed was doing two jobs, and the second shortcut in its header was the tell. Produced carries "Open the diff". #1187. "Open the log" was removed on 2 Oct 2026, because a Job has no single log.
 
 **Opening one chapter collapses the others to their header line.** Why: the order stays readable while one part of it is long.
 

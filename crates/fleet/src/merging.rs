@@ -183,7 +183,8 @@ where
     /// `merge_by: push`: the merge commit is made here and pushed onto the
     /// base, never forced, through the code `armada land` lands through. A
     /// base that moved past the branch is brought into it and the branch gated
-    /// again first — `crate::pushing_onto_base`.
+    /// again first, and so is a head its Checks never passed on —
+    /// `crate::pushing_onto_base`.
     ///
     /// **The answer is written from the push**, not read from the forge: the
     /// forge reads the pull request merged once its head is in the base, which

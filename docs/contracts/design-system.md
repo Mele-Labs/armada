@@ -1041,7 +1041,9 @@ line of facts beneath.
 > came to fetch.
 > Why: *Where things are* is the region for a value you want — the repository,
 > the branch, the worktree, the Drone — and a value drawn in both is two values
-> that can disagree. The head is what you read on the way past.
+> that can disagree. The head is what you read on the way past. *Where things
+> are* was retired with Overview's reframe of 29 Sep 2026 and its code is
+> deleted; the rule stands.
 
 > **Rule.** A fact carrying a machine value carries a word naming it.
 > Why: the run was four bare strings, two of them the same string, and the
@@ -1356,8 +1358,6 @@ u              submit for verification  (piloted job only)
 e              redispatch as a new job
 h / l / ← / →  expand and collapse  (detail only)
 ⌥↑ ⌥↓          move up / down       (detail only)
-[ ]            move between chapters  (detail only)
-L              open the log         (detail only)
 f              open the diff        (detail only)
 o              open the output      (detail only)
 g              open the stage       (detail only)
@@ -1387,7 +1387,10 @@ carry one. The run tree roves on the same `j`/`k` as a list rather than
 taking a second pair of keys — moving between steps and moving between
 rows are one act — and expanding a step's facts is the same act as
 opening a log entry's payload, so both are one binding on the other
-axis. #265 builds the screen they belong to.
+axis. #265 builds the screen they belong to. **The run tree and the
+chapters were retired with Overview's reframe of 29 Sep 2026**, and `[` `]`,
+which moved between chapters, went with them: a key that lands on nothing
+is not in the map.
 
 **`not built` means the binding is registered and nothing answers it.**
 The map was settled by drawing, so it holds acts nobody has written, and

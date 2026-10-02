@@ -119,7 +119,7 @@ export function provesItOf(
   step: StepDetail,
   criteria: JobWhole["acceptance_criteria"],
   now: number,
-  /** Fleet's own reason the gate could not decide. `checksChapter`'s own. */
+  /** Fleet's own reason the gate could not decide. */
   undecided?: string,
   /** A person's own words for overruling this step, where the log kept one. */ reason?: string,
 ): CheckRunRow[] {

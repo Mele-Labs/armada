@@ -79,8 +79,8 @@ export type JobDraft = {
   wave?: WaveView;
   /**
    * Every Drone this Job has used, running, stopped and ended, each with its
-   * transcript. **Absent derives the Drones the plan's tasks name**
-   * (`droneViewsOf`), with no transcript.
+   * transcript. **Absent reads what Fleet lists** (`droneViewsOf`), which
+   * names no task.
    */
   drones?: readonly DroneView[];
 };

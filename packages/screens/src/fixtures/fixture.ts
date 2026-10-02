@@ -2,10 +2,9 @@
 //
 // **This is `JobDetailProps`' wire half, and nothing else.** The app never
 // hands `JobDetail` a derived prop — it hands it `JobSummary`, `Watched` and
-// four more reads, and derives the panel itself through `chapters.tsx`,
-// `phases.tsx`, `heading.tsx` and `run.ts`. A story that built `InsideAJob`'s
-// props directly skipped that derivation, and a bug in it — the block-heading
-// wiring `chapters.test.ts` now pins — shipped because nothing rendered it.
+// four more reads, and derives the panel itself through `phases.tsx`,
+// `heading.tsx` and `run.ts`. A story that built `InsideAJob`'s props directly
+// skipped that derivation, and a bug in it shipped because nothing rendered it.
 // `JobFixture` is the input a story gives `JobDetail` instead, so the same
 // derivation the app runs is what a story exercises.
 //
@@ -17,6 +16,7 @@
 import type {
   CallRead,
   CheckOutputRead,
+  Crewed,
   FrameRead,
   History,
   Holds,
@@ -44,6 +44,11 @@ export type JobFixture = {
   resources: Holds;
   /** `GET /jobs/:job_id/events`, where the fixture carries the Job's history. */
   history?: History;
+  /**
+   * `GET /jobs/:job_id/drones`, where the fixture carries the Job's Drones.
+   * Absent is a list never read, which lists the Job's own Drone alone.
+   */
+  jobDrones?: Crewed;
   recorded: FoldedReads;
   /**
    * Answers to `onReadCall`, keyed by the call id a transcript row carries —

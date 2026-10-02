@@ -23,7 +23,7 @@ import type {
 } from "@armada/components";
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
-import { droneViewsOf } from "./draft/drone";
+import { droneViewsOf, type DroneView } from "./draft/drone";
 import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type GroupView } from "./draft/group";
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "./facts";
@@ -181,12 +181,13 @@ function needsOf(
 /**
  * One step's card: a mark, the name, and under it what needs a person, then
  * where the work has got to — the group bar and the line on the step at work.
- * **The Drones are the plan's tasks' own**, as the step's panel lists them.
+ * **The Drones are the ones the step's panel lists.**
  */
 function stepCard(
   whole: JobWhole,
   step: StepDetail,
   groups: readonly GroupView[],
+  drones: readonly DroneView[],
   now: number,
   onOpen: (() => void) | undefined,
 ): WorkflowStepCardProps {
@@ -196,8 +197,8 @@ function stepCard(
   const gate = gateOf(step.advance_gate);
   const working = activity === "running";
   const needs = needsOf(whole, step, activity, groups);
-  const drones = droneViewsOf(groups, whole).filter((one) => one.step === step.step_id && one.state === "running").length;
-  const line = lineOf(step, said, activity, drones, took(step, now, frozen !== undefined), needs.length > 0);
+  const running = drones.filter((one) => one.step === step.step_id && one.state === "running").length;
+  const line = lineOf(step, said, activity, running, took(step, now, frozen !== undefined), needs.length > 0);
   return {
     kind: "step",
     name: step.label,
@@ -218,6 +219,11 @@ export type WorkflowRunReading = {
   whole: JobWhole;
   /** The plan's groups, for what the step at work counts on its card. */
   groups: readonly GroupView[];
+  /**
+   * Every Drone the Job has had, for how many run on each step's card.
+   * **Absent is the Job's own Drone alone**, `droneViewsOf` with no list.
+   */
+  drones?: readonly DroneView[];
   /** Opens a step in the inspector. Absent draws cards that are not controls. */
   onOpen?: (nodeId: string) => void;
   /** The node a person has open, so the card being read says which one it is. */
@@ -230,7 +236,14 @@ export type WorkflowRunReading = {
  * The whole run, placed. **One derivation for both arrangements**, so the
  * toggle changes the shape of the page and never what a step says.
  */
-export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now() }: WorkflowRunReading): WorkflowRun {
+export function workflowRunOf({
+  whole,
+  groups,
+  drones = droneViewsOf(undefined, whole),
+  onOpen,
+  selected,
+  now = Date.now(),
+}: WorkflowRunReading): WorkflowRun {
   let y = 0;
   const steps = ordered(whole);
   const madeAt = stepTheGroupsWereMadeAt(whole);
@@ -249,7 +262,7 @@ export function workflowRunOf({ whole, groups, onOpen, selected, now = Date.now(
     // The step that works the groups draws them as its bar while it works
     // them, and reads its failed groups and its Drones off them.
     const worked = step.step_id === worksAt ? mine : [];
-    const card = read(id, stepCard(whole, step, worked, now, opener(id)));
+    const card = read(id, stepCard(whole, step, worked, drones, now, opener(id)));
     nodes.push({ id, position: { x: 0, y }, card });
     y += apartAfter(card);
 

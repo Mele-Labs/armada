@@ -12,10 +12,9 @@
 //
 // | Key | `actions.toml` | Here |
 // |---|---|---|
-// | `j` `k` `↓` `↑` | `move_focus`, scope `list and detail` | move between the steps of the run, or between the rows of the log, depending on which the cursor is in |
-// | `h` `l` `←` `→` | `disclose`, scope `detail` | open and close what the focused row holds — a step's facts, a log entry's payload |
-// | `[` `]` | `focus_chapter`, scope `detail` | move between the three chapters |
-// | `f` | `open_diff`, scope `detail` | open the Produced chapter to the diff |
+// | `j` `k` `↓` `↑` | `move_focus`, scope `list and detail` | move between the rows of the log the cursor is in |
+// | `h` `l` `←` `→` | `disclose`, scope `detail` | open and close the focused log entry's payload |
+// | `f` | `open_diff`, scope `detail` | open the diff sheet |
 // | `b` | `report_job`, scope `detail` | open the dialog that says this job failed in error |
 // | `r` | `run`, scope `detail` | open the run sheet, nothing selected — Journey 9 |
 // | `n` | `new_job`, scope `anywhere` | open the composer — the Board's own key, answered the same way here |
@@ -30,46 +29,27 @@
 // with nothing to catch it, because typecheck cannot see a string selector.
 // #271.
 //
-// **The state moved here instead.** `RunTree` and the step's timeline take
-// controlled open state, so this file holds which steps have their facts open,
-// which phase row is open and which log row is showing its payload, and
-// `JobDetail` passes them down. Opening a thing is naming it now, and a name is
-// a value the compiler reads.
+// **The state moved here instead.** This file holds which log row is showing
+// its payload, and the screen passes it down. Opening a thing is naming it now,
+// and a name is a value the compiler reads.
 //
 // # Focus is still the cursor, because nothing draws another one
 //
 // `j`/`k` move between rows and a row is a control; there is no prop for "the
 // row the keyboard is on", and a cursor held in state that nothing renders is a
-// cursor nobody can see. So the two lists the cursor roves are still found in
-// the document — but by two names **this app writes itself**: `data-armada-step`
-// on a step's label, from `namesStep` below, and the payload id `Log` already
-// gives every row. A rename of either is a rename in this package, and it is
-// one the compiler follows.
+// cursor nobody can see. So the rows the cursor roves are still found in the
+// document — but by a name **this app writes itself**: the payload id `Log`
+// gives every row. A rename of it is a rename in this package, and it is one
+// the compiler follows.
 //
 // Hover on the strip is not among them and never will be: it reports where the
 // pointer is, not what a reader decided.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { RunTreeStep } from "@armada/components";
 
 import { holdsText } from "./keys";
 import { LOG_REGION, rowOfPayload } from "./Log";
-
-/** Which chapter the diff is in. The id, so the story can be reordered. */
-export const DIFF_CHAPTER = "produced";
-
-/** Which chapter the activity log is in. */
-export const LOG_CHAPTER = "log";
-
-/**
- * Which chapter the frames are in, where a step has them.
- *
- * **Named here with the other two rather than in the file that builds it**, so
- * the one place that says which chapter a surface means stays one place. What
- * reads it is the rule that decides which chapter the panel lands on.
- */
-export const FRAMES_CHAPTER = "shown";
 
 /* `FLEET_LOG` was here, naming the region that drew what Fleet did to the Job
    itself. That region is gone: it and the holdings card both answered *what is
@@ -78,53 +58,14 @@ export const FRAMES_CHAPTER = "shown";
    constant outlived the thing it named by one change, which is how a keyboard
    map ends up addressing regions nobody draws. */
 
-/** The attribute that names the step a label belongs to. Written by `namesStep`. */
-const STEP = "data-armada-step";
-
-/**
- * The attribute that names the chapter a control belongs to. Written by
- * `namesChapter`, read when a sheet closes and when `[` `]` land.
- *
- * **This app's own name, like `STEP` above.** The chapter's control is a
- * `Button` in `packages/components`; reaching for the class it ships is what
- * #271 took out of this file.
- */
-const CHAPTER = "data-armada-chapter";
-
-/**
- * What the app writes on a step's name so the keyboard can find the control it
- * sits in. **Spread into the label, never onto a component's own element** —
- * the marker box is `display: contents`, so the row draws exactly as it did.
- */
-export function namesStep(stepId: string): Record<string, string> {
-  return { [STEP]: stepId };
-}
-
-/**
- * What the app writes on a chapter's own control so the keyboard can find it.
- *
- * **`[` `]` land focus on it and `Enter` presses it**, which is exactly the
- * reading `actions.toml` gives `open_log`: *`Enter` already belongs to whatever
- * holds focus, which here is the chapter `[` `]` landed on*. So the act has no
- * key handler of its own — a second one would be two answers to one press, and
- * `Enter` on every other focused control would have to be told apart from it.
- */
-export function namesChapter(chapterId: string): Record<string, string> {
-  return { [CHAPTER]: chapterId };
-}
-
 /** What a press on job detail means. `null` is a key this surface does not carry. */
 export type DetailPress =
   /** `j` `k` `↓` `↑` — move the cursor within whichever list holds it. */
   | { act: "move"; by: 1 | -1 }
   /** `h` `l` `←` `→` — open or close what the focused row holds. */
   | { act: "disclose"; open: boolean }
-  /** `[` `]` — move between the three chapters. */
-  | { act: "chapter"; by: 1 | -1 }
   /** `f` — open the Job's patch, on the layer that can hold it. */
   | { act: "diff" }
-  /** `L` — open the step's activity log, on the layer that can hold it. */
-  | { act: "log" }
   /** `o` — open a Check's output, on the layer that can hold it. */
   | { act: "output" }
   /** `b` — say this job failed in error. */
@@ -149,8 +90,7 @@ export type DetailPress =
  */
 export function detailPressOf(event: KeyboardEvent): DetailPress | null {
   // A modifier means a different tier is being addressed — the palette's `⌘K`,
-  // the rail's `⌘1`–`⌘5`, and `⌘[` `⌘]` for back and forward, which is exactly
-  // why the brackets here are unmodified.
+  // the rail's `⌘1`–`⌘5`, and `⌘[` `⌘]` for back and forward.
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
   if (holdsText(event.target)) return null;
   // A held key repeats. Only movement accepts one — a repeat that opened
@@ -172,16 +112,8 @@ export function detailPressOf(event: KeyboardEvent): DetailPress | null {
     case "h":
     case "ArrowLeft":
       return { act: "disclose", open: false };
-    case "[":
-      return { act: "chapter", by: -1 };
-    case "]":
-      return { act: "chapter", by: 1 };
     case "f":
       return { act: "diff" };
-    // Shifted, because plain `l` is the expand half of `h`/`l` above and a
-    // mistyped motion key must not open a layer.
-    case "L":
-      return { act: "log" };
     case "o":
       return { act: "output" };
     case "b":
@@ -218,17 +150,6 @@ export function detailPressOf(event: KeyboardEvent): DetailPress | null {
  * miss.
  */
 export type DetailShape = {
-  /** The run, in order. `factsOpen` seeds the open set exactly once. */
-  run: readonly RunTreeStep[];
-  /**
-   * The step's story, in order. A chapter with no `content` cannot open.
-   *
-   * **Read when a key asks, rather than taken.** The story is built around the
-   * activity log, and which of the log's rows is open is one of the four things
-   * this file holds — so the chapters are assembled after it and this is how
-   * they get back in. Nothing calls it during a render.
-   */
-  landings: () => readonly { id: string; opens: boolean }[];
   /**
    * Open the trailing sheet `f` names — the Job's patch.
    *
@@ -241,29 +162,17 @@ export type DetailShape = {
    */
   onOpenSheet?: () => void;
   /**
-   * Open the step's activity log on the trailing layer — `L`.
+   * Open a Check's output on the trailing layer — `o`.
    *
-   * **It has a key of its own now.** It answered `Enter` on whichever chapter
-   * `[` `]` had landed on, which held while the log was the only chapter with
-   * a reading behind it and stopped the moment a Check's output became the
-   * second: one `Enter` cannot open both, and the story drew the same binding
-   * twice with no way to tell which would answer.
-   *
-   * **Required, and it was optional.** `L` reads it, finds nothing and returns
-   * false, and a press that answers nothing looks exactly like a key that is
-   * not bound — which is what shipped: this file carried the binding, the
-   * registry carried the key, `act` dispatched it, and `JobDetail` never passed
-   * the handler, so four rounds of feedback were spent on a shortcut that was
-   * wired everywhere except at the one call site. Optional made that a silence
-   * instead of a compile error. It is required now, and the screen that has
-   * nothing to open passes a function that does nothing rather than omitting
-   * the field — because that is a decision somebody wrote down.
+   * **Required, not optional.** A press that finds no handler answers nothing,
+   * which looks exactly like a key that is not bound — and that shipped once,
+   * for the log's `L`, wired everywhere except at the one call site. Required
+   * makes that a compile error, and a screen with nothing to open passes a
+   * function that does nothing.
    */
-  onOpenLog: () => void;
-  /** Open a Check's output on the trailing layer — `o`. Required, for `onOpenLog`'s reason. */
   onOpenOutput: () => void;
   /**
-   * Open the run sheet, nothing selected — `r`, Journey 9. `onOpenLog`'s
+   * Open the run sheet, nothing selected — `r`, Journey 9. `onOpenOutput`'s
    * shape and its reason: a sheet this file does not build, on a layer the
    * screen owns.
    */
@@ -308,23 +217,10 @@ export type DetailShape = {
 
 /** The open state this file holds, in the shape the screen takes it in. */
 export type DetailKeys = {
-  /** Which steps have their facts open. */
-  openSteps: readonly string[];
-  onOpenStep: (stepId: string, open: boolean) => void;
-  /** The one chapter that is open, or none. */
-  openChapterId: string | null;
-  onOpenChapter: (chapterId: string | null) => void;
-  /**
-   * Put focus on a chapter's own control, by name. **What a closing sheet
-   * calls**: the chapter line is the way back, so `[` `]` carry on from the
-   * chapter the reader opened rather than from the top of the story.
-   */
-  onFocusChapter: (chapterId: string) => void;
   /**
    * What one log takes: its own name, the row of *its* rows that is open, and
-   * how to say one was pressed. **Per log, not per story** — chapter one's
-   * turns and chapter two's preview draw the same rows under the same ids, and
-   * one held row would otherwise open in both at once.
+   * how to say one was pressed. **Per log**, so two logs over one stream,
+   * which hold equal ids, never open a row in both at once.
    */
   inLog: (region: string) => {
     region: string;
@@ -345,18 +241,7 @@ type OpenEntry = { region: string; row: string };
  * sometimes not bound at all.
  */
 export function useDetailKeys(shape: DetailShape): DetailKeys {
-  const [openSteps, setOpenSteps] = useState<readonly string[] | null>(null);
-  const [openChapter, setOpenChapter] = useState<string | null>(null);
   const [openEntry, setOpenEntry] = useState<OpenEntry | null>(null);
-
-  // Seeded from the run the first time it has rows — which is the moment an
-  // uncontrolled tree would have mounted and seeded itself from `factsOpen`,
-  // so the step the panel opens on still arrives with its facts open. Set
-  // during that render rather than from an effect: an effect draws one frame
-  // with them shut and then opens them, which is a flicker on every Job.
-  if (openSteps === null && shape.run.length > 0) {
-    setOpenSteps(shape.run.filter((step) => step.factsOpen === true).map((step) => step.id));
-  }
 
   const held = useRef(shape);
   useEffect(() => {
@@ -364,8 +249,6 @@ export function useDetailKeys(shape: DetailShape): DetailKeys {
   });
 
   const moves = useRef<Moves>({
-    steps: setOpenSteps,
-    chapter: setOpenChapter,
     entry: setOpenEntry,
   });
 
@@ -379,23 +262,7 @@ export function useDetailKeys(shape: DetailShape): DetailKeys {
     return () => window.removeEventListener("keydown", pressed);
   }, []);
 
-  const onOpenStep = useCallback((stepId: string, open: boolean) => {
-    setOpenSteps((was) => withStep(was, stepId, open));
-  }, []);
-
-  // The control is back in the document only after the panel re-renders, so the
-  // focus move waits a frame rather than running inside the press that closed
-  // the sheet — the same arrangement the Board's return-to-the-row uses.
-  const onFocusChapter = useCallback((chapterId: string) => {
-    requestAnimationFrame(() => chapterControl(chapterId)?.focus());
-  }, []);
-
   return {
-    openSteps: openSteps ?? NONE,
-    onOpenStep,
-    openChapterId: openChapter,
-    onOpenChapter: setOpenChapter,
-    onFocusChapter,
     inLog: (region) => ({
       region,
       openId: openEntry?.region === region ? openEntry.row : null,
@@ -404,13 +271,8 @@ export function useDetailKeys(shape: DetailShape): DetailKeys {
   };
 }
 
-/** An open set before the run has arrived. One value, so it is one identity. */
-const NONE: readonly string[] = [];
-
-/** The four things a press can move. Passed as one so `act` stays a function. */
+/** What a press can move. Passed as one so `act` stays a function. */
 type Moves = {
-  steps: Dispatch<SetStateAction<readonly string[] | null>>;
-  chapter: Dispatch<SetStateAction<string | null>>;
   entry: Dispatch<SetStateAction<OpenEntry | null>>;
 };
 
@@ -431,12 +293,8 @@ function act(press: DetailPress, shape: DetailShape, on: Moves): boolean {
       return move(press.by);
     case "disclose":
       return disclose(press.open, on);
-    case "chapter":
-      return chapter(press.by, shape, on);
     case "diff":
       return diff(shape);
-    case "log":
-      return sheet(shape.onOpenLog);
     case "output":
       return sheet(shape.onOpenOutput);
     case "report":
@@ -456,7 +314,7 @@ function act(press: DetailPress, shape: DetailShape, on: Moves): boolean {
 /**
  * Open one of the trailing sheets, where the screen gave a way to.
  *
- * **One spelling for two keys.** `L` and `o` differ only in which reading they
+ * **One spelling for two keys.** `o` and `r` differ only in which reading they
  * open, and two near-identical functions is two places for the swallow rule to
  * drift apart.
  */
@@ -512,19 +370,6 @@ type Row = { id: string; control: HTMLElement };
 type Entry = Row & { region: string };
 
 /**
- * The run's rows, in tree order. Found by the marker this app writes on each
- * step's name, and the control is whatever that marker sits inside — which is
- * the button the row selects with, whatever it is called.
- */
-function stepRows(): Row[] {
-  return [...document.querySelectorAll<HTMLElement>(`[${STEP}]`)].flatMap((marker) => {
-    const control = marker.closest("button");
-    const id = marker.getAttribute(STEP);
-    return control === null || id === null ? [] : [{ id, control }];
-  });
-}
-
-/**
  * The log's rows, in document order and across every log the story is drawing.
  * A row is named by the payload it points at, which `Log` writes and nothing
  * else reads.
@@ -546,17 +391,13 @@ function under(row: Row): boolean {
 }
 
 /**
- * Move the cursor inside whichever list holds it — the run, or the log.
- *
- * **One pair of keys, two lists, and which one is decided by where focus
- * already is.** `actions.toml` says so in as many words: moving between steps
- * and moving between rows are one act, and a second pair of keys for it would
- * be a binding per region. Focus outside both lands on the run, because the run
- * is the thing a person arrived at the screen to read.
+ * Move the cursor between the rows of the log that holds it. Focus outside a
+ * log is left alone, and the press with it.
  */
 function move(by: 1 | -1): boolean {
   const inLog = document.activeElement?.closest(`[${LOG_REGION}]`) != null;
-  const rows = inLog ? entryRows() : stepRows();
+  if (!inLog) return false;
+  const rows = entryRows();
   if (rows.length === 0) return false;
   const at = rows.findIndex(under);
   // Wrapping is deliberate: these are short lists a person roves rather than
@@ -568,10 +409,9 @@ function move(by: 1 | -1): boolean {
 }
 
 /**
- * Open or close what the row under the cursor holds — a log entry's payload, or
- * a step's facts.
+ * Open or close the payload of the log entry under the cursor.
  *
- * **Neither is pressed, both are named.** A payload already open stays open on
+ * **It is named, never pressed.** A payload already open stays open on
  * `l` and closes on `h`; pressing regardless would make the two keys one
  * toggle, which is what having two of them is for avoiding.
  */
@@ -586,49 +426,7 @@ function disclose(open: boolean, on: Moves): boolean {
     );
     return true;
   }
-
-  const step = stepRows().find(under);
-  if (step === undefined) return false;
-  on.steps((was) => withStep(was, step.id, open));
-  return true;
-}
-
-/** The open set with one step added or taken out. */
-function withStep(
-  was: readonly string[] | null,
-  stepId: string,
-  open: boolean,
-): readonly string[] {
-  const now = was ?? NONE;
-  if (!open) return now.filter((held) => held !== stepId);
-  return now.includes(stepId) ? now : [...now, stepId];
-}
-
-/**
- * Move between the chapters, opening the one it lands on.
- *
- * **A chapter with nothing behind it is not a stop.** The story collapses every
- * other chapter to its header when one is open, so landing is opening — there
- * is no third state where a chapter is neither open nor collapsed, and a
- * chapter with no `content` cannot be either. Reading order, so `]` goes down
- * the screen, and it clamps at both ends rather than wrapping: the story is
- * three chapters in a fixed order and wrapping past the last one would take a
- * reader back to the top of a thing they are reading down.
- */
-function chapter(by: 1 | -1, shape: DetailShape, on: Moves): boolean {
-  const opens = openable(shape.landings());
-  if (opens.length === 0) return false;
-  on.chapter((was) => {
-    const at = was === null ? -1 : opens.indexOf(was);
-    const next = at < 0 ? 0 : Math.min(Math.max(at + by, 0), opens.length - 1);
-    const landed = opens[next] ?? was;
-    // Focus follows the landing, so `Enter` reaches the chapter's own act —
-    // which is the whole of `open_log`'s binding. A frame later, because the
-    // control the chapter draws may only exist once the story has re-rendered.
-    if (landed !== null) requestAnimationFrame(() => chapterControl(landed)?.focus());
-    return landed;
-  });
-  return true;
+  return false;
 }
 
 /**
@@ -644,22 +442,3 @@ function diff(shape: DetailShape): boolean {
   shape.onOpenSheet();
   return true;
 }
-
-/**
- * The chapters `[` `]` can land on, in the story's own order.
- *
- * **A chapter with an act counts, and it has no body.** The log and the patch
- * open as a layer, so neither carries `content` any more — reading only
- * `content` would have left the brackets stopping at chapter one and nothing
- * would have said so.
- */
-function openable(landings: readonly { id: string; opens: boolean }[]): string[] {
-  return landings.filter((held) => held.opens).map((held) => held.id);
-}
-
-/** A chapter's own control, by the name this app writes on it. */
-function chapterControl(chapterId: string): HTMLElement | null {
-  const marker = document.querySelector<HTMLElement>(`[${CHAPTER}="${CSS.escape(chapterId)}"]`);
-  return marker === null ? null : (marker.closest("button") ?? marker);
-}
-

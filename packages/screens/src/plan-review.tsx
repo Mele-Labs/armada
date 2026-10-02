@@ -46,10 +46,12 @@ import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
 import { planGraphOf, taskCard } from "./plan-canvas";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { CHANGED_NOTHING, drawn } from "./review";
-import type { TaskAct } from "./Acts";
+import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
+import { TASK_STOP } from "./copy";
+import { doingOfTask, hasOwnDrone, lastEditOf } from "./task-live";
 import type { JobDraft } from "./draft/held";
 import type { GroupView } from "./draft/group";
-import { droneViewsOf } from "./draft/drone";
+import { taskDronesOf } from "./draft/drone";
 import {
   DRONE_SAYS,
   droneOnTask,
@@ -114,6 +116,13 @@ export type PlanReviewProps = {
    * them; a press does nothing until the host hands this through.
    */
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
+  /**
+   * What Hold to stop this task sends, held and asked. **Absent draws no
+   * stop**: the host that hands these through is the one with a confirmation
+   * to ask with.
+   */
+  onAct?: (act: ConfirmableAct, jobId: string) => void;
+  onActHeld?: (act: HeldAct, jobId: string) => void;
   /**
    * Every model the app knows — `list_models` — which Edit this task picks
    * from (owner, 30 Sep 2026). Absent offers the task's own model alone.
@@ -216,6 +225,8 @@ export function usePlanReview({
   onApproveWave,
   onRedirect,
   onTaskAct,
+  onAct,
+  onActHeld,
   models = [],
   onAddTask,
   onDropTask,
@@ -425,14 +436,14 @@ export function usePlanReview({
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
   // **The task's own Drone, off the list the Drones destination reads**, so
   // the peek and that sheet show one Drone the same way.
-  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? droneViewsOf(groups), open.id);
+  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? taskDronesOf(groups), open.id);
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
   const peekTurns = useMemo(
     () =>
       own?.transcript === undefined
         ? []
-        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />, own.thoughts),
+        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />),
     [own],
   );
   const ran = own === undefined || now === undefined ? undefined : ranForOf(own, now);
@@ -448,6 +459,31 @@ export function usePlanReview({
           live: own.state === "running",
           emptyNote: own.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
           ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
+        };
+  // **What only a task's own Drone can say: what it is doing, what it last
+  // wrote, and a stop for it alone.** Fleet runs one Drone per Job until
+  // slices 1 and 5 of `docs/spikes/022`, so on real Fleet no task has a Drone
+  // of its own and the sheet draws none of the three — not an empty field, and
+  // not the Job's Drone under the task's name. The mock's draft is their only
+  // source today.
+  const ownDrone = open !== undefined && hasOwnDrone(open);
+  const doing = open === undefined ? undefined : doingOfTask(open);
+  const lastEdit = ownDrone ? lastEditOf(own?.transcript) : undefined;
+  // **The stop is mocked**: Fleet has no act that ends one task's Drone
+  // (#1666, slice 5), so this sends the Job's `kill_drone`, as the Drones
+  // sheet's per-Drone kill already does. With one Drone per Job, that is the
+  // same Drone.
+  const stop =
+    !ownDrone || own?.state !== "running" || onAct === undefined || onActHeld === undefined
+      ? undefined
+      : {
+          children: TASK_STOP.label,
+          askLabel: TASK_STOP.ask,
+          description: TASK_STOP.said,
+          disabled: stale || steering.act === undefined || (acting && actingAct !== "kill_drone"),
+          pending: acting && actingAct === "kill_drone",
+          onAsk: () => onAct("kill_drone", job.id),
+          onCommit: () => onActHeld("kill_drone", job.id),
         };
   // **An open task no Drone has run has nothing to reach**: the Job's Drone is
   // not on it, so the panel draws no box rather than one that lands elsewhere.
@@ -563,6 +599,9 @@ export function usePlanReview({
           {...(proposeTask === undefined ? {} : { propose: proposeTask })}
           {...(redirect === undefined ? {} : { redirect })}
           {...(peek === undefined ? {} : { drone: peek })}
+          {...(doing === undefined ? {} : { doing })}
+          {...(lastEdit === undefined ? {} : { lastEdit })}
+          {...(stop === undefined ? {} : { stop })}
           {...(patched === undefined ? {} : { patched })}
           {...(file === undefined ? {} : { file })}
           onFile={setOpenFile}

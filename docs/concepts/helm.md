@@ -82,7 +82,7 @@ Helm may call any command it is offered once you ask it to, in this conversation
 
 | Class | What it is | What it looks like |
 |---|---|---|
-| Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `delete_branch`, `edit_manifest` |
+| Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `kill_drone`, `kill_process`, `delete_branch`, `edit_manifest` |
 | Pushes to shared | It sends code where other people read it | `git push`, `gh pr merge`, `cargo publish`, `scp`, `merge_pull_request`, `approve_dispatch` |
 | Writes off this machine | It writes to something that is not this machine | `curl -X POST`, `gh issue create`, `kubectl apply`, `file_finding_issue`, `clone_repository` |
 
@@ -106,6 +106,7 @@ Helm may call any command it is offered once you ask it to, in this conversation
 | 2 | Kill & Redispatch — kill Drone, dispatch a fresh one with new context | **Yes**, on your ask |
 | 3 | Break-glass Pilot — raw terminal takeover | **No, by definition** |
 | — | Approve dispatch, on a Job Helm drafted or any other | **Yes**, on your ask, never as a silent follow-on to drafting |
+| — | Kill one process of a Job, or every one — `kill_process`, `kill_processes` | **Yes**, on your ask, the same reach as killing the Drone (owner, 2 Oct 2026). A child is not the Drone: killing one leaves the Drone working, and the Drone's own pid is `kill_drone`. Fleet refuses a pid outside the Job's tree |
 
 Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm drafts still sits at the same approval gate every Job sits at; Helm may press it too, but only where you asked it to by name, exactly as it may take any other act.
 

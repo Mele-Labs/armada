@@ -3,8 +3,8 @@
 // **Full depth.** The activity log carries every step's turns rather than only
 // the open one's, because `Observed` is a whole-Job socket and a fixture that
 // narrowed it would hide the join `entriesOf` makes on `step_id`. The footprint
-// and the diff agree on the same three files for the reason `chapters.tsx`'s
-// own comment gives: they are one drone's work, read twice.
+// and the diff agree on the same three files: they are one drone's work, read
+// twice.
 
 import type { JobFixture } from "../fixture";
 import {

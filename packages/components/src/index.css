@@ -39,7 +39,6 @@
 @import "./compositions/StepActivityMark/StepActivityMark.css";
 @import "./compositions/StepBar/StepBar.css";
 @import "./compositions/WorkflowRail/WorkflowRail.css";
-@import "./compositions/WorkflowDiagram/WorkflowDiagram.css";
 @import "./compositions/JobRowStacked/JobRowStacked.css";
 @import "./compositions/JobRowStacked/JobRowStacked.narrow.css";
 @import "./compositions/ActiveJobsList/ActiveJobsList.css";
@@ -99,9 +98,6 @@
 /* One row of the run, and the facts it opens. */
 @import "./compositions/StepRow/StepRow.css";
 
-/* One row of Where things are — a path that opens, an identifier that copies. */
-@import "./compositions/WhereRow/WhereRow.css";
-
 /* The step's story: one chapter, and one line of the activity log inside it. */
 @import "./compositions/Chapter/Chapter.css";
 @import "./compositions/LogEntry/LogEntry.css";
@@ -122,14 +118,13 @@
    with its class names on the elements and no rules behind them, which looks
    like a component that was drawn wrong rather than one that was never
    registered. Appended, per the rule above. */
-@import "./compositions/RunTree/RunTree.css";
+@import "./compositions/RunTreeSkeleton/RunTreeSkeleton.css";
 @import "./compositions/StepStory/StepStory.css";
 @import "./compositions/ActivityLog/ActivityLog.css";
 
 /* The two trailing sheets — Journey 4's frames 4i-4m. Appended, per the rule
    at the head of this file: a stylesheet the app does not import renders its
    component as a vertical stack, which is exactly what a sheet must not be. */
-@import "./compositions/ActivityLogSheet/ActivityLogSheet.css";
 @import "./compositions/JobDiffSheet/JobDiffSheet.css";
 
 /* The token specimens. They read the sheet above rather than restating it. */
@@ -222,7 +217,6 @@
 @import "./compositions/MachineSettings/MachineSettings.css";
 
 /* A step's work, with runs of one tool folded to a line. */
-@import "./compositions/WorkGroups/WorkGroups.css";
 
 /* A step as one timeline, the phases in order and an attempt per section. */
 @import "./compositions/ManifestFile/ManifestFile.css";
@@ -259,9 +253,8 @@
 @import "./compositions/HelmThread/HelmThread.css";
 @import "./compositions/HelmComposer/HelmComposer.css";
 
-/* The card a gaming flag holds a step with. #1079. Above the rule below and
-   not after it: an `@import` that follows a rule is dropped by the browser. */
-@import "./compositions/HeldFlag/HeldFlag.css";
+/* Every import stays above the rule below and not after it: an `@import`
+   that follows a rule is dropped by the browser. */
 
 /* The title row — the picker, the search field, Dispatch, Helm's reopen
    control and the logo, in the traffic lights' own bar. #1087. */
@@ -274,7 +267,7 @@
 @import "./primitives/HoldButton/HoldButton.css";
 
 /* The card treatment under Depth, shared by every card on the canvas. Above the
-   rule below, per HeldFlag's note. #1260. */
+   rule below, per the import note above. #1260. */
 @import "./glass.css";
 @import "./file-input.css";
 
@@ -284,7 +277,7 @@
 @import "./compositions/GraphCanvas/GraphCanvas.css";
 
 /* A Studio's nodes, and the whiteboard that places them. Above the rule below,
-   per HeldFlag's note. #1286. */
+   per the import note above. #1286. */
 @import "./compositions/StudioCapture/StudioCapture.css";
 @import "./compositions/StudioNode/StudioNode.css";
 @import "./compositions/StudioWhiteboard/StudioWhiteboard.css";
@@ -312,8 +305,8 @@
    board. #1364. */
 @import "./compositions/StudioName/StudioName.css";
 @import "./compositions/StudioAddNode/StudioAddNode.css";
-/* Kit's MCP servers, on their own rail surface. Above the rule below, per
-   HeldFlag's note. #1275. */
+/* Kit's MCP servers, on their own rail surface. Above the rule below, per the
+   import note above. #1275. */
 @import "./compositions/KitServers/KitServers.css";
 @import "./compositions/KitSetup/KitSetup.css";
 /* One Helm session as one quotable record, on the layer wide enough to read

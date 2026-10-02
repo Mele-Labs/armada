@@ -212,11 +212,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
         (was) => groupsDropping(was, drop),
       ),
 
-    // The footprint and the hand-in are pushed about the open Job, so they arrive with it.
+    // The footprint and the hand-in are pushed about the open Job, so they
+    // arrive with it, and main reads its Drones with it.
     watchJob: async (jobId) => {
       const reads = jobId === null ? undefined : readsOf(jobId);
       publish({
         watched: jobId === null ? nothing : (reads?.watched ?? failed(jobId, "")),
+        jobDrones: reads?.jobDrones ?? nothing,
         footprint: reads?.recorded.footprint ?? nothing,
         handed: reads?.recorded.handed ?? nothing,
       });

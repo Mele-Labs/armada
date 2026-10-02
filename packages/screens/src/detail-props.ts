@@ -9,7 +9,7 @@
 
 // **Split out because that file was cut twice and grew back both times.** Its
 // own header says so. The earlier cuts moved what a region *says* —
-// `heading.tsx`, `step.tsx`, `chapters.tsx`, `Sheets.tsx`. This moves what the
+// `heading.tsx`, `step.tsx`, `Sheets.tsx`. This moves what the
 // screen is *given*, the one large thing left that was neither state nor
 // arrangement.
 
@@ -31,6 +31,7 @@ import type {
   FileReport,
   FollowedLog,
   History,
+  Crewed,
   Holds,
   JobSummary,
   Journalled,
@@ -50,7 +51,6 @@ import type {
 import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
-import type { ShowAgainCall } from "./again";
 import type { ExplainCommand, ReadCall } from "./calls";
 import type { FrameSrc, ReadFrame } from "./frames";
 import type { FoldedReads } from "./mine";
@@ -200,9 +200,8 @@ export type JobDetailProps = {
    */
   onRerunChecks: (jobId: string) => void;
   /**
-   * Ask the Job to show its work again. **Answered to this screen**, like
-   * `onReport`, because what a press came to is said beside its control.
-   * Absent draws no control, only the sets earlier presses kept.
+   * Ask the Job to show its work again. **Nothing on the screen reads it**:
+   * the step's Shown chapter drew its control, and went with the story.
    */
   onShowAgain?: ShowAgainCall;
   /**
@@ -356,6 +355,12 @@ export type JobDetailProps = {
    */
   resources: Holds;
   /**
+   * Every Drone the Job has had, `list_job_drones` — what the Drones tab lists
+   * and each step's Drones are read from. Optional: absent lists the Job's own
+   * Drone alone, as an unread list does.
+   */
+  jobDrones?: Crewed;
+  /**
    * The Job's history, for the one line of Pulse that says what a person last
    * did. Optional: without it, Pulse draws the latest of the Drone and Fleet.
    */
@@ -462,3 +467,6 @@ export type JobDetailProps = {
    */
   onStopProposer?: () => void;
 };
+
+/** Asking Fleet to show a Job's work again, as the screen's caller hands it in. */
+export type ShowAgainCall = (jobId: string, spec?: string) => Promise<Outcome>;
