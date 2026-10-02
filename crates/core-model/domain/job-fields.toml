@@ -152,14 +152,14 @@ open_questions = ["Can a Job that lands as several pull requests in order be a p
 notes = "Every edge gates identically on the upstream reaching a terminal status; edges carry no strength of their own, and what varies is carried by that outcome. A Job that lands as several pull requests in order does not decompose but may be a peer here — it completes as one unit, so a dependent never observes a half-landed upstream. Linked-DAG membership is recorded here and only here, which is why the derived shape has no `linked_dag` value."
 
 [fields.dispatched_by]
-type = "{job_id, step_id}"
+type = "{job_id, step_id?}"
 table = "jobs"
 storage = "Column"
 nullable = "Yes"
 frozen_at = "Creation"
-purpose = "On a Job spawned by a step of another Job; null on a top-level Job."
+purpose = "On a Job spawned by a step of another Job, or split off the request another Job was dispatched as; null on a top-level Job."
 in_code = "Not yet"
-notes = "Records which step dispatched this Job, distinct from `dependencies` which sequences peers — so a step can render the Jobs it spawned. Also the discriminator for sub-dispatch approval (Workflow, Dispatch Approval). A Judge call is not a sub-dispatch and never produces one; Judge owns why."
+notes = "Records which step dispatched this Job, distinct from `dependencies` which sequences peers — so a step can render the Jobs it spawned. Also the discriminator for sub-dispatch approval (Workflow, Dispatch Approval). A Judge call is not a sub-dispatch and never produces one; Judge owns why. **`step_id` is absent on a split's extra** (#1714): the proposer read one request into several Jobs, the head is the Job the request was dispatched as, and the rest name it here with no step, because no step of it dispatched them. Such a Job keeps its top-level `origin` and takes its own approval; `origin`'s rule that `dispatched_by` wins applies where a step is named."
 
 [fields."entered_at, updated_at"]
 type = "timestamp"

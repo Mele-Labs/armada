@@ -48,7 +48,10 @@ fn a_sub_dispatched_job_keeps_the_step_that_dispatched_it() {
     assert_eq!(loaded, stored);
     assert_eq!(loaded.status(), JobStatus::Queued, "its entry status");
     assert_eq!(
-        loaded.dispatched_by().map(|by| by.step_id.as_str()),
+        loaded
+            .dispatched_by()
+            .and_then(|by| by.step_id.as_ref())
+            .map(|step| step.as_str()),
         Some("plan")
     );
 }

@@ -106,6 +106,36 @@ fn draft() -> NewJob {
     }
 }
 
+/// A dispatched request, before the proposer has answered.
+fn proposing() -> Job {
+    Job::create_proposing(
+        NewProposal {
+            id: JobId::carried(id("01J0000000000000000000JOB0")),
+            title: title("the parser is off by one on the last line"),
+            owner_manifest_id: ManifestId::carried(id("01J0000000000000000000MAN0")),
+            model: ModelName::new("the-configured-model").expect("a model name"),
+            proposal_id: ProposalId::carried(id("01J0000000000000000000PRP0")),
+            number: JobNumber::carried(1),
+            facts: Facts::new("the parser is off by one on the last line"),
+            attachments: Vec::new(),
+        },
+        TopLevelOrigin::Manual,
+        at("2026-08-26T09:00:00.000Z"),
+    )
+}
+
+/// The trigger `from -> escalated` admits: its own, where the edge names one,
+/// or the first trigger declaring it, where two claim it and the edge names
+/// neither.
+fn trigger_for(from: JobStatus, own: Option<EscalationTrigger>) -> Option<EscalationTrigger> {
+    own.or_else(|| {
+        EscalationTrigger::ALL
+            .iter()
+            .copied()
+            .find(|t| t.declared_edge() == Some((from, JobStatus::Escalated)))
+    })
+}
+
 fn created() -> Job {
     Job::create_top_level(
         draft(),
@@ -129,10 +159,8 @@ fn drive(job: &Job, path: &[Target]) -> Job {
 
 /// A canonical target for a status, carrying whatever that status stores.
 ///
-/// **Every status but `proposing`**, and that is the machine rather than a gap
-/// here: no edge arrives at `proposing`, so [`Target`] has no variant naming it
-/// and nothing can ask a Job to move there. Callers that walk
-/// [`JobStatus::ALL`] skip it and say so.
+/// **Every status but `proposing`**: no edge arrives there, so [`Target`] has
+/// no variant naming it. Callers walking destinations leave it out for that.
 fn target_for(status: JobStatus, trigger: Option<EscalationTrigger>) -> Target {
     match status {
         JobStatus::Proposing => {
@@ -213,17 +241,12 @@ fn reach_with_every_step_advanced(status: JobStatus) -> Job {
 }
 
 /// A Job standing in `status`, arrived at by walking edges from the entry
-/// status. There is no other way to get one.
-///
-/// **`proposing` cannot be got at all yet, and that is what `in_code = "Not
-/// yet"` means on its registry row.** A Job is created in that status and
-/// nothing arrives there, so no walk of targets reaches it; and no constructor
-/// makes one, because a Job dispatched from a request has no frozen
-/// `WorkflowDef` and [`Job`] requires one. Its three edges are in `EDGES` and
-/// are asserted by the gate that compares the table with the registry, which
-/// needs no Job. Whoever teaches Fleet to create one writes the walk in the
-/// same change.
+/// status. There is no other way to get one — `proposing` is an entry status,
+/// so it is the one Job created where it stands.
 fn reach(status: JobStatus) -> Job {
+    if status == JobStatus::Proposing {
+        return proposing();
+    }
     let queued = [Target::Queued];
     let running = [Target::Queued, Target::Running];
     let job = created();
@@ -276,8 +299,7 @@ fn reach(status: JobStatus) -> Job {
         JobStatus::Killed => vec![Target::Killed],
         // Taken above: it is the one status no path of targets alone reaches.
         JobStatus::CompletedSuccess => unreachable!("handled before the match"),
-        // See this function's own note: nothing creates one.
-        JobStatus::Proposing => unreachable!("no Job stands at `proposing` yet"),
+        JobStatus::Proposing => unreachable!("created where it stands, above"),
     };
     let reached = drive(&job, &path);
     assert_eq!(
@@ -294,6 +316,7 @@ mod loop_return;
 mod machine;
 mod models;
 mod note;
+mod proposing;
 mod record;
 mod revisions;
 mod step_machine;

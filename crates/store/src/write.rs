@@ -23,9 +23,9 @@
 //! clock either — a store that timestamped its own writes could not be replayed
 //! and could not be tested.
 use core_model::{
-    Attachment, DroneAssigned, DronePresence, GateManifest, Job, JobId, JobStatus, JobStep,
-    Judgment, StepCheck, StepEvidence, StepId, StepLevelTrigger, StepTransitioned, Timestamp,
-    TransitionReason, Transitioned, WhenBlocked, WriteTargets,
+    Attachment, DroneAssigned, DronePresence, GateManifest, Job, JobEvent, JobId, JobStatus,
+    JobStep, Judgment, StepCheck, StepEvidence, StepId, StepLevelTrigger, StepTransitioned,
+    Timestamp, TransitionReason, Transitioned, WhenBlocked, WriteTargets,
 };
 use rusqlite::{OptionalExtension, Transaction};
 
@@ -81,7 +81,11 @@ impl Store {
                     job.current_step_id().map(|id| id.as_str()),
                     columns::write_dependencies(job.dependencies()),
                     job.dispatched_by().map(|by| by.job_id.as_str()),
-                    job.dispatched_by().map(|by| by.step_id.as_str()),
+                    // Null beside a job id on one of a split's extras, which no
+                    // step of the head dispatched.
+                    job.dispatched_by()
+                        .and_then(|by| by.step_id.as_ref())
+                        .map(|step| step.as_str()),
                     job.redispatched_from().map(|id| id.as_str()),
                     job.subject().map(|subject| subject.kind.as_str()),
                     job.subject().map(|subject| subject.reference.as_str()),
@@ -93,7 +97,9 @@ impl Store {
                     // worktree. Bound anyway, so a Job rebuilt and reinserted
                     // does not lose it.
                     job.branch().map(|branch| branch.as_str()),
-                    columns::write_workflow(job.workflow()),
+                    // Null on a Job still at `proposing`, which has frozen
+                    // nothing; `workflow_id` beside it names what has settled.
+                    job.frozen_workflow().map(columns::write_workflow),
                     // Ordinarily null, and for `branch`'s reason: a Job is
                     // created long before anybody has anything to say to it.
                     // Bound anyway, so a Job rebuilt and reinserted does not
@@ -199,7 +205,6 @@ impl Store {
     pub fn record_transition(&mut self, transitioned: &Transitioned) -> Result<i64, WriteError> {
         let event = &transitioned.event;
         let job_id = event.job_id().as_str();
-        let (reason_kind, reason_value) = columns::write_reason(event.reason());
 
         let tx = self
             .conn
@@ -223,48 +228,10 @@ impl Store {
             .map_err(fault("updating the cached status"))
             .map_err(WriteError::Database)?;
         if updated == 0 {
-            let found: Option<String> = tx
-                .query_row(
-                    "SELECT status FROM jobs WHERE job_id = ?1",
-                    [job_id],
-                    |row| row.get(0),
-                )
-                .optional()
-                .map_err(fault("reading the status a transition was refused against"))
-                .map_err(WriteError::Database)?;
-            return Err(match found {
-                None => WriteError::NoSuchJob {
-                    job_id: event.job_id().clone(),
-                },
-                Some(found) => WriteError::StatusChanged {
-                    job_id: event.job_id().clone(),
-                    expected: event.from(),
-                    // Read with the same `as_wire()` this crate wrote it
-                    // with, so a mismatch here would be this store's own bug
-                    // and not a caller's to answer for.
-                    found: JobStatus::from_wire(&found).expect("just read as a status"),
-                },
-            });
+            return Err(refused_move(&tx, event)?);
         }
 
-        tx.execute(
-            "INSERT INTO job_events (
-                 kind, job_id, status_from, status_to, reason_kind, reason_value, actor, at
-             ) VALUES ('job_transition', ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params![
-                job_id,
-                event.from().as_wire(),
-                event.to().as_wire(),
-                reason_kind,
-                reason_value,
-                event.actor().as_wire(),
-                event.at().as_str(),
-            ],
-        )
-        .map_err(fault("appending the event"))
-        .map_err(WriteError::Database)?;
-
-        let seq = tx.last_insert_rowid();
+        let seq = append_transition(&tx, event)?;
         tx.commit()
             .map_err(fault("committing the transition"))
             .map_err(WriteError::Database)?;
@@ -628,6 +595,57 @@ impl Store {
     }
 }
 
+/// Why a compare-and-swap on a Job's status wrote nothing: the row is gone, or
+/// it has already moved past the status the move started from.
+pub(crate) fn refused_move(
+    tx: &Transaction<'_>,
+    event: &JobEvent,
+) -> Result<WriteError, WriteError> {
+    let found: Option<String> = tx
+        .query_row(
+            "SELECT status FROM jobs WHERE job_id = ?1",
+            [event.job_id().as_str()],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(fault("reading the status a transition was refused against"))
+        .map_err(WriteError::Database)?;
+    Ok(match found {
+        None => WriteError::NoSuchJob {
+            job_id: event.job_id().clone(),
+        },
+        Some(found) => WriteError::StatusChanged {
+            job_id: event.job_id().clone(),
+            expected: event.from(),
+            // Read with the same `as_wire()` this crate wrote it with, so a
+            // mismatch here would be this store's own bug.
+            found: JobStatus::from_wire(&found).expect("just read as a status"),
+        },
+    })
+}
+
+/// Append one status move to the log, and answer with the key it was given.
+pub(crate) fn append_transition(tx: &Transaction<'_>, event: &JobEvent) -> Result<i64, WriteError> {
+    let (reason_kind, reason_value) = columns::write_reason(event.reason());
+    tx.execute(
+        "INSERT INTO job_events (
+             kind, job_id, status_from, status_to, reason_kind, reason_value, actor, at
+         ) VALUES ('job_transition', ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![
+            event.job_id().as_str(),
+            event.from().as_wire(),
+            event.to().as_wire(),
+            reason_kind,
+            reason_value,
+            event.actor().as_wire(),
+            event.at().as_str(),
+        ],
+    )
+    .map_err(fault("appending the event"))
+    .map_err(WriteError::Database)?;
+    Ok(tx.last_insert_rowid())
+}
+
 /// The `kind` column's value for a drone row. Read off the domain enum rather
 /// than spelled here, so the schema's trigger and the fold agree by
 /// construction.
@@ -636,7 +654,7 @@ fn kind_of(presence: DronePresence) -> &'static str {
 }
 
 /// One row per step of the frozen WorkflowDef, as the Job holds them.
-fn write_steps(tx: &Transaction<'_>, job: &Job) -> Result<(), WriteError> {
+pub(crate) fn write_steps(tx: &Transaction<'_>, job: &Job) -> Result<(), WriteError> {
     for step in job.steps() {
         tx.execute(
             "INSERT INTO job_steps (
@@ -680,7 +698,7 @@ fn stop_reason(why: Option<StepLevelTrigger>) -> TransitionReason {
 
 /// One row per declared path. Zero rows is ambiguous on its own — null is not
 /// empty — so `jobs.write_targets_known` carries which of the two this is.
-fn write_targets(tx: &Transaction<'_>, job: &Job) -> Result<(), WriteError> {
+pub(crate) fn write_targets(tx: &Transaction<'_>, job: &Job) -> Result<(), WriteError> {
     let Some(targets) = job.write_targets() else {
         return Ok(());
     };

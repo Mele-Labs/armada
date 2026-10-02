@@ -42,8 +42,21 @@ pub fn ran(ran: &Ran, verb: &str) {
         println!("  (output was longer than the capture limit; this is the tail)");
     }
     match &ran.test {
-        Some(test) if ran.matched_nothing() => println!("{} has no test named `{test}`", ran.name),
-        _ => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
+        Some(test) if ran.matched_nothing() => println!(
+            "{} has no test named `{test}`. Name it as the runner prints it: a Rust test by \
+             its function name or a path ending in it (`servers::a_span_holding_one_taken_port_is_not_free`), \
+             a vitest test by any part of its name",
+            ran.name
+        ),
+        Some(test) => match checks_runner::one_test_count(&ran.attempt.output) {
+            Some(count) if count > 1 => println!(
+                "{} {}: {count} tests matched `{test}`, and all of them ran",
+                ran.name,
+                Ended(&ran.attempt.exit)
+            ),
+            _ => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
+        },
+        None => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
     }
 }
 

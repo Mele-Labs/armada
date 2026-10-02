@@ -50,7 +50,7 @@ impl FakeDaemon {
 
 impl Commands for FakeDaemon {
     async fn propose_from_request(
-        &self,
+        self: std::sync::Arc<Self>,
         request: ipc::JobRequest,
         _manifest_id: Option<ipc::ManifestId>,
         by: crate::Redirector,

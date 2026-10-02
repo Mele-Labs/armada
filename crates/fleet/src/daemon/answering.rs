@@ -89,10 +89,15 @@ where
             recognised,
             ..Reconciled::default()
         };
+        // **At boot only, and for every repository**: no proposer's call
+        // survives the process that made it, served or not. A repository added
+        // later is not swept, since a call may be out for it by then.
+        let mut jobs = loaded.jobs;
+        reconciled.orphaned_proposals = self.proposals_orphaned(&mut jobs).await?;
         // **Each repository over its own Jobs.** A Job whose repository is not
         // served is left as it stands, and reconciled when that one is added.
         for served in self.repositories().served() {
-            self.reconciled_jobs(&served, &loaded.jobs, &mut reconciled)
+            self.reconciled_jobs(&served, &jobs, &mut reconciled)
                 .await?;
         }
         reconciled.admitted = self.admit_next().await?;
@@ -262,6 +267,31 @@ where
         minted_by: Option<ProposalId>,
         by: Actor,
     ) -> Result<Job, Adrift> {
+        self.minted(proposal, stated, minted_by, by, None).await
+    }
+
+    /// `proposed_job`, for a split's extra: at the same gate, with
+    /// `dispatched_by` naming `head`, the Job the request was dispatched as.
+    pub(crate) async fn proposed_split(
+        &self,
+        proposal: ipc::ProposeJob,
+        stated: StatedBy,
+        minted_by: ProposalId,
+        by: Actor,
+        head: &JobId,
+    ) -> Result<Job, Adrift> {
+        self.minted(proposal, stated, Some(minted_by), by, Some(head))
+            .await
+    }
+
+    async fn minted(
+        &self,
+        proposal: ipc::ProposeJob,
+        stated: StatedBy,
+        minted_by: Option<ProposalId>,
+        by: Actor,
+        split_from: Option<&JobId>,
+    ) -> Result<Job, Adrift> {
         let at = self.now();
         // Before `drafted`, which is sync and cannot read the board: an edge is
         // a pointer, and a peer that does not exist is the one shape a cycle
@@ -281,7 +311,10 @@ where
             )
             .map_err(Adrift::Reading)?;
         let (new, origin) = self.drafted(proposal, stated, &at, minted_by, number)?;
-        let job = Job::create_top_level(new, origin, at.clone());
+        let job = match split_from {
+            Some(head) => Job::create_split(new, head.clone(), origin, at.clone()),
+            None => Job::create_top_level(new, origin, at.clone()),
+        };
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;

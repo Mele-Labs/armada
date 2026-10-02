@@ -227,10 +227,10 @@ impl Event {
 
 /// A proposal went out, got somewhere, or came back.
 ///
-/// **The one kind on this stream that names no Job**, and that is what it is
-/// for: a proposal is the interval before any Job exists, so there is no id to
-/// hang it off and no Board row that changes. [`JobCreated`] is what says the
-/// Jobs arrived, and it is a different message.
+/// **It names the Job it is reading for**, since 21.6: a dispatched request is
+/// a Job at `proposing` from the press, and [`job_id`](ProposalMoved::job_id)
+/// is the row a client folds `settled` onto. [`JobCreated`] still says the
+/// Jobs arrived; the head of the plan is this one, moved rather than created.
 ///
 /// # More than two messages per call, unlike [`JobJudging`]
 ///
@@ -250,6 +250,10 @@ impl Event {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposalMoved {
     pub proposal_id: ProposalId,
+    /// The Job at `proposing` this call is reading for. Absent only from a
+    /// Fleet older than 21.6, which created no Job until the call answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
     /// The caller's own token, echoed. **On the envelope as well as inside
     /// `proposing`**, because it is what a client filters on and the coming-back
     /// message carries no `proposing` to read it from.
