@@ -55,6 +55,8 @@ import { freezeLineOf } from "./freeze";
 import { fromAStudio, originReading } from "./origin";
 import { leading } from "./reading";
 import { LANDED, LANDED_BADGE, elapsedOf } from "./Row";
+import { studioName } from "./studio";
+import type { OpenStudioFrom } from "./work";
 
 /**
  * The run, in the order the drawing runs it: what is holding this Job, what
@@ -67,7 +69,12 @@ import { LANDED, LANDED_BADGE, elapsedOf } from "./Row";
  * and the row is already in hand, so the figure is there on the first frame
  * instead of appearing when `GET /jobs/:job_id` lands.
  */
-export function factsOf(job: JobSummary, whole: JobWhole | null, now: number): JobDetailField[] {
+export function factsOf(
+  job: JobSummary,
+  whole: JobWhole | null,
+  now: number,
+  onOpenStudio?: OpenStudioFrom,
+): JobDetailField[] {
   const address = whole?.delivery?.pull_request;
   const settled = settledBadgeOf(whole?.delivery?.landed);
   return [
@@ -75,7 +82,7 @@ export function factsOf(job: JobSummary, whole: JobWhole | null, now: number): J
     ...pullRequestFact(address, settled),
     ...landedFact(settled, address !== undefined),
     ...runTimeFact(job, now),
-    ...dispatchedByFact(job),
+    ...dispatchedByFact(job, whole, onOpenStudio),
     ...studioGoneFact(job, whole),
     ...redispatchedFromFact(job, whole),
   ];
@@ -111,16 +118,37 @@ function redispatchedFromFact(job: JobSummary, whole: JobWhole | null): JobDetai
  * Who or what dispatched this Job, in the registry's own words. The reading is
  * `origin.ts`'s, shared with the board row that draws the same words since
  * #1362 — two spellings of one sentence is the thing that file exists to stop.
+ *
+ * **A Studio's sentence is the way back to it**, #1674: pressed, it lands on
+ * the canvas with this Job's node picked. The words stay the registry's, which
+ * has no slot for the Studio's name, so the tooltip names where it goes. Only
+ * where the read has named a Studio and the shell can open one — a deleted
+ * Studio, or a harness with no navigation, keeps the plain sentence.
  */
-function dispatchedByFact(job: JobSummary): JobDetailField[] {
+function dispatchedByFact(
+  job: JobSummary,
+  whole: JobWhole | null,
+  onOpenStudio: OpenStudioFrom | undefined,
+): JobDetailField[] {
   const reading = originReading(job);
-  return reading === undefined ? [] : [{ value: reading }];
+  if (reading === undefined) return [];
+  const from = whole?.from_studio;
+  if (from === undefined || onOpenStudio === undefined || !fromAStudio(job)) return [{ value: reading }];
+  return [
+    {
+      value: reading,
+      opens: {
+        label: `Open ${studioName(from)}`,
+        onOpen: () => onOpenStudio(from.studio_id, from.node_id),
+      },
+    },
+  ];
 }
 
 /**
  * That the Studio a Job came off is gone. **Only where there is nothing to
- * open** — the Studio that is still there is named under *Where things are*,
- * beside the worktree, where a value you want to reach lives.
+ * open** — the Studio that is still there is reached by pressing the origin's
+ * own sentence, `dispatchedByFact`.
  *
  * `origin` says the Job came off a Studio and `from_studio` says which, and
  * only the first survives the Studio being deleted. Saying so is what keeps a
