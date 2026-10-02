@@ -532,9 +532,10 @@ drone:
 
 # What this repository requires of every change, read into every Judge brief
 # so that fixing the prose a change made wrong is not refused as scope
-# expansion. Read from this checkout, never a Job's worktree, and cut at the
-# `judge-brief-standing-rules-cap` setting. docs/concepts/manifest.md, *What
-# every change here carries*.
+# expansion, and into every Drone's opening brief so the work carries it. Read
+# from this checkout, never a Job's worktree, and cut at the
+# `standing-rules-cap` setting. docs/concepts/manifest.md, *What every change
+# here carries*.
 standing_rules: docs/instructions/every-change.md
 
 # What has to have run before any step starts in a fresh worktree. Names a
