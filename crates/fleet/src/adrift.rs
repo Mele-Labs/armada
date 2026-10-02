@@ -801,6 +801,22 @@ pub enum Adrift {
         named: TaskId,
         state: TaskState,
     },
+    /// Restart this task named a task that has not failed: one still working
+    /// or handed in is its group's own round to finish (answer 9), and one
+    /// open, dropped, or done outside a group the Judge refused has nothing
+    /// to restart. `#1656`.
+    TaskNotFailed {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
+    /// A person's move named a task, or a group holding one, that is working
+    /// or handed in: its group's run is still going. `#1685`.
+    TaskInFlight {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
     /// The store would not keep a person's plan change that the plan itself
     /// would have taken. Not the person's to fix —
     /// `fleet::work_plan::NotPlanned::NotKept` is the Drone path's version of

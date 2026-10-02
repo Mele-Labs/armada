@@ -36,8 +36,8 @@ use adapter_traits::{Changed, Footprint, WorkProduct};
 use checks_runner::Output;
 use core_model::{
     Actor, AdvanceGate, CriterionId, DeclaredPaths, EscalationTrigger, GamingFlag,
-    IllegalTransition, Job, Judgment, ResolvedCheck, ResolvedStep, StepCheck, StepEvidence, StepId,
-    StepLevelTrigger, Target, Timestamp, Transitioned, WhenRefused, WorkPlan,
+    IllegalTransition, Job, Judgment, RepoPath, ResolvedCheck, ResolvedStep, StepCheck,
+    StepEvidence, StepId, StepLevelTrigger, Target, Timestamp, Transitioned, WhenRefused, WorkPlan,
 };
 use verification::{
     decide, out_of_bounds, Accepted, Answered, Baseline, CheckFailed, Delivered, Flagged, InScope,
@@ -124,6 +124,7 @@ pub use crate::ruling::Ruling;
 /// | `recorded` | What every step of this Job has submitted so far. Its two readers — the gaming check's baseline and a step's `reference_docs` — both reach it through [`AtStep::baseline`], which will not answer with anything but a strictly earlier step's |
 /// | `keeping` | Where a copy of the step's deliverable goes. The repository and the Job are the caller's to know, and a worktree path is not something to reverse-engineer either of them out of. **Not an `Option`** — every caller is gating a real Job in a real repository, and a gate that could rule without keeping what it read is the gate `#223` was filed against |
 /// | `lifted` | The excluded paths a Judge has already cleared for this Job, off its own scope revisions. **Handed in rather than derived** because this function is given a step and not a Job, and because [`Lifted`] has one constructor: a caller with a record in hand can produce one and nothing else can. A gate that re-refused a path `declare_scope` had accepted would fail the step for being the plan Fleet took, which is `#417`'s own complaint |
+/// | `held_off` | The files another Job's fix holds off this Job, off `crate::fixing::HeldOff`. **Handed in for `lifted`'s reason**: the claims are the Job's, and this function is given a step. A touched path at or under one fails the step whatever wrote it, and no lift reaches it. #1673 |
 /// | `began` | What the worktree held when this step began, or a re-run's recorded answer — [`Began`] — **after the boundary rebase that started it**, which is `crate::dispatch::Fleet::marked`'s to place and not this function's. `diff_nonempty` is decided by comparing it against a second reading taken here — which is what catches the step that advanced having written nothing, where the check used to read the whole branch and count an earlier step's file as this step's work |
 /// | `policies` | What this repository has said about `auto_merge` and `review_gate`, folded across the Job's gating Manifests. **Handed in and never read here**, for `lifted`'s reason and one more: both settings are `Live`, so the answer is only true at the instant it is taken, and a gate that read the file for itself would be a second reader of a value the caller has already resolved. `crate::policy` is where it is built. **Carried out on every ruling but one**, so the run keeps what the rules said at the gate it stopped at, whichever that was (#1683) |
 /// | `room` | Where each Check waits for a place in the machine's one limit, shared with every other Job's, and whether the machine has the memory and disk. **Handed in for `lifted`'s reason** — the limits in force are the Fleet's to read, and a gate that began keeps them. `crate::places::Room` |
@@ -140,6 +141,7 @@ pub async fn rule_on<W>(
     evidence: &Submission,
     declared: Option<&DeclaredPaths>,
     lifted: &Lifted,
+    held_off: &[RepoPath],
     began: Began<'_>,
     recorded: &[(StepId, StepEvidence)],
     work: &W,
@@ -266,7 +268,7 @@ where
         ports,
         port_env,
         plan.map(WorkPlan::counts),
-        &checking::Stop::never(),
+        &checking::Stop::never().holding_handoff(at.holds_handoff()),
         dry_run,
         at.attempt(),
         footprint_now.as_ref(),
@@ -369,6 +371,11 @@ where
     };
     checks.extend(scope.as_ref().and_then(CheckFailed::recorded));
     let mechanical = mechanical.and_also(scope);
+    // **After the scope tier, and no lift reaches it**: the files are another
+    // Job's until its fix is in this copy, whatever tool wrote them. #1673.
+    let held = held_by_a_fix(&touched, held_off);
+    checks.extend(held.as_ref().and_then(CheckFailed::recorded));
+    let mechanical = mechanical.and_also(held);
     // **The trigger, and the whole of it.** The Judge is asked where the
     // mechanical tier held and either the step declares a criterion or the step
     // drifted — the second being the one look `judge.md` calls mandatory, which
@@ -905,4 +912,19 @@ pub fn apply(
         _ => Target::Escalated(ruling.stops_the_step()?.trigger()),
     };
     Some(job.transition(target, ruling.signed_by(), at))
+}
+
+/// The touched paths another Job's fix holds off this one: each at or under a
+/// held path, since one held path may be a directory the fix declared. #1673.
+fn held_by_a_fix(touched: &[String], held_off: &[RepoPath]) -> Option<CheckFailed> {
+    let paths: Vec<String> = touched
+        .iter()
+        .filter(|path| {
+            held_off
+                .iter()
+                .any(|held| core_model::under(held.as_str(), path))
+        })
+        .cloned()
+        .collect();
+    (!paths.is_empty()).then_some(CheckFailed::HeldOffByFix { paths })
 }

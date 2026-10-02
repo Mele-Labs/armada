@@ -1,5 +1,5 @@
 // The socket that reads one merge line Check's log, running or ended — `following.ts` one subject
-// over. `observe_land_check`, protocol 23.4.
+// over. `observe_land_check`, protocol 23.6.
 //
 // **Its own class rather than `FollowSocket` widened.** A Job's Check is named by its Job and the
 // file Fleet keeps it in; a merge line Check is named by the line's three words and has no Job, so

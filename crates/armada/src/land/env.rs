@@ -30,12 +30,13 @@ pub struct Env {
     pub pr_wait: Duration,
     /// How long one Check in a turn runs before it is killed and read as red.
     pub check_limit: Duration,
-    /// How many waiting branches one turn takes and gates together.
+    /// The most waiting branches one turn takes and gates together; the
+    /// size itself moves under it, [`super::size`].
     pub batch: usize,
 }
 
 /// [`Env::batch`] unless `ARMADA_LAND_BATCH` says otherwise.
-pub const BATCH: usize = 4;
+pub const BATCH: usize = 8;
 
 /// A copy of `armada.yml`'s `setup.requires`, named in the capability doc as
 /// what does not port — kept honest by

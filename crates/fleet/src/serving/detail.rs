@@ -163,6 +163,18 @@ where
                     Some(url) => self.sweeping().lock().await.pr_detail.get(url).cloned(),
                     None => None,
                 };
+                // **Off the record, so it outlives the merge** where the
+                // reading above does not. Only beside an address: a title
+                // with no pull request to click names nothing.
+                let kept = match came_to.pull_request.is_some() {
+                    true => self
+                        .store()
+                        .lock()
+                        .await
+                        .kept_pull_request_for(job.id())
+                        .map_err(|why| self.refusal(Adrift::Reading(why)))?,
+                    false => store::KeptPullRequest::default(),
+                };
                 Some(JobDelivery {
                     commit: came_to.commit,
                     pushed: came_to.pushed,
@@ -170,6 +182,8 @@ where
                     pull_request_detail,
                     landed: came_to.landed.as_ref().and_then(crate::noticing::settled),
                     unpushed: came_to.unpushed,
+                    pull_request_title: kept.title,
+                    pull_request_comments: kept.comments,
                 })
             }
         };
@@ -312,7 +326,11 @@ where
             .await
             .map_err(|why| self.refusal(why))?;
         detail.job.tasks = plan.as_ref().map(|plan| plan.counts().into());
-        detail.work_plan = plan.as_ref().map(ipc::WorkPlan::from);
+        let runs = self
+            .group_runs_of(job.id())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.work_plan = plan.as_ref().map(|plan| ipc::WorkPlan::of(plan, &runs));
         let reviewed = self
             .store()
             .lock()

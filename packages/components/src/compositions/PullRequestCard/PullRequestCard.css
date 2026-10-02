@@ -1,0 +1,83 @@
+/* A pull request, small: a flat well inside a card, the whole of it a press.
+   --bg-sunken is the ground a well takes on a card; hover steps it up. */
+.armada-pr-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease);
+}
+
+.armada-pr-card:hover {
+  background: var(--bg-hover);
+}
+
+.armada-pr-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-pr-card p {
+  margin: 0;
+}
+
+.armada-pr-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-pr-card__mark {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-pr-card__number {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--accent);
+}
+
+.armada-pr-card__title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The state at the trailing edge, so the title takes what is left. */
+.armada-pr-card__state {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+.armada-pr-card__branch {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-pr-card__facts {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-card__dot {
+  padding-inline: var(--space-2);
+  color: var(--fg-subtle);
+}

@@ -57,13 +57,15 @@ const kept = (fleet: ReturnType<typeof zoning>, id: string) => fleet.studios()[0
 test("a read-in is one Zone with one line to it, and each Cluster is a box round its Notes", async () => {
   await openEditable();
   const zone = box("Zone");
-  for (const cluster of ["The problem today", "What to build", "Risks to watch", "Acceptance"]) {
+  for (const cluster of ["The problem today", "What to build", "Risks to watch"]) {
     expect(holds(zone, box(`Cluster: ${cluster}`)), `${cluster} is inside the Zone`).toBe(true);
   }
   const risks = box("Cluster: Risks to watch");
   expect(holds(risks, box(/^Note: Watch for a `scope` change/))).toBe(true);
   expect(holds(risks, box(/^Note: Watch for an edit after the gate/))).toBe(true);
-  expect(holds(box("Cluster: Acceptance"), box(/^Note: Watch for a `scope` change/))).toBe(false);
+  // A Cluster of one Note is not drawn: its Note is loose in the Zone (2 Oct 2026).
+  await expect.element(node("Cluster: Acceptance")).not.toBeInTheDocument();
+  expect(holds(zone, box(/^Note: Done when, on a failed task/))).toBe(true);
   expect(holds(zone, box(/^Finding: Read in/))).toBe(true);
   expect(holds(zone, box(/^Issue: Nobody can change a task/)), "the issue stays outside what it made").toBe(false);
 

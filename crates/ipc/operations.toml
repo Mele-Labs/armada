@@ -1048,7 +1048,7 @@ transport = "WebSocket"
 agent_access = "No"
 description = "One Check's log on a served repository's merge line, by the root, the branch and the Check: what it holds, then what the runner writes next"
 notes = """
-**`observe_check_output`'s shape for a Check no Job owns.** The runner appends each Check of a turn to `logs/<entry>/<turn>/<check>.log` under `armada-land/` as it runs, and this reads that file the way `observe_check_output` reads a Job's: what is there, then what is appended, a quarter-second behind, then `closed` with why. The first message is `LandOutputMessage::Opened`, naming the line rather than a Job; the lines and the end are `OutputLines` and `OutputClosed`. Since 23.4.
+**`observe_check_output`'s shape for a Check no Job owns.** The runner appends each Check of a turn to `logs/<entry>/<turn>/<check>.log` under `armada-land/` as it runs, and this reads that file the way `observe_check_output` reads a Job's: what is there, then what is appended, a quarter-second behind, then `closed` with why. The first message is `LandOutputMessage::Opened`, naming the line rather than a Job; the lines and the end are `OutputLines` and `OutputClosed`. Since 23.6.
 
 **An ended Check is served on the same socket.** It opens, sends what the file holds and closes `finished`, so one reader draws a Check that is running and one that has ended. A Check is still writing while its branch is `gating`, it reads `running` in the outcome, and the outcome still names the turn it was found in.
 
@@ -2015,6 +2015,38 @@ notes = """
 **Reopening is not this.** `docs/concepts/job.md`'s decision stands: a dropped task stays dropped for a Drone, and only a person's add brings the work back, as a new task. This route never un-drops one.
 
 Delivery and the event are `add_task`'s.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""
+
+[operations.restart_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Restart this task: a fresh Drone on one failed task of the plan, or one done task in a group the Judge refused, with an optional note it reads first. Refused with `fleet.task_not_failed` on any other task"
+notes = """
+`POST /jobs/:job_id/tasks/:task_id/restart`, spike 022 slice 2 (`#1656`). The body is `RestartTask`, an optional `note`; **no body is valid**, and is the plain restart, `restart_step`'s rule. A blank note is refused as `restart_step` refuses one. Answers the Job's `JobSummary`.
+
+**A failed task**, which is a task whose group's Checks were still red when the step's retries ran out (answer 9). A task working or handed in is its group's own round to finish, so this is a 409 `fleet.task_not_failed` before the retries run out, as it is on a task open, done or dropped.
+
+**Or a done task in a group the Judge refused**, the owner's decision of 2 Oct 2026: the group's last run ended `gate_failure` over tasks still `done`, which only a Judge refusal after green Checks leaves. The Drone the refusal left idle is ended rather than redirected, so the press is one new agent on that task, and it opens with the refusal as any restarted step does. A suspect or undecided gate writes a trigger of its own and is still refused.
+
+**The task reopens, then `restart_step`'s own act runs**, so every refusal that act has is this one's too, and a refusal puts the task back to failed as it was. The Drone spawned is put on that task alone; the group's gate waits for it to hand in again and then runs over the whole group. A person's restart does not reset the group's retry budget, as `restart_step` does not reset a step's.
+
+`agent_access` is `Helm only`, `restart_step`'s own reason.
+"""
+
+[operations.move_plan]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person moves one task, into any group, or one group, by the task or group it comes after, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/plan/move`, spike 022 slice 2 (`#1685`). The body is `MovePlan`: `group`, and with `task` that task goes into `group` after the task `after` names, or first in it; without, `group` goes after the group `after` names, or first. **By `after`, never by index**: an index counted at the drag is stale the moment a Drone adds or drops a task. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published with `actor` `human`.
+
+**Refused by name.** A 409 `fleet.task_in_flight` on a task, or a group holding one, that is working or handed in, since its group's run is still going; a 422 `fleet.no_such_group` on a group the plan does not hold, and `fleet.no_such_task` on a task, or an `after` outside the group it moves into.
+
+**A move putting a task before one it needs is taken** (`#1685`'s own rule): the plan's scope-intersection warning is what says so, not a refusal here.
 
 `agent_access` is `Helm only`, `add_task`'s reason.
 """

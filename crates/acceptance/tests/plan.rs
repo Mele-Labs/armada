@@ -364,6 +364,7 @@ fn implement_completes_two_tasks_and_drops_one_with_a_reason() {
         tasks,
         task: None,
         state: None,
+        group: None,
         actor: core_model::Actor::Drone.into(),
         at: planned.row().created_at,
     });

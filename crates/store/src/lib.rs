@@ -49,6 +49,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// Where a verdict's own question was kept, and the column that points at it.
@@ -89,6 +90,8 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// A pull request's title and comment count, kept past the merge.
+mod pull_request_kept;
 mod read;
 /// Giving a Job's resources back without giving up its record.
 mod rechecking;
@@ -147,6 +150,7 @@ pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, 
 pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
+pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use migrations::KNOWN_SCHEMA_VERSION;
@@ -157,6 +161,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::Preferences;
 pub use process::DroneProcess;
 pub use proving::Proved;
+pub use pull_request_kept::KeptPullRequest;
 pub use read::{Loaded, RowIdentity, StatusRepair, UnreadableRow};
 pub use report::Report;
 pub use resolving::{NamedJob, ResolveJobError};

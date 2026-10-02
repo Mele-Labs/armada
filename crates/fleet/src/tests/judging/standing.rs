@@ -59,6 +59,7 @@ async fn handed(manifest: &Manifest, root: &Path) -> String {
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &work,

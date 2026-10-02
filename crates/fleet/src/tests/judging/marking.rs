@@ -56,6 +56,7 @@ async fn while_judging(judge: FakeJudge, worktree: &Worktree) -> (Vec<ipc::JobJu
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &work,

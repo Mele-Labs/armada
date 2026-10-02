@@ -220,6 +220,7 @@ impl FakeDaemon {
             return Err(self.no_such_job(&job_id));
         }
         Ok(ipc::WorkPlan {
+            groups: Vec::new(),
             approach: "a fake plan".to_string(),
             recorded_by: ipc::ChangedBy::Person,
             recorded_at: ipc::Instant::carried("2026-09-13T10:00:00.000Z"),

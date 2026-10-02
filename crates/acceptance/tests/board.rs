@@ -354,6 +354,8 @@ async fn opening_a_finished_job_says_whether_its_pull_request_merged() {
             pull_request_detail: None,
             landed: Some(ipc::Settled::Merged),
             unpushed: None,
+            pull_request_title: None,
+            pull_request_comments: None,
         },
     );
 
@@ -390,6 +392,8 @@ async fn a_pull_request_nobody_has_settled_says_nothing_rather_than_open() {
             pull_request_detail: None,
             landed: None,
             unpushed: None,
+            pull_request_title: None,
+            pull_request_comments: None,
         },
     );
 

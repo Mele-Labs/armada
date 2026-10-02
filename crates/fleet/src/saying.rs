@@ -686,6 +686,21 @@ impl fmt::Display for Adrift {
                 job.as_str(),
                 state.as_wire()
             ),
+            Adrift::TaskNotFailed { job, named, state } => write!(
+                out,
+                "{}'s task {named} is {}, and only a failed task, or a done one in a group \
+                 the Judge refused, restarts on its own. A task working or handed in is \
+                 still in its group's run",
+                job.as_str(),
+                state.as_wire()
+            ),
+            Adrift::TaskInFlight { job, named, state } => write!(
+                out,
+                "{}'s task {named} is {}, so its group is still running and cannot move \
+                 until its gate has answered",
+                job.as_str(),
+                state.as_wire()
+            ),
             Adrift::PlanNotKept { job, because } => write!(
                 out,
                 "{}'s plan change could not be written down: {because}. The change was \
@@ -784,6 +799,8 @@ impl Adrift {
             | Adrift::AttachmentUnreadable { job, .. }
             | Adrift::PlanRefused { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
+            | Adrift::TaskNotFailed { job, .. }
+            | Adrift::TaskInFlight { job, .. }
             | Adrift::PlanNotKept { job, .. }
             // Both name the Job whose command was being decided about, so a
             // reading that failed is readable from the Job it was asked on.
@@ -973,6 +990,8 @@ impl Error for Adrift {
             // or drop could not do — none of the three wraps a failure.
             | Adrift::PlanRefused { .. }
             | Adrift::TaskAlreadySettled { .. }
+            | Adrift::TaskNotFailed { .. }
+            | Adrift::TaskInFlight { .. }
             | Adrift::PlanNotKept { .. }
             | Adrift::Modelless => None,
             Adrift::NotProposed { cause, .. } => Some(cause),

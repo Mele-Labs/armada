@@ -59,6 +59,7 @@ async fn ruled(workflow: &ResolvedWorkflow) -> Ruling {
         &crate::tests::gate::diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &FakeWorkProduct::changed(&["src/lib.rs"]),

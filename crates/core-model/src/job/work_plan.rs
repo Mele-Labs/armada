@@ -21,6 +21,7 @@ use core::num::NonZeroU32;
 use crate::envelope::Timestamp;
 use crate::job::attempt::Attempt;
 use crate::job::ids::{RepoPath, StepId};
+use crate::job::plan_group::GroupId;
 
 /// A task's stable name within one plan: `T1`, `T2`, … in the order minted.
 ///
@@ -56,9 +57,9 @@ impl fmt::Display for TaskId {
 
 /// Where one task stands, as the last change to it said.
 ///
-/// **`Failed` has no [`TaskUpdate`]**, so nothing can write it yet: slice 2
-/// writes it when its group's Checks go red. `HandedIn` is Fleet's, at a task
-/// Drone's hand-in, and no Drone or person can spell it. Spike 022, answer 1.
+/// **`HandedIn` and `Failed` are Fleet's**: the first at a task Drone's
+/// hand-in (answer 1), the second when its group's Checks are still red after
+/// the step's retries run out (answer 9). No Drone or person can spell either.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TaskState {
     Open,
@@ -115,8 +116,24 @@ impl DropReason {
     }
 }
 
-/// The state a change moves a task to. `Dropped` carries its reason, which is
-/// what makes "dropped needs a reason" a type rather than a check.
+/// Why a task failed: which group's Checks, on which run, said what. **Never
+/// blank**, for [`DropReason`]'s reason, and written by Fleet alone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FailReason(String);
+
+impl FailReason {
+    pub fn new(text: &str) -> Option<FailReason> {
+        let text = text.trim();
+        (!text.is_empty()).then(|| FailReason(String::from(text)))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The state a change moves a task to. `Dropped` and `Failed` carry their
+/// reasons, which is what makes "a drop says why" a type rather than a check.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TaskUpdate {
     Open,
@@ -125,6 +142,8 @@ pub enum TaskUpdate {
     /// neither `update_task` nor a person's act can write it.
     HandedIn,
     Done,
+    /// Fleet's, once its group's retries are spent. Refused by `read` too.
+    Failed(FailReason),
     Dropped(DropReason),
 }
 
@@ -167,14 +186,17 @@ impl TaskUpdate {
         }
     }
 
-    /// A row read back off the store. **Admits `handed_in`**, which
-    /// [`read`](Self::read) refuses: the store keeps Fleet's marks beside a
-    /// Drone's and a person's, and a mark Fleet kept has to replay.
+    /// A row read back off the store. **Admits `handed_in` and `failed`**,
+    /// which [`read`](Self::read) refuses: the store keeps Fleet's marks beside
+    /// a Drone's and a person's, and a mark Fleet kept has to replay.
     pub fn stored(state: &str, reason: &str) -> Result<TaskUpdate, NotAnUpdate> {
         match TaskState::from_wire(state) {
             Some(TaskState::HandedIn) if DropReason::new(reason).is_none() => {
                 Ok(TaskUpdate::HandedIn)
             }
+            Some(TaskState::Failed) => FailReason::new(reason)
+                .map(TaskUpdate::Failed)
+                .ok_or(NotAnUpdate::DroppedWithoutAReason),
             _ => TaskUpdate::read(state, reason),
         }
     }
@@ -185,13 +207,17 @@ impl TaskUpdate {
             TaskUpdate::Working => TaskState::Working,
             TaskUpdate::HandedIn => TaskState::HandedIn,
             TaskUpdate::Done => TaskState::Done,
+            TaskUpdate::Failed(_) => TaskState::Failed,
             TaskUpdate::Dropped(_) => TaskState::Dropped,
         }
     }
 
+    /// The reason a drop or a failure carries, which is the one the store's
+    /// `reason` column keeps.
     pub fn reason(&self) -> Option<&str> {
         match self {
             TaskUpdate::Dropped(reason) => Some(reason.as_str()),
+            TaskUpdate::Failed(reason) => Some(reason.as_str()),
             _ => None,
         }
     }
@@ -210,6 +236,10 @@ pub struct NewTask {
     note: String,
     scope: Vec<RepoPath>,
     expects: String,
+    /// The group the planner put it in, by its own number, on a recording.
+    /// `None` is the group of the task before it, and the first group for the
+    /// first task, so a plan recorded without groups is one group.
+    group: Option<NonZeroU32>,
 }
 
 impl NewTask {
@@ -228,7 +258,21 @@ impl NewTask {
                 .map(RepoPath::new)
                 .collect(),
             expects: String::from(expects.trim()),
+            group: None,
         })
+    }
+
+    /// The same task, in the planner's group `number`. Zero names no group.
+    pub fn in_group(self, number: u32) -> NewTask {
+        NewTask {
+            group: NonZeroU32::new(number),
+            ..self
+        }
+    }
+
+    /// The planner's own number for its group, where it named one.
+    pub fn group(&self) -> Option<u32> {
+        self.group.map(NonZeroU32::get)
     }
 
     pub fn title(&self) -> &str {
@@ -299,10 +343,24 @@ pub enum PlanChange {
         approach: Approach,
         tasks: Vec<NewTask>,
     },
-    /// One task, after the one named or at the end.
+    /// One task, after the one named and into that task's group, or at the
+    /// end and into the last group.
     Added {
         task: NewTask,
         after: Option<TaskId>,
+    },
+    /// A person moves a task into `group`, after `after`, or first in it where
+    /// `after` is absent. **By `after` and never by index**: an index counted
+    /// at the drag is stale the moment a Drone adds or drops a task.
+    MovedTask {
+        task: TaskId,
+        group: GroupId,
+        after: Option<TaskId>,
+    },
+    /// A person moves a group after `after`, or first where it is absent.
+    MovedGroup {
+        group: GroupId,
+        after: Option<GroupId>,
     },
     /// **`shown` is the other end of `expects`.** The planner wrote what ought
     /// to prove the task; this is what did, written by whoever worked it.
@@ -340,6 +398,20 @@ pub enum PlanRefused {
     StaysDropped {
         named: TaskId,
     },
+    /// A move names a group the plan does not hold.
+    NoSuchGroup {
+        named: GroupId,
+    },
+    /// A task move's `after` is a task outside the group it moves into.
+    NotInGroup {
+        named: TaskId,
+        group: GroupId,
+    },
+    /// A recording numbers a task's group below the task's before it: groups
+    /// are listed in the order they run.
+    GroupsOutOfOrder {
+        named: u32,
+    },
 }
 
 impl fmt::Display for PlanRefused {
@@ -356,6 +428,14 @@ impl fmt::Display for PlanRefused {
                     "task {named} was dropped, and a dropped task stays dropped"
                 )
             }
+            PlanRefused::NoSuchGroup { named } => write!(out, "the plan holds no group {named}"),
+            PlanRefused::NotInGroup { named, group } => {
+                write!(out, "task {named} is not in group {group} to move after")
+            }
+            PlanRefused::GroupsOutOfOrder { named } => write!(
+                out,
+                "group {named} comes after a higher group: list the tasks group by group"
+            ),
         }
     }
 }
@@ -373,6 +453,7 @@ pub struct WorkingWindow {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlanTask {
     id: TaskId,
+    group: GroupId,
     task: NewTask,
     state: TaskUpdate,
     shown: Option<Shown>,
@@ -380,8 +461,24 @@ pub struct PlanTask {
 }
 
 impl PlanTask {
+    fn new(id: TaskId, group: GroupId, task: &NewTask) -> PlanTask {
+        PlanTask {
+            id,
+            group,
+            task: task.clone(),
+            state: TaskUpdate::Open,
+            shown: None,
+            windows: Vec::new(),
+        }
+    }
+
     pub fn id(&self) -> TaskId {
         self.id
+    }
+
+    /// The group it runs in.
+    pub fn group(&self) -> GroupId {
+        self.group
     }
 
     pub fn title(&self) -> &str {
@@ -414,7 +511,19 @@ impl PlanTask {
 
     /// Present on a dropped task and on nothing else.
     pub fn reason(&self) -> Option<&str> {
-        self.state.reason()
+        match &self.state {
+            TaskUpdate::Dropped(reason) => Some(reason.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Present on a failed task and on nothing else: which group's Checks,
+    /// on which run, were still red.
+    pub fn failed_reason(&self) -> Option<&str> {
+        match &self.state {
+            TaskUpdate::Failed(reason) => Some(reason.as_str()),
+            _ => None,
+        }
     }
 
     /// Every stretch it was marked working, oldest first.
@@ -448,6 +557,9 @@ pub struct WorkPlan {
     approach: Approach,
     recorded_by: PlanAuthor,
     recorded_at: Timestamp,
+    /// In the order they run. A group a move emptied stays, and runs nothing.
+    groups: Vec<GroupId>,
+    /// In plan order: group by group, and in each group as placed.
     tasks: Vec<PlanTask>,
 }
 
@@ -466,45 +578,80 @@ impl WorkPlan {
     /// The plan once one more change is applied to `current`.
     pub fn after(current: Option<&WorkPlan>, entry: &PlanEntry) -> Result<WorkPlan, PlanRefused> {
         if let PlanChange::Recorded { approach, tasks } = &entry.change {
-            return Ok(WorkPlan {
-                approach: approach.clone(),
-                recorded_by: entry.by.clone(),
-                recorded_at: entry.at.clone(),
-                tasks: tasks
-                    .iter()
-                    .zip(1u32..)
-                    .map(|(task, n)| PlanTask {
-                        id: TaskId(NonZeroU32::MIN.saturating_add(n - 1)),
-                        task: task.clone(),
-                        state: TaskUpdate::Open,
-                        shown: None,
-                        windows: Vec::new(),
-                    })
-                    .collect(),
-            });
+            return WorkPlan::recorded(approach, tasks, entry);
         }
         let mut plan = current.cloned().ok_or(PlanRefused::NoPlan)?;
         match &entry.change {
             PlanChange::Recorded { .. } => unreachable!("answered above"),
             PlanChange::Added { task, after } => {
-                let at = match after {
-                    None => plan.tasks.len(),
+                let (at, group) = match after {
+                    None => {
+                        if plan.groups.is_empty() {
+                            plan.groups.push(GroupId::FIRST);
+                        }
+                        let last = plan.groups[plan.groups.len() - 1];
+                        (plan.tasks.len(), last)
+                    }
                     Some(named) => plan
                         .position(*named)
-                        .map(|at| at + 1)
+                        .map(|at| (at + 1, plan.tasks[at].group))
                         .ok_or(PlanRefused::NoSuchPlace { named: *named })?,
                 };
                 let next = plan.tasks.iter().map(|t| t.id.number()).max().unwrap_or(0);
-                plan.tasks.insert(
-                    at,
-                    PlanTask {
-                        id: TaskId(NonZeroU32::MIN.saturating_add(next)),
-                        task: task.clone(),
-                        state: TaskUpdate::Open,
-                        shown: None,
-                        windows: Vec::new(),
-                    },
-                );
+                let id = TaskId(NonZeroU32::MIN.saturating_add(next));
+                plan.tasks.insert(at, PlanTask::new(id, group, task));
+                plan.in_group_order();
+            }
+            PlanChange::MovedTask { task, group, after } => {
+                if !plan.groups.contains(group) {
+                    return Err(PlanRefused::NoSuchGroup { named: *group });
+                }
+                let from = plan
+                    .position(*task)
+                    .ok_or(PlanRefused::NoSuchTask { named: *task })?;
+                let mut moved = plan.tasks.remove(from);
+                moved.group = *group;
+                let at = match after {
+                    Some(named) => {
+                        let at = plan
+                            .position(*named)
+                            .ok_or(PlanRefused::NoSuchPlace { named: *named })?;
+                        if plan.tasks[at].group != *group {
+                            return Err(PlanRefused::NotInGroup {
+                                named: *named,
+                                group: *group,
+                            });
+                        }
+                        at + 1
+                    }
+                    None => plan
+                        .tasks
+                        .iter()
+                        .position(|t| t.group == *group)
+                        .unwrap_or(plan.tasks.len()),
+                };
+                plan.tasks.insert(at, moved);
+                plan.in_group_order();
+            }
+            PlanChange::MovedGroup { group, after } => {
+                let from = plan
+                    .groups
+                    .iter()
+                    .position(|g| g == group)
+                    .ok_or(PlanRefused::NoSuchGroup { named: *group })?;
+                plan.groups.remove(from);
+                let at = match after {
+                    Some(named) => {
+                        plan.groups
+                            .iter()
+                            .position(|g| g == named)
+                            .ok_or(PlanRefused::NoSuchGroup { named: *named })?
+                            + 1
+                    }
+                    None => 0,
+                };
+                plan.groups.insert(at, *group);
+                plan.in_group_order();
             }
             PlanChange::Updated { task, to, shown } => {
                 let at = plan
@@ -541,6 +688,50 @@ impl WorkPlan {
         Ok(plan)
     }
 
+    /// A whole recording: tasks numbered in order, and a group minted for each
+    /// number the planner gave, in the order they first appear.
+    fn recorded(
+        approach: &Approach,
+        tasks: &[NewTask],
+        entry: &PlanEntry,
+    ) -> Result<WorkPlan, PlanRefused> {
+        let mut groups: Vec<GroupId> = Vec::new();
+        let mut numbered: Option<u32> = None;
+        let mut planned = Vec::with_capacity(tasks.len());
+        for (task, n) in tasks.iter().zip(1u32..) {
+            let named = task.group().or(numbered).unwrap_or(1);
+            match numbered {
+                Some(before) if named < before => {
+                    return Err(PlanRefused::GroupsOutOfOrder { named })
+                }
+                Some(before) if named == before => {}
+                _ => groups.push(GroupId::after(groups.len() as u32)),
+            }
+            numbered = Some(named);
+            let id = TaskId(NonZeroU32::MIN.saturating_add(n - 1));
+            planned.push(PlanTask::new(id, groups[groups.len() - 1], task));
+        }
+        Ok(WorkPlan {
+            approach: approach.clone(),
+            recorded_by: entry.by.clone(),
+            recorded_at: entry.at.clone(),
+            groups,
+            tasks: planned,
+        })
+    }
+
+    /// Tasks group by group, each group's in the order placed: a stable sort,
+    /// so a move within a group is the only thing that reorders one.
+    fn in_group_order(&mut self) {
+        let groups = &self.groups;
+        self.tasks.sort_by_key(|task| {
+            groups
+                .iter()
+                .position(|g| *g == task.group)
+                .unwrap_or(usize::MAX)
+        });
+    }
+
     fn position(&self, id: TaskId) -> Option<usize> {
         self.tasks.iter().position(|task| task.id == id)
     }
@@ -565,6 +756,16 @@ impl WorkPlan {
 
     pub fn task(&self, id: TaskId) -> Option<&PlanTask> {
         self.tasks.iter().find(|task| task.id == id)
+    }
+
+    /// Every group, in the order they run.
+    pub fn groups(&self) -> &[GroupId] {
+        &self.groups
+    }
+
+    /// One group's tasks, in plan order.
+    pub fn tasks_in(&self, group: GroupId) -> impl Iterator<Item = &PlanTask> + Clone {
+        self.tasks.iter().filter(move |task| task.group == group)
     }
 
     pub fn counts(&self) -> TaskCounts {
@@ -601,7 +802,15 @@ impl WorkPlan {
         let _ = writeln!(out, "Approach: {}", self.approach.as_str());
         let _ = writeln!(out);
         let _ = write!(out, "Tasks:");
+        // Headed only where there is more than one group, so a plan of one
+        // reads as it did before groups.
+        let grouped = self.groups.len() > 1;
+        let mut heading = None;
         for task in &self.tasks {
+            if grouped && heading != Some(task.group) {
+                heading = Some(task.group);
+                let _ = write!(out, "\n  Group {}:", task.group);
+            }
             let _ = write!(
                 out,
                 "\n  {} [{}] {}",
@@ -611,6 +820,9 @@ impl WorkPlan {
             );
             if let Some(reason) = task.reason() {
                 let _ = write!(out, " — dropped: {reason}");
+            }
+            if let Some(reason) = task.failed_reason() {
+                let _ = write!(out, " — failed: {reason}");
             }
             // Hung under the title and labelled, so a task carrying three of
             // them cannot read as three tasks.

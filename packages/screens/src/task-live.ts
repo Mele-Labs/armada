@@ -1,11 +1,9 @@
 // What a task's own Drone is doing, for Plan's task sheet. `#1536`.
 //
-// **Read only where the task has a Drone of its own.** That is slices 1 and 5
-// of `docs/spikes/022`: until Fleet puts a Drone on each task, a task's turns,
-// cost and transcript are the Job's one Drone's, and a sentence about "its
-// agent" would be about a Drone that is not this task's. So today these read
-// off the mock's draft and nothing else, and on real Fleet the sheet draws none
-// of them.
+// **Read only where the task has a Drone of its own**: a step declaring
+// `drone_per_task` (protocol 23.1). Elsewhere a task's turns, cost and
+// transcript are the step's one Drone's, and a sentence about "its agent"
+// would be about a Drone that is not this task's.
 //
 // **Cost only once that agent stopped** (`#1530`, 22 Sep). Turns are live and a
 // figure for spend is not, so a running task shows turns and nothing else.

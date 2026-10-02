@@ -20,7 +20,7 @@ import type {
   PlanBoardTask,
 } from "@armada/components";
 import { GUIDE_GROUP_BOUNDARY } from "@armada/components";
-import type { CheckUnderway, JobDetail as JobWhole, StepDetail } from "@armada/protocol";
+import type { CheckUnderway, JobDetail as JobWhole, MovePlan, StepDetail } from "@armada/protocol";
 
 import type { JobCheckLog } from "./check-log-sheet";
 import type { CaseView } from "./draft/cases";
@@ -350,4 +350,23 @@ export function movedGroups(groups: readonly PlanBoardGroup[], move: PlanMove): 
     if (group.id === move.group) tasks.splice(move.to, 0, task);
     return tasks.length === group.tasks.length && group.id !== move.group ? group : { ...group, tasks };
   });
+}
+
+/**
+ * A drop as Fleet takes it: placed after the task or the group it now follows,
+ * or first where it follows none. **By `after`, never by index** — spike 022's
+ * bodies table: an index counted at the drag is stale the moment a Drone adds or
+ * drops a task.
+ */
+export function moveSent(groups: readonly PlanBoardGroup[], move: PlanMove): MovePlan {
+  const moved = movedGroups(groups, move);
+  if (move.task === undefined) {
+    const before = moved[moved.findIndex((one) => one.id === move.group) - 1];
+    return before === undefined ? { group: move.group } : { group: move.group, after: before.id };
+  }
+  const tasks = moved.find((one) => one.id === move.group)?.tasks ?? [];
+  const before = tasks[tasks.findIndex((one) => one.id === move.task) - 1];
+  return before === undefined
+    ? { group: move.group, task: move.task }
+    : { group: move.group, task: move.task, after: before.id };
 }
