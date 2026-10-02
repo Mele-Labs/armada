@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use checks_runner::CheckSlots;
+use checks_runner::{CheckSlots, Priority};
 
 use crate::declared::{execute, Registry};
 use crate::tests::{repository, TempDir};
@@ -33,9 +33,17 @@ fn a_repository() -> TempDir {
 #[tokio::test]
 async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Checks, "build", None, BUDGET, None)
-        .await
-        .expect("`build` is declared");
+    let ran = execute(
+        dir.path(),
+        Registry::Checks,
+        "build",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect("`build` is declared");
 
     assert_eq!(ran.command, "/bin/sh -c true");
     assert_eq!(ran.status(), 0);
@@ -46,9 +54,17 @@ async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
 #[tokio::test]
 async fn a_check_that_fails_carries_its_own_exit_code_out() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Checks, "test", None, BUDGET, None)
-        .await
-        .expect("`test` is declared");
+    let ran = execute(
+        dir.path(),
+        Registry::Checks,
+        "test",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect("`test` is declared");
 
     assert_eq!(ran.status(), 1);
 }
@@ -58,10 +74,18 @@ async fn a_check_that_fails_carries_its_own_exit_code_out() {
 #[tokio::test]
 async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Checks, "buidl", None, BUDGET, None)
-        .await
-        .expect_err("`buidl` is not a Check")
-        .to_string();
+    let refused = execute(
+        dir.path(),
+        Registry::Checks,
+        "buidl",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect_err("`buidl` is not a Check")
+    .to_string();
 
     assert!(refused.contains("`buidl` is not a Check"), "{refused}");
     assert!(
@@ -75,10 +99,18 @@ async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
 #[tokio::test]
 async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Commands, "build", None, BUDGET, None)
-        .await
-        .expect_err("`build` is a Check, not a Command")
-        .to_string();
+    let refused = execute(
+        dir.path(),
+        Registry::Commands,
+        "build",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect_err("`build` is a Check, not a Command")
+    .to_string();
 
     assert!(refused.contains("as a Check, not a Command"), "{refused}");
     assert!(refused.contains("armada check build"), "{refused}");
@@ -87,10 +119,18 @@ async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() 
 #[tokio::test]
 async fn a_command_named_at_check_is_refused_the_same_way_round() {
     let dir = a_repository();
-    let refused = execute(dir.path(), Registry::Checks, "fmt", None, BUDGET, None)
-        .await
-        .expect_err("`fmt` is a Command, not a Check")
-        .to_string();
+    let refused = execute(
+        dir.path(),
+        Registry::Checks,
+        "fmt",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect_err("`fmt` is a Command, not a Check")
+    .to_string();
 
     assert!(refused.contains("armada run fmt"), "{refused}");
 }
@@ -100,9 +140,17 @@ async fn a_command_named_at_check_is_refused_the_same_way_round() {
 #[tokio::test]
 async fn a_destructive_command_runs_and_says_it_is_destructive() {
     let dir = a_repository();
-    let ran = execute(dir.path(), Registry::Commands, "wipe", None, BUDGET, None)
-        .await
-        .expect("`wipe` is declared");
+    let ran = execute(
+        dir.path(),
+        Registry::Commands,
+        "wipe",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect("`wipe` is declared");
 
     assert!(ran.destructive);
     assert_eq!(ran.status(), 0);
@@ -113,10 +161,18 @@ async fn a_destructive_command_runs_and_says_it_is_destructive() {
 #[tokio::test]
 async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
     let dir = TempDir::new();
-    let refused = execute(dir.path(), Registry::Checks, "build", None, BUDGET, None)
-        .await
-        .expect_err("there is no Manifest here")
-        .to_string();
+    let refused = execute(
+        dir.path(),
+        Registry::Checks,
+        "build",
+        None,
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect_err("there is no Manifest here")
+    .to_string();
 
     assert!(refused.contains("armada.yml"), "{refused}");
 }
@@ -126,17 +182,33 @@ async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
 #[tokio::test]
 async fn this_repositorys_own_checks_and_commands_resolve() {
     for name in ["build", "test"] {
-        let refused = execute(&repository(), Registry::Commands, name, None, BUDGET, None)
-            .await
-            .expect_err("they are Checks, not Commands")
-            .to_string();
+        let refused = execute(
+            &repository(),
+            Registry::Commands,
+            name,
+            None,
+            BUDGET,
+            None,
+            Priority::Normal,
+        )
+        .await
+        .expect_err("they are Checks, not Commands")
+        .to_string();
         assert!(refused.contains("as a Check"), "{name}: {refused}");
     }
     for name in ["fmt", "gate"] {
-        let refused = execute(&repository(), Registry::Checks, name, None, BUDGET, None)
-            .await
-            .expect_err("they are Commands, not Checks")
-            .to_string();
+        let refused = execute(
+            &repository(),
+            Registry::Checks,
+            name,
+            None,
+            BUDGET,
+            None,
+            Priority::Normal,
+        )
+        .await
+        .expect_err("they are Commands, not Checks")
+        .to_string();
         assert!(refused.contains("as a Command"), "{name}: {refused}");
     }
 }
@@ -174,7 +246,16 @@ async fn a_check_waits_for_a_machine_slot_and_hands_it_down() {
     let root = dir.path().to_path_buf();
     let waiting = slots.clone();
     let running = tokio::spawn(async move {
-        execute(&root, Registry::Checks, "env", None, BUDGET, Some(&waiting)).await
+        execute(
+            &root,
+            Registry::Checks,
+            "env",
+            None,
+            BUDGET,
+            Some(&waiting),
+            Priority::Normal,
+        )
+        .await
     });
     tokio::time::sleep(Duration::from_millis(600)).await;
     assert!(!running.is_finished(), "ran while the one slot was held");
@@ -215,6 +296,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         Some("a b"),
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`test` declares a one_test");
@@ -229,6 +311,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         Some("a"),
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("`build` declares no one_test")
@@ -353,6 +436,50 @@ fn the_scripts_carry_their_own_check() {
 
     let rust = hits(&["crates/fleet/src/lib.rs"]);
     assert!(!rust.contains(&"scripts_test".to_string()), "{rust:?}");
+}
+
+/// **`armada check` lowers a Check and never a Command.** `main` hands in the
+/// priority `ARMADA_CHECK_PRIORITY` names; this is what each registry does
+/// with a lowered one, read back from `ps` as the process's own priority.
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn a_lowered_check_runs_clamped_and_a_command_does_not() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\n\
+         id: a-test-project\n\
+         checks:\n  \
+           pri:\n    run: /bin/sh -c 'ps -o pri= -p $$'\n\
+         commands:\n  \
+           priority:\n    run: /bin/sh -c 'ps -o pri= -p $$'\n",
+    );
+    let mut printed = Vec::new();
+    for (registry, name) in [(Registry::Checks, "pri"), (Registry::Commands, "priority")] {
+        let ran = execute(
+            dir.path(),
+            registry,
+            name,
+            None,
+            BUDGET,
+            None,
+            Priority::Low,
+        )
+        .await
+        .expect("declared");
+        let said = ran.attempt.output.stdout.trim().to_string();
+        printed.push(said.parse::<u32>().expect("ps printed a number"));
+    }
+    let own = std::process::Command::new("ps")
+        .args(["-o", "pri=", "-p", &std::process::id().to_string()])
+        .output()
+        .expect("ps runs");
+    let own: u32 = String::from_utf8_lossy(&own.stdout)
+        .trim()
+        .parse()
+        .expect("a number");
+    assert!(printed[0] <= 20, "a lowered Check ran at {}", printed[0]);
+    assert_eq!(printed[1], own, "a Command ran at a priority of its own");
 }
 
 /// This repository's Manifest, asked what a change hits.

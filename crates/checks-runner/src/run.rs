@@ -33,6 +33,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
 use verification::{Exit, NeverRan};
 
+use crate::Priority;
+
 /// How much of a Check's output is kept.
 ///
 /// **The tail, not the head.** A test runner prints its failures last, and a
@@ -140,6 +142,7 @@ pub async fn run_writing_with_env(
         writing,
         env,
         std::future::pending(),
+        Priority::Normal,
     )
     .await
 }
@@ -155,7 +158,8 @@ pub enum Writing<'p> {
     Appending(&'p Path),
 }
 
-/// [`run_writing_with_env`], ended early the moment `stop` completes.
+/// [`run_writing_with_env`], ended early the moment `stop` completes, at
+/// `priority`.
 ///
 /// **A stop ends the whole group**, for the budget's reason: the test runner a
 /// command started would otherwise outlive the person pressing Stop. What
@@ -173,12 +177,14 @@ pub async fn run_until<S: std::future::Future<Output = ()>>(
     writing: Writing<'_>,
     env: &[(String, String)],
     stop: S,
+    priority: Priority,
 ) -> Attempt {
     let Some((program, args)) = split(command) else {
         return Attempt::never(NeverRan::NothingToRun);
     };
+    let (spawned, args) = priority.command(program.clone(), args, worktree);
 
-    let mut spawning = Command::new(&program);
+    let mut spawning = Command::new(&spawned);
     spawning
         .args(&args)
         .current_dir(worktree)
