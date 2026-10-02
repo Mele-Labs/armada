@@ -177,7 +177,7 @@ describe("the rows the board draws", () => {
     });
 
     expect(pulseReadingOf(read, null, whole).logs).toEqual([
-      { kind: "job", owner: null, bytes: 18_204, writing: true, open: "log" },
+      { kind: "job", owner: null, bytes: 18_204, writing: true, path: JOB_LOG, open: "log" },
       {
         kind: "brief",
         owner: null,

@@ -97,6 +97,11 @@ export type PulseLogRow = {
   about?: string;
   /** What `Open` hands the host. Absent draws no control. */
   open?: Artifact;
+  /**
+   * The file, relative to `records_root`, where a press on the row reads it in
+   * a panel. Absent is a row with nothing to read in one.
+   */
+  path?: string;
   /** What it weighs. **Absent draws nothing**, never `0` and never a dash. */
   bytes?: number;
   /** Whether something is writing to it right now. */
@@ -342,11 +347,17 @@ export function Logs({
   logs,
   member = ANY,
   onOpen,
+  onView,
+  viewing,
 }: {
   logs: PulseLogRow[];
   /** Whose logs to list. `LogMember` picks it. */
   member?: string;
   onOpen?: (what: Artifact) => void;
+  /** Read a row with a `path` in a panel. The whole row takes the press. */
+  onView?: (log: PulseLogRow) => void;
+  /** The path whose panel is open. */
+  viewing?: string;
 }) {
   const shown = member === ANY ? logs : logs.filter((one) => one.owner === member);
   if (logs.length === 0) {
@@ -355,8 +366,31 @@ export function Logs({
   return (
     <ul className="armada-holds__rows" data-list="logs">
       {shown.map((one) => (
-        <li key={`${one.owner ?? ""}/${one.kind}/${one.about ?? ""}`} className="armada-holds__row">
-          <span className="armada-holds__kind">{KIND[one.kind] ?? one.kind}</span>
+        <li
+          key={`${one.owner ?? ""}/${one.kind}/${one.about ?? ""}`}
+          className="armada-holds__row"
+          data-viewable={(onView !== undefined && one.path !== undefined) || undefined}
+          aria-current={one.path !== undefined && one.path === viewing ? "true" : undefined}
+          onClick={onView === undefined || one.path === undefined ? undefined : () => onView(one)}
+        >
+          {onView === undefined || one.path === undefined ? (
+            <span className="armada-holds__kind">{KIND[one.kind] ?? one.kind}</span>
+          ) : (
+            // The keyboard's path to the row's press, `JobDrones`' own. The
+            // press stops here, or the row answers it a second time.
+            <button
+              type="button"
+              className="armada-holds__kind armada-holds__view"
+              aria-label={`${KIND[one.kind] ?? one.kind}, ${whoseLog(one)}`}
+              aria-expanded={one.path === viewing}
+              onClick={(event) => {
+                event.stopPropagation();
+                onView(one);
+              }}
+            >
+              {KIND[one.kind] ?? one.kind}
+            </button>
+          )}
           <span className="armada-holds__name armada-holds__mono">{whoseLog(one)}</span>
           {one.bytes === undefined ? (
             <span />
@@ -366,11 +400,7 @@ export function Logs({
             </Tooltip>
           )}
           {one.writing ? (
-            <Tooltip label={BEING_WRITTEN} asChild>
-              <span className="armada-holds__writing" role="img" aria-label={BEING_WRITTEN}>
-                <CircleDot size={12} strokeWidth={2} aria-hidden="true" />
-              </span>
-            </Tooltip>
+            <BeingWritten />
           ) : (
             <Opens open={one.open} onOpen={onOpen} />
           )}
@@ -428,7 +458,15 @@ function whoseLog(one: PulseLogRow): string {
 function Opens({ open, onOpen }: { open?: Artifact; onOpen?: (what: Artifact) => void }) {
   if (open === undefined || onOpen === undefined) return null;
   return (
-    <Button variant="ghost" size="sm" onClick={() => onOpen(open)}>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={(event) => {
+        // A row that opens a panel takes the press too; this one leaves the app.
+        event.stopPropagation();
+        onOpen(open);
+      }}
+    >
       Open
     </Button>
   );
@@ -436,6 +474,21 @@ function Opens({ open, onOpen }: { open?: Artifact; onOpen?: (what: Artifact) =>
 
 /** What the mark on a log a writer holds open is, said by its tooltip and its name. */
 const BEING_WRITTEN = "Being written";
+
+/**
+ * A log a writer holds open: `circle-dot` in the running hue, its centre
+ * pulsing. **Exported** for the panel that reads the file, so a row and its
+ * panel say *being written* with one mark and stop saying it together.
+ */
+export function BeingWritten() {
+  return (
+    <Tooltip label={BEING_WRITTEN} asChild>
+      <span className="armada-holds__writing" role="img" aria-label={BEING_WRITTEN}>
+        <CircleDot size={12} strokeWidth={2} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
 
 /** A Job nothing has written a log for. Not a missing read — there are none. */
 const NO_LOGS = "Nothing has been written to this job's logs.";

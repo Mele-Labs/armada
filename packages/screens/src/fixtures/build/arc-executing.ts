@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { Diff, JobProcess, LogFile, Recorded, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, LogFile, Recorded, StepDetail, Turn } from "@armada/protocol";
 import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -43,6 +43,7 @@ import {
 import { ARC_LANDING } from "./arc-dispatch";
 import { ARC_DRONES, arcCases, arcGroups, finished, withGroup, withTask } from "./arc-plan";
 import { arcApproved } from "./arc-proposing";
+import { answered, called, said } from "./base";
 
 const IMPLEMENT_ENTERED = "2026-09-22T09:22:00Z";
 
@@ -124,6 +125,32 @@ function sequentialHistory(): Recorded[] {
     actor: "fleet",
     at: one.at,
   }));
+}
+
+/** One row of T5's transcript, stamped with its Drone as Fleet stamps it. */
+function byT5(row: Turn): Turn {
+  return { ...row, drone_id: ARC_DRONES.T5 ?? "T5" };
+}
+
+/**
+ * T5 at work in group three: what the observe socket opened with, and the
+ * rows it carries after, which the mock lands one at a time.
+ */
+function t5Transcript(): { opened: Turn[]; arriving: Turn[] } {
+  return {
+    opened: [
+      said("implement", "2026-09-22T10:14:20Z", "Reading the stat to see where the Drone count is drawn."),
+      called("implement", "2026-09-22T10:15:02Z", "call_t5_read", "Read", "packages/screens/src/running-rows.tsx"),
+      answered("implement", "2026-09-22T10:15:03Z", "call_t5_read"),
+      said("implement", "2026-09-22T10:17:40Z", "The rows take the read's lists as they are. Adding the Judge calls row."),
+      called("implement", "2026-09-22T10:18:55Z", "call_t5_edit", "Edit", "packages/screens/src/running-rows.tsx +14 -2"),
+      answered("implement", "2026-09-22T10:18:56Z", "call_t5_edit"),
+    ].map(byT5),
+    arriving: [
+      said("implement", "2026-09-22T10:20:10Z", "Running the screens tests against the new row."),
+      called("implement", "2026-09-22T10:20:12Z", "call_t5_test", "Bash", "armada check screens_test"),
+    ].map(byT5),
+  };
 }
 
 /** One Drone's process, as `ps` reports it. */
@@ -290,6 +317,8 @@ function executing(args: {
   logs?: LogFile[];
   /** The Job's history, where this moment serves one. */
   history?: Recorded[];
+  /** What the observe socket opened with, and what it carries after. */
+  transcript?: { opened: Turn[]; arriving: Turn[] };
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -305,7 +334,15 @@ function executing(args: {
     watched: arcWatched(whole),
     workflows: [featureWorkflow()],
     manifests: arcManifests(),
-    observed: { state: "none" },
+    observed:
+      args.transcript === undefined
+        ? { state: "none" }
+        : {
+            state: "watching",
+            jobId: ARC_JOB_ID,
+            turns: { live: true, skipped: 0, missed: 0, rows: args.transcript.opened },
+          },
+    ...(args.transcript === undefined ? {} : { arriving: args.transcript.arriving }),
     journalled: { state: "none" },
     resources: {
       state: "read",
@@ -417,6 +454,7 @@ export function executingSequential(): ArcMoment {
         processes: [droneProcess(52_118, "06:12")],
         logs: sequentialLogs(),
         history: sequentialHistory(),
+        transcript: t5Transcript(),
       }),
     ],
     opens: ARC_JOB_ID,

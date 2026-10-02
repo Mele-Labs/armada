@@ -495,6 +495,9 @@ function OneJob(props: JobDetailProps) {
           holds={{ ...pulseOf(props, whole, job.id, caps), figuresReading: unread !== undefined }}
           jobId={job.id}
           onNeedPulse={props.onNeedPulse}
+          observed={props.observed}
+          journalled={props.journalled}
+          floor={floor}
         />
       )}
     </div>

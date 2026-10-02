@@ -22,12 +22,9 @@ import { checksOf, isRunning } from "./gates";
  *
  * **A Judge's brief is named by the Job and weighed by the reading.**
  * `get_job` names each one a step's criteria were asked with, and the host
- * opens it by that path; `logRowsOf` joins the two. `whole` is optional
- * because the job sheet draws this board from a caller that does not pass it;
- * that board lists the reading's files alone, a brief with no `Open`.
- * A size's age is off its own `measured_at`: Fleet keeps a size between reads.
- * `places` names each transcript by where its Drone worked; a caller with
- * none draws the Drone's id.
+ * opens it by that path; `logRowsOf` joins the two. `whole` and `places` are
+ * optional because the job sheet passes neither: a brief draws no `Open` and a
+ * transcript its Drone's id. A size's age is off its own `measured_at`.
  */
 export function pulseReadingOf(
   view: PulseView,
@@ -88,10 +85,13 @@ function logRowsOf(logs: readonly PulseLog[], whole: JobWhole | null, places: Dr
 /** One file as the reading lists it. */
 function fileRowOf(log: PulseLog, places: DronePlaces): PulseLogRow {
   const row = { kind: log.kind, owner: log.owner, ...weighed(log), writing: log.writing };
-  if (log.kind === "job" && log.owner === null) return { ...row, open: "log" };
+  // The two a panel can read live: the Job's log on its socket, a transcript
+  // on the observe socket's rows for its Drone. A brief has no reader at all.
+  if (log.kind === "job" && log.owner === null) return { ...row, path: log.path, open: "log" };
   if (log.kind === "transcript") {
     const drone = stem(log.path);
-    return { ...row, about: places.get(drone) ?? drone, open: { kept: log.path, what: "transcript" } };
+    const open = { kept: log.path, what: "transcript" } as const;
+    return { ...row, about: places.get(drone) ?? drone, path: log.path, open };
   }
   return { ...row, about: stem(log.path) };
 }

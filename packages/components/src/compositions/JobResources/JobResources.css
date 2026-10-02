@@ -251,6 +251,33 @@
   border-block-end: var(--border-width) solid var(--edge-rule);
 }
 
+/* A log row a press reads in a panel: the whole row takes it, and says so on
+   hover and while its panel is open. */
+.armada-holds__row[data-viewable] {
+  cursor: pointer;
+}
+
+.armada-holds__row[data-viewable]:hover,
+.armada-holds__row[aria-current="true"] {
+  background: var(--bg-hover);
+}
+
+/* The row's press for the keyboard, drawn as the kind it names. */
+.armada-holds__view {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-holds__view:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
 /* A rule separates rows, so the last one has none under it. */
 .armada-holds__row:last-child {
   border-block-end: none;

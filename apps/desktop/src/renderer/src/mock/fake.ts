@@ -20,6 +20,13 @@ import { groupsAdding, groupsDropping, nextTaskId, planAdding, planDropping } fr
 
 const OK: Outcome = { ok: true };
 
+/**
+ * How far apart a fixture's `arriving` rows land. Long enough that a walk has
+ * opened a transcript's panel before the first one, short enough that the
+ * walk's five-second wait for it holds.
+ */
+const ARRIVING_MS = 4000;
+
 /** A fake's draft as it stands, and a way to hear it change. */
 export type LiveDraft = {
   current: () => ArcDraft | undefined;
@@ -214,8 +221,19 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
         handed: reads?.recorded.handed ?? nothing,
       });
     },
-    observeJob: async (jobId) =>
-      publish({ observed: jobId === null ? nothing : (readsOf(jobId)?.observed ?? nothing) }),
+    observeJob: async (jobId) => {
+      publish({ observed: jobId === null ? nothing : (readsOf(jobId)?.observed ?? nothing) });
+      // What a writing Drone sends next, one row at a time, onto the socket
+      // that is still this Job's. A row already held is not sent twice, so a
+      // socket opened again does not double the tail.
+      (jobId === null ? [] : (readsOf(jobId)?.arriving ?? [])).forEach((row, at) => {
+        setTimeout(() => {
+          const now = state.observed;
+          if (!("turns" in now) || now.jobId !== jobId || now.turns.rows.some((one) => one.seq === row.seq)) return;
+          publish({ observed: { ...now, turns: { ...now.turns, rows: [...now.turns.rows, row] } } });
+        }, ARRIVING_MS * (at + 1));
+      });
+    },
     followCheckOutput: async () => publish({ followed: nothing }),
     // A fixture with no history is one whose story never asked for it, and `none` is what it draws.
     readHistory: async (jobId) =>

@@ -56,11 +56,8 @@ export type Artifact = "worktree" | "log" | "transcript" | Kept;
  * to a file nobody has — which is the defect being fixed, one layer down.
  *
  * `what` is what the row is, for the sentence a failed open says. **It never
- * decides where the file is.**
- *
- * **A Drone's transcript is one too, by its path in `JobResources.logs`.** The
- * `transcript` word opens the assigned Drone's alone, and a Job that has had
- * several has a file per Drone that only Fleet's listing names.
+ * decides where the file is.** A transcript is one by its path in
+ * `JobResources.logs`: the `transcript` word reaches the assigned Drone's alone.
  */
 export type Kept = { kept: string; what: "check" | "brief" | "deliverable" | "transcript" };
 

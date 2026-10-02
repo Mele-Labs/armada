@@ -1,11 +1,15 @@
 // Pulse's log rows off Fleet's `logs` (#1648): each file named by where its
-// Drone worked, what it weighs, a pulsing mark while a Drone writes it, and an
-// Open on every transcript and every brief.
+// Drone worked, what it weighs, a pulsing mark while a Drone writes it, an
+// Open on every transcript and brief, and a panel that reads a file live.
 
-import { region, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 export const pulseLogRows = walk("arc/executing-sequential", [
   { press: tab("Pulse"), say: "A Job whose third group is working" },
+  { press: button("Drone transcript, implement · T5"), say: "T5's transcript opens in a panel, still being written" },
+  { look: dialog("Drone transcript"), say: "It follows the tail" },
+  { look: text("Running the screens tests against the new row."), say: "A new row arrives as T5 writes it" },
+  { press: inside(dialog("Drone transcript"), button("Close")), say: "Back to the list" },
   { look: region("Job logs"), say: "Every file it has, its own log first" },
   { look: text("implement · T5"), say: "A transcript, named by its step and task" },
   { look: role("img", "Being written"), say: "Pulsing: T5 is writing it now" },
