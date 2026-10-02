@@ -34,6 +34,13 @@
   color: var(--fg-default);
 }
 
+/* The repository, where more than one line draws: set back from the heading. */
+.armada-merge-line__repository {
+  margin-left: var(--space-2);
+  font-weight: var(--weight-body);
+  color: var(--fg-muted);
+}
+
 .armada-merge-line__fold {
   display: flex;
   align-items: center;
@@ -88,6 +95,41 @@
 .armada-merge-line__rule {
   grid-column: 1 / -1;
   margin: var(--space-2) 0;
+}
+
+/* Recently landed, Sent back: on the place column's edge, under the rule. */
+.armada-merge-line__subheading {
+  grid-column: 2 / -1;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+/* Nobody in line, nothing landed, nothing sent back: the picture alone. */
+.armada-merge-line__empty {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-merge-line__picture {
+  width: calc(var(--space-12) * 3);
+  height: auto;
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: var(--border-width);
+  stroke-linecap: round;
+}
+
+.armada-merge-line__picture-branch {
+  stroke-dasharray: var(--space-1) var(--space-1);
+}
+
+.armada-merge-line__picture-place {
+  fill: var(--bg-raised);
 }
 
 .armada-merge-line__row {

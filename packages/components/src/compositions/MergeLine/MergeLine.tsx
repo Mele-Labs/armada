@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { ChevronRight, ChevronUp } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
@@ -6,16 +7,16 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * The merge line: the branches waiting to land on main through `armada land`,
- * in place order, and the ones that just left it. What `armada land --status`
- * prints, drawn as an Overview panel.
+ * in place order, then Recently landed and Sent back. An Overview panel.
  *
  * **A batch is drawn as one group, not as a "together with" string on every
  * member.** The branches a turn gates at once are consecutive in place order,
  * so they nest in one list with a bracket down their leading edge.
  *
- * **State is the mark alone**, from `land_state` in the generated vocabulary,
- * pulsing while the turn holds the branch. Its word is the tooltip. No count
- * is drawn beside the rows, and a slot with nothing to say draws nothing.
+ * **State is the mark alone**, from `land_state`, its word the tooltip. No
+ * count beside the rows; an empty list draws nothing, heading included. With
+ * all three empty the panel draws a picture and no words, the owner's one
+ * exception to the empty-state rule, 2 Oct 2026.
  */
 export type MergeLineState = "waiting" | "gating" | "merging" | "landed" | "red" | "conflict" | "stopped";
 
@@ -39,10 +40,14 @@ export type MergeLineEntry = {
 };
 
 export type MergeLineProps = {
+  /** The repository, where more than one line draws. Beside the heading. */
+  name?: string;
   /** In place order. */
   line: readonly MergeLineEntry[];
-  /** Off the line with an outcome, newest first. */
-  off?: readonly MergeLineEntry[];
+  /** Landed, newest first. */
+  landed?: readonly MergeLineEntry[];
+  /** Red, conflict or stopped and not back in line, newest first. */
+  sentBack?: readonly MergeLineEntry[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Hands the pull request's address to whatever opens addresses on this machine. */
@@ -60,16 +65,34 @@ const LIVE: ReadonlySet<MergeLineState> = new Set(["gating", "merging"]);
 const MARK = 12;
 const STROKE = 2;
 
-export function MergeLine({ line, off = [], open, onOpenChange, onOpenPullRequest, id }: MergeLineProps) {
+/** The lists under the line, in the order they draw. */
+const LEFT = [
+  { heading: "Recently landed", pick: (props: MergeLineProps) => props.landed ?? [] },
+  { heading: "Sent back", pick: (props: MergeLineProps) => props.sentBack ?? [] },
+] as const;
+
+export function MergeLine(props: MergeLineProps) {
+  const { name, line, open, onOpenChange, onOpenPullRequest, id } = props;
+  const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
+  const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
+    (one) => one.entries.length > 0,
+  );
   return (
-    <section className="armada-merge-line" id={id} aria-label={HEADING}>
+    <section className="armada-merge-line" id={id} aria-label={named}>
       <header className="armada-merge-line__head">
-        <h2 className="armada-merge-line__heading">{HEADING}</h2>
+        <h2 className="armada-merge-line__heading">
+          {HEADING}
+          {name === undefined ? null : (
+            <Tooltip label="Repository" asChild>
+              <span className="armada-merge-line__repository">{name}</span>
+            </Tooltip>
+          )}
+        </h2>
         <button
           type="button"
           className="armada-merge-line__fold"
           aria-expanded={open}
-          aria-label={`${open ? "Collapse" : "Expand"} ${HEADING}`}
+          aria-label={`${open ? "Collapse" : "Expand"} ${named}`}
           onClick={() => onOpenChange(!open)}
         >
           {open ? (
@@ -79,7 +102,11 @@ export function MergeLine({ line, off = [], open, onOpenChange, onOpenPullReques
           )}
         </button>
       </header>
-      {open ? (
+      {!open ? null : line.length === 0 && left.length === 0 ? (
+        <div className="armada-merge-line__empty">
+          <EmptyLine />
+        </div>
+      ) : (
         <div className="armada-merge-line__body">
           {line.length === 0 ? null : (
             <ol className="armada-merge-line__list" aria-label="In line">
@@ -101,17 +128,37 @@ export function MergeLine({ line, off = [], open, onOpenChange, onOpenPullReques
               )}
             </ol>
           )}
-          {line.length > 0 && off.length > 0 ? <Separator className="armada-merge-line__rule" /> : null}
-          {off.length === 0 ? null : (
-            <ul className="armada-merge-line__list" aria-label="Left the line">
-              {off.map((entry) => (
-                <Entry key={entry.branch} entry={entry} onOpenPullRequest={onOpenPullRequest} />
-              ))}
-            </ul>
-          )}
+          {left.map((one, n) => (
+            <Fragment key={one.heading}>
+              {line.length > 0 || n > 0 ? <Separator className="armada-merge-line__rule" /> : null}
+              <h3 className="armada-merge-line__subheading">{one.heading}</h3>
+              <ul className="armada-merge-line__list" aria-label={one.heading}>
+                {one.entries.map((entry) => (
+                  <Entry key={entry.branch} entry={entry} onOpenPullRequest={onOpenPullRequest} />
+                ))}
+              </ul>
+            </Fragment>
+          ))}
         </div>
-      ) : null}
+      )}
     </section>
+  );
+}
+
+/**
+ * A line nobody has been in: main, and a dashed branch with empty places on it
+ * meeting main. Drawn in the border tokens, so it sits back from every row.
+ * Its name is for a screen reader alone; nothing is written under it.
+ */
+function EmptyLine() {
+  return (
+    <svg className="armada-merge-line__picture" viewBox="0 0 96 40" role="img" aria-label="Empty">
+      <path className="armada-merge-line__picture-main" d="M4 32 H92" />
+      <path className="armada-merge-line__picture-branch" d="M4 10 H44 C58 10 58 32 72 32" />
+      <circle className="armada-merge-line__picture-place" cx="16" cy="10" r="3.5" />
+      <circle className="armada-merge-line__picture-place" cx="32" cy="10" r="3.5" />
+      <circle className="armada-merge-line__picture-place" cx="72" cy="32" r="3.5" />
+    </svg>
   );
 }
 

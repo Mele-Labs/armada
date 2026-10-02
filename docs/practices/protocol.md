@@ -2214,6 +2214,21 @@ them, so `edges` is what it was plus one. Which of those edges Bridge draws is B
 (`docs/concepts/studio.md`, *Edges*). Store V91 adds the column, and every node before it sits on
 the board. Minor resets to 0.
 
+## Protocol 23.1: what landed, and what was sent back
+
+Decided with the owner on 2 Oct 2026: the merge line's one list of what left it splits in two.
+`MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
+`red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
+bounds are in `adapters::land_state::line`. Both lists are `MergeLineEntry` rows, newest first, with
+the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
+
+**Additive, so the minor moves.** `off` is still served as it was, so a 23.0 Bridge connects behind
+the banner and draws what it drew. This Bridge does not read it. `off` could not carry the split by
+itself: its newest few of either means a run of landings pushes every red out of it.
+
+**The bound is the outcome file's own age, held against the instant Fleet's clock gives the read.**
+A red that ages out changes the answer, so `merge_lines.changed` publishes it.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -1,5 +1,5 @@
 // The merge line `armada land` keeps in each repository Fleet serves —
-// `crates/ipc/src/merge_line.rs`. Since protocol 22.1.
+// `crates/ipc/src/merge_line.rs`. Since protocol 22.1; `landed` and `sent_back` since 23.1.
 //
 // Read once per connection off `get_merge_lines`, and replaced whole by every
 // `merge_lines.changed`. The header rules in `events.ts` hold: hand-written,
@@ -14,8 +14,12 @@ export type MergeLine = {
   root: string;
   /** In place order. Empty is a line nobody is in. */
   line: MergeLineRow[];
-  /** The newest few that left it, newest first. */
+  /** The newest few that left it, newest first. What a Bridge before 23.1 drew; this one reads the two below. */
   off: MergeLineRow[];
+  /** The newest three that landed, newest first. Since 23.1. */
+  landed: MergeLineRow[];
+  /** Red, conflict or stopped and not back in line, in the last three days, newest first. Since 23.1. */
+  sent_back: MergeLineRow[];
 };
 
 /** One branch, in line or just off it. */

@@ -1033,11 +1033,11 @@ Beside `list_manifests` rather than instead of it: Setup starts from a folder no
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, and the newest three that left it"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, the newest three that landed, and those sent back in the last three days"
 notes = """
 A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
 
-A repository nobody has run `armada land` in is left out rather than listed empty. `off` is bounded at three, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026.
+A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """

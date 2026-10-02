@@ -169,7 +169,7 @@ fn a_line(root: &Path) -> StateDir {
         },
     );
     aged(&conflict, 10);
-    // Older than the three, so past the bound; and a turn a killed runner left, never drawn.
+    // Older than the three, so past `off` but still landed; and a turn a killed runner left, never drawn.
     let older = say(
         &state,
         "fleet/an-older-landing",
@@ -178,6 +178,18 @@ fn a_line(root: &Path) -> StateDir {
         OutcomePatch::default(),
     );
     aged(&older, 3_600);
+    // Sent back four days ago, past `SENT_BACK_FOR`: not drawn.
+    let stale = say(
+        &state,
+        "fleet/a-red-days-ago",
+        OutcomeState::Red,
+        "red",
+        OutcomePatch {
+            failed: Some(vec!["rust_test".into()]),
+            ..OutcomePatch::default()
+        },
+    );
+    aged(&stale, 4 * 24 * 3_600);
     say(
         &state,
         "fleet/a-runner-killed-mid-turn",
@@ -205,7 +217,7 @@ fn shared() -> ipc::MergeLines {
 }
 
 #[tokio::test]
-async fn fleet_serves_the_line_on_disk_in_place_order_with_the_three_newest_off_it() {
+async fn fleet_serves_the_line_on_disk_in_place_order_with_what_landed_and_what_was_sent_back() {
     let home = TempDir::new();
     let state = a_line(home.path());
     let fleet = Arc::new(Fleet::assembled(fitted_with(
@@ -304,5 +316,29 @@ async fn a_line_that_moves_on_disk_is_published_whole() {
             ("fleet/pulse-log-rows".to_string(), ipc::LandState::Red),
         ],
         "the newest first, and the landing pushed past the three"
+    );
+    let sent_back: Vec<&str> = moved.lines[0]
+        .sent_back
+        .iter()
+        .map(|one| one.branch.as_str())
+        .collect();
+    assert_eq!(
+        sent_back,
+        [
+            "fleet/a-stop",
+            "bridge/overview-strip-width",
+            "fleet/pulse-log-rows"
+        ],
+        "a stop is sent back, newest first, and nothing landed is"
+    );
+    let landed: Vec<&str> = moved.lines[0]
+        .landed
+        .iter()
+        .map(|one| one.branch.as_str())
+        .collect();
+    assert_eq!(
+        landed,
+        ["bridge/land-board-reads-plainly", "fleet/an-older-landing"],
+        "the stop pushes no landing out"
     );
 }

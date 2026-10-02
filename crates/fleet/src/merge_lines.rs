@@ -9,13 +9,15 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use adapters::land_state::line::{self, Line, Located};
 use adapters::land_state::outcome::{together, Outcome, OutcomeState};
 use api::{Broadcaster, Queries};
 use ipc::{Event, LandState, MergeLine, MergeLineEntry, MergeLinePullRequest, MergeLines};
 use tokio::task::JoinHandle;
+
+use crate::clock::SystemClock;
 
 /// How often the lines are read. **Per repository with a line: one listing of
 /// the queue, one of the outcomes and a few small files**, and the `git` calls
@@ -27,9 +29,9 @@ pub const EVERY: Duration = Duration::from_secs(2);
 /// answer for, remembered so it is not asked again every read.
 type Found = HashMap<String, Option<Located>>;
 
-/// Every root's line, read now, and a sentence for each line that would not
-/// read. A root with no line, or one that will not read, is left out.
-pub fn read(roots: &[String], found: &mut Found) -> (MergeLines, Vec<String>) {
+/// Every root's line, read as of `now`, and a sentence for each line that would
+/// not read. A root with no line, or one that will not read, is left out.
+pub fn read(roots: &[String], found: &mut Found, now: SystemTime) -> (MergeLines, Vec<String>) {
     let mut lines = Vec::new();
     let mut unread = Vec::new();
     for root in roots {
@@ -37,7 +39,7 @@ pub fn read(roots: &[String], found: &mut Found) -> (MergeLines, Vec<String>) {
             .entry(root.clone())
             .or_insert_with(|| line::locate(Path::new(root)));
         let Some(at) = at.as_ref() else { continue };
-        match line::read(at) {
+        match line::read(at, now) {
             Ok(Some(read)) => lines.push(merge_line(root, at, read)),
             Ok(None) => {}
             Err(why) => unread.push(format!("the merge line in {root} could not be read: {why}")),
@@ -59,7 +61,8 @@ async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
 pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     let roots = roots(daemon).await;
     // What would not read is said by the reading loop, once, rather than per request.
-    tokio::task::spawn_blocking(move || read(&roots, &mut Found::new()).0)
+    let now = SystemClock::new().instant();
+    tokio::task::spawn_blocking(move || read(&roots, &mut Found::new(), now).0)
         .await
         .unwrap_or_default()
 }
@@ -91,8 +94,9 @@ where
         loop {
             ticker.tick().await;
             let roots = roots(daemon.as_ref()).await;
+            let at = SystemClock::new().instant();
             let Ok(((now, said), kept)) = tokio::task::spawn_blocking(move || {
-                let now = read(&roots, &mut found);
+                let now = read(&roots, &mut found, at);
                 (now, found)
             })
             .await
@@ -164,23 +168,26 @@ pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
             row
         })
         .collect();
-    let off = read
-        .off
-        .iter()
-        .map(|outcome| {
-            ended(
-                at,
-                &outcome.branch,
-                outcome.state,
-                outcome.pr,
-                Some(outcome),
-            )
-        })
-        .collect();
+    let left = |outcomes: &[Outcome]| -> Vec<MergeLineEntry> {
+        outcomes
+            .iter()
+            .map(|outcome| {
+                ended(
+                    at,
+                    &outcome.branch,
+                    outcome.state,
+                    outcome.pr,
+                    Some(outcome),
+                )
+            })
+            .collect()
+    };
     MergeLine {
         root: root.to_string(),
         line,
-        off,
+        off: left(&read.off),
+        landed: left(&read.landed),
+        sent_back: left(&read.sent_back),
     }
 }
 
