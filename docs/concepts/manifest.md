@@ -329,6 +329,7 @@ Rules that follow:
 - **There are `checks-at-once`'s machine number of them**, half the cores from one to eight. A saved `checks-at-once` still bounds Fleet's own line, which orders a Drone's run ahead of a gate; the slots bound the machine.
 - **A slot is an `flock` on one of that many files in `~/Library/Application Support/Armada/check-slots/`**, beside `fleet.json`, so every clone and worktree shares them. The kernel lets go when the holder dies; there is nothing to reclaim.
 - **All or none, and no queue.** A Check wanting three takes three or holds nothing while it waits, so two wide Checks never deadlock on halves; a narrow Check can pass a wide one that waits.
+- **The merge line's Checks ask first.** The line sets `ARMADA_CHECK_AHEAD` on every `armada check` it starts, which holds `ahead` in the slot directory while it waits; any other ask that finds it held waits too, and says `waiting for a Check slot: the merge line asked first`. It jumps the wait and never a holder: a running Check keeps its slots. Decided 2 Oct 2026, because a turn holds every branch queued behind it. Priority on the CPU is the next section's.
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 
@@ -719,6 +720,7 @@ The gate names a tier the step never declared, so advancing would advance on the
 | Absent | Every brief, a Judge's or a Drone's, is exactly what it was before the key existed |
 | The path | One file inside the checkout, refused at the key otherwise — a deliverable's rules |
 | Read from | The repository's own checkout, never the Job's worktree, so a Drone cannot rewrite what its Judge is told. A Drone's brief reads it when the Drone is put on, a Judge's when the work is judged |
+| Beside the Judge's own reading | A Judge can also read the same checkout for itself, since 2 Oct 2026, so a repository naming no file is not one its Judge is blind to. The file is still the repository saying it outright: quoted in every brief, where a reading Judge would have to think to look |
 | Over the bound | Cut on a whole line at the `standing-rules-cap` setting, the same for both readers, and the brief says it was cut |
 | Not there | The brief says the file could not be read |
 

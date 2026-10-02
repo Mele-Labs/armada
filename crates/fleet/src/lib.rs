@@ -121,6 +121,8 @@ mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
 mod landing;
+/// A Job's worktree is the pool slot it leased.
+mod leasing;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;
@@ -262,6 +264,8 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+/// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
+pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;

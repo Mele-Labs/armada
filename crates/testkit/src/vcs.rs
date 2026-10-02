@@ -20,8 +20,9 @@
 //! uses, so a test asserting on a path is asserting on the derivation that
 //! ships rather than on a second copy of it — the second-vocabulary defect.
 //!
-//! It is **not** faithful about the filesystem: nothing is created, so a test
-//! that wants to read a file out of a worktree wants the real one.
+//! It is **not** faithful about the filesystem: nothing is created but a leased
+//! slot's empty directory, so a test that wants to read a file out of a
+//! worktree wants the real one.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::error::Error;
@@ -32,15 +33,18 @@ use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
     CommitTime, Committed, Delivery, KeptCurrent, Landable, Landing, Mergeable, Merged, NotCloned,
     NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark, RepositoryStanding, Review,
-    Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
+    SlotKept, SlotLeased, SlotPool, SlotStanding, Standing, UncheckedHead, UnderReview, Vcs,
+    WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
 
 mod commit;
+mod slots;
 
 use commit::Willing;
 pub use commit::{CommitScope, FakeCommit};
+use slots::FakeSlots;
 
 /// Why the fake refused.
 ///
@@ -95,6 +99,8 @@ impl Error for FakeVcsError {}
 #[derive(Debug, Default)]
 pub struct FakeVcs {
     branches: Mutex<BTreeSet<String>>,
+    /// The worktree pool each repository leases a Job's slot from.
+    slots: FakeSlots,
     created: Mutex<Vec<Worktree>>,
     refuse_next: Mutex<Option<&'static str>>,
     committed: Mutex<Vec<FakeCommit>>,
@@ -1103,6 +1109,28 @@ impl Vcs for FakeVcs {
             }),
             None => Ok(()),
         }
+    }
+
+    /// The same refusals [`create_worktree`](Vcs::create_worktree) scripts.
+    fn lease_slot(
+        &self,
+        pool: &SlotPool,
+        spec: &WorktreeSpec,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        self.leased(pool, spec, job_id)
+    }
+
+    fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
+        self.slots.open(pool, job_id)
+    }
+
+    fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
+        self.slots.standing(pool, slot, job_id)
+    }
+
+    fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
+        self.slots.release(pool, slot, job_id)
     }
 }
 

@@ -376,7 +376,9 @@ export const backFromADrone = walk("arc/executing-sequential", [
 ]);
 ```
 
-A step **presses**, **looks**, or **types** into a field, at a target found the
+A step **presses**, **looks**, **hovers** — the pointer held on its target
+past the tooltip delay, so the picture shows what the hover opens — or
+**types** into a field, at a target found the
 way the mock tests find one: `tab`, `button`, `card`, `dialog`, `row`, `region`,
 `text`, or `role(kind, name)` for any other, and `inside(scope, target)` to look
 in one place only. A name is matched anywhere in the accessible name, in any
@@ -448,6 +450,11 @@ For `test` and `acceptance` the bare function name is enough
 works too; for a vitest Check, any part of the test's name, quotes and
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
+
+**`armada check <name> --changed` runs it over what the paths on stdin reach**,
+the way the merge line does: `git diff --name-only main | armada check test
+--changed`. It adds no dependents of its own, so name every crate you want
+measured. *Landing a branch* below has the rules.
 
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
@@ -628,6 +635,8 @@ and cuts from what was last fetched.
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path |
 | `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
 | A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
+| `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
+| `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path |
 
 **The lease is held for the process that ran your shell** — the agent session,
 or the terminal. Run it directly, not through a wrapper script, or the holder
@@ -654,6 +663,15 @@ every Check what landed on `main` hits. The design is
 |---|---|
 | Not moved | The gate, and every Check the branch hits |
 | Moved | The gate, and every Check either side hits |
+
+**`test` and `build` run over the crates the turn reaches, not the workspace.**
+That is every crate the change touched and every crate depending on one, and
+`xtask` for `test`. A change to a lockfile, any `Cargo.toml`, a build script, `.cargo/`,
+a file under a crate that is not Rust source, or anything outside `crates/`
+those two read, runs both whole. The status line and the outcome say `test
+narrowed to -p …` when it was; nothing said is a whole run, and the turn's
+`reach.log` says why. A `main` rerun of a red is always whole.
+[Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
 
 **A new gate line ends the turn red before any Check runs.** It is red whatever
 they say, and they take minutes. The red names the lines.

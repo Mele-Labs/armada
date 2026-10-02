@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::Harness;
 use core_model::{
     Component, Envelope, FieldValue, Job, JobId, JobStatus, Level, Side, StepFrame, StepId,
@@ -410,7 +410,7 @@ where
     /// there is a directory to run a harness in.
     fn worktree_on_disk(&self, job: &Job) -> Option<PathBuf> {
         let served = self.served_by(job).ok()?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).ok()?;
+        let spec = self.tree_spec(&served, job)?;
         let at = PathBuf::from(spec.worktree_path());
         at.is_dir().then_some(at)
     }

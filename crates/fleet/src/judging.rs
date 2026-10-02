@@ -34,10 +34,11 @@ pub use marking::{Aloft, Marking};
 pub(crate) use running::{said, watched};
 
 use std::fmt;
+use std::num::NonZeroU8;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{Environment, Model, ModelClient};
+use adapter_traits::{Ask, Environment, Model, ModelClient, Reading, SpawnConfigRefused};
 use verification::{NothingToJudge, Standing, Unreadable};
 
 use crate::asked::Asked;
@@ -94,6 +95,48 @@ pub struct Judging {
     /// What the repository requires of every change, which every look's brief
     /// carries. Read from the repository's checkout, never a Job's worktree.
     pub standing: Standing,
+    /// The checkout every look's call may read, or `None` for a call that
+    /// reaches nothing. **The repository's own checkout and never a Job's
+    /// worktree**, for `standing`'s reason: a Drone must not be able to rewrite
+    /// what its Judge reads. [`reading`] is the one place it is built.
+    pub reading: Option<Reading>,
+}
+
+/// How many turns a Judge's call may take, its reads and its answer together.
+/// `judge-read-turns` in `crates/config/settings.toml`.
+pub(crate) const JUDGE_READ_TURNS: NonZeroU8 = NonZeroU8::new(8).expect("eight is not zero");
+
+/// What a Judge may read: the repository's checkout at `root`, for
+/// [`JUDGE_READ_TURNS`].
+///
+/// **`root` is `Served::root`**, the same path [`standing`] reads the named
+/// file from, and never a Job's worktree.
+pub(crate) fn reading(root: &str) -> Result<Reading, SpawnConfigRefused> {
+    Reading::checkout(root, JUDGE_READ_TURNS)
+}
+
+impl Judging {
+    /// One question to `model`, able to read what [`Judging::reading`] names.
+    /// **Every look asks through here**, so none of them can be the one that
+    /// was left blind.
+    pub(crate) fn ask(&self, model: &Model, question: &str) -> Result<Ask, SpawnConfigRefused> {
+        let ask = Ask::put(model.clone(), question, self.environment.clone())?;
+        Ok(match &self.reading {
+            Some(reading) => ask.reading(reading.clone()),
+            None => ask,
+        })
+    }
+
+    /// What every look's brief carries of the repository: the named file, and
+    /// that the call may read the checkout where it may. **Read off
+    /// [`Judging::reading`]**, so a brief never says a call can read when it
+    /// cannot, or the reverse.
+    pub(crate) fn told(&self) -> Standing {
+        match self.reading {
+            Some(_) => self.standing.clone().readable(),
+            None => self.standing.clone(),
+        }
+    }
 }
 
 /// The file `armada.yml`'s `standing_rules` names, read from `root`.

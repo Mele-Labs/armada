@@ -25,6 +25,11 @@ export type JobDrone = {
   drone_id: string;
   /** The step it was put on. A slot does not outlive a step boundary, so it has one. */
   step_id: string;
+  /**
+   * The task it was put on, `T1` and on, on a step that works its tasks a Drone
+   * each. **Absent on a Drone that worked its whole step.** Since 23.1.
+   */
+  task?: string;
   state: DroneState;
   /** When it was spawned onto the step, off `drone_spawned`. */
   since: string;

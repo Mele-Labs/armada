@@ -270,6 +270,10 @@ pub enum Adrift {
     /// — forgetting takes the record and this takes the disk — and a message
     /// naming the wrong one sends a person to the wrong button.
     NotReclaimable { job: JobId, status: JobStatus },
+    /// A reclaim on a finished Job whose pool slot the pool would not take
+    /// back: the tree holds something uncommitted, or commits on neither the
+    /// remote nor the base. The slot stays the Job's.
+    SlotKept { job: JobId, slot: u32, why: String },
     /// A raise was asked for on a Job that has reached a terminal status.
     ///
     /// **Its own variant beside the two above, for the reason the second is
@@ -539,6 +543,12 @@ pub enum Adrift {
     /// gate — which is a redispatch, and is named as one rather than silently
     /// performed.
     WorktreeGone { job: JobId, path: String },
+    /// The Job's record names a pool slot it no longer holds: somebody else
+    /// took it, it was given back, or it is gone from disk.
+    ///
+    /// **Never answered by leasing another.** The earlier steps' work was in
+    /// that slot, and a fresh one would start the Job over without saying so.
+    SlotLost { job: JobId, slot: u32, why: String },
     /// A proposal carried a title nothing could be picked out of a list by.
     Unnameable,
     /// An override carried no reason.

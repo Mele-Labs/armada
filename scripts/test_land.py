@@ -113,6 +113,15 @@ if args == ["covers"]:
         if prefixes is None or any(p.startswith(x) for p in paths for x in prefixes):
             print(name)
 elif args[:1] == ["check"]:
+    # `--changed` paths come on stdin; each is recorded, and `crates/<name>`
+    # is said back the way `armada check` says what it narrowed to.
+    paths = [p for p in sys.stdin.read().splitlines() if p] if "--changed" in args else None
+    if os.environ.get("LAND_TEST_CHANGED"):
+        with open(os.environ["LAND_TEST_CHANGED"], "a") as out:
+            out.write(json.dumps({"check": args[1], "at": os.getcwd(), "paths": paths}) + "\n")
+    crates = sorted({p.split("/")[1] for p in paths or [] if p.startswith("crates/")})
+    if crates:
+        print("  narrowed to " + " ".join(f"-p {c}" for c in crates), flush=True)
     script = os.path.join("checks", f"{args[1]}.sh")
     sys.exit(subprocess.run(["sh", script]).returncode if os.path.exists(script) else 0)
 elif args[:1] == ["run"]:
@@ -126,6 +135,25 @@ elif args[:1] == ["land"]:
 else:
     sys.exit(f"stub armada: {args}")
 '''
+
+
+def stub_checks(root):
+    """The pids of every stub `armada check` started from `root`'s fixture."""
+    found = subprocess.run(["pgrep", "-f", "--", f"{root}/bin/armada check"],
+                           capture_output=True, text=True)
+    return [int(pid) for pid in found.stdout.split()]
+
+
+# Every fixture root a test tore down, so the module can show none of their
+# Checks outlived it.
+STARTED_IN = []
+
+
+def tearDownModule():
+    survivors = {root: stub_checks(root) for root in STARTED_IN}
+    survivors = {root: pids for root, pids in survivors.items() if pids}
+    if survivors:
+        raise AssertionError(f"stub Checks outlived their test: {survivors}")
 
 
 def key(branch):
@@ -188,6 +216,7 @@ class LineFixture(unittest.TestCase):
             ARMADA_LAND_KEEP="node_modules",
             ARMADA_LAND_REGENERATE="",
             LAND_TEST_EVIDENCE=os.path.join(self.root, "evidence.txt"),
+            LAND_TEST_CHANGED=os.path.join(self.root, "changed.ndjson"),
             ARMADA_LAND_PR_WAIT="10",
             # One branch a turn, unless a test is about batching: most of
             # these queue a branch while another gates and read its turn alone.
@@ -238,6 +267,15 @@ class LineFixture(unittest.TestCase):
                 print(open(line).read())
         # Only this test's runner, named by its own git directory.
         subprocess.run(["pkill", "-f", "--", f"--runner {self.repo}/.git"], capture_output=True)
+        # And every Check its runner started. Each stub `armada check` leads a
+        # process group of its own, as the real one's command does, so killing
+        # the runner leaves a Check waiting on a file nobody will write.
+        for pid in stub_checks(self.root):
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        STARTED_IN.append(self.root)
         shutil.rmtree(self.root, ignore_errors=True)
 
     # ------------------------------------------------------------ helpers
@@ -884,6 +922,58 @@ class Line(LineFixture):
         self.assertIn("run: python3 .claude/hooks/test_guard_merge.py", hooks)
         self.assertIn('- ".claude/hooks/**"', hooks)
         self.assertTrue(os.path.exists(os.path.join(here, ".claude/hooks/test_guard_merge.py")))
+
+    def cargo_workspace(self):
+        """`leaf` depends on `mid` depends on `base`; `apart` on nothing. Onto
+        main with its lockfile, as this repository's own workspace is."""
+        files = {"Cargo.toml": '[workspace]\nresolver = "2"\nmembers = ["crates/*"]\n'}
+        for name, needs in (("base", ""), ("mid", 'base = { path = "../base" }\n'),
+                            ("leaf", 'mid = { path = "../mid" }\n'), ("apart", "")):
+            files[f"crates/{name}/Cargo.toml"] = (
+                f'[package]\nname = "{name}"\nversion = "0.0.0"\nedition = "2021"\n\n'
+                f"[dependencies]\n{needs}"
+            )
+            files[f"crates/{name}/src/lib.rs"] = ""
+        scratch = os.path.join(self.root, "lockfile")
+        self.write(scratch, files)
+        sh("cargo", "generate-lockfile", "--offline", cwd=scratch)
+        files["Cargo.lock"] = self.read(scratch, "Cargo.lock")
+        self.onto_main(files, "a cargo workspace")
+
+    def candidate_changed(self, check):
+        """What each run of `check` in the candidate was handed on stdin, or
+        None for a run with no `--changed`."""
+        with open(self.env["LAND_TEST_CHANGED"]) as held:
+            runs = [json.loads(line) for line in held]
+        return [run["paths"] for run in runs
+                if run["check"] == check and "/land/candidate" in run["at"]]
+
+    def test_a_change_to_one_crate_narrows_test_to_it_and_its_dependents(self):
+        self.cargo_workspace()
+        where = self.branch("fix/base", {"crates/base/src/lib.rs": "pub fn one() {}\n"})
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/base")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        [paths] = self.candidate_changed("test")
+        self.assertEqual(
+            sorted(paths), ["crates/base", "crates/base/src/lib.rs", "crates/leaf", "crates/mid"],
+            "the crate it touched and both that depend on it, and not `apart`")
+        self.assertIn("test narrowed to -p base -p leaf -p mid", self.outcome("fix/base")["detail"])
+
+    def test_a_lockfile_change_runs_test_whole(self):
+        self.cargo_workspace()
+        lock = self.read(self.repo, "Cargo.lock")
+        where = self.branch("fix/lock", {
+            "crates/base/src/lib.rs": "pub fn one() {}\n",
+            "Cargo.lock": lock + "\n",
+        })
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/lock")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(self.candidate_changed("test"), [None], "no `--changed`: the whole workspace")
+        self.assertNotIn("narrowed", self.outcome("fix/lock")["detail"])
 
     def test_a_check_whose_command_is_missing_stops_rather_than_reds(self):
         mover = self.branch("fix/moves-11", {"moved.txt": "1\n"})

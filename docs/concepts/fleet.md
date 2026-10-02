@@ -135,6 +135,8 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 
 **A person's act is never refused for a machine.** An approval, a restart, an override and a request for changes all leave the Job at `queued` whatever the machine holds; admission is the only thing that starts a Drone, so a Job a person just re-queued waits exactly as any other queued Job does.
 
+**A free worktree slot in the Job's own repository is asked the same way, per Job** — *Worktree slots* below. `get_capacity` does not name it, because it is a repository's rather than the machine's.
+
 **Which of the three reasons is holding a Job is fleet-wide, not per row.** The Board has one label for all of them; `get_capacity` says which one it is — the cap, memory or disk.
 
 **That poll only covers Jobs that have not started.** A Job that exhausts CPU or memory while already running has nowhere to queue back to and escalates as `resource_exhausted`.
@@ -315,10 +317,10 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,
-so an agent's build starts from the last one's `target/` instead of from
-nothing. Each slot is a checkout at `.armada/slots/slot-<n>`, beside
-`.armada/worktrees/` and never inside it, and the Manifest's
-`setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
+to agents and to Fleet's Jobs alike, so a build starts from the last one's
+`target/` instead of from nothing. Each slot is a checkout at
+`.armada/slots/slot-<n>`, beside `.armada/worktrees/` and never inside it, and
+the Manifest's `setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
 worktrees a repository leases*.
 
 > **Rule.** The pool is the cap. With every slot held, a lease waits and says
@@ -332,11 +334,11 @@ worktrees a repository leases*.
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
 
-**A lease is held for a process, recorded beside the slot as its pid and start
-time.** The command that leases exits at once, so a lock held open could not
-be the holder; the `flock` on `slot-<n>.lease` only makes one take or release
-at a time. The holder is the process that ran the shell the command was run
-from — an agent's session, or the terminal a person typed in.
+**An agent's lease is held for a process, recorded beside the slot as its pid
+and start time.** The command that leases exits at once, so a lock held open
+could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
+release at a time. The holder is the process that ran the shell the command was
+run from — an agent's session, or the terminal a person typed in.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and nothing on it is unlanded. Otherwise it stays held, and a lease
@@ -348,11 +350,46 @@ from — an agent's session, or the terminal a person typed in.
 > Why: a lease cuts its branch fresh from the base, and resetting one that
 > holds work would orphan it.
 
-**Fleet's Jobs do not lease from the pool.** A Job still cuts its own worktree
-under `.armada/worktrees/<handle>`, derived from its id, and holds it until
-retention sweeps it — see `../contracts/system-architecture.md`, which fixes
-that path. `armada worktree` and its forms are in
-`../practices/running-locally.md`, *Leasing a worktree*.
+`armada worktree` and its forms are in `../practices/running-locally.md`,
+*Leasing a worktree*.
+
+### A Job's slot
+
+**A Job leases its slot when it is first dispatched, and its worktree is that
+slot from then on.** The slot is recorded with the Job and looked up, never
+derived — `../contracts/system-architecture.md`. Its branch is still
+`armada/<handle>`.
+
+> **Rule.** A Job's lease is held by the Job's id, never a process.
+> Why: Fleet restarts often, and a pid holder would make every Job's slot read
+> as abandoned after one.
+
+> **Rule.** A slot a Job holds is never taken back for a dead holder. It is
+> given back only when the Job reaches a terminal state.
+> Why: `awaiting_review`, `escalated` and `interrupted` Jobs still need their
+> work; a person may answer them days later.
+
+| The Job | Its slot |
+|---|---|
+| Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
+| `running`, `awaiting_review`, `escalated`, interrupted | Held |
+| `completed_success`, `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` |
+
+> **Rule.** A Job never loses its slot quietly. One whose recorded slot is
+> held by another, given back, or gone is escalated as `no_worktree`, naming
+> the slot and why; Fleet never leases it a second.
+> Why: the earlier steps' work was in that slot, and a fresh one would start
+> the Job over without saying so.
+
+**A new slot is seeded from the warm base the way any lease's is; a reused one
+keeps the build its last lease left**, and the Job's log says which. A Job cut
+before the pool has no slot recorded and keeps `.armada/worktrees/<handle>`
+until it ends.
+
+**A finished Job's worktree is gone once its slot is given back.** What reads
+a finished Job's tree — Show again, a reclaim — finds it only while the pool
+kept the slot.
 
 ## Ports
 

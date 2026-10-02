@@ -28,6 +28,7 @@ import {
 import { plannedMoment, planReview, planRevisionRefused } from "./arc-planning";
 import {
   doneTouched,
+  everyTaskState,
   executingConcurrent,
   executingSequential,
   groupFailed,
@@ -52,7 +53,7 @@ export {
   proposingSlow,
 };
 export { plannedMoment, planReview, planRevisionRefused };
-export { doneTouched, executingConcurrent, executingSequential, groupFailed };
+export { doneTouched, everyTaskState, executingConcurrent, executingSequential, groupFailed };
 export { landed };
 
 /** Every moment, in the order the work happens. */

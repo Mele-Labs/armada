@@ -84,7 +84,12 @@ impl Checkout {
         if here == canonical_root {
             return Ok(Checkout::main(served));
         }
-        if jobs_worktrees(served.root()).is_some_and(|parent| here.starts_with(parent)) {
+        let a_jobs = jobs_worktrees(served.root()).is_some_and(|parent| here.starts_with(parent))
+            || matches!(
+                adapters::leasing::holder_of(&here),
+                Some(adapters::leasing::Holder::Job(_))
+            );
+        if a_jobs {
             return Err(NotACheckout::AJobs {
                 path: path.to_string(),
             });
@@ -141,11 +146,13 @@ impl Checkout {
     }
 }
 
-/// `<root>/.armada/worktrees`, canonicalised — where every Job's checkout is.
+/// `<root>/.armada/worktrees`, canonicalised — where every Job cut before the
+/// pool has its checkout. A pool slot is a Job's while a Job holds its lease,
+/// which `beside` asks of the slot's own record.
 ///
-/// **Derived rather than spelled**, so this cannot come to disagree with where
-/// `crate::dispatch` cuts one. The id is a placeholder: the parent is the same
-/// whichever Job it is.
+/// **Derived rather than spelled**, so this cannot come to disagree with
+/// `WorktreeSpec`. The id is a placeholder: the parent is the same whichever
+/// Job it is.
 fn jobs_worktrees(root: &str) -> Option<PathBuf> {
     let parent = WorktreeSpec::for_job(root, "any").ok()?.worktree_parent();
     Some(std::fs::canonicalize(&parent).unwrap_or_else(|_| PathBuf::from(parent)))

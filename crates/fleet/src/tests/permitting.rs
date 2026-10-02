@@ -18,7 +18,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{CallDetail, DroneEvent, WorktreeSpec};
+use adapter_traits::{CallDetail, DroneEvent};
 use api::{PermissionAnswer, Queries};
 use config::ResolvedWorkflow;
 use core_model::{
@@ -921,9 +921,8 @@ pub(super) async fn dirty_manifest_job(home: &TempDir) -> (Fixture, JobId, std::
         .await
         .unwrap();
     worktree_directory(home, &job);
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
-    let armada_yml = std::path::Path::new(&spec.worktree_path()).join("armada.yml");
+    // Written before the dispatch, so into the slot that dispatch will lease.
+    let armada_yml = crate::tests::daemon::first_slot(home).join("armada.yml");
     std::fs::write(&armada_yml, DRONES_EDIT).expect("the drone's own edit");
     dispatched(&fleet, job.id()).await.unwrap();
     settled(&fleet).await;

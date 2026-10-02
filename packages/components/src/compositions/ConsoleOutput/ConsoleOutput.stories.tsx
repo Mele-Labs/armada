@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 import { Button } from "../../primitives/Button/Button";
-import { ConsoleOutput, type ConsoleRow } from "./ConsoleOutput";
+import { ConsoleOutput, ConsoleWrapToggle, type ConsoleRow } from "./ConsoleOutput";
 
 /**
  * One story per state the viewer has to hold: the reading a selector lands on,
@@ -224,4 +224,83 @@ export const AFoldSaysWhetherItIsOpen: Story = {
     const open = canvas.getByRole("button", { name: /running 315 tests/ });
     await expect(open).toHaveAttribute("aria-expanded", "true");
   },
+};
+
+const LONG =
+  "Does cargo nextest run --workspace still assert that selectVisibleColumns memoises, so a regression in it would fail the suite, where that assertion is made nowhere else in this change?";
+
+/**
+ * A line never wraps unless the reader asks. Unasked, a long line runs past
+ * the column and scrolls sideways under its number; asked, it breaks under the
+ * same number and the reading is no wider than its column.
+ */
+export const ALineWrapsOnlyWhenAsked: Story = {
+  render: () => (
+    <div style={{ width: 360 }}>
+      <div data-testid="unasked">
+        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} />
+      </div>
+      <div data-testid="asked">
+        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} wrap />
+      </div>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const rows = (id: string) => canvas.getByTestId(id).querySelector<HTMLElement>(".armada-console__rows")!;
+    await expect(rows("unasked").scrollWidth).toBeGreaterThan(rows("unasked").clientWidth);
+    await expect(rows("asked").scrollWidth).toBeLessThanOrEqual(rows("asked").clientWidth);
+  },
+};
+
+/**
+ * The reader's toggle: `text-wrap`, a bare glyph named by its tooltip, held
+ * down while lines wrap. Never `split`, which was borrowed first and is not a
+ * wrap glyph (owner, 2 Oct 2026).
+ */
+export const TheWrapToggle: Story = {
+  render: () => <ConsoleWrapToggle wrap onToggle={() => undefined} />,
+  play: async ({ canvas }) => {
+    const toggle = canvas.getByRole("button", { name: "Wrap lines" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle.querySelector("svg.lucide-text-wrap")).not.toBeNull();
+  },
+};
+
+const NUMBERED: ConsoleRow[] = [
+  { row: "line", at: 39, text: "The question, which is yes or no:" },
+  { row: "line", at: 40, text: "" },
+  { row: "line", at: 41, text: "Does this change alter an existing assertion so that it asserts less than it did?" },
+];
+
+/**
+ * The numbers stand apart from the reading (owner, 2 Oct 2026: "everything
+ * runs together"): a gutter on its own ground behind a rule, the numbers in a
+ * hue the text does not share, and `--space-3` between the two.
+ */
+export const TheGutterStandsApart: Story = {
+  args: { rows: NUMBERED },
+  play: async ({ canvasElement }) => {
+    const line = canvasElement.querySelector<HTMLElement>(".armada-console__line")!;
+    const at = line.querySelector<HTMLElement>(".armada-console__at")!;
+    const text = line.querySelector<HTMLElement>(".armada-console__text")!;
+    const style = (one: HTMLElement) => getComputedStyle(one);
+    await expect(style(at).backgroundColor).not.toBe(style(line).backgroundColor);
+    await expect(style(at).color).not.toBe(style(text).color);
+    await expect(style(at).borderRightStyle).toBe("solid");
+    const space3 = getComputedStyle(document.documentElement).getPropertyValue("--space-3").trim();
+    await expect(style(line).columnGap).toBe(space3);
+  },
+};
+
+/**
+ * The same gutter under `data-theme="light"`. No light theme exists yet —
+ * `packages/tokens` declares one `:root` block — so this renders dark, written
+ * so the gap shows rather than hides.
+ */
+export const TheGutterInLight: Story = {
+  render: () => (
+    <div data-theme="light">
+      <ConsoleOutput rows={NUMBERED} />
+    </div>
+  ),
 };

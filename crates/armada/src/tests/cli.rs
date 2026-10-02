@@ -31,14 +31,16 @@ fn the_four_verbs_parse() {
         asked("check build"),
         Ok(Verb::Check {
             name: "build".to_string(),
-            test: None
+            test: None,
+            changed: false
         })
     );
     assert_eq!(
         asked("check test a_test"),
         Ok(Verb::Check {
             name: "test".to_string(),
-            test: Some("a_test".to_string())
+            test: Some("a_test".to_string()),
+            changed: false
         }),
         "a second name is one test, through the Check's `one_test`"
     );
@@ -89,7 +91,10 @@ fn force_and_all_are_separate_answers_and_compose() {
 #[test]
 fn there_is_no_flag_that_turns_one_verb_into_the_other() {
     let refused = said("check --command fmt");
-    assert!(refused.contains("`--command` is a flag this verb does not take"));
+    assert!(
+        refused.contains("`--command` is not a flag this verb takes"),
+        "{refused}"
+    );
 }
 
 #[test]
@@ -159,6 +164,23 @@ fn covers_parses_and_refuses_a_path_given_as_an_argument() {
         .contains(&Fault::PathsComeOnStdin {
             given: "x".to_string()
         }),);
+}
+
+/// `--changed` reads the paths on stdin, as `covers` does, and is a whole
+/// Check narrowed: one test beside it has nowhere to go.
+#[test]
+fn check_takes_the_changed_paths_on_stdin_and_never_beside_one_test() {
+    assert_eq!(
+        asked("check test --changed"),
+        Ok(Verb::Check {
+            name: "test".to_string(),
+            test: None,
+            changed: true
+        })
+    );
+    let refused = said("check test a_test --changed");
+    assert!(refused.contains("`--changed`"), "{refused}");
+    assert!(said("run fmt --changed").contains("`--changed`"));
 }
 
 /// `--withdraw` names a branch the way `--status` does: the one checked out

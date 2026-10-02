@@ -28,11 +28,20 @@ pub fn already_held() -> bool {
     std::env::var_os(HELD_ENV).is_some()
 }
 
+/// Set on an `armada check` the merge line starts, so its ask goes
+/// [`CheckSlots::ahead`] of every other.
+pub const AHEAD_ENV: &str = "ARMADA_CHECK_AHEAD";
+
+/// The file an ask ahead holds while it waits. Every other ask that finds it
+/// held waits too, so a freed slot goes to the ask ahead.
+const AHEAD: &str = "ahead";
+
 /// `count` slots in `dir`.
 #[derive(Clone, Debug)]
 pub struct CheckSlots {
     dir: PathBuf,
     count: usize,
+    ahead: bool,
 }
 
 /// Every slot an ask wanted. Dropping it closes the files, which lets the
@@ -52,6 +61,9 @@ pub struct InUse {
     pub of: usize,
     /// Slots this ask wants, already clamped to `of`.
     pub wants: usize,
+    /// The merge line is waiting [`CheckSlots::ahead`], so nothing was
+    /// counted: `in_use` is every slot.
+    pub behind_the_line: bool,
 }
 
 impl fmt::Display for InUse {
@@ -60,7 +72,10 @@ impl fmt::Display for InUse {
             1 => out.write_str("waiting for a Check slot")?,
             wants => write!(out, "waiting for {wants} Check slots")?,
         }
-        write!(out, ": {} of {} in use", self.in_use, self.of)
+        match self.behind_the_line {
+            true => out.write_str(": the merge line asked first"),
+            false => write!(out, ": {} of {} in use", self.in_use, self.of),
+        }
     }
 }
 
@@ -70,7 +85,16 @@ impl CheckSlots {
         CheckSlots {
             dir: dir.as_ref().to_path_buf(),
             count: count.max(1),
+            ahead: false,
         }
+    }
+
+    /// The same slots, asked for ahead of every ordinary ask: the merge line's,
+    /// so a turn does not queue behind agents' own runs. It jumps the wait, never
+    /// a holder — a running Check keeps its slots.
+    pub fn ahead(mut self) -> CheckSlots {
+        self.ahead = true;
+        self
     }
 
     pub fn count(&self) -> usize {
@@ -85,6 +109,14 @@ impl CheckSlots {
     pub fn try_take(&self, wants: usize) -> io::Result<Result<Held, InUse>> {
         let wants = wants.clamp(1, self.count);
         std::fs::create_dir_all(&self.dir)?;
+        if !self.ahead && self.someone_waits_ahead()? {
+            return Ok(Err(InUse {
+                in_use: self.count,
+                of: self.count,
+                wants,
+                behind_the_line: true,
+            }));
+        }
         let mut files = Vec::with_capacity(wants);
         let mut in_use = 0;
         for slot in 0..self.count {
@@ -106,6 +138,7 @@ impl CheckSlots {
             in_use,
             of: self.count,
             wants,
+            behind_the_line: false,
         }))
     }
 
@@ -115,12 +148,49 @@ impl CheckSlots {
     /// a pause is a queue rather than a hang. Safe to drop while waiting:
     /// nothing is held until it returns.
     pub async fn take(&self, wants: usize, mut waiting: impl FnMut(InUse)) -> io::Result<Held> {
+        // Held until this returns, so every ordinary ask waits behind it.
+        let _first = match self.ahead {
+            true => Some(self.wait_ahead().await?),
+            false => None,
+        };
         loop {
             match self.try_take(wants)? {
                 Ok(held) => return Ok(held),
                 Err(in_use) => waiting(in_use),
             }
             tokio::time::sleep(LOOK_AGAIN).await;
+        }
+    }
+
+    fn ahead_file(&self) -> io::Result<File> {
+        std::fs::create_dir_all(&self.dir)?;
+        OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dir.join(AHEAD))
+    }
+
+    /// Whether an ask ahead is waiting now. Shared and let go at once, so two
+    /// ordinary asks never hold each other up here.
+    fn someone_waits_ahead(&self) -> io::Result<bool> {
+        match self.ahead_file()?.try_lock_shared() {
+            Ok(()) => Ok(false),
+            Err(TryLockError::WouldBlock) => Ok(true),
+            Err(TryLockError::Error(why)) => Err(why),
+        }
+    }
+
+    /// The `ahead` file, held exclusively: behind another ask ahead, if there
+    /// is one, and never behind an ordinary ask for longer than its look.
+    async fn wait_ahead(&self) -> io::Result<File> {
+        let file = self.ahead_file()?;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(file),
+                Err(TryLockError::WouldBlock) => tokio::time::sleep(LOOK_AGAIN).await,
+                Err(TryLockError::Error(why)) => return Err(why),
+            }
         }
     }
 }

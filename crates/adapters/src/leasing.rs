@@ -1,35 +1,34 @@
 //! The pool of warm worktrees a repository leases out, and takes back.
 //!
-//! A slot is a permanent checkout at `<repo>/.armada/slots/slot-<n>`. A lease
-//! points it at a new branch cut from the base and cleans everything but the
-//! build directories, so the next build starts warm; a release refuses while
-//! the tree holds anything that is not on the remote or the base, because a
-//! slot is reused and reuse must never be what throws work away.
-//! `docs/concepts/fleet.md`, *Worktree slots*, has the design.
+//! A slot is a permanent checkout at `<repo>/.armada/slots/slot-<n>`, leased
+//! onto a new branch with its build kept, and released only when nothing on it
+//! would be lost. `docs/concepts/fleet.md`, *Worktree slots*, has the design.
 //!
-//! **The holder is a process, recorded, and never a lock held open.** The
-//! command that leases exits at once, so an `flock` would let go before the
-//! caller had read the path. The lock beside each slot only makes one take
-//! or one release at a time; who holds the slot is the record under it.
+//! **The holder is recorded, and never a lock held open.** The command that
+//! leases exits at once, so an `flock` would let go before the caller had read
+//! the path. The lock beside each slot only makes one take or one release at a
+//! time; who holds the slot is the record under it — a process, or one of
+//! Fleet's Jobs by its id.
+//!
+//! **Past 500 lines, and kept whole**: take, release and status each read a
+//! slot's state under the same lock and record, and a split along them would
+//! put one invariant in three files.
 
 mod answers;
 mod git;
+pub(crate) mod jobs;
 mod record;
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use adapter_traits::BaseSpec;
+use adapter_traits::{BaseSpec, SLOT_ROOT as SLOTS};
 
 pub use answers::{Full, Lease, LeaseRefused, Leased, ReleaseRefused, Released, Slot, SlotState};
 use git::{count, git, git_ok};
 pub use record::Holder;
 use record::Record;
-
-/// Where the slots live, beside `.armada/worktrees/` and never inside it:
-/// everything there is one Job's, derived from its id.
-const SLOTS: &str = ".armada/slots";
 
 /// Kept across every lease: what a build or an index writes and the next
 /// build reads. `setup.seed.paths` joins these.
@@ -41,6 +40,14 @@ const LOOK_AGAIN: Duration = Duration::from_millis(200);
 /// Copies a warm build directory into a new slot, copy-on-write. Injected,
 /// because the clone is a system call this crate is not allowed to make.
 pub type Seed<'a> = &'a dyn Fn(&Path, &Path) -> Result<(), String>;
+
+/// Who the record beside the slot at `path` names, alive or not; `None` for a
+/// slot nobody holds, and for a path that is no slot.
+pub fn holder_of(path: &Path) -> Option<Holder> {
+    let mut record = path.as_os_str().to_owned();
+    record.push(".lease");
+    Record::read(Path::new(&record)).map(|record| record.holder)
+}
 
 /// One repository's pool.
 #[derive(Clone, Debug)]
@@ -119,6 +126,20 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
+        // A Job asking again is handed its own slot as it stands: resetting it
+        // would throw away the work a Drone left there.
+        if let Holder::Job(_) = holder {
+            if let Some(slot) = self.held_by(holder) {
+                return Ok(Leased::Took(Lease {
+                    slot,
+                    path: self.path_of(slot),
+                    reclaimed_from: None,
+                    seeded_from: None,
+                    unfetched: None,
+                    made: false,
+                }));
+            }
+        }
         let unfetched = self.fetched().err();
         let from = self.base_ref();
         let existing = format!("refs/heads/{branch}");
@@ -199,7 +220,11 @@ impl Pool {
         let seeded_from = self.seeded(&path, seed);
         let lease = self.point(number, branch, &from, holder, since, seeded_from)?;
         drop(lock);
-        Ok(Leased::Took(Lease { unfetched, ..lease }))
+        Ok(Leased::Took(Lease {
+            unfetched,
+            made: true,
+            ..lease
+        }))
     }
 
     /// Give a slot back: refused while it holds anything not on the remote or
@@ -212,23 +237,56 @@ impl Pool {
         }) else {
             return Err(ReleaseRefused::NotASlot(path.to_path_buf()));
         };
+        self.give_back(number, None)
+    }
+
+    /// Give back slot `number`, which `holder` must hold. Refused for a Job,
+    /// the refusal is written onto the slot, so `--status` says why it stays
+    /// held.
+    pub fn release_held(&self, number: usize, holder: &Holder) -> Result<Released, ReleaseRefused> {
+        self.give_back(number, Some(holder))
+    }
+
+    fn give_back(
+        &self,
+        number: usize,
+        holder: Option<&Holder>,
+    ) -> Result<Released, ReleaseRefused> {
         let slot = self.path_of(number);
+        if !slot.exists() {
+            return Err(ReleaseRefused::NotASlot(slot));
+        }
         let lock = self.lock_file(number).map_err(ReleaseRefused::Vcs)?;
         lock.lock()
             .map_err(|why| ReleaseRefused::Vcs(why.to_string()))?;
-        let Some(record) = Record::read(&self.record_path(number)) else {
+        let Some(mut record) = Record::read(&self.record_path(number)) else {
             return Err(ReleaseRefused::NotLeased(slot));
         };
-        let files = git::dirty(&slot).map_err(ReleaseRefused::Vcs)?;
-        if !files.is_empty() {
-            return Err(ReleaseRefused::Dirty { path: slot, files });
+        if holder.is_some_and(|holder| *holder != record.holder) {
+            return Err(ReleaseRefused::HeldByAnother(record.holder.said()));
         }
-        let commits = self.unlanded(&slot, "HEAD");
-        if commits > 0 {
-            return Err(ReleaseRefused::Unlanded {
-                branch: record.branch,
-                commits,
-            });
+        let refused = match git::dirty(&slot) {
+            Err(why) => Some(ReleaseRefused::Vcs(why)),
+            Ok(files) if !files.is_empty() => Some(ReleaseRefused::Dirty {
+                path: slot.clone(),
+                files,
+            }),
+            Ok(_) => match self.unlanded(&slot, "HEAD") {
+                0 => None,
+                commits => Some(ReleaseRefused::Unlanded {
+                    branch: record.branch.clone(),
+                    commits,
+                }),
+            },
+        };
+        if let Some(refused) = refused {
+            if let Holder::Job(_) = record.holder {
+                record.kept = Some(refused.said());
+                record
+                    .write(&self.record_path(number))
+                    .map_err(ReleaseRefused::Vcs)?;
+            }
+            return Err(refused);
         }
         git(&slot, &["switch", "--detach", "--quiet"]).map_err(ReleaseRefused::Vcs)?;
         Record::clear(&self.record_path(number)).map_err(ReleaseRefused::Vcs)?;
@@ -236,6 +294,31 @@ impl Pool {
             slot: number,
             branch: record.branch,
         })
+    }
+
+    /// The slot `holder` holds, if it holds one.
+    pub fn held_by(&self, holder: &Holder) -> Option<usize> {
+        (1..=self.count).find(|number| {
+            Record::read(&self.record_path(*number)).is_some_and(|record| &record.holder == holder)
+        })
+    }
+
+    /// Whether a lease for `holder` would take a slot now: one it holds, or
+    /// one free, abandoned or not yet made. Read without the locks, as
+    /// [`status`](Pool::status) is.
+    pub fn open_for(&self, holder: &Holder) -> bool {
+        self.held_by(holder).is_some()
+            || (1..=self.count).any(|number| {
+                matches!(
+                    self.state_of(number),
+                    SlotState::Free | SlotState::Abandoned { .. } | SlotState::Unmade
+                )
+            })
+    }
+
+    /// One slot and what holds it.
+    pub fn state(&self, number: usize) -> SlotState {
+        self.state_of(number)
     }
 
     /// Every slot and what holds it. Read without the locks, so a take under
@@ -263,12 +346,14 @@ impl Pool {
             branch,
             holder,
             since,
+            kept,
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
             return SlotState::Held {
                 branch: branch.clone(),
                 holder: holder.clone(),
                 since: *since,
+                kept: kept.clone(),
             };
         }
         // **Asked of a slot with no record too.** A record lost or cut short
@@ -342,6 +427,7 @@ impl Pool {
             branch: branch.to_string(),
             holder: holder.clone(),
             since,
+            kept: None,
         }
         .write(&self.record_path(number))
         .map_err(LeaseRefused::Vcs)?;
@@ -351,6 +437,7 @@ impl Pool {
             reclaimed_from: None,
             seeded_from,
             unfetched: None,
+            made: false,
         })
     }
 
