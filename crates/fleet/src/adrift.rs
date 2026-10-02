@@ -503,6 +503,10 @@ pub enum Adrift {
     /// The task a re-run of the Checks ran on ended without answering, which
     /// only a panic in it does. The Job is pressable again, as a press is.
     RecheckAbandoned { job: JobId },
+    /// The task a dispatched request's proposal ran on ended without
+    /// answering, which only a panic in it does. The Job it created, if it got
+    /// that far, is moved at the next boot.
+    ProposalAbandoned,
     /// A person asked a Job to show its work and it cannot run. **Refused
     /// before anything runs**, and the reason names what is missing rather
     /// than the press failing on it — `crate::showing_again`.

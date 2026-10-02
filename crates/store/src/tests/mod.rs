@@ -37,6 +37,7 @@ mod plan;
 mod ports;
 mod preferences;
 mod process;
+mod proposing;
 mod proving;
 mod rebuilding;
 mod rechecking;

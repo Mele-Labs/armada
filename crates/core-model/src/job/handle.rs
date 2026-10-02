@@ -97,9 +97,9 @@ const SLUG_LIMIT: usize = 42;
 
 /// What a Job is called where a person reads or types it: `12-the-drone-count`.
 ///
-/// **Derived, never stored.** Both halves are frozen at creation — the store
-/// allocates the number once and a Job's title cannot change — so deriving it
-/// is stable, and a second copy on the record is a second thing to keep true.
+/// **Derived, never stored.** The store allocates the number once, and a title
+/// changes only at `Job::answered`, before a worktree or branch is named by it
+/// — so deriving it is stable, and a second copy is a second thing to keep true.
 /// It is the directory a worktree goes in, the branch a Job is delivered on,
 /// and the name every path under `.armada/` is keyed by.
 ///
