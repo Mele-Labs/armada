@@ -125,6 +125,7 @@ where
                 Writing::Appending(log),
                 &plan.env,
                 until(stopped.clone()),
+                checks_runner::Priority::Normal,
             )
             .await;
             if *stopped.borrow() {
@@ -166,6 +167,7 @@ where
                         Writing::Nowhere,
                         &plan.env,
                         std::future::pending(),
+                        checks_runner::Priority::Normal,
                     )
                     .await;
                     let up = answered.exit == Exit::Code(0);

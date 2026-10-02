@@ -391,3 +391,5 @@ export * from "./compositions/DestinationCard/DestinationCard";
 // The wait a Job at `proposing` is in: how far the model call has got, what it
 // has left of Fleet's budget, and the one act on it. #1159.
 export * from "./compositions/ProposerWait/ProposerWait";
+// The branches waiting to land on main through `armada land`, and the ones that just left.
+export * from "./compositions/MergeLine/MergeLine";

@@ -21,7 +21,8 @@
 //! `${width}` a Manifest writes it into — a number handed to a runner, never a
 //! cap imposed on one. #1444.
 //!
-//! [`CheckSlots`] bounds how many Checks run at once across every process.
+//! [`CheckSlots`] bounds how many Checks run at once across every process, and
+//! [`Priority`] lowers agent work's beneath the merge line's.
 //!
 //! [`split`] is the one splitter in the workspace and is public for that
 //! reason. `fleet::drifting` asks whether what a `run` line names is still in
@@ -42,6 +43,7 @@
 mod failing;
 mod matched;
 mod narrow;
+mod priority;
 mod run;
 mod serving;
 mod slots;
@@ -53,6 +55,7 @@ mod tests;
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
 pub use narrow::{narrowed, one_test, run_changed, Narrowed};
+pub use priority::{Priority, PRIORITY_ENV};
 pub use run::{run, run_until, run_writing, run_writing_with_env, split, Attempt, Output, Writing};
 pub use serving::Served;
 pub use slots::{already_held, CheckSlots, Held, InUse, HELD_ENV};

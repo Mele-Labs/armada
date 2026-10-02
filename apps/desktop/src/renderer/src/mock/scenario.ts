@@ -47,6 +47,7 @@ import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+import { mergeLine } from "@armada/screens/src/fixtures/build/merge-line";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
@@ -436,6 +437,16 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
+  // `armada land --status` as it read on 2 Oct 2026, under a few Jobs. Overview draws the line
+  // below its lists; nothing else here reads it.
+  {
+    ...holding(
+      "merge-line",
+      "Six branches in line, four gating as one batch, three just off it",
+      EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`))),
+    ),
+    draft: { mergeLine: mergeLine() },
+  },
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,

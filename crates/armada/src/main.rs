@@ -181,6 +181,9 @@ async fn declared_by_the_manifest(
         test,
         PROVISIONAL_CHECK_BUDGET,
         slots.as_ref(),
+        // Agent priority unless `ARMADA_CHECK_PRIORITY=normal`, which the
+        // merge line sets on every Check it runs.
+        checks_runner::Priority::from_env(),
     )
     .await
     {
