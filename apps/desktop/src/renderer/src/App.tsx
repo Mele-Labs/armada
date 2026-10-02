@@ -100,6 +100,7 @@ import {
   undoCheckoutRun,
   explainCommand,
   readCheckOutput,
+  readBrief,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -748,6 +749,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenJob={setOpenJob}
                   onOpenStudio={openStudioFrom}
                   onReadCheckOutput={readCheckOutput}
+                  onReadBrief={readBrief}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}
