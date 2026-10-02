@@ -19,15 +19,18 @@ const transcriptOf = (moment: Moment, id: string) =>
   moment.draft!.drones!.find((one) => one.task === id)?.transcript;
 
 describe("what the sheet says a task is doing", () => {
-  test("a working task names its turns and says when a cost will read", () => {
-    const said = doingOfTask(taskNamed(executingSequential(), "T5"));
-    expect(said).toContain("14 turns");
-    expect(said).toContain("once that agent stops");
-    expect(said).not.toContain("$");
+  test("a working task shows its turns and no cost", () => {
+    expect(doingOfTask(taskNamed(executingSequential(), "T5"))).toBe("14 turns");
   });
 
-  test("a finished task names what its own agent spent", () => {
-    expect(doingOfTask(taskNamed(executingConcurrent(), "T5"))).toBe("Its agent stopped after 27 turns · ~$1.90.");
+  test("a finished task shows its turns and what its own agent spent", () => {
+    expect(doingOfTask(taskNamed(executingConcurrent(), "T5"))).toBe("27 turns · ~$1.90");
+  });
+
+  test("a working task with no turns read says nothing", () => {
+    const task = { ...taskNamed(executingSequential(), "T5") };
+    delete task.turns;
+    expect(doingOfTask(task)).toBeUndefined();
   });
 
   // The sheet already draws why a failed task stopped; saying it twice is

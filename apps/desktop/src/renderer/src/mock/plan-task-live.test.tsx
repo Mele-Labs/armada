@@ -30,7 +30,7 @@ describe("a task with a Drone of its own", () => {
   test("its panel opens on what it is doing, its brief, its log and its last edit", async () => {
     mount("arc/executing-sequential");
     const panel = await panelOf(T5.id, T5.title);
-    await expect.element(panel.getByText("14 turns so far", { exact: false })).toBeVisible();
+    await expect.element(panel.getByText("14 turns", { exact: true })).toBeVisible();
     await expect.element(panel.getByText("Keep the four lists in this order", { exact: false })).toBeVisible();
     // The live log is the Drone's own tail, which the sheet already drew.
     await expect.element(panel.getByRole("group", { name: "Drone on T5" })).toHaveTextContent("Running.tsx");
@@ -51,10 +51,10 @@ describe("a task with a Drone of its own", () => {
     await expect.poll(() => killDrone.mock.calls.length).toBe(1);
   });
 
-  test("a finished task says what its agent spent, and offers no stop", async () => {
+  test("a finished task shows what its agent spent, and offers no stop", async () => {
     mount("arc/executing-concurrent");
     const panel = await panelOf(T5.id, T5.title);
-    await expect.element(panel.getByText("Its agent stopped after 27 turns · ~$1.90.")).toBeVisible();
+    await expect.element(panel.getByText("27 turns · ~$1.90", { exact: true })).toBeVisible();
     expect(panel.getByRole("button", { name: "Stop this task" }).query()).toBeNull();
   });
 });
@@ -65,7 +65,6 @@ describe("a Job shaped the way Fleet serves it", () => {
     const panel = await panelOf("T1", "Remove guides 8 and 20 from the catalogue and retire their numbers");
     await expect.element(panel.getByText("Files", { exact: true })).toBeVisible();
     expect(panel.getByText("Now", { exact: true }).query()).toBeNull();
-    expect(panel.getByText("Its agent", { exact: false }).query()).toBeNull();
     expect(panel.getByText("Last edit", { exact: true }).query()).toBeNull();
     expect(panel.getByRole("button", { name: "Stop this task" }).query()).toBeNull();
     expect(panel.getByRole("button", { name: "Hold to stop this task" }).query()).toBeNull();

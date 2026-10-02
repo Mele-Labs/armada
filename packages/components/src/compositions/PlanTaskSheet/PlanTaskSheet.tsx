@@ -81,9 +81,9 @@ export type PlanTaskSheetProps = {
   /** Why its own agent stopped. Present on a failed task and on nothing else. */
   failedReason?: string;
   /**
-   * What its own agent is doing now, as a sentence — turns while it works,
-   * its cost once it stopped. **Absent draws nothing**, which is every task
-   * without a Drone of its own (`#1536`).
+   * What its own agent has spent so far, as bare facts: `14 turns`, then
+   * `27 turns · ~$1.90` once it stopped. **Absent draws nothing**, which is
+   * every task without a Drone of its own (`#1536`).
    */
   doing?: string;
   /**
@@ -331,9 +331,7 @@ export function PlanTaskSheet({
           </TaskField>
         )}
         {doing === undefined ? null : (
-          <TaskField label="Now">
-            <Prose text={doing} />
-          </TaskField>
+          <TaskField label="Now">{doing}</TaskField>
         )}
         {acts === undefined && edit === undefined && drop === undefined && propose === undefined && stop === undefined ? null : (
           /* Keyed apart from the peek, which is keyed by the task too: two

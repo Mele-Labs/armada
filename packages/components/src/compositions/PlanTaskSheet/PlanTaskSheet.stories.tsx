@@ -191,7 +191,7 @@ export const ItsOwnDroneWorking: Story = {
     state: "working",
     note: "Keep the four lists in this order, and draw each row as the Board does.",
     scope: ["packages/screens/src/Running.tsx"],
-    doing: "Its agent is working — 14 turns so far. What it cost reads once that agent stops.",
+    doing: "14 turns",
     lastEdit: { path: "packages/screens/src/Running.tsx", says: "+61 −4" },
     stop: {
       children: "Hold to stop this task",

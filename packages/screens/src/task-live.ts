@@ -25,35 +25,20 @@ export function hasOwnDrone(task: TaskView): boolean {
 }
 
 /**
- * What a task has spent. **Turns while it runs, and the cost only once its own
- * agent stopped** — a live figure would be invented, since cost reaches Armada
- * on a session's last line.
- */
-function spentSaid(task: TaskView): string | undefined {
-  const parts: string[] = [];
-  if (task.turns !== undefined) parts.push(`${task.turns} turns`);
-  if (task.cost_micros !== undefined) parts.push(money(task.cost_micros));
-  return parts.length === 0 ? undefined : parts.join(" · ");
-}
-
-/**
- * What the task's agent is doing now, as a sentence. **Working and done only**:
- * a failed task's reason and a dropped one's are drawn by the sheet already,
- * and an open task has no agent to say anything about.
+ * What the task's own agent has spent, as bare facts: `14 turns` while it
+ * works, `27 turns · ~$1.90` once it stopped. **Working and done only**: the
+ * sheet already says why a failed or dropped task stopped, and an open task has
+ * no agent. Absent where there is nothing to say.
+ *
+ * **No cost while it runs**: cost reaches Armada on a session's last line, so a
+ * live figure would be invented.
  */
 export function doingOfTask(task: TaskView): string | undefined {
-  if (!hasOwnDrone(task)) return undefined;
-  const spent = spentSaid(task);
-  switch (task.state) {
-    case "working":
-      return spent === undefined
-        ? "Its agent is working. Nothing it has spent can be read until that agent stops."
-        : `Its agent is working — ${spent} so far. What it cost reads once that agent stops.`;
-    case "done":
-      return spent === undefined ? "Its agent has stopped and the work is in." : `Its agent stopped after ${spent}.`;
-    default:
-      return undefined;
-  }
+  if (!hasOwnDrone(task) || (task.state !== "working" && task.state !== "done")) return undefined;
+  const parts: string[] = [];
+  if (task.turns !== undefined) parts.push(`${task.turns} turns`);
+  if (task.state === "done" && task.cost_micros !== undefined) parts.push(money(task.cost_micros));
+  return parts.length === 0 ? undefined : parts.join(" · ");
 }
 
 /**
