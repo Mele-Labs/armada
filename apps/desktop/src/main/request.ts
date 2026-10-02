@@ -374,13 +374,10 @@ export async function serversOf(port: number): Promise<ServerList | null> {
 /**
  * One Check's own output, read into the app.
  *
- * **A read that answers rather than one that is held.** `reader.ts` exists for
- * the reads a Job moving invalidates, and its whole job is dropping an answer
- * whose id moved while it was in flight. A recorded output cannot move, it is
- * asked for by one reader about one Check, and it is a test runner's whole log
- * — so it is answered to the caller rather than held by `reader.ts` and
- * republished on every event, which is why this sits here beside `capacityOf`
- * rather than becoming another `JobReader`.
+ * **A read that answers rather than one that is held.** `reader.ts` is for the
+ * reads a Job moving invalidates. A recorded output cannot move, it is asked
+ * for by one reader about one Check, and it is a test runner's whole log — so
+ * it sits here beside `capacityOf` rather than becoming another `JobReader`.
  *
  * `kept` is the row's own file name, the last component of `CheckRun`'s
  * `output_path`. **Nothing here composes a path**: `artifacts.ts` owns that

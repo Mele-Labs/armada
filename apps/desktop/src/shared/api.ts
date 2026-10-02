@@ -740,20 +740,14 @@ export type BridgeApi = {
   /**
    * Read one Check's own output, whole enough to read on the screen it is on.
    *
-   * **It answers rather than publishes.** The reads above are held open and
-   * kept current because the thing they draw moves; a recorded output is
-   * finished, and a person opening one Check is asking about that Check. So it
-   * answers once, and nothing is left held. `CheckRun.output_path` has always
-   * said where the file is and `openArtifact` hands it to the operating system;
-   * this is what brings the lines in, so a suite that went green for the wrong
-   * reason can be argued with without leaving the app.
+   * **It answers once rather than publishing**: a recorded output is finished,
+   * and a person opening one Check is asking about that Check. `openArtifact`
+   * hands the file to the operating system; this brings the lines in, so a
+   * suite that went green for the wrong reason can be argued with in the app.
    *
    * `kept` is the row's own file name, off `output_path`. **Nothing here
    * composes a path** — `artifacts.ts` owns that rule — and Fleet resolves the
-   * name against its own record, so this reaches no file the record does not
-   * name.
-   *
-   * Read-only, like the reads above it.
+   * name against its own record. Read-only, like the reads above it.
    */
   readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
