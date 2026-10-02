@@ -1,11 +1,11 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 /**
- * A panel's leading-edge resize handle, and the range it drags in. **One
- * handle for every panel that resizes**: Helm's dock (`TheShell`) and a
- * floating `Sheet` (Plan's task panel, the owner's note of 30 Sep 2026 —
- * "resize it with the resize handle we have") draw this one, so the two edges
- * look and answer alike.
+ * A panel's inner-edge resize handle, and the range it drags in. **One
+ * handle for every panel that resizes**: Helm's dock (`TheShell`) and every
+ * `Sheet` (the owner's notes of 30 Sep and 2 Oct 2026 — "resize it with the
+ * resize handle we have", "every sheet should be resizable") draw this one,
+ * so the edges look and answer alike.
  *
  * A drag or an arrow key moves it; both read the same clamp so neither can
  * push the dock past what a mouse could reach.
@@ -68,16 +68,22 @@ export type DockHandleProps = {
   max: number;
   /** What it resizes, for the separator's name — `Resize Helm`. */
   label: string;
+  /**
+   * The way a drag widens it. `left` for a panel on its container's trailing
+   * edge, the dock's; `right` for one on the leading edge, a left sheet's.
+   */
+  grows?: "left" | "right";
   onResize: (width: number) => void;
 };
 
-export function DockHandle({ width, min, max, label, onResize }: DockHandleProps) {
+export function DockHandle({ width, min, max, label, grows = "left", onResize }: DockHandleProps) {
   const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   // Only for the line's own intensified colour while dragging — `:hover` drops
   // the moment the cursor leaves the 8px hit area, which a fast drag does
   // almost at once, and the grip going dim mid-drag would read as let go.
   const [dragging, setDragging] = useState(false);
   const range = { min, max };
+  const sign = grows === "left" ? 1 : -1;
 
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
@@ -95,7 +101,7 @@ export function DockHandle({ width, min, max, label, onResize }: DockHandleProps
 
   function pointerMove(event: PointerEvent<HTMLDivElement>): void {
     if (drag.current === null || drag.current.pointerId !== event.pointerId) return;
-    const delta = drag.current.startX - event.clientX;
+    const delta = sign * (drag.current.startX - event.clientX);
     onResize(clampToRange(drag.current.startWidth + delta, range));
   }
 
@@ -108,10 +114,10 @@ export function DockHandle({ width, min, max, label, onResize }: DockHandleProps
   }
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.key === "ArrowLeft") onResize(clampToRange(width + DOCK_WIDTH_STEP, range));
-    else if (event.key === "ArrowRight") onResize(clampToRange(width - DOCK_WIDTH_STEP, range));
-    else if (event.key === "Home") onResize(max);
-    else if (event.key === "End") onResize(min);
+    if (event.key === "ArrowLeft") onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
+    else if (event.key === "ArrowRight") onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
+    else if (event.key === "Home") onResize(sign > 0 ? max : min);
+    else if (event.key === "End") onResize(sign > 0 ? min : max);
     else return;
     event.preventDefault();
   }

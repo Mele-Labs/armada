@@ -8,6 +8,10 @@
 //! it is measured against. Only the sentence that introduces it differs: a
 //! Judge is told it is a standard and not scope expansion, a Drone that it is
 //! asked of this work.
+//!
+//! **A Judge may look the rest up**, since 2 Oct 2026: [`Standing::readable`]
+//! tells it it can read the checkout. The named file stays the repository's
+//! explicit statement, and one naming none still gets a Judge that can read.
 
 /// The most of a repository's standing rules a brief carries, in bytes, a
 /// Judge's or a Drone's. `standing-rules-cap` in `crates/config/settings.toml`.
@@ -17,7 +21,30 @@ pub const STANDING_RULES: usize = 4 * 1024;
 /// longer than [`STANDING_RULES`]. [`Standing::unstated`] renders nothing, so
 /// a repository that names no file gets every brief as it was.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Standing(Option<Said>);
+pub struct Standing {
+    said: Option<Said>,
+    /// Whether the Judge's call can read the checkout. Fleet's to set, beside
+    /// the read it grants, and only a Judge is told: a Drone reads the
+    /// repository already.
+    readable: bool,
+}
+
+/// What a reading Judge is told before anything the repository named.
+///
+/// **Not to quote what it read**, because a refusal's quotation marks are held
+/// to the brief (`crate::quoted`), and the files it opens are not in the brief:
+/// a refusal quoting one would be discarded as quoting what is not there.
+///
+/// **No "turn" in it**, because the convergence look rides the same text and
+/// is held to never mention one: a turn count there would be judging the Drone.
+const READABLE: &str = "\
+You can read this repository's own checkout, read-only and briefly: the \
+instructions it keeps for agents, its docs and its skills, to learn what it \
+requires of a change. Look up what you need and no more. Work the repository requires of a \
+change is not scope expansion, whatever the request says. The checkout is the \
+repository as it stands and not the work under judgment, which is only what \
+this brief shows. Name a file you read rather than quoting it: quotation marks \
+are kept for words in this brief.\n\n";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Said {
@@ -35,14 +62,22 @@ enum Said {
 impl Standing {
     /// The repository names no file.
     pub fn unstated() -> Standing {
-        Standing(None)
+        Standing::default()
+    }
+
+    /// The same, for a Judge whose call can read the repository's checkout.
+    pub fn readable(self) -> Standing {
+        Standing {
+            readable: true,
+            ..self
+        }
     }
 
     /// The file `path` names held `text`. Over [`STANDING_RULES`] it is cut at
     /// the last whole line that fits, and the brief says so.
     pub fn read(path: &str, text: &str) -> Standing {
         if text.trim().is_empty() {
-            return Standing(None);
+            return Standing::unstated();
         }
         let cut_from = (text.len() > STANDING_RULES).then_some(text.len());
         let kept = match cut_from {
@@ -56,24 +91,40 @@ impl Standing {
                 fits.rfind('\n').map_or(fits, |line| &fits[..line])
             }
         };
-        Standing(Some(Said::Read {
+        Standing::said(Said::Read {
             path: path.to_string(),
             text: kept.trim_end().to_string(),
             cut_from,
-        }))
+        })
     }
 
     /// The repository names a file and it could not be read. Said rather than
     /// left out, so a kept brief shows why a Judge was not told.
     pub fn unreadable(path: &str) -> Standing {
-        Standing(Some(Said::Unreadable {
+        Standing::said(Said::Unreadable {
             path: path.to_string(),
-        }))
+        })
+    }
+
+    fn said(said: Said) -> Standing {
+        Standing {
+            said: Some(said),
+            readable: false,
+        }
     }
 
     /// The part of a brief this is, or an empty string.
     pub(crate) fn told(&self) -> String {
-        match &self.0 {
+        let readable = match self.readable {
+            true => READABLE,
+            false => "",
+        };
+        format!("{readable}{}", self.named())
+    }
+
+    /// The file the repository named, as a Judge's brief carries it.
+    fn named(&self) -> String {
+        match &self.said {
             None => String::new(),
             Some(Said::Unreadable { path }) => format!(
                 "This repository names {path} as what it requires of every change, and it \
@@ -103,7 +154,7 @@ impl Standing {
     /// the same bound; only the sentence introducing it is the doer's.
     pub fn to_do(&self) -> Option<String> {
         let heading = "WHAT THIS REPOSITORY REQUIRES OF EVERY CHANGE\n\n";
-        match &self.0 {
+        match &self.said {
             None => None,
             Some(Said::Unreadable { path }) => Some(format!(
                 "{heading}This repository names {path} as what it requires of every change, \

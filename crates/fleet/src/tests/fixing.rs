@@ -5,6 +5,7 @@
 //! `/usr/bin/true` passes, so what the run came to is what the case is about.
 //! The call answers once the run has started; [`came_to`] waits for the rest.
 
+mod holding_off;
 mod waiting;
 
 use std::sync::Arc;
@@ -85,6 +86,7 @@ fn fix_for(test: &str) -> DraftFix {
     DraftFix {
         check: String::from("suite"),
         test: test.to_string(),
+        files: Vec::new(),
         failure: String::from("exited 1"),
         title: format!("Fix {test} on main"),
         workflow: String::from("fixture-workflow"),

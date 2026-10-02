@@ -202,7 +202,7 @@ pub(crate) async fn judged(
                 step,
                 criterion,
                 request,
-                &judging.standing,
+                &judging.told(),
                 &product,
                 &references,
                 answered,
@@ -224,7 +224,8 @@ pub(crate) async fn judged(
             // criterion can be told apart. Without it they carry an identical
             // key and Bridge draws one of them.
             for member in 1..=check.panel_size() {
-                let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
+                let ask = judging
+                    .ask(&model, brief.question())
                     .map_err(|_| CallFailed::NothingToAsk)?;
                 nth += 1;
                 // Named, not `let _`: the mark stands for the binding's
@@ -267,7 +268,7 @@ pub(crate) async fn judged(
             step,
             &criterion,
             request,
-            &judging.standing,
+            &judging.told(),
             &product,
             &references,
             answered,
@@ -281,7 +282,8 @@ pub(crate) async fn judged(
             &criterion.criterion_id,
             brief.question(),
         );
-        let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
+        let ask = judging
+            .ask(&model, brief.question())
             .map_err(|_| CallFailed::NothingToAsk)?;
         let _out = judging.marking.out(
             step.id(),
@@ -378,9 +380,10 @@ pub(crate) async fn converging(
         off_plan,
         held,
         precedent,
-        &judging.standing,
+        &judging.told(),
     );
-    let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
+    let ask = judging
+        .ask(&model, brief.question())
         .map_err(|_| CallFailed::NothingToAsk)?;
     // **One call, and it names neither a criterion nor a pattern**, because it
     // asks about neither. What it is, a surface reads off `look`.
@@ -413,7 +416,8 @@ pub(crate) async fn widening(
     judging: &Judging,
 ) -> Result<Widened, CallFailed> {
     let model = fleets_model(step, &judging.default_model)?;
-    let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
+    let ask = judging
+        .ask(&model, brief.question())
         .map_err(|_| CallFailed::NothingToAsk)?;
     let _out = judging.marking.out(
         step.id(),

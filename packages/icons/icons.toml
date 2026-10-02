@@ -327,7 +327,7 @@
   group = "Pull request state"
   size = "12px"
   status = "Specified"
-  reserved = "A merged pull request's badge only, in the Job header and on the Land board's Delivered row. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
+  reserved = "A merged pull request's badge, in the Job header and on the Land board's Delivered row, and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
   notes = "Minted 1 Oct 2026, the owner's call: a pull request's state reads as a badge the way a Job's does (*Every badge carries an icon*). It renders `--status-completed-success`, which `check` also renders. A forked join and a tick share no outline at 12px, so rule 4 holds. `git-pull-request` stays the row mark for what the part is. This mark is the state the part settled in, and the two sit on one row without saying the same thing."
 
 [icons.git-pull-request-closed]

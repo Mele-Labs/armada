@@ -68,6 +68,35 @@ impl OutcomeState {
     }
 }
 
+/// Where one Check stands in a turn: every Check the turn runs is `waiting`
+/// until it is run, then ends one of three ways.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    TimedOut,
+}
+
+/// How the branch's pull request ended once the branch landed: the forge read
+/// the push as its merge, or the runner closed it naming the merge. Absent is
+/// nothing known: no pull request, one left open, or a forge that would not say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestSettled {
+    Merged,
+    ClosedUnmerged,
+}
+
+/// One Check a turn runs, by its name in `armada.yml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckRun {
+    pub name: String,
+    pub state: CheckState,
+}
+
 /// What a batch member's `detail` ends with, before the others it gates with.
 /// `armada land`'s `batch::tell` writes it and [`together`] reads it back, so
 /// `--status` and Fleet read one spelling.
@@ -92,6 +121,9 @@ pub struct Outcome {
     pub runner: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr: Option<u64>,
+    /// `landed` only: how [`Outcome::pr`] ended.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr_settled: Option<PullRequestSettled>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<Place>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -104,6 +136,9 @@ pub struct Outcome {
     pub new_lines: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// The Checks this turn runs, each as it stands, in the order they run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<CheckRun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gated_base: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -125,12 +160,14 @@ impl Outcome {
             updated: String::new(),
             runner: 0,
             pr: None,
+            pr_settled: None,
             place: None,
             logs: Vec::new(),
             failed: Vec::new(),
             already: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
+            checks: Vec::new(),
             gated_base: None,
             candidate: None,
             merge_commit: None,
@@ -146,12 +183,14 @@ impl Outcome {
 #[derive(Clone, Debug, Default)]
 pub struct OutcomePatch {
     pub pr: Option<u64>,
+    pub pr_settled: Option<PullRequestSettled>,
     pub place: Option<Place>,
     pub logs: Option<Vec<String>>,
     pub failed: Option<Vec<String>>,
     pub already: Option<Vec<String>>,
     pub new_lines: Option<Vec<String>>,
     pub conflicts: Option<Vec<String>>,
+    pub checks: Option<Vec<CheckRun>>,
     pub gated_base: Option<String>,
     pub candidate: Option<String>,
     pub merge_commit: Option<String>,
@@ -182,12 +221,14 @@ pub fn merge_outcome(
         .unwrap_or_else(|| Outcome::blank(branch));
 
     merged.pr = patch.pr.or(merged.pr);
+    merged.pr_settled = patch.pr_settled.or(merged.pr_settled);
     merged.place = patch.place.or(merged.place);
     merged.logs = patch.logs.unwrap_or(merged.logs);
     merged.failed = patch.failed.unwrap_or(merged.failed);
     merged.already = patch.already.unwrap_or(merged.already);
     merged.new_lines = patch.new_lines.unwrap_or(merged.new_lines);
     merged.conflicts = patch.conflicts.unwrap_or(merged.conflicts);
+    merged.checks = patch.checks.unwrap_or(merged.checks);
     merged.gated_base = patch.gated_base.or(merged.gated_base);
     merged.candidate = patch.candidate.or(merged.candidate);
     merged.merge_commit = patch.merge_commit.or(merged.merge_commit);

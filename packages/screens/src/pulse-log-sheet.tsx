@@ -66,6 +66,7 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadB
   const wrap = flipped?.path === path ? flipped.wrap : log.kind === "brief";
   return (
     <Sheet
+      kind="pulse-log"
       open
       contained
       size="wide"

@@ -47,9 +47,22 @@ pub struct Crossed {
     the_plan: Option<ThePlan>,
     dismissed: Option<Dismissed>,
     peers: Option<crate::peers::PeersChanged>,
+    held_off: Option<String>,
 }
 
 impl Crossed {
+    /// The files a test another Job is fixing holds off this one. #1673.
+    pub(crate) fn and_held_off(self, held_off: &crate::fixing::HeldOff) -> Crossed {
+        Crossed {
+            held_off: held_off.text(),
+            ..self
+        }
+    }
+
+    pub(crate) fn held_off(&self) -> Option<&str> {
+        self.held_off.as_deref()
+    }
+
     /// What other Jobs writing here claimed or landed while no Drone was there
     /// to be told. Folded in by `crate::spawning`, like the redirect. #998.
     pub(crate) fn and_peers(self, peers: Option<crate::peers::PeersChanged>) -> Crossed {
