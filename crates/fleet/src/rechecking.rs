@@ -92,7 +92,7 @@ impl Rechecking {
     }
 
     /// Take this Job for a re-run, or `None` where one is already out.
-    fn take(&self, job: &JobId) -> Option<Held> {
+    pub(crate) fn take(&self, job: &JobId) -> Option<Held> {
         if !self.held().insert(job.clone()) {
             return None;
         }
@@ -110,7 +110,7 @@ impl Rechecking {
 }
 
 /// One Job held for a re-run, given back however the run ends.
-struct Held {
+pub(crate) struct Held {
     rechecking: Rechecking,
     job: JobId,
 }

@@ -49,8 +49,8 @@ const DEFAULT_REGENERATE: &str =
     "cargo xtask verify-docs --write; cargo xtask verify-tokens --write";
 
 /// Rounds of "the base moved again while this was gated" before a turn gives
-/// up.
-pub const ROUNDS: u32 = 5;
+/// up. Shared with Fleet's `merge_by: push`, so the two lines give up alike.
+pub use adapters::onto_base::ROUNDS;
 
 /// How long one Check runs in a turn, on the branch or on the base, before it
 /// is killed and read as red. One hang would otherwise stall every branch
