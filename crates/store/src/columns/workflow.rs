@@ -44,6 +44,8 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             // Absent rather than `false`, for `captured`'s reason: every row
             // frozen before a step could work a plan reads back as one that did not.
             "follows_plan": step.follows_plan().then_some(true),
+            // Absent rather than `false`, for `follows_plan`'s reason.
+            "drone_per_task": step.drone_per_task().then_some(true),
             // Absent rather than `false`, for `follows_plan`'s reason. The
             // value already folds in a step whose product is `plan` —
             // `ResolvedStep::records_plan` never disagrees with
@@ -321,7 +323,18 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
     .quiet_after(read_patience(entry, "quiet_after_seconds")?)
     .poking(read_patience(entry, "poke_limit")?)
     .following_plan(read_follows_plan(entry)?)
+    .a_drone_per_task(read_drone_per_task(entry)?)
     .also_recording_the_plan(read_records_plan(entry)?))
+}
+
+/// Whether the step works its tasks a Drone each. **Absent and null read as
+/// no**, which is every row frozen before the key existed.
+fn read_drone_per_task(entry: &Map<String, Value>) -> Result<bool, Malformed> {
+    match entry.get("drone_per_task") {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(set)) => Ok(*set),
+        Some(other) => Err(format!("`drone_per_task` is {}", kind(other))),
+    }
 }
 
 /// Whether the step declared `records_plan: true` beside its own product.

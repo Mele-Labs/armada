@@ -9,12 +9,12 @@ use core_model::Job;
 use crate::error::{fault, WriteError};
 use crate::open::Store;
 
-/// Version 92 — the slot a Job leased.
+/// Version 93 — the slot a Job leased.
 ///
 /// **Null, and no backfill.** Every row before this column is a Job cut before
 /// the pool, whose worktree is still at the path its handle derives, and null
 /// is what says so. `Store::record_slot` is the one writer.
-pub(crate) const V92: &str = r#"
+pub(crate) const V93: &str = r#"
 ALTER TABLE jobs ADD COLUMN worktree_slot INTEGER;
 "#;
 

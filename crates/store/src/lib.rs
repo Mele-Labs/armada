@@ -125,6 +125,8 @@ mod slot;
 mod spend;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
+/// Which Drone was put on which task, and what it handed in. Spike 022, 1b.
+mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
 /// A Job's plan and its tasks, kept as every change made to them. Not
@@ -164,4 +166,5 @@ pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
+pub use task_drones::{TaskDrone, TaskHandIn};
 pub use work_plan::{PlanHand, PlanNotKept};

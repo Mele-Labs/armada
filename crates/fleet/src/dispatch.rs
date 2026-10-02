@@ -236,6 +236,9 @@ where
         // spend folded afterwards is a Job that reads as costing less than it
         // did. See [`paid_so_far`](Fleet::paid_so_far).
         self.paid_so_far(working).await?;
+        // Before the step moves, for the spend's reason: a client re-reads the
+        // Job on the move. A task is done when its step's Checks pass.
+        self.tasks_done(job_id, step, ruling).await?;
         // A failed Check printing a test another Job is fixing points this Job
         // at that fix. #1001.
         let printed: Vec<_> = ruling
@@ -509,6 +512,11 @@ where
             job: at_work.standing().0,
             cause,
         })? {
+            return Ok(None);
+        }
+        // A task's Drone that handed in and left is the next turn's to replace,
+        // not a Drone that left without handing in. `crate::tasking`.
+        if self.between_tasks(at_work).await? {
             return Ok(None);
         }
         // The step the Drone was **put on**, which is where its pointer is —

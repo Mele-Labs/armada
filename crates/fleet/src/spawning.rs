@@ -153,11 +153,17 @@ where
         // it is holding `update_task` for, the Drone either re-records and
         // loses every task's state, or works blind. `None` on a first
         // attempt either way, because no plan exists yet to show. `#1006`.
-        let the_plan = match job.workflow().step(step) {
-            Some(s) if s.follows_plan() || !s.records_plan() => self
+        //
+        // **A task's Drone is told its task instead**, and a step that works a
+        // Drone per task never offers the plan tools: Fleet marks its tasks.
+        // `crate::tasking`.
+        let task = self.task_to_work(job, step).await?;
+        let the_plan = match (&task, job.workflow().step(step)) {
+            (Some((plan, task)), _) => Some(ThePlan::for_task(plan, task)),
+            (None, Some(s)) if s.follows_plan() || !s.records_plan() => self
                 .plan_of(&job_id)
                 .await?
-                .map(|plan| ThePlan::of(&plan, s.follows_plan())),
+                .map(|plan| ThePlan::of(&plan, s.follows_plan() && !s.drone_per_task())),
             _ => None,
         };
         let opening = opening
@@ -264,6 +270,11 @@ where
         self.drone_at_work(&job_id, started.session.pid());
         self.drone_process_recorded(job, step, &drone, started.session.pid())
             .await?;
+        // Before the arrival is announced, since Bridge reads which task a
+        // Drone is on when it hears one arrive.
+        if let Some((_, task)) = &task {
+            self.put_on_task(job, step, &drone, task.id()).await?;
+        }
         self.drone_arrived(job, step, drone.clone()).await?;
         // After the process exists too, and for the same reason: a note
         // cleared over a spawn that then failed is a note nobody was told.
@@ -291,8 +302,11 @@ where
         // The first row of this step's record, written by Armada, before the
         // Drone has said anything. It is written after the slot exists rather
         // than before because the sinks live on it.
-        if let Some(at_work) = working.as_ref() {
+        if let Some(at_work) = working.as_mut() {
             at_work.briefed(&opened_with, headings, kinds);
+            if let Some((_, task)) = &task {
+                at_work.on_task(task.id());
+            }
         }
         // This step's baseline, read once the slot exists. A Job's first step
         // ordinarily starts on a worktree holding nothing, and reading it
