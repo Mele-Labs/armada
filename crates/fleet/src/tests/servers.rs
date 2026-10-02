@@ -20,7 +20,7 @@ use ipc::{Event, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::checkouts::Checkout;
-use crate::daemon::Fleet;
+use crate::daemon::{Fittings, Fleet};
 use crate::ports::{detect_ceiling, BindConnectProbe, PortProbe, PortRange};
 use crate::servers::{Place, Unservable};
 use crate::slots::Concurrency;
@@ -67,6 +67,18 @@ pub(super) fn a_fleet_holding(
     on_disk: &str,
     held: &str,
 ) -> Arc<Fixture> {
+    Arc::new(Fleet::assembled(fittings_holding(
+        home, events, on_disk, held,
+    )))
+}
+
+/// [`a_fleet_holding`]'s fittings, for a case that changes one before assembly.
+pub(super) fn fittings_holding(
+    home: &TempDir,
+    events: &api::Broadcaster,
+    on_disk: &str,
+    held: &str,
+) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
     let path = home.path().join("armada.yml");
     std::fs::write(&path, on_disk).expect("the file a Job snapshots");
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
@@ -74,7 +86,7 @@ pub(super) fn a_fleet_holding(
     fittings.events = events.clone();
     fittings.concurrency = Concurrency::of(2);
     fittings.port_range = a_range_of_its_own();
-    Arc::new(Fleet::assembled(fittings))
+    fittings
 }
 
 /// How many ports a fixture's range holds, and the floor of the band they are

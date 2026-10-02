@@ -16,7 +16,7 @@ use ipc::{Event, ServerPhase, ServerState, StartedBy};
 
 use crate::checkouts::Checkout;
 use crate::servers::{Place, Unservable};
-use crate::tests::servers::{a_fleet_holding, a_fleet_serving};
+use crate::tests::servers::{a_fleet_holding, a_fleet_serving, fittings_holding};
 use crate::tests::tmp::TempDir;
 
 /// **A Job's server says which worktree and which branch answers it.** A name
@@ -152,6 +152,88 @@ async fn work_landing_tells_the_server_held_on_the_main_checkout() {
             .and_then(|state| state.checkout.behind),
         Some(4)
     );
+
+    fleet.stopped_every_server().await;
+}
+
+/// A clock that, once armed, stops the first reading taken off the test's own
+/// thread until the test lets it go. The server's task reads it as it becomes
+/// serving, so this is where a merge is made to land.
+struct StopsTheServersReading {
+    ticking: crate::tests::planted::Ticking,
+    armed: std::sync::Mutex<Option<std::thread::ThreadId>>,
+    reached: std::sync::Barrier,
+    released: std::sync::Barrier,
+}
+
+impl crate::clock::Clock for StopsTheServersReading {
+    fn now(&self) -> core_model::Timestamp {
+        let mut armed = self.armed.lock().unwrap_or_else(|held| held.into_inner());
+        if armed.is_some_and(|test| test != std::thread::current().id()) {
+            *armed = None;
+            drop(armed);
+            self.reached.wait();
+            self.released.wait();
+        }
+        self.ticking.now()
+    }
+}
+
+/// **A merge landing as a server becomes serving is still counted.** The task
+/// marking it serving and the merge each rewrite the row; on a multi-thread
+/// runtime a rewrite from a copy taken before the other landed drops it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn work_landing_as_the_server_comes_up_is_still_counted() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let clock = Arc::new(StopsTheServersReading {
+        ticking: crate::tests::planted::Ticking::from_nine(),
+        armed: std::sync::Mutex::new(None),
+        reached: std::sync::Barrier::new(2),
+        released: std::sync::Barrier::new(2),
+    });
+    let mut fittings = fittings_holding(&home, &events, HELD_WITHOUT_A_PORT, HELD_WITHOUT_A_PORT);
+    fittings.clock = Arc::clone(&clock) as Arc<dyn crate::clock::Clock>;
+    let fleet = Arc::new(crate::daemon::Fleet::assembled(fittings));
+    let mut watching = events.subscribe();
+    let root = fleet.first().root().to_string();
+
+    *clock.armed.lock().expect("unpoisoned") = Some(std::thread::current().id());
+    let (started, _) = Arc::clone(&fleet)
+        .hold_server(
+            Place::Checkout(Checkout::main(fleet.first())),
+            "idle",
+            StartedBy::Person,
+        )
+        .await
+        .expect("it starts");
+    let waiting = Arc::clone(&clock);
+    tokio::task::spawn_blocking(move || waiting.reached.wait())
+        .await
+        .expect("the server's task reached its reading");
+
+    fleet.told_servers_the_checkout_moved(
+        &root,
+        &RepositoryStanding::MovedOn {
+            base: String::from("main"),
+            commits: 3,
+            head: String::from("cf4bcaea"),
+        },
+    );
+    let letting_go = Arc::clone(&clock);
+    tokio::task::spawn_blocking(move || letting_go.released.wait())
+        .await
+        .expect("the server's task let go");
+    up_or_ended(&mut watching, &started.id).await;
+
+    let row = fleet
+        .server_list()
+        .servers
+        .into_iter()
+        .find(|state| state.id == started.id)
+        .expect("held");
+    assert_eq!(row.phase, ServerPhase::Serving);
+    assert_eq!(row.checkout.behind, Some(3), "the merge was dropped");
 
     fleet.stopped_every_server().await;
 }
