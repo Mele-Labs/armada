@@ -1,34 +1,22 @@
 // What job detail draws while this Job's own read is out.
 //
-// **Most of the screen is already in memory.** The run's step names, which step
-// is open and the phases every step is read against come off the Board's row and
-// the holds loaded for every Job, so they are drawn rather than stood in for. What
+// **Most of the screen is already in memory.** The run's step names and which
+// step is open come off the Board's row and the holds loaded for every Job, so
+// they are drawn rather than stood in for. What
 // only `GET /jobs/:job_id` carries — where each step stands, the brief, the open
 // step's fields and gates — is what waits behind a placeholder.
 //
 // Split out of `JobDetail.tsx`, which the 900-line refusal caught at 909.
 // **Not `reading.ts`**, which is how a Job's *status* reads.
 
-import type { ReactNode } from "react";
 import type { RunTreeSkeletonProps } from "@armada/components";
 import type { JobSummary, Watched, WorkflowSummary } from "@armada/protocol";
-import { EVERY_STEP_PHASE } from "./timeline";
 import { stepsAhead } from "./run";
 import { stillReading } from "./work";
 
-/** The open step while it is read: what is already known of it. */
-export type StepReading = {
-  /** The step's name off the workflow. Absent draws a bar in its place. */
-  label?: ReactNode;
-  labelIsAnIdentifier?: boolean;
-  /** The phases every step is read against, by name. */
-  phases: readonly ReactNode[];
-};
-
-/** The two regions that draw differently while the read is out. */
+/** What draws differently while the read is out: the run's skeleton. */
 export type WhileReading = {
   run: RunTreeSkeletonProps;
-  step: StepReading;
 };
 
 /**
@@ -45,14 +33,7 @@ export function whileReading(
   if (!stillReading(watched, job.id)) return undefined;
   const ahead = stepsAhead(workflow);
   const open = ahead.find((step) => step.id === (selected ?? job.current_step_id));
-  return {
-    run: { steps: ahead, current: open?.id },
-    step: {
-      label: open?.label,
-      labelIsAnIdentifier: open?.labelIsAnIdentifier,
-      phases: EVERY_STEP_PHASE,
-    },
-  };
+  return { run: { steps: ahead, current: open?.id } };
 }
 
 /** Why nothing about this Job can be drawn, where Fleet would not answer for it. */

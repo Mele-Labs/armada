@@ -314,6 +314,22 @@
   size = "12px"
   status = "Specified"
 
+[icons.git-merge]
+  means = "Two strands joined into one, a branch taken into the line it came from — a pull request that merged"
+  group = "Pull request state"
+  size = "12px"
+  status = "Specified"
+  reserved = "A merged pull request's badge only, in the Job header and on the Land board's Delivered row. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
+  notes = "Minted 1 Oct 2026, the owner's call: a pull request's state reads as a badge the way a Job's does (*Every badge carries an icon*). It renders `--status-completed-success`, which `check` also renders. A forked join and a tick share no outline at 12px, so rule 4 holds. `git-pull-request` stays the row mark for what the part is. This mark is the state the part settled in, and the two sit on one row without saying the same thing."
+
+[icons.git-pull-request-closed]
+  means = "A pull request whose strand stops short, with a cross where it would have joined — a pull request closed without merging"
+  group = "Pull request state"
+  size = "12px"
+  status = "Specified"
+  reserved = "A pull request closed without merging, on its badge only. Never a refusal, a failure or a kill: nothing on the wire says why a pull request closed, so the mark claims only that it did. `x`, `ban` and `power` hold those."
+  notes = "Minted 1 Oct 2026 with `git-merge`, for the other settled state. It renders `--status-not-started`, the neutral hue, because a hue that said refused or failed would claim a reason nobody recorded. The cross at its end is detail rather than silhouette: the stopped strand beside a lone node is what survives at 12px, and that already differs from `git-merge`'s joined fork and from `git-pull-request`'s two strands."
+
 [icons.group]
   means = "Two like figures inside a dashed frame \u2014 a selection made into one thing"
   group = "Node bar"
@@ -797,7 +813,7 @@
     size = "12px"
     status = "Specified"
     reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label, and never a control that expands in place."
-    notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as WhereRow's into act and Job detail's Details act draw it."
+    notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as Job detail's Details act draws it."
 
   [[icons.chevron-right.usage]]
     means = "forward — the forward half of the history act"

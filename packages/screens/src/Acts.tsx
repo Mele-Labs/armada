@@ -118,7 +118,7 @@ function isHeldAct(act: ConfirmableAct): act is HeldAct {
  * | `redispatch` | `recourse` names `redispatch_job` | yes |
  * | `kill_drone` | never here — the Drones sheet's | yes |
  * | `kill_job` | every non-terminal status | yes |
- * | `reclaim_worktree` | every terminal status | yes |
+ * | `reclaim_worktree` | every terminal status whose worktree is on disk | yes |
  * | `forget_job` | every terminal status | yes |
  * | `redirect` | `recourse` names `redirect_drone` | its own dialog |
  * | `restart_step` | `recourse` names `restart_step` | yes |
@@ -280,8 +280,12 @@ export function Acts({
     // because reclaiming is not a way to carry the Job forward. Fleet refuses
     // it on anything still in flight, so this is the same predicate rather
     // than a second one: there is no disk to give back while a Drone might
-    // still write to it.
-    ...(over ? (["reclaim_worktree"] as ConfirmableAct[]) : []),
+    // still write to it. **And only while there is a worktree to give
+    // back** (owner, 1 Oct 2026): Job 2 had given its checkout back and the
+    // header still offered to reclaim it. `worktree_on_disk` is Fleet's own
+    // check; a detail that has not arrived, or a Fleet too old to send it,
+    // keeps the offer, since Fleet refuses a reclaim with nothing to take.
+    ...(over && whole?.show_again?.worktree_on_disk !== false ? (["reclaim_worktree"] as ConfirmableAct[]) : []),
     // The same predicate as the reclaim, for the same reason — there is
     // nothing to delete while a Job is still in flight — and last, because it
     // is the one act here that cannot be undone.

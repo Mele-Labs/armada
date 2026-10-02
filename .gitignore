@@ -10,6 +10,9 @@ node_modules/
 dist/
 out/
 .vite/
+# What `tsc` leaves beside the screens package's tsconfig: rebuilt on every
+# typecheck and read by nothing else.
+packages/screens/tsconfig.tsbuildinfo
 
 # electron-vite bundles its config to a timestamped copy beside the original and
 # deletes it once loaded. A scope check that reads the worktree mid-build sees it.

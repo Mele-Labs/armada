@@ -5,7 +5,7 @@
 // run, the plan and the record are the destinations under it — a board that
 // redrew them would be a second copy of each, one tab away from the first.
 
-import { Button, JobOutcome, ProducedGroups, ProducedPanel } from "@armada/components";
+import { actionOf, Button, JobOutcome, Kbd, ProducedGroups, ProducedPanel, Tooltip } from "@armada/components";
 import type { JobOutcomePart } from "@armada/components";
 import { File, Folder, GitBranch, GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -30,12 +30,17 @@ export type LandBoardProps = {
   read: LandedRead;
   /** Opens the pull request, in whatever the machine opens addresses with. */
   onOpenPullRequest: () => void;
-  /** Opens the composer, which is where a follow-up is dispatched from. */
+  /** Opens the composer, empty: the title row's Dispatch, and `n`. */
   onCompose: () => void;
   onCopied: (value: string) => void;
 };
 
 export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: LandBoardProps) {
+  // **The registry's own act, not a follow-up** (owner, 1 Oct 2026: "What
+  // follow up am I dispatching?"). The press opens the same empty composer the
+  // title row's Dispatch and `n` open; nothing of this Job is carried into it.
+  // So it says the act's own verb and key, and the hover says what it makes.
+  const dispatch = actionOf("new_job");
   const sectionOf = (section: LandedRead["sections"][number]) => ({
     name: section.name,
     ...(section.meta === undefined ? {} : { meta: section.meta }),
@@ -53,27 +58,24 @@ export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: Land
         <JobOutcome
           headline={{
             verb: read.verb,
-            count: read.count,
-            says: read.says,
+            ...(read.says === undefined ? {} : { says: read.says }),
             criteria: read.criteria,
-            completes: read.completes,
           }}
           onCopied={onCopied}
         />
-        <Button variant="secondary" ground="sunken" onClick={onCompose}>
-          {read.followUp}
-        </Button>
+        <Tooltip asChild label="A new Job, from an empty composer">
+          <Button variant="secondary" ground="sunken" onClick={onCompose}>
+            {dispatch.verb}
+            <Kbd aria-hidden>{dispatch.shortcut}</Kbd>
+          </Button>
+        </Tooltip>
       </div>
 
       <div className="armada-land__columns">
         <div className="armada-land__produced">
           <JobOutcome sections={delivered} steps={read.steps} onCopied={onCopied} />
           <ProducedPanel summary={read.groupsSummary}>
-            <ProducedGroups
-              groups={read.groups}
-              emptyNote={read.groupsAbsent}
-              note={read.groupsNote}
-            />
+            <ProducedGroups groups={read.groups} />
           </ProducedPanel>
         </div>
 
@@ -84,7 +86,7 @@ export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: Land
         </div>
       </div>
 
-      <JobOutcome runs={read.runs} onCopied={onCopied} />
+      {read.runs.length === 0 ? null : <JobOutcome runs={read.runs} onCopied={onCopied} />}
     </div>
   );
 }
@@ -97,6 +99,7 @@ function partOf(part: LandedPart, onOpenPullRequest: () => void): JobOutcomePart
     ...(icon === undefined ? {} : { icon, iconLabel: part.name }),
     ...(part.value === undefined ? {} : { value: part.value }),
     ...(part.meta === undefined ? {} : { meta: part.meta }),
+    ...(part.badge === undefined ? {} : { badge: part.badge }),
     ...(part.absent === undefined ? {} : { absent: part.absent }),
     ...(part.opens === undefined || part.value === undefined
       ? {}

@@ -74,7 +74,7 @@
 }
 
 /* The panel fold, Overview's own Needs you, Running, Queued and Other — a
-   square icon button beside the count, `RunTree`'s own size for one. */
+   square icon button beside the count. */
 .armada-active-jobs__fold-toggle {
   display: flex;
   align-items: center;

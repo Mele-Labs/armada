@@ -394,17 +394,6 @@ destructive = false
 confirms = false
 notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus`, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
 
-[actions.focus_chapter]
-kind = "Motion"
-tier = "Contextual"
-verb = "Move between chapters"
-icon = ""
-shortcut = "[ ]"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "A Motion: it lands somewhere and acts on nothing, which is what `j`/`k` cannot do here — those rove inside whichever chapter has focus. Unmodified brackets against ⌘[ ⌘] for back and forward, which is `1–5` against `⌘1–⌘5` again: one row of keys, two acts, separated by the modifier and drawn that way on purpose. Reading order, so `]` goes down the screen."
-
 [actions.open_log]
 kind = "Action"
 tier = "Contextual"

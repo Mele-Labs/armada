@@ -5,8 +5,7 @@ import { FootprintInstrument, type FootprintColumn } from "./FootprintInstrument
 
 /**
  * A finished Job's footprint: each file a column, width by lines changed,
- * added over deleted. Columns arrive widest first from
- * `packages/screens/src/instruments.ts`, which also words the descriptions.
+ * added over deleted. Columns arrive widest first.
  */
 const meta: Meta<typeof FootprintInstrument> = {
   title: "Compositions/Footprint instrument",

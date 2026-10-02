@@ -73,7 +73,6 @@ export * from "./compositions/StepBar/StepBar";
 export * from "./compositions/TaskMark/TaskMark";
 export * from "./compositions/TransitionHistory/TransitionHistory";
 export * from "./compositions/UnifiedDiff/UnifiedDiff";
-export * from "./compositions/WorkflowDiagram/WorkflowDiagram";
 export * from "./compositions/WorkflowRail/WorkflowRail";
 export * from "./compositions/ActivityInstrument/ActivityInstrument";
 export * from "./compositions/FootprintInstrument/FootprintInstrument";
@@ -102,9 +101,9 @@ export * from "./errors/ErrorCode/codes";
 export * from "./errors/ErrorNotice/ErrorNotice";
 export * from "./errors/FileAnIssue/FileAnIssue";
 
-// The run — the workflow as a tree on job detail. Not the rail: a rail drew
-// every step's gate rows inline, and a step's gates are the phase strip's now.
-export * from "./compositions/RunTree/RunTree";
+// The run while a Job's own read is out — the workflow's step names, and a bar
+// where each duration will land.
+export * from "./compositions/RunTreeSkeleton/RunTreeSkeleton";
 
 // Where this step is. Each stage is a control, and Checks and the Judge are
 // drawn as the different things they are.
@@ -125,10 +124,6 @@ export * from "./compositions/PathChip/PathChip";
 // One row of the run — the step, its mark, its elapsed figure, and the short
 // facts the chevron opens. The tree composes these; it does not draw a row.
 export * from "./compositions/StepRow/StepRow";
-
-// One row of Where things are. A path opens where it lives; an identifier
-// copies; and the label column says which is which before the value is read.
-export * from "./compositions/WhereRow/WhereRow";
 
 // The step's story. A chapter collapses to its header line and never to
 // nothing; a log entry opens in place to its payload, and every line opens.
@@ -311,8 +306,6 @@ export * from "./compositions/ProposalSheet/ProposalSheet";
 export * from "./compositions/ValuePopover/ValuePopover";
 // Overview's summary strip — every panel's count above the fold.
 export * from "./compositions/OverviewSummaryStrip/OverviewSummaryStrip";
-// The card a gaming flag holds a step with, and the two answers to it. #1079.
-export * from "./compositions/HeldFlag/HeldFlag";
 // The message box fixed under an activity log — sending a redirect without
 // leaving the log to reach the step header's button. #1154.
 export * from "./compositions/DroneMessageBox/DroneMessageBox";

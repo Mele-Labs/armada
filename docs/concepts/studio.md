@@ -295,6 +295,10 @@ worth doing are all still there. **Job detail names the Studio and opens it**,
 under *Where things are* with the worktree and the branch — the region for a
 value you want to reach rather than one you are reading.
 
+**Retired with *Where things are*, on Overview's reframe of 29 Sep 2026.**
+Nothing on Job detail draws the way back now, and the row's code is deleted.
+The rule below stands for the surface that takes it up.
+
 > **Rule.** Opening a Studio from a Job selects the Job's own node on it.
 > Why: the person is going back to the part of the graph the work came from, not to a whiteboard with nothing picked. The node is the edge's own end, so the read that finds the Studio has already found it.
 

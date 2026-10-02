@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { JobDetailField } from "../compositions/JobDetailHeaderActions/JobDetailHeaderActions";
-import type { JobLogReferenceRow } from "../compositions/JobLogReference/JobLogReference";
 
 /**
  * What the three job detail renders share.
@@ -45,10 +44,3 @@ export type JobDetailHeading = {
   onOpenJob?: (jobId: string) => void;
 };
 
-/** Where the work is. */
-export type JobDetailLog = {
-  rows: JobLogReferenceRow[];
-  /** The sentence beneath — what the log holds, or what is left in place. */
-  note?: ReactNode;
-  actions?: ReactNode;
-};
