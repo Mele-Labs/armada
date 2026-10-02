@@ -427,9 +427,7 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
         <Alert tone="neutral" title="This Studio was deleted">
           Nothing of it is kept.
         </Alert>
-      ) : (
-        <p className="text-fg-muted">Reading this Studio.</p>
-      )}
+      ) : null}
     </div>
   );
 }

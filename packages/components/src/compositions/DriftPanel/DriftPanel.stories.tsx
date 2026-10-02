@@ -82,7 +82,11 @@ export const EveryLineCurrent: Story = {
   },
 };
 
-/** Before the read has answered. Free, so it is already underway on opening. */
+/** Before the read has answered. Free, so it is already underway on opening — and **nothing stands in** for it. */
 export const Reading: Story = {
-  args: { note: "Reading whether this checkout still has what armada.yml names." },
+  args: {},
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("region", { name: "Drift" })).toBeInTheDocument();
+    await expect(canvas.queryByText(/Reading/)).toBeNull();
+  },
 };

@@ -169,7 +169,6 @@ export function HelmDock({
       <HelmRecord
         open={record.open}
         record={record.record}
-        reading={record.record === undefined && record.failed === undefined}
         failed={record.failed}
         onCopied={onCopied}
         onClose={() => setRecord({ open: false })}

@@ -33,6 +33,12 @@
   border-block-end: var(--border-width) solid var(--edge-rule);
 }
 
+/* A card holding nothing is its head alone, with no rule under it against
+   the card's own edge. */
+.armada-destination-card__head:last-child {
+  border-block-end: 0;
+}
+
 /* What the card holds, at the card's inset. The first row has no rule over
    it, so the head's is the only line above the list. */
 .armada-destination-card__body {
