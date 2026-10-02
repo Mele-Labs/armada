@@ -474,7 +474,7 @@ fn entry_of(row: &Row<'_>, recorded: &[(i64, NewTask)]) -> Result<PlanEntry, Row
         "updated" => PlanChange::Updated {
             task: task_id("task_id")?
                 .ok_or_else(|| malformed("task_id", "an update names no task"))?,
-            to: TaskUpdate::read(
+            to: TaskUpdate::stored(
                 &maybe(row, "state")?.unwrap_or_default(),
                 &maybe(row, "reason")?.unwrap_or_default(),
             )

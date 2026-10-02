@@ -54,9 +54,9 @@ mod tests;
 
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
-pub use narrow::{narrowed, one_test, run_changed, Narrowed};
+pub use narrow::{narrowed, narrowed_at_the_gate, one_test, run_changed, Narrowed};
 pub use priority::{Priority, PRIORITY_ENV};
 pub use run::{run, run_until, run_writing, run_writing_with_env, split, Attempt, Output, Writing};
 pub use serving::Served;
-pub use slots::{already_held, CheckSlots, Held, InUse, HELD_ENV};
+pub use slots::{already_held, CheckSlots, Held, InUse, AHEAD_ENV, HELD_ENV};
 pub use width::{resolve_width, CheckWidth, WIDTH_ENV};

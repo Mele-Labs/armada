@@ -100,9 +100,74 @@ fn none(count: &u32) -> bool {
 pub struct JobPlanChanged {
     pub job_id: JobId,
     pub tasks: TaskCounts,
-    /// A Drone's tool call, or a person's act.
+    /// The task this change moved, `T1` and on. **Absent on a whole recording**,
+    /// which moves every task at once. Since 23.1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task: Option<String>,
+    /// That task's state after the change, so a timeline can move without a
+    /// read. Present exactly where `task` is. Since 23.1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<TaskState>,
+    /// A Drone's tool call, a person's act, or Fleet marking a task's Drone
+    /// starting, handing in, or its step's Checks passing.
     pub actor: Actor,
     pub at: Instant,
+}
+
+impl JobPlanChanged {
+    /// The whole plan changed, and no one task names the change.
+    pub fn recorded(
+        job: &core_model::JobId,
+        plan: &core_model::WorkPlan,
+        actor: core_model::Actor,
+        at: &core_model::Timestamp,
+    ) -> JobPlanChanged {
+        JobPlanChanged {
+            job_id: job.into(),
+            tasks: plan.counts().into(),
+            task: None,
+            state: None,
+            actor: actor.into(),
+            at: at.into(),
+        }
+    }
+
+    /// A kept change: an update names its task, an add the task it made, and a
+    /// whole recording neither.
+    pub fn changed(
+        job: &core_model::JobId,
+        change: &core_model::PlanChange,
+        plan: &core_model::WorkPlan,
+        actor: core_model::Actor,
+        at: &core_model::Timestamp,
+    ) -> JobPlanChanged {
+        let moved = match change {
+            core_model::PlanChange::Recorded { .. } => None,
+            core_model::PlanChange::Updated { task, .. } => Some(*task),
+            core_model::PlanChange::Added { .. } => plan.tasks().iter().map(|t| t.id()).max(),
+        };
+        match moved {
+            Some(task) => JobPlanChanged::task_moved(job, plan, task, actor, at),
+            None => JobPlanChanged::recorded(job, plan, actor, at),
+        }
+    }
+
+    /// One task moved, and `plan` is what the change left: the state is read
+    /// off it rather than passed, so the two cannot disagree.
+    pub fn task_moved(
+        job: &core_model::JobId,
+        plan: &core_model::WorkPlan,
+        task: core_model::TaskId,
+        actor: core_model::Actor,
+        at: &core_model::Timestamp,
+    ) -> JobPlanChanged {
+        let state = plan.task(task).map(|moved| moved.state().into());
+        JobPlanChanged {
+            task: state.map(|_| task.to_string()),
+            state,
+            ..JobPlanChanged::recorded(job, plan, actor, at)
+        }
+    }
 }
 
 impl From<core_model::TaskCounts> for TaskCounts {
