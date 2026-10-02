@@ -741,7 +741,12 @@ impl JobDetail {
             review_step: None,
             review,
             confidence: None,
-            workflow_source: job.workflow().source().as_wire().to_string(),
+            // Blank on a Job at `proposing`, which has frozen nothing to have
+            // read from anywhere.
+            workflow_source: job
+                .frozen_workflow()
+                .map(|frozen| frozen.source().as_wire().to_string())
+                .unwrap_or_default(),
             work_plan: None,
             replaced_by: None,
             from_studio: None,

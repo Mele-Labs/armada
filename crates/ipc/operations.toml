@@ -1764,6 +1764,13 @@ proposer. What comes back is every Job the request became, all at
 awaiting_approval, exactly as propose_job answers for one — this adds no gate and
 removes none, and the person approves the same proposal at the same place.
 
+**The request is a Job before the call goes out** (#1714): a row at `proposing`,
+the request as its title, no workflow and no steps, published as `job.created`.
+The answer moves that same Job to the gate as the head of the plan, under the
+proposer's title, and any other Jobs it split into arrive naming it through
+`dispatched_by`. Every `proposal.moved` names it on `job_id`. The call runs on a
+task of its own, so a caller that stops waiting does not stop it.
+
 It answers with a plan rather than a Job because one request can be several, and
 approving is a different act depending on how many: one Job is dispatched by its
 approval, several are a plan whose members each take their own in turn. A member
@@ -1785,14 +1792,17 @@ member's own, and duplicating an attachment onto every Job in a chain is not
 this field's decision to make on a caller's behalf.
 
 Where no workflow resolves the request is refused and returned unchanged, on the
-error envelope's `request` field, and no Job is created. Nothing here assigns a
+error envelope's `request` field, and the Job it was dispatched as is escalated
+with `no_workflow_fits`, so the words survive on the Board. Nothing here assigns a
 workflow by default: the resolved definition is frozen into the Job and becomes
 what the work is judged against, so a nearest fit would be the standard rather
 than a guess somebody could correct.
 
 A call that could not be made — the network, the quota, the timeout — is a
 fault and not that refusal. The two answer different statuses because a person
-does different things about them.
+does different things about them. On the Job, a fault, an unreadable answer, a
+model this machine does not run and a Fleet restart under the call all escalate
+with `proposer_failed`, and the Job's log says which (#1716).
 
 An answer that could not be read is asked for once more, stating what was
 wrong with it; a second answer that still cannot be read is a fault carrying
@@ -1836,9 +1846,10 @@ rather than a 404. By the time somebody presses this the call may have just land
 and the Jobs are on the board either way — telling them their press failed would be
 telling them something that is not true about the only thing they care about.
 
-It is not on the Intervention Ladder and it ends no Job, because there is no Job.
-Nothing is created, nothing moves, and the person is returned to the form with what
-they typed.
+It is not on the Intervention Ladder. The Job the request was dispatched as, at
+`proposing`, is killed by it (#1714). Nothing else moves, and the request is still
+the killed Job's title, and the route answers it on the refusal's `request`
+field.
 
 agent_access is Helm only now. Helm proposes without a surface and has nobody
 waiting, so there is normally no wait of its own for it to abandon — but where a

@@ -43,4 +43,7 @@ pub struct Reconciled {
     /// the Issue, Pull request or Epic they name. `#1394`. Nought on every
     /// boot after the one that converted them.
     pub recognised: usize,
+    /// Jobs a dead Fleet left at `proposing`, whose call did not survive it.
+    /// Each is now `escalated`, reason `proposer_failed`. `crate::dispatched`.
+    pub orphaned_proposals: Vec<JobId>,
 }

@@ -51,16 +51,6 @@ pub fn halves<T>(mut group: Vec<T>) -> (Vec<T>, Vec<T>) {
     (group, second)
 }
 
-/// Where a group's logs go: a single branch's own directory, as before
-/// batching, or one directory for the group.
-pub fn logs_for(state: &StateDir, group: &[QueueEntry]) -> PathBuf {
-    let names: Vec<&str> = group.iter().map(|entry| entry.branch.as_str()).collect();
-    state
-        .path()
-        .join("logs")
-        .join(super::dir::key(&names.join("\n")))
-}
-
 /// The candidate a group built: one merge commit per member, in order, then
 /// whatever regeneration committed on top.
 pub struct Built {

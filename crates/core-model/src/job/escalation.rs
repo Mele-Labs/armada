@@ -152,6 +152,15 @@ pub enum EscalationTrigger {
     /// still writing inside its declared plan is neither — the grace re-arms
     /// instead, so a late answer is not silence.
     NoReport,
+    /// The Job proposer read the request and no workflow this repository
+    /// holds fits it. **A refusal about the request**, so the remedy is to say
+    /// it again differently and dispatch that, on `escalated -> killed`.
+    ///
+    /// Not [`ProposerFailed`](Self::ProposerFailed), which is the call and
+    /// never the request: two causes wanting opposite responses do not share a
+    /// word, `#334` and `#410`. Job-level, because a Job at `proposing` has no
+    /// step for `last_verdict` to hold it on.
+    NoWorkflowFits,
     /// Git or the filesystem could not put the Job in a worktree work could
     /// start in: none was created, the attachments would not copy into one,
     /// the one an earlier step used has been reclaimed, or the branch would
@@ -191,6 +200,17 @@ pub enum EscalationTrigger {
     /// repository's, and a `setup.requires` line that failed inside a perfectly
     /// good checkout is the Manifest's.
     NotPrepared,
+    /// The Job proposer's call did not produce a plan: it never got through,
+    /// it ended badly, its answer could not be read twice over, it named a
+    /// model this machine does not run, or Fleet restarted while it was out.
+    /// **Which one is on the Job's log**, not on the badge — a person does the
+    /// same thing about each, which is dispatch the request again or look at
+    /// the machine. Decided 1 Oct 2026, `#1716`; the model arm folded in on
+    /// the owner's answer the same day.
+    ///
+    /// Not [`NoWorkflowFits`](Self::NoWorkflowFits): nothing about the request
+    /// was wrong.
+    ProposerFailed,
     /// A running Job exhausted CPU or memory. Belongs to the process, not to
     /// any step it happened to be on.
     ResourceExhausted,
@@ -380,6 +400,10 @@ impl StepLevelTrigger {
             | EscalationTrigger::NoWorktree
             | EscalationTrigger::NotConfigurable
             | EscalationTrigger::NotPrepared
+            // **Not overrulable**: an override advances a step, and a Job at
+            // `proposing` has none and nothing here weighed any work.
+            | EscalationTrigger::NoWorkflowFits
+            | EscalationTrigger::ProposerFailed
             | EscalationTrigger::ResourceExhausted
             | EscalationTrigger::Silent
             | EscalationTrigger::Stalled
@@ -407,9 +431,11 @@ impl EscalationTrigger {
         EscalationTrigger::Interrupted,
         EscalationTrigger::LoopCap,
         EscalationTrigger::NoReport,
+        EscalationTrigger::NoWorkflowFits,
         EscalationTrigger::NoWorktree,
         EscalationTrigger::NotConfigurable,
         EscalationTrigger::NotPrepared,
+        EscalationTrigger::ProposerFailed,
         EscalationTrigger::ResourceExhausted,
         EscalationTrigger::RunEnded,
         EscalationTrigger::ScopeRefused,
@@ -438,9 +464,11 @@ impl EscalationTrigger {
             EscalationTrigger::Interrupted => "interrupted",
             EscalationTrigger::LoopCap => "loop_cap",
             EscalationTrigger::NoReport => "no_report",
+            EscalationTrigger::NoWorkflowFits => "no_workflow_fits",
             EscalationTrigger::NoWorktree => "no_worktree",
             EscalationTrigger::NotConfigurable => "not_configurable",
             EscalationTrigger::NotPrepared => "not_prepared",
+            EscalationTrigger::ProposerFailed => "proposer_failed",
             EscalationTrigger::ResourceExhausted => "resource_exhausted",
             EscalationTrigger::RunEnded => "run_ended",
             EscalationTrigger::ScopeRefused => "scope_refused",
@@ -503,9 +531,11 @@ impl EscalationTrigger {
             | EscalationTrigger::FanOut
             | EscalationTrigger::HatchUnbidden
             | EscalationTrigger::Interrupted
+            | EscalationTrigger::NoWorkflowFits
             | EscalationTrigger::NoWorktree
             | EscalationTrigger::NotConfigurable
             | EscalationTrigger::NotPrepared
+            | EscalationTrigger::ProposerFailed
             | EscalationTrigger::ResourceExhausted
             | EscalationTrigger::Stalled
             | EscalationTrigger::Unheard
@@ -537,6 +567,9 @@ impl EscalationTrigger {
             EscalationTrigger::DependencyFailed => Some((JobStatus::Queued, JobStatus::Escalated)),
             EscalationTrigger::Interrupted => {
                 Some((JobStatus::AwaitingReview, JobStatus::Escalated))
+            }
+            EscalationTrigger::NoWorkflowFits | EscalationTrigger::ProposerFailed => {
+                Some((JobStatus::Proposing, JobStatus::Escalated))
             }
             _ => None,
         }

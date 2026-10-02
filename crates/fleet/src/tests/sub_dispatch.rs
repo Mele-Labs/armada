@@ -110,8 +110,8 @@ async fn a_dispatched_child_enters_queued_naming_the_step_that_made_it() {
     let by = child.dispatched_by().expect("a child names its parent");
     assert_eq!(&by.job_id, &parent);
     assert_eq!(
-        by.step_id.as_str(),
-        "split",
+        by.step_id.as_ref().map(|step| step.as_str()),
+        Some("split"),
         "the step is half of `DispatchOrigin`, and it is what a later step reads back"
     );
 }

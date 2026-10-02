@@ -118,11 +118,17 @@ checks:
       under: crates
       except:
         - acceptance
-    # One test by exact name, which Fleet runs against a checkout of main before
-    # a Drone's `draft_fix` drafts anything. The whole run's exclusion stays, so a
+    # One test by name, which Fleet runs against a checkout of main before a
+    # Drone's `draft_fix` drafts anything. The whole run's exclusion stays, so a
     # test this Check never runs cannot be named. #999.
+    #
+    # **The name is matched as the last segments of a test's path**, so
+    # `armada check test a_span_holding_one_taken_port_is_not_free` runs the
+    # same test `tests::servers::a_span_holding_one_taken_port_is_not_free`
+    # does. `{}` arrives regex-escaped; a bare name in several modules runs
+    # each, and the count is said.
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(={})
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
     # Everything `build` reads, and the Bridge tree with it. **`xtask`'s own
     # tests read `apps/` and `packages/`** — the error-code rule collects
     # declarations from both, and the vocabulary rules read the generated
@@ -150,7 +156,7 @@ checks:
     # ask for, unlike `build` and `test` above which narrow to whichever
     # workspace member changed.
     one_test:
-      run: cargo nextest run -p acceptance -E test(={})
+      run: cargo nextest run -p acceptance -E test(/(^|::){}$/)
     # Rust only. `build` and `test` above run unconditionally; this one is
     # scoped so a Bridge-only change does not pay for the acceptance suite.
     when:
@@ -241,9 +247,11 @@ checks:
     runner:
       name: vitest
       dir: apps/desktop
-    # One test by exact name, which Fleet runs against a checkout of main
+    # One test by name, which Fleet runs against a checkout of main
     # before a Drone's `draft_fix` drafts anything — same shape as the two
     # Rust one_test lines above, `vitest -t` in place of `nextest -E`. #1203.
+    # `-t` is a regex matching anywhere in a test's name; `{}` arrives
+    # escaped, so an apostrophe, a quote or a bracket matches itself.
     #
     # **One worker, because `-t` still loads every file.** Vitest imports all
     # 98 browser files to find the one test, about 650 modules each, and every
@@ -532,9 +540,10 @@ drone:
 
 # What this repository requires of every change, read into every Judge brief
 # so that fixing the prose a change made wrong is not refused as scope
-# expansion. Read from this checkout, never a Job's worktree, and cut at the
-# `judge-brief-standing-rules-cap` setting. docs/concepts/manifest.md, *What
-# every change here carries*.
+# expansion, and into every Drone's opening brief so the work carries it. Read
+# from this checkout, never a Job's worktree, and cut at the
+# `standing-rules-cap` setting. docs/concepts/manifest.md, *What every change
+# here carries*.
 standing_rules: docs/instructions/every-change.md
 
 # What has to have run before any step starts in a fresh worktree. Names a
