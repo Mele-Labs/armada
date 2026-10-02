@@ -56,6 +56,8 @@ mod inline_comments;
 mod issue_lookup;
 mod judge;
 mod keeping_current;
+/// `armada land`'s state on disk, which the binary writes and Fleet reads.
+pub mod land_state;
 mod landing;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;

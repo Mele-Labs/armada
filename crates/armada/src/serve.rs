@@ -578,6 +578,14 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
 
     let events = fleet.events();
+    // Each served repository's merge line, read off disk and published when it
+    // moves: `armada land` is another process and tells Fleet nothing.
+    fleet::merge_lines::keep_reading(
+        Arc::clone(&fleet),
+        events.clone(),
+        fleet::merge_lines::EVERY,
+        |unread| eprintln!("{unread}"),
+    );
     // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
     let clock = SystemClock::new();
     api::tally_every(events.clone(), api::TALLY_EVERY, move |tally| {

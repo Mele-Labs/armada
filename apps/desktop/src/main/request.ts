@@ -13,7 +13,7 @@ import type {
   Outcome,
   TransportFault,
 } from "@armada/protocol";
-import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading } from "@armada/protocol";
+import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
 import type { CheckOutput } from "@armada/protocol";
@@ -287,6 +287,12 @@ export async function capacityOf(port: number): Promise<FleetCapacity | null> {
  * keeping the last figures would let the panel draw values nobody can save
  * over any more.
  */
+/** Each served repository's merge line. `null` where Fleet did not answer, `capacityOf`'s reason. */
+export async function mergeLinesOf(port: number): Promise<MergeLines | null> {
+  const answer = await ask(port, "GET", "/merge_lines");
+  return answer.ok === true ? (answer.body as MergeLines) : null;
+}
+
 export async function limitsOf(port: number): Promise<FleetLimits | null> {
   const answer = await ask(port, "GET", "/limits");
   return answer.ok === true ? (answer.body as FleetLimits) : null;

@@ -52,15 +52,24 @@ impl StateDir {
         StateDir::ensure(common_git_dir.join("armada-land"))
     }
 
+    /// The state directory under a common git directory, **only where one is
+    /// already there** — Fleet's read, which creates nothing. `None` is a
+    /// repository nobody has run `armada land` in.
+    pub fn existing(common_git_dir: &Path) -> Option<StateDir> {
+        let at = common_git_dir.join("armada-land");
+        at.is_dir().then_some(StateDir { at })
+    }
+
     /// A state directory at an already-chosen path, skipping the git call.
     ///
-    /// Test-only: a unit test that only exercises the read/write/merge layer
-    /// below has no repository to resolve one from, and paying for a `git
-    /// rev-parse` in every one of them would test the shell-out rather than
-    /// the state it produces. [`resolve`](StateDir::resolve) is still what
-    /// every non-test caller goes through.
-    #[cfg(test)]
-    pub(crate) fn for_testing(at: PathBuf) -> StateDir {
+    /// For tests: one that only exercises the read/write/merge layer has no
+    /// repository to resolve one from, and paying for a `git rev-parse` in
+    /// every one would test the shell-out rather than the state it produces.
+    /// Public rather than `cfg(test)` because those tests are `armada`'s, and
+    /// a test cfg does not cross crates. [`resolve`](StateDir::resolve) is
+    /// still what every non-test caller goes through.
+    #[doc(hidden)]
+    pub fn for_testing(at: PathBuf) -> StateDir {
         StateDir::ensure(at).expect("a fresh temporary directory accepts its own subdirectories")
     }
 
@@ -72,7 +81,7 @@ impl StateDir {
         self.at.join("queue")
     }
 
-    fn outcomes_dir(&self) -> PathBuf {
+    pub(crate) fn outcomes_dir(&self) -> PathBuf {
         self.at.join("outcomes")
     }
 
@@ -227,7 +236,7 @@ mod sha256_tests {
     }
 }
 
-fn git_common_dir(repo: &Path) -> Result<PathBuf, StateDirError> {
+pub(crate) fn git_common_dir(repo: &Path) -> Result<PathBuf, StateDirError> {
     let output = Command::new("git")
         .arg("-C")
         .arg(repo)

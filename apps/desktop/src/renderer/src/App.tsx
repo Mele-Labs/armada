@@ -215,7 +215,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const hidden = hiddenSurfaces(useDrafted()); // Left off the rail and the palette.
+  const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -895,7 +895,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface {...guarded} onOpenLink={openProseLink} />) : clearing ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and

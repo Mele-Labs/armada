@@ -13,6 +13,7 @@ import type { JudgeInFlight, Settled } from "./detail";
 import type { LineCount } from "./footprint";
 import type { JobForgotten, JobList, JobSummary, Reason } from "./protocol";
 import type { ManifestReading } from "./reading";
+import type { MergeLines } from "./merge-lines";
 import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
@@ -69,6 +70,8 @@ export type Event =
   | ({ kind: "manifest.reread" } & ManifestReading)
   /** The repositories Fleet serves changed; the list now, whole, as `list_repositories` answers. */
   | ({ kind: "repositories.changed" } & RepositoryList)
+  /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 22.1. */
+  | ({ kind: "merge_lines.changed" } & MergeLines)
   | ({ kind: "run.finished" } & RunRecord)
   /** A run in the main checkout ended. Its own kind: the record names no Job. Since 11.9. */
   | ({ kind: "checkout_run.finished" } & CheckoutRunRecord)

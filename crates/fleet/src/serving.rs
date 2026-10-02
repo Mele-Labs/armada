@@ -809,6 +809,11 @@ where
         Ok(self.repository_list())
     }
 
+    /// Each served repository's merge line — [`crate::merge_lines`].
+    async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
+        Ok(crate::merge_lines::answer(self).await)
+    }
+
     /// What a Job may be spawned as, resolved once by the composition root.
     async fn list_models(&self) -> Result<ModelChoices, Refusal> {
         Ok(self.models().clone())

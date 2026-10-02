@@ -209,7 +209,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 4. The reruns take places like any other Check run.
 5. A Manifest chooses, with `merge_by` ([Manifest](../concepts/manifest.md), *How work lands*). `forge`, the default, asks the forge to merge the pull request, as Fleet always has. `push` makes the merge commit and pushes the base through `adapters::onto_base`, the same code this line lands with, so the two cannot come to land work two ways. A base that moved past the branch is merged into it in the Job's own worktree and the Job's Checks run again, up to the same `ROUNDS` as this line, before the push is asked again ([Manifest](../concepts/manifest.md), *How work lands*). The push also names the tree the Job's Checks last passed on and refuses any other, so a head Fleet's own sweep merged the base into is gated where it stands first. This line has no such sweep: its candidate is always the tree it just gated.
 6. *Proving what merged*, in `docs/concepts/manifest.md`, holds for both: the forge names the base after a forge merge and the push names it after a push, and the main checkout is brought up to what the remote holds before the run. A push needs no first-parent reading to say whether an ungated combination landed: it is refused unless the base is still the one the branch holds.
-7. An outcome becomes a Job event and a log line.
+7. An outcome becomes a Job event and a log line. Until then Fleet reads this line's own files and serves them as `get_merge_lines` (*In Bridge*); the queue and outcome types already live in `adapters::land_state`, where Fleet can reach them.
 8. Same directory, same reason: a Job's Checks run inside the repository because that is where this project's tooling works. **Fleet's own lifecycle already answers the reuse half** — a base checkout belongs to a commit and every Job on that commit shares it, and `setup.seed` warms it when the base moves. What it does not do is drop the one it has superseded: two were found holding 16 GB after two merges, and `armada clean` is the only thing that takes them back.
 9. `docs/concepts/fleet.md`. Fleet runs one named test against a checkout of `main` on a Drone's word; the line asks the same question of a whole Check, without being asked.
 
@@ -236,7 +236,35 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 ## In Bridge
 
-**Overview draws the line as a panel below its lists, and the rail's Merge line row draws the same panel on its own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. The panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are the branches that just left the line, with their merge commit, failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. A conflict's mark is `unplug` and the rail row's is `merge`. **Both draw only where there is a line**: nothing on the wire carries it yet, so a real Bridge draws neither the rail row, the palette entry nor the Overview panel, and only the mock fills it (`?walk=theMergeLine`).
+**Overview draws the line as a panel below its lists, and the rail's Merge line row draws the same panel on its own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. The panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are the branches that just left the line, with their merge commit, failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. A conflict's mark is `unplug` and the rail row's is `merge`. **Both draw only where there is a line**: with nobody in line, a real Bridge draws neither the rail row, the palette entry nor the Overview panel. The mock's line is `?walk=theMergeLine`.
+
+**Fleet serves the line since protocol 22.1**, and reads it rather than runs it:
+
+```
+armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/
+                                                   |
+Fleet, every 2 s, per served repository --reads----+   adapters::land_state::line, no runner, no mkdir
+   |  moved?                                            git asked once per repository, not per read
+   +--> merge_lines.changed (MergeLines, whole) --> Bridge replaces state.mergeLines
+GET /merge_lines -------------------------------------> Bridge reads it once per connection
+                                                        mergeLineView(mergeLines, pick) -> MergeLine rows
+```
+
+| On disk | On the wire | In the panel |
+|---|---|---|
+| Queue order | `place`, 1-based | Place |
+| Outcome `state`, `waiting` with none | `state` | The mark |
+| `detail`, live states only, before ` — together with ` | `doing` | The runner's words |
+| The names after ` — together with ` | `batch`, the member first in place order | One bracketed group |
+| `pr` and `origin` on the forge | `pull_request` `{number, url}` | `#1770`, opening the address |
+| `merge_commit`, `landed` only | `merge_commit`, whole | Its first ten characters |
+| `failed`, `red` and `stopped` only | `failed` | The failed Checks |
+| `conflicts`, `conflict` only | `conflicts` | The files |
+
+- **The facts are taken only for the state that owns them.** An outcome keeps fields from earlier turns, so a branch that landed and then went red still holds the old merge commit on disk.
+- **Off the line is the three newest ended outcomes** of branches no longer queued, by the file's own write. Outcomes are never pruned; this clone held 310 on 2 Oct 2026. A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
+- **A picked repository draws its own line. All draws the one repository with a line**, and none where several have one, rather than one of them unnamed.
+- A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.
 
 ## What it depends on
 

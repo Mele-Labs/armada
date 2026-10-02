@@ -105,6 +105,7 @@ mod log_rows;
 mod looping;
 mod manifest_proposals;
 mod mending;
+mod merge_lines;
 mod merging;
 mod merging_by_push;
 mod migrating;
