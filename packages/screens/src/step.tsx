@@ -1,11 +1,5 @@
-// What the panel says about the step you are looking at, before its story
-// starts: the step's own short facts, the band above the story, and the box a
-// question is answered in.
-//
-// **The band is what happened, and why you are looking at this step.** Waiting,
-// stopped and failed are three kinds of stopped and never share a tone: waiting
-// on you is amber and carries no surface, because everything mechanical cleared
-// and the workflow is working; a Job that is over is red.
+// What the panel says about the step you are looking at: the box a question is
+// answered in, and the command a drone is waiting on.
 //
 // Split out of `JobDetail.tsx` at the 900-line line, for `chapters.tsx`'s
 // reason and on the seam beside it: that file assembles a Job's screen and
@@ -22,59 +16,11 @@ import type { GroupView } from "./draft/group";
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
-import type { CommandAnswer, CommandInFlight, JobDetail as JobWhole, StepDetail } from "@armada/protocol";
+import type { CommandAnswer, CommandInFlight, JobDetail as JobWhole } from "@armada/protocol";
 import type { CommandExplainedRead } from "./calls";
 import { offeredOf, said } from "./copy";
-import { span } from "./duration";
 import type { ActingAct } from "./pending";
 import { shownOf } from "./refused";
-
-/**
- * The band that says why you are here.
- *
- * **Its tone is a step-level token and never a Job status.** A failed Check is
- * `--step-failed`; a step holding with its retries spent is `--step-stopped-bg`;
- * a step waiting on a person is `--step-waiting`, amber and never red, because
- * everything mechanical has cleared and that must not read as a failure.
- * `note` takes no hue at all.
- */
-export type StepNotice = {
-  tone: "failed" | "stopped" | "waiting" | "note";
-  /** What happened, in one line. */
-  title?: ReactNode;
-  /**
-   * What the title means for a person, on hover over it. Prose, and never the
-   * evidence: a list of what was refused or flagged stays in `children`.
-   */
-  says?: ReactNode;
-  children?: ReactNode;
-};
-
-/**
- * The step's own short facts. **Figures, never a chart** — a filled bar reads
- * as progress and a step has no percentage.
- *
- * **The attempt is which run this is**, from `attempts`, and it is absent on a
- * step nothing has entered rather than drawn as a zero. A step run once still
- * says `Attempt 1`, because the drawing does and because it is the fact a
- * person checks before deciding a Drone is going in circles.
- */
-export function fieldsOf(step: StepDetail, now: number): JobDetailField[] {
-  const running = step.state === "running" || step.state === "retrying";
-  const elapsed = running
-    ? span(step.entered_at, now)
-    : step.entered_at === step.updated_at
-      ? undefined
-      : span(step.entered_at, step.updated_at);
-  return [
-    ...(elapsed === undefined
-      ? []
-      : [{ label: running ? "Running for" : "Took", value: elapsed, mono: true }]),
-    ...(step.attempts.length === 0
-      ? []
-      : [{ label: "Attempt", value: String(step.attempts.length), mono: true }]),
-  ];
-}
 
 /**
  * What the step's groups have got through — `2 of 8 done · 1 working`.
@@ -93,33 +39,6 @@ export function tasksField(groups: readonly GroupView[]): JobDetailField | undef
   const working = tasks.filter((task) => task.state === "working").length;
   const rest = working === 0 ? "" : ` · ${working} working`;
   return { label: "Tasks", value: `${done} of ${tasks.length} done${rest}`, mono: true };
-}
-
-/**
- * The band, where this Job's drone is waiting on an answer.
- *
- * **`waiting`, the same tone `reviewing` takes**, and for the reason the screen
- * already gives it: everything mechanical has cleared and nothing advances until
- * a person answers. Amber, never red — a drone that asked rather than guessed
- * did the right thing.
- *
- * It says only that a question is open. What was asked, and what each answer
- * commits to, is the box beneath: this band is scanned and that is read.
- */
-export function askingOf(whole: JobWhole | null): StepNotice | undefined {
-  if (whole?.asking !== undefined) {
-    return { tone: "waiting", title: "The drone asked a question and is waiting for you." };
-  }
-  // A command it was not given, on a job set to Ask me first. **The same tone for the
-  // same reason**: the drone stopped to ask rather than work round a refusal,
-  // and nothing moves until a person answers.
-  if (whole?.command_waiting !== undefined) {
-    return {
-      tone: "waiting",
-      title: "The drone wants to run a command it was not given, and is waiting for you.",
-    };
-  }
-  return undefined;
 }
 
 /** Why the answers are off, where the reading is not live. */
