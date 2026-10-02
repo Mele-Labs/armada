@@ -352,6 +352,26 @@ fn a_policy_moves_under_a_running_fleet_and_says_which_way() {
     assert!(adopted.at_restart().is_empty());
 }
 
+/// **`merge_by` moves under a running Fleet too.** It is read at the merge, so
+/// a repository changing how it lands is answered at the next one.
+#[test]
+fn how_a_repository_lands_moves_under_a_running_fleet() {
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+    assert_eq!(manifest.merge_by(), crate::MergeBy::Forge);
+
+    repository.save(&format!("{PATIENT}merge_by: push\n"));
+    let adopted = reloads.reread().expect("it reads");
+
+    assert_eq!(manifest.merge_by(), crate::MergeBy::Push);
+    assert_eq!(
+        adopted.moved().iter().map(|m| m.key).collect::<Vec<_>>(),
+        [LiveKey::MergeBy]
+    );
+    assert_eq!(adopted.moved()[0].to_string(), "merge_by forge -> push");
+    assert!(adopted.at_restart().is_empty());
+}
+
 /// **Deleting the key puts the cautious value back**, and says so, rather than
 /// leaving the last word in force. The other direction is the dangerous one: a
 /// repository that removes `auto_merge: always` has stopped asking for it.

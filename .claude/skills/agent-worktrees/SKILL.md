@@ -160,6 +160,23 @@ the dispatching session moved itself out, every agent still pinned to the old
 path had its next command refused, mid-task. Moving is safe only once nothing
 else is working there.
 
+## Whose worktree is it
+
+**A worktree named `agent-<id>` names the session that spawned it, if you look
+in the transcripts rather than ask around.** `grep -l "agentId: <id>"
+~/.claude/projects/<this project>/*.jsonl` finds the one parent transcript, and
+its last `"customTitle"` is the session's name; message that session. Confirmed
+1 Oct 2026: a branch blocking the merge line (#1709) was traced by messaging
+three sessions in turn, none of them its owner, for twenty minutes, until the
+owner asked how we could not tell who made it. One grep answered it.
+
+**An agent's `git merge origin/main` or `git push` can be refused by the
+permission check**, as can removing its own worktree. Brief it to stop and
+report rather than retry; the dispatching session asks the owner, then runs it.
+That is the owner's standing answer (1 Oct 2026). Confirmed the same day: a
+merge-line agent stopped with two commits unpushed, and its branch landed only
+after the dispatching session merged and pushed on his say-so.
+
 ## Sweeping when it has already got away
 
 Audit before deleting, and print what will be kept rather than what will go — the

@@ -211,23 +211,23 @@ in_code = "Not yet"
 from = "proposing"
 to = "awaiting_approval"
 on = "The Job proposer answered, and the workflow it resolved is frozen into the Job"
-in_code = "Not yet"
+in_code = "Yes"
 notes = "**The one road out that produces work**, and the Job on it is the head of what the proposal became. `propose_from_request` already answers every Job it mints at `awaiting_approval`, so this edge adds no gate and removes none — what changes is that the row was on the Board while the proposer read, rather than appearing when it answered. The step machine is initialised as it crosses, because this is the moment a WorkflowDef exists to initialise it from. Where the proposer splits one request into several, the extras are created here rather than moved and carry `dispatched_by` back to this Job; a second relation for the split was refused because `dispatched_by` already says it."
 
 [[transitions]]
 from = "proposing"
 to = "escalated"
 on = "The proposer declined to find a workflow, or the call faulted"
-in_code = "Not yet"
+in_code = "Yes"
 notes = """
 **Two endings on one edge, told apart by the reason and not by a second status.** A request no workflow fits and a call that could not be made or could not be read both leave a Job that is not work and a person who has to decide — which is `escalated` exactly, and what a person does is rephrase and dispatch again, on `escalated -> killed`'s own note.
 
-**No trigger names it yet, and the two words it owes are not one word.** `escalation-triggers.toml`'s header makes a declared edge a trigger's to claim — a trigger declaring none fires `running -> escalated` alone — so nothing can take this edge until that file has a row for each. Each row is `level = "Job"`: a Job here has no step, so there is nothing for `last_verdict` to hold and `StepLevelTrigger::of` refuses a step-level trigger on one. Each declares `job_transitions = ["proposing -> escalated"]`, and each is not overrulable, because an override advances a step and nothing here weighed any work.
+**Two triggers name it, and they are not one word**: `no_workflow_fits` and `proposer_failed`, each `level = "Job"` with `job_transitions = ["proposing -> escalated"]`, and neither overrulable, because an override advances a step and nothing here weighed any work. The edge names neither trigger itself, since an edge carries one; `core_model`'s `admits` holds the pair and refuses any other trigger here.
 
 | The ending | The code Fleet already returns | What a person does |
 |---|---|---|
 | The proposer found no workflow that fits | `fleet.no_workflow_fits` | Rewrite the request and dispatch it again |
-| The call faulted, or its answer would not read | `fleet.proposer_unreachable`, `fleet.proposer_unreadable` | Make the call again, or go and look at Fleet |
+| The call faulted, its answer would not read, it named a model this machine does not run, or Fleet restarted under it | `fleet.proposer_unreachable`, `fleet.proposer_unreadable`, `fleet.proposer_model_not_held` | Make the call again, or go and look at Fleet |
 
 `crates/fleet/src/refusing.rs` holds all four codes. **The fault's two codes are one row** on `not_prepared`'s own argument for folding six paths into one trigger: a person does the same thing about both, and which it was belongs on the Job's log rather than on a badge. **The decline is not folded in with them** on #334 and #410's rule, which this file has now hit three times: two causes wanting opposite responses under one word is a person sent to do the wrong thing.
 
@@ -237,7 +237,7 @@ Not `rejected`, which is a person's verdict on work and is terminal — a machin
 from = "proposing"
 to = "killed"
 on = "stop_proposal: a person who has waited long enough ends the call"
-in_code = "Not yet"
+in_code = "Yes"
 notes = "`killed` is reachable from every non-terminal status and carries no verdict, which is what a person abandoning their own dispatch means. The act already exists and already kills the call rather than only the socket — `crates/ipc/operations.toml`, `stop_proposal` — so what this edge adds is where the row goes afterwards. A stop that lands after the proposer has answered is not this edge: `ProposalStopped.stopped` is `false` there, the Jobs are on the Board, and the head Job took the edge above."
 
 [[transitions]]

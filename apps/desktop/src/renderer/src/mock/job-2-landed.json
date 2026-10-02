@@ -1,0 +1,1277 @@
+{
+  "job": {
+    "id": "01M3WJ4CVF0021ZQB9G8PQMAHM",
+    "handle": "2-retire-guides-8-and-20-add-validation-that",
+    "title": "Retire guides 8 and 20, add validation that every guide's piece is drawn somewhere",
+    "status": "completed_success",
+    "created_at": "2026-10-01T20:22:43.311Z",
+    "started_at": "2026-10-01T20:23:13.475Z",
+    "ended_at": "2026-10-01T23:51:06.465Z",
+    "branch": "armada/2-retire-guides-8-and-20-add-validation-that",
+    "workflow_id": "feature",
+    "owner_manifest_id": "armada",
+    "origin": "manual",
+    "urgency": "normal",
+    "atomic": false,
+    "model": "sonnet",
+    "current_step_id": "handoff",
+    "tasks": {
+      "done": 0,
+      "working": 0,
+      "open": 4,
+      "dropped": 0
+    }
+  },
+  "created_at": "2026-10-01T20:22:43.311Z",
+  "branch": "armada/2-retire-guides-8-and-20-add-validation-that",
+  "steps": [
+    {
+      "step_id": "plan",
+      "label": "Plan the change",
+      "ordinal": 0,
+      "state": "advanced",
+      "checks": [
+        {
+          "kind": "plan_recorded"
+        }
+      ],
+      "check_runs": [
+        {
+          "attempt": 1,
+          "name": "plan_recorded",
+          "outcome": "passed"
+        }
+      ],
+      "judge_checks": [
+        {
+          "criteria": 2,
+          "gaming_check": false
+        }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false,
+      "last_verdict": {
+        "attempt": 1,
+        "named": "passed"
+      },
+      "overridden": false,
+      "judged": [
+        {
+          "attempt": 1,
+          "criterion_id": "addresses_the_request",
+          "verdict": "not_met",
+          "expected": "Tasks to retire guides 8 and 20 from the catalogue, add a repository rule that guides' pieces must be drawn somewhere, and verify the rule works",
+          "produced": "Tasks T1–T3 address the request, but T4 adds \"Document the rule and fix prose that pointed at the retired guides\" — documentation updates to design-system.md and prose fixes in docs/concepts",
+          "consequence": "Scope expands beyond what was requested; the original request specifies retiring guides and adding the rule, not documenting the rule or maintaining references to it in existing prose",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/plan.1.addresses_the_request.txt",
+          "cited": [
+            {
+              "region": "plan",
+              "from_line": 60,
+              "to_line": 60
+            }
+          ],
+          "given": {
+            "digest": "9ffdc1bd4be9751d",
+            "size": 9665,
+            "model": "haiku"
+          }
+        },
+        {
+          "attempt": 1,
+          "criterion_id": "names_what_it_will_touch",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/plan.1.names_what_it_will_touch.txt",
+          "cited": [],
+          "given": {
+            "digest": "463aa9ccb419db7e",
+            "size": 9719,
+            "model": "haiku"
+          }
+        }
+      ],
+      "flagged": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "outcome": "awaiting_human",
+          "started_at": "2026-10-01T20:23:51.575Z",
+          "ended_at": "2026-10-01T20:26:21.196Z"
+        }
+      ],
+      "verdicts": [],
+      "entered_at": "2026-10-01T20:23:51.575Z",
+      "updated_at": "2026-10-01T20:33:57.779Z"
+    },
+    {
+      "step_id": "implement",
+      "label": "Implement",
+      "ordinal": 1,
+      "state": "advanced",
+      "checks": [
+        {
+          "kind": "every_manifest_check"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "build",
+          "run": "cargo build --workspace --locked",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "xtask/**",
+            "Cargo.toml",
+            "Cargo.lock",
+            ".cargo/**",
+            "protocol-version.toml",
+            ".armada/workflows/**",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "test",
+          "run": "cargo nextest run --workspace --exclude acceptance --test-threads ${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "xtask/**",
+            "apps/**",
+            "packages/**",
+            "Cargo.toml",
+            "Cargo.lock",
+            ".cargo/**",
+            "protocol-version.toml",
+            ".armada/workflows/**",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "acceptance",
+          "run": "cargo nextest run -p acceptance --test-threads ${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "Cargo.toml",
+            "Cargo.lock"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "typecheck",
+          "run": "pnpm typecheck",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "bridge_build",
+          "run": "pnpm -C apps/desktop build",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "storybook",
+          "run": "pnpm -C packages/components build-storybook",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ],
+          "runs_at": "gate"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "desktop_test",
+          "run": "pnpm --dir apps/desktop exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "screens_test",
+          "run": "pnpm --dir packages/screens exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "components_test",
+          "run": "pnpm --dir packages/components exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ],
+          "runs_at": "gate"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "scripts_test",
+          "run": "python3 scripts/test_land.py",
+          "expect_exit_code": 0,
+          "when": [
+            "scripts/**",
+            "crates/armada/src/land/**",
+            "crates/adapter-traits/src/delivery.rs",
+            "crates/adapters/src/delivery.rs",
+            "crates/adapters/src/landing.rs",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "hooks_test",
+          "run": "python3 .claude/hooks/test_guard_merge.py",
+          "expect_exit_code": 0,
+          "when": [
+            ".claude/hooks/**"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "format",
+          "run": "cargo fmt --all --check",
+          "expect_exit_code": 0,
+          "when": [
+            "**/*.rs",
+            "Cargo.toml",
+            "rustfmt.toml",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "diff_nonempty"
+        }
+      ],
+      "check_runs": [
+        {
+          "attempt": 1,
+          "name": "build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.0.log"
+        },
+        {
+          "attempt": 1,
+          "name": "test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.dry.0.log",
+          "reused_from_dry_run": "2026-10-01T20:54:37.101Z"
+        },
+        {
+          "attempt": 1,
+          "name": "acceptance",
+          "outcome": "skipped",
+          "produced": "no changed file is under crates/**, Cargo.toml, Cargo.lock"
+        },
+        {
+          "attempt": 1,
+          "name": "typecheck",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.3.log"
+        },
+        {
+          "attempt": 1,
+          "name": "bridge_build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.4.log"
+        },
+        {
+          "attempt": 1,
+          "name": "storybook",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.5.log"
+        },
+        {
+          "attempt": 1,
+          "name": "desktop_test",
+          "outcome": "failed",
+          "expected": "`desktop_test` exits 0",
+          "produced": "it exited 1",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.6.log"
+        },
+        {
+          "attempt": 1,
+          "name": "screens_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.7.log"
+        },
+        {
+          "attempt": 1,
+          "name": "components_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.8.log"
+        },
+        {
+          "attempt": 1,
+          "name": "scripts_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml"
+        },
+        {
+          "attempt": 1,
+          "name": "hooks_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under .claude/hooks/**"
+        },
+        {
+          "attempt": 1,
+          "name": "format",
+          "outcome": "failed",
+          "expected": "`format` exits 0",
+          "produced": "it exited 1",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.1.11.log"
+        },
+        {
+          "attempt": 1,
+          "name": "diff_nonempty",
+          "outcome": "passed"
+        },
+        {
+          "attempt": 2,
+          "name": "build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.0.log"
+        },
+        {
+          "attempt": 2,
+          "name": "test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.1.log"
+        },
+        {
+          "attempt": 2,
+          "name": "acceptance",
+          "outcome": "skipped",
+          "produced": "no changed file is under crates/**, Cargo.toml, Cargo.lock"
+        },
+        {
+          "attempt": 2,
+          "name": "typecheck",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.3.log"
+        },
+        {
+          "attempt": 2,
+          "name": "bridge_build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.4.log"
+        },
+        {
+          "attempt": 2,
+          "name": "storybook",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.5.log"
+        },
+        {
+          "attempt": 2,
+          "name": "desktop_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.dry.0.log",
+          "reused_from_dry_run": "2026-10-01T21:00:40.141Z"
+        },
+        {
+          "attempt": 2,
+          "name": "screens_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.7.log"
+        },
+        {
+          "attempt": 2,
+          "name": "components_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.8.log"
+        },
+        {
+          "attempt": 2,
+          "name": "scripts_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml"
+        },
+        {
+          "attempt": 2,
+          "name": "hooks_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under .claude/hooks/**"
+        },
+        {
+          "attempt": 2,
+          "name": "format",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.11.log"
+        },
+        {
+          "attempt": 2,
+          "name": "diff_nonempty",
+          "outcome": "passed"
+        }
+      ],
+      "judge_checks": [
+        {
+          "criteria": 4,
+          "gaming_check": false
+        }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false,
+      "last_verdict": {
+        "attempt": 2,
+        "named": "passed"
+      },
+      "overridden": false,
+      "judged": [
+        {
+          "attempt": 2,
+          "criterion_id": "implements_the_scope",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/implement.2.implements_the_scope.txt",
+          "cited": [],
+          "given": {
+            "digest": "6256244c12a947ee",
+            "size": 45130,
+            "model": "haiku"
+          }
+        },
+        {
+          "attempt": 2,
+          "criterion_id": "no_behaviour_beyond_scope",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/implement.2.no_behaviour_beyond_scope.txt",
+          "cited": [],
+          "given": {
+            "digest": "76daaf9616762496",
+            "size": 44958,
+            "model": "haiku"
+          }
+        },
+        {
+          "attempt": 2,
+          "criterion_id": "tasks_match_the_diff",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/implement.2.tasks_match_the_diff.txt",
+          "cited": [],
+          "given": {
+            "digest": "24f4e73e45c55a9c",
+            "size": 44971,
+            "model": "haiku"
+          }
+        },
+        {
+          "attempt": 2,
+          "criterion_id": "the_evidence_accounts_for_itself",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/implement.2.the_evidence_accounts_for_itself.txt",
+          "cited": [],
+          "given": {
+            "digest": "879c957ea1469fed",
+            "size": 45327,
+            "model": "haiku"
+          }
+        }
+      ],
+      "flagged": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "outcome": "retrying",
+          "why": "gate_failure",
+          "started_at": "2026-10-01T20:33:57.987Z",
+          "ended_at": "2026-10-01T20:58:50.253Z"
+        },
+        {
+          "attempt": 2,
+          "outcome": "advanced",
+          "started_at": "2026-10-01T20:58:50.254Z",
+          "ended_at": "2026-10-01T21:07:05.253Z"
+        }
+      ],
+      "verdicts": [
+        {
+          "attempt": 1,
+          "named": "failed",
+          "trigger": "gate_failure"
+        },
+        {
+          "attempt": 2,
+          "named": "passed"
+        }
+      ],
+      "entered_at": "2026-10-01T20:58:50.254Z",
+      "updated_at": "2026-10-01T21:07:05.253Z"
+    },
+    {
+      "step_id": "tests",
+      "label": "Write tests",
+      "ordinal": 2,
+      "state": "advanced",
+      "checks": [
+        {
+          "kind": "every_manifest_check"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "build",
+          "run": "cargo build --workspace --locked",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "xtask/**",
+            "Cargo.toml",
+            "Cargo.lock",
+            ".cargo/**",
+            "protocol-version.toml",
+            ".armada/workflows/**",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "test",
+          "run": "cargo nextest run --workspace --exclude acceptance --test-threads ${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "xtask/**",
+            "apps/**",
+            "packages/**",
+            "Cargo.toml",
+            "Cargo.lock",
+            ".cargo/**",
+            "protocol-version.toml",
+            ".armada/workflows/**",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "acceptance",
+          "run": "cargo nextest run -p acceptance --test-threads ${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "crates/**",
+            "Cargo.toml",
+            "Cargo.lock"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "typecheck",
+          "run": "pnpm typecheck",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "bridge_build",
+          "run": "pnpm -C apps/desktop build",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "storybook",
+          "run": "pnpm -C packages/components build-storybook",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ],
+          "runs_at": "gate"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "desktop_test",
+          "run": "pnpm --dir apps/desktop exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "apps/**",
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "screens_test",
+          "run": "pnpm --dir packages/screens exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "components_test",
+          "run": "pnpm --dir packages/components exec vitest run --maxWorkers=${width}",
+          "expect_exit_code": 0,
+          "when": [
+            "packages/**",
+            "crates/core-model/domain/**",
+            "protocol-version.toml",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml"
+          ],
+          "runs_at": "gate"
+        },
+        {
+          "kind": "manifest_check",
+          "name": "scripts_test",
+          "run": "python3 scripts/test_land.py",
+          "expect_exit_code": 0,
+          "when": [
+            "scripts/**",
+            "crates/armada/src/land/**",
+            "crates/adapter-traits/src/delivery.rs",
+            "crates/adapters/src/delivery.rs",
+            "crates/adapters/src/landing.rs",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "hooks_test",
+          "run": "python3 .claude/hooks/test_guard_merge.py",
+          "expect_exit_code": 0,
+          "when": [
+            ".claude/hooks/**"
+          ]
+        },
+        {
+          "kind": "manifest_check",
+          "name": "format",
+          "run": "cargo fmt --all --check",
+          "expect_exit_code": 0,
+          "when": [
+            "**/*.rs",
+            "Cargo.toml",
+            "rustfmt.toml",
+            "armada.yml"
+          ]
+        },
+        {
+          "kind": "diff_nonempty"
+        }
+      ],
+      "check_runs": [
+        {
+          "attempt": 1,
+          "name": "build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.0.log"
+        },
+        {
+          "attempt": 1,
+          "name": "test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.1.log"
+        },
+        {
+          "attempt": 1,
+          "name": "acceptance",
+          "outcome": "skipped",
+          "produced": "no changed file is under crates/**, Cargo.toml, Cargo.lock"
+        },
+        {
+          "attempt": 1,
+          "name": "typecheck",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.3.log"
+        },
+        {
+          "attempt": 1,
+          "name": "bridge_build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.4.log"
+        },
+        {
+          "attempt": 1,
+          "name": "storybook",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.5.log"
+        },
+        {
+          "attempt": 1,
+          "name": "desktop_test",
+          "outcome": "failed",
+          "expected": "`desktop_test` exits 0",
+          "produced": "it exited 1",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.6.log"
+        },
+        {
+          "attempt": 1,
+          "name": "screens_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.dry.0.log",
+          "reused_from_dry_run": "2026-10-01T21:08:30.854Z"
+        },
+        {
+          "attempt": 1,
+          "name": "components_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.8.log"
+        },
+        {
+          "attempt": 1,
+          "name": "scripts_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml"
+        },
+        {
+          "attempt": 1,
+          "name": "hooks_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under .claude/hooks/**"
+        },
+        {
+          "attempt": 1,
+          "name": "format",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.1.11.log"
+        },
+        {
+          "attempt": 1,
+          "name": "diff_nonempty",
+          "outcome": "passed"
+        },
+        {
+          "attempt": 2,
+          "name": "build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.0.log"
+        },
+        {
+          "attempt": 2,
+          "name": "test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.1.log"
+        },
+        {
+          "attempt": 2,
+          "name": "acceptance",
+          "outcome": "skipped",
+          "produced": "no changed file is under crates/**, Cargo.toml, Cargo.lock"
+        },
+        {
+          "attempt": 2,
+          "name": "typecheck",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.3.log"
+        },
+        {
+          "attempt": 2,
+          "name": "bridge_build",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.4.log"
+        },
+        {
+          "attempt": 2,
+          "name": "storybook",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.5.log"
+        },
+        {
+          "attempt": 2,
+          "name": "desktop_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.dry.0.log",
+          "reused_from_dry_run": "2026-10-01T21:14:58.250Z"
+        },
+        {
+          "attempt": 2,
+          "name": "screens_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.7.log"
+        },
+        {
+          "attempt": 2,
+          "name": "components_test",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.8.log"
+        },
+        {
+          "attempt": 2,
+          "name": "scripts_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml"
+        },
+        {
+          "attempt": 2,
+          "name": "hooks_test",
+          "outcome": "skipped",
+          "produced": "no changed file is under .claude/hooks/**"
+        },
+        {
+          "attempt": 2,
+          "name": "format",
+          "outcome": "passed",
+          "output_path": ".armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.11.log"
+        },
+        {
+          "attempt": 2,
+          "name": "diff_nonempty",
+          "outcome": "passed"
+        }
+      ],
+      "judge_checks": [
+        {
+          "criteria": 1,
+          "gaming_check": true,
+          "gaming_patterns": [
+            "assertion_weakened",
+            "test_scope_narrowed",
+            "tautological_test",
+            "check_config_edited"
+          ]
+        }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false,
+      "last_verdict": {
+        "attempt": 2,
+        "named": "passed"
+      },
+      "overridden": false,
+      "judged": [
+        {
+          "attempt": 2,
+          "criterion_id": "tests_exercise_behaviour",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/tests.2.tests_exercise_behaviour.txt",
+          "cited": [],
+          "given": {
+            "digest": "2225b795a8492df1",
+            "size": 46079,
+            "model": "haiku"
+          }
+        },
+        {
+          "attempt": 2,
+          "criterion_id": "declared_plan_drift",
+          "verdict": "met",
+          "brief_path": ".armada/briefs/2-retire-guides-8-and-20-add-validation-that/tests.2.declared_plan_drift.txt",
+          "cited": [],
+          "given": {
+            "digest": "a6feab0fcb2125f0",
+            "size": 46460,
+            "model": "haiku"
+          }
+        }
+      ],
+      "flagged": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "outcome": "retrying",
+          "why": "gate_failure",
+          "started_at": "2026-10-01T21:07:05.254Z",
+          "ended_at": "2026-10-01T21:13:23.265Z"
+        },
+        {
+          "attempt": 2,
+          "outcome": "advanced",
+          "started_at": "2026-10-01T21:13:23.266Z",
+          "ended_at": "2026-10-01T21:23:18.235Z"
+        }
+      ],
+      "verdicts": [
+        {
+          "attempt": 1,
+          "named": "failed",
+          "trigger": "gate_failure"
+        },
+        {
+          "attempt": 2,
+          "named": "passed"
+        }
+      ],
+      "entered_at": "2026-10-01T21:13:23.266Z",
+      "updated_at": "2026-10-01T21:23:18.235Z"
+    },
+    {
+      "step_id": "handoff",
+      "label": "Review the change",
+      "ordinal": 3,
+      "state": "advanced",
+      "checks": [],
+      "check_runs": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": true,
+      "last_verdict": {
+        "attempt": 1,
+        "named": "passed"
+      },
+      "overridden": false,
+      "judged": [],
+      "flagged": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "outcome": "awaiting_human",
+          "started_at": "2026-10-01T21:23:18.236Z",
+          "ended_at": "2026-10-01T21:23:46.361Z"
+        }
+      ],
+      "verdicts": [],
+      "entered_at": "2026-10-01T21:23:18.236Z",
+      "updated_at": "2026-10-01T23:51:06.464Z"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "c1",
+      "text": "Guides 8 and 20 are removed from the catalogue, a repository rule prevents guides with undrawn pieces from landing, and tests catch violations of that rule",
+      "source": "judge"
+    }
+  ],
+  "facts": "Retire guide 8, \"What does the progress bar show?\", and guide 20, \"What if a step changes a file it never said it would?\" — no screen draws either piece any more. Take them out of the catalogue, and add a repository rule that every guide's piece is drawn somewhere, so this can't happen again. https://github.com/NickMele/armada/issues/1718\n\nGuide 8 is in the catalogue with no piece on screen\n\nGuide 8, *What does the progress bar show?*, is in the catalogue and openable from Guides, and nothing on a Job opens it. Its only mark was on the run tree, which no longer exists.\n\n## What happened\n\n`GuideMark guide={GUIDE_STEP_BAR}` is drawn in `packages/screens/src/InsideAJob.tsx:379`, and nothing renders `InsideAJob` since the Overview reframe of 29 September 2026. So the guide's piece, `run.step-bar`, is on no screen.\n\nThe guide describes a bar that no longer exists in the form it describes:\n\n> The run is the workflow's steps, in the order this job runs them… A bar carries one segment for each piece of work under it… The mark beside the step is what says the work is still running.\n\n## What is missing\n\nA decision has already been taken: asked whether to bring it back or retire it, the owner chose **retire**. Nothing has been done about it since.\n\nSo either the guide comes out of the catalogue, or what remains true of it moves to a piece that is drawn. Worth checking before deleting: the Plan card's group rows and the Workflow canvas both draw progress, and *the bar never moves on its own* may still be a thing worth saying about one of them — in which case this is a rewrite against a new piece rather than a removal.\n\n## In\n\n`packages/components/src/guides/008-what-does-the-progress-bar-show.ts` and `guides/index.ts`. `GUIDES` is walked by `guides-met.ts` and by the catalogue, and the numbering is stable — read what removing a number does to both before doing it.\n\n## What proves it\n\n`guides.test.tsx` was retargeted from `GUIDE_STEP_BAR` to `GUIDE_WORKFLOW` on 30 September, because guide 8 could no longer be the first piece a person meets on a Job. That change records the problem; this issue is the part that was left.\n\n**There is no gate for this.** A guide in the catalogue whose piece no screen draws passes everything, which is the same family as https://github.com/NickMele/armada/issues/1668 and https://github.com/NickMele/armada/issues/1678 — two other gaps found by eye this week. A rule that every guide's `piece` is drawn somewhere would have caught it the moment the reframe landed, and is worth considering as part of this.",
+  "dependencies": [],
+  "footprint": {
+    "files": [],
+    "recorded_at": "2026-10-01T23:51:06.495Z",
+    "plans": [
+      {
+        "step_id": "plan",
+        "attempt": 1,
+        "declared_at": "2026-10-01T20:24:01.447Z",
+        "paths": [
+          "packages/components/src/guides",
+          "packages/screens/src/InsideAJob.tsx",
+          "apps/desktop/src/renderer/src/mock",
+          "apps/desktop/vitest.config.ts",
+          "packages/components/src/compositions/GuideFigure",
+          "docs",
+          "xtask"
+        ]
+      },
+      {
+        "step_id": "implement",
+        "attempt": 1,
+        "declared_at": "2026-10-01T20:34:02.510Z",
+        "paths": [
+          "packages/components/src/guides",
+          "packages/screens/src/InsideAJob.tsx",
+          "packages/components/src/compositions/GuideFigure",
+          "xtask/src",
+          "docs/contracts/design-system.md",
+          "docs/INDEX.md",
+          "docs/concepts"
+        ]
+      },
+      {
+        "step_id": "tests",
+        "attempt": 1,
+        "declared_at": "2026-10-01T21:07:13.339Z",
+        "paths": [
+          "packages/components/src/guides",
+          "xtask/src/rules_guides.rs",
+          "xtask/src/rules_guides"
+        ]
+      }
+    ]
+  },
+  "delivery": {
+    "commit": "daae5427cfd2c705d4cbcf719121e6b5e1b285d7",
+    "pushed": "origin/armada/2-retire-guides-8-and-20-add-validation-that",
+    "pull_request": "https://github.com/NickMele/armada/pull/1750",
+    "landed": "merged"
+  },
+  "spend": {
+    "cost_micros": 1860212,
+    "cost_cap_micros": 10000000,
+    "turns": 105,
+    "turn_cap": 300,
+    "ran_ms": 3133519,
+    "unpriced": 1,
+    "drones": 4
+  },
+  "write_scope_overlaps": [],
+  "show_again": {
+    "harness": true,
+    "worktree_on_disk": false,
+    "spec": {
+      "step_id": "implement",
+      "attempt": 2,
+      "spec": "xtask/src/rules_guides/tests.rs — Rust unit tests for the rule. The `test` and `desktop_test` checks passed on this branch; `desktop_test` had failed once on a studios.test.tsx timeout (not touched by this change) and passed on rerun with no code change.",
+      "on_disk": false
+    },
+    "specs": [
+      {
+        "step_id": "implement",
+        "attempt": 2,
+        "spec": "xtask/src/rules_guides/tests.rs — Rust unit tests for the rule. The `test` and `desktop_test` checks passed on this branch; `desktop_test` had failed once on a studios.test.tsx timeout (not touched by this change) and passed on rerun with no code change.",
+        "on_disk": false
+      },
+      {
+        "step_id": "implement",
+        "attempt": 1,
+        "spec": "xtask/src/rules_guides/tests.rs — Rust unit tests for the rule (undrawn fails, drawn passes, catalogue-only exempt, story/test/index mention doesn't count, prefix name isn't a match). The workspace `test` check passed after the last fix.",
+        "on_disk": false
+      }
+    ],
+    "drone_working": false,
+    "shown": []
+  },
+  "when_blocked": "allow_all",
+  "when_refused": "per_criterion",
+  "allowed_commands": [
+    {
+      "run": "rm packages/components/src/guides/008-what-does-the-progress-bar-show.ts packages/components/src/guides/020-what-if-a-step-changes-a-file-it-never-said-it-would.ts",
+      "reach": "job",
+      "allowed_at": "2026-10-01T20:39:32.552Z",
+      "by": "human"
+    }
+  ],
+  "repository_allowed_commands": [],
+  "review_step": "Review the change",
+  "review": {
+    "why": "Retire guide 8, \"What does the progress bar show?\", and guide 20, \"What if a step changes a file it never said it would?\" — no screen draws either piece any more. Take them out of the catalogue, and add a repository rule that every guide's piece is drawn somewhere, so this can't happen again. https://github.com/NickMele/armada/issues/1718\n\nGuide 8 is in the catalogue with no piece on screen\n\nGuide 8, *What does the progress bar show?*, is in the catalogue and openable from Guides, and nothing on a Job opens it. Its only mark was on the run tree, which no longer exists.\n\n## What happened\n\n`GuideMark guide={GUIDE_STEP_BAR}` is drawn in `packages/screens/src/InsideAJob.tsx:379`, and nothing renders `InsideAJob` since the Overview reframe of 29 September 2026. So the guide's piece, `run.step-bar`, is on no screen.\n\nThe guide describes a bar that no longer exists in the form it describes:\n\n> The run is the workflow's steps, in the order this job runs them… A bar carries one segment for each piece of work under it… The mark beside the step is what says the work is still running.\n\n## What is missing\n\nA decision has already been taken: asked whether to bring it back or retire it, the owner chose **retire**. Nothing has been done about it since.\n\nSo either the guide comes out of the catalogue, or what remains true of it moves to a piece that is drawn. Worth checking before deleting: the Plan card's group rows and the Workflow canvas both draw progress, and *the bar never moves on its own* may still be a thing worth saying about one of them — in which case this is a rewrite against a new piece rather than a removal.\n\n## In\n\n`packages/components/src/guides/008-what-does-the-progress-bar-show.ts` and `guides/index.ts`. `GUIDES` is walked by `guides-met.ts` and by the catalogue, and the numbering is stable — read what removing a number does to both before doing it.\n\n## What proves it\n\n`guides.test.tsx` was retargeted from `GUIDE_STEP_BAR` to `GUIDE_WORKFLOW` on 30 September, because guide 8 could no longer be the first piece a person meets on a Job. That change records the problem; this issue is the part that was left.\n\n**There is no gate for this.** A guide in the catalogue whose piece no screen draws passes everything, which is the same family as https://github.com/NickMele/armada/issues/1668 and https://github.com/NickMele/armada/issues/1678 — two other gaps found by eye this week. A rule that every guide's `piece` is drawn somewhere would have caught it the moment the reframe landed, and is worth considering as part of this.",
+    "outcome": "13 files changed:\n\n- `docs/contracts/design-system.md` — modified\n- `packages/components/src/compositions/GuideFigure/GuideFigure.css` — modified\n- `packages/components/src/compositions/GuideFigure/GuideFigure.stories.tsx` — modified\n- `packages/components/src/compositions/GuideFigure/GuideFigure.tsx` — modified\n- `packages/components/src/guides/008-what-does-the-progress-bar-show.ts` — deleted\n- `packages/components/src/guides/020-what-if-a-step-changes-a-file-it-never-said-it-would.ts` — deleted\n- `packages/components/src/guides/guide.ts` — modified\n- `packages/components/src/guides/index.ts` — modified\n- `packages/screens/src/guides.test.ts` — modified\n- `packages/screens/src/InsideAJob.tsx` — modified\n- `xtask/src/main.rs` — modified\n- `xtask/src/rules_guides.rs` — added\n- `xtask/src/rules_guides/tests.rs` — added\n\nWhat the change *does* is in the commits. Nothing in this repository reads a diff for meaning, so Fleet does not describe one.\n\n",
+    "risks": "Every line below is something Fleet ran, not something the agent reported. What no Check covered is not covered here either — a Check is a command and an exit code, and nothing in this repository reads a Check's output for meaning.\n\nThese acceptance criteria are not a Check and nothing mechanical confirmed them:\n\n- Guides 8 and 20 are removed from the catalogue, a repository rule prevents guides with undrawn pieces from landing, and tests catch violations of that rule\n\n`origin/main` holds 32 commits that `main` has not got, so this branch was brought up to a base somebody has since moved past.\n\n",
+    "evidence": "**Plan the change** — advanced\n- `plan_recorded` — passed\n\n**Implement** — advanced\n- `build` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.0.log))\n- `test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.1.log))\n- `acceptance` — skipped, no changed file is under crates/**, Cargo.toml, Cargo.lock\n- `typecheck` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.3.log))\n- `bridge_build` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.4.log))\n- `storybook` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.5.log))\n- `desktop_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.dry.0.log))\n- `screens_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.7.log))\n- `components_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.8.log))\n- `scripts_test` — skipped, no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml\n- `hooks_test` — skipped, no changed file is under .claude/hooks/**\n- `format` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/implement.2.11.log))\n- `diff_nonempty` — passed\n\n**Write tests** — advanced\n- `build` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.0.log))\n- `test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.1.log))\n- `acceptance` — skipped, no changed file is under crates/**, Cargo.toml, Cargo.lock\n- `typecheck` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.3.log))\n- `bridge_build` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.4.log))\n- `storybook` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.5.log))\n- `desktop_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.dry.0.log))\n- `screens_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.7.log))\n- `components_test` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.8.log))\n- `scripts_test` — skipped, no changed file is under scripts/**, crates/armada/src/land/**, crates/adapter-traits/src/delivery.rs, crates/adapters/src/delivery.rs, crates/adapters/src/landing.rs, armada.yml\n- `hooks_test` — skipped, no changed file is under .claude/hooks/**\n- `format` — passed ([output](.armada/checks/2-retire-guides-8-and-20-add-validation-that/tests.2.11.log))\n- `diff_nonempty` — passed\n\n**Review the change** — is being worked — the branch went out as it was entered\n- no Check ran against this step\n\n"
+  },
+  "confidence": {
+    "says": "confident",
+    "reasons": [
+      "The two guides and everything only they used were removed, and the retired numbers are checked by an existing test and a new one.",
+      "The new rule has fixture-tree tests for the failing, passing, exempt and story-only cases.",
+      "I could not run the new rule against the real tree in this review, so its pass on the post-removal tree rests on the earlier passing test check."
+    ],
+    "areas": [
+      {
+        "name": "Guides catalogue",
+        "what": "Guides 8 and 20 are deleted, and their numbers join 11 as retired so numbering stays stable.",
+        "files": [
+          "packages/components/src/guides/008-what-does-the-progress-bar-show.ts",
+          "packages/components/src/guides/020-what-if-a-step-changes-a-file-it-never-said-it-would.ts",
+          "packages/components/src/guides/index.ts",
+          "packages/components/src/guides/guide.ts"
+        ],
+        "view": [
+          {
+            "file": "packages/components/src/guides/index.ts",
+            "hunk": "@@ -62,8 +58,11 @@ export {",
+            "summary": "The retired numbers list gains 8 and 20 with the reason each went.",
+            "tie_to_next": "The guide files and their entries then have to go."
+          },
+          {
+            "file": "packages/components/src/guides/index.ts",
+            "hunk": "@@ -77,10 +76,8 @@ export const GUIDES: readonly Guide[] = [",
+            "summary": "The two guides are dropped from the catalogue list."
+          }
+        ]
+      },
+      {
+        "name": "Guide figures",
+        "what": "The step-bar drawing, its reading text, its styles and its story are removed because only guide 8 used them.",
+        "files": [
+          "packages/components/src/compositions/GuideFigure/GuideFigure.tsx",
+          "packages/components/src/compositions/GuideFigure/GuideFigure.css",
+          "packages/components/src/compositions/GuideFigure/GuideFigure.stories.tsx"
+        ]
+      },
+      {
+        "name": "Job screen",
+        "what": "The guide mark for the progress bar is removed from the old run-tree screen along with its import.",
+        "files": [
+          "packages/screens/src/InsideAJob.tsx"
+        ]
+      },
+      {
+        "name": "Repository rules",
+        "what": "A new rule fails the foundations check when a guide's piece is marked on no screen, with the five catalogue-only pieces exempt.",
+        "files": [
+          "xtask/src/rules_guides.rs",
+          "xtask/src/rules_guides/tests.rs",
+          "xtask/src/main.rs"
+        ],
+        "view": [
+          {
+            "file": "xtask/src/rules_guides.rs",
+            "hunk": "@@ -0,0 +1,138 @@",
+            "summary": "The rule reads each guide file and requires a mark for it outside stories, tests and the guides folder.",
+            "tie_to_next": "The rule must then be registered to run."
+          },
+          {
+            "file": "xtask/src/main.rs",
+            "hunk": "@@ -130,6 +131,7 @@ fn verify_foundations() -> ExitCode {",
+            "summary": "The rule is added to the foundations run."
+          }
+        ]
+      },
+      {
+        "name": "Design system contract",
+        "what": "The guides section names the new rule and the retired numbers.",
+        "files": [
+          "docs/contracts/design-system.md"
+        ]
+      },
+      {
+        "name": "Guide tests",
+        "what": "A test asserts numbers 8, 11 and 20 are retired and that no guide claims the step-bar or drift pieces.",
+        "files": [
+          "packages/screens/src/guides.test.ts"
+        ]
+      }
+    ],
+    "tests": {
+      "proves": [
+        {
+          "area": "Repository rules",
+          "what": "An undrawn piece fails, a marked one passes, the five catalogue-only pieces are exempt, and marks in stories, tests or the catalogue index do not count. A longer name is not mistaken for the guide, and odd or missing guide files are reported.",
+          "tests": 8
+        },
+        {
+          "area": "Guide tests",
+          "what": "Numbers 8, 11 and 20 are retired and absent, and no guide uses the step-bar or drift pieces.",
+          "tests": 1
+        }
+      ],
+      "changed": [],
+      "untested": [
+        {
+          "code": "The rule has not been seen running against the real repository tree, only against fixture trees.",
+          "why": "Part 3 did not run it directly, and I could not run the check commands in this review."
+        }
+      ]
+    },
+    "needs_you": [],
+    "small_fixes": [],
+    "for_context": [
+      {
+        "finding": "Part 3 saw 11 timeouts in unrelated desktop tests in a full run that did not recur on rerun. An earlier timeout in the studios test is still unexplained.",
+        "why": "They do not touch this change but could reappear in the next full run."
+      },
+      {
+        "finding": "The step-bar component itself was kept because other screens use it. Only the guide-only drawing was removed.",
+        "why": "A reader might expect the component to go with the guide."
+      }
+    ]
+  },
+  "workflow_source": "repository",
+  "work_plan": {
+    "approach": "Retire guides 8 and 20 the way guide 11 was retired: delete their files, drop them from the imports, exports and GUIDES array in guides/index.ts, and add 8 and 20 to RETIRED_GUIDE_NUMBERS so numbers stay stable (the existing guides.test.ts number-accounting tests then hold with the new retired set). Before deleting, check the two candidates for a rewrite: Plan card group rows and the Workflow canvas draw progress, but the owner already chose retire for 8, and guide 20's piece run.drift has no GuideMark anywhere, so both are removals. Guide 8's only mark is GuideMark guide={GUIDE_STEP_BAR} in packages/screens/src/InsideAJob.tsx:379, so remove that mark and its import. The 'step-bar' GuideFigureId and its StepBars drawing in GuideFigure (and its story) exist only for guide 8, so remove them too; leave the StepBar component, which other screens use. Then add the repository rule as an xtask gate rule in the style of rules_stories.rs (no TS parser, read the one shape a guide file has): for every guides/NNN-*.ts, read the exported const name and `piece`, and require the const to be referenced by a GuideMark/guide prop in a non-story, non-test source under packages/ or apps/, except the five catalogue-only pieces decided in guide.ts (job.what, job.before, plan.what, run.drone, workflow.what), which the rule names as an explicit list. Register it in xtask/src/main.rs, give it Rust unit tests with fixture trees (undrawn piece fails, drawn passes, catalogue-only exempt, a mark only in a story or test does not count), and document it where the guides contract lives in docs/contracts/design-system.md (and docs/INDEX.md if a new doc is added). Part 3 adds the vitest side: guides.test.ts asserts 8, 20 and 11 are retired and absent. After the change, run guide 8/20 searches in docs/concepts for prose that now points at them.",
+    "recorded_by": {
+      "by": "step",
+      "step_id": "plan",
+      "attempt": 1
+    },
+    "recorded_at": "2026-10-01T20:24:44.953Z",
+    "tasks": [
+      {
+        "id": "T1",
+        "title": "Remove guides 8 and 20 from the catalogue and retire their numbers",
+        "note": "RETIRED_GUIDE_NUMBERS becomes [8, 11, 20]; extend its doc comment with why each went (8: the run tree's step bar went with the Overview reframe of 29 Sep 2026; 20: no screen draws run.drift). Delete both files; remove imports, exports and GUIDES entries.",
+        "scope": [
+          "packages/components/src/guides/index.ts",
+          "packages/components/src/guides/008-what-does-the-progress-bar-show.ts",
+          "packages/components/src/guides/020-what-if-a-step-changes-a-file-it-never-said-it-would.ts"
+        ],
+        "expects": "guides.test.ts passes: numbers unique, retired numbers absent, every number 1..21 in use or retired",
+        "state": "open"
+      },
+      {
+        "id": "T2",
+        "title": "Remove what only guide 8 used: the InsideAJob mark and the step-bar guide figure",
+        "note": "Leave the StepBar composition itself; other screens use it. Check GuideFigure.stories and the GuideFigureId union in guide.ts.",
+        "scope": [
+          "packages/screens/src/InsideAJob.tsx",
+          "packages/components/src/guides/guide.ts",
+          "packages/components/src/compositions/GuideFigure/GuideFigure.tsx",
+          "packages/components/src/compositions/GuideFigure/GuideFigure.stories.tsx"
+        ],
+        "expects": "no remaining reference to GUIDE_STEP_BAR, GUIDE_DRIFT or the 'step-bar' figure id (grep); typecheck of packages/components and packages/screens clean",
+        "state": "open"
+      },
+      {
+        "id": "T3",
+        "title": "Add the xtask rule that every guide's piece is drawn somewhere",
+        "note": "No TS parser, as in rules_stories.rs. Exempt list is the five catalogue-only pieces from guide.ts; a reference in a story, test or the guides dir itself does not count as drawn.",
+        "scope": [
+          "xtask/src/rules_guides.rs",
+          "xtask/src/main.rs"
+        ],
+        "expects": "cargo xtask verify-foundations lists the new rule and it passes on the post-removal tree; it would fail on the pre-change tree for run.drift",
+        "state": "open"
+      },
+      {
+        "id": "T4",
+        "title": "Document the rule and fix prose that pointed at the retired guides",
+        "note": "The guide contract is in docs/contracts/design-system.md near line 2903; grep docs/concepts and docs for guide 8 / guide 20 references. Index any new file in docs/INDEX.md.",
+        "scope": [
+          "docs/contracts/design-system.md",
+          "docs/INDEX.md",
+          "docs/concepts"
+        ],
+        "expects": "the design-system contract names the rule and the retired numbers; the docs gate stays as green as on main",
+        "state": "open"
+      }
+    ]
+  }
+}

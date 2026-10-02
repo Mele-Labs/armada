@@ -83,14 +83,18 @@ pub async fn proposed(
     making: Watching,
     client_ref: Option<String>,
     records_root: &str,
-) -> Result<(ProposalId, Proposal), NotProposed> {
+) -> (
+    Result<(ProposalId, Proposal), NotProposed>,
+    Option<WorkflowId>,
+) {
     let brief = Brief::about(request, workflows, &proposing.choices);
-    let ask = Ask::put(
+    let Ok(ask) = Ask::put(
         proposing.model.clone(),
         brief.question(),
         proposing.environment.clone(),
-    )
-    .map_err(|_| NotProposed::Call(CallFailed::NothingToAsk))?;
+    ) else {
+        return (Err(NotProposed::Call(CallFailed::NothingToAsk)), None);
+    };
     // Begun before the call so that a person may stop one that never gets as
     // far as the vendor — which is precisely the case worth stopping.
     let (making, stopped) = making.begin(client_ref);
@@ -99,9 +103,38 @@ pub async fn proposed(
     // same request — the only thing on the record that says so, since a split
     // writes no edge between Jobs that may run in any order.
     let minted_by = ProposalId::carried(Ulid::carried(making.proposal().as_str()));
+    let read = asked(
+        &brief,
+        &ask,
+        workflows,
+        proposing,
+        &making,
+        stopped,
+        records_root,
+    )
+    .await;
+    // What a Job whose call died keeps, read before the guard goes: dropping
+    // it publishes the coming-back message, and the Jobs this becomes arrive
+    // as `job.created` after it.
+    let settled = making.settled_workflow();
+    drop(making);
+    (read.map(|proposal| (minted_by, proposal)), settled)
+}
+
+/// The call, the reading, and the one retry `#831` allows on a reading that
+/// failed.
+async fn asked(
+    brief: &Brief,
+    ask: &Ask,
+    workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+    proposing: &Proposing,
+    making: &crate::proposals::Making,
+    stopped: crate::proposals::StopWhenAsked,
+    records_root: &str,
+) -> Result<Proposal, NotProposed> {
     let first_reply = watched(
         proposing.client.as_ref(),
-        &ask,
+        ask,
         proposing.budget,
         &making.telling(workflows, &proposing.choices),
         stopped.asked(),
@@ -114,10 +147,7 @@ pub async fn proposed(
     // second try may fix, never an outage and never `Unresolved`, which is a
     // successful reading. `#831`: one retry, and only on this.
     let refused = match brief.read(&first_reply, workflows, &proposing.choices) {
-        Ok(proposal) => {
-            drop(making);
-            return Ok((minted_by, proposal));
-        }
+        Ok(proposal) => return Ok(proposal),
         Err(refused) => refused,
     };
     let retry_ask = Ask::put(
@@ -133,31 +163,27 @@ pub async fn proposed(
         &making.telling(workflows, &proposing.choices),
         making.retry().asked(),
     )
-    .await;
-    // Held to here and no further: dropping it publishes the coming-back
-    // message, and the Jobs this becomes arrive as `job.created` after it.
-    drop(making);
-    let second_reply = second_reply.map_err(NotProposed::Call)?;
-    match brief.read(&second_reply, workflows, &proposing.choices) {
-        Ok(proposal) => Ok((minted_by, proposal)),
-        Err(refused_again) => {
-            // Best-effort, and never a reason to fail harder than the
-            // refusal already does — `kept_reply::kept`'s own rule. `None`
-            // is the honest answer where the write itself did not happen.
+    .await
+    .map_err(NotProposed::Call)?;
+    brief
+        .read(&second_reply, workflows, &proposing.choices)
+        .map_err(|refused_again| {
+            // Best-effort, and never a reason to fail harder than the refusal
+            // already does — `kept_reply::kept`'s own rule. `None` is the
+            // honest answer where the write itself did not happen.
             let kept_at = crate::kept_reply::kept(
                 records_root,
-                minted_by.as_str(),
+                making.proposal().as_str(),
                 &first_reply,
                 &second_reply,
             );
-            Err(NotProposed::Unreadable {
+            NotProposed::Unreadable {
                 second: Box::new(refused_again),
                 first_reply,
                 second_reply,
                 kept_at,
-            })
-        }
-    }
+            }
+        })
 }
 
 /// The question asked again, with what the first answer was refused for.
@@ -239,6 +265,17 @@ async fn resolved(call: &LookupCall) -> Result<String, String> {
     }
 }
 
+/// Who settled a proposed Job's scope: the proposer, in its own words where it
+/// gave a reason.
+fn stated_by(job: &ProposedJob) -> StatedBy {
+    StatedBy::TheProposer(job.because.clone().unwrap_or_else(|| {
+        format!(
+            "the Job proposer read the request and chose `{}`; it gave no reason",
+            job.workflow_id.as_str()
+        )
+    }))
+}
+
 /// The origin a Job read from a typed request carries: **who sent it.** A
 /// person at the composer is *Dispatched by you*, a Helm session *Drafted in
 /// Helm* — the proposer choosing the workflow does not make it Fleet's find.
@@ -317,7 +354,32 @@ where
         if request.is_empty() {
             return Err(Adrift::NothingToPropose);
         }
+        // The caller's word, once — `ProposalMoved` and every `job.created`
+        // this call mints are published against the same actor. `#943`.
+        let actor = match by {
+            api::Redirector::Person => core_model::Actor::Human,
+            api::Redirector::Helm => core_model::Actor::Helm,
+        };
+        // Refused before any Job exists: with no proposer to ask, nothing
+        // could ever move the Job, and a row at `proposing` would wait forever.
+        let proposing = self.proposing().map_err(Adrift::NotProposable)?;
+        // **The Job exists before the call does** — a dispatched request is a
+        // Job from the press, and the call is minted under its id.
+        let minted_by = ProposalId::carried(self.mint().ulid());
+        let head = self
+            .proposing_job(
+                request,
+                attachments,
+                served,
+                dispatched_as,
+                &minted_by,
+                actor,
+            )
+            .await?;
         let outcome = enrich(request, self.links().as_ref()).await;
+        if let Enriched::Failed(cause) = &outcome {
+            self.noted_lookup_failed(head.id(), cause);
+        }
         let enriched = match &outcome {
             Enriched::AsGiven | Enriched::Failed(_) => request.to_string(),
             // Appended, never substituted: a person or a Judge reading `facts`
@@ -325,54 +387,80 @@ where
             Enriched::Resolved(text) => format!("{request}\n\n{text}"),
         };
         let request = enriched.as_str();
-        // The caller's word, once — `ProposalMoved` and every `job.created`
-        // this call mints are published against the same actor. `#943`.
-        let actor = match by {
-            api::Redirector::Person => core_model::Actor::Human,
-            api::Redirector::Helm => core_model::Actor::Helm,
-        };
-        let proposing = self.proposing().map_err(Adrift::NotProposable)?;
-        let (minted_by, proposal) = proposed(
+        let (read, settled) = proposed(
             request,
             served.workflows(),
             &proposing,
-            self.making(actor),
+            self.making(actor).for_job(&minted_by, head.id()),
             client_ref,
             served.records_root(),
         )
-        .await
-        .map_err(|cause| Adrift::NotProposed {
-            request: request.to_string(),
-            cause,
-        })?;
-        let plan = match proposal {
-            Proposal::Resolved(jobs) => jobs,
-            // **Two refusals and not one.** A request no workflow fits is said
-            // again differently; a model this machine does not run is a
-            // different model or that model installed. Collapsing them gave a
-            // mis-spelled model the rephrase-it sentence, which cannot fix it
-            // — `#334` and `#410`'s rule, and `Unresolved::ModelNotHeld`'s
-            // own note.
-            Proposal::Unresolved(Unresolved::ModelNotHeld { named, held }) => {
-                return Err(Adrift::ModelNotHeld {
+        .await;
+        let plan = match read {
+            Ok((_, Proposal::Resolved(jobs))) => jobs,
+            // **Two refusals and not one** at the route. A request no workflow
+            // fits is said again differently; a model this machine does not
+            // run is a different model or that model installed — `#334` and
+            // `#410`'s rule, and `Unresolved::ModelNotHeld`'s own note. On the
+            // Job, the second folds into `proposer_failed`: `crate::dispatched`.
+            Ok((_, Proposal::Unresolved(Unresolved::ModelNotHeld { named, held }))) => {
+                let cause = Adrift::ModelNotHeld {
                     request: request.to_string(),
                     named,
                     held,
-                })
+                };
+                return Err(self.proposal_ended(&head, settled, cause, actor).await);
             }
-            Proposal::Unresolved(why) => {
-                return Err(Adrift::NoWorkflowFits {
+            Ok((_, Proposal::Unresolved(why))) => {
+                let cause = Adrift::NoWorkflowFits {
                     request: request.to_string(),
                     why,
-                })
+                };
+                return Err(self.proposal_ended(&head, settled, cause, actor).await);
+            }
+            Err(cause) => {
+                let cause = Adrift::NotProposed {
+                    request: request.to_string(),
+                    cause,
+                };
+                return Err(self.proposal_ended(&head, settled, cause, actor).await);
             }
         };
-        // In the plan's own order, because an edge points at an id Fleet has
-        // already minted. `read` refuses any plan whose edges do not point
-        // backwards, which is what keeps this loop free of a second check —
-        // and what makes the indexing below total.
+        let Some((first, extras)) = plan.split_first() else {
+            // `read` refuses a plan with no Job in it, so this is the answer
+            // not being one — the trigger's own meaning.
+            let cause = Adrift::NotProposed {
+                request: request.to_string(),
+                cause: NotProposed::NamesNoWorkflow,
+            };
+            return Err(self.proposal_ended(&head, settled, cause, actor).await);
+        };
+        // **The head of the plan is the Job that was being proposed**, moved
+        // to the gate rather than created beside it. Its attachments were kept
+        // at dispatch, so the draft carries none.
+        let answered = self
+            .drafted(
+                self.as_proposal(served, first, Vec::new(), Vec::new(), dispatched_as),
+                stated_by(first),
+                &self.now(),
+                Some(minted_by.clone()),
+                head.number(),
+            )
+            .map(|(new, _)| new.into_answer());
+        let answered = match answered {
+            Ok(answer) => self.head_answered(&head, answer, served).await,
+            Err(cause) => Err(cause),
+        };
+        let head = match answered {
+            Ok(head) => head,
+            Err(cause) => return Err(self.proposal_ended(&head, settled, cause, actor).await),
+        };
+        // The extras, in the plan's own order, because an edge points at an id
+        // Fleet has already minted. `read` refuses any plan whose edges do not
+        // point backwards, which is what makes the indexing below total.
         let mut made: Vec<Job> = Vec::with_capacity(plan.len());
-        for job in &plan {
+        made.push(head);
+        for job in extras {
             let waits_on = job
                 .after
                 .iter()
@@ -383,25 +471,13 @@ where
                     peer: ipc::JobId::from(made[at - 1].id()),
                 })
                 .collect();
-            let stated = StatedBy::TheProposer(job.because.clone().unwrap_or_else(|| {
-                format!(
-                    "the Job proposer read the request and chose `{}`; it gave no reason",
-                    job.workflow_id.as_str()
-                )
-            }));
-            // The head of the plan, and only the head: `made` is still empty
-            // on the first iteration and never again after it.
-            let carried = if made.is_empty() {
-                attachments.clone()
-            } else {
-                Vec::new()
-            };
             let minted = self
-                .proposed_job(
-                    self.as_proposal(served, job, waits_on, carried, dispatched_as),
-                    stated,
-                    Some(minted_by.clone()),
+                .proposed_split(
+                    self.as_proposal(served, job, waits_on, Vec::new(), dispatched_as),
+                    stated_by(job),
+                    minted_by.clone(),
                     actor,
+                    made[0].id(),
                 )
                 .await?;
             if let Enriched::Failed(cause) = &outcome {

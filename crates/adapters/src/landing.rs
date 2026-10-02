@@ -23,10 +23,15 @@
 //! [`NotMerged::Refused`] carrying it verbatim, never a guess — the kinds exist
 //! to send a person somewhere, and the wrong place is worse than the sentence.
 
+use std::path::Path;
+
 use adapter_traits::{
-    Landing, Mergeable, Merged, NotMerged, Rendering, RepositoryStanding, WhatBecameOfIt,
+    Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
+    WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
+
+use crate::onto_base::{self, NotOntoBase, Onto};
 
 use crate::delivery::{asked, last_line, run_in, said, FORGE};
 
@@ -214,6 +219,99 @@ pub(crate) fn merge_pinned(
         true => Ok(Merged::Taken),
         false => Err(why_not(status, said(&run))),
     }
+}
+
+/// The remote a `merge_by: push` lands on, and the one `crate::base` reads a
+/// default branch from.
+const REMOTE: &str = "origin";
+
+/// Land a Job's branch with the merge commit made here and the base pushed,
+/// never forced. `merge_by: push`, through [`onto_base`], which `armada land`
+/// lands through too.
+///
+/// **The base is fetched, not read locally**, unlike every catch-up in
+/// `crate::delivery`: the push is checked against the remote's base, so the
+/// merge has to be made on that one.
+pub(crate) fn merge_by_push(
+    in_repo: &str,
+    handle: &str,
+    declared: Option<&str>,
+    pull_request: Option<u64>,
+) -> Result<PushedOntoBase, NotMerged> {
+    let refused = |said: String| NotMerged::Refused { said };
+    let branch = WorktreeSpec::for_job(in_repo, handle)
+        .map_err(|why| refused(why.said()))?
+        .branch();
+    let repo = Repository::open(in_repo).map_err(|cause| refused(cause.message().to_string()))?;
+    let base = match crate::base::resolve(&repo, declared) {
+        Ok(Some(base)) => base.name().to_string(),
+        Ok(None) => {
+            return Err(refused(String::from(
+                "this repository names no base branch",
+            )))
+        }
+        Err(why) => return Err(refused(why.said())),
+    };
+    let root = Path::new(in_repo);
+    let candidate = rev_parse(in_repo, &format!("refs/heads/{branch}"))
+        .ok_or_else(|| refused(format!("the branch {branch} is gone")))?;
+    let tracking = format!("refs/remotes/{REMOTE}/{base}");
+    let fetched = run_in(
+        in_repo,
+        "git",
+        &[
+            "fetch",
+            "--quiet",
+            REMOTE,
+            &format!("+refs/heads/{base}:{tracking}"),
+        ],
+    )
+    .map_err(|why| NotMerged::NoTool {
+        said: format!("`git` would not run: {why}"),
+    })?;
+    if !fetched.status.success() {
+        return Err(refused(said(&fetched)));
+    }
+    let gated = rev_parse(in_repo, &tracking)
+        .ok_or_else(|| refused(format!("{REMOTE} has no branch {base}")))?;
+    if onto_base::is_ancestor(root, &candidate, &gated) {
+        return Ok(PushedOntoBase {
+            base,
+            merged: Merged::AlreadyMerged,
+        });
+    }
+    // The pull request reads its head from the remote branch, so a commit
+    // there that this branch lacks would be left behind with it open.
+    if let Some(at) = onto_base::remote_head(root, REMOTE, &branch) {
+        if !onto_base::is_ancestor(root, &at, &candidate) {
+            return Err(refused(format!(
+                "{REMOTE}/{branch} is at {at}, which the branch here does not hold, so \
+                 landing it would leave that commit behind"
+            )));
+        }
+    }
+    let message = onto_base::message(&branch, pull_request);
+    let moved = |why: NotOntoBase| match why {
+        NotOntoBase::DoesNotHoldBase { .. } => NotMerged::BaseMoved {
+            said: why.to_string(),
+        },
+        NotOntoBase::Git(said) => NotMerged::Refused { said },
+    };
+    let merge = onto_base::merge_commit(root, &gated, &candidate, &message).map_err(moved)?;
+    match onto_base::push(root, REMOTE, &base, &merge, &gated, |_, _| {}).map_err(moved)? {
+        Onto::Landed => Ok(PushedOntoBase {
+            base,
+            merged: Merged::Taken,
+        }),
+        Onto::Moved => Err(NotMerged::BaseMoved {
+            said: format!("{base} moved on {REMOTE} between the fetch and the push"),
+        }),
+    }
+}
+
+fn rev_parse(in_repo: &str, rev: &str) -> Option<String> {
+    let run = run_in(in_repo, "git", &["rev-parse", "--verify", "--quiet", rev]).ok()?;
+    run.status.success().then(|| last_line(&run))
 }
 
 /// Which kind of refusal a failed merge was, from the forge's own state word.
