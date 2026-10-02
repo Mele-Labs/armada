@@ -2033,6 +2033,15 @@ record; killing the Drone's own pid is `kill_drone`, and so is killing every pro
 descendants that left the Drone's process group. The operations' notes in
 `crates/ipc/operations.toml` carry the whole rule.
 
+## Protocol 21.6: a merge refused because the base moved
+
+`merge_pull_request` gains one refusal, `fleet.merge_base_moved`, a 409 carrying `refused:
+base_moved`. Only a repository whose Manifest says `merge_by: push` meets it: Fleet makes the
+merge commit itself and refuses a branch that does not hold the base it would land on, which the
+forge would have merged. No shape moves.
+
+**Minor because a refusal code added is additive**, for 14.14's reason.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
