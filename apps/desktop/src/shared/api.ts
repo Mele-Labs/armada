@@ -11,7 +11,7 @@ import type {
   EditTask,
   MovePlan,
   ApproveWave,
-  EditJob,
+  EditJobAsSent,
   Artifact,
   CaptureOpened,
   CheckOutputRead,
@@ -182,7 +182,7 @@ export type BridgeApi = {
    * Edit one Job of an Epic's proposed wave, still at `awaiting_approval`.
    * #1699, as `approveWave`; the edit rides on the debug info.
    */
-  editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  editJob: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the

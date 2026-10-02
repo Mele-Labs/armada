@@ -1111,6 +1111,20 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
             "{refused} is not a setting Fleet runs"
         );
     }
+    let inserted = approval(
+        r#"{"criteria": [
+          {"text": "a line typed above the others", "source": "judge"},
+          {"criterion_id": "c1", "text": "the reported symptom no longer occurs", "source": "check"}
+        ]}"#,
+    );
+    let job = Planned::from_an_issue("bound the reader", landing_by_the_repository()).job;
+    assert_eq!(
+        fleet::approving::decided(&job, &inserted, None).err(),
+        Some(fleet::approving::Refused::OutOfPlace {
+            id: "c1".to_string()
+        }),
+        "a new line goes at the foot, so no citation's place moves"
+    );
     for route in ["edit_job", "list_branches"] {
         assert!(
             api::SERVED.iter().any(|served| served.operation == route),

@@ -51,7 +51,12 @@ pub struct ApproveDispatch {
 /// `edit_job`'s body (#1699): a proposal's words, saved without releasing it.
 /// **The fields `ApproveDispatch` shares**, in its shape, and only the ones a
 /// person changed.
+///
+/// **An unknown field is refused, not dropped**: Bridge's panel sent `brief`
+/// and `expects` before this body was agreed, and a save that kept the title
+/// and silently lost the brief would read as done.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EditJob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,

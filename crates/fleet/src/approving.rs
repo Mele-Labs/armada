@@ -51,6 +51,11 @@ pub enum Refused {
     Repeated {
         id: String,
     },
+    /// A held criterion moved above another, or below a new line: held lines
+    /// keep their order and a new one goes at the foot.
+    OutOfPlace {
+        id: String,
+    },
     BlankCriterion,
     /// A held criterion sent back answered another way. **How a line is
     /// answered is the workflow's**, and a Check frozen with it does not move
@@ -115,6 +120,11 @@ impl fmt::Display for Refused {
                 write!(out, "the job holds no criterion `{id}`")
             }
             Refused::Repeated { id } => write!(out, "criterion `{id}` is sent twice"),
+            Refused::OutOfPlace { id } => write!(
+                out,
+                "criterion `{id}` is out of its place: the criteria keep their order, and a new \
+                 one goes at the foot"
+            ),
             Refused::BlankCriterion => write!(out, "a criterion says nothing"),
             Refused::AnsweredAnotherWay { id, held } => write!(
                 out,
@@ -280,21 +290,26 @@ fn words(
     Ok((title, facts, criteria))
 }
 
-/// The criteria as a person left them, in the order they left them.
+/// The criteria as a person left them.
 ///
 /// **A line with an id is the line it was**: its origin stays — reworded, the
 /// words still answer to the issue they came from, and the Job says so when
 /// it moves — and how it is answered stays. **A line without one is new**: the
 /// person's, answered by the Judge or by a person, and given the next `c<n>`
-/// no line has had.
+/// no line has had. **Held lines keep their order and a new one goes at the
+/// foot** (`docs/journeys/dispatch-a-job.md`, 22 Sep 2026): a line above the
+/// others renumbers every place a citation names.
 fn written(
     held: &[AcceptanceCriterion],
     sent: &[ipc::CriterionWritten],
 ) -> Result<Vec<AcceptanceCriterion>, Refused> {
-    let by_id: BTreeMap<&str, &AcceptanceCriterion> = held
+    let by_id: BTreeMap<&str, (usize, &AcceptanceCriterion)> = held
         .iter()
-        .map(|criterion| (criterion.criterion_id.as_str(), criterion))
+        .enumerate()
+        .map(|(at, criterion)| (criterion.criterion_id.as_str(), (at, criterion)))
         .collect();
+    let mut last_held: Option<usize> = None;
+    let mut added = false;
     let mut next = core_model::next_criterion_number(
         held.iter().map(|c| c.criterion_id.as_str()).chain(
             sent.iter()
@@ -315,9 +330,13 @@ fn written(
                 if !seen.insert(id.to_string()) {
                     return Err(Refused::Repeated { id: id.to_string() });
                 }
-                let held = by_id
+                let &(at, held) = by_id
                     .get(id)
                     .ok_or_else(|| Refused::NoSuchCriterion { id: id.to_string() })?;
+                if added || last_held.is_some_and(|before| before > at) {
+                    return Err(Refused::OutOfPlace { id: id.to_string() });
+                }
+                last_held = Some(at);
                 if held.source != source {
                     return Err(Refused::AnsweredAnotherWay {
                         id: id.to_string(),
@@ -326,13 +345,14 @@ fn written(
                 }
                 AcceptanceCriterion {
                     text: text.to_string(),
-                    ..(*held).clone()
+                    ..held.clone()
                 }
             }
             None => {
                 if source == CriterionSource::Check {
                     return Err(Refused::CheckOnATypedLine);
                 }
+                added = true;
                 let id = core_model::criterion_numbered(next);
                 next += 1;
                 AcceptanceCriterion {
