@@ -98,9 +98,8 @@ const NOTE = "Note (optional)";
  *
  * **Carry on is the primary and Send it back the destructive outline**, each
  * with its thumb: one lets the Job go forward and the other sends the work
- * back, and the owner asked for the two to read as that before their words do.
- * The exception to both the Kill-only red and the label-only buttons is
- * recorded in `docs/contracts/design-system.md` and `iconography.md`.
+ * back, read so before their words are. Both exceptions (Kill-only red,
+ * label-only buttons) are in `design-system.md` and `iconography.md`.
  */
 export function HeldFlag({
   findings,
