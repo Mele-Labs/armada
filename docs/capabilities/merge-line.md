@@ -107,7 +107,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
-**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read. A change to the documents alone now hits no Check at all.
+**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 

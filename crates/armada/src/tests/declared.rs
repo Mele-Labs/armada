@@ -381,6 +381,20 @@ fn a_change_to_the_documents_alone_hits_no_check() {
     assert_eq!(hits(&["docs/INDEX.md", "README.md"]), Vec::<String>::new());
 }
 
+/// **Except the documents code reads.** `fleet` takes `agent-prompt.md` by
+/// `include_str!`, `adapters`' tests read `docs/spikes/`, and `xtask`'s studio
+/// rule reads the lexicon out of `design-system.md`.
+#[test]
+fn a_document_the_code_reads_runs_test() {
+    for path in [
+        "docs/contracts/agent-prompt.md",
+        "docs/contracts/design-system.md",
+        "docs/spikes/017-a-transcript.ndjson",
+    ] {
+        assert!(hits(&[path]).contains(&"test".to_string()), "{path}");
+    }
+}
+
 /// **The lockfile is what `--locked` resolves**, so a bump nothing else in the
 /// tree shows still builds and tests the workspace. It is not what `cargo fmt`
 /// reads, and `format` says so by leaving it out.
