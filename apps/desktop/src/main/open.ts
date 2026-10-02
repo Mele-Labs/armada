@@ -14,7 +14,8 @@
 // for that Job, and a string that is not one of them is refused before
 // anything is joined to it. So the renderer still cannot reach a file Fleet
 // did not put on the wire — it can only ask for one that is already on this
-// screen.
+// screen. A Drone's transcript joins the set on the same rule, off the second
+// read that names one: the open Job's resources reading, `logs`.
 //
 // Fleet is not involved. Nothing here is a Job act, which is why it is beside
 // `command.ts` rather than in it: those are POSTs to routes under a Job, and
@@ -81,7 +82,22 @@ function named(state: BridgeState, jobId: string): ReadonlySet<string> {
     ...step.flagged.map((flag) => flag.brief_path),
     ...(step.deliverables ?? []).map((kept) => kept.path),
   ]);
-  return new Set(paths.filter((path): path is string => path !== undefined));
+  return new Set([...paths.filter((path): path is string => path !== undefined), ...transcripts(state, jobId)]);
+}
+
+/**
+ * Every Drone transcript Fleet listed for this Job in the reading main holds,
+ * by its `records_root`-relative path.
+ *
+ * **The same rule off a second read.** `get_job` names no transcript, and
+ * `JobResources.logs` names each one Pulse draws a row for; the reading is the
+ * open Job's, so a transcript is reachable exactly while its row is on screen.
+ * Transcripts only: a brief is reachable by what the Job names, above.
+ */
+function transcripts(state: BridgeState, jobId: string): string[] {
+  const holding = state.resources;
+  if (holding.state !== "read" || holding.jobId !== jobId) return [];
+  return (holding.resources.logs ?? []).filter((log) => log.kind === "transcript").map((log) => log.path);
 }
 
 /**

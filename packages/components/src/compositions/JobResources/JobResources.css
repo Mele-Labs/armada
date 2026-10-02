@@ -236,9 +236,9 @@
   grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
 }
 
-/* kind · whose and what · Open or being written */
+/* kind · whose and what · size · Open or being written */
 .armada-holds__rows[data-list="logs"] {
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
 }
 
 .armada-holds__row {
@@ -249,6 +249,33 @@
   min-height: var(--h-row);
   min-width: 0;
   border-block-end: var(--border-width) solid var(--edge-rule);
+}
+
+/* A log row a press reads in a panel: the whole row takes it, and says so on
+   hover and while its panel is open. */
+.armada-holds__row[data-viewable] {
+  cursor: pointer;
+}
+
+.armada-holds__row[data-viewable]:hover,
+.armada-holds__row[aria-current="true"] {
+  background: var(--bg-hover);
+}
+
+/* The row's press for the keyboard, drawn as the kind it names. */
+.armada-holds__view {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-holds__view:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
 }
 
 /* A rule separates rows, so the last one has none under it. */
@@ -352,14 +379,41 @@
   color: var(--text-body);
 }
 
-/* Still being written, where Open would be. The running hue, because that is
-   what it says: something has this file open. Text and not a pill — a
-   bordered pill is a Job state. */
+/* Still being written, where Open would be: circle-dot in the running hue,
+   because that is what it says — something has this file open. Centred in the
+   track Open sizes, so the size column beside it holds still. */
 .armada-holds__writing {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  justify-self: center;
+  display: inline-flex;
   color: var(--status-running);
+}
+
+/* The inner dot alone, opacity and scale only, at --duration-pulse: the ring
+   holds still, so nothing on the row moves. `DroneTurns`' mark, the same
+   motion for the same claim. */
+.armada-holds__writing > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-holds-writing var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-holds-writing {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+/* The pulse stops; the mark and its hue still say the file is held open. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-holds__writing > svg > circle + circle {
+    animation: none;
+  }
 }
 
 .armada-holds__note {
