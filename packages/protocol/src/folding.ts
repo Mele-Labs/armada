@@ -14,7 +14,7 @@
 
 import type { JournalMessage } from "./journal";
 import type { WireError } from "./protocol";
-import type { JobLog, Journalled, Noted, Observed, Outcome, Turn, Turns } from "./reads";
+import type { JobLog, Journalled, Observed, Outcome, Turn, Turns } from "./reads";
 import type { TurnMessage } from "./turn";
 
 /** Nothing has arrived yet, and nothing has been lost. */
@@ -44,45 +44,76 @@ export function turnArrived(
   message: TurnMessage,
   seq: number,
 ): { turns: Turns; ended?: string } {
-  if (message.message === "opened") {
-    // `live` and `skipped` are stated once, on the first message, and are
-    // the two facts a reader needs before the first row: whether anything is
-    // still writing, and whether the history in front of them is whole.
-    return { turns: { ...NO_TURNS, live: message.live, skipped: message.skipped } };
-  }
+  const { turns, ended } = turnsArrived(held, [message], seq);
+  return ended === undefined ? { turns } : { turns, ended };
+}
 
-  if (message.message === "row") {
-    // `step` is named in the rest pattern rather than left to fall into it:
-    // the wire carries it beside the row's kind, `Saw` declares no such
-    // field, and a spread would put it on the union at runtime where no
-    // reader can see it. It travelled that way, undrawn, until #160.
-    // `by` is named for `step`'s reason and carries `drone` where it is
-    // absent — every row written before Fleet stamped the field decoded from
-    // a Drone's own output, so the default is the truth rather than a guess.
-    // `drone_id` is named for `step`'s reason and has no default: absent is a
-    // Fleet that sent none, and no Drone can be guessed for it.
-    const { message: _tag, ts, step, by, drone_id, ...saw } = message;
-    const row: Turn = {
-      ts,
-      seq,
-      step,
-      by: by ?? "drone",
-      ...(drone_id === undefined ? {} : { drone_id }),
-      saw,
-    };
-    return { turns: { ...held, rows: [...held.rows, row] } };
+/**
+ * What a run of transcript messages does to the turns held so far, and the
+ * `seq` the next row takes.
+ *
+ * **Batched because a backfill is up to 2048 rows**, and copying `rows` once
+ * per message made opening a Job quadratic. `rows` is copied once per call and
+ * never written after it is returned, so turns already published stay as they
+ * were. Messages after `closed` are not folded: nothing reads past it.
+ */
+export function turnsArrived(
+  held: Turns,
+  messages: readonly TurnMessage[],
+  seq: number,
+): { turns: Turns; seq: number; ended?: string } {
+  let { live, skipped, missed, rows } = held;
+  let owned = false;
+  for (const message of messages) {
+    if (message.message === "opened") {
+      // `live` and `skipped` are stated once, on the first message, and are
+      // the two facts a reader needs before the first row: whether anything is
+      // still writing, and whether the history in front of them is whole.
+      live = message.live;
+      skipped = message.skipped;
+      missed = 0;
+      rows = [];
+      owned = true;
+    } else if (message.message === "row") {
+      if (!owned) {
+        rows = rows.slice();
+        owned = true;
+      }
+      rows.push(turnOf(message, seq));
+      seq += 1;
+    } else if (message.message === "missed") {
+      // Counted and said, never skipped quietly: a transcript with a silent
+      // gap reads as a Drone that went quiet, which is the one thing this
+      // record exists to tell apart.
+      missed += message.dropped;
+    } else {
+      // `closed` carries why, because a socket that simply stops is
+      // indistinguishable from one that broke. The rows are kept.
+      return { turns: { live: false, skipped, missed, rows }, seq, ended: message.because };
+    }
   }
+  return { turns: { live, skipped, missed, rows }, seq };
+}
 
-  if (message.message === "missed") {
-    // Counted and said, never skipped quietly: a transcript with a silent
-    // gap reads as a Drone that went quiet, which is the one thing this
-    // record exists to tell apart.
-    return { turns: { ...held, missed: held.missed + message.dropped } };
-  }
-
-  // `closed` carries why, because a socket that simply stops is
-  // indistinguishable from one that broke. The rows are kept.
-  return { turns: { ...held, live: false }, ended: message.because };
+function turnOf(message: TurnMessage & { message: "row" }, seq: number): Turn {
+  // `step` is named in the rest pattern rather than left to fall into it:
+  // the wire carries it beside the row's kind, `Saw` declares no such
+  // field, and a spread would put it on the union at runtime where no
+  // reader can see it. It travelled that way, undrawn, until #160.
+  // `by` is named for `step`'s reason and carries `drone` where it is
+  // absent — every row written before Fleet stamped the field decoded from
+  // a Drone's own output, so the default is the truth rather than a guess.
+  // `drone_id` is named for `step`'s reason and has no default: absent is a
+  // Fleet that sent none, and no Drone can be guessed for it.
+  const { message: _tag, ts, step, by, drone_id, ...saw } = message;
+  return {
+    ts,
+    seq,
+    step,
+    by: by ?? "drone",
+    ...(drone_id === undefined ? {} : { drone_id }),
+    saw,
+  };
 }
 
 /**
@@ -94,20 +125,38 @@ export function noteArrived(
   message: JournalMessage,
   seq: number,
 ): { log: JobLog; ended?: string } {
-  if (message.message === "opened") {
-    // `skipped` is stated once, on the first message, and is the one fact a
-    // reader needs before the first note: whether what follows is whole.
-    return { log: { ...NO_NOTES, skipped: message.skipped } };
-  }
+  const { log, ended } = notesArrived(held, [message], seq);
+  return ended === undefined ? { log } : { log, ended };
+}
 
-  if (message.message === "note") {
-    const { message: _tag, ...note } = message;
-    const noted: Noted = { ...note, seq };
-    return { log: { ...held, notes: [...held.notes, noted] } };
+/** A run of log messages, folded once. `turnsArrived`'s, for its reasons. */
+export function notesArrived(
+  held: JobLog,
+  messages: readonly JournalMessage[],
+  seq: number,
+): { log: JobLog; seq: number; ended?: string } {
+  let log = held;
+  let owned = false;
+  for (const message of messages) {
+    if (message.message === "opened") {
+      // `skipped` is stated once, on the first message, and is the one fact a
+      // reader needs before the first note: whether what follows is whole.
+      log = { ...NO_NOTES, skipped: message.skipped, notes: [] };
+      owned = true;
+    } else if (message.message === "note") {
+      if (!owned) {
+        log = { ...log, notes: log.notes.slice() };
+        owned = true;
+      }
+      const { message: _tag, ...note } = message;
+      log.notes.push({ ...note, seq });
+      seq += 1;
+    } else {
+      // `closed` carries why, for the transcript's reason.
+      return { log, seq, ended: message.because };
+    }
   }
-
-  // `closed` carries why, for the transcript's reason.
-  return { log: held, ended: message.because };
+  return { log, seq };
 }
 
 /**
@@ -121,14 +170,8 @@ export function noteArrived(
  */
 export function observedFrom(jobId: string, messages: readonly TurnMessage[], open: boolean): Observed {
   if (messages.length === 0 && open) return { state: "opening", jobId };
-  let turns = NO_TURNS;
-  let seq = 0;
-  for (const message of messages) {
-    const next = turnArrived(turns, message, seq);
-    if (message.message === "row") seq += 1;
-    turns = next.turns;
-    if (next.ended !== undefined) return { state: "ended", jobId, turns, because: next.ended };
-  }
+  const { turns, ended } = turnsArrived(NO_TURNS, messages, 0);
+  if (ended !== undefined) return { state: "ended", jobId, turns, because: ended };
   return open
     ? { state: "watching", jobId, turns }
     : { state: "ended", jobId, turns: { ...turns, live: false }, because: SOCKET_CLOSED };
@@ -141,14 +184,8 @@ export function journalledFrom(
   open: boolean,
 ): Journalled {
   if (messages.length === 0 && open) return { state: "opening", jobId };
-  let log = NO_NOTES;
-  let seq = 0;
-  for (const message of messages) {
-    const next = noteArrived(log, message, seq);
-    if (message.message === "note") seq += 1;
-    log = next.log;
-    if (next.ended !== undefined) return { state: "ended", jobId, log, because: next.ended };
-  }
+  const { log, ended } = notesArrived(NO_NOTES, messages, 0);
+  if (ended !== undefined) return { state: "ended", jobId, log, because: ended };
   return open ? { state: "watching", jobId, log } : { state: "ended", jobId, log, because: SOCKET_CLOSED };
 }
 

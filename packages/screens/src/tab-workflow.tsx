@@ -25,7 +25,7 @@ import {
   type RunTreeSkeletonProps,
 } from "@armada/components";
 import { useEffect, useState } from "react";
-import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
+import type { JobDetail as JobWhole, JobSummary, JudgeAnswer } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import type { ActingAct } from "./pending";
@@ -41,6 +41,7 @@ import { steeringOf } from "./steering";
 import { ordered } from "./facts";
 import { placeOf, stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf, workflowReadingOf } from "./workflow-inspector";
+import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
 export type WorkflowTabProps = {
@@ -71,9 +72,16 @@ export type WorkflowTabProps = {
    * carries the reasoning.
    */
   groups?: readonly GroupView[];
+  /** Every control is refused while what is shown is not live. */
+  stale: boolean;
   /** A press is out and Fleet has not answered. */
   acting: boolean;
   actingAct?: ActingAct;
+  /**
+   * Answer a Judge's refusal on the open step — Overview's own handler, for
+   * Overview's own block, drawn first in the step's panel (`judge-asked.tsx`).
+   */
+  onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
   onRedirect: (jobId: string, instruction: string) => void;
   onAct: (act: ConfirmableAct, jobId: string) => void;
   onActHeld: (act: HeldAct, jobId: string) => void;
@@ -112,8 +120,10 @@ export function WorkflowTab({
   view,
   onView,
   groups: given,
+  stale,
   acting,
   actingAct,
+  onAnswerJudge,
   onAct,
   onActHeld,
   onOpenPlan,
@@ -246,6 +256,21 @@ export function WorkflowTab({
     reading === undefined ? null : (
       <WorkflowInspector
         {...reading}
+        {...(!judgeAskedOn(whole, openedStep)
+          ? {}
+          : {
+              asks: (
+                <JudgeAsked
+                  jobId={job.id}
+                  whole={whole}
+                  step={openedStep}
+                  stale={stale}
+                  acting={acting}
+                  actingAct={actingAct}
+                  onAnswerJudge={onAnswerJudge}
+                />
+              ),
+            })}
         sheet={{ back: trail?.back }}
         // After a jump here, Close goes back, as Plan's, Drones' and Record's
         // do (owner, 30 Sep 2026); otherwise it closes the step.

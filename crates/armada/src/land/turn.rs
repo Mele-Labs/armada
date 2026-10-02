@@ -7,12 +7,13 @@
 use std::collections::VecDeque;
 use std::path::Path;
 
-use super::batch::{build, halves, logs_for, tell, NotBuilt};
+use super::batch::{build, halves, tell, NotBuilt};
 use super::blame::blame;
 use super::dir::StateDir;
 use super::env::{Env, ROUNDS};
 use super::gating::{checks, foundations, foundations_red, Read};
 use super::git::checked;
+use super::logs::{prune, turn_logs, KEPT_FOR};
 use super::onto_main::{already_landed, landed, local_head, push, Pushed};
 use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
 use super::queue::{read_queue_entry, QueueEntry};
@@ -23,6 +24,7 @@ use super::withdraw::still_in_line;
 
 /// Take `entries`, in place order, and end every one of their turns.
 pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entries: &[QueueEntry]) {
+    prune(&state.path().join("logs"), KEPT_FOR);
     let mut pending = VecDeque::from([entries.to_vec()]);
     while let Some(group) = pending.pop_front() {
         if let Some((first, second)) = land_group(repo, state, env, group) {
@@ -74,8 +76,8 @@ fn end_all(
 }
 
 /// Report each member its own gate lines, and keep the rest to gate again
-/// at once. Each red keeps the gate's log in its own directory, since the
-/// rest's run overwrites the group's.
+/// at once. Each red keeps a copy of the gate's log in a turn of its own,
+/// where its own outcome points.
 fn red_alone(
     state: &StateDir,
     env: &Env,
@@ -90,11 +92,14 @@ fn red_alone(
             rest.push(entry);
             continue;
         }
-        let own = logs_for(state, std::slice::from_ref(&entry));
-        let log = own.join("foundations.log");
-        let _ = std::fs::remove_dir_all(&own);
-        let _ = std::fs::create_dir_all(&own)
-            .and_then(|()| std::fs::copy(logs.join("foundations.log"), &log));
+        let log = match turn_logs(state, std::slice::from_ref(&entry)) {
+            Ok(own) => {
+                let log = own.join("foundations.log");
+                let _ = std::fs::copy(logs.join("foundations.log"), &log);
+                log
+            }
+            Err(_) => logs.join("foundations.log"),
+        };
         finish(state, &entry, foundations_red(env, moved, lines, &log));
     }
     rest
@@ -123,12 +128,6 @@ fn land_group(
             .find(|(name, _)| name == branch)
             .and_then(|(_, merge)| merge.clone())
     };
-    let logs = logs_for(state, &group);
-    let _ = std::fs::remove_dir_all(&logs);
-    if let Err(why) = std::fs::create_dir_all(&logs) {
-        let detail = format!("{} could not be created: {why}", logs.display());
-        return end_all(state, group, Stopped::stopped(detail));
-    }
     if let Err(stopped) = tell(
         state,
         &group,
@@ -187,6 +186,14 @@ fn land_group(
             return None;
         }
 
+        // A directory per gate, so a regate in this turn keeps the last one's.
+        let logs = match turn_logs(state, &group) {
+            Ok(logs) => logs,
+            Err(why) => {
+                let detail = format!("a log directory could not be created: {why}");
+                return end_all(state, group, Stopped::stopped(detail));
+            }
+        };
         let built = match build(repo, state, env, &group, &base, &logs) {
             Ok(built) => built,
             Err(NotBuilt::Conflict(index, stopped)) => {

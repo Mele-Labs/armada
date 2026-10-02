@@ -655,7 +655,7 @@ one for the candidate, one for `main` itself — resets each to the commit it
 needs, keeps their build directories, and runs `verify-foundations` in both,
 then installs and runs each Check that either side hits. They are inside the
 repository because that is where this project's tooling works, and they are the
-only two: nothing accumulates per turn. What does accumulate is Fleet's own
+only two: nothing accumulates per turn but its logs. What does accumulate is Fleet's own
 `.armada/bases/`, which `armada clean` gives back. What landed is measured from the merge base, so an old branch meets
 nearly every Check on the way in.
 
@@ -680,8 +680,15 @@ it, and the command says so.
 
 **A Check that failed is rerun against `main` before you are blamed for it.**
 One that fails there too is reported as `main`'s, by name, and the turn stops
-rather than reddening — fix `main` and land that first. That rerun happens only
-on a turn that went red, and only for the Checks that failed.
+rather than reddening — fix `main` and land that first. One that times out on
+`main` says so, with the limit, rather than that it fails there; land again. That
+rerun happens only on a turn that went red, and only for the Checks that failed.
+
+**Each turn's logs stay on disk for two weeks**, under
+`.git/armada-land/logs/<entry>/<turn>/` in the main checkout, one directory per
+gate, named by when it started. `--status` prints the paths of the latest turn's
+files; an earlier turn's, red or not, is the directory beside it. `main`'s
+reruns are there too, as `<check>-on-main.log`.
 
 **A red names only what the merged tree added.** A Check that failed on the
 branch and not on `main`, or a `verify-foundations` failing line `main`'s own run
