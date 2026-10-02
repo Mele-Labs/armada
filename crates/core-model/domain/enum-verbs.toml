@@ -42,6 +42,12 @@
 #                                step's borrowed one level further down, which
 #                                `[conventions.step_activity_borrowing]` in
 #                                `packages/icons/icons.toml` sanctions
+#   land_state                 - where one branch is on the merge line
+#                                `armada land` keeps. Keys are the words
+#                                `OutcomeState::word` prints in
+#                                `crates/armada/src/land/outcome.rs`. Not
+#                                paired: that enum spells through `word`, not
+#                                `as_wire`, and carries no `ALL`
 #   advance_gate               - what it takes to advance past one step. No
 #                                registry file of its own: the set is the
 #                                WorkflowDef schema's four forms, of which
@@ -1179,3 +1185,59 @@ status_token = ""
 vocabulary = "Origin"
 in_code = ""
 notes = "`studio_dispatched`'s sibling, and the pair is read side by side on one board — so it is spelled to the same length for the same reason, and the two differ only in their second clause. **It says `via Helm` and not `drafted in Helm`**, which drops `helm_drafted`'s own word for what is still owed: a Job Helm wrote up and dispatched on your ask takes your approval, and this verb no longer says so. That reading is on Job detail and in the Job's own state, which is where a person acts on it; the row says who sent it, not what it is waiting for. Neither glyph nor token, for `auto_detected`'s reason. #1362."
+
+[verbs.land_state.waiting]
+verb = "waiting"
+icon = "clock"
+status_token = "--status-not-started"
+vocabulary = "Land state"
+in_code = ""
+notes = "In line, and nothing is being done to it yet. The word `--status` already prints. `clock` and the queued hue are `job_status.queued`'s, borrowed one level over: a branch in line is queued work, and `clock`'s own row says it is the mark for nobody acting. The merge line is a list of branches and never a step's rail row, so the refusal `[conventions.step_activity_borrowing]` records for `clock` does not reach it."
+
+[verbs.land_state.gating]
+verb = "gating"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Land state"
+in_code = ""
+notes = "In its turn: main merged in, the generators, `verify-foundations` and the Checks. `circle-dot` and the running hue, pulsing on the row while the turn holds it, as a running Job's badge does. Shared with `merging`, for `group_state.running`'s reason: both are the turn live, and the tooltip carries which."
+
+[verbs.land_state.merging]
+verb = "merging"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Land state"
+in_code = ""
+notes = "Gated green, and the runner is pushing the merge onto main. `gating`'s glyph and hue; see that row."
+
+[verbs.land_state.landed]
+verb = "landed"
+icon = "check"
+status_token = "--status-completed-success"
+vocabulary = "Land state"
+in_code = ""
+notes = "On main, as its own merge commit. `check` and the success hue, `group_state.landed`'s pair. Not `git-merge`, which is reserved to a merged pull request's badge: a branch lands with no pull request at all."
+
+[verbs.land_state.red]
+verb = "red"
+icon = "x"
+status_token = "--status-completed-failed"
+vocabulary = "Land state"
+in_code = ""
+notes = "The gate or a Check found the combination broken, and nothing was pushed. The line's own word, kept: `red` is what `--status`, the outcome file and `docs/capabilities/merge-line.md` all say. `x` and the failed hue, `group_state.failed`'s pair for a group whose Checks failed. Not `shield-x`, which marks one Check's result and is drawn beside each failing Check's name instead."
+
+[verbs.land_state.conflict]
+verb = "conflict"
+icon = "split"
+status_token = "--status-escalated"
+vocabulary = "Land state"
+in_code = ""
+notes = "Main does not merge into the branch cleanly, and the branch keeps its place until somebody merges main in. `split`, one line becoming two, is the merge that would not join; its usage in `packages/icons/icons.toml` records this. The escalated hue because somebody has to act before it moves. Red needs that too, and the two are told apart by kind: red is a measured failure, a conflict is work owed."
+
+[verbs.land_state.stopped]
+verb = "stopped"
+icon = "power"
+status_token = "--status-killed"
+vocabulary = "Land state"
+in_code = ""
+notes = "The turn ended without learning anything about the combination: the branch moved after it joined, it was withdrawn, or a tool was missing. `power` and the killed hue, the deliberate stop: the line stopped the turn, and the branch did not fail it."

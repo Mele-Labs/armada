@@ -1096,6 +1096,7 @@ export function App({ draft }: AppProps = {}) {
                   onCursor={setCursor}
                   land={landing}
                   onLanded={() => setLanding(null)}
+                  onOpenLink={openProseLink}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

@@ -234,6 +234,10 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 **It cannot see the line's own push, and so needs no way to let it through.** That runs in the detached runner, outside the Bash tool. An allowance keyed on something a command can carry, such as an environment variable, would be one any typed command could claim, so the hook refuses `ARMADA_LAND_RUNNER=1 git push origin main` like any other push to `main`. An agent who goes around it lands a combination nothing checked, and nothing says so afterwards.
 
+## In Bridge
+
+**Overview draws the line as a panel below its lists**, `packages/components/src/compositions/MergeLine/`: place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are the branches that just left the line, with their merge commit, failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. **Only the mock fills it** (`?walk=theMergeLine`), because nothing on the wire carries the line yet; a real Bridge draws no panel.
+
 ## What it depends on
 
 - `concepts/fleet.md` — *Write-scope overlap*, *Catching a branch up*, and what Fleet knows after a merge.

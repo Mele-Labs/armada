@@ -640,6 +640,13 @@
   status = "Specified"
   notes = "Changed from git-fork, which loses its nodes at 12px. One line becoming two is literally what fanning out means, and it frees git-* for real git operations."
 
+  [[icons.split.usage]]
+    means = "A branch on the merge line that main does not merge into cleanly"
+    group = "Land state"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 2 Oct 2026 with `land_state` in `crates/core-model/domain/enum-verbs.toml`, for the merge line on Overview, and Proposed until the owner has walked it. A conflict is two lines that would not become one, which is the outline read the other way. It meets `fan_out` in neither place: that is a 12px Escalation reason on a Job's row, and this marks a branch on the merge line, where no Job badge is drawn. Refused: `git-merge` and `git-pull-request-closed`, each reserved to a pull request's badge; `x`, which `red` takes; `triangle-alert`, reserved to Doctor; `unplug`, which says a connection dropped."
+
 [icons.square-pen]
   means = "A pen crossing out of a square's open corner — a name in a box being rewritten"
   group = "Action"

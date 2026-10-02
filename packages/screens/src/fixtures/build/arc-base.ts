@@ -37,6 +37,7 @@ import type {
   JobMembersView,
   LandingRule,
   LedgerRow,
+  MergeLineView,
   ProposalView,
   PulseView,
   ScopeRevisionView,
@@ -117,6 +118,8 @@ export type ArcDraft = {
   members?: JobMembersView;
   /** The wave this Job dispatched, and which of its Jobs waits on which. */
   wave?: WaveView;
+  /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
+  mergeLine?: MergeLineView;
 };
 
 /**
