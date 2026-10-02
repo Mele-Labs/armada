@@ -51,6 +51,7 @@ async fn handed(manifest: &Manifest, root: &Path) -> String {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: standing(manifest, &root.to_string_lossy()),
+        reading: None,
     };
     rule_on(
         at,

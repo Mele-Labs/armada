@@ -175,6 +175,19 @@ went, so rule 2 is unchanged. A Manifest without the key gives every brief
 exactly as before. Added after a Judge refused a plan for fixing the prose
 its change made wrong, calling it scope expansion.
 
+**Told it may read the repository.** Since 2 Oct 2026 every Judge call can
+read the repository's own checkout, read-only, for `judge-read-turns` turns,
+and its brief says so: that it may read CLAUDE.md, the docs and the skills to
+learn what the repository requires of a change, that work the repository
+requires is not scope expansion, and that it names a file it read rather than
+quoting it, since a refusal's quotations are held to the brief. The same five
+looks and the second reading. **`standing_rules` is the repository's explicit
+statement and the reading is the rest of it**: the named file is quoted in
+every brief whether or not the Judge would have found it, and a repository
+naming none still gets a Judge that can look. The checkout is where
+`standing_rules` is read from, never the Job's worktree, and Fleet's own
+`.armada/` is refused, so the reading reaches no transcript and rule 2 holds.
+
 **Never told:** the Drone transcript or self-report, per constitutional
 rule 2. The other panel members' verdicts under `panel_size` > 1, per
 rule 5.

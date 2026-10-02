@@ -215,6 +215,7 @@ pub(super) fn judged_by_shared(client: Arc<FakeJudge>) -> Judging {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     }
 }
 
