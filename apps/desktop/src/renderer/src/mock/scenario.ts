@@ -463,8 +463,7 @@ export const SCENARIOS: readonly Scenario[] = [
   ...ARC_MOMENTS.map((one) => moment("arc", one)),
   // The arc's request dispatched, on a Fleet whose proposer fills its Job in a field at a time.
   fillingIn(moment("arc", dispatchTyping())),
-  // The arc's plan with a task in each of the six states, for Plan's marks. Not a moment the arc
-  // passes through, so not in `ARC_MOMENTS`.
+  // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
