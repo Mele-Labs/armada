@@ -381,6 +381,19 @@ Explicit in brief, per-project. Built in #525: config reads the top-level `auto_
 **An approval is not one of the three values and is deliberately unread.** All three are about machines; whether a person approving on the forge becomes `auto_merge: approved` or a policy of its own is undecided and was not settled by #525. `always` therefore merges over an outstanding request for changes, with the forge's own branch protection as the backstop.
 """
 
+[settings.merge-by-forge-push]
+name = "How work lands (forge / push)"
+scope = "Manifest only"
+default = "forge"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "config, fleet"
+notes = """
+The top-level `merge_by:` key. `forge` merges the pull request through the forge, so branch protection and the forge's own checks stay in the path. `push` makes the `--no-ff` merge commit in Fleet and pushes the base, never forced, the way `armada land` lands this repository; a base that moved past what the branch holds is refused rather than merged. `auto_merge` decides whether work lands and this decides how, so it is not folded across Manifests: one Job lands in one repository. `docs/capabilities/merge-line.md`, *The merge*.
+"""
+
 [settings.default-model-per-job-type]
 name = "Default model per Job type"
 scope = "Manifest only"
