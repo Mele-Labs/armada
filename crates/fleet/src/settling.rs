@@ -284,6 +284,8 @@ where
             .await
             .tolerated_criteria()
             .unwrap_or_default();
+        // What another Job's fix holds off this one, refused whatever wrote it. #1673.
+        let held_off = self.held_off(&job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
                 .holding_handoff(at_group.is_some_and(|g| g.follows)),
@@ -291,6 +293,7 @@ where
             &landed.submission,
             declared.as_ref(),
             &Lifted::of(&job),
+            &held_off,
             crate::gate::Began::at(entered_with.as_ref()),
             &recorded,
             self.work(),

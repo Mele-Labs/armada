@@ -348,6 +348,8 @@ where
         // A group's own run, as `crate::settling` reads it.
         let at_group = self.group_at_gate(job, step).await?;
         let spent = at_group.map_or(spent, |g| core_model::Spent::runs_this_pass(g.run));
+        // What another Job's fix holds off this one, refused whatever wrote it. #1673.
+        let held_off = self.held_off(job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
                 .holding_handoff(at_group.is_some_and(|g| g.follows)),
@@ -355,6 +357,7 @@ where
             submission,
             declared.as_ref(),
             &Lifted::of(job),
+            &held_off,
             Began::AsRecorded(moved),
             &recorded,
             self.work(),

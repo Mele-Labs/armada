@@ -90,6 +90,7 @@ async fn ruled_by(room: &Room, gates: &[Gate<'_>]) -> (Ruling, Duration) {
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &work,
