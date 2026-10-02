@@ -3,6 +3,7 @@ import { ChevronLeft, X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
 import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
+import { rememberSheetWidth, useSheetWidth } from "../../sheet-width";
 
 /**
  * A panel that enters from an edge. The contract gives it exactly one line —
@@ -40,6 +41,8 @@ export type SheetSide = "right" | "left";
  * rail plus a patch line that does not wrap.
  *
  * `default` is the sheet the component sheet already drew, at `--w-sheet`.
+ * `dock` is Helm's dock width, `--w-dock` — where Plan's panels rest, beside
+ * the graph they were opened from.
  *
  * `reading` is the run sheet's own, at 88% — Journey 9, running a Manifest
  * entry against a real Fleet. Nick's own note, watching it work: it opened far
@@ -51,7 +54,7 @@ export type SheetSide = "right" | "left";
  * MISSING TOKEN, reported: `--w-sheet` is 480px and describes none of these.
  * A fraction of the ground is not a width and has no token to be.
  */
-export type SheetSize = "default" | "wide" | "widest" | "reading";
+export type SheetSize = "default" | "dock" | "wide" | "widest" | "reading";
 
 /**
  * The way back to where a person was before a press elsewhere opened this
@@ -122,36 +125,22 @@ export type SheetProps = {
    */
   contained?: boolean;
   /**
-   * Beside another floating sheet rather than at the trailing edge — the file
-   * diff to the left of Plan's task panel (owner, 29 Sep 2026), `--space-4`
-   * from it. **Its scrim dims nothing and takes no press**: the sheet it sits
-   * beside already dims the screen once, and a second dim would darken it
-   * again. Read only with `floating`; at `floor` it lies over that sheet.
+   * Beside another floating sheet rather than at the trailing edge, named by
+   * that sheet's `kind` — the file diff to the left of Plan's task panel
+   * (owner, 29 Sep 2026), `--space-4` from it at whatever width that one was
+   * dragged to, and `--w-dock` where it never was. **Its scrim dims nothing
+   * and takes no press**: the sheet it sits beside already dims the screen
+   * once. Read only with `floating`; at `floor` it lies over that sheet.
    */
-  beside?: boolean;
+  beside?: string;
   /**
-   * A floating sheet's width in px, where a person has resized it. Absent
-   * draws `--w-dock`. Read only with `onResize`, and clamped to what the work
-   * area leaves before it draws — a width remembered from a wider window
-   * never draws past today's.
+   * Which kind of sheet this is — `plan-task`, `drone`, `job-diff` — and so
+   * which width it opens at. **Every sheet resizes** by Helm's handle on its
+   * inner edge, and each kind remembers its own width across opens and a
+   * restart (owner, 2 Oct 2026; `sheet-width.ts`). Absent, a drag holds only
+   * while the sheet is mounted. Nothing dragged draws the `size`.
    */
-  width?: number;
-  /**
-   * Drags and arrow-key nudges the floating sheet's leading edge — Helm's own
-   * handle (`dock-handle.tsx`), in the gap beside it. Clamped between
-   * `--w-dock-min` and what the work area leaves once the sheet's margin, the
-   * handle's gap and `--w-work-min` under it are kept uncovered. **Absent
-   * draws no handle**, and neither does a sheet that is not floating or one
-   * at `floor`. Remembering the result is the caller's.
-   */
-  onResize?: (width: number) => void;
-  /**
-   * With `beside`: the width of the sheet this one sits beside, where that
-   * one resizes — its `width`, as given. Clamped here the way that sheet
-   * clamps it, against the same work area, so the `--space-4` between the two
-   * holds at whatever width the other is dragged to. Absent assumes `--w-dock`.
-   */
-  besideWidth?: number;
+  kind?: string;
   /**
    * Another layer lies over this one and takes `Esc` first. Both bind on
    * `window` in the capture phase, where the first one opened runs first, so
@@ -201,10 +190,8 @@ export function Sheet({
   bleed = false,
   bodyRef,
   contained = false,
-  beside = false,
-  width,
-  onResize,
-  besideWidth,
+  beside,
+  kind,
   under = false,
   floating = false,
   closeLabel,
@@ -215,22 +202,30 @@ export function Sheet({
 }: SheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
-  // A resizing sheet, or one beside it, reads the work area's width: the
-  // ceiling is what that area leaves, and both scrims cover the same one, so
-  // each computes the same clamp from the same figure. At the floor the sheet
-  // is flush to both edges, and there is nothing to resize.
-  const resizes = floating && !floor && onResize !== undefined;
-  const follows = floating && !floor && beside && besideWidth !== undefined;
-  const room = useWidthOf(scrimRef, open && (resizes || follows));
-  // The chrome beside a floating sheet: its own `--space-4` off the trailing
-  // edge, and the handle's `--space-4` gap on its leading one.
-  const range = dockWidthRange(room - 2 * tokenPx("--space-4"));
-  const drawn = (wanted: number | undefined): number => {
-    const at = wanted ?? defaultDockWidth();
-    // Not measured yet (a first render, or no layout at all): as given.
-    return room === 0 ? at : clampToRange(at, range);
-  };
+  const remembered = useSheetWidth(kind);
+  const [held, setHeld] = useState<number | undefined>(undefined);
+  const wanted = kind === undefined ? held : remembered;
+  const resize = (next: number): void => (kind === undefined ? setHeld(next) : rememberSheetWidth(kind, next));
+  const neighbour = useSheetWidth(beside);
+
+  // At the floor the sheet is flush to both edges, and there is nothing to
+  // resize. Everywhere else the ceiling is what the area under the scrim
+  // leaves, and a sheet beside another clamps that one the way it clamps itself.
+  // The chrome is the handle's `--space-4` gap, and a floating sheet's margin.
+  const resizes = !floor;
+  const follows = floating && resizes && beside !== undefined;
+  const room = useWidthOf(scrimRef, open && resizes);
+  const atRest = useWidthOf(sheetRef, open && resizes && wanted === undefined);
+  const rest = useRestOf(sheetRef, size, open && resizes);
+  const space = tokenPx("--space-4");
+  const followed = follows ? clampToRange(neighbour ?? defaultDockWidth(), dockWidthRange(room - 2 * space)) : 0;
+  const range = follows
+    ? besideRange(room - followed - 4 * space)
+    : restingRange(room - (floating ? 2 : 1) * space, rest, room);
+  // Not measured yet (a first render, or no layout at all): as given.
+  const drawn = wanted === undefined || room === 0 ? wanted : clampToRange(wanted, range);
 
   useEffect(() => {
     // `preventScroll`: a sheet that is still travelling in sits past the
@@ -266,6 +261,15 @@ export function Sheet({
   if (!open) return null;
 
   const labelled = closeLabel !== undefined && !floor;
+  const handle = (
+    <DockHandle
+      width={drawn ?? atRest}
+      {...range}
+      label={title}
+      grows={side === "right" ? "left" : "right"}
+      onResize={resize}
+    />
+  );
   const tooltip = closeBinding === undefined ? "Close" : `Close — ${closeBinding}`;
 
   const close = labelled ? (
@@ -299,15 +303,16 @@ export function Sheet({
     <div
       ref={scrimRef}
       className="armada-sheet-scrim"
-      style={follows ? ({ "--armada-sheet-beside": `${drawn(besideWidth)}px` } as CSSProperties) : undefined}
+      style={follows && room > 0 ? ({ "--armada-sheet-beside": `${followed}px` } as CSSProperties) : undefined}
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
-      data-beside={(floating && beside) || undefined}
+      data-beside={(floating && beside !== undefined) || undefined}
     >
-      {resizes ? <DockHandle width={drawn(width)} {...range} label={title} onResize={onResize} /> : null}
+      {resizes && side === "right" ? handle : null}
       <div
+        ref={sheetRef}
         className="armada-sheet"
-        style={resizes ? { width: `${drawn(width)}px` } : undefined}
+        style={drawn === undefined ? undefined : { width: `${drawn}px`, maxWidth: "none" }}
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
@@ -315,7 +320,7 @@ export function Sheet({
         role="dialog"
         // Beside another sheet, the pair is the one modal layer: marking both
         // modal would hide each from the other.
-        aria-modal={floating && beside ? undefined : "true"}
+        aria-modal={floating && beside !== undefined ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
@@ -357,9 +362,46 @@ export function Sheet({
         </div>
         {footer ? <div className="armada-sheet__foot">{footer}</div> : null}
       </div>
+      {resizes && side === "left" ? handle : null}
     </div>
   );
 }
+
+/**
+ * What a sheet beside nothing drags in: `--w-dock-min` up to what leaves
+ * `--w-work-min` uncovered, or up to its own `size` where that is wider —
+ * `reading` is 88% of the ground, and a sheet never drags narrower than it
+ * opened. The size is read off the stylesheet, which holds every one.
+ */
+function restingRange(open: number, size: string, room: number) {
+  const range = dockWidthRange(open);
+  const rest = size.endsWith("%") ? (parseFloat(size) / 100) * room : parseFloat(size);
+  return Number.isFinite(rest) ? { ...range, max: Math.max(range.max, Math.min(rest, open)) } : range;
+}
+
+/** Beside another sheet: `--w-dock-min` up to the area's leading margin. */
+function besideRange(open: number) {
+  const { min, max } = dockWidthRange(Number.NaN);
+  return { min, max: Number.isFinite(open) ? Math.max(min, open) : max };
+}
+
+/** A size's width as `Sheet.css` gives it — `480px`, `62%` — or empty until it is read. */
+function useRestOf(ref: RefObject<HTMLElement | null>, size: SheetSize, on: boolean): string {
+  const [value, setValue] = useState("");
+  useLayoutEffect(() => {
+    if (on && ref.current !== null) setValue(getComputedStyle(ref.current).getPropertyValue(REST[size]).trim());
+  }, [ref, size, on]);
+  return value;
+}
+
+/** The custom property in `Sheet.css` that holds each size's width. */
+const REST: Record<SheetSize, string> = {
+  default: "--armada-sheet-width",
+  dock: "--armada-sheet-dock",
+  wide: "--armada-sheet-wide",
+  widest: "--armada-sheet-widest",
+  reading: "--armada-sheet-reading",
+};
 
 /**
  * An element's own width, kept current as it resizes — 0 until it is measured,

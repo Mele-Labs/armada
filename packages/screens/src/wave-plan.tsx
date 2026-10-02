@@ -12,7 +12,6 @@ import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/voca
 import { useCallback, useState, type ReactNode } from "react";
 
 import type { WaveJobView, WaveView } from "./draft/wave";
-import { useTaskWidth } from "./task-width";
 import { JobAnswer, WaveRegion, blocksOf, waitsOf, type WaveRegionProps } from "./tab-wave";
 import { waveSpentSaid } from "./wave";
 
@@ -188,8 +187,6 @@ function JobSheet({
   job,
   region,
   floor,
-  width,
-  onResize,
   back,
   onOpenRelated,
   onDrop,
@@ -199,8 +196,6 @@ function JobSheet({
   job: WaveJobView;
   region: WaveRegionProps;
   floor: boolean;
-  width: number | undefined;
-  onResize: (width: number) => void;
   back: SheetBack | undefined;
   onOpenRelated: (jobId: string) => void;
   onDrop: () => void;
@@ -220,8 +215,8 @@ function JobSheet({
     <Sheet
       open
       floating
-      {...(width === undefined ? {} : { width })}
-      onResize={onResize}
+      kind="wave-job"
+      size="dock"
       floor={floor}
       title={job.title}
       subtitle={
@@ -308,7 +303,6 @@ export function WavePlan({ floor, onDropFromWave, ...region }: WavePlanProps) {
   // the group-to-task step back, on the same terms: Back and Close land on the
   // one before, and it never leaves the plan.
   const [from, setFrom] = useState<readonly string[]>([]);
-  const [width, resize] = useTaskWidth();
   // **Stable across a tick of `now`**: the region memoises the canvas's nodes
   // on it, and a fresh function each second left every card hidden.
   const opening = useCallback((jobId: string) => {
@@ -340,8 +334,6 @@ export function WavePlan({ floor, onDropFromWave, ...region }: WavePlanProps) {
           job={reading}
           region={region}
           floor={floor}
-          width={width}
-          onResize={resize}
           back={back}
           onOpenRelated={(jobId) => {
             setFrom([...from, reading.job]);

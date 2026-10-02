@@ -34,6 +34,7 @@ export function HelmSheet({
   return (
     <div className="armada-shell__helm-sheet">
       <Sheet
+        kind="helm"
         open={open}
         title={title}
         leading={
