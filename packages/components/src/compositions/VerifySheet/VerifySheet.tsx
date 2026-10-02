@@ -26,6 +26,7 @@ export type VerifySheetProps = VerifyPanelProps & {
 export function VerifySheet({ open, file, floor = false, onClose, ...run }: VerifySheetProps) {
   return (
     <Sheet
+      kind="verify"
       open={open}
       contained
       floor={floor}

@@ -1,6 +1,6 @@
 /* A dock's leading edge (`dock-handle.tsx`), drawn only where a resize is
    wired — an edge that looks grabbable and does nothing would be worse than
-   none. Helm's dock and a floating `Sheet` that resizes draw this one
+   none. Helm's dock and every `Sheet` but one at the floor draw this one
    handle.
 
    The hit area is the whole 16px gap the dock's own margin would spend alone;

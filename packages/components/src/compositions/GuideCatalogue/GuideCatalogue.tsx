@@ -174,6 +174,7 @@ export function GuideCatalogue({
           the title and the eyebrow, so the panel head is not drawn twice. */}
       {narrow && open !== undefined ? (
         <Sheet
+          kind="guide"
           open={reading}
           contained
           floor={floor}
