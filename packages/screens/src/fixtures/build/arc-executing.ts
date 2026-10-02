@@ -339,7 +339,7 @@ const ARC_DIFF: Diff = {
 };
 
 /** The Job at some instant inside `implement`. */
-function executing(args: {
+export function executing(args: {
   says: string;
   groups: GroupView[];
   step: StepDetail;
@@ -399,7 +399,7 @@ function executing(args: {
 }
 
 /** `implement`, mid-run, with whatever the last boundary's Checks came to. */
-function implementStep(runs: StepDetail["check_runs"], at: string): StepDetail {
+export function implementStep(runs: StepDetail["check_runs"], at: string): StepDetail {
   const step = arcRunning(
     arcStep("implement", "Implement", 2, [...RUST_CHECKS, ...BRIDGE_CHECKS]),
     IMPLEMENT_ENTERED,
@@ -409,7 +409,7 @@ function implementStep(runs: StepDetail["check_runs"], at: string): StepDetail {
 }
 
 /** Every Check a boundary ran, all passed. */
-function allPassed(names: string[], attempt = 1): StepDetail["check_runs"] {
+export function allPassed(names: string[], attempt = 1): StepDetail["check_runs"] {
   return names.map((name) => ({ attempt, name, outcome: "passed" }));
 }
 
@@ -441,7 +441,7 @@ function throughGroupTwo(): GroupView[] {
 }
 
 /** The Record up to the end of group two, a Check and a Judge each on a row. */
-function recordThroughGroupTwo(): LedgerRow[] {
+export function recordThroughGroupTwo(): LedgerRow[] {
   return [
     {
       at: "2026-09-22T09:41:00Z",
@@ -512,7 +512,7 @@ export function executingSequential(): ArcMoment {
  * case ran at group one's, and the Board's has no spec to run. The panel's and
  * the overview's run at group four's, which nothing has reached yet.
  */
-function casesRunThroughGroupTwo(): CaseView[] {
+export function casesRunThroughGroupTwo(): CaseView[] {
   const runs: Record<string, CaseRunView> = {
     "c-api": {
       id: "run-g1-c-api",

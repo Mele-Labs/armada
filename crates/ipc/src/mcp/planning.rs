@@ -11,7 +11,7 @@
 
 use std::fmt;
 
-use core_model::{Approach, NewTask, NotAnUpdate, PlanChange, TaskId, TaskUpdate};
+use core_model::{Approach, NewTask, NotAnUpdate, PlanChange, TaskId, TaskTier, TaskUpdate};
 use serde_json::{json, Map, Value};
 
 use super::tools::{closed, filled, text, NotAnArgument};
@@ -21,9 +21,10 @@ pub const ADD_TASK_TOOL: &str = "add_task";
 pub const UPDATE_TASK_TOOL: &str = "update_task";
 
 pub const RECORD_PLAN_FIELDS: &[&str] = &["approach", "tasks"];
-/// The fields of one entry of `record_plan`'s `tasks`. `group` alone may be
-/// left out, and is the group of the task before it.
-pub const TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "group"];
+/// The fields of one entry of `record_plan`'s `tasks`. `group` may be left
+/// out, and is the group of the task before it; `tier` may be, and is Armada
+/// picking the model.
+pub const TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "group", "tier"];
 pub const ADD_TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "after"];
 pub const UPDATE_TASK_FIELDS: &[&str] = &["task", "state", "reason", "shown"];
 
@@ -47,6 +48,8 @@ pub enum PlanArgument {
     NotAnUpdate(NotAnUpdate),
     /// A task's `group` that is not a positive whole number.
     NotAGroup,
+    /// A task's `tier` that is not one of the three.
+    NotATier,
 }
 
 impl fmt::Display for PlanArgument {
@@ -69,6 +72,10 @@ impl fmt::Display for PlanArgument {
                 "`group` is not a whole number of 1 or more. Number the groups 1, 2 and so \
                  on in the order they run, or leave `group` out to keep a task in the group \
                  of the task before it",
+            ),
+            PlanArgument::NotATier => out.write_str(
+                "`tier` is one of `difficult`, `medium` or `easy`. Leave it out where you \
+                 cannot say how hard the task is, and Armada picks its model",
             ),
             PlanArgument::NotAnUpdate(NotAnUpdate::NoSuchState { named }) => write!(
                 out,
@@ -133,7 +140,16 @@ fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument>
                 .filter(|n| *n > 0)
                 .ok_or(NotAnArgument::Planning(PlanArgument::NotAGroup))?,
         };
-        tasks.push(task(entry)?.in_group(group));
+        let tier = match entry.get("tier") {
+            None => None,
+            Some(named) => Some(
+                named
+                    .as_str()
+                    .and_then(TaskTier::from_wire)
+                    .ok_or(NotAnArgument::Planning(PlanArgument::NotATier))?,
+            ),
+        };
+        tasks.push(task(entry)?.in_group(group).at_tier(tier));
     }
     Ok(PlanChange::Recorded { approach, tasks })
 }
@@ -259,6 +275,14 @@ pub(super) fn record_plan_tool() -> Value {
                                     in the order the groups run, never going back. Leave it \
                                     out to keep the task in the group of the task before \
                                     it; a plan naming no group is one group.",
+                            },
+                            "tier": {
+                                "type": "string",
+                                "enum": ["difficult", "medium", "easy"],
+                                "description": "How hard the task is, which picks the model \
+                                    the part doing it runs on: difficult for a task that needs \
+                                    the most careful reasoning, easy for a mechanical one. \
+                                    Leave it out where you cannot say, and Armada picks.",
                             },
                         },
                         "required": ["title", "note", "scope", "expects"],

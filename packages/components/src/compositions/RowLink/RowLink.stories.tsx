@@ -20,7 +20,7 @@ export default meta;
 
 type Story = StoryObj<typeof RowLink>;
 
-/** A Check that failed, opening its own Record row. Named by what it came to. */
+/** A Check that failed, opening its log. Named by what it came to. */
 export const FailedCheck: Story = {
   args: {
     mark: <ShieldX size={12} strokeWidth={2} />,
@@ -37,7 +37,7 @@ export const FailedCheck: Story = {
   },
 };
 
-/** A Check with no row of its own to open: the same line, and not a button. */
+/** A Check with no log to open: the same line, and not a button. */
 export const NothingToOpen: Story = {
   args: {
     mark: <ShieldCheck size={12} strokeWidth={2} />,

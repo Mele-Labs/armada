@@ -26,6 +26,22 @@ impl Bench {
     }
 }
 
+impl super::plan::Planned {
+    /// What the plan as it stands says to one more change a person makes,
+    /// **without keeping it**, for [`super::plan::Planned::judged`]'s reason.
+    pub fn judged_by_person(
+        &self,
+        change: core_model::PlanChange,
+    ) -> Result<core_model::WorkPlan, core_model::PlanRefused> {
+        let entry = core_model::PlanEntry {
+            change,
+            by: core_model::PlanAuthor::Person,
+            at: core_model::Timestamp::from_rfc3339("2026-10-02T10:59:59.000Z"),
+        };
+        core_model::WorkPlan::after(self.plan().as_ref(), &entry)
+    }
+}
+
 /// Who signed each step move, oldest first.
 pub fn step_signers(bench: &Bench) -> Vec<Actor> {
     bench

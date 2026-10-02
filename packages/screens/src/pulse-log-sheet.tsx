@@ -1,4 +1,5 @@
 // One of a Job's log files, read in a panel over Pulse while it is written.
+// The panel is `log-sheet.tsx`'s, which a Check's log opens in too.
 //
 // **Nothing here reads a file.** Both kinds that open already stream to this
 // window, opened with the Job: a Drone's transcript is the observe socket's
@@ -12,19 +13,13 @@
 // panel carry the one mark, and both stop when `lsof` says nobody holds the
 // file any more.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import {
-  BeingWritten,
-  ConsoleWrapToggle,
-  DroneBrief,
-  DroneTurns,
-  Sheet,
-  type PulseLogRow,
-} from "@armada/components";
+import { DroneBrief, DroneTurns, type PulseLogRow } from "@armada/components";
 import type { Journalled, Observed } from "@armada/protocol";
 
 import { Log } from "./Log";
+import { LogSheet } from "./log-sheet";
 import { logOf, turnsOf } from "./mine";
 import { BriefPane, type ReadBrief } from "./pulse-brief";
 import { notesOf } from "./notes";
@@ -46,50 +41,30 @@ export type PulseLogSheetProps = {
 const TITLE: Record<string, string> = { job: "Job log", transcript: "Drone transcript", brief: "Judge brief" };
 
 export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadBrief, onClose }: PulseLogSheetProps) {
-  const body = useRef<HTMLDivElement>(null);
   const notes = log?.kind === "job" ? notesOf(logOf(journalled, jobId)?.notes ?? []) : [];
   const live = log?.writing === true;
   // The reader's wrap, for the file whose panel is open. A brief opens
   // wrapped because it is prose; the toggle flips it, and another file
   // opens at its own default again.
   const [flipped, setFlipped] = useState<{ path: string; wrap: boolean } | null>(null);
-  // The Job's log follows its tail while it is written; `DroneTurns` does this
-  // for a transcript on its own.
-  useLayoutEffect(() => {
-    const el = body.current;
-    if (live && el !== null) el.scrollTop = el.scrollHeight;
-  }, [live, notes.length]);
   if (log === null || log.path === undefined) return null;
   const drone = droneOf(log.path);
   const rows = (turnsOf(observed, jobId)?.rows ?? []).filter((row) => row.drone_id === drone);
   const path = log.path;
   const wrap = flipped?.path === path ? flipped.wrap : log.kind === "brief";
   return (
-    <Sheet
+    <LogSheet
       kind="pulse-log"
-      open
-      contained
-      size="wide"
+      placement="contained"
       floor={floor}
       title={TITLE[log.kind] ?? log.kind}
-      subtitle={
-        <>
-          {log.about ?? THE_JOBS_OWN}
-          {live ? (
-            <>
-              {" "}
-              <BeingWritten />
-            </>
-          ) : null}
-        </>
-      }
+      about={log.about ?? THE_JOBS_OWN}
+      live={live}
+      // The Job's log follows its tail while it is written; `DroneTurns` does
+      // this for a transcript on its own.
+      grows={notes.length}
       // Only a brief is drawn as console lines here, so only it has lines to wrap.
-      {...(log.kind === "brief"
-        ? { controls: <ConsoleWrapToggle wrap={wrap} onToggle={() => setFlipped({ path, wrap: !wrap })} /> }
-        : {})}
-      closeLabel="Close"
-      closeBinding="Esc"
-      bodyRef={body}
+      {...(log.kind === "brief" ? { wrap: { wrap, onToggle: () => setFlipped({ path, wrap: !wrap }) } } : {})}
       onClose={onClose}
     >
       {log.kind === "brief" ? (
@@ -103,7 +78,7 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadB
       ) : (
         <Log rows={notes} emptyNote={NOTHING_READ} region="Job log" />
       )}
-    </Sheet>
+    </LogSheet>
   );
 }
 

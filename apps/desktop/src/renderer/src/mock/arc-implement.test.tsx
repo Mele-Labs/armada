@@ -158,8 +158,8 @@ describe("implement", () => {
       await expect.element(boundaryOf(3)).toHaveTextContent("attempt 2");
       // **What the failed Check was held to and what it got, each labelled** —
       // run together with no labels they read as one claim that contradicted
-      // itself (the owner, 29 Sep 2026). The output is a file, read on the
-      // Check's own Record row, which the Check's press opens.
+      // itself (the owner, 29 Sep 2026). The output is a file, read in the
+      // log panel the Check's press opens.
       await expect.element(boundaryOf(3)).toHaveTextContent("ExpectedEvery test in the screens package passes");
       await expect.element(boundaryOf(3)).toHaveTextContent("Result1 of 1384 failed");
       await expect.element(boundaryOf(3)).not.toHaveTextContent("What the gate wrote down");
@@ -198,15 +198,15 @@ describe("implement", () => {
   );
 
   test(
-    "arc/group-failed: pressing screens_test on group three's card opens that Check's own " +
-      "row on the Record, with its output",
+    "arc/group-failed: pressing screens_test on group three's card opens that Check's log, " +
+      "its output whole",
     async () => {
       await planList("arc/group-failed");
 
       await boundaryOf(3).getByRole("button", { name: "screens_test, failed" }).click();
-      await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
-      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
-      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+      const log = page.getByRole("dialog", { name: "Check log" });
+      await expect.element(log.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+      await expect.element(page.getByRole("tab", { name: /^Plan/ })).toHaveAttribute("aria-selected", "true");
     },
   );
 

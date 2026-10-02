@@ -20,8 +20,9 @@ use core::num::NonZeroU32;
 
 use crate::envelope::Timestamp;
 use crate::job::attempt::Attempt;
-use crate::job::ids::{RepoPath, StepId};
+use crate::job::ids::{ModelName, RepoPath, StepId};
 use crate::job::plan_group::GroupId;
+use crate::job::tiers::{TaskEdit, TaskTier};
 
 /// A task's stable name within one plan: `T1`, `T2`, … in the order minted.
 ///
@@ -240,6 +241,9 @@ pub struct NewTask {
     /// `None` is the group of the task before it, and the first group for the
     /// first task, so a plan recorded without groups is one group.
     group: Option<NonZeroU32>,
+    /// How hard the planner thought it was, on a recording. `None` is the
+    /// planner leaving it to Armada, the same as a tier the map leaves out.
+    tier: Option<TaskTier>,
 }
 
 impl NewTask {
@@ -259,6 +263,7 @@ impl NewTask {
                 .collect(),
             expects: String::from(expects.trim()),
             group: None,
+            tier: None,
         })
     }
 
@@ -268,6 +273,16 @@ impl NewTask {
             group: NonZeroU32::new(number),
             ..self
         }
+    }
+
+    /// The same task, at the planner's `tier`.
+    pub fn at_tier(self, tier: Option<TaskTier>) -> NewTask {
+        NewTask { tier, ..self }
+    }
+
+    /// How hard the planner thought it was, where it said.
+    pub fn tier(&self) -> Option<TaskTier> {
+        self.tier
     }
 
     /// The planner's own number for its group, where it named one.
@@ -371,6 +386,11 @@ pub enum PlanChange {
         to: TaskUpdate,
         shown: Option<Shown>,
     },
+    /// A person changes a task's title, note, scope, expects or model
+    /// (#1657). **Appended after whatever the plan was approved as**, so the
+    /// record reads the recording, then the edit, and the recording is never
+    /// rewritten.
+    Edited { task: TaskId, edit: TaskEdit },
 }
 
 /// One row of a plan's history.
@@ -412,6 +432,12 @@ pub enum PlanRefused {
     GroupsOutOfOrder {
         named: u32,
     },
+    /// An edit to a task that is not `open` or `failed`: one working or handed
+    /// in is its Drone's, and one done or dropped is settled.
+    NotEditable {
+        named: TaskId,
+        state: TaskState,
+    },
 }
 
 impl fmt::Display for PlanRefused {
@@ -436,6 +462,11 @@ impl fmt::Display for PlanRefused {
                 out,
                 "group {named} comes after a higher group: list the tasks group by group"
             ),
+            PlanRefused::NotEditable { named, state } => write!(
+                out,
+                "task {named} is {}, and only an open or a failed task is edited",
+                state.as_wire()
+            ),
         }
     }
 }
@@ -458,6 +489,8 @@ pub struct PlanTask {
     state: TaskUpdate,
     shown: Option<Shown>,
     windows: Vec<WorkingWindow>,
+    /// A person's pick, from an edit. Beats the Job's map for this task.
+    model: Option<ModelName>,
 }
 
 impl PlanTask {
@@ -469,7 +502,18 @@ impl PlanTask {
             state: TaskUpdate::Open,
             shown: None,
             windows: Vec::new(),
+            model: None,
         }
+    }
+
+    /// How hard the planner thought it was. `None` is Armada picking.
+    pub fn tier(&self) -> Option<TaskTier> {
+        self.task.tier()
+    }
+
+    /// The model a person picked for it, where one did.
+    pub fn model(&self) -> Option<&ModelName> {
+        self.model.as_ref()
     }
 
     pub fn id(&self) -> TaskId {
@@ -682,6 +726,34 @@ impl WorkPlan {
                 // it again does not lose what the first pass showed.
                 if shown.is_some() {
                     task.shown = shown.clone();
+                }
+            }
+            PlanChange::Edited { task, edit } => {
+                let at = plan
+                    .position(*task)
+                    .ok_or(PlanRefused::NoSuchTask { named: *task })?;
+                let task = &mut plan.tasks[at];
+                let state = task.state();
+                if !matches!(state, TaskState::Open | TaskState::Failed) {
+                    return Err(PlanRefused::NotEditable {
+                        named: task.id,
+                        state,
+                    });
+                }
+                if let Some(title) = edit.title() {
+                    task.task.title = String::from(title);
+                }
+                if let Some(note) = edit.note() {
+                    task.task.note = String::from(note);
+                }
+                if let Some(scope) = edit.scope() {
+                    task.task.scope = scope.to_vec();
+                }
+                if let Some(expects) = edit.expects() {
+                    task.task.expects = String::from(expects);
+                }
+                if let Some(model) = edit.model() {
+                    task.model = Some(model.clone());
                 }
             }
         }

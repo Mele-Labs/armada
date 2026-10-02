@@ -26,7 +26,7 @@ import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion }
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, Opened } from "@armada/protocol";
+import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -305,6 +305,10 @@ const api: BridgeApi = {
   // and its own because it is its own socket.
   followCheckOutput: (jobId: string | null, kept: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.followCheckOutput, jobId, kept),
+
+  // One merge line Check's log, by the line's three names. Read-only like the entry above.
+  followLandCheck: (at: LandCheckAt | null): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.followLandCheck, at),
 
   // One Job's transition history. Read-only like the two above it, and a
   // separate entry because it is a separate operation: a history is not a field

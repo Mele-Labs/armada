@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::detail::Verdict;
-use crate::enums::{Actor, GroupState, TaskState};
+use crate::enums::{Actor, GroupState, TaskState, TaskTier};
 use crate::ids::{Instant, JobId, StepId};
 
 /// An approach and its tasks, in plan order. What a Drone recorded and every
@@ -107,6 +107,15 @@ pub struct PlanTask {
     /// still red on which run. Since 23.4.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_reason: Option<String>,
+    /// How hard the planner thought it was, which picks its model off the
+    /// Job's `tiers`. Absent is the planner leaving it to Armada. Since 23.6.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tier: Option<TaskTier>,
+    /// The model a person picked for this task with Edit this task, which
+    /// beats the Job's map. **Absent is nobody having picked**; the model a
+    /// Drone ran is on its `JobDrone` row, not here. Since 23.6.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     /// Each stretch the task was marked `working`, oldest first — what Bridge
     /// places a turn in a task by. **Left out where empty**, which is every
     /// task no change ever marked working. Since 14.5.
@@ -214,7 +223,8 @@ impl JobPlanChanged {
                 None
             }
             core_model::PlanChange::Updated { task, .. }
-            | core_model::PlanChange::MovedTask { task, .. } => Some(*task),
+            | core_model::PlanChange::MovedTask { task, .. }
+            | core_model::PlanChange::Edited { task, .. } => Some(*task),
             core_model::PlanChange::Added { .. } => plan.tasks().iter().map(|t| t.id()).max(),
         };
         match moved {
@@ -297,6 +307,77 @@ pub struct MovePlan {
     pub after: Option<String>,
 }
 
+/// Edit this task: what a person changed on one task, **and only that**.
+/// `#1657`, with the body Bridge already sent (spike 022's lock).
+///
+/// A field left out is unchanged. `note` and `expects` sent empty, and `scope`
+/// sent as `[]`, clear it. A blank `title`, a body changing nothing, and a
+/// `model` `list_models` does not offer are refused.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditTask {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expects: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+}
+
+/// Which model each tier of a Job's tasks runs on. Since 23.6.
+///
+/// **A tier left out is Armada picking** (spike 022, answer 8): the Drone
+/// runs as its step, or the Job, would, and its `JobDrone.model` says which.
+/// Never `null`, by this protocol's rule for an empty value.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TierModels {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub difficult: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medium: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub easy: Option<String>,
+}
+
+impl TierModels {
+    pub fn is_empty(&self) -> bool {
+        self.difficult.is_none() && self.medium.is_none() && self.easy.is_none()
+    }
+
+    /// Each tier named, with its model, in the order the wire lists them.
+    pub fn named(&self) -> impl Iterator<Item = (core_model::TaskTier, &str)> {
+        [
+            (core_model::TaskTier::Difficult, &self.difficult),
+            (core_model::TaskTier::Medium, &self.medium),
+            (core_model::TaskTier::Easy, &self.easy),
+        ]
+        .into_iter()
+        .filter_map(|(tier, model)| model.as_deref().map(|model| (tier, model)))
+    }
+}
+
+impl From<&core_model::TierModels> for TierModels {
+    fn from(tiers: &core_model::TierModels) -> TierModels {
+        let named = |tier| tiers.get(tier).map(|model| model.as_str().to_string());
+        TierModels {
+            difficult: named(core_model::TaskTier::Difficult),
+            medium: named(core_model::TaskTier::Medium),
+            easy: named(core_model::TaskTier::Easy),
+        }
+    }
+}
+
+/// A person sets which model each tier of this Job's tasks runs on: the whole
+/// map, replacing the one before. `set_tiers`, since 23.6.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetTiers {
+    #[serde(default)]
+    pub tiers: TierModels,
+}
+
 /// A person drops a task from a Job's plan, with a reason. `#897`.
 ///
 /// **`reason` is never empty.** A blank one is refused at the Fleet boundary
@@ -352,6 +433,8 @@ impl WorkPlan {
                     reason: task.reason().map(str::to_string),
                     group: Some(task.group().to_string()),
                     failed_reason: task.failed_reason().map(str::to_string),
+                    tier: task.tier().map(TaskTier::from),
+                    model: task.model().map(|model| model.as_str().to_string()),
                     working_windows: task
                         .working_windows()
                         .iter()

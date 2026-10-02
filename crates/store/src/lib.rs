@@ -71,6 +71,8 @@ mod manifest_snapshot;
 mod migrations;
 /// The model a person chose for a Job's later steps.
 mod model_override;
+/// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
+mod model_per_task;
 /// The note a boundary is holding, and the column it waits in.
 mod note;
 mod numbering;
