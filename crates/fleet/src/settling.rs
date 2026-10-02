@@ -232,6 +232,11 @@ where
             .await
             .step_spent(&job_id, &step)
             .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
+        // A plan's group counts its own runs against the budget, and one with
+        // a group after it leaves handoff's Checks to the last. `crate::grouping`.
+        let at_group = self.group_at_gate(&job, &step).await?;
+        let spent = at_group.map_or(spent, |g| core_model::Spent::runs_this_pass(g.run));
+        let coord = at_group.map(|g| (g.group, g.run));
         // Read off the Job that is being ruled on, and off nothing else. The
         // borrow is the whole guarantee: `Request::of` takes a `&Job`, so the
         // yardstick the Judge is shown is the requester's frozen text and there
@@ -280,7 +285,8 @@ where
             .tolerated_criteria()
             .unwrap_or_default();
         let ruling = rule_on(
-            at.on_attempt(attempt, spent),
+            at.on_attempt(attempt, spent)
+                .holding_handoff(at_group.is_some_and(|g| g.follows)),
             request,
             &landed.submission,
             declared.as_ref(),
@@ -316,7 +322,7 @@ where
         // Before the Job or the step moves. A recorded result the transition
         // then failed to make is readable; a transition whose evidence was
         // never written down is a verdict with no trace.
-        self.recorded_checks(&job_id, &job.handle(), &step, attempt, &ruling)
+        self.recorded_checks(&job_id, &job.handle(), &step, attempt, coord, &ruling)
             .await?;
         self.kept_what_the_gate_checked(&job, &ruling).await;
         // After `recorded_checks`, which is what puts this attempt's own
@@ -340,7 +346,7 @@ where
                 at_work.told(
                     ipc::Voice::Fleet,
                     ipc::Saw::Checked {
-                        run: ipc::CheckRun::of(attempt.number(), run),
+                        run: ipc::CheckRun::of(attempt.number(), run).at(coord),
                     },
                 );
             }
@@ -382,7 +388,13 @@ where
         // the state it held before `act_on` moved it there — `#665`.
         if holds_for_review {
             let held = self.load(&job_id).await?;
-            self.compose_review_at_gate(&held, &step, &worktree).await;
+            // A green group with one after it held nothing: `crate::grouping`.
+            if held
+                .step(&step)
+                .is_some_and(|row| row.state() == core_model::StepState::AwaitingHuman)
+            {
+                self.compose_review_at_gate(&held, &step, &worktree).await;
+            }
         }
         // #796: the ruling is fully applied, so the durable row this
         // submission survived a restart under is no longer needed.

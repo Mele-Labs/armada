@@ -136,6 +136,8 @@ fn what_armada_said_and_what_fleet_did_reach_the_viewer_with_their_voice() {
         by: crate::Voice::Fleet,
         ..row(Saw::Checked {
             run: crate::CheckRun {
+                group: None,
+                group_attempt: None,
                 attempt: 1,
                 name: "suite".to_string(),
                 outcome: crate::CheckOutcome::from_wire("passed").expect("a registry outcome"),

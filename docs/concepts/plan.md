@@ -22,7 +22,7 @@ one.
 
 A Plan holds an `approach` — a paragraph — and an ordered list of Tasks.
 
-**Tasks sit in groups, and a group is what runs.** *Not yet built.* The plan's tasks are ordered into groups; the groups run one at a time in plan order, in the Job's one worktree, and the step's Checks run at the end of each group rather than once over the whole step. A verdict then names the group that broke, and a retry re-runs only that group.
+**Tasks sit in groups, and a group is what runs.** The plan's tasks are ordered into groups; the groups run one at a time in plan order, in the Job's one worktree, and the step's Checks run at the end of each group rather than once over the whole step. A verdict then names the group that broke, and a retry re-runs only that group. Built in spike 022's slice 2 for a step declaring `drone_per_task`; *Groups* below has how.
 
 Groups exist because a parallel schedule cannot be derived. Intersecting the tasks' `scope` lists finds every edge where two tasks write one file, and finds none of the edges where one task uses what another made — four of the eight tasks on the Job the owner killed on 18 Sep were linked that way and shared no declared path. Plan order carries those edges, so running in plan order honours them; scope intersection catches a plan whose order contradicts its own paths.
 
@@ -35,7 +35,8 @@ Groups exist because a parallel schedule cannot be derived. Intersecting the tas
 | `scope` | Task | The repository-relative paths this task touches |
 | `expects` | Task | What should prove it, written by the step that plans |
 | `shown` | Task | What did prove it, written by the step that does the work |
-| `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; Fleet writes `handed_in` since 23.1, and nothing writes `failed` yet |
+| `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; Fleet writes `handed_in` since 23.1 and `failed` since 23.4 |
+| `group` | Task | The group it runs in, `G1` and on, minted by Fleet at the recording and never renumbered by a move. The planner numbers groups with `record_plan`'s `group`; a task naming none joins the one before it, so a plan naming none is one group |
 | `reason` | Task | Required when `state` is `dropped` |
 | `concurrent_with` | Task | Which tasks in its group may run at the same time, declared by the planner. *Not yet built* |
 
@@ -73,7 +74,7 @@ overwritten.
 | The step that records the plan | Record it whole, while its step runs. A retry, or a loop's return to that step, replaces the plan |
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
 | A step declaring `drone_per_task: true` | Nothing, by its Drones. Fleet marks each task from its Drone, as below, and the step's Drones are given no plan tool even beside `follows_plan` |
-| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, while the plan waits on its review — Fleet does not serve the move yet (#1685) |
+| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, by the one it comes after (`move_plan`, #1685), never a task still working or handed in. Restart a failed task (`restart_task`, #1656) |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind
@@ -81,9 +82,9 @@ them is still on the branch, so the plan does not reset with the step.
 
 ## Fleet writes a task's state, and a Drone stops claiming it
 
-**On a step declaring `drone_per_task`, built in spike 022's slice 1b.** Fleet marks a task `working` when it spawns the task's Drone, `handed_in` when that Drone hands in, with `shown` taken from the hand-in's `shown_by`, and `done` when the step's Checks pass, in place of a Drone claiming any of them. On the Job of 18 Sep three tasks flipped to `done` within 1.6 seconds of each other and five never entered `working` at all, which is what a self-reported state is worth; across one machine, two of eleven Drones told to call `update_task` did (#1752). A step that keeps `follows_plan` without the key still self-reports.
+**On a step declaring `drone_per_task`, built in spike 022's slice 1b.** Fleet marks a task `working` when it spawns the task's Drone, `handed_in` when that Drone hands in, with `shown` taken from the hand-in's `shown_by`, and `done` when its group's Checks pass, in place of a Drone claiming any of them. Since slice 2 it marks `failed` too, once its group's retries run out. On the Job of 18 Sep three tasks flipped to `done` within 1.6 seconds of each other and five never entered `working` at all, which is what a self-reported state is worth; across one machine, two of eleven Drones told to call `update_task` did (#1752). A step that keeps `follows_plan` without the key still self-reports.
 
-**`handed_in` is the state in between**, the owner's answer 1 in spike 022: the task's agent handed its work in and the step's Checks have not answered. Done arrives at green, and a Judge refusing after the Checks does not undo it.
+**`handed_in` is the state in between**, the owner's answer 1 in spike 022: the task's agent handed its work in and its group's Checks have not answered. Done arrives at green, and a Judge refusing after the Checks does not undo it.
 
 ## A Drone per task
 
@@ -91,21 +92,38 @@ them is still on the branch, so the plan does not reset with the step.
 
 | When | What Fleet does |
 | --- | --- |
-| The step is entered, or a task's Drone handed in | Puts a Drone on the first task in plan order that is `open`, or `working` under a Drone that is gone, and marks it `working`. Its brief names the task and says the hand-in ends it |
+| The step is entered, or a task's Drone handed in | Puts a Drone on the first task, in the group being worked, that is `open`, or `working` under a Drone that is gone, and marks it `working`. Its brief names the task and says the hand-in ends it |
 | That Drone calls `submit_evidence` | Keeps the hand-in as the task's, marks it `handed_in`, answers `recorded`, and puts nothing in the step's evidence inbox |
 | The next turn | Ends that Drone and spawns the next task's on the same worktree. No gate runs, and the cap and headroom are not asked: the Job keeps its one agent (answer 2) |
-| No task is open or working | Puts one submission in the inbox carrying every task's claim, labelled `T1: …`. The step's Checks and Judge run once, as one group |
-| The step's Checks pass | Marks every `handed_in` task `done` |
+| No task of the group is open or working | Puts one submission in the inbox carrying each of the group's claims, labelled `T1: …`. The step's Checks and Judge run at the group's end |
+| The group's Checks pass | Marks its `handed_in` and `failed` tasks `done`, and *Groups* below says what follows |
 
-**The last task's Drone stays for the outcome.** Its hand-in is what fills the inbox, so a red Check hands the work back to it, as a step retry is one Drone today; a group's own round is slice 2's. **A Drone that exits without handing in stops the step**, as any Drone does. A step restarted with every task already handed in gets one Drone for the step.
+**The group's last task's Drone stays for the outcome.** Its hand-in is what fills the inbox, so a red Check hands the work back to it, as a step retry is one Drone today. **A Drone that exits without handing in stops the step**, as any Drone does. A step restarted with every task of its group already handed in gets one Drone for the step.
 
 **What crosses from one task's Drone to the next** is the step's baseline and every path declared so far, so the gate measures the step's whole diff against every task's declaration rather than the last one's. Which Drone worked which task, and what each handed in, is kept beside the plan (store V92), so `list_job_drones` names each Drone's task.
 
-**`failed` is a task whose group's Checks went red.** It is not `open`, not `working`, not `done` and not `dropped`. Fleet writes it from slice 2, and the retry that re-runs the group is what clears it.
+**`failed` is a task whose group's Checks were still red when the step's retries ran out** (answer 9). It is not `open`, not `working`, not `done` and not `dropped`. Restart this task puts a Drone on it again, and a green gate over its group is what clears it.
 
 **Neither is a Drone's or a person's to set.** `update_task` refuses both, because Fleet marks them from a hand-in and from a group's Checks.
 
 **A done task a later task edits stays done, and is flagged.** The work behind it is still on the branch, so nothing reopens it; what a person needs is to know that somebody wrote into its files afterwards, which the flag says and the state does not.
+
+## Groups
+
+**Spike 022, slice 2.** Fleet keeps each group's runs beside the plan (store V95): when each began and was answered, the step's run it was filed under, its verdict, and the commit a green run made. A group's run begins at its first task's spawn.
+
+| At a group's end | What Fleet does |
+| --- | --- |
+| Its Checks and Judge pass | Its tasks are `done`. Where a group with work follows, it commits once and the next group's first task gets its Drone; the step moves only after the last group |
+| A Check is red and the step's `retry_limit` allows another run | The group goes round on its own: the same Drone is told the red Checks and then every task of the group, and the tasks stay `handed_in` |
+| A Check is red on the last run allowed | Every task in the group turns `failed`, with a reason naming the group and the run, and the step stops for a person |
+| The Judge refuses | The group stops for a person, as a step does (answer 3). The Checks passed, so its tasks read `done` |
+
+**The budget is the group's own runs**, not the step's: a later group starts with all of its retries. A person's restart does not reset it, as `restart_step` does not reset a step's, so a restarted group that is red again fails at once.
+
+**Every group runs every gate Check over the whole copy.** Selecting tests by file and a test's last group wait on #1274. A Check declared `runs_at: handoff` is held back at every group but the last, so the step before handoff runs every Manifest Check once, after its last group.
+
+**A Check run and a Record row name their group.** A gate Check's run carries the group and its run, and so does the step move a red run or a stop made, so a passed group's Checks stay its own beside a later group's.
 
 ## Tasks that may run at once are declared, never inferred
 

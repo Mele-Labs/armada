@@ -897,6 +897,35 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
   }
 }
 
+/** An address whose scout reads it and asks for nothing — what Fleet makes of an empty answer. */
+export const READS_AS_NOTHING = "https://example.invalid/o/r/wiki/Glossary";
+
+/** What Fleet's one Note says when a read-in finds nothing — `NOTHING_FOUND` in `crates/fleet/src/reading_in.rs`. */
+export const NOTHING_FOUND = "Nothing was found that could be pulled into the studio.";
+
+/**
+ * Every read-in still reading, ended answered with nothing to place: Fleet lands one Note beside
+ * its Finding, in its Zone, produced by the Finding and by the source the way every read-in node is.
+ */
+function answeredWithNothing(studio: Studio): Studio {
+  let out = studio;
+  for (const node of studio.nodes) {
+    if (node.kind !== "finding" || node.state !== "gathering") continue;
+    const { state: _reading, ...rest } = node;
+    const ended: StudioNode = { ...rest, learned: "Nothing in the page bears on this repository.", ended: { outcome: "answered", cost_micros: 900 } };
+    const source = studio.edges.find((edge) => edge.to === node.id && edge.kind === "produced")?.from;
+    const at = { x: node.position.x + 340, y: node.position.y };
+    out = made(
+      { ...out, nodes: out.nodes.map((one) => (one.id === node.id ? ended : one)) },
+      { kind: "note", said: NOTHING_FOUND },
+      [node.id, ...(source === undefined ? [] : [source])],
+      at,
+      node.within,
+    );
+  }
+  return out;
+}
+
 /**
  * An address read in — #1293, #1394. **What Fleet fetched is decided here by
  * the address**, since a mock has no network: an Epic fills in as one Issue per
@@ -922,6 +951,14 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     learned: "Two claims, and one of them disagrees with the checkout.",
     ended: { outcome: "answered", cost_micros: 3_100 },
   };
+  if (link.address === READS_AS_NOTHING) {
+    // Still reading: no `learned` and no `ended` yet, and its state says so.
+    const { learned: _, ended: __, ...asked } = finding as Extract<StudioNodeContent, { kind: "finding" }>;
+    const reading = made(zoned, asked, [nodeId], down(0), zone);
+    const gathering = { ...reading, nodes: reading.nodes.map((node, at) => (node.kind === "finding" && at === reading.nodes.length - 1 ? { ...node, state: "gathering" } : node)) };
+    // Answered at once: a walk frames the board after it, so nothing waits on a timer.
+    return answeredWithNothing(gathering);
+  }
   // Ended, so no state: `frozen` went on 1 Oct 2026.
   const marked = made(zoned, finding, [nodeId], down(0), zone);
   const clustered = made(marked, { kind: "cluster", title: "What to read in first" }, [nodeId], { x: INSET + 340, y: HEAD }, zone);

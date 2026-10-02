@@ -24,6 +24,36 @@ pub(crate) struct Laid {
     pub(crate) contradictions: Vec<StudioPosition>,
 }
 
+/// `read` with every Cluster that would hold fewer than two Notes taken out.
+/// Its Notes still land, unclustered.
+///
+/// **Grouping by hand refuses a Cluster of fewer than two**, and a read-in is
+/// held to the same: the owner, 2 Oct 2026, of a one-note frame. Repeated until
+/// nothing changes, because a Note drawn in a dropped Cluster may be the second
+/// a later one names.
+pub(crate) fn without_thin_clusters(mut read: ReadIn) -> ReadIn {
+    loop {
+        let mut held: Vec<Vec<&str>> = vec![Vec::new(); read.clusters.len()];
+        for note in &read.notes {
+            let first = read
+                .clusters
+                .iter()
+                .position(|cluster| cluster.of.iter().any(|named| named == &note.id));
+            if let Some(cluster) = first {
+                if !held[cluster].contains(&note.id.as_str()) {
+                    held[cluster].push(&note.id);
+                }
+            }
+        }
+        let thick: Vec<bool> = held.iter().map(|notes| notes.len() >= 2).collect();
+        if thick.iter().all(|&kept| kept) {
+            return read;
+        }
+        let mut each = thick.into_iter();
+        read.clusters.retain(|_| each.next().unwrap_or(false));
+    }
+}
+
 /// Lay out `read` beside a Finding at `from`.
 ///
 /// **A Note is in the first Cluster that names it, and in no other** — the

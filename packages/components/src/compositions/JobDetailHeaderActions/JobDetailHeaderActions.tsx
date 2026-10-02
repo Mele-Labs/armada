@@ -98,6 +98,20 @@ export type JobDetailField = {
    */
   opensJob?: string;
   /**
+   * A destination inside Armada that is not another Job, pressed in place —
+   * the Studio a Job was dispatched from, #1674.
+   *
+   * **A bound press, not an id.** A Studio is opened on one of its nodes, so
+   * the destination is two ids and the host's own navigation; `opensJob`'s
+   * one-id shape would grow a callback per kind of place. `label` is the
+   * tooltip and names where the press lands, because the value is the
+   * registry's sentence and has no slot for the name.
+   *
+   * Drawn as `opensJob` is. **Absent where nothing opens**, so a fact with
+   * nowhere to go stays plain text.
+   */
+  opens?: { label: string; onOpen: () => void };
+  /**
    * The words after the value, where the fact reads as a sentence around it —
    * `All 4 of 4 steps advanced`. Sans, and never part of the mono run.
    */
@@ -287,8 +301,19 @@ export function JobDetailHeaderActions({
                     {field.value !== undefined ? " " : null}
                   </>
                 ) : null}
-                {field.value === undefined ? null : field.opensJob !== undefined &&
-                  onOpenJob !== undefined ? (
+                {field.value === undefined ? null : field.opens !== undefined ? (
+                  <Tooltip asChild label={field.opens.label}>
+                    <button
+                      type="button"
+                      className="armada-job-head__value"
+                      data-mono={field.mono || undefined}
+                      data-opens=""
+                      onClick={field.opens.onOpen}
+                    >
+                      {field.value}
+                    </button>
+                  </Tooltip>
+                ) : field.opensJob !== undefined && onOpenJob !== undefined ? (
                   <button
                     type="button"
                     className="armada-job-head__value"

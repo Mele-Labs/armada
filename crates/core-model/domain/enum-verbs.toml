@@ -38,11 +38,11 @@
 #                                Promoted from the draft's words at protocol
 #                                22.0, `handed_in` and `failed` with it
 #   group_state                - where one group of a Job's plan is. No
-#                                registry file of its own and no enum to pair
-#                                against: Fleet has no group yet, so the set is
-#                                `packages/screens/src/draft/group.ts`'s until
-#                                `#1545` settles the schema. Its glyphs are the
-#                                step's borrowed one level further down, which
+#                                registry file of its own; paired against
+#                                `core_model::GroupState` since protocol 23.4,
+#                                when Fleet started running groups. Its glyphs
+#                                are the step's borrowed one level further
+#                                down, which
 #                                `[conventions.step_activity_borrowing]` in
 #                                `packages/icons/icons.toml` sanctions
 #   land_state                 - where one branch is on the merge line
@@ -360,7 +360,7 @@ icon = "circle-dashed"
 status_token = "--status-not-started"
 vocabulary = "Group state"
 in_code = ""
-notes = "A group's states are the step's one level further down, and they take their glyphs the way a step takes the Job's — `[conventions.step_activity_borrowing]` in `packages/icons/icons.toml`, which already lends `circle-dashed` to a plan task's open state on exactly this argument. The convention's own words: a second silhouette for one meaning is the collision the page exists to prevent. **No registry file of its own**, for the reason the header gives: Fleet has no group, so there is no enum and no `*.toml` to pair against, and the set is `packages/screens/src/draft/group.ts`'s until `#1545` settles the schema. `--status-not-started` rather than the step row's empty token: a group's state is drawn as a tinted chip and the tint is `--status-not-started-bg`, which a step's rail row has no use for."
+notes = "A group's states are the step's one level further down, and they take their glyphs the way a step takes the Job's — `[conventions.step_activity_borrowing]` in `packages/icons/icons.toml`, which already lends `circle-dashed` to a plan task's open state on exactly this argument. The convention's own words: a second silhouette for one meaning is the collision the page exists to prevent. **No registry file of its own**, for the reason the header gives: the set is paired against `core_model::GroupState`, which Fleet writes since protocol 23.4. `--status-not-started` rather than the step row's empty token: a group's state is drawn as a tinted chip and the tint is `--status-not-started-bg`, which a step's rail row has no use for."
 
 [verbs.group_state.running]
 verb = "running"
