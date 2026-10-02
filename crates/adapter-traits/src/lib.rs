@@ -334,6 +334,11 @@ pub trait Vcs {
     /// the tree holds anything uncommitted, or commits on neither the remote
     /// nor the base. Refused, the slot stays held and says why.
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept>;
+
+    /// Write on the slot this Job holds that the Job completed, so
+    /// `armada worktree --status` reads it as held until a person clears the
+    /// Job. Best-effort: it changes what the status says and nothing else.
+    fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str);
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

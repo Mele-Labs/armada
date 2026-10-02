@@ -1,7 +1,8 @@
 // A Studio holding one issue read in, as the owner's own read of #1657 came
-// back on 2 Oct 2026 — a Finding, twelve Notes in four Clusters and a
-// Contradiction — laid out the way Fleet now lands one: everything inside one
-// Zone, the Finding first and each Cluster round its Notes (#1620).
+// back on 2 Oct 2026 — a Finding, twelve Notes and a Contradiction — laid out
+// the way Fleet now lands one: everything inside one Zone, the Finding first and
+// each Cluster round its Notes (#1620), with the scout's one-Note Cluster dropped
+// and its Note loose.
 //
 // **The words are his read-in's, as the scout wrote them**, so what the walk
 // shows is what he saw as eighteen loose cards, not an invented board.
@@ -56,14 +57,13 @@ const CLUSTERS: readonly { id: string; title: string; notes: readonly string[] }
       "Watch for a `scope` change. It can move which group boundary a test runs at (`touchedByOf`).",
     ],
   },
-  {
-    id: "read-in-acceptance",
-    title: "Acceptance",
-    notes: [
-      "Done when, on a failed task, a person edits its brief in the Plan tab, restarts it (#1656), and the new agent is told the edited brief.",
-    ],
-  },
 ];
+
+/**
+ * The scout's fourth Cluster, "Acceptance", named this one Note. **Fleet draws no Cluster round
+ * fewer than two** (the owner, 2 Oct 2026), so it lands loose in the Zone, after the last Cluster.
+ */
+const ACCEPTANCE = "read-in-acceptance-note-1";
 
 const noteId = (cluster: string, at: number) => `${cluster}-note-${at + 1}`;
 
@@ -115,13 +115,21 @@ export function readInOf1657(): Studio {
       ),
     ]),
     {
+      id: ACCEPTANCE,
+      kind: "note",
+      said: "Done when, on a failed task, a person edits its brief in the Plan tab, restarts it (#1656), and the new agent is told the edited brief.",
+      within: ZONE,
+      position: { x: INSET + (CLUSTERS.length + 1) * ACROSS, y: HEAD },
+      created_at: AT,
+    },
+    {
       id: "read-in-contradiction",
       kind: "contradiction",
       first: "Fleet serves `add_task` and `drop_task` to a person (`crates/fleet/src/commanding.rs:987-994`)",
       second: "`add_task` and `drop_task` are at lines 1020-1026. The claim holds but the citation is stale.",
       state: "reported",
       within: ZONE,
-      position: { x: INSET + (CLUSTERS.length + 1) * ACROSS, y: HEAD },
+      position: { x: INSET + (CLUSTERS.length + 1) * ACROSS, y: HEAD + DOWN },
       created_at: AT,
     },
     {
@@ -149,7 +157,7 @@ export function readInOf1657(): Studio {
       ...members,
       {
         id: "read-in-blocks",
-        from: noteId("read-in-acceptance", 0),
+        from: ACCEPTANCE,
         to: noteId("read-in-build", 3),
         kind: "blocks",
         standing: "proposed",

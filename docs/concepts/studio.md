@@ -235,6 +235,9 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
 > Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
 
+> **Rule.** A read-in draws no Cluster round fewer than two Notes; the Notes it named land loose in the Zone. A read-in whose scout answered with nothing to place lands one Note in its Zone, produced by its Finding, saying *Nothing was found that could be pulled into the studio.* A scout that was stopped or failed lands nothing.
+> Why: grouping by hand refuses a Cluster of one, and a scout naming one Note left a frame round it. Of an empty read-in, the owner, 2 Oct 2026, first: *"there should be a toast notification or something saying nothing was found"*, and then, having walked the toast: *"Hmm i dont like the notification now that I see it. What about a note that extends from finding that just 'Nothing was found that could be pulled into the studio'"*. A stopped or failed scout already says how it ended on its Finding.
+
 > **Rule.** An Epic reads in as one Issue per issue, each carrying that issue's own address, number, title and state, and makes no Issue draft.
 > Why: an Issue draft is Armada's own unfiled text. An issue already on a forge is an Issue node, and dispatching from it is the address's job. The read already answers all three fields, so nothing is left for a later fetch.
 
@@ -259,8 +262,8 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** An Epic takes no scout and leaves no Finding.
 > Why: nothing was learned; a list was copied. A model asked to echo one back is cost spent on a transcription, and a Finding that cost nothing and read nothing says nothing.
 
-> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said.
-> Why: a Studio is read by agents as much as by a person, and a Note carrying an apology is a record of nothing.
+> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said. An answer of the right shape that asks for nothing makes the one Note above, and nothing else.
+> Why: a Studio is read by agents as much as by a person, and a Note carrying a scout's apology or garbled answer is a record of nothing. A well-formed empty answer is a fact about the source. The owner chose, on 2 Oct 2026, to have the board say it rather than leave a Zone holding a Finding alone.
 
 > **Rule.** Nothing promotes itself. A Note never written up is a finished outcome.
 

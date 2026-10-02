@@ -72,6 +72,7 @@ pub(super) struct FakeSlots {
     /// What every release answers, where a case's Jobs end holding work.
     keep_every: Mutex<Option<String>>,
     released: Mutex<Vec<(u32, String)>>,
+    completed: Mutex<Vec<(u32, String)>>,
 }
 
 impl FakeSlots {
@@ -200,6 +201,13 @@ impl FakeSlots {
     pub(super) fn released(&self) -> Vec<(u32, String)> {
         self.released.lock().expect("not poisoned").clone()
     }
+
+    pub(super) fn completed(&self, slot: u32, job: &str) {
+        self.completed
+            .lock()
+            .expect("not poisoned")
+            .push((slot, job.to_string()));
+    }
 }
 
 impl FakeVcs {
@@ -238,6 +246,11 @@ impl FakeVcs {
     /// Every slot given back, and by which Job, in order.
     pub fn released_slots(&self) -> Vec<(u32, String)> {
         self.slots.released()
+    }
+
+    /// Every slot marked as held by a Job that completed, in order.
+    pub fn completed_slots(&self) -> Vec<(u32, String)> {
+        self.slots.completed.lock().expect("not poisoned").clone()
     }
 
     /// A lease, refused the ways `create_worktree` scripts: a machine that will

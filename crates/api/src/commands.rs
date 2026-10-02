@@ -10,8 +10,8 @@
 //! daemon's — see `crate::answers::undecodable`. Nothing downstream was asked.
 
 use axum::body::Bytes;
-use axum::extract::Query;
 use axum::extract::State;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Extension;
@@ -578,6 +578,56 @@ pub(crate) async fn drop_task<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().drop_task(job.id(), drop).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The task a `restart_task` path names.
+#[derive(serde::Deserialize)]
+pub(crate) struct NamedTask {
+    task_id: String,
+}
+
+/// Restart this task: a fresh Drone on one failed task. **The body is
+/// optional**, `restart_step`'s rule: none is the plain restart, and bytes
+/// that arrive are read as a note. 409 on a task that has not failed. `#1656`.
+pub(crate) async fn restart_task<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    Path(NamedTask { task_id }): Path<NamedTask>,
+    body: Bytes,
+) -> Response {
+    let restart: ipc::RestartTask = if body.is_empty() {
+        ipc::RestartTask::default()
+    } else {
+        match ipc::decode("a task restart", &body) {
+            Ok(restart) => restart,
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        }
+    };
+    match served
+        .shared()
+        .restart_task(job.id(), task_id, restart)
+        .await
+    {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A person moves a task or a group in the Job's plan, by `after`. **The plan
+/// it leaves comes back**, `add_task`'s rule. `#1685`.
+pub(crate) async fn move_plan<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let moving: ipc::MovePlan = match ipc::decode("a plan move", &body) {
+        Ok(moving) => moving,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().move_plan(job.id(), moving).await {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }

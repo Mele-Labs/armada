@@ -153,6 +153,10 @@ impl Vcs for GitVcs {
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
         crate::leasing::jobs::release(pool, slot, job_id)
     }
+
+    fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {
+        crate::leasing::jobs::completed(pool, slot, job_id)
+    }
 }
 
 /// **The pre-flight v1 learned to write.**

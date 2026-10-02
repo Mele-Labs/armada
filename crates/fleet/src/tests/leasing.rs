@@ -203,28 +203,118 @@ async fn terminal_states_release_the_slot_and_waiting_ones_do_not() {
     assert_eq!(holders[..4], [None, None, held(&interrupted), None]);
 }
 
-/// Completed through the gate rather than moved by hand: `completed_success`
-/// is guarded on every step having advanced.
-#[tokio::test]
-async fn a_job_that_completes_gives_its_slot_back() {
-    let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
-    let job = approved(&fleet, &home, "fix the off-by-one").await;
-
-    submitted_by_the_one(&fleet, diff_evidence())
+/// Worked through the gate to `completed_success`, which is guarded on every
+/// step having advanced, so it cannot be moved there by hand.
+async fn finished(fleet: &Fixture, job: JobId) -> JobId {
+    submitted_by_the_one(fleet, diff_evidence())
         .await
         .expect("a diff");
     fleet.turn().await.expect("the first step advances");
-    assert!(fleet.vcs().released_slots().is_empty(), "still running");
-    submitted_by_the_one(&fleet, note_evidence())
+    submitted_by_the_one(fleet, note_evidence())
         .await
         .expect("a note");
     fleet.turn().await.expect("the Job finishes");
+    assert_eq!(status_of(fleet, &job).await, JobStatus::CompletedSuccess);
+    job
+}
 
-    assert_eq!(status_of(&fleet, &job).await, JobStatus::CompletedSuccess);
+async fn completed(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+    let job = approved(fleet, home, title).await;
+    finished(fleet, job).await
+}
+
+/// **A completed Job holds its slot until a person clears it**, the owner's
+/// decision, so whatever reads its tree afterwards still finds it. The pool's
+/// record says it completed, for `armada worktree --status`.
+#[tokio::test]
+async fn a_job_that_completes_holds_its_slot() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+
+    assert!(fleet.vcs().released_slots().is_empty());
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home))[0],
+        Some(job.as_str().to_string())
+    );
+    assert_eq!(
+        fleet.vcs().completed_slots(),
+        vec![(1, job.as_str().to_string())]
+    );
+    assert!(
+        fleet
+            .worktree_of(&fleet.load(&job).await.expect("the Job"))
+            .expect("readable")
+            .is_some(),
+        "its tree is still its own"
+    );
+}
+
+/// Clear, the Board's act on a finished Job, gives the slot back by the
+/// pool's rules. The fixture's root is no repository, so the branch half after
+/// it is refused; the slot went back first.
+#[tokio::test]
+async fn clearing_a_completed_job_gives_its_slot_back() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+
+    let cleared = Fleet::reclaim_worktree(&fleet, &job).await;
+
+    assert!(
+        !matches!(cleared, Err(Adrift::SlotKept { .. })),
+        "{cleared:?}"
+    );
     assert_eq!(
         fleet.vcs().released_slots(),
         vec![(1, job.as_str().to_string())]
+    );
+}
+
+/// Deleting a completed Job's record gives its slot back too: a lease held
+/// for a Job nobody can name again would never be given back.
+#[tokio::test]
+async fn forgetting_a_completed_job_gives_its_slot_back() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+
+    fleet
+        .forget_job(&job)
+        .await
+        .expect("a terminal Job's record goes");
+
+    assert_eq!(
+        fleet.vcs().released_slots(),
+        vec![(1, job.as_str().to_string())]
+    );
+}
+
+/// The sweep is not a person clearing it: a completed Job's slot is left
+/// held, however safe its tree.
+#[tokio::test]
+async fn the_sweep_leaves_a_completed_jobs_slot_held() {
+    let home = TempDir::new();
+    a_repository(&home);
+    let mut fitted = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    fitted.reclaiming = crate::Reclaiming::every(std::time::Duration::ZERO);
+    let fleet = Fleet::assembled(fitted);
+    let job = fleet
+        .propose(a_proposal("fix the off-by-one"))
+        .await
+        .expect("proposed");
+    crate::tests::reclaim::a_slot_for(&home, &job.handle());
+    fleet.approve(job.id()).await.expect("approved");
+    admit(&fleet).await.expect("admission runs");
+    let job = finished(&fleet, job.id().clone()).await;
+
+    let turned = fleet.turn().await.expect("a sweep");
+
+    assert!(turned.reclaimed.is_empty(), "{:?}", turned.reclaimed);
+    assert!(fleet.vcs().released_slots().is_empty());
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home))[0],
+        Some(job.as_str().to_string())
     );
 }
 

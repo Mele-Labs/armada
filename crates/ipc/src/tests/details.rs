@@ -124,6 +124,8 @@ fn a_check_run_crosses_with_which_of_the_five_outcomes_it_was() {
                 when: Some(vec!["crates/**".to_string()]),
             }]),
             ran: vec![CheckRun {
+                group: None,
+                group_attempt: None,
                 attempt: 1,
                 name: "suite".to_string(),
                 outcome: core_model::CheckOutcome::NeverRan.into(),
@@ -610,6 +612,8 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
                 started_at: Some(Instant::carried("2026-09-11T09:00:00.000Z")),
                 took_ms: Some(1_200),
                 ran: Some(CheckRun {
+                    group: None,
+                    group_attempt: None,
                     attempt: 2,
                     name: "build".to_string(),
                     outcome: core_model::CheckOutcome::Passed.into(),
