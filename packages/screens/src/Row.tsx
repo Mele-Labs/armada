@@ -91,6 +91,7 @@ import { ROW_VERBS, verbOf } from "./keys";
 import { originReading } from "./origin";
 import { leading, readingOf } from "./reading";
 import type { Recent } from "./recent";
+import { titleOf } from "./title";
 
 /**
  * The status a dispatched request stands at until the proposer answers — a wire
@@ -395,7 +396,7 @@ export function Row({
             ground="card"
             disabled={stale}
             onAction={() => onRedispatch(job.id)}
-            menuLabel={`More for ${job.title}`}
+            menuLabel={`More for ${titleOf(job)}`}
             items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
           >
             {ACT_LABEL.redispatch}
@@ -405,7 +406,7 @@ export function Row({
             ground="card"
             disabled={stale}
             onAction={() => onOpen(job.id)}
-            menuLabel={`More for ${job.title}`}
+            menuLabel={`More for ${titleOf(job)}`}
             items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
           >
             {ROW_VERBS[verb].label}
@@ -422,7 +423,7 @@ export function Row({
             ground="card"
             disabled={stale}
             onAction={() => onOpen(job.id)}
-            menuLabel={`More for ${job.title}`}
+            menuLabel={`More for ${titleOf(job)}`}
             // The binding is displayed here and bound in `keys.ts`, which is
             // the only way a person finds `x` without reading a contract.
             items={[{ label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) }]}

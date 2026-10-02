@@ -1,12 +1,5 @@
-/* Job brief — what the Job was told, and what done means for it. Sits on
-   whatever surface holds it and carries none of its own.
-
-   It had a well, and job detail drew that well inside a region already
-   labelled BRIEF: a caption over a darker card holding one sentence, where the
-   drawing has the label inline and the sentence beside it on the panel's own
-   surface. A brief is not a record being read against the thing it describes —
-   it *is* the thing the rest of the screen is read against — so there is
-   nothing for a second surface to separate it from. */
+/* Job brief's skeleton — the brief while it is read. Sits on whatever surface
+   holds it and carries none of its own. */
 .armada-job-brief {
   display: flex;
   flex-direction: column;
@@ -21,69 +14,8 @@
   min-width: 0;
 }
 
-/* The sub-label inside the region. ALL CAPS at --tracking-caps, the same
-   treatment every region label on every screen carries. */
-.armada-job-brief__label {
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--fg-subtle);
-}
-
-/* The criteria. Tracks are declared once on the list and borrowed by each row
-   through `subgrid`, so the ordinals and the sources line up down the list
-   without any of the three being pinned to a width somebody guessed. The text
-   track is the `minmax(0, 1fr)` that absorbs the slack. */
-.armada-job-brief__criteria {
-  display: grid;
-  grid-template-columns: min-content minmax(0, 1fr) max-content;
-  gap: var(--space-2) var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-job-brief__criterion {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: baseline;
-  min-width: 0;
-}
-
-/* The number, not the marker: an explicit ordinal is what lets a citation to
-   "criterion 4" still resolve when the rows sort. Mono, because the citation
-   is machine-written. */
-.armada-job-brief__ordinal {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
-  color: var(--fg-subtle);
-}
-
-.armada-job-brief__text {
-  min-width: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-default);
-  text-wrap: pretty;
-}
-
-/* The verification source. Mono and muted: it is a closed vocabulary the wire
-   supplies, and it hedges the row rather than judging it. No hue — a source is
-   not a verdict, and no verdict is served. */
-.armada-job-brief__source {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-sm);
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
-/* The brief itself. Sans, at full contrast. Its structure and its line
-   breaks are markdown's, drawn by Prose, so this sets no `white-space`. */
+/* Sans at the brief's own size, so the bars stand at the height of the lines
+   they stand in for. */
 .armada-job-brief__facts {
   margin: 0;
   min-width: 0;
@@ -91,29 +23,4 @@
   line-height: var(--leading-sm);
   color: var(--fg-default);
   text-wrap: pretty;
-}
-
-/* What is absent, and why. Never a labelled blank: a label with nothing under
-   it reads as a value that failed to load. */
-.armada-job-brief__note {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-  text-wrap: pretty;
-}
-
-/* The instruction nothing has taken yet. Separated from the two standing
-   halves by a rule beneath rather than by a hue: it is not a warning and not a
-   status, it is a fact that will be gone by the next reading, and giving it a
-   colour would make every screen it appears on look like something is wrong.
-   The words reuse `__facts`, so both are sans at full contrast; a person's
-   reply is drawn as they typed it, so it keeps its line breaks here. */
-.armada-job-brief__block[data-waiting] {
-  padding-bottom: var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-job-brief__block[data-waiting] .armada-job-brief__facts {
-  white-space: pre-wrap;
 }

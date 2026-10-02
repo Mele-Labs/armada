@@ -296,7 +296,6 @@ export * from "./compositions/RunDiffSheet/RunDiffSheet";
 export * from "./compositions/WorkGroups/WorkGroups";
 // A step as one timeline: the phases in the order they happened, repeated for
 // each attempt, with the earlier ones folded. Replaces the strip and the story.
-export * from "./compositions/StepTimeline/StepTimeline";
 export * from "./compositions/ManifestFile/ManifestFile";
 // Drift and Verify on the Manifest surface — Journey 9's *Verify*, as two
 // panels of their own rather than two halves of one.
@@ -318,7 +317,6 @@ export * from "./compositions/HeldFlag/HeldFlag";
 // leaving the log to reach the step header's button. #1154.
 export * from "./compositions/DroneMessageBox/DroneMessageBox";
 // A step's work as the Drone told it, under the plan task it served. #1185.
-export * from "./compositions/WorkNarration/WorkNarration";
 // The graph surface React Flow draws — a Studio's board and a Job's workflow
 // share it, and neither holds placement. #1539.
 export * from "./compositions/GraphCanvas/GraphCanvas";

@@ -113,18 +113,6 @@ function testOf(one: CaseView): PlanBoardTest {
 // sentence, and the second is the Job's rather than the group's. Overview
 // carries it, frozen at the gate, as `Drones at once`.
 
-/**
- * What a task has spent. **Turns while it runs, and the cost only once its own
- * agent stopped** — a live figure would be invented, since cost reaches Armada
- * on a session's last line (`#1530`, 22 Sep).
- */
-export function spentSaid(task: TaskView): string | undefined {
-  const parts: string[] = [];
-  if (task.turns !== undefined) parts.push(`${task.turns} turns`);
-  if (task.cost_micros !== undefined) parts.push(money(task.cost_micros));
-  return parts.length === 0 ? undefined : parts.join(" · ");
-}
-
 /** `34 turns`, for the row's own column. Nothing before its agent started. */
 export function turnsSaid(task: TaskView): string | undefined {
   return task.turns === undefined ? undefined : `${task.turns} turns`;
@@ -282,32 +270,6 @@ export function retrySaid(retries: number): string | undefined {
 // The group card and the whole board are `plan-board.ts`'s: composing a card
 // needs both these sentences and what only a group that has run says, and one
 // direction of import is the price of not spelling either twice.
-
-/**
- * What the task is doing now, as a sentence. **Read off the record** — turns
- * while it runs, the cost once its own agent stopped, the reason where it
- * failed. A live cost would be invented: it reaches Armada on a session's last
- * line (`#1530`, 22 Sep).
- */
-export function doingOfTask(task: TaskView): string {
-  const spent = spentSaid(task);
-  switch (task.state) {
-    case "working":
-      return spent === undefined
-        ? "Its agent is working. Nothing it has spent can be read until that agent stops."
-        : `Its agent is working — ${spent} so far. What it cost reads once that agent stops.`;
-    case "done":
-      return spent === undefined
-        ? "Its agent has stopped and the work is in."
-        : `Its agent stopped after ${spent}.`;
-    case "failed":
-      return task.failed_reason ?? "Its agent stopped without finishing.";
-    case "dropped":
-      return task.reason === undefined ? "This task was dropped." : `Dropped — ${task.reason}`;
-    default:
-      return "Nothing has been dispatched at this task yet.";
-  }
-}
 
 /**
  * Which Drone a correction about this task reaches, and what to call it.
