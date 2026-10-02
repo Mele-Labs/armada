@@ -105,17 +105,20 @@ const BAND_FLOOR: u16 = 20_000;
 /// every one of them above 49152, this machine's `net.inet.ip.portrange.first`.
 /// It passed alone every time. 3,835 tests run in parallel here.
 ///
-/// **The slot is picked from the process id and then walked.** Each test is
-/// its own process, pids rise, and two live at once are rarely congruent —
-/// so the first slot tried is usually free, and the walk settles the rest
-/// without two processes racing from the same starting point.
+/// **The slot is picked from the process id and then walked**, so two test
+/// processes rarely start from the same one.
+///
+/// **And it is locked before it is probed.** A span found free is let go
+/// before the server binds it, so a probe alone let two processes take one
+/// span: `it_stops_when_the_job_ends_before_its_span_goes_and_its_port_is_free`
+/// failed 2 in 2,053 stress runs with python exiting 1 on port 40020.
 fn a_range_of_its_own() -> PortRange {
     let (base, _released) = a_span_held_below_the_floor();
     PortRange::of(base, base + SPAN - 1, 1)
 }
 
-/// The base of a free span below the ephemeral floor, with every port in it
-/// still bound by the caller.
+/// The base of a free span below the ephemeral floor, locked to this process
+/// for its life, with every port in it still bound by the caller.
 fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let top = detect_ceiling().saturating_sub(SPAN);
     let slots = top.saturating_sub(BAND_FLOOR) / SPAN;
@@ -123,11 +126,35 @@ fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let first = u16::try_from(std::process::id() % u32::from(slots)).unwrap_or(0);
     for step in 0..slots {
         let base = BAND_FLOOR + ((first + step) % slots) * SPAN;
+        let Some(lock) = a_slot_locked(base) else {
+            continue;
+        };
         if let Some(held) = a_span_held(base) {
+            kept_until_exit(lock);
             return (base, held);
         }
     }
     panic!("no run of {SPAN} free ports in {slots} slots below {top}");
+}
+
+/// An exclusive `flock` on this slot's file, or `None` where another test
+/// process holds it. The kernel lets go when the holder exits, however it
+/// exits, so a test that crashed leaves no slot taken.
+fn a_slot_locked(base: u16) -> Option<std::fs::File> {
+    let dir = std::env::temp_dir().join("armada-fleet-port-spans");
+    std::fs::create_dir_all(&dir).expect("the directory slot locks live in");
+    let file = std::fs::File::create(dir.join(format!("{base}.lock"))).expect("a slot's lock file");
+    file.try_lock().ok().map(|()| file)
+}
+
+/// Hold a slot's lock until the process exits. Under nextest each test is a
+/// process of its own, so that is the test's life; the fixture hands back only
+/// the Fleet, and has nowhere shorter-lived to keep it.
+fn kept_until_exit(lock: std::fs::File) {
+    static KEPT: std::sync::Mutex<Vec<std::fs::File>> = std::sync::Mutex::new(Vec::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .push(lock);
 }
 
 /// Whether every port from `base` up holds nothing right now.
@@ -688,4 +715,18 @@ fn a_range_of_its_own_hands_out_a_free_span_below_the_ephemeral_floor() {
         std::net::TcpListener::bind(("127.0.0.1", port))
             .unwrap_or_else(|why| panic!("{port} in the handed-out range is taken: {why}"));
     }
+}
+
+/// **A span handed out stays its taker's**, so a second process walking to it
+/// moves on rather than probing ports the first has not bound yet. A second
+/// open of the lock file stands in for that process: `flock` is held per open,
+/// not per process.
+#[test]
+fn a_span_handed_out_is_not_handed_out_again() {
+    let (base, released) = a_span_held_below_the_floor();
+    drop(released);
+    assert!(
+        a_slot_locked(base).is_none(),
+        "{base} is free to bind, and still not free to take"
+    );
 }
