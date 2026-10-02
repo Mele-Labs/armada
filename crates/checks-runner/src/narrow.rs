@@ -73,6 +73,48 @@ pub fn narrowed(narrowing: Option<&Narrowing>, changed: &[String]) -> Narrowed {
         }
         values.push(value);
     }
+    spelled(narrowing, values)
+}
+
+/// [`narrowed`], read the way the merge line needs it: `covered` is every
+/// changed path the Check covers, and any one of them this cannot name runs it
+/// whole.
+///
+/// **Stricter because a red here lands on `main`.** A Drone's narrowed run is
+/// a question it asked; the gate's is the measurement. So a path outside
+/// `under`, or one `from` does not match, is something the whole run reads and
+/// a narrowed one would not, and a verbatim list never narrows here at all — it
+/// names what changed and nothing the command reads beside it, such as
+/// `rustfmt.toml`. Which packages a change reaches is the caller's to add.
+pub fn narrowed_at_the_gate(narrowing: Option<&Narrowing>, covered: &[String]) -> Narrowed {
+    let Some(narrowing) = narrowing.filter(|narrowing| narrowing.under().is_some()) else {
+        return Narrowed::Whole;
+    };
+    if covered.is_empty() {
+        return Narrowed::Whole;
+    }
+    let mut values: Vec<&str> = Vec::new();
+    for path in covered {
+        let read = narrowing
+            .from()
+            .is_none_or(|from| from.matches_any(std::slice::from_ref(path)));
+        let Some(value) = value(narrowing, path).filter(|_| read) else {
+            return Narrowed::Whole;
+        };
+        if narrowing.except().iter().any(|dropped| dropped == value) {
+            continue;
+        }
+        if !spellable(value) {
+            return Narrowed::Whole;
+        }
+        values.push(value);
+    }
+    spelled(narrowing, values)
+}
+
+/// `run` with each value spelled through `each`, sorted and deduplicated, or
+/// [`Narrowed::Nothing`] where there are none.
+fn spelled(narrowing: &Narrowing, mut values: Vec<&str>) -> Narrowed {
     values.sort_unstable();
     values.dedup();
     if values.is_empty() {

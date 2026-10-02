@@ -20,11 +20,21 @@ use std::path::Path;
 use adapters::{BranchGone, WorktreeGone};
 
 use crate::clean::{Cleaned, FileGone, RecordOutcome};
-use crate::declared::{Ended, Ran};
+use crate::declared::{Ended, Ran, Reached};
+
+/// How `armada check --changed` says what it narrowed to, and how
+/// `land::armada_cli::check` finds it in the output.
+pub const NARROWED_TO: &str = "  narrowed to ";
 
 /// What one Check or Command did: its output, then how it ended.
 pub fn ran(ran: &Ran, verb: &str) {
     println!("{verb} {} — {}", ran.name, ran.command);
+    // `NARROWED_TO` begins the line the merge line reads back; whole says nothing.
+    match &ran.narrowed {
+        Some(Reached::To(to)) => println!("{NARROWED_TO}{to}"),
+        Some(Reached::Nothing) => println!("{NARROWED_TO}nothing it runs"),
+        Some(Reached::Whole) | None => {}
+    }
     // Before the output, because it happened before the output — and because
     // these write to the working tree, which is the one thing a person needs
     // told rather than left to notice in `git status`.
