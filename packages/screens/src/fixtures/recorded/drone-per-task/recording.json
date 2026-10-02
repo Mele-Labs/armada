@@ -12,7 +12,7 @@
   "ended_at": "2026-10-02T14:45:29.214Z",
   "branch": "armada/2-write-five-small-files-one-task-each",
   "workflow_id": "rate",
-  "owner_manifest_id": "01RATEMANIFEST",
+  "owner_manifest_id": "armada",
   "origin": "manual",
   "urgency": "normal",
   "atomic": false,
@@ -39,7 +39,7 @@
      "ended_at": "2026-10-02T14:45:29.214Z",
      "branch": "armada/2-write-five-small-files-one-task-each",
      "workflow_id": "rate",
-     "owner_manifest_id": "01RATEMANIFEST",
+     "owner_manifest_id": "armada",
      "origin": "manual",
      "urgency": "normal",
      "atomic": false,
@@ -914,7 +914,7 @@
       "delivers": true
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Something that is broken: it used to work, or is meant to work, and does not, and what is wanted is the cause found and fixed. Taking a change that already landed back out whole is a revert, and adding or changing what the software does on purpose is a feature."
    },
@@ -961,7 +961,7 @@
       "delivers": false
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "A pull request somebody wants reviewed: a link to one, where the code is already written and what is wanted is a judgement on it rather than a change to it."
    },
@@ -997,7 +997,7 @@
       "iteration_cap": 5
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Working out how something should be built before anybody builds it: a design or plan drafted, then revised with whoever asked until they are content, where the result is a document and no code is written. Trying the idea out in code is a prototype."
    },
@@ -1056,7 +1056,7 @@
       "iteration_cap": 5
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Finishing a milestone or an epic: a link to one, or a list of issues somebody wants done as a whole, which is too much for one change and has to be split into several Jobs that run in turn."
    },
@@ -1137,7 +1137,7 @@
       "delivers": true
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Adding, removing or changing what the software does or shows: a new screen, option or command, a change to how something behaves, or taking away something people could see or use, meant to land and stay. Fixing something broken is a bug, and moving code around while nothing anyone sees changes is a refactor."
    },
@@ -1175,7 +1175,7 @@
       "delivers": false
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Trying something out to answer a question: a spike or rough version built to see whether an idea works, shown to whoever asked and written up, then thrown away rather than landed. Something meant to ship is a feature, and a design worked out on paper is a design plan."
    },
@@ -1217,7 +1217,7 @@
       "delivers": false
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "repository"
    },
    {
@@ -1277,7 +1277,7 @@
       "delivers": true
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Reorganising code without changing what it does: moving, renaming, splitting or tidying, where nothing anyone can see or use changes -- no screen, no output, no behaviour. A request that adds, removes or changes anything a person sees or can do, however small, is a feature and not a refactor."
    },
@@ -1318,7 +1318,7 @@
       "delivers": true
      }
     ],
-    "manifest_id": "01RATEMANIFEST",
+    "manifest_id": "armada",
     "source": "armada",
     "for_requests": "Undoing a change that already landed: the commit or Job the request names, taken back out whole and nothing else with it. Keeping the change and fixing what it broke is a bug."
    }
@@ -1328,7 +1328,7 @@
   "status": 200,
   "body": [
    {
-    "id": "01RATEMANIFEST",
+    "id": "armada",
     "repository": "repo",
     "path": "~/Development/armada/armada.yml",
     "records_root": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965",
