@@ -25,7 +25,7 @@ fn a_top_level_job_is_created_at_the_approval_gate() {
 fn a_sub_dispatched_job_is_created_queued_and_says_who_dispatched_it() {
     let by = DispatchOrigin {
         job_id: JobId::carried(id("01J0000000000000000000PAR0")),
-        step_id: StepId::new("plan"),
+        step_id: Some(StepId::new("plan")),
     };
     let job = Job::create_sub_dispatched(draft(), by.clone(), at("2026-08-26T09:00:00.000Z"));
     assert_eq!(job.status(), JobStatus::Queued);

@@ -80,7 +80,7 @@ impl<'a> Dispatching<'a> {
     fn origin(&self) -> DispatchOrigin {
         DispatchOrigin {
             job_id: self.parent.id().clone(),
-            step_id: self.step.clone(),
+            step_id: Some(self.step.clone()),
         }
     }
 }

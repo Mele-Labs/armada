@@ -659,9 +659,11 @@ impl Stopped {
             | EscalationTrigger::FanOut
             | EscalationTrigger::HatchUnbidden
             | EscalationTrigger::Interrupted
+            | EscalationTrigger::NoWorkflowFits
             | EscalationTrigger::NoWorktree
             | EscalationTrigger::NotConfigurable
             | EscalationTrigger::NotPrepared
+            | EscalationTrigger::ProposerFailed
             | EscalationTrigger::ResourceExhausted
             | EscalationTrigger::Silent
             | EscalationTrigger::Stalled

@@ -370,7 +370,7 @@ pub fn sub_dispatched(id: &str) -> Job {
         full_new_job(id),
         DispatchOrigin {
             job_id: job_id("01PARENT"),
-            step_id: StepId::new("plan"),
+            step_id: Some(StepId::new("plan")),
         },
         created_at(),
     )
