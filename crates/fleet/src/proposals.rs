@@ -94,6 +94,10 @@ pub struct Watching {
     /// Who asked: a person or a Helm session. **The caller's, never Fleet's**
     /// — the call is Fleet's own act, asking it is the caller's. `#943`.
     pub actor: Actor,
+    /// The id this call goes out under and the Job it reads for, where the
+    /// caller minted both first — `Watching::for_job`. `None` mints one at
+    /// `begin`, which is a call no Job waits on.
+    pub reading_for: Option<(ipc::ProposalId, ipc::JobId)>,
 }
 
 /// One proposal, being made.
@@ -136,6 +140,18 @@ struct Reached {
 }
 
 impl Watching {
+    /// This call, going out under `proposal` and reading for `job` — the Job
+    /// created at `proposing` the moment it was dispatched.
+    pub fn for_job(self, proposal: &core_model::ProposalId, job: &core_model::JobId) -> Watching {
+        Watching {
+            reading_for: Some((
+                ipc::ProposalId::from(proposal.as_ulid()),
+                ipc::JobId::from(job),
+            )),
+            ..self
+        }
+    }
+
     /// Begin one. **Publishes the going-out message**, so a surface learns the
     /// id and the budget before anything has happened.
     ///
@@ -144,7 +160,10 @@ impl Watching {
     /// until it had got somewhere would be unstoppable exactly in the case
     /// worth stopping — a call that never reaches the vendor at all.
     pub fn begin(self, client_ref: Option<String>) -> (Making, StopWhenAsked) {
-        let proposal = ipc::ProposalId::from(&self.mint.ulid());
+        let proposal = match &self.reading_for {
+            Some((proposal, _)) => proposal.clone(),
+            None => ipc::ProposalId::from(&self.mint.ulid()),
+        };
         let (stop, stopped) = tokio::sync::oneshot::channel();
         if let Ok(mut held) = self.proposals.0.lock() {
             held.insert(proposal.clone(), stop);
@@ -202,6 +221,17 @@ impl Making {
         models: &'held [String],
     ) -> impl Fn(CallProgress) + Send + Sync + 'held {
         move |progress| self.moved(progress, held, models)
+    }
+
+    /// The workflow the answer has settled on so far, where it has settled one.
+    /// What a Job whose call then dies keeps.
+    pub fn settled_workflow(&self) -> Option<WorkflowId> {
+        let reached = self.reached.lock().ok()?;
+        reached
+            .settled
+            .as_ref()
+            .and_then(|settled| settled.workflow_id.as_ref())
+            .map(ipc::WorkflowId::to_domain)
     }
 
     /// The id, for a caller that has to name this proposal in a refusal.
@@ -330,6 +360,11 @@ impl Making {
             .events
             .publish(ipc::Event::ProposalMoved(ipc::ProposalMoved {
                 proposal_id: self.proposal.clone(),
+                job_id: self
+                    .watching
+                    .reading_for
+                    .as_ref()
+                    .map(|(_, job)| job.clone()),
                 client_ref: self.client_ref.clone(),
                 proposing,
                 // The caller's, for `JobCreated`'s reason: a proposal is a

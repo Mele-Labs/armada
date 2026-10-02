@@ -203,7 +203,7 @@ where
     /// Job that silently carries none is worse than a Job that was never
     /// proposed — the same argument the other four refusals in this file make
     /// about a value that cannot produce a working Drone.
-    fn promoted(
+    pub(crate) fn promoted(
         &self,
         job: &JobId,
         staged: Vec<ipc::AttachmentRef>,
@@ -281,7 +281,7 @@ where
     /// what is left, so `""` and `"   "` fall through to the default exactly as
     /// an absent field does — a caller sending an empty box from a form is
     /// saying the same thing as a caller sending nothing.
-    fn the_model_named(&self, named: Option<&str>) -> Result<ModelName, Adrift> {
+    pub(crate) fn the_model_named(&self, named: Option<&str>) -> Result<ModelName, Adrift> {
         if let Some(named) = named {
             if let Ok(model) = ModelName::new(named) {
                 return Ok(model);

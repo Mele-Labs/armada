@@ -439,6 +439,11 @@ impl fmt::Display for Adrift {
                  before restarting the step or replacing the Job",
                 job.as_str()
             ),
+            Adrift::ProposalAbandoned => write!(
+                out,
+                "the proposal ended without an answer; the Job it created is moved the next \
+                 time Fleet starts"
+            ),
             Adrift::RecheckAbandoned { job } => write!(
                 out,
                 "the run of {}'s Checks ended without an answer. Its log says how far it got; \
@@ -783,6 +788,7 @@ impl Adrift {
             | Adrift::NotProposable(_)
             | Adrift::NoWorkflowFits { .. }
             | Adrift::ModelNotHeld { .. }
+            | Adrift::ProposalAbandoned
             | Adrift::NotProposed { .. } => None,
         }
     }
@@ -881,6 +887,7 @@ impl Error for Adrift {
             | Adrift::CannotRerunChecks { .. }
             | Adrift::ChecksRunningAgain { .. }
             | Adrift::RecheckAbandoned { .. }
+            | Adrift::ProposalAbandoned
             | Adrift::Unreasoned { .. }
             // `NotFiled` joins them: it says what a filing could not be, not
             // what failed underneath it.

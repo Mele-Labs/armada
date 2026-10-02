@@ -22,12 +22,13 @@
 use std::collections::BTreeMap;
 
 use config::ResolvedWorkflow;
-use core_model::{Actor, WorkflowId};
+use core_model::{Actor, EscalationTrigger, WorkflowId};
 use testkit::{FakeJudge, FakeWorkProduct};
 
 use crate::adrift::Adrift;
 use crate::proposing::{Brief, NotProposed, Proposal, Unresolved};
 use crate::tests::daemon::{a_fleet, a_fleet_proposing_through, a_proposal, workflow_named};
+use crate::tests::dispatched::escalated_as;
 use crate::tests::tmp::TempDir;
 
 pub(crate) const A_REQUEST: &str = "the log reader drops the last line of every file";
@@ -138,9 +139,10 @@ async fn a_request_carries_the_origin_of_whoever_sent_it() {
             attachments: Vec::new(),
         };
 
-        let plan = api::Commands::propose_from_request(&fleet, request, None, by)
-            .await
-            .expect("a request that fits one workflow");
+        let plan =
+            api::Commands::propose_from_request(std::sync::Arc::new(fleet), request, None, by)
+                .await
+                .expect("a request that fits one workflow");
 
         let [job] = &plan.jobs[..] else {
             panic!("one Job, not {}", plan.jobs.len())
@@ -233,14 +235,12 @@ async fn a_request_no_workflow_fits_is_refused_and_returned_unchanged() {
         }
         other => panic!("a refusal, not {other:?}"),
     }
-    let (loaded, _) = fleet.every_job().await.expect("the board reads");
-    assert!(
-        loaded.jobs.is_empty(),
-        "no Job was created, so there is nothing carrying a workflow nobody chose"
-    );
+    // The Job dispatched is escalated rather than missing, and carries no
+    // workflow nobody chose. #1714.
+    escalated_as(&fleet, EscalationTrigger::NoWorkflowFits).await;
 }
 
-/// A call that could not be made is not that refusal, and creates nothing.
+/// A call that could not be made is not that refusal.
 #[tokio::test]
 async fn a_call_that_fails_is_not_a_refusal_to_dispatch() {
     let home = TempDir::new();
@@ -264,8 +264,7 @@ async fn a_call_that_fails_is_not_a_refusal_to_dispatch() {
         !matches!(failed, Adrift::NoWorkflowFits { .. }),
         "an outage says nothing about the request, and must not read as a refusal"
     );
-    let (loaded, _) = fleet.every_job().await.expect("the board reads");
-    assert!(loaded.jobs.is_empty());
+    escalated_as(&fleet, EscalationTrigger::ProposerFailed).await;
 }
 
 /// A reply that cannot be read is asked for once more, stating what was
@@ -339,8 +338,7 @@ async fn a_reply_unreadable_twice_is_refused_with_both_replies_kept() {
         }
         other => panic!("the new code, not {other:?}"),
     }
-    let (loaded, _) = fleet.every_job().await.expect("the board reads");
-    assert!(loaded.jobs.is_empty(), "neither call produced a Job");
+    escalated_as(&fleet, EscalationTrigger::ProposerFailed).await;
 }
 
 /// The router answers the new code, and never the outage's.
@@ -408,8 +406,7 @@ async fn a_workflow_nothing_holds_does_not_become_the_nearest_one() {
         ),
         "refused by name rather than resolved to `bug`: {refused:?}"
     );
-    let (loaded, _) = fleet.every_job().await.expect("the board reads");
-    assert!(loaded.jobs.is_empty());
+    escalated_as(&fleet, EscalationTrigger::NoWorkflowFits).await;
 }
 
 /// A blank request is refused before anything is spent on it.

@@ -327,7 +327,7 @@ checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(={})
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
 ```
 
 Decided 13 Sep 2026 for #999, after several running Jobs each fixed the same flaky test inside their own change. A Drone that says a test is broken on main is asking a question: Fleet runs just that test there, drafts the fix only where it fails there too, and claims the test for that fix so a second report drafts nothing.
@@ -336,9 +336,9 @@ Rules that follow:
 
 - **Absent means a report cannot be confirmed.** A Check with no `one_test` gives Fleet no way to run one test, so a Drone naming a test under it is refused and nothing is drafted.
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
-- **The name is the Drone's.** It gets the guard a narrowed value gets: a name that cannot be one argument runs nothing.
+- **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
-- **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass.
+- **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
 
 ### Proving what merged
@@ -359,6 +359,7 @@ Rules that follow:
 - **A Check that declares `requires` is refused here.** A prerequisite writes in the tree it runs in, and that tree is the repository a person is standing in. Fleet fast-forwards it only over a clean checkout; a run that then reformatted it would put back what those refusals exist to keep out.
 - **A Check's own `when` is not consulted.** `when` answers *did this step touch anything I cover*, and after a merge there is no step to ask it of. The list is the filter.
 - **Nothing depends on the answer.** The work is merged. A red cannot fail the Job, cannot reopen it — `completed_success` is terminal — and rolls nothing back; the response is a person filing a new Job pointing back through `subject`. See [Fleet](fleet.md).
+- **It holds for both ways a merge lands.** Under `merge_by: forge` the forge names the base it merged into; under `merge_by: push` the push does, without waiting for the forge to catch up. Either way the main checkout is fast-forwarded to what the remote now holds, and the run is against that commit. See *How work lands*.
 - **A merge Fleet declined to fast-forward proves nothing.** A dirty worktree or a checkout on another branch leaves no updated tree, and a run against whatever was there would be reporting on somebody's uncommitted work.
 - **Its Checks see `${port.NAME}` too.** The proof run has no worktree of its own — it runs in the main checkout — so `${port.NAME}` resolves from that checkout's own span, the one [Fleet](fleet.md)'s Ports section describes as held while Fleet runs.
 
@@ -638,6 +639,25 @@ A false `auto_merge` result routes to Inbox > Job Reviews rather than merging.
 **`checks-pass` is the forge's checks, not Armada's.** A Check named in `armada.yml` has already run at the gate the Job is holding at, and totalling the two would claim a gate had held that never ran. Only *every check passed* is a pass: a repository whose forge runs nothing has proved nothing, and a check that finished in a word Armada has no name for counts as not passed.
 
 **`auto_merge` does not read an approval, and `always` means always.** Its three values are all about machines; a person approving on the forge is neither, and whether that becomes a fourth value or a policy of its own is undecided. A forge that requires a review refuses the merge, so branch protection is the backstop and it is the forge's.
+
+### How work lands
+
+**`merge_by` says how Fleet lands a Job's work once a person or `auto_merge` has said it may.** `auto_merge` decides whether; this decides how.
+
+```yaml
+merge_by: push
+```
+
+| Value | What Fleet does |
+| --- | --- |
+| `forge` (default) | Asks the forge to merge the pull request, `--merge`. Branch protection and the forge's own checks stay in the path |
+| `push` | Makes the `--no-ff` merge commit itself and pushes the base, never forced, with the code `armada land` lands this repository with. The forge reads the pull request merged once its head is in the base |
+
+**`forge` is the default, so a repository that says nothing lands exactly as it did before the key existed.** It is the only value that keeps a protected base and the forge's required checks in the path, and a repository that has those has them for a reason this file cannot see. `push` is for a repository where the forge adds a round trip and guards nothing, which is why `armada land` stopped merging through it: [Merge line](../capabilities/merge-line.md), *The merge*.
+
+**Under `push`, only a branch that already holds the base lands.** The merge commit carries the branch's own tree, which is the tree its gate ran on. A base that has moved past the branch, or moves before the push, refuses the merge as `fleet.merge_base_moved` and leaves the Job at its gate. `armada land` answers the same refusal by gating again; Fleet has no merge line of its own yet, so nothing re-gates the branch for it.
+
+**Live, and not folded.** It is read at the merge, so a saved change answers the next one. A Job lands in one repository, so that repository's word is the answer and there is nothing for several gating Manifests to resolve.
 
 ### A judgeless step under `auto_if_judge_passes`
 

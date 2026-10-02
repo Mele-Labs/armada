@@ -311,6 +311,17 @@ pub enum Merged {
     AlreadyMerged,
 }
 
+/// What [`Delivery::merge_by_push`] came to.
+///
+/// **It carries the base, where [`Merged`] carries nothing**: there may be no
+/// forge reading to ask, and the push is the reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PushedOntoBase {
+    /// The branch the work landed on.
+    pub base: String,
+    pub merged: Merged,
+}
+
 /// Why the forge would not merge, in the kinds a person does something
 /// different about.
 ///
@@ -340,9 +351,13 @@ pub enum NotMerged {
     NotOpen { said: String },
     /// Nothing on this machine could ask: no tool, or nobody signed in.
     NoTool { said: String },
+    /// The base moved past what the branch holds, so a merge of it would land
+    /// a combination nothing gated. Only `merge_by: push` says this; the
+    /// answer is to bring the branch up and gate it again.
+    BaseMoved { said: String },
     /// The forge refused and said something this vocabulary has no name for.
     ///
-    /// **Never folded into the five above.** A guess about which kind a
+    /// **Never folded into the six above.** A guess about which kind a
     /// sentence is would send a person to fix the wrong thing, and the honest
     /// answer is the sentence itself.
     Refused { said: String },
@@ -360,6 +375,7 @@ impl NotMerged {
             }
             NotMerged::NotOpen { said } => ("the pull request is not open", said),
             NotMerged::NoTool { said } => ("nothing on this machine could ask the forge", said),
+            NotMerged::BaseMoved { said } => ("the base moved past what was gated", said),
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");
@@ -380,6 +396,7 @@ impl NotMerged {
             NotMerged::ChecksNotPassed { .. } => "checks_not_passed",
             NotMerged::NotOpen { .. } => "not_open",
             NotMerged::NoTool { .. } => "no_tool",
+            NotMerged::BaseMoved { .. } => "base_moved",
             NotMerged::Refused { .. } => "refused",
         }
     }
@@ -720,6 +737,25 @@ pub trait Delivery {
         pull_request: &str,
         expected_head: &str,
     ) -> Result<Merged, NotMerged>;
+
+    /// Land a Job's branch by making the `--no-ff` merge commit here and
+    /// pushing the base, never forced — `merge_by: push`, and the same code
+    /// `armada land` lands through.
+    ///
+    /// **Only a branch that already holds the base lands.** One that does not,
+    /// or a base that moves before the push, is [`NotMerged::BaseMoved`]:
+    /// the merged tree is the branch's own, which is the tree its gate ran on.
+    ///
+    /// `handle` derives the branch, `declared` is `base:` in `armada.yml`, and
+    /// `pull_request` is named in the merge's subject; the forge reads it
+    /// merged once its head is in the base.
+    fn merge_by_push(
+        &self,
+        in_repo: &str,
+        handle: &str,
+        declared: Option<&str>,
+        pull_request: Option<u64>,
+    ) -> Result<PushedOntoBase, NotMerged>;
 
     /// Rebase a Job's branch onto a base that has moved, and push the result —
     /// in place of closing and reopening the pull request. `#663`.
