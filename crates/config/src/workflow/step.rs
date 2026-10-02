@@ -49,6 +49,7 @@ const STEP_KEYS: &[&str] = &[
     "poke_limit",
     "follows_plan",
     "records_plan",
+    "drone_per_task",
 ];
 
 /// **The schema's whole set, spelled out rather than sketched.** This held
@@ -120,6 +121,7 @@ pub struct Step {
     poke_limit: Option<u32>,
     follows_plan: bool,
     records_plan: bool,
+    drone_per_task: bool,
 }
 
 impl Step {
@@ -272,6 +274,12 @@ impl Step {
     pub fn records_plan(&self) -> bool {
         self.records_plan
     }
+
+    /// Whether this step works its tasks one at a time, each by a Drone of its
+    /// own. **False where the file leaves the key out.**
+    pub fn drone_per_task(&self) -> bool {
+        self.drone_per_task
+    }
 }
 
 /// One step, or [`None`] where something on it was refused.
@@ -383,6 +391,14 @@ pub(super) fn read(
     let follows_plan = match table.optional("follows_plan") {
         None => Some(false),
         Some(value) => yaml::flag(&follows_key, value, out),
+    };
+    // `follows_plan`'s rule, for its reason. A step with no plan before it
+    // has no task to put a Drone on, and runs one Drone as it would without
+    // the key, so nothing about the workflow's shape is refused here.
+    let each_key = table.at("drone_per_task");
+    let drone_per_task = match table.optional("drone_per_task") {
+        None => Some(false),
+        Some(value) => yaml::flag(&each_key, value, out),
     };
     // **Required, and there is no default to fall back to.** A file that does
     // not say whether a step sends the work out has two readings and neither is
@@ -504,6 +520,7 @@ pub(super) fn read(
         poke_limit,
         follows_plan: follows_plan?,
         records_plan: records_plan?,
+        drone_per_task: drone_per_task?,
     })
 }
 

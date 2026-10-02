@@ -6,11 +6,11 @@
 // lookup — `port` arrives as a function so this file never learns how a port
 // is found, only that one might not be.
 
-import type { CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
-import { checkOutputOf, composingOf, frameOf } from "./request";
+import { briefOf, checkOutputOf, composingOf, frameOf } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -72,6 +72,17 @@ export class JobReads {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     return await checkOutputOf(port, jobId, kept);
+  }
+
+  /**
+   * One kept brief, for the person who pressed its row. `readCheckOutput`'s
+   * shape: `name` is the file's own and Fleet resolves it inside the Job's
+   * briefs directory, so this passes it through and composes nothing.
+   */
+  async readBrief(jobId: string, name: string): Promise<BriefRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await briefOf(port, jobId, name);
   }
 
   /**

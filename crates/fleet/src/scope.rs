@@ -136,6 +136,9 @@ where
             // declaration this quietly takes.
             Err(OutsideScope::Undeclared { .. }) | Err(OutsideScope::NothingDeclared) | Ok(_) => {}
         }
+        // A task's Drone declares for its own task, and the step's gate reads
+        // every task's work, so what earlier task Drones declared stays in.
+        let paths = at_work.widened(paths);
         at_work.declares(paths.clone());
         drop(working);
         self.kept_plan(&job, &step, &paths).await;

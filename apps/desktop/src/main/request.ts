@@ -8,6 +8,7 @@
 
 import type {
   CheckOutputRead,
+  BriefRead,
   FrameRead,
   Holdings,
   Outcome,
@@ -16,7 +17,7 @@ import type {
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
-import type { CheckOutput } from "@armada/protocol";
+import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
 import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
@@ -406,6 +407,17 @@ export async function checkOutputOf(
   );
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
   return { ok: true, output: answer.body as CheckOutput };
+}
+
+/**
+ * One kept brief, read into the app: `checkOutputOf`'s shape, on
+ * `GET /jobs/:job_id/briefs/:name` (protocol 21.11). `name` is the last part of
+ * a `brief_path`; Fleet refuses one that would leave the Job's briefs.
+ */
+export async function briefOf(port: number, jobId: string, name: string): Promise<BriefRead> {
+  const answer = await ask(port, "GET", `/jobs/${encodeURIComponent(jobId)}/briefs/${encodeURIComponent(name)}`);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, brief: answer.body as BriefContents };
 }
 
 /**

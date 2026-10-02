@@ -184,6 +184,11 @@ pub struct StepDetail {
     /// workflow declaring no delivering step is never.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivers: Option<bool>,
+    /// Whether this step works the plan's tasks one at a time, each by a Drone
+    /// of its own, which is where a Job's tasks are worked. **Absent is false**,
+    /// and is every step of every workflow before 23.1.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub drone_per_task: bool,
     /// Which pass this step is on, where it closes a loop. Since protocol 13.20.
     ///
     /// **Absent on every step that sends nothing back**, which is every step of
@@ -416,6 +421,7 @@ impl StepDetail {
             judge_checks: declared.map(|declared| DeclaredJudge::firing(declared.judge_checks())),
             advance_gate: declared.map(|declared| declared.advance_gate().into()),
             delivers: declared.map(core_model::ResolvedStep::delivers),
+            drone_per_task: declared.is_some_and(core_model::ResolvedStep::drone_per_task),
             pass: declared
                 .map(core_model::ResolvedStep::iteration_cap)
                 .filter(|cap| *cap > 0)

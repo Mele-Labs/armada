@@ -981,7 +981,7 @@ notes = """
 
 **Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought.
 
-There is no task. Fleet runs one Drone per step, and nothing joins a Drone to a plan task.
+**`task` names the plan task a Drone was put on**, since 23.1, on a step that declares `drone_per_task`, off the binding Fleet keeps at the spawn (`store::TaskDrone`). Absent on a Drone that worked its whole step. A task's Drone that handed its task in and left reads `done`: the next task's Drone ends its tenure on the step, and leaving is what its hand-in asks of it.
 """
 
 [operations.list_job_board]
@@ -2834,11 +2834,13 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A Job's plan was recorded, or one of its tasks was added or changed state"
 notes = """
-`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here.
+`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here. **And by Fleet, `actor` `fleet`, on a step that works a Drone per task**: a task's Drone spawned (`working`), handing in (`handed_in`), and its step's Checks passing (`done`).
+
+**`task` and `state` name the task a change moved and where it now stands**, since 23.1, so a timeline moves without a read. Both are absent on a whole recording, which moves every task at once.
 
 **The counts ride along and the plan does not.** A Board redraws a row's task figure from them without a read per row, and an open Job reads `get_job`, whose `work_plan` is the plan whole. A plan's approach and titles are free text, and this stream is one bounded drop-oldest channel every Job shares.
 
-It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names: one message per kept change, and a Drone makes a handful per task.
+It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names: one message per kept change, and a Drone makes a handful per task. A Drone per task adds three per task, beside a `drone.spawned` and `drone.exited` pair; `[broadcast-capacity]` is where the measured rate goes.
 """
 
 [operations."job.asking"]
