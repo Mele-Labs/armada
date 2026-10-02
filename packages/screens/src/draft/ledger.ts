@@ -23,7 +23,7 @@ import type {
   Submitted,
 } from "@armada/protocol";
 
-import { CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
+import { CHECK_ADVANCES, CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
 import { fileNameOf } from "../editing";
 import { repositorySaid } from "../gate-policy";
 import { caseRunsOf } from "./cases";
@@ -353,7 +353,7 @@ export function ledgerOf(reads: LedgerReads): LedgerRow[] {
 
   if (moves.length === 0) rows.push(...jobRowsOf(detail, mint));
   for (const step of detail.steps) {
-    rows.push(...checkRowsOf(step, mint));
+    rows.push(...checkRowsOf(detail, step, mint));
     rows.push(...judgeRowsOf(detail, step, mint));
     rows.push(...evidenceKeptOf(step, mint));
     if (moves.length === 0) rows.push(...droneRowsOf(step, mint));
@@ -457,18 +457,40 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
  *
  * **The outcome is the registry's word alone** — `Passed`, `Failed` (the owner,
  * 29 Sep 2026: *I can see details when I open the row*). What the run produced
- * is the row's sheet, which reads it off the `CheckRun` itself.
+ * is the row's sheet, which reads it off the `CheckRun` itself. **One addition,
+ * the owner's of 2 Oct 2026**: a red run on a test another Job is already
+ * fixing names that Job after the word, since it changes what a person does.
  */
-function checkRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
-  return step.check_runs.map((run) => ({
-    at: atOf(step, run.attempt),
-    coord: { step: step.step_id, step_attempt: run.attempt },
-    actor: "check" as const,
-    kind: "checked",
-    what: run.name,
-    outcome: sentenceCase(CHECK_OUTCOME[run.outcome]?.verb ?? run.outcome.replaceAll("_", " ")),
-    cursor: mint(),
-  }));
+function checkRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): LedgerRow[] {
+  const latest = step.check_runs.reduce((at, run) => Math.max(at, run.attempt), 0);
+  return step.check_runs.map((run) => {
+    const verb = sentenceCase(CHECK_OUTCOME[run.outcome]?.verb ?? run.outcome.replaceAll("_", " "));
+    const fixing = run.attempt === latest && CHECK_ADVANCES[run.outcome] === false
+      ? fixingIt(detail, run.name)
+      : undefined;
+    return {
+      at: atOf(step, run.attempt),
+      coord: { step: step.step_id, step_attempt: run.attempt },
+      actor: "check" as const,
+      kind: "checked",
+      what: run.name,
+      outcome: fixing === undefined ? verb : `${verb} — ${fixing}`,
+      cursor: mint(),
+    };
+  });
+}
+
+/**
+ * The Job already fixing the test a Check failed on, where it is another Job —
+ * matched by the Check's name, as Overview's lead matches it. #1673.
+ *
+ * **On the latest attempt's red run alone**, the one the lead names: an
+ * earlier run of the same Check may have failed for another reason, and the
+ * claim says nothing about which attempt hit the test.
+ */
+function fixingIt(detail: JobDetail, check: string): string | undefined {
+  const claim = (detail.breakages ?? []).find((one) => one.check === check && one.fix !== detail.job.id);
+  return claim === undefined ? undefined : `${claim.fix_title} is already fixing it`;
 }
 
 function sentenceCase(said: string): string {

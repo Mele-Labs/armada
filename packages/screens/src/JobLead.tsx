@@ -17,6 +17,11 @@ export type JobLeadProps = {
    * one string: joined, Armada's tail would be parsed as markdown too.
    */
   asked?: string;
+  /**
+   * The Job already fixing what failed, leading the second line: its title,
+   * a press where the shell can open it, then `rest`. #1673.
+   */
+  fix?: { title: string; rest: string; onOpen?: () => void };
   /** Colours the edge — the thing outstanding is found before a word is read. */
   tone?: "awaiting-review" | "completed-failed";
   /** How long the thing under it has waited, already rendered. Top right. */
@@ -44,6 +49,7 @@ export function JobLead({
   said,
   because,
   asked,
+  fix,
   tone,
   elapsed,
   act,
@@ -68,7 +74,24 @@ export function JobLead({
                   <Prose text={asked} />
                 </div>
               )}
-              {because === "" ? null : <p className="armada-lead__because">{because}</p>}
+              {because === "" && fix === undefined ? null : (
+                <p className="armada-lead__because">
+                  {fix === undefined ? null : (
+                    <>
+                      {fix.onOpen === undefined ? (
+                        fix.title
+                      ) : (
+                        <button type="button" className="armada-lead__opens" onClick={fix.onOpen}>
+                          {fix.title}
+                        </button>
+                      )}
+                      {fix.rest}
+                      {because === "" ? null : " · "}
+                    </>
+                  )}
+                  {because}
+                </p>
+              )}
             </>
           )}
         </div>

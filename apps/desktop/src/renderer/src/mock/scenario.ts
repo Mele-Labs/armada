@@ -54,7 +54,7 @@ import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded"
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
-import { heldByTheGamingCheck } from "./job-detail-fixtures";
+import { brokenOnMain, FIX_TITLE, heldByTheGamingCheck, withBreakages } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
@@ -400,6 +400,28 @@ function recordedBoard(): Scenario {
   };
 }
 
+/**
+ * Two Jobs on one claim, #1673: one fixing a test broken on main, and one
+ * whose Check failed on that test, parked on the fix with another Job beside
+ * it. **One claim on both details**, because Fleet serves one entry to either
+ * side: the fix names what it claims, and the parked Job names who is fixing.
+ */
+function fixedElsewhere(): Scenario {
+  const fixing = asRow(running(), 90, "fixing", FIX_TITLE);
+  const parked = asRow(retryingCheckFailure(), 91, "parked", "Trim the brief to the files the step touched");
+  const claim = {
+    ...brokenOnMain(fixing.job.id, parked.job.id),
+    waiting: [
+      { job_id: parked.job.id, title: parked.job.title },
+      { job_id: "01M1WAITINGTWO00000000000000", title: "Memoise the manifest list" },
+    ],
+  };
+  const both = [withBreakages(() => [claim], parked), withBreakages(() => [claim], fixing)];
+  return holding("breakage/fixed-elsewhere", "A Check failed on a test another Job is already fixing", both, {
+    opens: parked.job.id,
+  });
+}
+
 /** The Job `held/gaming-check` opens on, as Fleet serves it with the Drone still there. */
 const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
 
@@ -501,6 +523,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
+  // A Check failed on a test another Job is already fixing, and that Job (#1673).
+  fixedElsewhere(),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */
