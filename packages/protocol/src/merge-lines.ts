@@ -38,4 +38,9 @@ export type MergeLineRow = {
   merge_commit?: string;
   failed?: string[];
   conflicts?: string[];
+  /** Gating, red and stopped: each Check the turn runs, as it stands. Since 23.1. */
+  checks?: MergeLineCheck[];
 };
+
+/** One Check a turn runs. `state` is `waiting`, `running`, `passed`, `failed` or `timed_out`. */
+export type MergeLineCheck = { name: string; state: string };

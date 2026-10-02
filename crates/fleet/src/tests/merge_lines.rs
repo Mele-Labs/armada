@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use adapters::land_state::dir::StateDir;
-use adapters::land_state::outcome::{merge_outcome, OutcomePatch, OutcomeState, Place};
+use adapters::land_state::outcome::{
+    merge_outcome, CheckRun, CheckState, OutcomePatch, OutcomeState, Place,
+};
 use adapters::land_state::queue::{write_queue_entry, QueueEntry};
 use axum::http::StatusCode;
 use testkit::{FakeHarness, FakeWorkProduct};
@@ -61,6 +63,18 @@ fn say(
     state.outcome_path(branch)
 }
 
+fn runs(states: &[(&str, CheckState)]) -> Option<Vec<CheckRun>> {
+    Some(
+        states
+            .iter()
+            .map(|(name, state)| CheckRun {
+                name: (*name).to_string(),
+                state: *state,
+            })
+            .collect(),
+    )
+}
+
 /// Written `age` seconds ago, so which outcomes are newest is the test's to say.
 fn aged(path: &Path, age: u64) {
     let file = File::options().write(true).open(path).expect("the outcome");
@@ -88,7 +102,7 @@ fn a_line(root: &Path) -> StateDir {
         (
             "worktree-agent-a",
             300,
-            "reading verify-foundations against main",
+            "running screens_test (build, screens_test, desktop_test)",
             "docs/wire-lock-signed, fleet/gate-policy-every-run",
         ),
         (
@@ -99,12 +113,25 @@ fn a_line(root: &Path) -> StateDir {
         ),
     ] {
         queue(&state, branch, place, None);
+        // One member is in its Checks: they cross, and the runner's words for them do not.
+        let checks = (branch == "worktree-agent-a")
+            .then(|| {
+                runs(&[
+                    ("build", CheckState::Passed),
+                    ("screens_test", CheckState::Running),
+                    ("desktop_test", CheckState::Waiting),
+                ])
+            })
+            .flatten();
         say(
             &state,
             branch,
             OutcomeState::Gating,
             &together(doing, others),
-            OutcomePatch::default(),
+            OutcomePatch {
+                checks,
+                ..OutcomePatch::default()
+            },
         );
     }
     queue(&state, "fleet/push-the-base", 500, None);
@@ -113,7 +140,11 @@ fn a_line(root: &Path) -> StateDir {
         "fleet/push-the-base",
         OutcomeState::Merging,
         "pushing the merge onto main",
-        OutcomePatch::default(),
+        // Kept on disk from the gate, and not served past it.
+        OutcomePatch {
+            checks: runs(&[("build", CheckState::Passed)]),
+            ..OutcomePatch::default()
+        },
     );
     queue(&state, "fleet/read-in-cluster-membership", 600, Some(1770));
     say(
@@ -154,6 +185,11 @@ fn a_line(root: &Path) -> StateDir {
         OutcomePatch {
             pr: Some(1768),
             failed: Some(vec!["desktop_test".into(), "screens_test".into()]),
+            checks: runs(&[
+                ("build", CheckState::Passed),
+                ("desktop_test", CheckState::Failed),
+                ("screens_test", CheckState::TimedOut),
+            ]),
             ..OutcomePatch::default()
         },
     );

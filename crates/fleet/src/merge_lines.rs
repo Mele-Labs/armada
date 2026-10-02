@@ -12,9 +12,12 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use adapters::land_state::line::{self, Line, Located};
-use adapters::land_state::outcome::{together, Outcome, OutcomeState};
+use adapters::land_state::outcome::{together, CheckRun, CheckState, Outcome, OutcomeState};
 use api::{Broadcaster, Queries};
-use ipc::{Event, LandState, MergeLine, MergeLineEntry, MergeLinePullRequest, MergeLines};
+use ipc::{
+    Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry,
+    MergeLinePullRequest, MergeLines,
+};
 use tokio::task::JoinHandle;
 
 use crate::clock::SystemClock;
@@ -121,7 +124,7 @@ where
 ///
 /// **The redaction is here**: a queue entry's head, tree, worktree and nonce,
 /// and an outcome's logs, cleanup commands, runner pid and base readings stay on
-/// disk. What crosses is what `--status` prints and the panel draws.
+/// disk. A Check crosses by name and state alone. What crosses is what `--status` prints and the panel draws.
 pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
     let order: Vec<&str> = read
         .waiting
@@ -163,7 +166,12 @@ pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
                 outcome.as_ref(),
             );
             row.place = Some(u32::try_from(n + 1).unwrap_or(u32::MAX));
-            row.doing = (live && !doing.is_empty()).then(|| doing.to_string());
+            // While a Check runs, `checks` says so; the runner's `running <name> (...)` is not repeated.
+            let checking = row
+                .checks
+                .iter()
+                .any(|check| check.state == LandCheckState::Running);
+            row.doing = (live && !checking && !doing.is_empty()).then(|| doing.to_string());
             row.batch = batch;
             row
         })
@@ -225,6 +233,28 @@ fn ended(
             matches!(state, OutcomeState::Red | OutcomeState::Stopped),
         ),
         conflicts: facts(|held| &held.conflicts, state == OutcomeState::Conflict),
+        checks: outcome
+            .filter(|_| {
+                matches!(
+                    state,
+                    OutcomeState::Gating | OutcomeState::Red | OutcomeState::Stopped
+                )
+            })
+            .map(|held| held.checks.iter().map(check_of).collect())
+            .unwrap_or_default(),
+    }
+}
+
+fn check_of(run: &CheckRun) -> MergeLineCheck {
+    MergeLineCheck {
+        name: run.name.clone(),
+        state: match run.state {
+            CheckState::Waiting => LandCheckState::Waiting,
+            CheckState::Running => LandCheckState::Running,
+            CheckState::Passed => LandCheckState::Passed,
+            CheckState::Failed => LandCheckState::Failed,
+            CheckState::TimedOut => LandCheckState::TimedOut,
+        },
     }
 }
 

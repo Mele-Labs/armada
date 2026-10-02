@@ -35,8 +35,12 @@ describe("the merge line Fleet serves", () => {
           branch: "worktree-agent-a",
           place: 3,
           state: "gating",
-          doing: "reading verify-foundations against main",
           batch: "docs/wire-lock-signed",
+          checks: [
+            { name: "build", state: "passed" },
+            { name: "screens_test", state: "running" },
+            { name: "desktop_test", state: "waiting" },
+          ],
         },
         {
           branch: "fleet/gate-policy-every-run",
@@ -64,6 +68,11 @@ describe("the merge line Fleet serves", () => {
           pr: { number: 1768, url: `${PULL}1768` },
           state: "red",
           failed: ["desktop_test", "screens_test"],
+          checks: [
+            { name: "build", state: "passed" },
+            { name: "desktop_test", state: "failed" },
+            { name: "screens_test", state: "timed_out" },
+          ],
         },
       ],
     }]);

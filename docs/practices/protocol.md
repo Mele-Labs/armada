@@ -2229,6 +2229,12 @@ itself: its newest few of either means a run of landings pushes every red out of
 **The bound is the outcome file's own age, held against the instant Fleet's clock gives the read.**
 A red that ages out changes the answer, so `merge_lines.changed` publishes it.
 
+**`MergeLineEntry` gains `checks`**, each Check the turn runs as `MergeLineCheck { name, state }`,
+`state` a strict `LandCheckState`: `waiting`, `running`, `passed`, `failed`, `timed_out`. The
+runner writes the same list into the outcome file (`Outcome::checks`, through `OutcomePatch`) as
+each Check starts and ends. Served for `gating`, `red` and `stopped` only, and while a Check
+runs `doing` is left off: the list says it. Absent where empty, so additive like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -5,7 +5,7 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineEntry, MergeLineState } from "@armada/components";
+import type { MergeLineCheck, MergeLineEntry, MergeLineState } from "@armada/components";
 import type { MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
@@ -68,5 +68,6 @@ function entryOf(row: MergeLineRow): MergeLineEntry {
     merge: row.merge_commit?.slice(0, SHORT),
     failed: row.failed,
     conflicts: row.conflicts,
+    checks: row.checks?.map((check) => ({ name: check.name, state: check.state as MergeLineCheck["state"] })),
   };
 }

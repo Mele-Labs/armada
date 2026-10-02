@@ -402,6 +402,8 @@ class Line(LineFixture):
         self.assertIn("test failed", second.stdout)
         self.assertNotIn("already fails", second.stdout, "this one is the branch's own")
         self.assertIn("test.log", self.logged("fix/two"))
+        ran = {check["name"]: check["state"] for check in self.outcome("fix/two")["checks"]}
+        self.assertEqual(ran.get("test"), "failed", "each Check's own state is kept with the outcome")
 
         on_main = self.main_files()
         self.assertIn("one.txt", on_main)
@@ -1025,6 +1027,8 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 4, done.stdout)
         self.assertIn("test timed out after 2 seconds", done.stdout)
         self.assertNotIn("already fails", done.stdout, "main's own run of it passed")
+        ran = {check["name"]: check["state"] for check in self.outcome("fix/hung")["checks"]}
+        self.assertEqual(ran.get("test"), "timed_out")
         with open(pid_file) as held:
             pid = int(held.read())
         deadline = time.monotonic() + 5

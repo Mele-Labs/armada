@@ -4,11 +4,12 @@
 // nobody is in that has landed before, and one nothing has ever landed in.
 //
 // **The line is that run, row for row.** Six branches: the first and the last
-// waiting, and four in one turn between them. The runner had told two of the
-// four it was reading `verify-foundations` and the other two it was merging
-// main in, so the details differ inside one batch, as they did. `--status`
-// prints a waiting row's detail as `in line`, which the mark already says, and
-// Fleet carries none.
+// waiting, and four in one turn between them. The runner had told the four
+// different things, so the details differ inside one batch, as they did: one
+// reads `verify-foundations`, one is in its Checks, which Fleet serves one by
+// one rather than as the runner's `running <name> (...)`, and two merge main
+// in. `--status` prints a waiting row's detail as `in line`, which the mark
+// already says, and Fleet carries none.
 //
 // **What left the line is made up from real branches.** The three landings did
 // land, at the commits shown; the red and the conflict are invented, on Checks
@@ -42,7 +43,13 @@ export function mergeLines(): MergeLines {
             branch: "worktree-agent-aef3c24792026e2c3",
             state: "gating",
             batch: TURN,
-            doing: "reading verify-foundations against main",
+            checks: [
+              { name: "build", state: "passed" },
+              { name: "typecheck", state: "passed" },
+              { name: "screens_test", state: "running" },
+              { name: "desktop_test", state: "waiting" },
+              { name: "components_test", state: "waiting" },
+            ],
           },
           {
             place: 4,
@@ -91,11 +98,24 @@ export function mergeLines(): MergeLines {
             pull_request: { number: 1768, url: `${PULL}1768` },
             state: "red",
             failed: ["desktop_test", "screens_test"],
+            checks: [
+              { name: "build", state: "passed" },
+              { name: "typecheck", state: "passed" },
+              { name: "desktop_test", state: "failed" },
+              { name: "screens_test", state: "timed_out" },
+            ],
           },
           {
             branch: "bridge/overview-strip-width",
             state: "conflict",
-            conflicts: ["apps/desktop/src/renderer/src/App.tsx", "packages/screens/src/OverviewLists.tsx"],
+            // Enough files that the detail wraps: the row's mark stays on its first line.
+            conflicts: [
+              "apps/desktop/src/renderer/src/App.tsx",
+              "packages/screens/src/OverviewLists.tsx",
+              "packages/screens/src/OverviewSummary.tsx",
+              "packages/components/src/compositions/TheShell/TheShell.tsx",
+              "packages/components/src/compositions/TheShell/TheShell.css",
+            ],
           },
         ],
       },

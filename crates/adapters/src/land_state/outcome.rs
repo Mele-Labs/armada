@@ -68,6 +68,25 @@ impl OutcomeState {
     }
 }
 
+/// Where one Check stands in a turn: every Check the turn runs is `waiting`
+/// until it is run, then ends one of three ways.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    TimedOut,
+}
+
+/// One Check a turn runs, by its name in `armada.yml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckRun {
+    pub name: String,
+    pub state: CheckState,
+}
+
 /// What a batch member's `detail` ends with, before the others it gates with.
 /// `armada land`'s `batch::tell` writes it and [`together`] reads it back, so
 /// `--status` and Fleet read one spelling.
@@ -104,6 +123,9 @@ pub struct Outcome {
     pub new_lines: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// The Checks this turn runs, each as it stands, in the order they run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<CheckRun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gated_base: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -131,6 +153,7 @@ impl Outcome {
             already: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
+            checks: Vec::new(),
             gated_base: None,
             candidate: None,
             merge_commit: None,
@@ -152,6 +175,7 @@ pub struct OutcomePatch {
     pub already: Option<Vec<String>>,
     pub new_lines: Option<Vec<String>>,
     pub conflicts: Option<Vec<String>>,
+    pub checks: Option<Vec<CheckRun>>,
     pub gated_base: Option<String>,
     pub candidate: Option<String>,
     pub merge_commit: Option<String>,
@@ -188,6 +212,7 @@ pub fn merge_outcome(
     merged.already = patch.already.unwrap_or(merged.already);
     merged.new_lines = patch.new_lines.unwrap_or(merged.new_lines);
     merged.conflicts = patch.conflicts.unwrap_or(merged.conflicts);
+    merged.checks = patch.checks.unwrap_or(merged.checks);
     merged.gated_base = patch.gated_base.or(merged.gated_base);
     merged.candidate = patch.candidate.or(merged.candidate);
     merged.merge_commit = patch.merge_commit.or(merged.merge_commit);

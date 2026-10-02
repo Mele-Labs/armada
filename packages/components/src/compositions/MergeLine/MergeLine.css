@@ -132,11 +132,13 @@
   fill: var(--bg-raised);
 }
 
+/* Every cell sits on the row's first line, each in a box one line tall, so a
+   detail that wraps leaves the place, mark and branch where its first line is. */
 .armada-merge-line__row {
   grid-column: 2 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  align-items: baseline;
+  align-items: start;
   padding: var(--space-1) 0;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
@@ -180,7 +182,7 @@
 
 .armada-merge-line__mark {
   display: inline-flex;
-  align-self: center;
+  height: var(--leading-sm);
   align-items: center;
   justify-content: center;
   width: var(--space-4);
@@ -219,6 +221,16 @@
   font-size: var(--text-xs);
   color: var(--fg-muted);
   overflow-wrap: anywhere;
+}
+
+/* The Checks strip takes the detail's whole width, under any words beside it,
+   its head centred on the row's first line rather than hanging below it. */
+.armada-merge-line__detail > .armada-boundary {
+  flex: 1 1 100%;
+}
+
+.armada-merge-line__detail > .armada-boundary:first-child {
+  margin-top: calc((var(--leading-sm) - var(--h-row-header)) / 2 - var(--border-width));
 }
 
 .armada-merge-line__check {

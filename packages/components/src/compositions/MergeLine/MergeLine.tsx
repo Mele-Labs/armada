@@ -4,6 +4,7 @@ import { ChevronRight, ChevronUp } from "lucide-react";
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
 
 /**
  * The merge line: the branches waiting to land on main through `armada land`,
@@ -37,6 +38,13 @@ export type MergeLineEntry = {
   failed?: readonly string[];
   /** Conflict: the files main did not merge into. */
   conflicts?: readonly string[];
+  /** Gating, red and stopped: each Check the turn runs, as it stands. Drawn as the boundary's strip. */
+  checks?: readonly MergeLineCheck[];
+};
+
+export type MergeLineCheck = {
+  name: string;
+  state: "waiting" | "running" | "passed" | "failed" | "timed_out";
 };
 
 export type MergeLineProps = {
@@ -226,9 +234,42 @@ function Entry({
   );
 }
 
-/** What the row says after its name: the runner's words in a turn, the facts once off the line. */
+/** A Check of the turn on the boundary strip's own readings. A timeout is a failure there, and says so. */
+const READS: Record<MergeLineCheck["state"], GroupBoundaryCheckReads> = {
+  waiting: "not run",
+  running: "running",
+  passed: "passed",
+  failed: "failed",
+  timed_out: "failed",
+};
+
+function boundaryCheck(check: MergeLineCheck): GroupBoundaryCheck {
+  const timedOut = CHECK_OUTCOME.timed_out?.verb;
+  return {
+    name: check.name,
+    reads: READS[check.state],
+    ...(check.state === "timed_out" && typeof timedOut === "string" ? { result: timedOut } : {}),
+  };
+}
+
+/**
+ * What the row says after its name: the runner's words and its Checks in a turn, the facts once off
+ * the line. **The Checks are the plan's boundary strip**, not a second drawing of the same thing.
+ */
 function Detail({ entry }: { entry: MergeLineEntry }) {
-  if (LIVE.has(entry.state)) return entry.doing === undefined ? null : <>{entry.doing}</>;
+  const strip =
+    entry.checks === undefined || entry.checks.length === 0 ? null : (
+      <GroupBoundary checks={entry.checks.map(boundaryCheck)} />
+    );
+  if (LIVE.has(entry.state)) {
+    return (
+      <>
+        {entry.doing === undefined ? null : <span>{entry.doing}</span>}
+        {strip}
+      </>
+    );
+  }
+  if ((entry.state === "red" || entry.state === "stopped") && strip !== null) return strip;
   if (entry.state === "landed" && entry.merge !== undefined) {
     return (
       <Tooltip label="Merge commit">

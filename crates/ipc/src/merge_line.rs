@@ -63,6 +63,32 @@ pub struct MergeLineEntry {
     /// `conflict`: the files main did not merge into.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// `gating`, `red` and `stopped`: each Check the turn runs, as it stands,
+    /// in the order they run. Since 23.1.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<MergeLineCheck>,
+}
+
+/// One Check a turn runs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MergeLineCheck {
+    /// Its name in `armada.yml`.
+    pub name: String,
+    pub state: LandCheckState,
+}
+
+/// Where one Check stands in a turn: `waiting` until it is run, then
+/// `running`, then one of the three ends.
+///
+/// **Strict, for [`LandState`]'s reason**: Bridge draws each as a segment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LandCheckState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    TimedOut,
 }
 
 /// A pull request, by number and address.

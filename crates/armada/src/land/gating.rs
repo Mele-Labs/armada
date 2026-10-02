@@ -9,7 +9,7 @@ use super::caches::{base_foundations, checks_on_the_base};
 use super::dir::StateDir;
 use super::env::Env;
 use super::gate::{foundations_delta, not_installed, FoundationsComparison};
-use super::outcome::{OutcomePatch, OutcomeState};
+use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
 use super::shell::spoken;
@@ -45,7 +45,11 @@ pub fn foundations(
         group,
         OutcomeState::Gating,
         format!("reading verify-foundations against {}", env.base),
-        OutcomePatch::default(),
+        // A half of a split batch gates again: what the whole ran is not this run's.
+        OutcomePatch {
+            checks: Some(Vec::new()),
+            ..OutcomePatch::default()
+        },
     )?;
     let base_output = base_foundations(repo, state, base, env, logs)?;
     let log = logs.join("foundations.log");
@@ -110,11 +114,20 @@ pub fn checks(
     let mut failed = Vec::new();
     let mut uninstalled = Vec::new();
     let mut timed_out = Vec::new();
+    // Each Check as it stands, written with every word the turn says from here.
+    let mut runs: Vec<CheckRun> = rerun
+        .iter()
+        .map(|name| CheckRun {
+            name: name.clone(),
+            state: CheckState::Waiting,
+        })
+        .collect();
     if !rerun.is_empty() {
         setup(&where_, env, logs)?;
         nothing_left(&where_, "preparing the gate")?;
     }
-    for name in &rerun {
+    for (n, name) in rerun.iter().enumerate() {
+        runs[n].state = CheckState::Running;
         tell(
             state,
             group,
@@ -122,12 +135,19 @@ pub fn checks(
             format!("running {name} ({})", rerun.join(", ")),
             OutcomePatch {
                 logs: Some(log_paths.clone()),
+                checks: Some(runs.clone()),
                 ..OutcomePatch::default()
             },
         )?;
         let log = logs.join(format!("{name}.log"));
         log_paths.push(path_string(&log));
         let ran = check(&env.armada, &where_, name, &log, env.check_limit)?;
+        // One that could not run is not a pass either; the stop says why.
+        runs[n].state = match (ran.passed, ran.timed_out) {
+            (true, _) => CheckState::Passed,
+            (false, true) => CheckState::TimedOut,
+            (false, false) => CheckState::Failed,
+        };
         if ran.passed {
             continue;
         }
@@ -157,6 +177,7 @@ pub fn checks(
             ),
             OutcomePatch {
                 logs: Some(log_paths.clone()),
+                checks: Some(runs.clone()),
                 ..OutcomePatch::default()
             },
         )?;
@@ -182,6 +203,7 @@ pub fn checks(
         return Err(Stopped::stopped(detail).with_patch(OutcomePatch {
             failed: Some(failed),
             logs: Some(log_paths),
+            checks: Some(runs),
             ..OutcomePatch::default()
         }));
     }
@@ -260,6 +282,7 @@ pub fn checks(
                 failed: Some(failed),
                 already: Some(already),
                 logs: Some(log_paths),
+                checks: Some(runs),
                 ..OutcomePatch::default()
             },
         ));
@@ -270,6 +293,7 @@ pub fn checks(
                 OutcomePatch {
                     already: Some(already),
                     logs: Some(log_paths),
+                    checks: Some(runs),
                     ..OutcomePatch::default()
                 },
             ),
@@ -299,6 +323,7 @@ pub fn checks(
         ),
         OutcomePatch {
             logs: Some(log_paths),
+            checks: Some(runs),
             ..OutcomePatch::default()
         },
     )?;

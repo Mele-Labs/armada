@@ -1246,12 +1246,12 @@ in_code = ""
 notes = "In line, and nothing is being done to it yet. The word `--status` already prints. `clock` and the queued hue are `job_status.queued`'s, borrowed one level over: a branch in line is queued work, and `clock`'s own row says it is the mark for nobody acting. The merge line is a list of branches and never a step's rail row, so the refusal `[conventions.step_activity_borrowing]` records for `clock` does not reach it."
 
 [verbs.land_state.gating]
-verb = "gating"
+verb = "Running Checks before landing"
 icon = "circle-dot"
 status_token = "--status-running"
 vocabulary = "Land state"
 in_code = ""
-notes = "In its turn: main merged in, the generators, `verify-foundations` and the Checks. `circle-dot` and the running hue, pulsing on the row while the turn holds it, as a running Job's badge does. Shared with `merging`, for `group_state.running`'s reason: both are the turn live, and the tooltip carries which."
+notes = "In its turn: main merged in, the generators, `verify-foundations` and the Checks. The owner found `gating` opaque on 2 Oct 2026 and chose these words for Bridge; the key, and what `--status` prints, stay `gating`. `circle-dot` and the running hue, pulsing on the row while the turn holds it, as a running Job's badge does. Shared with `merging`, for `group_state.running`'s reason: both are the turn live, and the tooltip carries which."
 
 [verbs.land_state.merging]
 verb = "merging"

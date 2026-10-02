@@ -236,7 +236,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 ## In Bridge
 
-**Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. A conflict's mark is `unplug` and the rail row's is `merge`. The mock's lines are `?walk=theMergeLine`.
+**Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`; `gating` reads *Running Checks before landing* in Bridge, and stays `gating` on disk and in `--status`. A conflict's mark is `unplug` and the rail row's is `merge`. The mock's lines are `?walk=theMergeLine`.
 
 | What Fleet serves for the pick | What draws |
 |---|---|
@@ -245,7 +245,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 | A line with nothing in any of the three | The panel, with a picture under its heading and no words: the owner's one exception to the empty-state rule, 2 Oct 2026 |
 | All, with lines in more than one repository | One panel per repository, its label beside *Merge line* |
 
-**Fleet serves the line since protocol 22.1**, `landed` and `sent_back` since 23.1, and reads it rather than runs it:
+**Fleet serves the line since protocol 22.1**, `landed`, `sent_back` and `checks` since 23.1, and reads it rather than runs it:
 
 ```
 armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/
@@ -261,12 +261,13 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 |---|---|---|
 | Queue order | `place`, 1-based | Place |
 | Outcome `state`, `waiting` with none | `state` | The mark |
-| `detail`, live states only, before ` — together with ` | `doing` | The runner's words |
+| `detail`, live states only, before ` — together with `, and not while a Check runs | `doing` | The runner's words |
 | The names after ` — together with ` | `batch`, the member first in place order | One bracketed group |
 | `pr` and `origin` on the forge | `pull_request` `{number, url}` | `#1770`, opening the address |
 | `merge_commit`, `landed` only | `merge_commit`, whole | Its first ten characters |
 | `failed`, `red` and `stopped` only | `failed` | The failed Checks |
 | `conflicts`, `conflict` only | `conflicts` | The files |
+| `checks`, each Check the turn runs as `waiting`, `running`, `passed`, `failed` or `timed_out`; `gating`, `red` and `stopped` only | `checks` `{name, state}` | The plan's boundary strip, `GroupBoundary`: one segment a Check, its list open where one failed |
 
 - **The facts are taken only for the state that owns them.** An outcome keeps fields from earlier turns, so a branch that landed and then went red still holds the old merge commit on disk.
 - **Recently landed is the three newest `landed` outcomes** of branches no longer queued, by the file's own write. Outcomes are never pruned; this clone held 310 on 2 Oct 2026.
