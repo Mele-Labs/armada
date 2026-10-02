@@ -112,27 +112,20 @@ export default defineConfig({
   // bar the capture window draws above another repository's running web app
   // (#1294). Each carries its own `default-src 'self'`, and neither loads the
   // other's script.
-  //
-  // **CSS that does not parse fails the build.** Tailwind's own optimize pass
-  // runs Lightning CSS with `errorRecovery` on, which turns a parse error into
-  // a warning and drops the rule it broke. On 1 Oct 2026 a `**/packages` inside
-  // a comment in `PlanBoard.css` closed the comment early, the
-  // `.armada-plan-board__scope` rule vanished from the built app, and the build
-  // printed one warning and exited 0. The mock does not run that pass, so it
-  // looked right there.
-  //
-  // So Tailwind's pass is off and Vite minifies with Lightning CSS instead,
-  // with `errorRecovery` off: the same parse error throws, and the message
-  // carries a code frame of the bundled CSS around the line. That frame shows
-  // the selector, not the source file — every component sheet is `@import`ed
-  // into one stylesheet before anything here parses it. What still reaches the
-  // log as a warning (an unknown at-rule or pseudo-class) is one Lightning CSS
-  // keeps rather than drops. electron-vite leaves the renderer unminified by
-  // default, so this is also the first pass that minifies Bridge's CSS at all.
-  // Measured against the build before: the same rules and selectors, less the
-  // Safari 16.4 prefixes Tailwind's targets added, which Chromium does not read.
   renderer: {
     root: 'src/renderer',
+    // **CSS that does not parse fails the build.** Tailwind's optimize pass
+    // runs Lightning CSS with `errorRecovery` on, which turns a parse error
+    // into a warning and drops the rule. On 1 Oct 2026 a `**/packages` in a
+    // `PlanBoard.css` comment closed it early, `.armada-plan-board__scope`
+    // vanished from the built app, and the build exited 0. So that pass is
+    // off, and Vite minifies with Lightning CSS and `errorRecovery` off: the
+    // same comment throws, with a frame of the bundled CSS — the selector and
+    // the line, not the source file, since every sheet is `@import`ed into one
+    // first. A warning that keeps its rule (an unknown at-rule) still only
+    // logs. electron-vite leaves the renderer unminified, so this is also the
+    // first pass that minifies it. Measured against the build before: the
+    // same rules and selectors, less Safari 16.4 prefixes Chromium never reads.
     plugins: [react(), tailwindcss({ optimize: false })],
     css: { lightningcss: { errorRecovery: false } },
     build: {
