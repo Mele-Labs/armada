@@ -15,7 +15,7 @@ export const markdownInTheLead = walk("markdown/agent-text", [
 
 export const markdownInTheClaim = walk("job/review", [
   { press: button("What the Job captured"), say: "What the Job captured, at the gate" },
-  { look: text("replaces the removed test"), say: "What the Drone says it did: bold, then a list of code" },
+  { look: text("replaces the removed test"), say: "What was done: bold, then a list of code" },
   { look: text("against a filled store"), say: "What it left alone: code and bold" },
   { press: button("For context"), say: "A finding with a View" },
   { press: inside(row("settings_store"), button("View")), say: "Its View" },

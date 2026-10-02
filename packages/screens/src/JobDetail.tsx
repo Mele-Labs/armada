@@ -258,6 +258,7 @@ function OneJob(props: JobDetailProps) {
     onRaisingTurns: setRaisingTurns,
     onOpenPullRequest: props.onOpenPullRequest,
     onOpenJob: props.onOpenJob,
+    onOpenStudio: props.onOpenStudio,
     onCopied: props.onCopied,
     onSaid: props.onSaid,
   });
@@ -363,6 +364,11 @@ function OneJob(props: JobDetailProps) {
           acting={props.acting}
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
           onAnswerJudge={props.onAnswerJudge}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          opens={{ jobId: job.id, open: props.onOpenArtifact, onSaid: props.onSaid }}
+          onOverrule={props.onOverrule}
+          onSendBack={props.onSendBack}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           drones={drones}
           onRedirect={props.onRedirect}

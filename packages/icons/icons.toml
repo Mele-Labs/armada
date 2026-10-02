@@ -327,7 +327,7 @@
   group = "Pull request state"
   size = "12px"
   status = "Specified"
-  reserved = "A merged pull request's badge, in the Job header and on the Land board's Delivered row, and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
+  reserved = "A merged pull request's badge, in the Job header, on the Land board's Delivered row and on the pull request card in a finished Job's record (#1680), and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
   notes = "Minted 1 Oct 2026, the owner's call: a pull request's state reads as a badge the way a Job's does (*Every badge carries an icon*). It renders `--status-completed-success`, which `check` also renders. A forked join and a tick share no outline at 12px, so rule 4 holds. `git-pull-request` stays the row mark for what the part is. This mark is the state the part settled in, and the two sit on one row without saying the same thing."
 
 [icons.git-pull-request-closed]
@@ -717,6 +717,22 @@
   status = "Specified"
   reserved = "Wrapping the lines of a reading in a console, the reader's own toggle. Never a layout or alignment control, never a return or a redirect, and never undo."
   notes = "Minted 2 Oct 2026 for the log panel's wrap toggle, on the owner's annotation that `split`, borrowed for it first, \"is not a wrap lines icon\". The glyph is the act itself: a long line turning back under itself. `text-wrap` and not `wrap-text`, which lucide-react keeps only as an alias of it. Against the arrows already in the set, rule 4 holds on outline: `corner-up-right` is a bare turn with no ruled lines, and `undo-2` an open arrow pointing against the reading direction. Refused: `split`, one line becoming two, which is an escalation reason and reads as fanning out rather than wrapping; `align-left`, which says how text is set rather than where a line breaks."
+
+[icons.thumbs-down]
+  means = "A hand with its thumb pointed down — the work is not right"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Send it back on a step the gaming check holds, on its button only. Never a rejection, which is `ban`, never a kill, and never a Judge's refusal."
+  notes = "Minted 2 Oct 2026, the owner's call on the walk of #1672: the two answers to a flag read as agree and disagree before their words do. It breaks the Actions rule that text buttons carry no icon, and only on these two buttons, which are a pair whose whole meaning is the direction of the thumb. Paired with `thumbs-up`; the two differ by orientation alone, which is why they are only ever drawn side by side with their words. Refused: `undo-2`, reserved to taking back a canvas stroke; `x`, a system failure; `ban`, a person's rejection, which ends a Job where this sends work back."
+
+[icons.thumbs-up]
+  means = "A hand with its thumb raised — the work is fine"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
+  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."
 
 [icons.trash-2]
   means = "A bin with its lid lifted clear"

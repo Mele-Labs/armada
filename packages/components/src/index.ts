@@ -304,6 +304,8 @@ export * from "./compositions/ProposalSheet/ProposalSheet";
 export * from "./compositions/ValuePopover/ValuePopover";
 // Overview's summary strip — every panel's count above the fold.
 export * from "./compositions/OverviewSummaryStrip/OverviewSummaryStrip";
+// The card a gaming flag holds a step with, and the two answers to it. #1079.
+export * from "./compositions/HeldFlag/HeldFlag";
 // The message box that sends a redirect from where a person is reading,
 // without reaching for the step header's button. #1154.
 export * from "./compositions/DroneMessageBox/DroneMessageBox";
@@ -394,3 +396,4 @@ export * from "./compositions/DestinationCard/DestinationCard";
 export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MergeLine/MergeLine";
+export * from "./compositions/PullRequestCard/PullRequestCard";
