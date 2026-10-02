@@ -108,12 +108,12 @@ pub struct PlanTask {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_reason: Option<String>,
     /// How hard the planner thought it was, which picks its model off the
-    /// Job's `tiers`. Absent is the planner leaving it to Armada. Since 23.5.
+    /// Job's `tiers`. Absent is the planner leaving it to Armada. Since 23.6.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tier: Option<TaskTier>,
     /// The model a person picked for this task with Edit this task, which
     /// beats the Job's map. **Absent is nobody having picked**; the model a
-    /// Drone ran is on its `JobDrone` row, not here. Since 23.5.
+    /// Drone ran is on its `JobDrone` row, not here. Since 23.6.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     /// Each stretch the task was marked `working`, oldest first — what Bridge
@@ -327,7 +327,7 @@ pub struct EditTask {
     pub model: Option<String>,
 }
 
-/// Which model each tier of a Job's tasks runs on. Since 23.5.
+/// Which model each tier of a Job's tasks runs on. Since 23.6.
 ///
 /// **A tier left out is Armada picking** (spike 022, answer 8): the Drone
 /// runs as its step, or the Job, would, and its `JobDrone.model` says which.
@@ -371,7 +371,7 @@ impl From<&core_model::TierModels> for TierModels {
 }
 
 /// A person sets which model each tier of this Job's tasks runs on: the whole
-/// map, replacing the one before. `set_tiers`, since 23.5.
+/// map, replacing the one before. `set_tiers`, since 23.6.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetTiers {
     #[serde(default)]

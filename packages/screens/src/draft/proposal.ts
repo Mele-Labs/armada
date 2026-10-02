@@ -70,7 +70,7 @@ export type GateView = {
 
 /**
  * Which model each tier runs on. `null` is the draft's spelling of a tier left
- * out, which on the wire (`TierModels`, 23.5) is a key left out: **Armada
+ * out, which on the wire (`TierModels`, 23.6) is a key left out: **Armada
  * picks, and the Drone's row says which model it ran** (spike 022, answer 8).
  */
 export type TierModels = Readonly<Record<TaskTier, string | null>>;

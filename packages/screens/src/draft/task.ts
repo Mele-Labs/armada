@@ -26,7 +26,7 @@ export type TaskTreatment = "step_drone" | "own_drone" | "job";
 
 /**
  * How hard the planner thought the task was, which picks its model off the
- * Job's map unless a person picked one. `PlanTask.tier` since 23.5.
+ * Job's map unless a person picked one. `PlanTask.tier` since 23.6.
  */
 export type TaskTier = "difficult" | "medium" | "easy";
 
@@ -97,11 +97,14 @@ export type TaskView = {
 };
 
 /**
- * Today's wire holds one Drone per Job and no groups, so every task is
- * `step_drone`, the Job's model, and its own group of one.
+ * Today's wire holds no groups, so every task is the Job's model and its own
+ * group of one. **`own_drone` where a step declares `drone_per_task`** (23.1):
+ * that step's working Drone is the working task's own, so `assigned_drone` is
+ * it. Elsewhere every task is `step_drone`.
  */
 export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
   const coord = coordOfTask(detail, task);
+  const ownDrone = detail.steps.some((step) => step.drone_per_task === true);
   const view: TaskView = {
     id: task.id,
     title: task.title,
@@ -112,7 +115,7 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
     concurrent_with: [],
     tier: "medium",
     model: detail.job.model,
-    treatment: "step_drone",
+    treatment: ownDrone ? "own_drone" : "step_drone",
     cases: [],
     coord,
   };

@@ -1,6 +1,6 @@
 //! The detached runner's own loop: hold the turn, sweep what an older
-//! script left, then take a turn — the first [`Env::batch`] entries in line —
-//! until the line is empty. `scripts/land`'s own `runner`.
+//! script left, then take a turn — the first [`size::current`] entries in
+//! line — until the line is empty. `scripts/land`'s own `runner`.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -9,6 +9,7 @@ use super::dir::StateDir;
 use super::env::Env;
 use super::lock::TurnLock;
 use super::queue::queued;
+use super::size;
 use super::turn::take_turn;
 use super::worktree::{drop_worktree, main_tree};
 
@@ -48,8 +49,10 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
             continue;
         }
 
-        let batch = &line[..line.len().min(env.batch)];
-        take_turn(repo, &state, env, batch);
+        let batch = &line[..line.len().min(size::current(&state, env.batch))];
+        if let Some(went) = take_turn(repo, &state, env, batch) {
+            size::after(&state, env.batch, went);
+        }
     }
 }
 

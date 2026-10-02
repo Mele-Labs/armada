@@ -101,7 +101,7 @@ pub struct JobDrone {
     pub task: Option<String>,
     /// The model it was spawned as: a person's pick on its task, the Job's
     /// map for the task's tier, the step's model, or the Job's, in that order.
-    /// **Absent on a Drone spawned before 23.5**, which recorded none.
+    /// **Absent on a Drone spawned before 23.6**, which recorded none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     pub state: DroneState,

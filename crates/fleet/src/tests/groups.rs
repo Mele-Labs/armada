@@ -9,7 +9,7 @@ use core_model::{
     Approach, EvidenceType, GroupId, JobId, JobStatus, NewTask, PlanChange, StepId, TaskId,
     TaskState,
 };
-use testkit::FakeWorkProduct;
+use testkit::{FakeJudge, FakeWorkProduct};
 use verification::{Claimed, NotClaimed, ShownBy};
 
 use crate::daemon::Fleet;
@@ -25,18 +25,34 @@ type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 /// Plan, then an `implement` that works a Drone per task and may go round
 /// twice on its own, then a handoff.
 fn groups_with_two_retries() -> config::ResolvedWorkflow {
-    let def = config::WorkflowDef::parse(
-        std::path::Path::new("fixture-groups.yml"),
+    groups_gated("advance_gate: auto\n")
+}
+
+/// The same, with a Judge asked one question at each group's end.
+fn groups_judged() -> config::ResolvedWorkflow {
+    groups_gated(
+        "advance_gate: auto_if_judge_passes\n    judge_checks:\n      -\n        \
+         criteria:\n          - criterion_id: c1\n            \
+         question: \"Does the reader stop at the end?\"\n            on_refusal: refuse\n",
+    )
+}
+
+fn groups_gated(implement_gate: &str) -> config::ResolvedWorkflow {
+    let text = format!(
         "version: 1\nworkflow_id: fixture-groups\nname: fixture\nstructure: linear\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
-         evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
-         - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \
+         evidence: {{submitted: {{type: plan}}}}\n    mechanical_checks:\n      \
+         - {{ type: plan_recorded, min_tasks: 1 }}\n    delivers: false\n    \
          advance_gate: auto\n  - id: implement\n    label: \"Implement\"\n    \
          follows_plan: true\n    drone_per_task: true\n    retry_limit: 2\n    \
-         evidence: {submitted: {type: diff}}\n    \
-         mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: false\n    \
-         advance_gate: auto\n  - id: handoff\n    label: \"Hand off\"\n    \
-         delivers: true\n    advance_gate: auto\n",
+         evidence: {{submitted: {{type: diff}}}}\n    \
+         mechanical_checks:\n      - {{ type: diff_nonempty }}\n    delivers: false\n    \
+         {implement_gate}  - id: handoff\n    label: \"Hand off\"\n    \
+         delivers: true\n    advance_gate: auto\n"
+    );
+    let def = config::WorkflowDef::parse(
+        std::path::Path::new("fixture-groups.yml"),
+        &text,
         &config::Roster::offering_nothing(),
     )
     .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
@@ -46,18 +62,24 @@ fn groups_with_two_retries() -> config::ResolvedWorkflow {
 
 /// T1 and T2 in the first group, T3 in the second.
 fn two_groups() -> PlanChange {
-    let task = |title: &str, group: u32| {
-        NewTask::new(title, "", &[], "")
-            .expect("a title")
-            .in_group(group)
-    };
+    planned(&[
+        ("Stop the reader at the end", 1),
+        ("Cover the last row", 1),
+        ("Note the bound", 2),
+    ])
+}
+
+fn planned(tasks: &[(&str, u32)]) -> PlanChange {
     PlanChange::Recorded {
         approach: Approach::new("Bound the reader and cover it, then say so").expect("one"),
-        tasks: vec![
-            task("Stop the reader at the end", 1),
-            task("Cover the last row", 1),
-            task("Note the bound", 2),
-        ],
+        tasks: tasks
+            .iter()
+            .map(|(title, group)| {
+                NewTask::new(title, "", &[], "")
+                    .expect("a title")
+                    .in_group(*group)
+            })
+            .collect(),
     }
 }
 
@@ -108,7 +130,15 @@ async fn states(fleet: &Fixture, job: &JobId) -> Vec<TaskState> {
 async fn at_implement(home: &TempDir, work: FakeWorkProduct) -> (Arc<Fixture>, JobId) {
     let mut fittings = fittings(home, work);
     fittings.starting().workflows = one(groups_with_two_retries());
-    let fleet = Arc::new(Fleet::assembled(fittings));
+    at_implement_on(Arc::new(Fleet::assembled(fittings)), home, &two_groups()).await
+}
+
+/// A Job at `implement` on this Fleet, its plan recorded, T1's Drone working.
+async fn at_implement_on(
+    fleet: Arc<Fixture>,
+    home: &TempDir,
+    plan: &PlanChange,
+) -> (Arc<Fixture>, JobId) {
     let job = fleet
         .propose(a_proposal_for("bound the reader", "fixture-groups"))
         .await
@@ -117,7 +147,7 @@ async fn at_implement(home: &TempDir, work: FakeWorkProduct) -> (Arc<Fixture>, J
     worktree_directory(home, &job);
     dispatched(&fleet, &job_id).await.expect("it dispatches");
     fleet
-        .change_plan(&job_id, &two_groups())
+        .change_plan(&job_id, plan)
         .await
         .expect("the plan step records");
     submitted_by_the_one(
@@ -388,4 +418,88 @@ async fn a_move_places_by_after_and_waits_for_a_task_in_its_run() {
     .await
     .expect_err("no group G9");
     assert_eq!(code(&refused), "fleet.no_such_group");
+}
+
+/// Green Checks and a Judge refusal leave G1's tasks done and the group
+/// stopped for a person; Restart this task on T5 then answers, as one press,
+/// and puts a new Drone on T5 alone, opening with what the Judge said.
+#[tokio::test]
+async fn restart_answers_a_task_in_a_group_the_judge_refused() {
+    use TaskState::{Done, Open, Working};
+    let home = TempDir::new();
+    let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/read.rs"]));
+    fittings.starting().workflows = one(groups_judged());
+    fittings.judge = Arc::new(FakeJudge::refusing(
+        "the reader stops at the last row",
+        "the reader stops one row short",
+        "the last row is never read",
+    ));
+    let five = planned(&[
+        ("Stop the reader at the end", 1),
+        ("Cover the last row", 1),
+        ("Cover an empty file", 1),
+        ("Cover one row", 1),
+        ("Note the bound", 1),
+    ]);
+    let (fleet, job) = at_implement_on(Arc::new(Fleet::assembled(fittings)), &home, &five).await;
+    for n in 1..=4 {
+        submitted_by_the_one(&fleet, hand_in("A task is done."))
+            .await
+            .expect("a task's hand-in");
+        fleet
+            .turn()
+            .await
+            .unwrap_or_else(|_| panic!("T{}'s Drone", n + 1));
+    }
+    submitted_by_the_one(&fleet, hand_in("T5 is done."))
+        .await
+        .expect("T5's hand-in");
+    let said = ruled(&fleet.turn().await.expect("G1's gate"));
+    assert!(
+        said.starts_with("Some(Refused"),
+        "the Judge refuses: {said}"
+    );
+    assert_eq!(states(&fleet, &job).await, [Done; 5], "the Checks passed");
+
+    let before = fleet.harness().configured().len();
+    let restarted = Commands::restart_task(
+        Arc::clone(&fleet),
+        ipc::JobId::from(&job),
+        "T5".to_string(),
+        ipc::RestartTask::default(),
+    )
+    .await
+    .expect("a task in a refused group restarts");
+    assert_eq!(
+        restarted.status,
+        ipc::JobStatus::from(JobStatus::Queued),
+        "back in the queue, as `restart_step` puts a Job"
+    );
+    assert_eq!(states(&fleet, &job).await, [Done, Done, Done, Done, Open]);
+    fleet.turn().await.expect("the Job is readmitted");
+    assert_eq!(
+        states(&fleet, &job).await,
+        [Done, Done, Done, Done, Working],
+        "T5 alone is worked again"
+    );
+    let briefs: Vec<String> = fleet.harness().configured()[before..]
+        .iter()
+        .map(|config| config.prompt().as_str().to_string())
+        .collect();
+    assert_eq!(briefs.len(), 1, "one new Drone");
+    assert!(
+        briefs[0].contains("the reader stops one row short"),
+        "the new Drone opens with the refusal:\n{}",
+        briefs[0]
+    );
+
+    let refused = Commands::restart_task(
+        Arc::clone(&fleet),
+        ipc::JobId::from(&job),
+        "T4".to_string(),
+        ipc::RestartTask::default(),
+    )
+    .await
+    .expect_err("G1's run is open again, so T4 is its group's");
+    assert_eq!(code(&refused), "fleet.task_not_failed");
 }

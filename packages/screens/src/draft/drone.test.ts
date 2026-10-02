@@ -66,6 +66,15 @@ describe("the list Fleet serves", () => {
     ]);
   });
 
+  it("names the task a Drone was put on, and none on a Drone that worked its step", () => {
+    const listed: JobDrones = {
+      ...LISTED,
+      drones: LISTED.drones.map((one) => (one.step_id === "implement" ? { ...one, task: "T2" } : one)),
+    };
+
+    expect(droneViewsOf(listed).map((one) => one.task)).toEqual(["T2", undefined]);
+  });
+
   it("gives each Drone its own rows, and no Drone a row with no id", () => {
     const turns = [row(1, "01DRONEKILLED"), row(2, DRONE), row(3), row(4, DRONE)];
 

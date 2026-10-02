@@ -12,7 +12,7 @@ use core_model::{DroneId, JobId, ModelName, TaskTier, TierModels};
 use crate::error::{fault, LoadJobError, WriteError};
 use crate::open::Store;
 
-/// Version 96 — a task's tier and a person's edit on the plan, a Job's tier
+/// Version 97 — a task's tier and a person's edit on the plan, a Job's tier
 /// map, and the model each Drone ran.
 ///
 /// The plan's changes are rebuilt the way [`V95`](crate::groups::V95) rebuilt
@@ -20,7 +20,7 @@ use crate::open::Store;
 /// the columns an add writes, `NULL` being a field the person left alone.
 /// Nothing is backfilled: a task recorded before this has no tier, which is
 /// Armada picking, and a Drone spawned before it names no model.
-pub(crate) const V96: &str = r#"
+pub(crate) const V97: &str = r#"
 CREATE TABLE job_work_plan_changes_wide (
     job_id     TEXT NOT NULL REFERENCES jobs(job_id),
     seq        INTEGER NOT NULL CHECK (seq > 0),

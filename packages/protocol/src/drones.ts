@@ -33,7 +33,7 @@ export type JobDrone = {
   /**
    * The model it was spawned as: a person's pick on its task, the Job's tier
    * map for the task's tier, the step's model, or the Job's, in that order.
-   * **Absent on a Drone spawned before 23.5**, which recorded none.
+   * **Absent on a Drone spawned before 23.6**, which recorded none.
    */
   model?: string;
   state: DroneState;
