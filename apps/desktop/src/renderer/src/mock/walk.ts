@@ -226,10 +226,16 @@ function drag(element: HTMLElement, by: { x: number; y: number }): void {
     button: 0,
     buttons,
   });
+  // A resize handle listens for pointer events on itself, having captured the
+  // pointer, so each step is sent there as a pointer event too.
+  const pointer = (x: number, y: number, buttons: number) => ({ ...at(x, y, buttons), pointerId: 1, pointerType: "mouse", isPrimary: true });
+  element.dispatchEvent(new PointerEvent("pointerdown", pointer(from.x, from.y, 1)));
   element.dispatchEvent(new MouseEvent("mousedown", at(from.x, from.y, 1)));
   for (const part of [0.25, 0.5, 0.75, 1]) {
+    element.dispatchEvent(new PointerEvent("pointermove", pointer(from.x + by.x * part, from.y + by.y * part, 1)));
     window.dispatchEvent(new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)));
   }
+  element.dispatchEvent(new PointerEvent("pointerup", pointer(from.x + by.x, from.y + by.y, 0)));
   window.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
 }
 
