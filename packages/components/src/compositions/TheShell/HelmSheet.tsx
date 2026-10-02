@@ -20,6 +20,8 @@ export function HelmSheet({
   title,
   binding,
   controls,
+  width,
+  onResize,
   onClose,
   children,
 }: {
@@ -28,13 +30,17 @@ export function HelmSheet({
   binding?: string;
   /** The dock's own act, beside the close — `Sheet`'s header slot, so a folded dock keeps it. */
   controls?: ReactNode;
+  /** The dock's own width and resize, so a drag here sets the dock's too (owner, 2 Oct 2026). */
+  width?: number | undefined;
+  onResize?: ((width: number) => void) | undefined;
   onClose: () => void;
   children: ReactNode;
 }) {
   return (
     <div className="armada-shell__helm-sheet">
       <Sheet
-        kind="helm"
+        width={width}
+        {...(onResize === undefined ? {} : { onResize })}
         open={open}
         title={title}
         leading={

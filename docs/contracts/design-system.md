@@ -1233,15 +1233,18 @@ Plan's task, group and wave-Job panels open.
 
 **Every sheet resizes, and each kind of sheet remembers its own width** (the
 owner, 2 Oct 2026). Helm's handle sits on a sheet's inner edge, contained or
-floating, and drags it between `--w-dock-min` and what leaves `--w-work-min`
-of the area under it uncovered, or the sheet's own size where that is wider.
-A sheet beside another keeps its `--space-4` gap at whatever width that one
-was dragged to. Each sheet names its kind (`plan-task`, `drone`, `job-diff`),
+floating, and drags it from `--w-dock-min` to the far edge of the area it is
+drawn in, keeping only the handle's gap and a floating sheet's margin. There is
+no other ceiling: "I should be able to go as far as I want." A width
+remembered from a wider window draws clamped to today's area. A sheet beside
+another keeps its `--space-4` gap at whatever width that one was dragged to,
+so it never passes that one's edge. Each sheet names its kind (`plan-task`, `drone`, `job-diff`),
 and a kind opens at the width it was last dragged to, across a restart: a log
 panel dragged wide leaves Plan's task panel as it was. One shared width and
 none at all were the alternatives, and he chose this over both, at a little
-more to remember. A kind never dragged opens at its size. At the floor a sheet
-is flush to both edges and has no handle.
+more to remember. A kind never dragged opens at its size. Helm folded into a
+sheet has no kind: it shares the dock's width, so a drag of either sets both.
+At the floor a sheet is flush to both edges and has no handle.
 
 ### Stacking
 

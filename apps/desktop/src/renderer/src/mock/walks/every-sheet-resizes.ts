@@ -7,7 +7,7 @@ import { button, card, dialog, inside, role, tab, walk } from "../walk";
 export const everySheetResizes = walk("arc/executing-sequential", [
   { press: tab("Pulse"), say: "A Job whose third group is working" },
   { press: button("Drone transcript, implement · T5"), say: "T5's transcript opens in a panel" },
-  { drag: role("separator", "Resize Drone transcript"), by: { x: -240, y: 0 }, say: "Drag its edge, and the panel widens" },
+  { drag: role("separator", "Resize Drone transcript"), by: { x: -1000, y: 0 }, say: "Drag its edge as far as it goes" },
   { press: inside(dialog("Drone transcript"), button("Close")), say: "Close it" },
   { press: tab("Plan"), say: "Over to the plan" },
   { press: card("Draw what is running, in four lists"), say: "T5's task panel opens at its own width" },

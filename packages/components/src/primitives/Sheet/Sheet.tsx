@@ -140,6 +140,13 @@ export type SheetProps = {
    */
   kind?: string;
   /**
+   * A width another surface owns, in place of `kind`'s: Helm folded into a
+   * sheet shares the dock's (owner, 2 Oct 2026), so a drag of either sets
+   * both. Read only with `onResize`; clamped here as a remembered width is.
+   */
+  width?: number | undefined;
+  onResize?: (width: number) => void;
+  /**
    * Another layer lies over this one and takes `Esc` first. Both bind on
    * `window` in the capture phase, where the first one opened runs first, so
    * the one underneath has to be told to wait.
@@ -190,6 +197,8 @@ export function Sheet({
   contained = false,
   beside,
   kind,
+  width,
+  onResize,
   under = false,
   floating = false,
   closeLabel,
@@ -204,24 +213,24 @@ export function Sheet({
 
   const remembered = useSheetWidth(kind);
   const [held, setHeld] = useState<number | undefined>(undefined);
-  const wanted = kind === undefined ? held : remembered;
-  const resize = (next: number): void => (kind === undefined ? setHeld(next) : rememberSheetWidth(kind, next));
+  const owned = onResize !== undefined;
+  const wanted = owned ? width : kind === undefined ? held : remembered;
+  const resize = (next: number): void =>
+    owned ? onResize(next) : kind === undefined ? setHeld(next) : rememberSheetWidth(kind, next);
   const neighbour = useSheetWidth(beside);
 
   // At the floor the sheet is flush to both edges, and there is nothing to
-  // resize. Everywhere else the ceiling is what the area under the scrim
-  // leaves, and a sheet beside another clamps that one the way it clamps itself.
-  // The chrome is the handle's `--space-4` gap, and a floating sheet's margin.
+  // resize. Everywhere else there is no ceiling but the area under the scrim
+  // (owner, 2 Oct 2026): it drags to the far edge, keeping the handle's
+  // `--space-4` gap and a floating sheet's margin, or, beside another sheet,
+  // the gap from that one.
   const resizes = !floor;
   const follows = floating && resizes && beside !== undefined;
   const room = useWidthOf(scrimRef, open && resizes);
   const atRest = useWidthOf(sheetRef, open && resizes && wanted === undefined);
-  const rest = useRestOf(sheetRef, size, open && resizes);
   const space = tokenPx("--space-4");
-  const followed = follows ? clampToRange(neighbour ?? defaultDockWidth(), dockWidthRange(room - 2 * space)) : 0;
-  const range = follows
-    ? besideRange(room - followed - 4 * space)
-    : restingRange(room - (floating ? 2 : 1) * space, rest, room);
+  const followed = follows ? clampToRange(neighbour ?? defaultDockWidth(), rangeIn(room - 2 * space)) : 0;
+  const range = rangeIn(follows ? room - followed - 4 * space : room - (floating ? 2 : 1) * space);
   // Not measured yet (a first render, or no layout at all): as given.
   const drawn = wanted === undefined || room === 0 ? wanted : clampToRange(wanted, range);
 
@@ -365,41 +374,11 @@ export function Sheet({
   );
 }
 
-/**
- * What a sheet beside nothing drags in: `--w-dock-min` up to what leaves
- * `--w-work-min` uncovered, or up to its own `size` where that is wider —
- * `reading` is 88% of the ground, and a sheet never drags narrower than it
- * opened. The size is read off the stylesheet, which holds every one.
- */
-function restingRange(open: number, size: string, room: number) {
-  const range = dockWidthRange(open);
-  const rest = size.endsWith("%") ? (parseFloat(size) / 100) * room : parseFloat(size);
-  return Number.isFinite(rest) ? { ...range, max: Math.max(range.max, Math.min(rest, open)) } : range;
-}
-
-/** Beside another sheet: `--w-dock-min` up to the area's leading margin. */
-function besideRange(open: number) {
+/** `--w-dock-min` up to all of `open`, the width the sheet can cover. */
+function rangeIn(open: number) {
   const { min, max } = dockWidthRange(Number.NaN);
   return { min, max: Number.isFinite(open) ? Math.max(min, open) : max };
 }
-
-/** A size's width as `Sheet.css` gives it — `480px`, `62%` — or empty until it is read. */
-function useRestOf(ref: RefObject<HTMLElement | null>, size: SheetSize, on: boolean): string {
-  const [value, setValue] = useState("");
-  useLayoutEffect(() => {
-    if (on && ref.current !== null) setValue(getComputedStyle(ref.current).getPropertyValue(REST[size]).trim());
-  }, [ref, size, on]);
-  return value;
-}
-
-/** The custom property in `Sheet.css` that holds each size's width. */
-const REST: Record<SheetSize, string> = {
-  default: "--armada-sheet-width",
-  dock: "--armada-sheet-dock",
-  wide: "--armada-sheet-wide",
-  widest: "--armada-sheet-widest",
-  reading: "--armada-sheet-reading",
-};
 
 /**
  * An element's own width, kept current as it resizes — 0 until it is measured,
