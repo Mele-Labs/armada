@@ -528,7 +528,8 @@ that broke.
 stated rather than silent. The transcript's file queue drops a row it cannot
 take and writes a `missed` row into the file among the rows it was lost
 between. The per-Job broadcast channel is drop-oldest, and a viewer that has
-fallen behind gets a `missed` message with the count. Neither can slow Fleet's
+fallen behind gets a `missed` message with the count, and Bridge answers it by
+reopening the socket, so the backfill redraws the pane whole (#1759). Neither can slow Fleet's
 line loop: the file queue is `try_send` and the channel's send is synchronous
 and never blocks, so **watching a Job cannot change its outcome**. What a slow
 viewer slows is its own socket task.
