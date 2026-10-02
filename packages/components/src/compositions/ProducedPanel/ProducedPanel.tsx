@@ -16,7 +16,11 @@ import { Chapter } from "../Chapter/Chapter";
  * act and the body's well are the ones already agreed.
  */
 export type ProducedPanelProps = {
-  /** `8 files · +154 −23`, the header's fact. */
+  /**
+   * `8 files · +154 −23`, the header's fact. **Drawn only while the panel is
+   * folded**: open, the list it counts is under it, and a count appears only
+   * where the items do not (owner's standing rule, 29 Sep 2026).
+   */
   summary?: ReactNode;
   /** `Open the diff`, where there is a patch to open. */
   act?: ReactNode;
@@ -30,7 +34,7 @@ export function ProducedPanel({ summary, act, children }: ProducedPanelProps) {
     <div className="armada-produced">
       <Chapter
         name="Produced"
-        {...(summary === undefined ? {} : { meta: summary })}
+        {...(summary === undefined || open ? {} : { meta: summary })}
         {...(act === undefined ? {} : { act })}
         open={open}
         onToggle={() => setOpen(!open)}
@@ -204,8 +208,11 @@ export type ProducedGroup = {
 
 export type ProducedGroupsProps = {
   groups: ProducedGroup[];
-  /** What a Job with no groups says. Never an empty table. */
-  emptyNote: string;
+  /**
+   * Unused. A Job with no groups draws nothing here: an empty slot stays empty
+   * rather than holding a sentence. Kept until its caller stops passing it.
+   */
+  emptyNote?: string;
   /** Under the list, where there is something the rows cannot say. */
   note?: ReactNode;
 };
@@ -218,14 +225,8 @@ export type ProducedGroupsProps = {
  * on the wire it read `0 of 1 done` for every group of a merged Job, because
  * Fleet marks no task done (#1752).
  */
-export function ProducedGroups({ groups, emptyNote, note }: ProducedGroupsProps) {
-  if (groups.length === 0) {
-    return (
-      <p className="armada-produced__empty" role="note">
-        {emptyNote}
-      </p>
-    );
-  }
+export function ProducedGroups({ groups, note }: ProducedGroupsProps) {
+  if (groups.length === 0) return null;
   // The column is drawn where any group was timed, so the rest line up under it.
   const timed = groups.some((group) => group.took !== undefined);
   return (

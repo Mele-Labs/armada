@@ -100,5 +100,7 @@ describe("Job 2's groups, merged, as Fleet served them", () => {
     expect(said).not.toMatch(/\d+ of \d+ done/);
     expect(said).not.toContain("not timed");
     expect(said).not.toContain("Nothing times a group");
+    // Open, the head counts nothing: the groups it would count are under it.
+    expect(said).not.toContain("4 groups · 4 tasks");
   });
 });

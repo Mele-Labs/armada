@@ -117,7 +117,6 @@ export const Groups: Story = {
     summary: "4 groups · 8 tasks · 9 files",
     children: (
       <ProducedGroups
-        emptyNote="This Job recorded no plan, so it ran as one piece."
         groups={[
           { name: "Group one", verb: "passed", status: "completed-success", files: "3 files", checks: "4 Checks", commit: "4c1b9d2e8f0a6b3c5d7e9f1a2b4c6d8e0f1a3b5c" },
           { name: "Group two", verb: "passed", status: "completed-success", files: "3 files", checks: "7 Checks", commit: "7a2f0c5b1d3e5f7a9b0c2d4e6f8a0b1c3d5e7f9a" },
@@ -127,17 +126,21 @@ export const Groups: Story = {
       />
     ),
   },
+  // The count is drawn only where the groups are not: folded, and never open.
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByText("4 groups · 8 tasks · 9 files")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { expanded: true }));
+    await expect(canvas.getByText("4 groups · 8 tasks · 9 files")).toBeVisible();
+  },
 };
 
-/** A Job whose plan nothing recorded. The list says so rather than drawing nothing. */
+/** A Job whose plan nothing recorded. The slot stays empty, with no sentence in it. */
 export const NoGroups: Story = {
   args: {
-    summary: "no plan",
-    children: (
-      <ProducedGroups
-        groups={[]}
-        emptyNote="This Job recorded no plan, so it ran as one piece."
-      />
-    ),
+    children: <ProducedGroups groups={[]} />,
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("note")).toBeNull();
+    await expect(canvas.queryByRole("list")).toBeNull();
   },
 };
