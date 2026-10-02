@@ -29,6 +29,7 @@ mod auto_merging;
 mod basing;
 mod boundary;
 mod bounding;
+mod brief_read;
 mod briefing;
 mod capacity;
 mod carrying_on;

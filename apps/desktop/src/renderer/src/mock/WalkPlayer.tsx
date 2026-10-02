@@ -113,7 +113,11 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
         } as CSSProperties);
 
   return (
-    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk">
+    // **A press on the card is not a click outside the app's layer.** The
+    // palette closes on a mousedown anywhere outside it, so Next closed the
+    // palette the step before had opened. Stopped at this root, it never
+    // reaches the window the palette listens on.
+    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk" onMouseDown={(event) => event.stopPropagation()}>
       {ring !== undefined && <div className="armada-mock-walk__ring" style={ring} />}
       <div
         ref={setCard}

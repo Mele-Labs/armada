@@ -17,6 +17,7 @@ import type {
   Examination,
   Footprint,
   Handed,
+  Crewed,
   Holds,
   HeldWorktrees,
   HelmThread,
@@ -317,6 +318,13 @@ export type BridgeState = {
    */
   resources: Holds;
   /**
+   * Every Drone the open Job has had, running or not — `list_job_drones`.
+   *
+   * **Opened with the Job and re-read on every event naming it**, for
+   * `resources`' reason, and kept through a failed re-read for it too.
+   */
+  jobDrones: Crewed;
+  /**
    * What Fleet found when somebody pressed for a look — and only then.
    *
    * **Not read on opening a Job.** It is a thing a person did, it costs a
@@ -446,6 +454,7 @@ export const NOTHING_YET: BridgeState = {
   remarks: { state: "none" },
   reports: { state: "none" },
   resources: { state: "none" },
+  jobDrones: { state: "none" },
   examination: { state: "none" },
   held: { state: "none" },
   runSheet: { state: "none" },

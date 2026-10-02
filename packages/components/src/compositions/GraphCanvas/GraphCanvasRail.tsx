@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -53,8 +54,18 @@ export type GraphCanvasRailAct = {
    * with no reason reads as broken, and the name does not say why.
    */
   why?: string;
-  onPress: () => void;
-};
+} & (
+  | { onPress: () => void; menu?: never }
+  | {
+      /**
+       * A press that opens a list to choose from, rather than one that acts —
+       * Run, whose press opens the checkout's commands (the owner, 2 Oct 2026).
+       * The chosen entry goes to `onSelect`.
+       */
+      menu: { entries: DropdownMenuEntry[]; onSelect: (id: string) => void };
+      onPress?: never;
+    }
+);
 
 export type GraphCanvasRailGroupProps = {
   /** What the group is, read to somebody who cannot see it. */
@@ -82,17 +93,28 @@ export function GraphCanvasRailGroup({ label, acts, disabled = false }: GraphCan
             label={off && act.why !== undefined ? act.why : act.name}
             {...(act.shortcut === undefined ? {} : { shortcut: act.shortcut })}
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label={act.name}
-              {...(act.pressed === undefined ? {} : { "aria-pressed": act.pressed })}
-              disabled={off}
-              onClick={act.onPress}
-            >
-              {Glyph === undefined ? act.sign : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
-            </Button>
+            {act.menu !== undefined ? (
+              <DropdownMenu
+                {...(Glyph === undefined ? {} : { icon: Glyph })}
+                triggerLabel={act.name}
+                align="start"
+                entries={act.menu.entries}
+                disabled={off}
+                onSelect={act.menu.onSelect}
+              />
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={act.name}
+                {...(act.pressed === undefined ? {} : { "aria-pressed": act.pressed })}
+                disabled={off}
+                onClick={act.onPress}
+              >
+                {Glyph === undefined ? act.sign : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
+              </Button>
+            )}
           </Tooltip>
         );
       })}

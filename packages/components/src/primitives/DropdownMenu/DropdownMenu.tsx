@@ -1,5 +1,8 @@
 import { Check, ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { Button } from "../Button/Button";
 
 /**
  * The row menu, and the one place besides a dialog, sheet, popover, tooltip
@@ -54,6 +57,13 @@ export type DropdownMenuProps = {
    */
   disabled?: boolean;
   onSelect?: (id: string) => void;
+  /**
+   * Draw the trigger as an icon-only ghost button named by `triggerLabel`, for
+   * a canvas rail's act — Run, the owner's call of 2 Oct 2026. **No chevron**:
+   * the menu-trigger mark's own row in `packages/icons/icons.toml` keeps it off
+   * a trigger with no label, and `aria-haspopup` says it opens a menu.
+   */
+  icon?: LucideIcon;
 };
 
 export function DropdownMenu({
@@ -64,6 +74,7 @@ export function DropdownMenu({
   defaultOpen = false,
   disabled = false,
   onSelect,
+  icon: Glyph,
 }: DropdownMenuProps) {
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
@@ -111,21 +122,37 @@ export function DropdownMenu({
       ref={root}
       data-align={align === "start" ? "start" : undefined}
     >
-      <button
-        ref={trigger}
-        type="button"
-        className="armada-dropdown-menu__trigger"
-        aria-haspopup="menu"
-        aria-expanded={open && !disabled}
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {triggerLabel}
-        <Count of={triggerCount} />
-        {/* Says this opens a menu, settled 2026-09-17 (icons.toml, chevron-down).
-            Every trigger here has a label, so none is left without it. */}
-        <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
-      </button>
+      {Glyph === undefined ? (
+        <button
+          ref={trigger}
+          type="button"
+          className="armada-dropdown-menu__trigger"
+          aria-haspopup="menu"
+          aria-expanded={open && !disabled}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {triggerLabel}
+          <Count of={triggerCount} />
+          {/* Says this opens a menu, settled 2026-09-17 (icons.toml, chevron-down).
+              Every labelled trigger carries it. */}
+          <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
+        </button>
+      ) : (
+        <Button
+          ref={trigger}
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={triggerLabel}
+          aria-haspopup="menu"
+          aria-expanded={open && !disabled}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Glyph size={16} strokeWidth={2} aria-hidden />
+        </Button>
+      )}
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? (

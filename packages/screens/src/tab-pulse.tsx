@@ -5,11 +5,13 @@
 // `PulseView` — which is derived from today's wire, so this board renders
 // against the real Fleet as well as a mock.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { JobResources, type JobResourcesProps } from "@armada/components";
+import type { Journalled, Observed } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
+import { PulseLogSheet } from "./pulse-log-sheet";
 
 export type PulseTabProps = {
   /** The board, and the act that goes and looks. */
@@ -18,13 +20,33 @@ export type PulseTabProps = {
   jobId: string;
   /** Hold the reading live while this tab is open. `usePulseWatch`. */
   onNeedPulse: (jobId: string | null) => void;
+  /** The two sockets a log's panel reads from, both opened with the Job. */
+  observed: Observed;
+  journalled: Journalled;
+  floor: boolean;
 };
 
-export function PulseTab({ holds, jobId, onNeedPulse }: PulseTabProps) {
+export function PulseTab({ holds, jobId, onNeedPulse, observed, journalled, floor }: PulseTabProps) {
   usePulseWatch(jobId, onNeedPulse);
+  // Which log's panel is open, by its path. **The row is looked up again on
+  // every reading**, so the panel's live mark is the board's and stops with it.
+  const [viewing, setViewing] = useState<string | null>(null);
+  const log = holds.reading?.logs.find((one) => one.path === viewing) ?? null;
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.pulse}>
-      <JobResources {...holds} />
+      <JobResources
+        {...holds}
+        onViewLog={(row) => setViewing(row.path ?? null)}
+        {...(viewing === null ? {} : { viewingLog: viewing })}
+      />
+      <PulseLogSheet
+        log={log}
+        jobId={jobId}
+        observed={observed}
+        journalled={journalled}
+        floor={floor}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }
