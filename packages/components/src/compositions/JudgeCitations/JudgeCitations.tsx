@@ -29,8 +29,8 @@ import type { ReactNode } from "react";
  *
  * **The wire serves this.** `Judged.cited` arrived in protocol 8.3: one entry
  * per quotation, carrying the labelled part of the brief that holds it and the
- * lines it is on, which is what `where` renders. `screens`' `cited.ts` is what
- * builds the rows. This block said fixtures only until 2026-09-09.
+ * lines it is on, which is what `where` renders. This block said fixtures only
+ * until 2026-09-09.
  */
 
 export type JudgeCitation = {

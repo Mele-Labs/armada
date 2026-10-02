@@ -734,13 +734,10 @@ async function onPulse(): Promise<void> {
 
 describe("landing", () => {
   test(
-    "arc/landed: Land shows the whole test set run again before the pull request was " +
-      "offered, with the one case that has no spec named as not covered",
+    "arc/landed: Land shows the test runs, with the one case that has no spec named as not covered",
     async () => {
       mount("arc/landed");
-      await expect
-        .element(page.getByText(/run again at handoff/i).first())
-        .toBeVisible();
+      await expect.element(page.getByText("Test runs", { exact: true })).toBeVisible();
       for (const spec of [
         "crates/api/src/tests/running.rs",
         "packages/screens/src/overview.test.ts",
@@ -752,19 +749,15 @@ describe("landing", () => {
       // The case with no spec says so in words, and nothing beside it reads as a pass.
       await expect.element(page.getByText("not covered").first()).toBeVisible();
       await expect.element(page.getByText("no spec covers Board.tsx")).toBeVisible();
-      // There is no before-run, and the board says so rather than leaving a gap.
-      await expect.element(page.getByText(/no before-run/i)).toBeVisible();
     },
   );
 
   test(
-    "arc/landed: the run a person made themselves is drawn beside Fleet's, and says which of " +
-      "them ran it",
+    "arc/landed: the run a person made themselves is drawn in the same table as Fleet's, and " +
+      "says which of them ran it",
     async () => {
       mount("arc/landed");
-      const byHand = page.getByText(/^Run by hand$/i);
-      await expect.element(byHand).toBeVisible();
-      // Fleet ran the set; the press this person made is its own set, named for them.
+      await expect.element(page.getByText("Test runs", { exact: true })).toBeVisible();
       await expect.element(page.getByText("Fleet").first()).toBeVisible();
       await expect.element(page.getByText("you", { exact: true }).first()).toBeVisible();
     },
@@ -783,8 +776,8 @@ describe("landing", () => {
     const address = page.getByText("https://git.example/armada/pull/1604", { exact: true });
     await expect.element(address).toBeVisible();
     // `exact`, because a role name given as a string matches a substring: the
-    // `?` beside the landing rule is named `Open guide 1, …` and sits earlier
-    // in the document, so `.first()` was pressing it — #1602.
+    // `?` beside the verb is named `Open guide 1, …` and sits earlier in the
+    // document, so `.first()` was pressing it — #1602.
     await page.getByRole("button", { name: "Open", exact: true }).first().click();
     await expect.poll(() => opened).toHaveLength(1);
   });
@@ -798,9 +791,8 @@ describe("landing", () => {
     await expect.element(page.getByText(/group three ran again/)).toBeVisible();
   });
 
-  test("arc/landed: the board says what completes this Job, and what it left behind", async () => {
+  test("arc/landed: the board says what it left behind", async () => {
     mount("arc/landed");
-    await expect.element(page.getByText("Completes when its pull request lands.")).toBeVisible();
     await expect.element(page.getByText("Left behind", { exact: true })).toBeVisible();
     await expect
       .element(page.getByText(".armada/worktrees/3-show-what-s-running-in-the-drones-stat"))

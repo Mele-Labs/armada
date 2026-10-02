@@ -12,9 +12,9 @@
    `fit` column is as wide as the longest label rather than each row's own. */
 .armada-figures {
   display: grid;
-  /* The label column Where things are draws, so the labels of Pulse and the
-     rows under it start on one line. WhereRow's own column says why it is this
-     wide. The values no longer start there — they end at the right edge. */
+  /* Two --space-12, 96px. Pulse's `Size on disk` set it once the rows went up
+     a size; that row folded into `Worktree` in #1484 and the width stayed. The
+     values no longer start there — they end at the right edge. */
   grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr);
   column-gap: var(--space-2);
   row-gap: var(--space-2);
@@ -120,6 +120,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A detail that wraps rather than clips, where the caller asked for it. */
+.armada-figures[data-wraps] .armada-figures__detail {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /* The hue on the reading alone. A detail is when, and a time is not wrong. */

@@ -77,7 +77,8 @@
 
 import { Button, JobRowStacked, SplitButton, StepBar } from "@armada/components";
 import type { JobRowField } from "@armada/components";
-import { ScrollText } from "lucide-react";
+import { GitMerge, GitPullRequestClosed, ScrollText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { JOB_LIFECYCLE } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
@@ -125,6 +126,19 @@ export function isTerminal(job: JobSummary): boolean {
 export const LANDED: Record<string, string | undefined> = {
   merged: "merged",
   closed_unmerged: "closed without merging",
+};
+
+/**
+ * The hue and glyph a settled pull request's badge takes (owner, 1 Oct 2026:
+ * its state reads as a badge, the way the Job's does, and the two glyphs were
+ * minted for it in `icons.toml`). **Merged is the landed hue**, the one the
+ * Land board's edge already draws. **Closed without merging is neutral**:
+ * nothing on the wire says why it closed, and a refusal's or a failure's hue
+ * would say what nobody recorded.
+ */
+export const LANDED_BADGE: Record<string, { status: string; icon: LucideIcon } | undefined> = {
+  merged: { status: "completed-success", icon: GitMerge },
+  closed_unmerged: { status: "not-started", icon: GitPullRequestClosed },
 };
 
 export function Row({
