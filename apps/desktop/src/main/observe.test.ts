@@ -164,6 +164,33 @@ describe("a transcript socket that stops", () => {
   });
 });
 
+describe("a full backfill", () => {
+  // Folded a tick at a time rather than a row at a time, and what was
+  // published along the way is never written to afterwards.
+  it("arrives whole and in order, and leaves what it published as it was", async () => {
+    const fleet = await serving();
+    const published = watching();
+    const lengths: number[] = [];
+    const turns = new ObserveSocket((state) => {
+      if ("turns" in state) lengths.push(state.turns.rows.length);
+      published.publish(state);
+    });
+    opened.push(() => turns.close());
+
+    turns.open(fleet.port, A_JOB);
+    const fleetSide = await fleet.talking;
+    fleetSide.send(JSON.stringify(OPENED));
+    for (let at = 0; at < 2048; at += 1) fleetSide.send(JSON.stringify({ ...A_ROW, text: `row ${at}` }));
+    fleetSide.send(JSON.stringify({ message: "closed", because: "drone_ended" }));
+
+    const ended = await published.until((state) => state.state === "ended");
+    const rows = "turns" in ended ? ended.turns.rows : [];
+    expect(rows.map((row) => row.seq)).toEqual([...Array(2048).keys()]);
+    expect(rows.at(-1)?.saw).toEqual({ event: "said", text: "row 2047" });
+    expect(published.seen.map((state) => ("turns" in state ? state.turns.rows.length : null)).filter((n) => n !== null)).toEqual(lengths);
+  });
+});
+
 describe("a row Fleet stamped with its Drone", () => {
   // **The frame byte for byte as Fleet sends it**: the string
   // `crates/ipc/src/tests/turns.rs` asserts `TurnMessage::Row` encodes to.

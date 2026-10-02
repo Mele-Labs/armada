@@ -29,12 +29,14 @@ import type {
   EditTask,
   JobDetail as JobWhole,
   JobSummary,
+  JudgeAnswer,
   MovePlan,
   Outcome,
   StepDetail,
 } from "@armada/protocol";
 
 import { PlanGate } from "./plan-lead";
+import type { ActingAct } from "./pending";
 import { useTaskWidth } from "./task-width";
 import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
 import { movedGroups, planBoardOf } from "./plan-board";
@@ -85,7 +87,14 @@ export type PlanReviewProps = {
   acting: boolean;
   /** A decision at this gate is already out. */
   deciding: boolean;
+  /** Which act is out, so the Judge's answer that was pressed waits. */
+  actingAct?: ActingAct | undefined;
   onApproveReview: (jobId: string) => void;
+  /**
+   * Answer a Judge's refusal on the plan's step — Overview's own handler, for
+   * the block the gate draws in place of Approve the plan while one is open.
+   */
+  onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
   /**
    * The Board's own rows. **Where one waits at `awaiting_approval` dispatched
    * by this Job, the plan is an Epic's and those are its proposed wave**
@@ -200,7 +209,9 @@ export function usePlanReview({
   stale,
   acting,
   deciding,
+  actingAct,
   onApproveReview,
+  onAnswerJudge,
   board: rows = [],
   onApproveWave,
   onRedirect,
@@ -482,10 +493,13 @@ export function usePlanReview({
   const gate = (
     <PlanGate
       job={job}
+      whole={whole}
       step={step}
       stale={stale}
       acting={acting}
       deciding={deciding}
+      actingAct={actingAct}
+      onAnswerJudge={onAnswerJudge}
       onApproveReview={
         onApproveWave === undefined || wave.length === 0
           ? onApproveReview

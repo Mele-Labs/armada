@@ -53,25 +53,9 @@
   }
 }
 
-/* A bar filling: the wrapper opens from the start of the real bar to its end,
-   which is the movement filling is. The bar's own segments are untouched. */
-.armada-guide-figure__filling {
-  min-width: 0;
-  animation: armada-guide-filling var(--duration-travel) var(--ease)
-    calc(var(--duration-travel) * var(--armada-figure-order) * 0.4) both;
-}
-
-@keyframes armada-guide-filling {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-}
-
 /* Held still, every drawing is its own finished state: every step drawn, every
-   bar full to where the work got to, every member on its rail. Nothing was
-   carried by the movement. */
-.armada-guide-figure[data-still] .armada-guide-figure__arriving,
-.armada-guide-figure[data-still] .armada-guide-figure__filling {
+   member on its rail. Nothing was carried by the movement. */
+.armada-guide-figure[data-still] .armada-guide-figure__arriving {
   animation: none;
 }
 
@@ -110,32 +94,6 @@
   gap: var(--space-2);
   min-width: 0;
   padding-inline-start: var(--space-6);
-}
-
-/* ---- the bars -------------------------------------------------------------
-
-   Two real step bars, each named by what its segments count. The name is a
-   label on the drawing, not a sentence: the guide's own step carries the
-   sentence. */
-.armada-guide-figure__bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.armada-guide-figure__bar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.armada-guide-figure__bar-name {
-  min-width: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
 }
 
 /* ---- members landing in order ---------------------------------------------

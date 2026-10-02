@@ -2908,6 +2908,14 @@ mark is the character `?` rather than a glyph: `circle-*` is reserved to Judge
 criterion verdicts, and the owner's own word for the control is a question
 mark. An empty state saying what would be here is a fact about now and stays.
 
+**A guide's piece is drawn somewhere, or the guide is retired.** Guide 8
+explained a bar the Overview reframe of 29 September 2026 took off every
+screen, and it stayed in the catalogue with nothing on a Job to open it. #1718.
+`cargo xtask verify-foundations` now fails a guide whose const no screen names
+outside a story, a test or the guides directory. The five pieces the catalogue
+alone reaches are listed in the rule. A retired guide's number goes into
+`RETIRED_GUIDE_NUMBERS` and is never reissued; 8, 11 and 20 are retired.
+
 **A healthy state is stated, never implied.** Running renders in the Fleet
 panel's head even when nothing is wrong, because a panel that said nothing
 would read the same whether Fleet is healthy, loading or dead, and Fleet

@@ -88,6 +88,9 @@ export function Layer({ sink }: { sink: Sink }) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const barRef = useRef<HTMLDivElement | null>(null);
+  // A save out on the draft. A ref, not state: a second press can land before
+  // the first one's render, and the draft stays up until the save answers.
+  const savingRef = useRef(false);
 
   const fail = useCallback((what: string, cause: unknown) => {
     setError(`${what} failed through ${sink.via}: ${cause instanceof Error ? cause.message : String(cause)}`);
@@ -175,7 +178,8 @@ export function Layer({ sink }: { sink: Sink }) {
   }, [on, notes, hovered, draft]);
 
   async function save(): Promise<void> {
-    if (draft === null || draft.text.trim() === "") return;
+    if (draft === null || draft.text.trim() === "" || savingRef.current) return;
+    savingRef.current = true;
     const note = { ...draft.note, text: draft.text.trim(), updatedAt: new Date().toISOString() };
     try {
       await sink.save(note);
@@ -184,6 +188,8 @@ export function Layer({ sink }: { sink: Sink }) {
       setError(null);
     } catch (cause) {
       fail("Saving", cause);
+    } finally {
+      savingRef.current = false;
     }
   }
 

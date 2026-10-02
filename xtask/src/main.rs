@@ -28,6 +28,7 @@ mod rules_docs;
 mod rules_enums;
 mod rules_errors;
 mod rules_gitnexus;
+mod rules_guides;
 mod rules_icons;
 mod rules_layers;
 mod rules_node;
@@ -130,6 +131,7 @@ fn verify_foundations() -> ExitCode {
         rules_icons::contract::the_contract_and_the_registry_agree_on_meaning(&root),
         rules_actions::every_action_carries_three_columns(&root),
         rules_stories::every_story_names_its_own_path(&root),
+        rules_guides::every_guides_piece_is_drawn(&root),
         rules_layers::every_package_imports_downward(&root),
         rules_layers::nothing_in_the_main_process_reads_the_draft_schema(&root),
         rules_bundled::no_workspace_package_is_left_for_node(&root),
