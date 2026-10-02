@@ -117,7 +117,7 @@ them is still on the branch, so the plan does not reset with the step.
 | Its Checks and Judge pass | Its tasks are `done`. Where a group with work follows, it commits once and the next group's first task gets its Drone; the step moves only after the last group |
 | A Check is red and the step's `retry_limit` allows another run | The group goes round on its own: the same Drone is told the red Checks and then every task of the group, and the tasks stay `handed_in` |
 | A Check is red on the last run allowed | Every task in the group turns `failed`, with a reason naming the group and the run, and the step stops for a person |
-| The Judge refuses | The group stops for a person, as a step does (answer 3). The Checks passed, so its tasks read `done` |
+| The Judge refuses | The group stops for a person, as a step does (answer 3). The Checks passed, so its tasks read `done`, and Restart this task answers each of them: the idle Drone ends and a new one works that task alone, opening with the refusal |
 
 **The budget is the group's own runs**, not the step's: a later group starts with all of its retries. A person's restart does not reset it, as `restart_step` does not reset a step's, so a restarted group that is red again fails at once.
 

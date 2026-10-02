@@ -18,6 +18,7 @@ use core::num::NonZeroU32;
 
 use crate::envelope::Timestamp;
 use crate::job::attempt::{Attempt, Spent};
+use crate::job::escalation::{EscalationTrigger, StepLevelTrigger};
 use crate::job::ids::StepId;
 use crate::job::step::StepVerdict;
 
@@ -232,6 +233,19 @@ impl GroupRuns {
         self.last(group)
             .and_then(|a| a.ended.as_ref())
             .is_some_and(|ended| ended.verdict == StepVerdict::Passed)
+    }
+
+    /// Whether the group's last run, with none open since, stopped on
+    /// `gate_failure`: a Judge refusal after green Checks, or a red run on
+    /// the last its retries allow. Its tasks' states tell the two apart.
+    pub fn stopped_on_gate_failure(&self, group: GroupId) -> bool {
+        let gate_failure = StepLevelTrigger::of(EscalationTrigger::GateFailure);
+        self.last(group)
+            .and_then(|a| a.ended.as_ref())
+            .is_some_and(|ended| match ended.verdict {
+                StepVerdict::Failed(trigger) => Some(trigger) == gate_failure,
+                _ => false,
+            })
     }
 
     /// Which run the group is on, which is what its retry budget is asked
