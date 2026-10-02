@@ -1,11 +1,12 @@
-// A read-in that comes back with nothing to place says so in a toast, through `App`. The owner,
-// 2 Oct 2026: "there should be a toast notification or something saying nothing was found."
+// A read-in that comes back with nothing to place lands one Note off its Finding saying so, through
+// `App`. The owner, 2 Oct 2026: "What about a note that extends from finding that just "Nothing was
+// found that could be pulled into the studio"".
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { NOTHING_FOUND } from "../nothing-found";
 import { mountApp, type Mounted } from "./mount";
+import { NOTHING_FOUND } from "./studio-fleet";
 import { NOTHING_STUDIO_NAME, readingNothing } from "./studio-read-nothing";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
@@ -16,9 +17,7 @@ afterEach(() => {
   mounted = null;
 });
 
-const said = () => page.getByRole("status").filter({ hasText: NOTHING_FOUND });
-
-test("a read-in that comes back with nothing says so in a toast, once its scout has answered", async () => {
+test("a read-in that comes back with nothing lands one Note off its Finding saying so", async () => {
   const fleet = readingNothing();
   const host = document.createElement("div");
   host.id = "root";
@@ -35,8 +34,10 @@ test("a read-in that comes back with nothing says so in a toast, once its scout 
   await page.getByRole("group", { name: "What is picked" }).getByRole("button", { name: "Read in", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Read in", exact: true }).click();
 
-  await expect.element(page.getByRole("group", { name: /^Finding: Read in/ })).toBeVisible();
-  await expect.element(said()).toBeVisible();
+  await expect.element(page.getByRole("group", { name: `Note: ${NOTHING_FOUND}` })).toBeVisible();
   const studio = fleet.studios()[0]!;
-  expect(studio.nodes.map((node) => node.kind)).toEqual(["link", "zone", "finding"]);
+  const [zone, finding, note] = studio.nodes.slice(1);
+  expect(studio.nodes.map((node) => node.kind)).toEqual(["link", "zone", "finding", "note"]);
+  expect(note!.within).toBe(zone!.id);
+  expect(studio.edges.some((edge) => edge.from === finding!.id && edge.to === note!.id && edge.kind === "produced")).toBe(true);
 });

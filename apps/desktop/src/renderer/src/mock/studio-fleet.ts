@@ -904,14 +904,30 @@ export const READS_AS_NOTHING = "https://example.invalid/o/r/wiki/Glossary";
 /** How long the mock's scout reads a source that comes back with nothing. */
 const SCOUT_READS_MS = 400;
 
-/** Every read-in still reading, ended answered with nothing beside it: Fleet makes no node for it. */
+/** What Fleet's one Note says when a read-in finds nothing — `NOTHING_FOUND` in `crates/fleet/src/reading_in.rs`. */
+export const NOTHING_FOUND = "Nothing was found that could be pulled into the studio.";
+
+/**
+ * Every read-in still reading, ended answered with nothing to place: Fleet lands one Note beside
+ * its Finding, in its Zone, produced by the Finding and by the source the way every read-in node is.
+ */
 function answeredWithNothing(studio: Studio): Studio {
-  const ended = (node: StudioNode): StudioNode => {
-    if (node.kind !== "finding" || node.state !== "gathering") return node;
+  let out = studio;
+  for (const node of studio.nodes) {
+    if (node.kind !== "finding" || node.state !== "gathering") continue;
     const { state: _reading, ...rest } = node;
-    return { ...rest, learned: "Nothing in the page bears on this repository.", ended: { outcome: "answered", cost_micros: 900 } };
-  };
-  return { ...studio, nodes: studio.nodes.map(ended) };
+    const ended: StudioNode = { ...rest, learned: "Nothing in the page bears on this repository.", ended: { outcome: "answered", cost_micros: 900 } };
+    const source = studio.edges.find((edge) => edge.to === node.id && edge.kind === "produced")?.from;
+    const at = { x: node.position.x + 340, y: node.position.y };
+    out = made(
+      { ...out, nodes: out.nodes.map((one) => (one.id === node.id ? ended : one)) },
+      { kind: "note", said: NOTHING_FOUND },
+      [node.id, ...(source === undefined ? [] : [source])],
+      at,
+      node.within,
+    );
+  }
+  return out;
 }
 
 /**

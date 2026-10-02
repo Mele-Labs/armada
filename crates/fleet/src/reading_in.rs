@@ -22,9 +22,9 @@ use adapter_traits::{AgentHarness, Delivery, LookupCall, Vcs, WorkProduct};
 use adapters::{Fetch, MilestoneRead, Source};
 use api::{Redirector, Refusal};
 use core_model::{
-    EndedFinding, EpicTake, ScoutSource, ScoutSourceKind, StudioAuthor, StudioEdge, StudioEdgeId,
-    StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId, StudioPosition,
-    StudioRelation,
+    EndedFinding, EpicTake, ScoutOutcome, ScoutSource, ScoutSourceKind, StudioAuthor, StudioEdge,
+    StudioEdgeId, StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId,
+    StudioPosition, StudioRelation,
 };
 use ipc::{HelmStudioAct, ManifestId, ReadInLink};
 use tokio::process::Command;
@@ -46,6 +46,10 @@ const UNREADABLE: &str = "fleet.studio_source_unreadable";
 /// documentation page are both unbounded, and what did not fit is recorded on
 /// the Finding rather than dropped quietly.
 const MOST_CHARACTERS: usize = 120_000;
+
+/// What the one Note a read-in that found nothing lands says. The owner's own
+/// words, 2 Oct 2026.
+pub(crate) const NOTHING_FOUND: &str = "Nothing was found that could be pulled into the studio.";
 
 /// How far apart nodes a read-in made are placed, in canvas units.
 pub(crate) const ACROSS: i64 = 340;
@@ -341,6 +345,12 @@ where
         };
         let read = zone::without_thin_clusters(read);
         if read.empty() {
+            let answered = finding
+                .ended()
+                .is_some_and(|end| end.outcome == ScoutOutcome::Answered);
+            if answered {
+                self.nothing_found(studio, link, ended).await;
+            }
             return;
         }
         let at = self.now();
@@ -473,6 +483,46 @@ where
                 .lock()
                 .await
                 .keep_read_in(studio, link, None, &made, &edges, &[], &at);
+        let _ = kept;
+    }
+
+    /// A read-in answered with nothing to place: one Note in its Zone, beside
+    /// the Finding and produced by it, saying so. The owner, 2 Oct 2026, over
+    /// a toast: *"What about a note that extends from finding"*.
+    async fn nothing_found(&self, studio: &StudioId, link: &StudioNodeId, ended: &EndedFinding) {
+        let at = self.now();
+        let finding = ended.node();
+        let by = finding.added_by().unwrap_or(StudioAuthor::Person);
+        let beside = StudioPosition {
+            x: finding.position().x + ACROSS,
+            y: finding.position().y,
+        };
+        let note = StudioNode::added(
+            StudioNodeId::carried(self.mint().ulid()),
+            StudioNodeContent::Note {
+                said: NOTHING_FOUND.to_string(),
+                capture: None,
+            },
+            beside,
+            at.clone(),
+            by,
+        )
+        .placed(finding.within().cloned(), beside);
+        let Ok(edge) = StudioEdge::produced(
+            StudioEdgeId::carried(self.mint().ulid()),
+            finding.id().clone(),
+            note.id().clone(),
+            at.clone(),
+            by,
+        ) else {
+            return;
+        };
+        let made = [(note, StudioEdgeId::carried(self.mint().ulid()))];
+        let kept =
+            self.store()
+                .lock()
+                .await
+                .keep_read_in(studio, link, None, &made, &[edge], &[], &at);
         let _ = kept;
     }
 

@@ -41,7 +41,6 @@ import {
   watchStudio,
   watchStudios,
 } from "./commands";
-import { useNothingFound } from "./nothing-found";
 
 export type StudiosSurfaceProps = {
   state: BridgeState;
@@ -69,8 +68,6 @@ export type StudiosSurfaceProps = {
   /** The clock the window ticks on, for how long a server node has been up — #1345. */
   now: number;
   onCopied: (value: string) => void;
-  /** A sentence for the window's toast: here, a read-in that found nothing. */
-  onSaid: (sentence: string) => void;
 };
 
 export function StudiosSurface(props: StudiosSurfaceProps) {
@@ -94,8 +91,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
     watchCheckoutRunSheet(openId !== null);
     return () => watchCheckoutRunSheet(false);
   }, [openId]);
-
-  useNothingFound(state.studio.state === "read" ? state.studio.studio : null, props.onSaid);
 
   if (all) {
     // Nothing to pick from, so nothing is asked: one line saying what is true, and the one act

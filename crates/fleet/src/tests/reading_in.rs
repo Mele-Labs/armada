@@ -501,6 +501,56 @@ async fn a_cluster_of_one_note_or_none_lands_no_frame_and_its_note_still_lands()
     }
 }
 
+/// **A read-in answered with nothing to place lands one Note saying so**, in
+/// its Zone and produced by its Finding. A Cluster naming no Note that came
+/// back is nothing to place. The owner, 2 Oct 2026, over a toast.
+#[tokio::test]
+async fn a_read_in_answered_with_nothing_lands_one_note_from_its_finding() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"clusters\":[{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    let thread = home.path().join("helm");
+    std::fs::create_dir_all(&thread).expect("a helm directory");
+    std::fs::write(
+        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
+        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    )
+    .expect("a thread");
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 4).await;
+    assert_eq!(kinds(&read), ["link", "zone", "finding", "note"]);
+    let (zone, finding, note) = (&read.nodes[1], &read.nodes[2], &read.nodes[3]);
+    let StudioNodeContent::Note { said, .. } = &note.content else {
+        panic!("a Note");
+    };
+    assert_eq!(said, crate::reading_in::NOTHING_FOUND);
+    assert_eq!(
+        note.within.as_ref(),
+        Some(&zone.id),
+        "in the read-in's Zone"
+    );
+    assert!(
+        read.edges
+            .iter()
+            .any(|edge| edge.kind.as_wire() == "produced"
+                && edge.from == finding.id
+                && edge.to == note.id),
+        "produced by the Finding"
+    );
+}
+
 /// **A session is found by this checkout's own project directory**, so one
 /// belonging to another repository is not addressable rather than refused.
 #[tokio::test]

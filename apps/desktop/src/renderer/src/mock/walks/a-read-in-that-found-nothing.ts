@@ -1,7 +1,9 @@
-// A read-in whose scout answers with nothing to place says so in a toast. The owner, 2 Oct 2026.
+// A read-in whose scout answers with nothing to place lands one Note off its Finding saying so.
+// The owner, 2 Oct 2026, in place of a toast.
 // `studio-read-nothing.test.tsx` holds the claim.
 
-import { button, inside, role, text, walk } from "../walk";
+import { NOTHING_FOUND } from "../studio-fleet";
+import { button, inside, role, walk } from "../walk";
 
 const picked = role("group", "What is picked");
 
@@ -12,5 +14,5 @@ export const aReadInThatFoundNothing = walk("studio-read-nothing", [
   { press: role("group", /^Link: /), say: "Pick the Link" },
   { press: inside(picked, button("Read in", { exact: true })), say: "Read it in" },
   { press: inside(role("dialog"), button("Read in", { exact: true })), say: "The scout starts reading, in a Zone of its own" },
-  { look: inside(role("status"), text("The read-in found nothing.")), say: "It answered and asked for nothing, so the window says so" },
+  { look: role("group", `Note: ${NOTHING_FOUND}`, { exact: true }), say: "It answered and asked for nothing, so a Note off the Finding says so" },
 ]);

@@ -1,6 +1,6 @@
 // A Studio holding one Link to a page whose read-in comes back with nothing to place: the scout
-// reads it, answers, and asks for no node, so its Zone holds the Finding alone and the window says
-// so in a toast. The owner, 2 Oct 2026.
+// reads it, answers, and asks for no node, so Fleet lands one Note off the Finding saying so. The
+// owner, 2 Oct 2026, over a toast he looked at and did not want.
 
 import type { Studio } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
