@@ -80,23 +80,29 @@ where
         let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing));
         // Its group has been ended by now, on every road out of `lived`.
         super::left::forgotten(&plan.dir);
-        let mut state = plan.now.borrow().clone();
-        state.phase = ServerPhase::Exited;
-        state.ended_at = Some(ipc::Instant::from(&self.now()));
-        state.exit_code = match end.exit {
+        let ended_at = ipc::Instant::from(&self.now());
+        let exit_code = match end.exit {
             Exit::Code(code) => Some(code),
             _ => None,
         };
-        state.ended = Some(match answering_now(&state, &end).await {
+        let serving = plan.now.borrow().clone();
+        let ended = match answering_now(&serving, &end).await {
             Some(port) => format!(
                 "{}. Something else is answering on port {port} now, so the address still \
                  opens and what it draws is not this",
                 said(&end.exit, end.stopped)
             ),
             None => said(&end.exit, end.stopped),
+        };
+        // **The row is read again as it is let go, never kept from above**: a
+        // merge landing during the probe moved it, and a copy would drop that.
+        let state = held.ended(&plan.now, |state| {
+            state.phase = ServerPhase::Exited;
+            state.ended_at = Some(ended_at);
+            state.exit_code = exit_code;
+            state.ended = Some(ended);
+            state.stopped = end.stopped;
         });
-        state.stopped = end.stopped;
-        held.ended(state.clone());
         self.noted_server(&state);
         self.publish(Event::ServerExited(state.clone()));
         // **Before the final state is sent**, so a Studio holding this server
