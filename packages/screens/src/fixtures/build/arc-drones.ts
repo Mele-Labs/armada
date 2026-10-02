@@ -37,7 +37,7 @@ let thinkingSeq = 900_000;
  * `done` is false while the call is still running and the block has not
  * arrived. The block carries no text: Armada does not carry the reasoning.
  */
-export function thinking(step: string, ts: string, rows: number, done = true): Turn[] {
+function thinking(step: string, ts: string, rows: number, done = true): Turn[] {
   let estimated = 0;
   const turns = Array.from({ length: rows }, (): Turn => {
     const seq = (thinkingSeq += 1);

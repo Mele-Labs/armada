@@ -46,6 +46,7 @@ import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
@@ -463,6 +464,9 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // A running Job and every Drone it has had, as `list_job_drones` serves them:
+  // one killed, two finished with their cost, and the one running now.
+  holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

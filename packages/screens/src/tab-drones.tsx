@@ -9,7 +9,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones, SkeletonText } from "@armada/components";
+import {
+  DRONE_ACTIVITY,
+  DropdownMenu,
+  DroneBrief,
+  DroneMessageBox,
+  HoldButton,
+  JobDrones,
+  SkeletonText,
+  StepActivityMark,
+} from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
@@ -21,6 +30,7 @@ import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
 import {
   DRONE_SAYS,
+  droneLabelOf,
   dronesFiltersOf,
   dronesUnder,
   droneTurnsOf,
@@ -32,7 +42,7 @@ import {
   type DronesOrder,
 } from "./tab-drones-read";
 import type { ActingAct } from "./pending";
-import { droneOfTask, jobDroneOf } from "./tab-plan-read";
+import { droneOfTask } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 import type { TrailProps } from "./trail";
 
@@ -115,8 +125,8 @@ export function DronesTab({
   const shown = useMemo(() => dronesUnder(drones, filter, order), [drones, filter, order]);
 
   const labelOf = (drone: DroneView): string => {
-    // A Drone on the step itself is the Job's own, and named as Plan names it.
-    if (drone.task === undefined) return jobDroneOf(whole)?.label ?? drone.id;
+    // A Drone on a step works no task — `droneLabelOf` names it.
+    if (drone.task === undefined) return droneLabelOf(drone, whole);
     const task = tasks.get(drone.task);
     return task === undefined
       ? `Drone on ${drone.task}`
@@ -222,9 +232,13 @@ export function DronesTab({
                 subtitle: (
                   <>
                     {whereLinksOf(open)}
-                    {[DRONE_SAYS[open.state].toLowerCase(), ...spentOf(open), ranFor(open)]
-                      .filter((one) => one !== undefined)
-                      .join(" · ")}
+                    {/* The state is the row's mark, never a word (owner, 2 Oct 2026). */}
+                    <StepActivityMark
+                      activity={DRONE_ACTIVITY[open.state]}
+                      label={DRONE_SAYS[open.state]}
+                      says={DRONE_SAYS[open.state]}
+                    />{" "}
+                    {[...spentOf(open), ranFor(open)].filter((one) => one !== undefined).join(" · ")}
                   </>
                 ),
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),

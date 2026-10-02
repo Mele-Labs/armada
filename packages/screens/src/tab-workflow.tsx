@@ -33,8 +33,7 @@ import { TAB_LABEL } from "./detail-tabs";
 import type { DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
-import { DRONE_SAYS } from "./tab-drones-read";
-import { jobDroneOf } from "./tab-plan-read";
+import { DRONE_SAYS, droneLabelOf } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
@@ -283,7 +282,7 @@ export function WorkflowTab({
         running={{
           rows: here.map((one) => ({
             id: one.id,
-            label: one.task === undefined ? (jobDroneOf(whole)?.label ?? one.id) : `Drone on ${one.task}`,
+            label: droneLabelOf(one, whole),
             activity: activityOf(one),
             said: DRONE_SAYS[one.state].toLowerCase(),
             says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),

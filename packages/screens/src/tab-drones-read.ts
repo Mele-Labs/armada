@@ -96,6 +96,18 @@ export function dronesUnder(
   ];
 }
 
+/**
+ * What a Drone is called. A task's is named for its task; the one on the Job
+ * now is the Job's own, as Plan names it; any other worked its step, and is
+ * named for that — a list off the record holds Drones long gone, and calling
+ * each the Job's would name three things one.
+ */
+export function droneLabelOf(drone: DroneView, whole: JobDetail | null): string {
+  if (drone.task !== undefined) return `Drone on ${drone.task}`;
+  if (drone.id === whole?.job.assigned_drone) return "This Job's Drone";
+  return `Drone on ${stepOf(whole, drone.step).label}`;
+}
+
 /** A step's name, the way the rail names it. */
 export function stepOf(detail: JobDetail | null, stepId: string): TurnStep {
   const label = detail?.steps.find((step) => step.step_id === stepId)?.label;
