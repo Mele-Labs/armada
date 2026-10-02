@@ -64,7 +64,7 @@ import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } fro
 import { zoning } from "./studio-read-in";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
-import { job2AtReview, job2AtReviewBefore235 } from "./job-2-at-review";
+import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -501,6 +501,10 @@ export const SCENARIOS: readonly Scenario[] = [
   // The same, as a Fleet before 23.5 served it: no title and no comment count.
   holding("real/job-2-at-review-before-23-5", job2AtReviewBefore235().name, [job2AtReviewBefore235()], {
     opens: job2AtReviewBefore235().job.id,
+  }),
+  // The same, with no title kept but one the live read of the pull request holds.
+  holding("real/job-2-at-review-live-title", job2AtReviewLiveTitle().name, [job2AtReviewLiveTitle()], {
+    opens: job2AtReviewLiveTitle().job.id,
   }),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.

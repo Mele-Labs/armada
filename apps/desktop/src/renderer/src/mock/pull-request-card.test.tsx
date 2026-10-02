@@ -1,7 +1,7 @@
 // The pull request card at Job 2's review gate, through `App` and nothing else.
 //
 // Its title and its comment count are Fleet's, off `delivery` since protocol
-// 23.5. **Absent draws nothing**: no stand-in title and no count of none.
+// 23.5. Where no title is kept, the live read's stands in. **Absent draws nothing**: no stand-in title and no count of none.
 
 import { expect, test, describe } from "vitest";
 import { page } from "vitest/browser";
@@ -36,4 +36,12 @@ describe("the pull request card", () => {
       expect(card.element().textContent).not.toContain("Retire guides");
     },
   );
+
+  test("real/job-2-at-review-live-title: with no title kept, the live read's title is on the card", async () => {
+    mount("real/job-2-at-review-live-title");
+    const card = page.getByRole("link", { name: `Pull request #1750, ${TITLE}` });
+
+    await expect.element(card).toBeVisible();
+    await expect.element(card.getByText(TITLE)).toBeVisible();
+  });
 });

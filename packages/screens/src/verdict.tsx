@@ -351,14 +351,16 @@ export type PullRequestFacts = {
 
 /**
  * The pull request's title and comment count as Fleet keeps them on
- * `delivery`, open or settled. Since protocol 23.5. **Each absent is drawn as
- * nothing** — an old pull request no read has named, or a count nobody took —
+ * `delivery`, open or settled. Since protocol 23.5. **A title Fleet already
+ * holds shows**: where none is kept yet, the live read's title stands in for
+ * it. **Each still absent is drawn as nothing** — an old pull request no read has named, or a count nobody took —
  * never as a count of none or a stand-in title. A served 0 is a count, and is drawn.
  */
 export function pullRequestNamedOf(whole: JobWhole | null): Pick<PullRequestFacts, "title" | "comments"> {
   const delivery = whole?.delivery;
+  const title = delivery?.pull_request_title ?? delivery?.pull_request_detail?.title;
   return {
-    ...(delivery?.pull_request_title === undefined ? {} : { title: delivery.pull_request_title }),
+    ...(title === undefined ? {} : { title }),
     ...(delivery?.pull_request_comments === undefined ? {} : { comments: delivery.pull_request_comments }),
   };
 }

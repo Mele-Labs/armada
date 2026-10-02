@@ -70,6 +70,22 @@ export function job2AtReview(): JobFixture {
 }
 
 /**
+ * Job 2 at its review gate with no title kept, but one the rotation's live read
+ * of #1750 holds: a pull request from before 23.5 that is still open.
+ */
+export function job2AtReviewLiveTitle(): JobFixture {
+  const fixture = job2AtReviewBefore235();
+  if (fixture.watched.state !== "read") return fixture;
+  const { detail } = fixture.watched;
+  const delivery = { ...detail.delivery, pull_request_detail: { number: 1750, title: TITLE, reviews: [] } };
+  return {
+    ...fixture,
+    name: "Job 2, at its review gate, its title read live",
+    watched: { ...fixture.watched, detail: { ...detail, delivery } },
+  };
+}
+
+/**
  * Job 2 at its review gate. Every read the recording holds is moved onto it,
  * and its delivery is as served: from before 23.5, no title and no count.
  */
