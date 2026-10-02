@@ -9,12 +9,9 @@
 //! Judge is told it is a standard and not scope expansion, a Drone that it is
 //! asked of this work.
 //!
-//! **And a Judge may look the rest up.** Since 2 Oct 2026 a Judge's call can
-//! read the repository's checkout, and [`Standing::readable`] is what tells it
-//! so: that it may read its agent instructions and docs to learn what it
-//! requires, and that work the repository requires is not scope expansion. The
-//! named file stays as the repository's explicit statement, quoted in full, and
-//! a repository that names none still gets a Judge that can read.
+//! **A Judge may look the rest up**, since 2 Oct 2026: [`Standing::readable`]
+//! tells it it can read the checkout. The named file stays the repository's
+//! explicit statement, and one naming none still gets a Judge that can read.
 
 /// The most of a repository's standing rules a brief carries, in bytes, a
 /// Judge's or a Drone's. `standing-rules-cap` in `crates/config/settings.toml`.
