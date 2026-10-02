@@ -160,7 +160,7 @@ export function regionOf(output: CheckOutput): ConsoleRegion {
 }
 
 /** What the file weighs, at the precision a person reads rather than counts. */
-function weighs(bytes: number): string {
+export function weighs(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
