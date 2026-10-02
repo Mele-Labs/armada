@@ -63,6 +63,9 @@ pub struct Forgotten {
     /// The frames a person's presses captured, one row each. **The rows and not
     /// the images**, for `step_frames`' reason.
     pub shown_again: usize,
+    /// What each run's gate resolved the two policies to, one row per run
+    /// that passed a gate. #1683.
+    pub step_policies: usize,
     /// The header saying a Job's footprint was recorded. One row, or none.
     pub footprint: usize,
     /// The files that footprint held, one row each.
@@ -141,6 +144,7 @@ impl Forgotten {
             "job_step_evidence" => &mut self.step_evidence,
             "job_step_frames" => &mut self.step_frames,
             "job_shown_again" => &mut self.shown_again,
+            "job_step_policies" => &mut self.step_policies,
             "job_footprint" => &mut self.footprint,
             "job_footprint_files" => &mut self.footprint_files,
             "job_step_plans" => &mut self.step_plans,

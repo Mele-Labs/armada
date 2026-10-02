@@ -371,7 +371,7 @@ END;
 "#;
 
 /// The three columns that say which run a row is from.
-fn coordinate(
+pub(crate) fn coordinate(
     row: &Row<'_>,
     table: &'static str,
     stamped: &'static str,

@@ -571,6 +571,7 @@ where
                     judged,
                     cleared,
                     held,
+                    resolved: policies.resolved(),
                 },
                 false => match at.next() {
                     Some(next) => Ruling::Advanced {
@@ -579,6 +580,7 @@ where
                         output,
                         judged,
                         cleared,
+                        resolved: policies.resolved(),
                     },
                     None => Ruling::Finished {
                         tell: OutcomeTurn::advanced(step, None, Verified::of(&ran)),
@@ -586,6 +588,7 @@ where
                         output,
                         judged,
                         cleared,
+                        resolved: policies.resolved(),
                     },
                 },
             }

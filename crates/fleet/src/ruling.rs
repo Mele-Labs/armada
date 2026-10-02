@@ -11,7 +11,9 @@
 
 use std::error::Error;
 
-use core_model::{EscalationTrigger, GamingFlag, Judgment, StepCheck, StepLevelTrigger};
+use core_model::{
+    EscalationTrigger, GamingFlag, Judgment, ResolvedPolicies, StepCheck, StepLevelTrigger,
+};
 use verification::{CheckFailed, Flagged, NotWhatTheStepAsked, OutcomeTurn, Refusals};
 
 use crate::gate::CheckOutput;
@@ -63,6 +65,11 @@ pub enum Ruling {
         /// the record of how often the first look is wrong. Empty wherever no
         /// flag was raised.
         cleared: Vec<GamingFlag>,
+        /// What both policies resolved to at this gate, kept on the run.
+        /// **Carried on every ruling that passed the tiers and on no other**,
+        /// so the record cannot be written beside a ruling that consulted no
+        /// policy. #1683.
+        resolved: ResolvedPolicies,
     },
     /// The last step passed. The Drone is told, then terminated, and the Job
     /// reaches `completed_success`. **The one advance that still tells its
@@ -74,6 +81,7 @@ pub enum Ruling {
         output: Vec<CheckOutput>,
         judged: Vec<Judgment>,
         cleared: Vec<GamingFlag>,
+        resolved: ResolvedPolicies,
     },
     /// Every tier the step declared held, and the gate answers a person.
     /// **The Job reaches `awaiting_review` and the step holds at
@@ -106,6 +114,7 @@ pub enum Ruling {
         judged: Vec<Judgment>,
         cleared: Vec<GamingFlag>,
         held: HeldBecause,
+        resolved: ResolvedPolicies,
     },
     /// A Check did not pass, the step's retry budget has room, and the failure
     /// goes back to the Drone that produced it.
@@ -264,6 +273,18 @@ impl Ruling {
     /// one sentence, which is exactly what a human gate separates.
     pub fn advanced(&self) -> bool {
         matches!(self, Ruling::Advanced { .. } | Ruling::Finished { .. })
+    }
+
+    /// What both policies resolved to, where the step passed its tiers and the
+    /// advance gate was read. `None` on every ruling that stopped first, which
+    /// consulted no policy and has nothing to record. #1683.
+    pub fn resolved(&self) -> Option<ResolvedPolicies> {
+        match self {
+            Ruling::Advanced { resolved, .. }
+            | Ruling::Finished { resolved, .. }
+            | Ruling::HeldForReview { resolved, .. } => Some(*resolved),
+            _ => None,
+        }
     }
 
     /// The turn to inject, where there is one. **Two advances and one

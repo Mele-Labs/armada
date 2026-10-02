@@ -7,10 +7,11 @@
 //! declared. `crate::gate` reads [`Policies::at_a_review_gate`] at the advance
 //! gate; `crate::merging` reads [`Policies::a_machine_may_merge`] on the sweep.
 //!
-//! **Resolved at the question and never onto the record.** Both settings are
-//! `Live`. A [`Policies`] is built where it is used and dropped there, so a Job
-//! whose repository changed its mind between two gates is answered twice,
-//! differently — which is the point of the lifetime.
+//! **Resolved at the question, and the answer written down after.** Both
+//! settings are `Live`. A [`Policies`] is built where it is used and dropped
+//! there, so a Job whose repository changed its mind between two gates is
+//! answered twice, differently — which is the point of the lifetime. The
+//! answer is kept on its run as history (#1683) and never read back to decide.
 //!
 //! **One Manifest today, and the seam is named rather than assumed.** A Fleet
 //! holds one `armada.yml`; a Job may be gated by several and
@@ -18,8 +19,12 @@
 //! one Manifest there is rather than skipped. [`Policies::gating`] is where a
 //! second arrives.
 
-use adapter_traits::WhatTheForgeRan;
-use core_model::{AutoMerge, ResolvedStep, ReviewGate};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WhatTheForgeRan, WorkProduct};
+use core_model::{AutoMerge, JobId, ResolvedPolicies, ResolvedStep, ReviewGate, StepId};
+
+use crate::adrift::Adrift;
+use crate::daemon::Fleet;
+use crate::gate::Ruling;
 
 /// What the repository has said about one Job, both policies at once.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +66,15 @@ impl Policies {
 
     pub fn review_gate(&self) -> ReviewGate {
         self.review_gate
+    }
+
+    /// Both answers, as the run that passed a gate records them. Both and not
+    /// only the one that gated, which the owner decided on 1 Oct 2026.
+    pub fn resolved(&self) -> ResolvedPolicies {
+        ResolvedPolicies {
+            auto_merge: self.auto_merge,
+            review_gate: self.review_gate,
+        }
     }
 
     /// Whether a machine may take the work off a `manifest_rule:auto_merge`
@@ -189,5 +203,37 @@ impl HeldBecause {
                  advanced or finished over a pull request that does not carry it",
             ),
         }
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Write down what both policies resolved to, on a run whose ruling read
+    /// the advance gate. **Read off the ruling and never handed in**, so the
+    /// value written is the one the gate acted on, and a ruling that stopped
+    /// before the gate writes nothing. Called before the step moves, beside the
+    /// run's Checks, so it lands on the run that was ruled on.
+    pub(crate) async fn recorded_policies(
+        &self,
+        job_id: &JobId,
+        step: &StepId,
+        ruling: &Ruling,
+    ) -> Result<(), Adrift> {
+        let Some(resolved) = ruling.resolved() else {
+            return Ok(());
+        };
+        self.store()
+            .lock()
+            .await
+            .record_resolved_policies(job_id, step, resolved, &self.now())
+            .map_err(Adrift::Writing)
     }
 }
