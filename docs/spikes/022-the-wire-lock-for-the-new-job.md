@@ -493,6 +493,11 @@ Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
 `crates/core-model/src/envelope.rs`, `crates/store/src/migrations.rs`,
 `crates/store/src/fold.rs`, `docs/concepts/plan.md`, `docs/contracts/agent-prompt.md`.
 
+**Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
+Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
+for no task on today's Fleet (`packages/screens/src/task-live.ts`). This slice
+is what turns them on.
+
 ### 2 — Groups, and a task that failed
 
 **Claim: when a group's Checks go red, the Record names that group and that run, its tasks say they failed and why, and I can run one task again or move it before the group goes round.**
@@ -595,6 +600,11 @@ Write scope: `crates/fleet/src/slots.rs`, `crates/fleet/src/admitting.rs`,
 `crates/fleet/src/resources.rs`, `crates/fleet/src/commanding.rs`,
 `crates/ipc/src/resources.rs`, `crates/ipc/src/limits.rs`, `crates/config/settings.toml`,
 `docs/contracts/system-architecture.md`.
+
+**Waiting on it in Bridge:** Plan's task sheet already offers Hold to stop this
+task, on a task with a Drone of its own. It is mock-fed and mocked — the press
+ends the Job's Drone, as the Drones sheet's kill does — and #1666 is what makes
+it end that task's Drone alone.
 
 ### 6 — Jobs under a Job
 

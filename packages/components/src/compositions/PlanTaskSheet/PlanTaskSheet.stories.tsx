@@ -179,6 +179,31 @@ export const ItsOwnAgent: Story = {
 };
 
 /**
+ * What only a task's own Drone can say: what it is doing now, the last file it
+ * wrote, and a stop for it alone. `#1536`. **Mock-fed today** — Fleet runs one
+ * Drone per Job until slices 1 and 5 of `docs/spikes/022`, and the screen draws
+ * none of the three until then.
+ */
+export const ItsOwnDroneWorking: Story = {
+  args: {
+    id: "T5",
+    title: "Draw what is running, in four lists",
+    state: "working",
+    note: "Keep the four lists in this order, and draw each row as the Board does.",
+    scope: ["packages/screens/src/Running.tsx"],
+    doing: "Its agent is working — 14 turns so far. What it cost reads once that agent stops.",
+    lastEdit: { path: "packages/screens/src/Running.tsx", says: "+61 −4" },
+    stop: {
+      children: "Hold to stop this task",
+      askLabel: "Stop this task",
+      description: "Stops this task's drone once held until it fills. Letting go sooner stops nothing. The job stays open.",
+      onCommit: fn(),
+      onAsk: fn(),
+    },
+  },
+};
+
+/**
  * A task done with nothing recorded against it reads differently from one
  * still working: **"Nothing was recorded" is a gap and "Not yet" is a wait**,
  * and a reader acts on those differently.
