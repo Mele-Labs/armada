@@ -66,6 +66,39 @@ pub struct StepAttempt {
     /// most one of those per step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
+    /// What both Manifest policies resolved to when this run passed its gate.
+    /// Since 21.9, #1683.
+    ///
+    /// **Absent is a run with nothing recorded**: one still going, one a gate
+    /// stopped before it read the policies, one from before 21.9, or a Fleet
+    /// older than that. Never either policy's default, because nobody resolved
+    /// it, and `ManifestSummary`'s two words say what the repository says
+    /// today, which is a different fact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved: Option<ResolvedPolicies>,
+}
+
+/// What a gate resolved `auto_merge` and `review_gate` to, on the run it
+/// passed. Both or neither, which is why it is one optional value rather than
+/// two optional words.
+///
+/// **Spelled as `armada.yml` writes them**, `ManifestSummary`'s spelling for
+/// the same two words: `never`, `checks-pass` or `always`, and `human_always`
+/// or `auto_if_judge_passes`. Strings for that field's reason: the vocabulary
+/// is the Manifest's, and a mirrored enum would be a second authority for it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedPolicies {
+    pub auto_merge: String,
+    pub review_gate: String,
+}
+
+impl From<core_model::ResolvedPolicies> for ResolvedPolicies {
+    fn from(resolved: core_model::ResolvedPolicies) -> Self {
+        ResolvedPolicies {
+            auto_merge: resolved.auto_merge.as_written().to_string(),
+            review_gate: resolved.review_gate.as_written().to_string(),
+        }
+    }
 }
 
 impl StepAttempt {
@@ -116,6 +149,7 @@ impl StepAttempt {
                         why: None,
                         started_at: moved.at.clone(),
                         ended_at: None,
+                        resolved: None,
                     });
                 }
                 (true, false) => runs.push(StepAttempt {
@@ -124,6 +158,7 @@ impl StepAttempt {
                     why: None,
                     started_at: moved.at.clone(),
                     ended_at: None,
+                    resolved: None,
                 }),
                 (false, true) => {
                     // A spelling this build has no `StepState` for leaves the

@@ -44,6 +44,7 @@ mod rechecking;
 mod reconstruct;
 mod report;
 mod repositories;
+mod resolved_policies;
 mod resolving;
 mod retain;
 mod review;

@@ -61,7 +61,7 @@ pub(super) fn a_fleet_serving(home: &TempDir, events: &api::Broadcaster) -> Arc<
 /// `on_disk` is what a Job snapshots when it is created; `held` is what Fleet
 /// runs on. **The two differ where `armada.yml` changed after a Job froze
 /// it**, which is the case a Job's servers must not follow.
-fn a_fleet_holding(
+pub(super) fn a_fleet_holding(
     home: &TempDir,
     events: &api::Broadcaster,
     on_disk: &str,
