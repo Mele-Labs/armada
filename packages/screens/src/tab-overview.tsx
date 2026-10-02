@@ -3,7 +3,7 @@
 // This file holds the open state of one reading: which step, which sheet, where
 // the log was held. What any region says, it does not decide — the step's
 // facts, band and question box are `step.tsx`, the story is `chapters.tsx`, the
-// sheets are `Sheets.tsx`, and the arrangement itself is `InsideAJob.tsx`.
+// sheets are `Sheets.tsx`, and the board itself is `OverviewBoard.tsx`.
 //
 // **The Job header and the tab strip belong to `JobDetail.tsx`.** An addition
 // to a region goes in that region's file; an addition to the screen goes there.
@@ -34,7 +34,6 @@ import { DIFF_CHAPTER, LOG_CHAPTER, useDetailKeys } from "./detail-keys";
 import { DetailSheet, holdOf, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
 import { chaptersOf } from "./chapters";
 import { landingsOf, stepTimelineOf, turnsOfAttempt, wroteIn } from "./timeline";
-import { PlanBar } from "./grouped";
 import { keepingProduced } from "./produced-panel";
 import type { AttemptRead } from "./timeline";
 import type { StepChapter } from "@armada/components";
@@ -601,15 +600,13 @@ export function OverviewTab(props: OverviewTabProps) {
             },
       ...(attempt === undefined ? {} : { attempt }),
       ...(ended === undefined ? {} : { ended }),
-      jobTurns: turns,
     });
   }
 
   // The timeline arranges what the story builds, run by run; it derives
   // nothing either of them holds.
-  const bar = whole?.work_plan === undefined ? undefined : <PlanBar plan={whole.work_plan} />;
   const produced = keepingProduced(storyOf);
-  const timeline = open && stepTimelineOf(open, turns, now, produced.storyOf, bar);
+  const timeline = open && stepTimelineOf(open, turns, now, produced.storyOf);
 
   // The verdict sheet's slot: `Decide`'s place at the gate, and the finished
   // Job's own place, whichever of the three arrangements the render is —

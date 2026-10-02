@@ -80,7 +80,6 @@ export * from "./review";
 export * from "./run";
 export * from "./StepActs";
 export * from "./steering";
-export * from "./stopped";
 export * from "./story";
 export * from "./verdicts";
 export * from "./waiting";

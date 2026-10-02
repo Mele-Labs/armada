@@ -63,9 +63,8 @@ export type JobLogReferenceRow = {
   separated?: boolean;
   /**
    * The run sheet's own entry point — **Run…** on the worktree row, Journey
-   * 9. `WhereRow`'s own field, carried through: this component draws it and
-   * `JobLogReference` ignores it, since only `InsideAJob`'s `WhereRegion`
-   * opens a run sheet.
+   * 9. `WhereRow`'s own field, carried through. `JobLogReference` ignores it,
+   * and since `InsideAJob` was deleted nothing draws it.
    */
   run?: WhereRowProps["run"];
   /**
