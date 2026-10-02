@@ -168,6 +168,13 @@ export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
    * told. Absent everywhere else.
    */
   failure?: { says: string; retrySays?: string; toldNext?: string };
+  /**
+   * What this step asks of a person, drawn first: the caller's own block, so
+   * the panel asks with the same words and the same answers as every other
+   * surface that asks it (owner, 1 Oct 2026 — a Judge's refusal on the canvas
+   * said *Question for you* and the panel offered nothing to answer it with).
+   */
+  asks?: React.ReactNode;
   redirect?: WorkflowInspectorRedirect;
   /**
    * Every Drone that worked this step, running or not, each one a press away
@@ -347,6 +354,7 @@ export function WorkflowInspector({
   checksAbsent,
   tests = [],
   failure,
+  asks,
   redirect,
   running,
   stop,
@@ -363,6 +371,8 @@ export function WorkflowInspector({
     );
   const regions = (
     <>
+      {asks === undefined ? null : <Region name="Question for you">{asks}</Region>}
+
       {failure === undefined ? null : (
         <Region name="Why this boundary stopped">
           <p className="armada-wf-inspector__failed">{failure.says}</p>
