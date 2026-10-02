@@ -137,14 +137,13 @@ describe("coming back to one", () => {
     await expect.element(page.getByRole("button", { name: "Stopping…" })).toBeVisible();
   });
 
-  test("the absences read as not yet rather than as a Job that arrived broken", async () => {
+  test("the absences draw nothing, and never read as a Job that arrived broken", async () => {
     mount("arc/proposing-reading");
     await expect.element(page.getByText("A model is reading the request")).toBeVisible();
-    await expect
-      .element(page.getByText("The proposer has not chosen a workflow yet."))
-      .toBeVisible();
-    await expect.element(page.getByText(/The proposer has not written one yet/)).toBeVisible();
-    await expect.element(page.getByText("No plan has been recorded.")).toBeVisible();
+    expect(page.getByText("This Job's frozen workflow has no steps.").query()).toBeNull();
+    expect(page.getByText(/The proposer has not/).query()).toBeNull();
+    expect(page.getByText("No brief was written.").query()).toBeNull();
+    expect(page.getByText("No plan has been recorded.").query()).toBeNull();
   });
 });
 

@@ -61,7 +61,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * a state with no glyph gets the words, never an invented mark.
  */
 export type ReviewCommentsProps = {
-  /** Oldest first, as the forge ordered them. Empty draws `emptyNote`. */
+  /** Oldest first, as the forge ordered them. Empty draws `emptyNote`, or nothing at all. */
   comments: readonly ReviewComment[];
   /** Send the handles of the ones picked. The caller holds the request. */
   onTakeUp: (ids: string[]) => void;
@@ -84,7 +84,8 @@ export type ReviewCommentsProps = {
   /** What picking commits to, on hover over the line above the list. */
   note?: ReactNode;
   /**
-   * What a pull request nobody has commented on says.
+   * What a pull request nobody has commented on says. **Absent draws no
+   * region at all**: a label over nothing is an empty slot that still drew.
    *
    * **Never the sentence for a reading that failed.** Nobody has said anything
    * and nothing could be asked are different facts, and the caller draws the
@@ -152,7 +153,7 @@ export function ReviewComments({
   answer,
   label = "Comments on the pull request",
   note = "Pick the ones a drone should act on. It works on the same branch, so the pull request updates in place.",
-  emptyNote = "No comments",
+  emptyNote,
   takeUpLabel = "Send to a drone",
   sentNote = "Already sent to a drone",
   onOpenLink,
@@ -165,6 +166,8 @@ export function ReviewComments({
   const chosen = picked.filter((id) => choosable.some((comment) => comment.id === id));
   const off = disabled || pending;
   const stillWaiting = useStillWaiting(pending);
+
+  if (comments.length === 0 && emptyNote === undefined) return null;
 
   return (
     <section className="armada-remarks" aria-label="Comments on the pull request">

@@ -184,11 +184,9 @@ export function JobResources({
           <FigureList figures={figures} column="strip" />
         )}
         {examined === null ? null : <Looks looks={examined.looks} />}
-        {reading === null ? (
+        {reading === null && (nothingToAsk !== undefined || note !== undefined) ? (
           <p className="armada-holds__note">
-            {nothingToAsk === undefined
-              ? (note ?? "Nothing has been read yet.")
-              : INSTEAD[nothingToAsk]}
+            {nothingToAsk === undefined ? note : INSTEAD[nothingToAsk]}
           </p>
         ) : null}
       </DestinationCard>
@@ -197,7 +195,8 @@ export function JobResources({
         <>
           {/* **A card for every list, including an empty one.** A card that
               disappeared when it held nothing would make "no worktree on
-              disk" and "this build does not draw worktrees" the same screen. */}
+              disk" and "this build does not draw worktrees" the same screen.
+              An empty one keeps its head and draws nothing under it. */}
           <div className="armada-holds__pair">
             <DestinationCard
               label="Processes"

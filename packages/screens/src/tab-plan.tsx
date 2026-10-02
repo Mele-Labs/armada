@@ -24,7 +24,7 @@ import { PlanLead } from "./plan-lead";
 import { usePlanReview, type PlanReviewProps } from "./plan-review";
 import { criteriaOf, revisionsOf } from "./tab-plan-read";
 import { WavePlan } from "./wave-plan";
-import { waveReadingOf, type WaveRegionProps } from "./tab-wave";
+import type { WaveRegionProps } from "./tab-wave";
 import type { HeldAct } from "./Acts";
 import type { PlanRevisionView } from "./draft/revision";
 
@@ -180,10 +180,6 @@ export function PlanTab({
     floor,
     ...review,
   });
-  // Whether the split above is this Job's plan. A wave's plan is the Jobs it
-  // dispatched, not a list of tasks — `plan.md` records the one and never the
-  // other.
-  const drawsAWave = waveReadingOf(whole, draft, wave.board) !== undefined;
   const revisions = revisionsOf(whole, draft, step);
 
   return (
@@ -205,22 +201,8 @@ export function PlanTab({
         floor={floor}
         onDropFromWave={(jobId) => onActHeld("kill_job", jobId)}
       />
-      {region === undefined && reading ? (
-        <SkeletonText />
-      ) : region === undefined ? (
-        /* **A Job whose plan is a wave has recorded one**, and the split above
-           is it — so the task board's own absence is not "no plan yet", which
-           read as a contradiction under a drawn wave. #1544. */
-        drawsAWave ? null : (
-          <p className="armada-inside__absent" role="note">
-            {step === undefined
-              ? "This workflow records no plan, so there is no split to read."
-              : `No plan yet — ${step.label} records it.`}
-          </p>
-        )
-      ) : (
-        region
-      )}
+      {/* No plan recorded, or none yet, draws nothing: an empty slot stays empty. */}
+      {region === undefined && reading ? <SkeletonText /> : region}
       {/* Above the criteria and the gate, because a refusal is the answer to
           the last thing a person did and the gate is the next thing they will
           do. */}

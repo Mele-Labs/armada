@@ -98,10 +98,9 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadB
         <DroneTurns
           turns={droneTurnsOf(rows, (lines) => <DroneBrief lines={lines} flat />)}
           live={live}
-          emptyNote={NOTHING_READ}
         />
       ) : (
-        <Log rows={notes} emptyNote={NOTHING_READ} region="Job log" />
+        <Log rows={notes} region="Job log" />
       )}
     </Sheet>
   );
@@ -115,6 +114,3 @@ function droneOf(path: string): string {
 
 /** The Job's own log, where the row names no member. */
 const THE_JOBS_OWN = "this job";
-
-/** A file whose rows have not reached this window. Not an error: the socket may still be opening. */
-const NOTHING_READ = "Nothing from this file has reached Bridge yet.";

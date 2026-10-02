@@ -13,7 +13,6 @@ import type {
   HelmApprovalCard,
   HelmApprovalCardState,
   HelmComposerChip,
-  HelmRepositoryOption,
   HelmThreadRow,
 } from "@armada/components";
 import type {
@@ -103,12 +102,6 @@ export function HelmDock({
     : helm.state === "failed"
       ? helm.detail
       : undefined;
-  const emptyNote =
-    helm.state === "cleared"
-      ? "The conversation is cleared. Ask Helm something to start again."
-      : current === undefined
-        ? unpointedNote(options)
-        : undefined;
 
   /**
    * Read the record, then draw it. **Asked each time**, never held: it is one
@@ -147,7 +140,7 @@ export function HelmDock({
 
   return (
     <div className="armada-helm-dock">
-      <HelmThread rows={rows} replying={replying} notice={notice} emptyNote={emptyNote} />
+      <HelmThread rows={rows} replying={replying} notice={notice} />
       {/* Between the thread and the message box: the reply is held open above
           it and the person is typing below it, so the ask is in the one place
           neither of them has to be left to find it — #1519. The same
@@ -209,38 +202,6 @@ function whyRecord(read: Extract<HelmDebugRead, { ok: false }>): string {
   if (outcome.why === "not_connected") return "Fleet is not connected, so the session cannot be read.";
   if (outcome.why === "refused") return outcome.error.message;
   return "The session could not be read.";
-}
-
-/**
- * What the thread says while Helm is pointed at no repository.
- *
- * **That is `helm.state === "none"` alone, and it says nothing about the
- * repositories Fleet serves** — `main/helm.ts` publishes it whenever its
- * target resolves to nothing, which includes a rail sitting on a repository
- * that is not set up while others are. One sentence stood for all of it and
- * read "No repository has a Manifest yet for Helm to answer about.", so a
- * person with two set up was told a false fact about their own machine.
- *
- * `options` is the fact the sentence was missing: every repository with a
- * Manifest, which the rail's *Not set up* group, Setup and the Studios empty
- * state all call **set up**.
- */
-function unpointedNote(options: readonly HelmRepositoryOption[]): string {
-  if (options.length === 0) {
-    // Genuinely none, and now the only case that says so. **Not the Studios
-    // empty state's own opening** — "No repository is set up yet, so none of
-    // them keeps Studios." draws a hand's width from this one on the same
-    // screen, so this takes that line's vocabulary and not its sentence.
-    return "Nothing is set up yet for Helm to answer about. Set up a repository, and Helm answers for it.";
-  }
-  // The composer below holds the switch that does this, so the act is named
-  // and its control is not described twice. With one set up the sentence
-  // names that repository rather than counting it, and the switch under it
-  // offers exactly that one to pick — pointed at nothing, one is somewhere
-  // to go.
-  const only = options.length === 1 ? options[0] : undefined;
-  if (only !== undefined) return `Helm is not pointed at a repository. Pick ${only.label} to ask about it.`;
-  return `Helm is not pointed at a repository. ${options.length} are set up, so pick one to ask about it.`;
 }
 
 /**

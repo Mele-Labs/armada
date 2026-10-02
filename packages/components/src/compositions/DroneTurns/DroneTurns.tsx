@@ -126,10 +126,10 @@ export type DroneTurnsProps = {
   /** In the order Fleet sent them. History first, then live rows. */
   turns: DroneTurn[];
   /**
-   * What the pane says with no rows at all. A Job that was never dispatched is
-   * ordinary rather than an error, and the sentence has to say which.
+   * What the pane says with no rows at all, where that is a fact or a failure.
+   * Absent draws nothing: an empty slot stays empty.
    */
-  emptyNote: string;
+  emptyNote?: string;
   /**
    * Whether a Drone is writing. Decides whether the trailing collapsed run
    * says so and its mark moves — a finished transcript showing a live mark on
@@ -194,7 +194,7 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
   }, [list, turns.length]);
 
   if (turns.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-turns__empty" role="note">
         {emptyNote}
       </p>
