@@ -184,8 +184,8 @@ flowchart LR
 > **Rule.** Only a person accepts a relation. Helm and a scout may propose one, drawn dashed until accepted.
 > Why: an agent reorganising a person's work is what separates a drawing surface from a record of decisions.
 
-> **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it. Shut, nothing but the dot stands on the line.
-> Why: the owner, 2 Oct 2026: *"The label stops covering the cards it runs between."* The card sat at the line's middle and hid the Note under it. Moving it along the line was the other offer, and it fails on a Zone, where a line out of one column crosses the next column's cards and the gaps between them are narrower than the card. `.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`.
+> **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it. Shut, nothing but the dot stands on the line, and the dot sits at the clear point of the line nearest its middle, off any card the line crosses.
+> Why: the owner, 2 Oct 2026: *"The label stops covering the cards it runs between: it moves along its line, or shrinks to a dot that opens on hover."* The card sat at the line's middle and hid the Note under it. Moved alone, the card finds no room on a Zone, where a line out of one column crosses the next column's cards and the gaps between them are narrower than the card; shrunk alone, a dot left at the middle of a line drawn across a card sits on that card's text. A dot needs a step of clear line, which a gap has. `.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`.
 
 > **Rule.** No edge carries colour. Weight and label tell them apart.
 

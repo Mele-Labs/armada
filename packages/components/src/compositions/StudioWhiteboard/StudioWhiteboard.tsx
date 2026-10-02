@@ -19,6 +19,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 
 import { StudioFrame, studioFrameLabel, type StudioFrameKind } from "../StudioFrame/StudioFrame";
+import { dotOnTheLine, type CardBox } from "./edge-dot";
 import { frameSizes, landing, onTheBoard, parentsFirst, pressedIn, type Landing } from "./frames";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
@@ -221,7 +222,8 @@ type Proposal = {
   deciding: string | null;
   onDecide?: (edgeId: string, accepted: boolean) => void;
 };
-type BoardEdgeData = { label: string | null; proposed: boolean; proposal: Proposal | null };
+/** `cards` is every card on the board, which a proposal's dot is kept off. */
+type BoardEdgeData = { label: string | null; proposed: boolean; proposal: Proposal | null; cards: readonly CardBox[] };
 type BoardEdge = Edge<BoardEdgeData, "studio">;
 
 /**
@@ -315,10 +317,11 @@ function DraftNodeView({
  *
  * **A dot until it is asked for** — the owner, 2 Oct 2026: *"The label stops
  * covering the cards it runs between."* The card sat at the line's middle and
- * hid the text of the Note under it. Moving it along the line was the other
- * offer, and it fails on the board he drew it on: a line out of one column of
- * a Zone crosses the next one's cards, and the gaps between columns are
- * narrower than the card. **It opens on hover and on focus**, so the keyboard
+ * hid the text of the Note under it. Moving the card along the line was the
+ * other offer, and it finds no room on the board he drew it on: a line out of
+ * one column of a Zone crosses the next one's cards, and the gaps between
+ * columns are narrower than the card. The dot does move, off any card its line
+ * crosses — `edge-dot.ts`. **It opens on hover and on focus**, so the keyboard
  * reaches Accept by tabbing onto the dot, and stays open while the pointer or
  * the focus is anywhere inside it.
  */
@@ -376,7 +379,10 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
   const [path, labelX, labelY] = getBezierPath(props);
   const label = props.data?.label ?? null;
   const proposal = props.data?.proposal ?? null;
-  const at = { transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` };
+  // A proposal is a dot, moved along its line off any card; a plain label stays at the middle.
+  const middle = { x: labelX, y: labelY };
+  const dot = proposal === null ? middle : dotOnTheLine(path, middle, props.data?.cards ?? []);
+  const at = { transform: `translate(-50%, -50%) translate(${dot.x}px, ${dot.y}px)` };
   return (
     <>
       <BaseEdge
@@ -685,6 +691,15 @@ function Board({
         },
       ]),
     );
+    // Every card on the board, where it is on the board, for a proposal's dot
+    // to keep off. A frame is ground, not a card.
+    const cards: CardBox[] = nodes.flatMap((node) => {
+      const box = placed.get(node.id);
+      const width = box?.measured.width;
+      const height = box?.measured.height;
+      if (node.type === "frame" || box === undefined || width === undefined || height === undefined) return [];
+      return [{ ...box.position, width, height }];
+    });
     return givenEdges.map((edge) => ({
       id: edge.id,
       source: edge.source,
@@ -700,6 +715,7 @@ function Board({
           edge.kind === "produced" || !edge.proposed
             ? null
             : { proposer: edge.proposer ?? PROPOSED, said: edgeSaid(edge, titleOf), readOnly, deciding, onDecide },
+        cards,
       },
     }));
   }, [given, givenEdges, nodes, readOnly, deciding, onDecide]);

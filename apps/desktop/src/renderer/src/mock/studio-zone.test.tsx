@@ -7,6 +7,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted } from "./mount";
 import { READ_IN_NAME, zoning } from "./studio-read-in";
+import { ZONE_PROPOSAL_NAME, zoneProposing } from "./studio-zone-proposal";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
 
@@ -142,6 +143,26 @@ test("a proposed relation is a dot on its line that covers no card, and opens to
   await expect.element(proposal.getByText("blocks", { exact: true })).toBeVisible();
   await proposal.getByRole("button", { name: /^Reject: / }).click();
   await expect.poll(() => fleet.studios()[0]!.edges.some((edge) => edge.id === "read-in-blocks" && edge.standing === "proposed")).toBe(false);
+});
+
+test("a proposal whose line runs across a Note moves its dot along the line, off the Note", async () => {
+  const host = document.createElement("div");
+  host.id = "root";
+  document.body.append(host);
+  mounted = { app: mountApp(zoneProposing().scenario, host), host };
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: ZONE_PROPOSAL_NAME, exact: true }).click();
+
+  // The line from the first Note to the third runs straight across the second, and its middle is on it.
+  const dot = page.getByRole("button", { name: /^You proposed: Note The legend wraps at 720 wide blocks / });
+  await expect.element(dot).toBeVisible();
+  const crossed = box(/^Note: The step bar's legend is unreadable/);
+  const at = dot.element().getBoundingClientRect();
+  expect(overlap(at, crossed), "the dot sits on the Note its line crosses").toBe(false);
+  // Still on its own line, which runs at the height of the Notes it joins.
+  const from = box(/^Note: The legend wraps at 720 wide/);
+  expect(at.top + at.height / 2).toBeGreaterThan(from.top);
+  expect(at.top + at.height / 2).toBeLessThan(from.bottom);
 });
 
 /**
