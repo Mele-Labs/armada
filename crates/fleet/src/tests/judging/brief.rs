@@ -46,6 +46,7 @@ async fn the_call_carries_the_patch_and_the_facts_and_nothing_the_drone_wrote() 
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     };
 
     rule_on(

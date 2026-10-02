@@ -26,7 +26,8 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{BaseSpec, Vcs, WorktreeSpec};
+use adapter_traits::{slot_path, BaseSpec, Vcs, WorktreeSpec};
+use adapters::leasing::Holder;
 use adapters::{BranchGone, Reclaimed, UnmergedWork, WorktreeStanding};
 use config::Manifest;
 use core_model::{JobId, Timestamp};
@@ -343,7 +344,7 @@ fn forget_this_manifests_jobs(
 
     // The id joins the record, the handle names the worktree and the branch,
     // and the title is what a person reads back. Three values, one pass.
-    let mine: Vec<(JobId, String, String)> = loaded
+    let mine: Vec<(JobId, String, String, Option<u32>)> = loaded
         .jobs
         .iter()
         .filter(|job| job.owner_manifest_id().as_str() == manifest.id().as_str())
@@ -352,16 +353,17 @@ fn forget_this_manifests_jobs(
                 job.id().clone(),
                 job.handle(),
                 job.title().as_str().to_string(),
+                job.worktree_slot(),
             )
         })
         .collect();
 
-    for (job_id, handle, title) in mine {
+    for (job_id, handle, title, slot) in mine {
         match give_back(
             store,
             root,
             &job_id,
-            &handle,
+            (&handle, slot),
             base,
             unmerged,
             Keep::Record,
@@ -425,7 +427,7 @@ fn clear_this_manifests_unreadable_rows(
             store,
             root,
             &named.job_id,
-            named.job_id.as_str(),
+            (named.job_id.as_str(), None),
             base,
             unmerged,
             Keep::Nothing,
@@ -490,7 +492,7 @@ fn give_back(
     store: &mut Store,
     root: &Path,
     job_id: &JobId,
-    handle: &str,
+    (handle, slot): (&str, Option<u32>),
     base: Option<&str>,
     unmerged: UnmergedWork,
     keep: Keep,
@@ -520,6 +522,21 @@ fn give_back(
                 .push(format!("{}: {}", job_id.as_str(), refused.said()));
             return GaveBack::Skipped;
         }
+    };
+    // **A slot the Job still holds is read, and left to the pool**: `reclaim`
+    // takes only the branch from it. One given back is another holder's now,
+    // so the Job has no checkout and the derived path, with nothing at it, is
+    // what stands in for it.
+    let spec = match slot {
+        Some(slot)
+            if adapters::leasing::holder_of(Path::new(&slot_path(
+                &root.to_string_lossy(),
+                slot,
+            ))) == Some(Holder::job(job_id.as_str())) =>
+        {
+            spec.in_slot(slot)
+        }
+        _ => spec,
     };
     // **Before the removal, because after it there is nothing left to ask.**
     // The same reading `adapters::reclaim` takes on its way to the branch, and

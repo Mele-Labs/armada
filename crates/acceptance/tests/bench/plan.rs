@@ -357,6 +357,7 @@ fn no_judge() -> Judging {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     }
 }
 

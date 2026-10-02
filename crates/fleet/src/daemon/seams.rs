@@ -218,6 +218,8 @@ where
             ),
             asked: Asked::under(served.records_root().to_string(), job.handle()),
             standing: crate::judging::standing(served.manifest(), served.root()),
+            // The checkout, beside the file `standing` read from it.
+            reading: Some(crate::judging::reading(served.root())?),
         })
     }
     /// The Judge call that is out, for `serving` to put on `get_job`.
