@@ -203,9 +203,9 @@ const MERGE_CHECKS_NOT_PASSED: &str = "fleet.merge_checks_not_passed";
 /// the Job is answerable and the pull request is not: what is left is an
 /// approval or a redispatch.
 const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
-/// `merge_by: push` found the base past what the branch holds. Its own code
-/// because the answer is the branch brought up and gated again, never the
-/// forge.
+/// `merge_by: push` found the base past the branch through every round of
+/// bringing it up and gating it again — `crate::pushing_onto_base`. Its own
+/// code because the answer is a quieter base, never the forge.
 const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
 /// `merge_by: push` brought the branch up to a moved base and its Checks went
 /// red on the merge. Its own code because the answer is the branch's, and
