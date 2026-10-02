@@ -271,7 +271,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 | A line with nothing in any of the three | The panel, with a picture under its heading and no words: the owner's one exception to the empty-state rule, 2 Oct 2026 |
 | All, with lines in more than one repository | One panel per repository, its label beside *Merge line* |
 
-**Fleet serves the line since protocol 22.1**, `landed`, `sent_back` and `checks` since 23.1, and reads it rather than runs it:
+**Fleet serves the line since protocol 22.1**, `landed`, `sent_back` and `checks` since 23.2, and reads it rather than runs it:
 
 ```
 armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/
@@ -298,7 +298,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - **The facts are taken only for the state that owns them.** An outcome keeps fields from earlier turns, so a branch that landed and then went red still holds the old merge commit on disk.
 - **Recently landed is the three newest `landed` outcomes** of branches no longer queued, by the file's own write. Outcomes are never pruned; this clone held 310 on 2 Oct 2026.
 - **Sent back is every `red`, `conflict` or `stopped` outcome of a branch no longer queued, written in the last three days** (`SENT_BACK_FOR` in `adapters::land_state::line`). By age rather than by count, so three newer reds never hide a fourth that is still owed. A branch that has since landed is not there without a rule saying so: a branch has one outcome file, and the landing overwrote the red.
-- `off` is still served, the three newest of either, for a Bridge before 23.1. This one does not read it.
+- `off` is still served, the three newest of either, for a Bridge before 23.2. This one does not read it.
 - A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
 - **A picked repository draws its own line. All draws every repository Fleet serves a line for**, each named by its repository once there is more than one.
 - A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.

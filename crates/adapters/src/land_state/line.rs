@@ -17,7 +17,7 @@ use super::queue::{queued, QueueEntry, QueuedError};
 use crate::reading_in::FORGE_HOST;
 
 /// How many branches that left the line are read back, newest first, as one
-/// list: what a Bridge before protocol 23.1 draws.
+/// list: what a Bridge before protocol 23.2 draws.
 ///
 /// **A bound, because the outcomes are never pruned**: every branch ever landed
 /// keeps one, and this clone held 310 on 2 Oct 2026. Three is what the panel

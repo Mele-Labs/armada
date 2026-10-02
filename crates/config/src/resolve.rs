@@ -331,6 +331,7 @@ fn resolve_step(
     // `follows_plan` with no recording step at or before it, so there is
     // nothing left to decide here.
     .following_plan(step.follows_plan())
+    .a_drone_per_task(step.drone_per_task())
     // The step's own product already told `ResolvedStep::frozen` whether
     // this is a plan step; this is the other way one can be, folded in
     // beside it rather than replacing it. `#1006`.

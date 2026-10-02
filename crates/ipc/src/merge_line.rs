@@ -24,14 +24,14 @@ pub struct MergeLine {
     /// Waiting, or in a turn, in place order. Empty is a line with nobody in it.
     pub line: Vec<MergeLineEntry>,
     /// The newest few that left the line with an outcome, newest first, as
-    /// one list. What a Bridge before 23.1 draws; `landed` and `sent_back`
+    /// one list. What a Bridge before 23.2 draws; `landed` and `sent_back`
     /// replace it.
     pub off: Vec<MergeLineEntry>,
-    /// The newest few that left the line landed, newest first. Since 23.1.
+    /// The newest few that left the line landed, newest first. Since 23.2.
     #[serde(default)]
     pub landed: Vec<MergeLineEntry>,
     /// Red, conflict or stopped and not back in line, written within the last
-    /// three days, newest first. Since 23.1.
+    /// three days, newest first. Since 23.2.
     #[serde(default)]
     pub sent_back: Vec<MergeLineEntry>,
 }
@@ -64,7 +64,7 @@ pub struct MergeLineEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
     /// `gating`, `red` and `stopped`: each Check the turn runs, as it stands,
-    /// in the order they run. Since 23.1.
+    /// in the order they run. Since 23.2.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<MergeLineCheck>,
 }

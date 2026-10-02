@@ -200,11 +200,26 @@ concern = "Gating"
 parent = "steps[]"
 purpose = "Whether this step works the Job's plan. Optional, and absent means it does not."
 notes = """
-**The one thing that grants `add_task` and `update_task`.** A step declaring it is handed the two tools that keep the plan current — `crate::WorkPlan` is the record they change — beside whatever the step already asks a Drone for. `#895`.
+**The one thing that grants `add_task` and `update_task`.** A step declaring it is handed the two tools that keep the plan current — `crate::WorkPlan` is the record they change — beside whatever the step already asks a Drone for. `#895`. **Except beside `drone_per_task`**, where Fleet marks every task and the step's Drones get neither tool.
 
 **Legal on the step that records the plan, and on any step after it.** On a step strictly before the recording step, or in a workflow declaring no recording step at all, it is a step asked to work a plan that does not exist yet from where it stands — refused at load, one rule covering both, because each is exactly the same missing fact: no step at or before this one records one. **`#1006` widened this**: it used to refuse the recording step itself too, which stopped a single step planning and keeping its own tasks current in the same breath — `revert`'s shape, where one step records the plan and works it.
 
 **False on every step written before the key existed.** A workflow with no recording step grants neither tool to anybody, which is what every step did before this key could be written at all.
+"""
+
+[fields.drone_per_task]
+type = "bool"
+concern = "Gating"
+parent = "steps[]"
+purpose = "Whether this step works the Job's plan one task at a time, each task by a Drone of its own. Optional, and absent means one Drone works the step."
+notes = """
+**Spike 022, slice 1b.** Fleet puts a Drone on each open task in plan order, and marks the task itself: `working` at the spawn, `handed_in` at that Drone's `submit_evidence`, with `shown` from its `shown_by`, and `done` once the step's Checks pass. A hand-in ends its Drone and fills no evidence inbox; once no task is open or working, one submission carrying every task's claim goes in, and the step's Checks and Judge run once. `docs/concepts/plan.md`, *A Drone per task*.
+
+**Not `follows_plan`, and it outranks it on the same step.** `follows_plan` is set where one Drone works the whole plan — revert, epic, code-review, design-plan, prototype and feature's `tests` — so reusing it would have put a Drone on each task of every one of those. A step declaring both still reads the plan, and its Drones are given neither `add_task` nor `update_task`: of eleven Drones told to call `update_task`, two did (#1752), and a Drone marking a later task done would have it skipped.
+
+**Feature, bug and refactor set it on `implement`.** Feature's `tests` keeps one Drone, because its tests are written against the whole change.
+
+**Nothing about the workflow's shape is refused.** On a step with no plan before it, or once every task is handed in — a person restarting the step — there is no task to put a Drone on, and the step runs one Drone as it would without the key.
 """
 
 [fields.records_plan]
@@ -568,7 +583,7 @@ No sample carries one yet.
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "drone_per_task"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and loop-capable: `structure: "loop"` means a step returns to an earlier one by `verdict_routing`, not that the array is unordered.

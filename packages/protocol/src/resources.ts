@@ -116,6 +116,24 @@ export type LogFile = {
 };
 
 /**
+ * One kept brief's contents, `get_brief`'s answer since 21.11: what a Judge or
+ * a gaming check was asked. The tail through `CheckOutput`'s window, because a
+ * brief ends on its question.
+ */
+export type BriefContents = {
+  /** Relative to `records_root`, spelled as `brief_path` and `LogFile.path` are. */
+  path: string;
+  /** The window, oldest line first, verbatim. */
+  lines: string[];
+  /** The file's own number for `lines[0]`, counted from one. */
+  from_line: number;
+  total_lines: number;
+  bytes: number;
+  /** Whether `lines` is all of it. Stated, never inferred. */
+  whole: boolean;
+};
+
+/**
  * What one look came to, and what the whole examination came to.
  *
  * **`working` reads as "this is as it should be"**, not as "a processor is
