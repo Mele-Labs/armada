@@ -437,7 +437,11 @@ session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
 use`. `../concepts/manifest.md`, *How many Checks run at once*.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
-A name that matched nothing exits 1.
+For `test` and `acceptance` the bare function name is enough
+(`a_span_holding_one_taken_port_is_not_free`), and a path from any module down
+works too; for a vitest Check, any part of the test's name, quotes and
+apostrophes included. A name that matched several says how many ran, and one
+that matched nothing exits 1.
 
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
