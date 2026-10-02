@@ -36,7 +36,7 @@ test("a judge question at the gate: Disagree, just this step, sends that answer"
 
 test("Merge asks first, with Cancel holding focus", async () => {
   await opened(reviewAtDelivery());
-  await page.getByRole("button", { name: /^Merge/ }).first().click();
+  await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   await expect.element(page.getByRole("dialog").getByRole("button", { name: "Cancel" })).toHaveFocus();
 });
 
@@ -120,7 +120,7 @@ test("frozen, at review: the header says nothing lands until the repository unfr
 
 test("Merge confirmed while frozen is taken, waiting, and never drawn as a refusal", async () => {
   await opened(withRow(reviewAtDelivery(), { frozen_by: ["armada"] }));
-  await page.getByRole("button", { name: /^Merge/ }).first().click();
+  await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   const confirm = page.getByRole("dialog");
   await entered(confirm);
   await confirm.getByRole("button", { name: "Merge and take the work" }).click();
