@@ -3,7 +3,9 @@
 
 use std::path::Path;
 
-use adapter_traits::{CommitTime, Delivery, Merged, NotMerged, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{
+    CommitTime, Delivery, Landable, Merged, NotMerged, Vcs, Worktree, WorktreeSpec,
+};
 
 use crate::tests::repo::TempRepo;
 use crate::worktree::GitVcs;
@@ -31,6 +33,11 @@ fn delivered(repo: &TempRepo) -> std::path::PathBuf {
     bare
 }
 
+/// The tree the Job's branch carries, standing in for the one its gate passed.
+fn gated(repo: &TempRepo) -> String {
+    repo.git(&["rev-parse", &format!("armada/{JOB}^{{tree}}")])
+}
+
 fn in_bare(bare: &Path, args: &[&str]) -> String {
     let run = std::process::Command::new("git")
         .arg("-C")
@@ -52,7 +59,13 @@ fn the_merge_commit_is_pushed_onto_the_base_holding_the_branchs_tree() {
     let head = repo.git(&["rev-parse", &branch]);
 
     let pushed = GitVcs::new()
-        .merge_by_push(&repo.root_str(), JOB, None, Some(7))
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            Some(7),
+            Landable::Checked(&gated(&repo)),
+        )
         .expect("it lands");
 
     assert_eq!(pushed.base, "main");
@@ -78,12 +91,24 @@ fn a_branch_the_base_already_holds_is_already_merged() {
     let repo = TempRepo::with_a_commit();
     let bare = delivered(&repo);
     GitVcs::new()
-        .merge_by_push(&repo.root_str(), JOB, None, None)
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            None,
+            Landable::Checked(&gated(&repo)),
+        )
         .expect("the first lands");
     let landed = in_bare(&bare, &["rev-parse", "main"]);
 
     let again = GitVcs::new()
-        .merge_by_push(&repo.root_str(), JOB, None, None)
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            None,
+            Landable::Checked(&gated(&repo)),
+        )
         .expect("the second has nothing to do");
 
     assert_eq!(again.merged, Merged::AlreadyMerged);
@@ -101,7 +126,13 @@ fn a_base_the_branch_does_not_hold_is_refused_and_nothing_is_pushed() {
     let moved = in_bare(&bare, &["rev-parse", "main"]);
 
     let refused = GitVcs::new()
-        .merge_by_push(&repo.root_str(), JOB, None, None)
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            None,
+            Landable::Checked(&gated(&repo)),
+        )
         .expect_err("the branch does not hold the base");
 
     assert!(
@@ -135,7 +166,13 @@ fn a_moved_base_merged_in_lands_as_one_merge_commit_on_top_of_it() {
         .merge_the_moved_base_in(&repo.root_str(), &the_jobs_worktree(&repo), None)
         .expect("it merges clean");
     let pushed = GitVcs::new()
-        .merge_by_push(&repo.root_str(), JOB, None, None)
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            None,
+            Landable::Checked(&merged.tree),
+        )
         .expect("the branch holds the base now");
 
     assert_eq!(merged.onto, moved);
@@ -198,4 +235,91 @@ fn a_branch_put_back_is_where_it_was_before_the_merge() {
 
     assert_eq!(merged.was, before);
     assert_eq!(repo.git(&["rev-parse", &branch]), before);
+}
+
+/// **A head whose tree no run of its Checks passed on is refused**, and the
+/// base is left where it was.
+#[test]
+fn a_head_its_checks_did_not_pass_on_is_refused_and_nothing_is_pushed() {
+    let repo = TempRepo::with_a_commit();
+    let bare = delivered(&repo);
+    let passed_on = gated(&repo);
+    let worktree = the_jobs_worktree(&repo);
+    std::fs::write(format!("{}/later.txt", worktree.path()), "unread").expect("the file");
+    GitVcs::new()
+        .commit_all(
+            &worktree,
+            "moved after the gate",
+            CommitTime::seconds_since_epoch(1_787_734_900),
+        )
+        .expect("a commit");
+    let base = in_bare(&bare, &["rev-parse", "main"]);
+
+    for landable in [Landable::Checked(&passed_on), Landable::Unchecked] {
+        let refused = GitVcs::new()
+            .merge_by_push(&repo.root_str(), JOB, None, None, landable)
+            .expect_err("the head is not what was checked");
+        assert!(
+            matches!(refused, NotMerged::Unchecked { .. }),
+            "{refused:?}"
+        );
+    }
+    assert_eq!(in_bare(&bare, &["rev-parse", "main"]), base);
+}
+
+/// **The tree read before the commit is the tree the commit carries**, which is
+/// what lets a gate over uncommitted work name the head it lands as.
+#[test]
+fn the_tree_as_it_stands_is_the_tree_fleets_commit_makes() {
+    let repo = TempRepo::with_a_commit();
+    delivered(&repo);
+    let worktree = the_jobs_worktree(&repo);
+    std::fs::write(format!("{}/new.txt", worktree.path()), "untracked").expect("the file");
+    std::fs::write(format!("{}/work.txt", worktree.path()), "changed").expect("the file");
+
+    let before = GitVcs::new()
+        .tree_as_it_stands(&worktree)
+        .expect("the tree reads");
+    GitVcs::new()
+        .commit_all(
+            &worktree,
+            "the work",
+            CommitTime::seconds_since_epoch(1_787_734_900),
+        )
+        .expect("a commit");
+
+    assert_eq!(before, gated(&repo));
+}
+
+/// What a head moved since its Checks passed is read for each Check's `when`:
+/// what came in since, and what the branch carries over the base.
+#[test]
+fn an_unchecked_head_names_what_changed_since_the_checks_and_over_the_base() {
+    let repo = TempRepo::with_a_commit();
+    let bare = delivered(&repo);
+    let passed_on = gated(&repo);
+    base_moved_elsewhere(&repo, &bare);
+    let worktree = the_jobs_worktree(&repo);
+    GitVcs::new()
+        .merge_the_moved_base_in(&repo.root_str(), &worktree, None)
+        .expect("it merges clean");
+
+    let unchecked = GitVcs::new()
+        .the_unchecked_head(&repo.root_str(), &worktree, None, Some(&passed_on))
+        .expect("it reads");
+    let never = GitVcs::new()
+        .the_unchecked_head(&repo.root_str(), &worktree, None, None)
+        .expect("it reads");
+
+    assert_eq!(
+        unchecked.head,
+        repo.git(&["rev-parse", &format!("armada/{JOB}")])
+    );
+    assert_eq!(unchecked.tree, gated(&repo));
+    assert_eq!(unchecked.touched, ["elsewhere.txt", "work.txt"]);
+    assert!(
+        never.touched.len() >= unchecked.touched.len(),
+        "no run at all reads every path: {:?}",
+        never.touched
+    );
 }
