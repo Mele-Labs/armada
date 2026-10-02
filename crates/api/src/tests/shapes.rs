@@ -811,6 +811,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
             JobDrone {
                 drone_id: DroneId::carried("01DRONEKILLED"),
                 step_id: StepId::carried("implement"),
+                task: None,
                 state: DroneState::Killed,
                 since: Instant::carried("2026-09-11T08:00:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:20:00Z")),
@@ -820,6 +821,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
             JobDrone {
                 drone_id: DroneId::carried("01DRONEDONE"),
                 step_id: StepId::carried("implement"),
+                task: None,
                 state: DroneState::Done,
                 since: Instant::carried("2026-09-11T08:21:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:55:00Z")),
@@ -829,6 +831,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
             JobDrone {
                 drone_id: DroneId::carried(THE_DRONE),
                 step_id: StepId::carried("review"),
+                task: None,
                 state: DroneState::Running,
                 since: Instant::carried("2026-09-11T09:00:00Z"),
                 ended_at: None,

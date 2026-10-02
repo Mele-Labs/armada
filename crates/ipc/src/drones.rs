@@ -75,7 +75,7 @@ pub struct DroneDetail {
 /// `drone_killed`, or the Job it worked was killed, as it left. `failed` is a
 /// Drone that left without its step passing, on its own. `done` is one whose
 /// step passed its advance gate, or reached a person's gate, while it was the
-/// one on it.
+/// one on it — or, on a Drone put on a task, one that handed its task in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DroneState {
@@ -95,6 +95,10 @@ pub struct JobDrone {
     /// The step it was put on. A slot does not outlive a step boundary, so a
     /// Drone has one.
     pub step_id: StepId,
+    /// The task it was put on, `T1` and on, on a step that works its tasks a
+    /// Drone each. **Absent on a Drone that worked its whole step.** Since 23.1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task: Option<String>,
     pub state: DroneState,
     /// When it was spawned onto the step, off `drone_spawned`.
     pub since: Instant,

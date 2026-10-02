@@ -164,7 +164,15 @@ where
         let liveness = self
             .liveness()
             .at(self.served_by(job)?.manifest(), job, adopted.step());
-        let taken = Working::adopting(adopted, worktree, taps, liveness, self.now());
+        let on_task = self.task_of(job.id(), adopted.drone()).await;
+        let mut taken = Working::adopting(adopted, worktree, taps, liveness, self.now());
+        // Bound again to its task, or its hand-in would land as the step's.
+        if let Some((task, handed_in)) = on_task {
+            taken.on_task(task);
+            if handed_in {
+                taken.task_handed_in();
+            }
+        }
         // The first thing written through the new handle, so the row lands in
         // the transcript between the last line the previous Fleet read and
         // Fleet's first act on this Drone — which is the order a person reads

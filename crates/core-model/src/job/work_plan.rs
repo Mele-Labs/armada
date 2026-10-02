@@ -56,9 +56,9 @@ impl fmt::Display for TaskId {
 
 /// Where one task stands, as the last change to it said.
 ///
-/// **`HandedIn` and `Failed` have no [`TaskUpdate`]**, so nothing can write
-/// either yet: slice 1b writes the first at a task Drone's hand-in, and slice 2
-/// the second when its group's Checks go red. Spike 022, answer 1.
+/// **`Failed` has no [`TaskUpdate`]**, so nothing can write it yet: slice 2
+/// writes it when its group's Checks go red. `HandedIn` is Fleet's, at a task
+/// Drone's hand-in, and no Drone or person can spell it. Spike 022, answer 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TaskState {
     Open,
@@ -121,6 +121,9 @@ impl DropReason {
 pub enum TaskUpdate {
     Open,
     Working,
+    /// Fleet's, at a task Drone's hand-in. [`TaskUpdate::read`] refuses it, so
+    /// neither `update_task` nor a person's act can write it.
+    HandedIn,
     Done,
     Dropped(DropReason),
 }
@@ -164,10 +167,23 @@ impl TaskUpdate {
         }
     }
 
+    /// A row read back off the store. **Admits `handed_in`**, which
+    /// [`read`](Self::read) refuses: the store keeps Fleet's marks beside a
+    /// Drone's and a person's, and a mark Fleet kept has to replay.
+    pub fn stored(state: &str, reason: &str) -> Result<TaskUpdate, NotAnUpdate> {
+        match TaskState::from_wire(state) {
+            Some(TaskState::HandedIn) if DropReason::new(reason).is_none() => {
+                Ok(TaskUpdate::HandedIn)
+            }
+            _ => TaskUpdate::read(state, reason),
+        }
+    }
+
     pub fn state(&self) -> TaskState {
         match self {
             TaskUpdate::Open => TaskState::Open,
             TaskUpdate::Working => TaskState::Working,
+            TaskUpdate::HandedIn => TaskState::HandedIn,
             TaskUpdate::Done => TaskState::Done,
             TaskUpdate::Dropped(_) => TaskState::Dropped,
         }
