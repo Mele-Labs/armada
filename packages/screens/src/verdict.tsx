@@ -18,9 +18,10 @@
 
 import { openPullRequest, type OpenPullRequest } from "./opening";
 import type { ReactNode } from "react";
-import { GitPullRequest, Minus } from "lucide-react";
+import { Minus } from "lucide-react";
 import {
   CheckRuns,
+  PullRequestCard,
   VerdictSheet,
   type CheckRun as CheckRunRow,
   type VerdictFigure,
@@ -42,14 +43,14 @@ import type {
   Submitted,
 } from "@armada/protocol";
 
-import { money, pullRequestNumber } from "./facts";
+import { money, onlyCurrentAttempt, pullRequestNumber, settledBadgeOf } from "./facts";
 import { elapsedSince } from "./duration";
 import { sitting } from "./held";
 import { checkRow, judgeRow, saidOf, iconOf } from "./checks";
 import { Decide } from "./Decide";
 import { PlanReview, type PlanReviewProps } from "./plan-review";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
-import { checksOf, didNotPass, mechanicalRunsOf, panelsOf } from "./gates";
+import { checksOf, didNotPass, didPass, mechanicalRunsOf, panelsOf } from "./gates";
 import { basename, keptOf, type Opens } from "./phases";
 import type { Render } from "./render";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
@@ -157,23 +158,72 @@ export function provesItOf(
  * The line under the checklist. **Only where nothing semantic looked at the
  * work** — a step with a Judge declared says nothing extra here, because the
  * checklist above it already carries the panel's own row.
+ *
+ * **A step with no Check of its own says nothing either.** It said *Fleet
+ * cannot say what gates this step* — false on every delivering step, whose
+ * proof is the steps before it (the owner's Job 2, 2 Oct 2026). `proofOf`
+ * lists those.
  */
 export function provesItNoteOf(step: StepDetail, render: Render): string | undefined {
   if ((step.judge_checks?.length ?? 0) > 0) return undefined;
-  if (checksOf(step).length === 0 && mechanicalRunsOf(step).length === 0) {
-    return "Fleet cannot say what gates this step, because it does not hold the workflow this Job named.";
-  }
+  if (checksOf(step).length === 0 && mechanicalRunsOf(step).length === 0) return undefined;
   return render === "finished"
     ? "Every step advanced on its own. No person was asked, and no gate read the review."
     : "Reading the document is the review. Your answer is the only verdict this step gets.";
 }
 
-/** What the Drone says it did — its own claim, or why there is nothing to read yet. */
+/** What proves the work, one list per step that measured anything, in workflow order. */
+export type Proof = { label: string; rows: CheckRunRow[] }[];
+
+/**
+ * What proves the work: **every step's Checks and Judge, not the waiting
+ * step's alone.** What is signed off at a gate is the branch, and the step a
+ * person reviews at usually verifies nothing of its own — the lead counts the
+ * same way (`the-lead-counts-the-whole-jobs-evidence`). Fleet's reason the
+ * gate could not decide, and a person's overrule, belong to the open step.
+ */
+export function proofOf(
+  steps: readonly StepDetail[],
+  open: StepDetail,
+  criteria: JobWhole["acceptance_criteria"],
+  now: number,
+  undecided?: string,
+  reason?: string,
+): Proof {
+  return [...steps]
+    .sort((a, b) => a.ordinal - b.ordinal)
+    .map((step) => {
+      const mine = step.step_id === open.step_id;
+      return {
+        label: step.label,
+        rows: provesItOf(step, criteria, now, mine ? undecided : undefined, mine ? reason : undefined),
+      };
+    })
+    .filter((one) => one.rows.length > 0);
+}
+
+/** Where no step measured anything — said plainly, the owner's ask of 2 Oct 2026. */
+export const NOTHING_PROVED = "No Check ran on this work, and no Judge read it.";
+
+/**
+ * Armada's own Checks across the Job, in one line — `21/21 Checks passed`.
+ * The latest attempt of each step, skips out of both figures: the lead's count.
+ */
+export function checksLineOf(steps: readonly StepDetail[]): string | undefined {
+  const measured = steps
+    .flatMap((step) => onlyCurrentAttempt(step.check_runs))
+    .filter((run) => didPass(run) || didNotPass(run));
+  if (measured.length === 0) return undefined;
+  const passed = measured.filter(didPass).length;
+  return `${passed}/${measured.length} ${measured.length === 1 ? "Check" : "Checks"} passed`;
+}
+
+/** What was done — the Drone's own claim, or why there is nothing to read yet. */
 export function cameBackOf(claim: Submitted | undefined): string {
   return claim?.claimed ?? "This step has not submitted its evidence yet.";
 }
 
-/** What the Drone says it left alone — `not_claimed`, or the named absence of a boundary. */
+/** What was skipped — `not_claimed`, or the named absence of a boundary. */
 export function leftAloneOf(claim: Submitted | undefined): string {
   if (claim === undefined) return "This step has not submitted its evidence yet.";
   return claim.not_claimed ?? "This step's submission drew no boundary around what it did not change.";
@@ -185,24 +235,22 @@ export function criteriaOf(whole: JobWhole | null): string[] {
 }
 
 /**
- * The brief — Fleet's own `why` section, the same words the pull request's
- * "Why was the change needed?" carries, and in the same Markdown: the sheet
- * draws it through `Prose`. Absent where Fleet has composed no review yet: a
- * Job still running, or read off a Fleet older than 10.10.
+ * The paragraph Fleet opens every `risks` section with
+ * (`crates/fleet/src/review.rs`, `risks_of`). The owner, 2 Oct 2026: *"this
+ * text is AI slop"*. It says nothing about this Job, so the record drops it;
+ * the pull request body still carries it until Fleet stops writing it.
  */
-export function briefOf(whole: JobWhole | null): string | undefined {
-  const why = whole?.review?.why;
-  return why === undefined || why.length === 0 ? undefined : why;
-}
+const RISKS_PREAMBLE = /^Every line below is something Fleet ran\b[^\n]*(?:\n(?!\n)[^\n]*)*\n*/;
 
 /**
- * What nothing checked, and what the base carries that this Job did not
+ * What was not checked, and what the base carries that this Job did not
  * write — Fleet's own `risks` section, the same words the pull request's
- * "Risks" carries. Absent for `briefOf`'s reason.
+ * "Risks" carries, less its standing preamble. Absent where Fleet has composed
+ * no review yet, or where the preamble was all it said.
  */
 export function risksOf(whole: JobWhole | null): string | undefined {
-  const risks = whole?.review?.risks;
-  return risks === undefined || risks.trim().length === 0 ? undefined : risks.trim();
+  const risks = whole?.review?.risks?.trim().replace(RISKS_PREAMBLE, "").trim();
+  return risks === undefined || risks.length === 0 ? undefined : risks;
 }
 
 /** The figures, in the order the drawing runs them. */
@@ -287,18 +335,26 @@ export function tookOf(job: JobSummary, whole: JobWhole | null, now: number): st
   return spend === undefined ? elapsed : `${elapsed} · ${money(spend.cost_micros)}`;
 }
 
+/** What the pull request card says beside its number, where each was served. */
+export type PullRequestFacts = {
+  /** The branch it carries — `JobSummary.branch`. */
+  branch?: string;
+  /** Armada's own Checks across the Job, `checksLineOf`'s line. */
+  checks?: string;
+  /** How many comments it holds, where the remarks were read for this Job. */
+  comments?: number;
+  /** What became of it — `delivery.landed`. Absent is open. */
+  landed?: string;
+};
+
 /**
- * The pull request block, where this Job has one: its number as a link to it,
- * and what Fleet's rotation last read of it.
+ * The pull request, where this Job has one: a `PullRequestCard` that opens it.
  *
- * **The link draws on the address alone.** Before the rotation has read the
- * pull request there is no detail to show, and the owner asked on 11 Sep 2026
+ * **The card draws on the address alone.** Before the rotation has read the
+ * pull request there is no title to show, and the owner asked on 11 Sep 2026
  * for the review to reach its pull request without going back up to the
  * header. It opens through `openPullRequest`, the header's own path, so the
  * address a click carries never decides what opens.
- *
- * **`mergeable` absent is "the forge would not say", never "conflicting".**
- * Drawing it as a refusal would be inventing a verdict the forge did not give.
  */
 export function pullRequestBlockOf(
   address: string | undefined,
@@ -307,39 +363,28 @@ export function pullRequestBlockOf(
   onOpen?: () => void,
   /**
    * Present where the branch's last commit never reached this pull request —
-   * `whole.delivery.unpushed`. Since protocol 11.2, `#691`.
-   *
-   * **The presence is drawn, never the sentence.** Fleet's own words name a
-   * commit and a base, which is exactly the mechanism this screen otherwise
-   * refuses to show; what a person needs is that the pull request is behind
-   * what this Job actually did, and the same control `currencyLineOf`'s
-   * conflict already offers answers it.
+   * `whole.delivery.unpushed`. Since protocol 11.2, `#691`. **The presence is
+   * drawn, never Fleet's sentence**, which names a commit and a base.
    */
   unpushed?: string,
+  facts: PullRequestFacts = {},
 ): ReactNode | undefined {
   if (address === undefined) return undefined;
   const number =
     detail?.number === undefined ? (pullRequestNumber(address) ?? "Pull request") : `#${detail.number}`;
   const currency = currencyLineOf(detail?.currency, now);
+  const state = settledBadgeOf(facts.landed);
   return (
-    <div className="armada-verdict__pr">
-      <p className="text-xs text-fg-muted">
-        <span className="armada-verdict__pr-ref">
-          <GitPullRequest size={12} strokeWidth={2} aria-hidden />
-          <a
-            className="armada-verdict__pr-link mono"
-            href={address}
-            title={address}
-            onClick={(event) => {
-              event.preventDefault();
-              onOpen?.();
-            }}
-          >
-            {number}
-          </a>
-        </span>
-        {detail === undefined ? null : pullRequestReadOf(detail)}
-      </p>
+    <PullRequestCard
+      number={number}
+      address={address}
+      {...(detail?.title === undefined ? {} : { title: detail.title })}
+      {...(facts.branch === undefined ? {} : { branch: facts.branch })}
+      {...(state === undefined ? {} : { state })}
+      {...(facts.checks === undefined ? {} : { checks: facts.checks })}
+      {...(facts.comments === undefined ? {} : { comments: facts.comments })}
+      {...(onOpen === undefined ? {} : { onOpen })}
+    >
       {currency === undefined ? null : (
         <p className={currency.conflicted ? "text-xs text-fg-default" : "text-2xs text-fg-subtle"}>
           {currency.said}
@@ -350,27 +395,8 @@ export function pullRequestBlockOf(
           The work here is committed but has not reached this pull request yet.
         </p>
       )}
-    </div>
+    </PullRequestCard>
   );
-}
-
-/** What the rotation last read of a pull request: its title, whether it merges, its reviews. */
-function pullRequestReadOf(detail: PullRequestDetail): string {
-  const mergeable =
-    detail.mergeable === true ? "mergeable" : detail.mergeable === false ? "not mergeable" : "mergeable unknown";
-  const approved = detail.reviews.filter((one) => one.verdict === "approved").length;
-  const changes = detail.reviews.filter((one) => one.verdict === "changes_requested").length;
-  const reviewed =
-    detail.reviews.length === 0
-      ? "no reviews yet"
-      : [
-          approved > 0 ? `${approved} approved` : undefined,
-          changes > 0 ? `${changes} requested changes` : undefined,
-        ]
-          .filter((part): part is string => part !== undefined)
-          .join(" · ") || `${detail.reviews.length} reviewed, unresolved`;
-  const title = detail.title === undefined ? "" : ` · ${detail.title}`;
-  return `${title}, open, ${mergeable}, ${reviewed}.`;
 }
 
 /**
@@ -425,6 +451,8 @@ export type VerdictArgs = {
     onOpen?: () => void;
     /** Present where the last commit never reached this pull request. Since protocol 11.2, `#691`. */
     unpushed?: string;
+    /** How many comments it holds, where the remarks were read for this Job. */
+    comments?: number;
   };
   /** Fleet's own reason the gate could not decide, scoped to this step. */
   undecided?: string;
@@ -453,32 +481,35 @@ export function verdictOf({
   drones,
 }: VerdictArgs): Omit<VerdictSheetProps, "actions" | "note" | "recordNote"> {
   const kept = keptOf(step, opens);
+  const steps = whole?.steps ?? [step];
   const never = neverDelivers(whole?.steps ?? []);
+  const proof = proofOf(steps, step, whole?.acceptance_criteria ?? [], now, undecided, reason);
+  const block =
+    pullRequest === undefined
+      ? undefined
+      : pullRequestBlockOf(pullRequest.address, pullRequest.detail, now, pullRequest.onOpen, pullRequest.unpushed, {
+          ...(job.branch === undefined ? {} : { branch: job.branch }),
+          ...(checksLineOf(steps) === undefined ? {} : { checks: checksLineOf(steps) }),
+          ...(pullRequest.comments === undefined ? {} : { comments: pullRequest.comments }),
+          ...(whole?.delivery?.landed === undefined ? {} : { landed: whole.delivery.landed }),
+        });
+  const note = proof.length === 0 ? NOTHING_PROVED : provesItNoteOf(step, render);
+  // The card names the branch, so the figures do not name it twice.
+  const figures = figuresOf({ job, whole, step, render, diff, opens, now, drones }).filter(
+    (figure) => block === undefined || figure.label !== "Branch",
+  );
   return {
     title: job.title,
-    ...(briefOf(whole) === undefined ? {} : { brief: briefOf(whole) }),
     criteria: criteriaOf(whole),
     criteriaAbsent: "This Job's frozen workflow named no acceptance criteria.",
     cameBack: cameBackOf(claim),
     ...(never === true && kept.length > 0 ? { deliverable: kept[0]?.opening } : {}),
-    ...(pullRequest === undefined
-      ? {}
-      : {
-          pullRequest: pullRequestBlockOf(
-            pullRequest.address,
-            pullRequest.detail,
-            now,
-            pullRequest.onOpen,
-            pullRequest.unpushed,
-          ),
-        }),
-    provesIt: <CheckRuns rows={provesItOf(step, whole?.acceptance_criteria ?? [], now, undecided, reason)} />,
-    ...(provesItNoteOf(step, render) === undefined
-      ? {}
-      : { provesItNote: provesItNoteOf(step, render) }),
+    ...(block === undefined ? {} : { pullRequest: block }),
+    provesIt: proof.map((one) => <CheckRuns key={one.label} label={one.label} rows={one.rows} />),
+    ...(note === undefined ? {} : { provesItNote: note }),
     ...(risksOf(whole) === undefined ? {} : { risks: risksOf(whole) }),
     leftAlone: leftAloneOf(claim),
-    figures: figuresOf({ job, whole, step, render, diff, opens, now, drones }),
+    figures,
   };
 }
 
@@ -602,7 +633,7 @@ export function verdictSlotAtGate({
   }
   // **What the step claimed decides what is reviewed**, never its label, id
   // or place in the workflow — `evidence_type` is Fleet's word off the frozen
-  // step. A plan is reviewed as Plan reviews it, open, in place of the folded
+  // step. A plan is reviewed as Plan reviews it, open, in place of the
   // work record (owner, 30 Sep 2026): a record about work that has not
   // started asked for approval without showing what was being approved. No
   // claim yet keeps the work review below.
@@ -632,10 +663,10 @@ export function verdictSlotAtGate({
       : address === undefined
         ? "The run tree on the left is where each step's own evidence is. This reads the Job."
         : undefined;
-  const sheetWith = (pending?: PendingChanges, folded = false) => (
+  const remarks = recorded.remarks;
+  const comments = remarks.state === "read" && remarks.jobId === job.id ? remarks.review.remarks.length : undefined;
+  const sheetWith = (pending?: PendingChanges) => (
     <VerdictSheet
-      folded={folded}
-      jobId={job.id}
       {...verdictOf({
         job,
         whole,
@@ -653,6 +684,7 @@ export function verdictSlotAtGate({
               if (because !== null) onSaid(because);
             }),
           unpushed,
+          ...(comments === undefined ? {} : { comments }),
         },
         undecided,
       })}
@@ -682,13 +714,10 @@ export function verdictSlotAtGate({
   );
   // Armada's review comes first, above the record it is about. #903.
   const confidence = whole?.confidence;
-  // **Under the lead, the record folds** — the same trade the reviewed gate
-  // below already makes, for the same reason. Overview leads with one thing
-  // and that sentence already carries what the gate found (`Land is waiting
-  // on you to approve it. All 3 Checks passed and the Judge met both
-  // criteria.`), so the record unfolded pushed the board's cards a screen
-  // down on the one status a person most needs to act on. 29 Sep 2026.
-  if (confidence === undefined) return sheetWith(undefined, true);
+  // **The record is open at the gate**, its cards straight under the lead. It
+  // folded from 29 Sep 2026 until the owner took the fold away on 2 Oct
+  // (`2026-09-29-the-review-gate-sits-under-the-lead.md`).
+  if (confidence === undefined) return sheetWith(undefined);
   const captured = capturedOf(open, claimed, frames ?? NO_FRAMES);
   return (
     <ReviewedGate
@@ -735,8 +764,7 @@ export function verdictSlotAtGate({
               disabled: stale || deciding,
             },
           })}
-      // Under the review, the record folds: the review already says what it found.
-      sheet={(pending) => sheetWith(pending, true)}
+      sheet={(pending) => sheetWith(pending)}
     />
   );
 }

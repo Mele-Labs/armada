@@ -1,31 +1,16 @@
-import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Prose } from "../../primitives/Prose/Prose";
-import { ArrangedRecord, useRecordAsked } from "./RecordArrangements";
+import { DestinationCard } from "../DestinationCard/DestinationCard";
 
 /**
- * Verdict sheet — the record job detail shows at the one place a Job stops for
- * a person, and again once it is over. One page, read top to bottom: what was
- * asked for, what came back, what proves it, what was left alone, the figures,
- * then the buttons.
+ * Verdict sheet — the record of a Job at the one place it stops for a person,
+ * and again once it is over: a card per section in the Settings board's
+ * balanced columns, then the buttons. **The owner's pick of three on 2 Oct
+ * 2026** (#1680), and not folded: his note on the pick took the fold away.
  *
- * **Chosen as Option B, 2026-09-08.** It is buildable on today's wire and it
- * moves between four scenarios — a gate before a pull request, a gate with one
- * open, a gate on a workflow that never delivers, and a finish nothing asked —
- * by adding or dropping a labelled block. Nothing else about the page shifts.
- * The cost, kept on record: a second arrangement on a screen whose whole
- * argument is that there is one.
- *
- * **The buttons decide nothing here.** `actions` is `Decide`'s own region,
- * unchanged — this component draws the record around it. Where `actions` is
- * absent, nothing is being asked and the dashed `recordNote` says so instead of
- * a row of controls that would have nothing to do.
- *
- * **`pullRequest` is the only block that comes and goes with a fact rather than
- * with the render.** It is drawn where a pull request is open, and it is not
- * there is where none is — a workflow that never delivers, or one whose Drone
- * has not pushed yet.
+ * **The buttons decide nothing here.** `actions` is `Decide`'s own region;
+ * where it is absent nothing is asked, and the dashed `recordNote` says so.
  */
 export type VerdictFigure = {
   /** `Branch`, `Files`, `Took`, `Steps`, `Pull request`. */
@@ -39,52 +24,36 @@ export type VerdictFigure = {
 
 export type VerdictSheetProps = {
   /**
-   * The record's own headline, above "What you asked for". **Only where the
-   * Job is closed and a person answered it** — the fifth arrangement, beside
-   * the gate and the nothing-asked finish. Neither the word nor the moment is
-   * chosen here: both are the screen's, off the transition that closed the Job.
+   * The record's own headline, above the cards. **Only where the Job is
+   * closed and a person answered it.** Both the word and the moment are the
+   * screen's, off the transition that closed the Job.
    */
   header?: { done: ReactNode; when: ReactNode };
   /** What was asked for — the Job's own title. */
   title: ReactNode;
-  /**
-   * The brief — Fleet's own `why` section, the same words the pull request's
-   * "Why was the change needed?" carries. Absent where Fleet has composed no
-   * review yet, which draws as the title alone, unchanged from before `#665`.
-   * Markdown, drawn through `Prose`.
-   */
-  brief?: string;
   /** The acceptance criteria the Job was frozen with, one line each. */
   criteria: readonly ReactNode[];
   /** What stands in for the criteria list where the Job carries none. */
   criteriaAbsent?: ReactNode;
-  /** What the Drone says it did — the Drone's own claim, `Submitted.claimed`, in its markdown. */
+  /** What was done — the Drone's own claim, `Submitted.claimed`, in its markdown. */
   cameBack: string;
   /** The deliverable this step kept, as a control that opens it. */
   deliverable?: ReactNode;
   /**
-   * The pull request block, where this Job has one open. **Presence is the
-   * whole of what draws it** — absent is a workflow that never delivers, or one
-   * whose Drone has not pushed yet, and neither is drawn as an empty card.
+   * The pull request, where this Job has one — a `PullRequestCard`. **Presence
+   * is the whole of what draws it**: absent is a workflow that never delivers,
+   * or one whose Drone has not pushed yet.
    */
   pullRequest?: ReactNode;
-  /** What proves it — a `CheckRuns` list, or the sentence that stands in for one. */
+  /** What proves it — the Job's Check lists, or the sentence that stands in for them. */
   provesIt: ReactNode;
-  /** The line under the checklist, where a step's evidence is the whole of it. */
+  /** The line under the lists, where one is owed. */
   provesItNote?: ReactNode;
-  /**
-   * What nothing checked, and what the base carries that this Job did not
-   * write — Fleet's own `risks` section, the same words the pull request's
-   * "Risks" carries. Absent where Fleet has composed no review yet. Markdown,
-   * drawn through `Prose`.
-   */
+  /** What was not checked — Fleet's own `risks` section, in its markdown. */
   risks?: string;
-  /**
-   * What the Drone says it left alone — `Submitted.not_claimed`, or why there
-   * is nothing here. Markdown, drawn through `Prose`.
-   */
+  /** What was skipped — `Submitted.not_claimed`, or why there is nothing here. Markdown. */
   leftAlone: string;
-  /** The figures, in the order the drawing runs them. */
+  /** The figures, in the order the drawing runs them. Read, never edited. */
   figures: readonly VerdictFigure[];
   /** A standing sentence above the buttons — what merging costs, what ending here means. */
   note?: ReactNode;
@@ -92,23 +61,11 @@ export type VerdictSheetProps = {
   actions?: ReactNode;
   /** Drawn instead of `actions`, in the dashed frame an empty state takes. */
   recordNote?: ReactNode;
-  /**
-   * Drawn under Armada's review, which already says what it found: the record
-   * folds behind one line a person can open, and `note` and `actions` stay open.
-   */
-  folded?: boolean;
-  /**
-   * The Job this record is of — read only to find an arrangement a mock
-   * scenario asked for (`RecordArrangements.tsx`, #1680). Nothing on a real
-   * Fleet asks, so the record draws as below.
-   */
-  jobId?: string;
 };
 
 export function VerdictSheet({
   header,
   title,
-  brief,
   criteria,
   criteriaAbsent,
   cameBack,
@@ -122,80 +79,7 @@ export function VerdictSheet({
   note,
   actions,
   recordNote,
-  folded = false,
-  jobId,
 }: VerdictSheetProps) {
-  const [open, setOpen] = useState(false);
-  const asked = useRecordAsked(jobId);
-  const Mark = open ? ChevronDown : ChevronRight;
-  const record = (
-    <>
-      <Block label="What you asked for">
-        <p className="armada-verdict__lede">{title}</p>
-        {brief === undefined ? null : (
-          <div className="armada-verdict__said">
-            <Prose text={brief} />
-          </div>
-        )}
-        {criteria.length === 0 ? (
-          criteriaAbsent === undefined ? null : (
-            <p className="armada-verdict__said">{criteriaAbsent}</p>
-          )
-        ) : (
-          <ul className="armada-verdict__criteria">
-            {criteria.map((one, i) => (
-              <li key={i}>{one}</li>
-            ))}
-          </ul>
-        )}
-      </Block>
-
-      <Block label="What the Drone says it did">
-        <div className="armada-verdict__said">
-          <Prose text={cameBack} />
-        </div>
-        {deliverable === undefined ? null : (
-          <div className="armada-verdict__document">{deliverable}</div>
-        )}
-      </Block>
-
-      {pullRequest === undefined ? null : (
-        <Block label="The pull request">{pullRequest}</Block>
-      )}
-
-      {risks === undefined ? null : (
-        <Block label="What nothing checked">
-          <div className="armada-verdict__said">
-            <Prose text={risks} />
-          </div>
-        </Block>
-      )}
-
-      <Block label="What proves it">
-        {provesIt}
-        {provesItNote === undefined ? null : (
-          <p className="armada-verdict__said">{provesItNote}</p>
-        )}
-      </Block>
-
-      <Block label="What the Drone says it left alone">
-        <div className="armada-verdict__said">
-          <Prose text={leftAlone} />
-        </div>
-      </Block>
-
-      <ul className="armada-verdict__figures">
-        {figures.map((figure, i) => (
-          <li className="armada-verdict__figure" key={i}>
-            <span className="armada-verdict__figure-label">{figure.label}</span>
-            <span className="armada-verdict__figure-value" data-mono={figure.mono || undefined}>
-              {figure.value === undefined ? figure.absent : figure.value}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
   return (
     <div className="armada-verdict">
       {header === undefined ? null : (
@@ -204,51 +88,56 @@ export function VerdictSheet({
           <span className="armada-verdict__when">{header.when}</span>
         </div>
       )}
-      {/* A card on the canvas, folded or open — `src/glass.css`, the one
-          recipe. It was the flat region among Overview's cards, which is what
-          the owner read on 30 Sep 2026. Folding is unchanged: the 29 Sep
-          decision is that the record stays under the lead. */}
-      {asked !== undefined ? (
-        <ArrangedRecord
-          asked={asked}
-          record={{
-            title,
-            brief,
-            criteria,
-            criteriaAbsent,
-            cameBack,
-            deliverable,
-            pullRequest,
-            provesIt,
-            provesItNote,
-            risks,
-            leftAlone,
-            figures,
-          }}
-        />
-      ) : (
-        <div className="armada-verdict__record-card armada-glass">
-          {folded ? (
-            <>
-              <button
-                type="button"
-                className="armada-verdict__fold"
-                aria-expanded={open}
-                onClick={() => setOpen((was) => !was)}
-              >
-                <Mark size={12} aria-hidden="true" />
-                <span className="armada-verdict__label">The Job&apos;s record</span>
-              </button>
-              {/* `hidden`, not unmounted, on `DroneBrief`'s rule: a folded record stays in the page. */}
-              <div className="armada-verdict__record-body" hidden={!open}>
-                {record}
-              </div>
-            </>
+      <div className="armada-verdict__cards">
+        <DestinationCard label="What you asked for">
+          <p className="armada-verdict__lede">{title}</p>
+          {criteria.length === 0 ? (
+            criteriaAbsent === undefined ? null : <p className="armada-verdict__said">{criteriaAbsent}</p>
           ) : (
-            record
+            <ul className="armada-verdict__criteria">
+              {criteria.map((one, i) => (
+                <li key={i}>{one}</li>
+              ))}
+            </ul>
           )}
-        </div>
-      )}
+        </DestinationCard>
+
+        <DestinationCard label="The work">
+          {pullRequest}
+          {figures.length === 0 ? null : (
+            <dl className="armada-verdict__figures">
+              {figures.map((figure) => (
+                <div className="armada-verdict__figure" key={figure.label}>
+                  <dt className="armada-verdict__figure-label">{figure.label}</dt>
+                  <dd className="armada-verdict__figure-value" data-mono={figure.mono || undefined}>
+                    {figure.value === undefined ? figure.absent : figure.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </DestinationCard>
+
+        <DestinationCard label="What proves it">
+          {provesIt}
+          {provesItNote === undefined ? null : <p className="armada-verdict__said">{provesItNote}</p>}
+        </DestinationCard>
+
+        {risks === undefined ? null : (
+          <DestinationCard label="What was not checked">
+            <Said text={risks} />
+          </DestinationCard>
+        )}
+
+        <DestinationCard label="What was done">
+          <Said text={cameBack} />
+          {deliverable === undefined ? null : <div className="armada-verdict__document">{deliverable}</div>}
+        </DestinationCard>
+
+        <DestinationCard label="What was skipped">
+          <Said text={leftAlone} />
+        </DestinationCard>
+      </div>
 
       {note === undefined ? null : <p className="armada-verdict__said">{note}</p>}
 
@@ -263,12 +152,11 @@ export function VerdictSheet({
   );
 }
 
-/** One labelled section. The caps label is the section's whole identity. */
-function Block({ label, children }: { label: string; children: ReactNode }) {
+/** Markdown a Drone or Fleet wrote, at the record's reading size. */
+function Said({ text }: { text: string }) {
   return (
-    <div className="armada-verdict__block">
-      <span className="armada-verdict__label">{label}</span>
-      {children}
+    <div className="armada-verdict__said">
+      <Prose text={text} />
     </div>
   );
 }

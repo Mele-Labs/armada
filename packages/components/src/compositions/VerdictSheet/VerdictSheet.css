@@ -1,7 +1,5 @@
-/* Verdict sheet — the record read top to bottom, at a gate or at a finish.
-
-   One card, one column. Every block shares the same label treatment so the
-   page reads as one document rather than four different ones stacked. */
+/* Verdict sheet — the record at a gate or at a finish: a card per section,
+   then the buttons. */
 .armada-verdict {
   display: flex;
   flex-direction: column;
@@ -33,12 +31,6 @@
   color: var(--fg-subtle);
 }
 
-.armada-verdict__block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
 /* The one legal ALL CAPS, per the design contract's header-row treatment. */
 .armada-verdict__label {
   font-family: var(--font-sans);
@@ -55,18 +47,6 @@
   line-height: var(--leading-sm);
   color: var(--fg-default);
   margin: 0;
-}
-
-/* The glyph beside an open pull request's own number — inline with the
-   number and the sentence that follows, never a line of its own above them.
-   `HeldWorktree`'s own `armada-held__tip` is the same pattern for the same
-   reason: an SVG sitting loose in a run of text breaks onto its own line, and
-   an inline-flex wrapper around the glyph and the value it marks is what
-   keeps the two read as one unit. */
-.armada-verdict__pr-ref {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 
 .armada-verdict__said {
@@ -89,47 +69,6 @@
 
 .armada-verdict__document {
   display: flex;
-}
-
-/* The figure run. Same shape as the header's own fact run — a label above a
-   mono value — because it is the same kind of thing read a second time, on a
-   page built to stand alone. */
-.armada-verdict__figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6) var(--space-8);
-  margin: 0;
-  padding: var(--space-3) 0 0;
-  list-style: none;
-  border-top: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-verdict__figure {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-}
-
-.armada-verdict__figure-label {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-verdict__figure-value {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-}
-
-/* Attribute first: `verify-foundations`'s off-contract-value rule reads a
-   bracket's own preceding identifier for a Tailwind-utility shape, and a BEM
-   element with a hyphenated name right after `__` reads as one. The selector
-   means the same thing either order; this order is the one that parses as
-   what it is. */
-[data-mono].armada-verdict__figure-value {
-  font-family: var(--font-mono);
 }
 
 .armada-verdict__actions {
@@ -157,71 +96,52 @@
   margin: 0;
 }
 
-/* The pull request's number, a link to it. Marked the way the header's pull
-   request fact is, so the two read as the same door. */
-.armada-verdict__pr-link {
-  color: var(--accent);
-  cursor: pointer;
-  text-decoration: none;
-  transition: color var(--duration-fast) var(--ease);
-}
-
-.armada-verdict__pr-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
-}
-
-.armada-verdict__pr-link:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
-}
-
-/* The record's card. Glass is `armada-glass`'s; this owns the corner every
-   card on the canvas takes, the padding, and the column the blocks sit in. */
-.armada-verdict__record-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+/* The Settings board's own flow (`JobSettings.css`): columns rather than a
+   grid so the two balance, each card unbreakable, the gap down a column a
+   margin. **The margin is the block end only**, so the first card at the top
+   of each column starts on the same line. */
+.armada-verdict__cards {
+  columns: var(--w-proposal-settings);
+  column-gap: var(--space-4);
   min-width: 0;
-  padding: var(--pad-card);
-  border-radius: var(--radius-lg);
 }
 
-/* The record folded under Armada's review: one line that opens it. It fills
-   the card's width so the whole row is the press, not the words alone — the
-   card is otherwise a single line and a hit area narrower than it reads as. */
-.armada-verdict__fold {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease);
+.armada-verdict__cards > * {
+  break-inside: avoid;
+  margin-block-end: var(--space-4);
 }
 
-.armada-verdict__fold:hover .armada-verdict__label {
+/* The figures, read and never edited: a name and its value on one row, no box
+   round the value. The owner, 2 Oct 2026, on a boxed value: *"I dont like that
+   these look like text fields I can edit."* */
+.armada-verdict__figures {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.armada-verdict__figure {
+  display: contents;
+}
+
+.armada-verdict__figure-label {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-verdict__figure-value {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-default);
+  overflow-wrap: anywhere;
 }
 
-.armada-verdict__fold:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
-}
-
-.armada-verdict__record-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-[hidden].armada-verdict__record-body {
-  display: none;
+/* Attribute first: the off-contract-value rule reads a bracket's preceding
+   identifier for a Tailwind shape, and this order parses as what it is. */
+[data-mono].armada-verdict__figure-value {
+  font-family: var(--font-mono);
 }

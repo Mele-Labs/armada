@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CircleCheck, CircleX, GitPullRequest, Minus, ShieldCheck } from "lucide-react";
+import { CircleCheck, CircleX, GitMerge, Minus, ShieldCheck } from "lucide-react";
 import { expect } from "storybook/test";
 import { VerdictSheet } from "./VerdictSheet";
 import { Button } from "../../primitives/Button/Button";
 import { CheckRuns } from "../CheckRuns/CheckRuns";
+import { PullRequestCard } from "../PullRequestCard/PullRequestCard";
 import { ReviewDecision } from "../ReviewDecision/ReviewDecision";
 import { ReviewComments } from "../ReviewComments/ReviewComments";
 
@@ -50,15 +51,9 @@ const PROVES_IT_ROWS = [
 export const AtAGate: Story = {
   args: {
     title: "Declare undeclared test files and add a gate rule to prevent recurrence",
-    // `review.why` and `review.risks`, the same words the pull request's own
-    // "Why was the change needed?" and "Risks" sections carry — one builder,
-    // `#665`.
-    brief:
-      "Three test files under src/tests/ were never declared in the suite, so their cases never " +
-      "ran. Declare them, and add a gate rule that fails the next file like it.",
-    risks:
-      "Every line below is something Fleet ran, not something the agent reported. What no Check " +
-      "covered is not covered here either.",
+    // `review.risks`, the same words the pull request's own "Risks" section
+    // carries — one builder, `#665` — less Fleet's standing preamble.
+    risks: "These acceptance criteria are not a Check and nothing mechanical confirmed them.",
     criteria: [
       "Every test file under src/tests/ is declared and its cases run as part of the suite.",
       "A gate rule fails the next undeclared file.",
@@ -97,22 +92,21 @@ export const PullRequestOpen: Story = {
   args: {
     ...AtAGate.args,
     pullRequest: (
-      <p className="text-xs text-fg-muted">
-        <span className="armada-verdict__pr-ref">
-          <GitPullRequest size={12} strokeWidth={2} aria-hidden />
-          <a
-            href="https://git.example/armada/armada/pull/4711"
-            title="https://git.example/armada/armada/pull/4711"
-            className="mono armada-verdict__pr-link"
-            onClick={(event) => event.preventDefault()}
-          >
-            #4711
-          </a>
-        </span>{" "}
-        · Declare capacity.rs and gate the next undeclared test file, open, mergeable, no reviews
-        yet.
-      </p>
+      <PullRequestCard
+        number="#4711"
+        address="https://git.example/armada/armada/pull/4711"
+        title="Declare capacity.rs and gate the next undeclared test file"
+        branch="armada/01K20E8JS4…"
+        checks="3/3 Checks passed"
+        comments={0}
+      />
     ),
+    // The card names the branch, so the figures do not.
+    figures: [
+      { label: "Files", value: "5", mono: true },
+      { label: "Took", value: "29m · ~$4.03", mono: true },
+      { label: "Steps", value: "3 of 3 passed", mono: true },
+    ],
     note: (
       <>
         <strong>Merge and take the work</strong> merges this pull request on git.example, then
@@ -149,12 +143,7 @@ export const GateWithoutAPullRequest: Story = {
     // Composed with no pull request behind it — a workflow that never
     // delivers still reaches a person at its gate, and says the same things
     // there. `#665`.
-    brief:
-      "A comment longer than what a Drone's brief leaves room for is dropped today, silently. " +
-      "Propose a rule for what Fleet does instead, and what it should be measured against.",
-    risks:
-      "Every line below is something Fleet ran, not something the agent reported. What no Check " +
-      "covered is not covered here either.",
+    risks: "These acceptance criteria are not a Check and nothing mechanical confirmed them.",
     criteria: ["Propose a rule, and say what it should be measured against."],
     cameBack:
       "A two-page draft. Fleet refuses a merge press whose chosen comments would not fit in " +
@@ -291,13 +280,7 @@ export const FinishedAfterYouAnswered: Story = {
     title: "Refuse a merge press whose chosen comments won't fit the brief",
     // `review.why` and `review.risks` for this real Job — the same words its
     // pull request carries, one builder, `#665`.
-    brief:
-      "A press whose chosen remarks render past what a Drone's brief leaves room for silently " +
-      "drops the ones that do not fit. Refuse the press instead, and name which comments are too " +
-      "large so a person can choose fewer.",
-    risks:
-      "Every line below is something Fleet ran, not something the agent reported. What no Check " +
-      "covered is not covered here either.",
+    risks: "These acceptance criteria are not a Check and nothing mechanical confirmed them.",
     criteria: [
       // `${545}` rather than the literal `#545`: three hex digits after a `#`
       // reads as a colour to `xtask`'s off-contract-value rule, the same
@@ -322,17 +305,11 @@ export const FinishedAfterYouAnswered: Story = {
       "(9,972-character brief, 1,238 fixed, remainder job-dependent) and justifies the " +
       "8,000-character bound (set-level, not per-comment).",
     pullRequest: (
-      <p className="text-xs text-fg-muted">
-        <a
-          href="https://forge.invalid/armada/armada/pull/630"
-          title="https://forge.invalid/armada/armada/pull/630"
-          className="mono armada-verdict__pr-link"
-          onClick={(event) => event.preventDefault()}
-        >
-          {`#${630}`}
-        </a>
-        {" · "}merged.
-      </p>
+      <PullRequestCard
+        number="#630"
+        address="https://forge.invalid/armada/armada/pull/630"
+        state={{ status: "completed-success", icon: GitMerge, label: "Merged" }}
+      />
     ),
     // Every row below is `verdictSlotAfterAnswer`'s own real output for this
     // Job — dumped from a run of the function itself against
@@ -445,30 +422,28 @@ export const FinishedAfterYouAnswered: Story = {
 };
 
 /**
- * **Under Armada's review, the record folds** behind one line, because the review
- * already says what it found. The buttons below it stay open.
+ * **The record is never folded.** It folded under Armada's review from 29 Sep
+ * 2026 until the owner took the fold away on 2 Oct (#1680): the cards are open
+ * at the gate, and nothing offers to close them.
  */
-export const UnderAReview: Story = {
-  name: "Under a review",
-  args: { ...AtAGate.args, folded: true },
-  play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByText("What you asked for")).not.toBeVisible();
-    const fold = canvas.getByRole("button", { name: "The Job's record" });
-    await expect(fold).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(fold);
-    await expect(canvas.getByText("What you asked for")).toBeVisible();
+export const RecordOpen: Story = {
+  name: "Record open",
+  args: { ...AtAGate.args },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("region", { name: "What you asked for" })).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "What was skipped" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "The Job's record" })).toBeNull();
   },
 };
 
 /**
- * The four blocks that carry a model's own words — the review's brief and
- * risks, the Drone's claim and what it left alone — draw the markdown they
+ * The three cards that carry a model's own words — the review's risks, what
+ * was done and what was skipped — draw the markdown they
  * were written in rather than its asterisks and backticks.
  */
 export const MarkdownInTheRecord: Story = {
   args: {
     ...AtAGate.args,
-    brief: "Three test files were **never declared**, so their cases never ran.",
     cameBack:
       "Declared every file under `src/tests/`, with **two** changes:\n\n" +
       "- the suite names each file\n- a gate rule fails the next one",
@@ -477,7 +452,7 @@ export const MarkdownInTheRecord: Story = {
   },
   play: async ({ canvas }) => {
     const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
-    await expect(strong).toEqual(["never declared", "two", "not covered here", "untouched"]);
+    await expect(strong).toEqual(["two", "not covered here", "untouched"]);
     const code = canvas.getAllByRole("code").map((one) => one.textContent);
     await expect(code).toEqual(["src/tests/", "proving.rs"]);
     // The criteria are a list of their own, so the claim's two items sit among them.

@@ -394,4 +394,4 @@ export * from "./compositions/DestinationCard/DestinationCard";
 export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MergeLine/MergeLine";
-export * from "./compositions/VerdictSheet/RecordArrangements";
+export * from "./compositions/PullRequestCard/PullRequestCard";

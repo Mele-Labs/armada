@@ -1,14 +1,13 @@
 // The owner's Job 2 **just before it landed**: at `handoff`, waiting on him to
 // review it. Built from what Fleet served on 2 Oct 2026, never by hand —
 // `job-2-landed.json` is `GET /jobs/2` and `job-2-evidence.json` is
-// `GET /jobs/2/evidence`, both unedited. For #1680's three arrangements of The
-// Job's record.
+// `GET /jobs/2/evidence`, both unedited. For the record the gate draws, #1680.
 //
 // **What is moved back, and only that.** The Job's status and the handoff
 // step's, the step's last attempt left open, and what landing wrote: `ended_at`,
 // `reclaimed_at`, `landed`. The files are pull request #1750's, in the words
 // Fleet's own review spelled them. Fleet sends no pull request detail for this
-// Job, so the record draws its number and nothing it would have to invent.
+// Job, so the card draws no title, and #1750 had no comments.
 
 import type { ChangedFile, JobDetail, JobSummary, StepDetail, Submitted } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -50,14 +49,14 @@ function asking(step: StepDetail): StepDetail {
 }
 
 /**
- * Job 2 at its review gate, on `id` and `handle` — one copy per arrangement, so
- * a walk can open each in turn. Every read that names its Job is moved onto `id`.
+ * Job 2 at its review gate. Every read the recording holds is moved onto it.
  */
-export function job2AtReview(id: string = served.job.id, handle: string = served.job.handle): JobFixture {
+export function job2AtReview(): JobFixture {
+  const id = served.job.id;
   const base = recorded("done-worktree-given-back");
   const landed = served as unknown as JobDetail;
   const { ended_at: _ended, reclaimed_at: _reclaimed, ...rest } = landed.job;
-  const job: JobSummary = { ...rest, id, handle, status: "awaiting_review", current_step_id: "handoff" };
+  const job: JobSummary = { ...rest, status: "awaiting_review", current_step_id: "handoff" };
   const { landed: _landed, ...delivery } = landed.delivery ?? {};
   const detail: JobDetail = { ...landed, job, delivery, steps: landed.steps.map(asking) };
   if (base.watched.state !== "read") return base;
