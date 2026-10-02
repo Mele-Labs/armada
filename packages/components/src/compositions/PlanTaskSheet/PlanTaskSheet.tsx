@@ -6,6 +6,7 @@ import { Prose } from "../../primitives/Prose/Prose";
 import { patternFor, useHaptics } from "../../haptics";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DronePeek, type DronePeekProps } from "../DronePeek/DronePeek";
+import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/HoldButton";
 import { PlanOverlap, PlanProposeForm, type PlanPropose } from "../PlanBoard/PlanBoard";
 import { PlanDropForm, type PlanTaskDrop } from "../PlanBoard/PlanDropForm";
 
@@ -80,6 +81,22 @@ export type PlanTaskSheetProps = {
   /** Why its own agent stopped. Present on a failed task and on nothing else. */
   failedReason?: string;
   /**
+   * What its own agent has spent so far, as bare facts: `14 turns`, then
+   * `27 turns · ~$1.90` once it stopped. **Absent draws nothing**, which is
+   * every task without a Drone of its own (`#1536`).
+   */
+  doing?: string;
+  /**
+   * The last file its own Drone wrote, and the size of that edit where the
+   * call carried one. Absent draws nothing.
+   */
+  lastEdit?: { path: string; says?: string };
+  /**
+   * Hold to stop this task's Drone, beside the task's other acts. Absent
+   * draws nothing, which is a task with no Drone of its own running.
+   */
+  stop?: PlanTaskStop;
+  /**
    * What a person can do about a failed task, beside messaging its Drone.
    * Present on a failed task and on nothing else.
    */
@@ -144,6 +161,12 @@ export type PlanTaskSheetProps = {
   /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
   back?: SheetBack | undefined;
 };
+
+/** Hold to stop the task's own Drone. */
+export type PlanTaskStop = Pick<
+  HoldButtonProps,
+  "children" | "askLabel" | "description" | "onCommit" | "onAsk" | "disabled" | "pending"
+>;
 
 /** The message box under the Drone. */
 export type PlanTaskRedirect = Omit<DroneMessageBoxProps, "placeholder">;
@@ -256,6 +279,9 @@ export function PlanTaskSheet({
   beside = [],
   tests = [],
   failedReason,
+  doing,
+  lastEdit,
+  stop,
   acts,
   edit,
   drop,
@@ -304,7 +330,10 @@ export function PlanTaskSheet({
             <Prose text={failedReason} />
           </TaskField>
         )}
-        {acts === undefined && edit === undefined && drop === undefined && propose === undefined ? null : (
+        {doing === undefined ? null : (
+          <TaskField label="Now">{doing}</TaskField>
+        )}
+        {acts === undefined && edit === undefined && drop === undefined && propose === undefined && stop === undefined ? null : (
           /* Keyed apart from the peek, which is keyed by the task too: two
              siblings on one key leave a stale copy behind. */
           <Acts
@@ -313,6 +342,7 @@ export function PlanTaskSheet({
             edit={edit}
             drop={drop}
             propose={propose}
+            stop={stop}
             task={{ title, note, scope, expects, model }}
           />
         )}
@@ -342,6 +372,18 @@ export function PlanTaskSheet({
               waiting={redirect.waiting}
             />
           </section>
+        )}
+        {lastEdit === undefined ? null : (
+          <TaskField label="Last edit">
+            {/* A row of the Files list, so it reads as one and opens the
+                same diff where the Job's patch changed it. */}
+            <ul className="armada-task-sheet__files" aria-label="Last edit">
+              <li>
+                <FilePath path={lastEdit.path} patched={patched} open={file?.path} onFile={onFile} />
+                {lastEdit.says === undefined ? null : <span>{lastEdit.says}</span>}
+              </li>
+            </ul>
+          </TaskField>
         )}
         {tier === undefined || model === undefined ? null : (
           <TaskField label="Model">
@@ -449,12 +491,14 @@ function Acts({
   edit,
   drop,
   propose,
+  stop,
   task,
 }: {
   acts?: PlanTaskActs;
   edit?: PlanTaskEdit;
   drop?: PlanTaskDrop;
   propose?: PlanTaskPropose;
+  stop?: PlanTaskStop;
   task: TaskAsDrawn;
 }) {
   const [open, setOpen] = useState<"edit" | "drop" | "propose" | null>(null);
@@ -492,6 +536,7 @@ function Acts({
             Drop this task
           </Button>
         )}
+        {stop === undefined ? null : <HoldButton size="sm" ground="sunken" {...stop} />}
       </div>
       {edit === undefined || open !== "edit" ? null : <EditForm edit={edit} task={task} onClose={shut} />}
       {propose === undefined || open !== "propose" ? null : (

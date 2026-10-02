@@ -152,16 +152,28 @@ button.armada-chapter__head:focus-visible {
 
 /* Streaming. The running dot, at the size the error treatment's dot already
    uses — a count says how many there are and only this says they are still
-   arriving. Still arriving is still working, so it pulses (#1276): the
-   activity log sheet's keyframes, the same dot at the same size, opacity and
-   scale only, so the meta beside it never shifts. */
+   arriving. Still arriving is still working, so it pulses (#1276): opacity
+   and scale only, so the meta beside it never shifts. The keyframes were the
+   activity log sheet's until that sheet was removed on 2 Oct 2026. */
 .armada-chapter__live {
   flex: none;
   width: var(--dot);
   height: var(--dot);
   border-radius: 50%;
   background: var(--status-running);
-  animation: armada-log-sheet-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-chapter-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-chapter-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
 }
 
 /* The pulse stops. The running hue still says the chapter is live. */

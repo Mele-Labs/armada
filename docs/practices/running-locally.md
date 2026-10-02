@@ -278,6 +278,7 @@ this page on `?scenario=`, which is the reload that puts the window on it.
 | `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes Helm makes on one |
 | `helm-talking` | Helm pointed at a repository, with an answer given about the Job on the Board and a second ask that never came back — the dock's thread, its composer, *Start fresh* and the record's split button, all reachable without building the state in a test |
 | `arc/<moment>` | One moment of the Feature Job the new boards were drawn against, for each moment `ARC_MOMENTS` lists — from an empty prompt to a merge |
+| `proposing-fills-in` | The arc's request in the composer, over a Fleet whose proposer answers: Dispatch mints the Job and `proposal.moved` fills it in a field at a time, as Fleet sends it. `mock/proposer-fleet.ts` |
 | `members/<order>` | Several Jobs landing in order under one parent, the last of them stacked on the one before it or merged into it |
 | `epic/wave` | A wave of Jobs dispatched under one plan, some merged and some still out |
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |

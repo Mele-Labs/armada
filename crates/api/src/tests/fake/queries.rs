@@ -9,11 +9,11 @@
 //! `ipc` alone.
 
 use ipc::{
-    AlertList, CallArguments, CheckOutput, CommandExplained, DroneDetail, DroneId, DroneList,
-    FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence,
-    JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame, ManifestConfig, ManifestDrift,
-    ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices, WorkflowSummary,
-    WorktreesHeld,
+    AlertList, BriefContents, CallArguments, CheckOutput, CommandExplained, DroneDetail, DroneId,
+    DroneList, FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobDrones,
+    JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame, ManifestConfig,
+    ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices,
+    WorkflowSummary, WorktreesHeld,
 };
 
 use super::FakeDaemon;
@@ -522,6 +522,29 @@ impl Queries for FakeDaemon {
             )));
         }
         Ok(shapes::check_output(kept))
+    }
+
+    /// **Fleet's two refusals, word for word**: a Job that is not there, and
+    /// a name the Job's briefs directory does not hold — which is also what
+    /// Fleet answers a name that would leave it. [`shapes::THE_BRIEF`] is the
+    /// one brief the fake holds.
+    async fn get_brief(&self, job_id: JobId, name: String) -> Result<BriefContents, Refusal> {
+        let jobs = self.jobs.lock().expect("not poisoned");
+        if !jobs.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        if name != shapes::THE_BRIEF {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.unacceptable_proposal",
+                format!(
+                    "this Job kept no brief named `{name}`. A brief is named by the last part of \
+                     its `brief_path`, and one whose `.armada/briefs` directory has since been \
+                     reclaimed reaches no file"
+                ),
+                run_id(),
+            )));
+        }
+        Ok(shapes::brief(&name))
     }
 
     /// **The planted log, under its own name, and a refusal for any other.**

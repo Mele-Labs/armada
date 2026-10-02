@@ -154,6 +154,17 @@ export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
 };
 
+/** `land_state`, keyed by the wire value. */
+export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
+  "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "gating": { verb: "gating", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "merging": { verb: "merging", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+  "red": { verb: "red", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "conflict": { verb: "conflict", icon: Unplug, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
+  "stopped": { verb: "stopped", icon: Power, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
+};
+
 /** `advance_gate`, keyed by the wire value. */
 export const ADVANCE_GATE: Readonly<Record<string, Rendering | undefined>> = {
   "auto": { verb: "the checks decide", icon: null, badgeStatus: null, statusToken: null, hint: null },

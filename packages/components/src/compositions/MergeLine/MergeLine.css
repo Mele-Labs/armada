@@ -1,0 +1,213 @@
+/* The merge line, an Overview panel drawn as Overview's own lists are: a
+   border, rounded corners and the card ground, a head with the heading and its
+   fold, and rows under it.
+
+   **One grid for the whole panel.** The body declares the tracks and every
+   list, batch and row borrows them by `subgrid`, so the branch column lines up
+   across the line, a batch and what left the line. The first track is the
+   batch's bracket and nothing else; a row starts in the second. */
+.armada-merge-line {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.armada-merge-line__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.armada-merge-line__heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-merge-line__fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-merge-line__fold:hover {
+  color: var(--fg-default);
+  background: var(--bg-hover);
+}
+
+.armada-merge-line__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Bracket, place, mark, branch, pull request, then what it is doing. The
+   branch carries a floor and grows to its longest name; the detail is the one
+   filler, so slack lands there rather than spreading every value apart. */
+.armada-merge-line__body {
+  display: grid;
+  grid-template-columns:
+    var(--space-1)
+    min-content
+    var(--space-4)
+    minmax(var(--space-12), max-content)
+    min-content
+    minmax(0, 1fr);
+  column-gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-merge-line__list {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-merge-line__rule {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0;
+}
+
+.armada-merge-line__row {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+/* A batch: the bracket in the first track, its rows in the rest. Both sit in
+   the batch's one row, so the bracket stretches to the rows' whole height. */
+.armada-merge-line__batch {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  margin: var(--space-1) 0;
+}
+
+.armada-merge-line__batch > .armada-merge-line__list {
+  grid-column: 2 / -1;
+}
+
+.armada-merge-line__batch > .armada-merge-line__list > .armada-merge-line__row {
+  grid-column: 1 / -1;
+}
+
+.armada-merge-line__bracket {
+  grid-column: 1;
+  align-self: stretch;
+  justify-self: end;
+  width: calc(var(--border-width) * 2);
+  border-radius: var(--radius-sm);
+  /* Neutral: a batch is a grouping, not a state, and a batch's second half
+     can be waiting while its first is gating. */
+  background: var(--border-strong);
+}
+
+/* A figure, machine-derived: mono, muted, right-aligned so 9 and 10 line up. */
+.armada-merge-line__place {
+  justify-self: end;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-merge-line__mark {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+}
+
+.armada-merge-line__mark > svg {
+  flex: none;
+}
+
+.armada-merge-line__branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-merge-line__pr {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.armada-merge-line__pr a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.armada-merge-line__pr a:hover {
+  text-decoration: underline;
+}
+
+.armada-merge-line__detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-merge-line__check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The pulse: circle-dot's inner dot, opacity and scale only, as the running
+   badge does. The ring holds still, so no row shifts. */
+.armada-merge-line__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-merge-line-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-merge-line-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+/* The pulse stops. The running hue still carries the reading. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-merge-line__mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}

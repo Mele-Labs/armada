@@ -524,6 +524,15 @@ what buys the room back. The acts on whatever is currently selected hover over
 that selection instead and come and go with it — that is *The node bar* below,
 and the owner ruled on 28 Sep 2026 that it draws icons too.
 
+**One rail act opens a menu: a Studio's Run**, in what you place, beside Note,
+Link and Sketch. Its press opens what the checkout declares, and the node lands
+where the person is looking. The owner moved it there on 2 Oct 2026 from a card
+at the whiteboard's top-right (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`).
+It draws `zap`, and no chevron, because the menu-trigger mark is kept off a
+trigger with no label. While the Studio is read-only it and the three kinds
+beside it are drawn off with their reason rather than hidden, so the rail is the
+same in both modes.
+
 **This is where an act's tooltip is load-bearing rather than an addition.** An
 icon-only control has no other way to say its name, which is the sanctioned use
 under Tooltip in the parent [Design System](design-system.md) — *what pressing a

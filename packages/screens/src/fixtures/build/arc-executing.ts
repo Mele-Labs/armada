@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { Diff, JobProcess, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, LogFile, Recorded, StepDetail, Turn } from "@armada/protocol";
 import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -19,6 +19,7 @@ import { arcDrones, t6Retry } from "./arc-drones";
 import {
   ARC_APPROVED_AT,
   ARC_BRANCH,
+  ARC_HANDLE,
   ARC_JOB_ID,
   ARC_NOW,
   ARC_WORKTREE,
@@ -42,6 +43,7 @@ import {
 import { ARC_LANDING } from "./arc-dispatch";
 import { ARC_DRONES, arcCases, arcGroups, finished, withGroup, withTask } from "./arc-plan";
 import { arcApproved } from "./arc-proposing";
+import { answered, called, said } from "./base";
 
 const IMPLEMENT_ENTERED = "2026-09-22T09:22:00Z";
 
@@ -51,9 +53,103 @@ function planAdvanced(): StepDetail {
     ...arcAdvanced(arcStep("plan", "Plan the change", 1), "2026-09-22T09:15:00Z", "2026-09-22T09:21:00Z"),
     judge_checks: [{ criteria: 2, gaming_check: false }],
     judged: [
-      { attempt: 1, criterion_id: "a1", verdict: "met" },
-      { attempt: 1, criterion_id: "a2", verdict: "met" },
+      { attempt: 1, criterion_id: "a1", verdict: "met", brief_path: PLAN_BRIEF("a1") },
+      { attempt: 1, criterion_id: "a2", verdict: "met", brief_path: PLAN_BRIEF("a2") },
     ],
+  };
+}
+
+/** Where the plan's Judge brief for one criterion was kept. */
+const PLAN_BRIEF = (criterion: string) => `.armada/briefs/${ARC_HANDLE}/plan.1.${criterion}.md`;
+
+/**
+ * The Drone that wrote the plan. Its id sorts before every task's, as a ULID
+ * minted first does, so Fleet lists its transcript first.
+ */
+const PLAN_DRONE = "01M2D5HKQN001DRONE00PLAN";
+
+/** The transcript of one task's Drone, or the plan's, as the reading lists it. */
+function transcript(task: string, bytes: number | undefined, writing: boolean | undefined): LogFile {
+  return {
+    kind: "transcript",
+    path: `.armada/transcripts/${ARC_HANDLE}/${task === "plan" ? PLAN_DRONE : (ARC_DRONES[task] ?? task)}.jsonl`,
+    ...(bytes === undefined ? {} : { bytes }),
+    ...(writing === undefined ? {} : { being_written: writing }),
+  };
+}
+
+/**
+ * Every file the Job has by group three: its own log and T5's transcript held
+ * open, the plan's and four tasks' finished transcripts, and the plan's two
+ * briefs.
+ *
+ * **T3's would not `stat`**, so it has no size and no answer about a writer:
+ * with no inode to match, Fleet learns neither.
+ */
+function sequentialLogs(): LogFile[] {
+  return [
+    { kind: "job", path: `.armada/logs/${ARC_HANDLE}.jsonl`, bytes: 96_412, being_written: true },
+    transcript("plan", 842_551, false),
+    transcript("T1", 1_288_304, false),
+    transcript("T2", 402_118, false),
+    transcript("T3", undefined, undefined),
+    transcript("T4", 517_930, false),
+    transcript("T5", 611_205, true),
+    { kind: "brief", path: PLAN_BRIEF("a1"), bytes: 14_870, being_written: false },
+    { kind: "brief", path: PLAN_BRIEF("a2"), bytes: 15_032, being_written: false },
+  ];
+}
+
+/**
+ * Each Drone arriving and leaving, as the Job's history records it: the plan's,
+ * then one per task through T5, which is still on `implement`. What names a
+ * transcript row by its step.
+ */
+function sequentialHistory(): Recorded[] {
+  const drones: [string, string, string, string | undefined][] = [
+    ["plan", PLAN_DRONE, "2026-09-22T09:15:00Z", "2026-09-22T09:21:00Z"],
+    ["implement", ARC_DRONES.T1 ?? "T1", "2026-09-22T09:22:00Z", "2026-09-22T09:34:00Z"],
+    ["implement", ARC_DRONES.T2 ?? "T2", "2026-09-22T09:34:00Z", "2026-09-22T09:46:00Z"],
+    ["implement", ARC_DRONES.T3 ?? "T3", "2026-09-22T09:50:00Z", "2026-09-22T09:58:00Z"],
+    ["implement", ARC_DRONES.T4 ?? "T4", "2026-09-22T09:58:00Z", "2026-09-22T10:08:00Z"],
+    ["implement", ARC_DRONES.T5 ?? "T5", "2026-09-22T10:14:00Z", undefined],
+  ];
+  const moves = drones.flatMap(([step, drone, spawned, exited]) => [
+    { step, drone, presence: "drone_spawned", at: spawned },
+    ...(exited === undefined ? [] : [{ step, drone, presence: "drone_exited", at: exited }]),
+  ]);
+  return moves.map((one, seq) => ({
+    seq: seq + 1,
+    status: "running",
+    moved: { kind: "drone", step_id: one.step, drone_id: one.drone, presence: one.presence },
+    actor: "fleet",
+    at: one.at,
+  }));
+}
+
+/** One row of T5's transcript, stamped with its Drone as Fleet stamps it. */
+function byT5(row: Turn): Turn {
+  return { ...row, drone_id: ARC_DRONES.T5 ?? "T5" };
+}
+
+/**
+ * T5 at work in group three: what the observe socket opened with, and the
+ * rows it carries after, which the mock lands one at a time.
+ */
+function t5Transcript(): { opened: Turn[]; arriving: Turn[] } {
+  return {
+    opened: [
+      said("implement", "2026-09-22T10:14:20Z", "Reading the stat to see where the Drone count is drawn."),
+      called("implement", "2026-09-22T10:15:02Z", "call_t5_read", "Read", "packages/screens/src/running-rows.tsx"),
+      answered("implement", "2026-09-22T10:15:03Z", "call_t5_read"),
+      said("implement", "2026-09-22T10:17:40Z", "The rows take the read's lists as they are. Adding the Judge calls row."),
+      called("implement", "2026-09-22T10:18:55Z", "call_t5_edit", "Edit", "packages/screens/src/running-rows.tsx +14 -2"),
+      answered("implement", "2026-09-22T10:18:56Z", "call_t5_edit"),
+    ].map(byT5),
+    arriving: [
+      said("implement", "2026-09-22T10:20:10Z", "Running the screens tests against the new row."),
+      called("implement", "2026-09-22T10:20:12Z", "call_t5_test", "Bash", "armada check screens_test"),
+    ].map(byT5),
   };
 }
 
@@ -88,7 +184,7 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
       owner: ARC_BRANCH,
     })),
     worktrees: [{ path: ARC_WORKTREE, branch: ARC_BRANCH, bytes: 1_020_054_016 }],
-    logs: [{ kind: "job", owner: null, writing: processes.length > 0 }],
+    logs: [{ kind: "job", path: `.armada/logs/${ARC_HANDLE}.jsonl`, owner: null, writing: processes.length > 0 }],
   };
 }
 
@@ -217,6 +313,12 @@ function executing(args: {
   status?: string;
   /** The Job's diff, where this moment serves one. */
   diff?: Diff;
+  /** The files the reading lists, where this moment serves them. */
+  logs?: LogFile[];
+  /** The Job's history, where this moment serves one. */
+  history?: Recorded[];
+  /** What the observe socket opened with, and what it carries after. */
+  transcript?: { opened: Turn[]; arriving: Turn[] };
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -232,12 +334,20 @@ function executing(args: {
     watched: arcWatched(whole),
     workflows: [featureWorkflow()],
     manifests: arcManifests(),
-    observed: { state: "none" },
+    observed:
+      args.transcript === undefined
+        ? { state: "none" }
+        : {
+            state: "watching",
+            jobId: ARC_JOB_ID,
+            turns: { live: true, skipped: 0, missed: 0, rows: args.transcript.opened },
+          },
+    ...(args.transcript === undefined ? {} : { arriving: args.transcript.arriving }),
     journalled: { state: "none" },
     resources: {
       state: "read",
       jobId: ARC_JOB_ID,
-      resources: arcResources(args.processes.length === 0 ? "none" : "running", args.processes),
+      resources: arcResources(args.processes.length === 0 ? "none" : "running", args.processes, args.logs),
     },
     recorded: {
       footprint: { state: "none" },
@@ -246,6 +356,7 @@ function executing(args: {
       diff: args.diff ?? { state: "none" },
       remarks: { state: "none" },
     },
+    ...(args.history === undefined ? {} : { history: { state: "read", jobId: ARC_JOB_ID, moves: args.history } }),
     calls: {},
     checkOutputs: {},
     frames: {},
@@ -341,6 +452,9 @@ export function executingSequential(): ArcMoment {
         groups,
         step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:20:00Z"),
         processes: [droneProcess(52_118, "06:12")],
+        logs: sequentialLogs(),
+        history: sequentialHistory(),
+        transcript: t5Transcript(),
       }),
     ],
     opens: ARC_JOB_ID,

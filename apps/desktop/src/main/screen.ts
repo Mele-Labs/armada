@@ -60,6 +60,7 @@ type Reviewed = {
  * |---|---|---|
  * | The Job whole, `detail` | Every event naming it | Every occasion |
  * | What it holds, `resources` | Every event naming it | Every occasion |
+ * | Every Drone it has had, `drones` | Every event naming it | Every occasion |
  * | Its transition history | Every event naming it, where unfolded | Every occasion |
  * | Its turns, and its own log | Their own sockets | Reopened where down |
  * | What its Drones claimed, and the patch | The surface that draws it, asking | On a reconnection where it is showing a failure; on Refresh always |
@@ -87,6 +88,7 @@ type Reviewed = {
 export type Screen = {
   detail: Region;
   resources: Region;
+  drones: Region;
   history: Region;
   turns: Channel;
   notes: Channel;
@@ -171,6 +173,9 @@ export async function takeAgain(port: number, again: Again, screen: Screen): Pro
     // the board's and not the Job's, so the process table is walked only while
     // somebody is looking at it.
     mine(screen.resources.jobId) ? screen.resources.again(port) : undefined,
+    // A Drone spawning or exiting is an event naming the Job, and a running
+    // one's turns and cost move as its invocations end.
+    mine(screen.drones.jobId) ? screen.drones.again(port) : undefined,
     // A history that is unfolded grows as the Job moves, so the move that was
     // just delivered is read back rather than left off the end of the list.
     mine(screen.history.jobId) ? screen.history.again(port) : undefined,

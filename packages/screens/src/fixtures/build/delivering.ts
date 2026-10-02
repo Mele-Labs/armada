@@ -30,6 +30,7 @@ import {
   diffRead,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   holdsRead,
   instructed,
@@ -180,7 +181,7 @@ export function reviewAtDelivery(): JobFixture {
       note("2026-09-10T14:27:03Z", "Pull request opened against main.", { step: "land" }),
       note("2026-09-10T14:27:12Z", "Step complete. The workflow asks for a person here.", { step: "land" }),
     ]),
-    resources: holdsRead(resources("none", { processes: [], wrote_last_at: "2026-09-10T14:27:12.000Z" })),
+    resources: holdsRead(resources("none", { processes: [], wrote_last_at: "2026-09-10T14:27:12.000Z", logs: droneLogs(false) })),
     recorded: foldedReads({
       evidence: evidenceRead([
         {
@@ -310,7 +311,7 @@ export function reviewAfterAnOverrule(): JobFixture {
       ),
       note("2026-09-10T14:27:03Z", "Pull request opened against main.", { step: "land" }),
     ]),
-    resources: holdsRead(resources("none", { processes: [], wrote_last_at: "2026-09-10T14:27:12.000Z" })),
+    resources: holdsRead(resources("none", { processes: [], wrote_last_at: "2026-09-10T14:27:12.000Z", logs: droneLogs(false) })),
     // **A read holding no remark**, not an absent read: this pull request has
     // no comments on it, and leaving the read out draws *Reading what people
     // wrote* over a fetch nothing is doing.
