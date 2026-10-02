@@ -40,9 +40,7 @@ export type SheetSide = "right" | "left";
  * a column: `wide` is `4i`'s 62% and `widest` is `4j`'s 76%, which is the file
  * rail plus a patch line that does not wrap.
  *
- * `default` is the sheet the component sheet already drew, at `--w-sheet`.
- * `dock` is Helm's dock width, `--w-dock` — where Plan's panels rest, beside
- * the graph they were opened from.
+ * `default` is `--w-sheet`, as the component sheet drew it; `dock`, `--w-dock`.
  *
  * `reading` is the run sheet's own, at 88% — Journey 9, running a Manifest
  * entry against a real Fleet. Nick's own note, watching it work: it opened far
