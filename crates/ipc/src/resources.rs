@@ -178,7 +178,7 @@ pub struct LogFile {
 }
 
 /// One kept brief's contents — what a Judge or a gaming check was asked — read
-/// back into the app. `get_brief`'s answer, since 21.10.
+/// back into the app. `get_brief`'s answer, since 21.11.
 ///
 /// **The head, where [`CheckOutput`](crate::CheckOutput) keeps the tail.** A
 /// test runner prints its failures last; a brief states the criterion first and

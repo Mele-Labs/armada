@@ -28,8 +28,7 @@ import type { ReactNode } from "react";
  * `315 passed`.
  *
  * **Following is a state of this component and pauses on a scroll.** A stream
- * that scrolls itself cannot be read — the same rule `ActivityLogSheet` holds
- * one layer out, spelled the same way.
+ * that scrolls itself cannot be read.
  */
 
 /** One row of the reading: a line of the file, or a fold standing for many. */

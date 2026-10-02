@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CircleDot } from "lucide-react";
 import { Prose } from "../../primitives/Prose/Prose";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
 import { firstOf, leadOf, runs, type CardEntry, type Member } from "./runs";
 import { tokensOf, tokensSaid, type Thought } from "./thought";
@@ -264,21 +265,28 @@ type QuietRunProps = {
 };
 
 /**
- * A run of quiet rows as one line: `Thinking`, or `Working` while it is the
- * live tail, and the tokens its rows added where any carries a count.
+ * A run of quiet rows as one line: the mark, pulsing while it is the live tail,
+ * and the tokens its rows added where any carries a count. **The state is the
+ * mark's and never a word on the line** (the owner, 2 Oct 2026: *"I hate text
+ * over icons"*): `Thinking`, or `Working` while live, is its tooltip and its
+ * name to a screen reader.
  *
  * **No count of the rows.** The rows are not drawn, so a figure beside them
  * would count nothing the reader can see; the token total is what they cost.
  */
 function QuietRun({ turns, working }: QuietRunProps) {
   const tokens = tokensOf(turns.map((turn) => turn.thought));
+  const said = working ? "Working" : "Thinking";
   return (
     <li className="armada-turns__turn" data-quiet title={turns[0].at}>
-      <span className="armada-turns__mark" data-working={working || undefined}>
-        <CircleDot size={MARK} strokeWidth={MARK_STROKE} aria-hidden />
-      </span>
+      {/* Pointer only: the word is beside it for a screen reader, so no tab stop. */}
+      <Tooltip asChild decorative label={said}>
+        <span className="armada-turns__mark" data-working={working || undefined} aria-hidden>
+          <CircleDot size={MARK} strokeWidth={MARK_STROKE} />
+        </span>
+      </Tooltip>
       <span className="armada-turns__quiet-body">
-        <span className="armada-turns__thought">{working ? "Working" : "Thinking"}</span>
+        <span className="armada-turns__thought">{said}</span>
         {tokens === undefined ? null : <span className="armada-turns__figure">{tokensSaid(tokens)}</span>}
       </span>
     </li>

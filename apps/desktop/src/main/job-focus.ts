@@ -10,6 +10,7 @@
 import type { BridgeState } from "../shared/bridge";
 import type {
   JobDetail,
+  JobDrones,
   JobExamined,
   JobHistory,
   JobResources,
@@ -68,6 +69,15 @@ export class JobFocus {
    * around it. So the surface that draws it says when it wants one.
    */
   private readonly history: JobReader<{ moves: Recorded[] }>;
+  /**
+   * Every Drone the open Job has had, off its record rather than the roster.
+   *
+   * **Opened by `watchJob` rather than a preload call of its own**: it is the
+   * Job's, opened and closed with it, and re-read on every event naming it — a
+   * Drone spawning or exiting is one — so a capability the renderer could call
+   * on its own would add nothing it needs.
+   */
+  private readonly drones: JobReader<{ drones: JobDrones }>;
 
   constructor(wiring: JobFocusWiring) {
     this.wiring = wiring;
@@ -90,6 +100,13 @@ export class JobFocus {
       // what says how old it is.
       keepsLastGood: true,
       publish: (resources) => wiring.publish({ resources }),
+    });
+    this.drones = new JobReader<{ drones: JobDrones }>({
+      route: (jobId) => `/jobs/${encodeURIComponent(jobId)}/drones`,
+      keeps: (body) => ({ drones: body as JobDrones }),
+      // A blanked list reads as a Job that never had a Drone.
+      keepsLastGood: true,
+      publish: (jobDrones) => wiring.publish({ jobDrones }),
     });
     this.history = new JobReader<{ moves: Recorded[] }>({
       // **The rows are carried, never folded.** `crates/store/src/fold.rs` owns
@@ -122,7 +139,10 @@ export class JobFocus {
     if (handed.state === "heard" && handed.jobId !== jobId) {
       this.wiring.publish({ handed: { state: "none" } });
     }
-    await this.watched.want(this.wiring.port(), jobId);
+    await Promise.all([
+      this.watched.want(this.wiring.port(), jobId),
+      this.drones.want(this.wiring.port(), jobId),
+    ]);
   }
 
   /**
@@ -218,6 +238,7 @@ export class JobFocus {
     return takeAgain(port, again, {
       detail: this.watched,
       resources: this.resources,
+      drones: this.drones,
       history: this.history,
       turns: this.wiring.turns,
       notes: this.wiring.notes,

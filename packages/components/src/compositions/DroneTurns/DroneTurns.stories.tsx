@@ -4,6 +4,13 @@ import { DroneTurns, type DroneTurn } from "./DroneTurns";
 import { NOTHING_YET, thinking } from "./DroneTurns.fixtures";
 
 /**
+ * What a screen reader is told, leaving out the tooltip's bubble, which is
+ * hidden from it. A thinking run's state is its mark's name and its tooltip,
+ * never a word on the line (the owner, 2 Oct 2026).
+ */
+const SPOKEN = { ignore: "script, style, [aria-hidden], [aria-hidden] *" };
+
+/**
  * One Drone's turns, read while it is still working.
  *
  * **A card per speaker.** Consecutive rows from one of the activity log's three
@@ -152,7 +159,7 @@ export const ToolCallsReadAsAQuietBlock: Story = {
     await expect(reads?.getAllByRole("listitem")).toHaveLength(2);
     // Three calls and the thinking between them, which does not split the block.
     await expect(edits?.getAllByRole("listitem")).toHaveLength(4);
-    await expect(edits?.getByText("Thinking")).toBeVisible();
+    await expect(edits?.getByText("Thinking", SPOKEN)).toBeInTheDocument();
     await expect(edits?.getByText("Failed.")).toBeVisible();
     await expect(edits?.getByText(/^Refused:/)).toBeVisible();
     // Sentences and the closing line are never inside a block.
@@ -164,7 +171,8 @@ export const ToolCallsReadAsAQuietBlock: Story = {
 /**
  * A thinking run is one row with the tokens its rows added (the owner, 29 Sep
  * 2026): no count of rows nobody can open, no control to open them, and never
- * the wire's kind. While it is the live tail it reads `Working` instead.
+ * the wire's kind. Its mark is named `Thinking`; while it is the live tail it
+ * pulses and is named `Working` instead.
  */
 export const ThinkingInWords: Story = {
   args: {
@@ -181,7 +189,7 @@ export const ThinkingInWords: Story = {
   play: async ({ canvas }) => {
     const block = within(canvas.getByRole("list", { name: "Tool calls" }));
     await expect(block.getAllByRole("listitem")).toHaveLength(4); // two calls, two runs of one row each
-    await expect(block.getAllByText("Thinking")).toHaveLength(2);
+    await expect(block.getAllByText("Thinking", SPOKEN)).toHaveLength(2);
     await expect(block.getByText("~1,300 tokens")).toBeVisible();
     await expect(canvas.queryByRole("button")).toBeNull();
     await expect(canvas.queryByText(/turns?\b/)).toBeNull();
@@ -189,12 +197,13 @@ export const ThinkingInWords: Story = {
   },
 };
 
-/** The same run while a Drone writes: only its tail says `Working`. */
+/** The same run while a Drone writes: only its tail is named `Working`. */
 export const ThinkingWhileLive: Story = {
   args: { ...ThinkingInWords.args, live: true },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Thinking")).toBeVisible();
-    await expect(canvas.getByText("Working").closest("li")).toHaveTextContent(/^Working~830 tokens$/);
+    await expect(canvas.getByText("Thinking", SPOKEN)).toBeInTheDocument();
+    const tail = canvas.getByText("Working", SPOKEN).closest("li");
+    await expect(tail).toContainElement(canvas.getByText("~830 tokens"));
   },
 };
 
