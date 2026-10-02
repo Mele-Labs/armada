@@ -17,6 +17,7 @@ import type {
   CheckOutput,
   JobDetail as WireDetail,
   JobDiff,
+  JobDrones,
   JobEvidence,
   JobHistory,
   JobRead,
@@ -48,7 +49,10 @@ export type Recording = {
   recorded_at: string;
   now: number;
   summary: JobSummary;
-  reads: Record<"detail" | "resources" | "events" | "evidence" | "diff" | "remarks", Answered>;
+  reads: Record<"detail" | "resources" | "events" | "evidence" | "diff" | "remarks", Answered> & {
+    /** `list_job_drones`. Absent on a recording made before the recorder read it. */
+    drones?: Answered;
+  };
   workflows: Answered;
   manifests: Answered;
   observe: Streamed<TurnMessage>;
@@ -87,6 +91,13 @@ export function replayed(recording: Recording): JobFixture {
     history: read(jobId, at("/events"), reads.events, (body) => ({
       moves: (body as JobHistory).moves,
     })),
+    ...(reads.drones === undefined
+      ? {}
+      : {
+          jobDrones: read(jobId, at("/drones"), reads.drones, (body) => ({
+            drones: body as JobDrones,
+          })),
+        }),
     recorded: {
       // Pushed on the board's socket as `job.files_changed` and never read, and
       // only while the Job is open. A recording opens the Job after the fact,
