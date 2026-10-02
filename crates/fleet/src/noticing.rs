@@ -29,7 +29,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Delivery, Landing, Mergeable, RepositoryStanding, UnderReview, Vcs,
+    AgentHarness, Delivery, Landing, Mergeable, Remark, RepositoryStanding, UnderReview, Vcs,
     WhatBecameOfIt, WorkProduct,
 };
 use core_model::{Component, Envelope, FieldValue, JobId, Level, Timestamp};
@@ -231,10 +231,15 @@ where
                 // **The one state in which the second question means
                 // anything**, on the turn the rotation had already reached this
                 // Job — never a loop of its own. `crate::under_review`.
-                let reviewed = self.read_what_is_under_review(&asking.job_id, url).await;
+                let (reviewed, on_lines) =
+                    match self.read_what_is_under_review(&asking.job_id, url).await {
+                        Some((reviewed, on_lines)) => (Some(reviewed), on_lines),
+                        None => (None, None),
+                    };
+                let comments = comments_counted(reviewed.as_ref(), on_lines.as_deref());
                 // **Cached on the same turn that read it**, so `get_job` never
                 // asks the forge itself — see [`Sweep::pr_detail`].
-                self.remembered(&asking.job_id, url, &read, reviewed.as_ref())
+                self.remembered(&asking.job_id, url, &read, reviewed.as_ref(), comments)
                     .await;
                 return Ok(None);
             }
@@ -377,6 +382,7 @@ where
         url: &str,
         read: &WhatBecameOfIt,
         reviewed: Option<&UnderReview>,
+        comments: Option<u32>,
     ) {
         // **Read after `kept_current`, on the same turn.** Whatever this
         // call's own attempt just wrote is what a person is shown next, not
@@ -387,11 +393,7 @@ where
         // **Kept, where the reading below is only remembered**, so the title
         // and the count outlive the merge and a restart. A write that fails
         // costs one rotation: the next read writes the same two again.
-        let _ = store.record_pull_request_read(
-            job_id,
-            read.title.as_deref(),
-            reviewed.map(|reviewed| u32::try_from(reviewed.remarks.len()).unwrap_or(u32::MAX)),
-        );
+        let _ = store.record_pull_request_read(job_id, read.title.as_deref(), comments);
         let currency = store.kept_current_for(job_id).ok().and_then(|kept| {
             let onto = kept.onto?;
             Some(ipc::Currency {
@@ -545,4 +547,15 @@ where
         }));
         Ok(())
     }
+}
+
+/// How many comments the pull request's card shows: the conversation and the
+/// reviews that say something, plus the comments left on lines of the diff.
+///
+/// **`None` unless both answered**, so the last count is kept. Counting only
+/// the half that answered would show a number smaller than the forge's, and
+/// smaller than the one shown a turn before.
+fn comments_counted(reviewed: Option<&UnderReview>, on_lines: Option<&[Remark]>) -> Option<u32> {
+    let counted = reviewed?.remarks.len().saturating_add(on_lines?.len());
+    Some(u32::try_from(counted).unwrap_or(u32::MAX))
 }

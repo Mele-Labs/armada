@@ -2343,12 +2343,14 @@ with, and again on every read of the forge, the settling read included, so a tit
 forge replaces it. Absent means no read has named it: a pull request opened before 23.5 and not read
 since.
 
-**`pull_request_comments`** is the count the sweep's read finds while the pull request is open:
-conversation comments plus reviews that say something. A comment on one line of the diff is not
-counted, because that is the second query only `get_remarks` asks. **Absent is unknown, never 0**:
-the pull request settled before the rotation reached it open. Opening a new pull request clears it.
+**`pull_request_comments`** is the count the sweep reads while the pull request is open, matching
+what the forge shows: conversation comments, reviews that say something, and comments on lines of
+the diff. The line comments cost one more forge call on a sweep turn that finds the pull request open,
+the owner's call on 2 Oct 2026; the wire shape did not change, so there was no version bump. A turn
+where either read goes unanswered keeps the last count. **Absent is unknown, never 0**: the pull
+request settled before the rotation reached it open. Opening a new pull request clears it.
 
-**No forge call on a Job read.** Both are written on reads Fleet already makes. **Store V96** keeps
+**No forge call on a Job read.** Both are written by the sweep and by opening the pull request. **Store V96** keeps
 them, in two `jobs` columns.
 
 ## Protocol 23.6: a model per task, and a person's edit to a task

@@ -28,7 +28,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{Hash, Hasher};
 
 use adapter_traits::{
-    AgentHarness, Delivery, UnderReview, Vcs, WhatPeopleSaid, WhatTheForgeRan, WorkProduct,
+    AgentHarness, Delivery, Remark, UnderReview, Vcs, WhatPeopleSaid, WhatTheForgeRan, WorkProduct,
 };
 use core_model::{Actor, Component, Envelope, FieldValue, JobId, Level};
 
@@ -66,7 +66,8 @@ impl AsItStood {
 pub(crate) type Standings = BTreeMap<String, AsItStood>;
 
 /// What would tell Bridge to re-ask `get_remarks`: every remark's handle, a
-/// hash of its words, and every reviewer's verdict. `#661`.
+/// hash of its words, and every reviewer's verdict, with the comments on lines
+/// of the diff read the same way. `#661`.
 ///
 /// **A stronger comparison than [`AsItStood`], and a separate one rather than
 /// a replacement of it.** That one carries a count because the log line it
@@ -93,21 +94,19 @@ pub(crate) struct RemarkSignature {
     remarks: BTreeMap<String, u64>,
     /// Every reviewer's verdict, by who gave it.
     verdicts: BTreeSet<(String, &'static str)>,
+    /// The comments on lines of the diff, the same way as `remarks`. **`None`
+    /// is a forge that has not answered that read yet**, which is not "none":
+    /// it compares equal to anything, so a silence never wakes Bridge.
+    on_lines: Option<BTreeMap<String, u64>>,
 }
 
 impl RemarkSignature {
-    fn of(read: &UnderReview) -> RemarkSignature {
+    /// `on_lines` is `None` where the line-comment read went unanswered; the
+    /// caller carries the last answer over with [`RemarkSignature::or_kept`].
+    fn of(read: &UnderReview, on_lines: Option<&[Remark]>) -> RemarkSignature {
         RemarkSignature {
-            remarks: read
-                .remarks
-                .iter()
-                .map(|remark| {
-                    (
-                        remark.id.as_written().to_string(),
-                        hashed(remark.said.as_written()),
-                    )
-                })
-                .collect(),
+            remarks: signed(&read.remarks),
+            on_lines: on_lines.map(signed),
             verdicts: read
                 .verdicts
                 .iter()
@@ -120,6 +119,41 @@ impl RemarkSignature {
                 .collect(),
         }
     }
+}
+
+impl RemarkSignature {
+    /// This reading, with the last line-comment answer kept where this turn's
+    /// went unanswered, so a silence neither erases it nor counts as a change.
+    fn or_kept(mut self, previous: Option<&RemarkSignature>) -> RemarkSignature {
+        if self.on_lines.is_none() {
+            self.on_lines = previous.and_then(|previous| previous.on_lines.clone());
+        }
+        self
+    }
+
+    /// Whether anything Bridge shows moved. Line comments count only where
+    /// both readings had an answer for them: the first answer after a silence
+    /// is a baseline, for the reason the first sweep's reading is one.
+    fn moved_from(&self, previous: &RemarkSignature) -> bool {
+        let lines_moved = match (&self.on_lines, &previous.on_lines) {
+            (Some(now), Some(before)) => now != before,
+            _ => false,
+        };
+        self.remarks != previous.remarks || self.verdicts != previous.verdicts || lines_moved
+    }
+}
+
+/// Every remark's handle and a hash of its body.
+fn signed(remarks: &[Remark]) -> BTreeMap<String, u64> {
+    remarks
+        .iter()
+        .map(|remark| {
+            (
+                remark.id.as_written().to_string(),
+                hashed(remark.said.as_written()),
+            )
+        })
+        .collect()
 }
 
 /// A comment's words, reduced to a number that changes when they do. Not a
@@ -149,11 +183,16 @@ where
     /// for a stronger version of its reason: the Job finished, it is holding
     /// at a human gate, and no answer here moves it. A forge that would not
     /// answer is `None`, one silence and another sweep.
+    ///
+    /// **The comments on lines of the diff ride along**, one more forge call
+    /// asked only once `under_review` answered: they go into the card's count
+    /// and into the signature that wakes Bridge. The inner `None` is that
+    /// second read going unanswered.
     pub(crate) async fn read_what_is_under_review(
         &self,
         job: &JobId,
         url: &str,
-    ) -> Option<UnderReview> {
+    ) -> Option<(UnderReview, Option<Vec<Remark>>)> {
         let served = self.served_by_id(job).ok()?;
         let read = self.vcs().under_review(served.root(), url);
         // **A forge that would not answer changes nothing that was already
@@ -190,18 +229,20 @@ where
         // pull request — nothing to compare against, so it is recorded and
         // not reported, which is what keeps a Fleet that just started from
         // publishing one of these for every open pull request it holds.
-        let signature = RemarkSignature::of(&read);
+        let on_lines = self.vcs().inline_remarks(served.root(), url);
         let commented = {
             let mut sweeping = self.sweeping().lock().await;
+            let signature = RemarkSignature::of(&read, on_lines.as_deref())
+                .or_kept(sweeping.commented.get(url));
             let baseline = sweeping
                 .commented
                 .insert(url.to_string(), signature.clone());
-            matches!(baseline, Some(previous) if previous != signature)
+            matches!(baseline, Some(previous) if signature.moved_from(&previous))
         };
         if commented {
             self.published_remarks_changed(job).await;
         }
-        Some(read)
+        Some((read, on_lines))
     }
 
     /// Tell Bridge this Job's pull request comments changed, so a person
