@@ -24,10 +24,10 @@ const TURN = "docs/wire-lock-signed";
 
 const LINE: MergeLineEntry[] = [
   { place: 1, branch: "fleet/helm-kills-processes", state: "waiting" },
-  { place: 2, branch: "docs/wire-lock-signed", state: "gating", batch: TURN, doing: "reading verify-foundations against main" },
-  { place: 3, branch: "worktree-agent-aef3c24792026e2c3", state: "gating", batch: TURN, doing: "reading verify-foundations against main" },
-  { place: 4, branch: "worktree-agent-a0087811ec86c6d80", state: "gating", batch: TURN, doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
-  { place: 5, branch: "fleet/gate-policy-every-run", state: "gating", batch: TURN, doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
+  { place: 2, branch: "docs/wire-lock-signed", state: "preparing", batch: TURN, doing: "reading verify-foundations against main" },
+  { place: 3, branch: "worktree-agent-aef3c24792026e2c3", state: "preparing", batch: TURN, doing: "reading verify-foundations against main" },
+  { place: 4, branch: "worktree-agent-a0087811ec86c6d80", state: "preparing", batch: TURN, doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
+  { place: 5, branch: "fleet/gate-policy-every-run", state: "preparing", batch: TURN, doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
   { place: 6, branch: "fleet/read-in-cluster-membership", pr: { number: 1770, url: `${PULL}1770` }, state: "waiting" },
 ];
 
@@ -62,10 +62,10 @@ export const InLine: Story = {
     const batch = canvas.getByRole("list", { name: "Batch" });
     const members = within(batch).getAllByRole("listitem");
     await expect(members.map((one) => one.getAttribute("aria-label"))).toEqual([
-      "docs/wire-lock-signed, Running Checks before landing",
-      "worktree-agent-aef3c24792026e2c3, Running Checks before landing",
-      "worktree-agent-a0087811ec86c6d80, Running Checks before landing",
-      "fleet/gate-policy-every-run, Running Checks before landing",
+      "docs/wire-lock-signed, Preparing to land",
+      "worktree-agent-aef3c24792026e2c3, Preparing to land",
+      "worktree-agent-a0087811ec86c6d80, Preparing to land",
+      "fleet/gate-policy-every-run, Preparing to land",
     ]);
     await expect(within(batch).queryByText("fleet/helm-kills-processes")).toBeNull();
     await expect(within(batch).queryByText("fleet/read-in-cluster-membership")).toBeNull();
@@ -85,8 +85,8 @@ export const Off: Story = {
     const sent = canvas.getByRole("list", { name: "Sent back" });
     await expect(within(sent).queryByText("bridge/land-board-reads-plainly")).toBeNull();
     await expect([...sent.querySelectorAll(":scope > li")].map((one) => one.getAttribute("aria-label"))).toEqual([
-      "fleet/pulse-log-rows, red",
-      "fleet/drone-quiet-window, red",
+      "fleet/pulse-log-rows, Checks failed",
+      "fleet/drone-quiet-window, Checks failed",
       "bridge/overview-strip-width, conflict",
       "fleet/drone-quiet-limit, stopped",
     ]);
@@ -157,7 +157,7 @@ export const InItsChecks: Story = {
           { name: "desktop_test", state: "waiting" },
         ],
       },
-      { place: 2, branch: "fleet/gate-policy-every-run", state: "gating", doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
+      { place: 2, branch: "fleet/gate-policy-every-run", state: "preparing", doing: "merging main (c527f60e09) into fleet/gate-policy-every-run" },
     ],
   },
   play: async ({ canvas }) => {

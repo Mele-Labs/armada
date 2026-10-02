@@ -260,8 +260,25 @@
 }
 
 /* The pulse stops. The running hue still carries the reading. */
+/* Preparing's hammer has no inner dot, so the whole mark breathes, opacity
+   alone so nothing beside it moves. */
+.armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg {
+  animation: armada-merge-line-breathe var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-merge-line-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .armada-merge-line__mark[data-pulsing] > svg > circle + circle {
+  .armada-merge-line__mark[data-pulsing] > svg > circle + circle,
+  .armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg {
     animation: none;
   }
 }

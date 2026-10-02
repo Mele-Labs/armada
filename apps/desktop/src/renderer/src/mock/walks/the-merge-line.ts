@@ -15,6 +15,10 @@ export const theMergeLine = walk("merge-line", [
   { look: inside(ARMADA, role("img", "waiting")), say: "Waiting: its place, the mark, the branch" },
   { look: inside(ARMADA, role("list", "Batch")), say: "Places 2 to 5 gate as one batch" },
   {
+    look: inside(ARMADA, role("img", "Preparing to land")),
+    say: "Preparing to land: no Check has run yet; hover names it",
+  },
+  {
     look: inside(ARMADA, role("img", "Running Checks before landing")),
     say: "Running Checks before landing pulses; hover names it",
   },
@@ -26,10 +30,10 @@ export const theMergeLine = walk("merge-line", [
   { look: inside(ARMADA, role("link", "#1770")), say: "Its pull request" },
   { look: inside(ARMADA, role("list", "Recently landed")), say: "Recently landed: the newest three" },
   { look: inside(ARMADA, text("007088d7ea")), say: "Each with its merge commit" },
-  { look: inside(ARMADA, role("list", "Sent back")), say: "Sent back: red, conflict or stopped" },
+  { look: inside(ARMADA, role("list", "Sent back")), say: "Sent back: Checks failed, conflict or stopped" },
   {
     look: inside(inside(ARMADA, role("listitem", "fleet/pulse-log-rows")), region("Checks")),
-    say: "Red, with its Checks open on the ones that failed",
+    say: "Checks failed: the strip opens on the ones that did",
   },
   {
     look: inside(ARMADA, role("listitem", "bridge/overview-strip-width")),

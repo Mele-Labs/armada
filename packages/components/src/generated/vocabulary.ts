@@ -12,7 +12,7 @@
 // one is listed in `GAPS` so a surface can say what it could not render instead
 // of inventing copy for it.
 
-import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileCheck, FileQuestionMark, Flag, Link, Megaphone, Minus, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
+import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileCheck, FileQuestionMark, Flag, Hammer, Link, Megaphone, Minus, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** How one variant reads. `null` where the registry carries no answer. */
@@ -168,9 +168,10 @@ export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
 export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "gating": { verb: "Running Checks before landing", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
-  "merging": { verb: "merging", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "preparing": { verb: "Preparing to land", icon: Hammer, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "merging": { verb: "Pushing onto main", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
-  "red": { verb: "red", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "red": { verb: "Checks failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "conflict": { verb: "conflict", icon: Unplug, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "stopped": { verb: "stopped", icon: Power, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
 };

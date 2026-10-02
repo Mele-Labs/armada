@@ -4,7 +4,7 @@ import { ChevronDown, ShieldCheck, ShieldMinus, ShieldX, type LucideIcon } from 
 import { ConceptLabel } from "../../concepts";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { GuideMark } from "../GuideMark/GuideMark";
-import { GUIDE_GROUP_BOUNDARY } from "../../guides";
+import type { Guide } from "../../guides/guide";
 import { RowLink } from "../RowLink/RowLink";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
 
@@ -68,6 +68,8 @@ export type GroupBoundaryProps = {
   /** The commit the group left. Absent until it left one. */
   commit?: string;
   tests?: readonly GroupBoundaryTest[];
+  /** The `?` beside the Checks label. A plan group passes guide 5; the merge line passes none. */
+  guide?: Guide;
 };
 
 /** A Check's reading, on the bar's own segment grammar. */
@@ -212,6 +214,7 @@ export function GroupBoundary({
   retrySays,
   commit,
   tests = [],
+  guide,
 }: GroupBoundaryProps) {
   const failed = checks.some((check) => check.reads === "failed");
   const [checksOpen, setChecksOpen] = useState(failed);
@@ -231,8 +234,8 @@ export function GroupBoundary({
         ) : (
           <Strip
             label="Checks"
-            // What a boundary is. The one Armada word here, so the one mark.
-            guide={<GuideMark guide={GUIDE_GROUP_BOUNDARY} />}
+            // What a boundary is, where the caller has a guide for it.
+            guide={guide === undefined ? undefined : <GuideMark guide={guide} />}
             segments={checks.map((check) => SEGMENT[check.reads])}
             chips={
               <>

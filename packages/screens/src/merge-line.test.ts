@@ -27,7 +27,7 @@ describe("the merge line Fleet serves", () => {
         {
           branch: "docs/wire-lock-signed",
           place: 2,
-          state: "gating",
+          state: "preparing",
           doing: "reading verify-foundations against main",
           batch: "docs/wire-lock-signed",
         },
@@ -45,7 +45,7 @@ describe("the merge line Fleet serves", () => {
         {
           branch: "fleet/gate-policy-every-run",
           place: 4,
-          state: "gating",
+          state: "preparing",
           doing: "merging main (c527f60e09) into fleet/gate-policy-every-run",
           batch: "docs/wire-lock-signed",
         },
@@ -76,6 +76,18 @@ describe("the merge line Fleet serves", () => {
         },
       ],
     }]);
+  });
+
+  test("a turn that has run no Check yet reads as preparing, and one in its Checks as gating", () => {
+    const [one] = views(SERVED, "/repo");
+    expect(one?.line.map((row) => [row.branch, row.state])).toEqual([
+      ["fleet/helm-kills-processes", "waiting"],
+      ["docs/wire-lock-signed", "preparing"],
+      ["worktree-agent-a", "gating"],
+      ["fleet/gate-policy-every-run", "preparing"],
+      ["fleet/push-the-base", "merging"],
+      ["fleet/read-in-cluster-membership", "waiting"],
+    ]);
   });
 
   test("a picked repository draws its own line, unnamed, and one without a line draws none", () => {

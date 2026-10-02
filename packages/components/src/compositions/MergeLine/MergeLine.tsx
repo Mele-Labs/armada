@@ -19,7 +19,16 @@ import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } 
  * all three empty the panel draws a picture and no words, the owner's one
  * exception to the empty-state rule, 2 Oct 2026.
  */
-export type MergeLineState = "waiting" | "gating" | "merging" | "landed" | "red" | "conflict" | "stopped";
+/** `preparing` is Bridge's own: a `gating` turn that has run no Check yet. */
+export type MergeLineState =
+  | "waiting"
+  | "preparing"
+  | "gating"
+  | "merging"
+  | "landed"
+  | "red"
+  | "conflict"
+  | "stopped";
 
 export type MergeLineEntry = {
   branch: string;
@@ -67,7 +76,7 @@ export type MergeLineProps = {
 const HEADING = "Merge line";
 
 /** The states the runner is working in. Their mark pulses. */
-const LIVE: ReadonlySet<MergeLineState> = new Set(["gating", "merging"]);
+const LIVE: ReadonlySet<MergeLineState> = new Set(["preparing", "gating", "merging"]);
 
 /** 12px at strokeWidth 2, the badge's own geometry. */
 const MARK = 12;
@@ -204,6 +213,7 @@ function Entry({
         <span
           className="armada-merge-line__mark"
           data-pulsing={LIVE.has(entry.state) || undefined}
+          data-state={entry.state}
           style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
           role="img"
           aria-label={said}

@@ -57,12 +57,21 @@ function nameOf(root: string, repositories: readonly RepositorySummary[]): strin
   return served === undefined ? root : repositoryLabel(served, repositories);
 }
 
+/**
+ * The state a row draws. **A turn that has run no Check yet is `preparing`**, Bridge's own: Fleet
+ * serves `gating` for the whole turn, and its Check list is what tells the two parts apart.
+ */
+function stateOf(row: MergeLineRow): MergeLineState {
+  if (row.state === "gating" && (row.checks ?? []).length === 0) return "preparing";
+  return row.state as MergeLineState;
+}
+
 function entryOf(row: MergeLineRow): MergeLineEntry {
   return {
     branch: row.branch,
     place: row.place,
     pr: row.pull_request,
-    state: row.state as MergeLineState,
+    state: stateOf(row),
     doing: row.doing,
     batch: row.batch,
     merge: row.merge_commit?.slice(0, SHORT),
