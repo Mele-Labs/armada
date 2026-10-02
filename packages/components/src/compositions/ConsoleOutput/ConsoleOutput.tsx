@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import { TextWrap } from "lucide-react";
+
+import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Console output — a Check's own stdout, read where the Check is.
@@ -29,6 +33,12 @@ import type { ReactNode } from "react";
  *
  * **Following is a state of this component and pauses on a scroll.** A stream
  * that scrolls itself cannot be read.
+ *
+ * **A line never wraps unless the reader asks.** A transcript's line is a unit,
+ * so a long one scrolls sideways under its pinned number. `wrap` is the asking:
+ * the reader's own toggle (`ConsoleWrapToggle`) or a reading that is prose
+ * first, like a kept brief, which opens wrapped (owner, 2 Oct 2026). A wrapped
+ * line keeps its one number and its own spacing; only where it breaks moves.
  */
 
 /** One row of the reading: a line of the file, or a fold standing for many. */
@@ -125,6 +135,11 @@ export type ConsoleOutputProps = {
   following?: boolean;
   /** What a reading with nothing in it says. Never an empty frame. */
   emptyNote?: ReactNode;
+  /**
+   * Break a line longer than the column instead of scrolling it sideways.
+   * Off unless the reader asks, which is the rule above.
+   */
+  wrap?: boolean;
 };
 
 export function ConsoleOutput({
@@ -133,10 +148,15 @@ export function ConsoleOutput({
   tools,
   following = false,
   emptyNote,
+  wrap = false,
 }: ConsoleOutputProps) {
   const bar = region === undefined ? null : <Region region={region} />;
   return (
-    <div className="armada-console" data-following={following ? "true" : undefined}>
+    <div
+      className="armada-console"
+      data-following={following ? "true" : undefined}
+      data-wrap={wrap ? "true" : undefined}
+    >
       {tools === undefined ? null : <Tools tools={tools} />}
       {following ? null : bar}
       {rows.length === 0 ? (
@@ -236,5 +256,23 @@ function Tools({ tools }: { tools: ConsoleTools }) {
         <span className="armada-console__acts">{tools.acts}</span>
       )}
     </div>
+  );
+}
+
+/** What the wrap toggle is called, by its tooltip and its name. */
+const WRAP_LINES = "Wrap lines";
+
+/**
+ * The reader's own ask to wrap a reading's lines: `text-wrap`, a line turning
+ * back under itself, held down while lines wrap. A bare glyph, so its tooltip
+ * names it.
+ */
+export function ConsoleWrapToggle({ wrap, onToggle }: { wrap: boolean; onToggle: () => void }) {
+  return (
+    <Tooltip label={WRAP_LINES} asChild>
+      <Button variant="ghost" size="sm" iconOnly aria-label={WRAP_LINES} aria-pressed={wrap} onClick={onToggle}>
+        <TextWrap size={16} strokeWidth={2} aria-hidden="true" />
+      </Button>
+    </Tooltip>
   );
 }

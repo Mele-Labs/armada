@@ -513,6 +513,7 @@ function OneJob(props: JobDetailProps) {
           observed={props.observed}
           journalled={props.journalled}
           floor={floor}
+          onReadBrief={props.onReadBrief}
         />
       )}
     </div>

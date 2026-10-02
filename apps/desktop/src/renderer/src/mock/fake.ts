@@ -329,6 +329,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       publish({ diff: jobId === null ? nothing : (readsOf(jobId)?.recorded.diff ?? failed(jobId, "/diff")) }),
     readCheckOutput: async (jobId, kept) =>
       readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
+    readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
     readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.

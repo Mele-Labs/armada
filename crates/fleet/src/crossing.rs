@@ -23,7 +23,9 @@
 //! **Drafted wording**, which `docs/contracts/agent-prompt.md` section 4a says.
 //! The product block is not — the contract draws it, and [`Produced::text`]
 //! follows it.
-use core_model::{FrozenWorkflow, RedirectWaiting, ResolvedStep, StepEvidence, StepId, WorkPlan};
+use core_model::{
+    FrozenWorkflow, PlanTask, RedirectWaiting, ResolvedStep, StepEvidence, StepId, WorkPlan,
+};
 use verification::TheBaseMoved;
 
 /// What a Drone that was not there has to be handed, because the process that
@@ -259,6 +261,33 @@ impl ThePlan {
             }
             false => "\n\nRead it before you start. It is not yours to change.",
         });
+        ThePlan(block)
+    }
+
+    /// The plan, and the one task this Drone was put on: `task_brief`, which
+    /// spike 022 moved into slice 1b because a Drone cannot be put on a task
+    /// without being told which.
+    ///
+    /// **It names no tool to mark a task with**, because its Drone has none:
+    /// Fleet marks the task from the hand-in. And it says the hand-in ends the
+    /// Drone, which is the one thing a task's Drone does that a step's does not.
+    /// **Drafted**, like the rest of this block.
+    pub fn for_task(plan: &WorkPlan, task: &PlanTask) -> ThePlan {
+        let id = task.id();
+        let mut block = format!("THE PLAN\n\n{}", plan.rendered());
+        block.push_str(&format!(
+            "\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an \
+             agent of its own, and yours is {id}: {}. Its line in the plan above \
+             says what it touches and what should show it is done. Do {id} and \
+             nothing past it: the tasks handed in or done before it are already \
+             on the branch you are in, and the open ones after it are each \
+             another agent's.\n\nWhen {id} is done, submit it with the evidence \
+             submission tool. What you claim, and what shows it, are about {id} \
+             alone. That submission is your hand-in, and it ends your work on \
+             this Job. The plan's states are kept from it, so you mark nothing \
+             yourself.",
+            task.title()
+        ));
         ThePlan(block)
     }
 

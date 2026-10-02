@@ -382,6 +382,11 @@ where
         };
         let (job, step, _) = at_work.standing();
         let evidence_type = call.evidence_type;
+        // A task's Drone hands its task in; the step's submission waits for
+        // every task. `crate::tasking`.
+        if at_work.task().is_some() {
+            return self.hand_in_task(&mut working, call, at).await;
+        }
         self.kept_pending(&job, &step, call, &at).await?;
         let recorded = EvidenceTool::for_job(job.clone(), self.inbox())
             .submit(call, at.clone())
@@ -394,7 +399,7 @@ where
     /// Write the submission down the instant it is accepted, before the
     /// receipt returns. #796: a Fleet that stops before the gate rules on it
     /// still has this to reload — `crate::pending_evidence`'s.
-    async fn kept_pending(
+    pub(crate) async fn kept_pending(
         &self,
         job: &JobId,
         step: &StepId,
@@ -423,7 +428,7 @@ where
     /// would be dated wrong and would say what `job.checking` already says.
     ///
     /// After the submit, so nothing is announced that was refused as malformed.
-    fn published_submission(
+    pub(crate) fn published_submission(
         &self,
         job: &JobId,
         step: &StepId,
@@ -506,6 +511,9 @@ where
             not_claimed: NotClaimed(&submission.not_claimed),
             review: accepted.as_ref().map(|accepted| accepted.review()),
         };
+        if at_work.task().is_some() {
+            return self.hand_in_task(&mut working, call, at).await;
+        }
         self.kept_pending(&job, &step, call, &at).await?;
         let recorded = EvidenceTool::for_job(job.clone(), self.inbox())
             .submit(call, at.clone())
@@ -628,7 +636,7 @@ where
 
 /// Stop a dry run still going once a submission is taken: it would be a second
 /// build beside the gate's, reporting on a part already handed in. `#1020`.
-fn cut_short(working: &mut Option<crate::working::Working>, at: &Timestamp) {
+pub(crate) fn cut_short(working: &mut Option<crate::working::Working>, at: &Timestamp) {
     if let Some(at_work) = working.as_mut() {
         at_work.checks_cut_short(at.clone());
     }
