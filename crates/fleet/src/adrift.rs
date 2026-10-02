@@ -792,7 +792,8 @@ pub enum Adrift {
     },
     /// Restart this task named a task that has not failed: one still working
     /// or handed in is its group's own round to finish (answer 9), and one
-    /// open, done or dropped has nothing to restart. `#1656`.
+    /// open, dropped, or done outside a group the Judge refused has nothing
+    /// to restart. `#1656`.
     TaskNotFailed {
         job: JobId,
         named: TaskId,

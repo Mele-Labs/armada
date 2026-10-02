@@ -2307,9 +2307,13 @@ round on its own, its tasks staying `handed_in`; the last red run fails every ta
 with a reason naming the group and the run. A Judge refusal stops the group for a person, as it
 stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
 
+**Restart this task also answers a done task in a group the Judge refused** (2 Oct 2026), with
+no change to the wire: Bridge reads the group's last run, `verdict.trigger` `gate_failure` over
+tasks still `done`, as Fleet does.
+
 | Route | Body | Answers | Refused |
 |---|---|---|---|
-| `POST /jobs/:job_id/tasks/:task_id/restart`, `restart_task` | `RestartTask`, an optional `note`; no body is valid | `JobSummary` | 409 `fleet.task_not_failed` on a task that has not failed |
+| `POST /jobs/:job_id/tasks/:task_id/restart`, `restart_task` | `RestartTask`, an optional `note`; no body is valid | `JobSummary` | 409 `fleet.task_not_failed` on a task that has not failed, except a done one in a group the Judge refused |
 | `POST /jobs/:job_id/plan/move`, `move_plan` | `MovePlan`: `group`, `task?`, `after?` | `WorkPlan` | 409 `fleet.task_in_flight` on a task, or a group holding one, still in its run; 422 `fleet.no_such_group`, `fleet.no_such_task` |
 
 **The bodies are the lock's.** Bridge sent `to`, an index; the wire takes `after`, as `add_task`

@@ -333,6 +333,17 @@ where
         job_id: &JobId,
         note: Option<&Redirection>,
     ) -> Result<Job, Adrift> {
+        self.restart_step_ending(job_id, note, Ending::Unheard)
+            .await
+    }
+
+    /// [`restart_step`](Fleet::restart_step), saying which Drone it may end.
+    pub(crate) async fn restart_step_ending(
+        &self,
+        job_id: &JobId,
+        note: Option<&Redirection>,
+        ending: Ending,
+    ) -> Result<Job, Adrift> {
         // Looked up rather than opened: this act starts nothing, so it needs no
         // place in the roster. What it wants the slot for is the one question
         // only the slot can answer — whether a Drone is still standing here —
@@ -399,7 +410,8 @@ where
         // that makes a redirect cost nothing — and that reason is about the
         // pipe. Where there is a pipe, the redirect is the cheaper act and this
         // one is refused so it cannot silently become the restart.
-        if standing == Some(false) {
+        // [`Ending::Any`] is the one act that asks for the new agent anyway.
+        if standing == Some(false) && ending == Ending::Unheard {
             return Err(Adrift::DroneStillThere {
                 job: job_id.clone(),
             });
@@ -425,7 +437,7 @@ where
         // written down, so `every_exit_recorded` below finds the pointer
         // already clear. **The step's verdict is untouched** — a step that
         // stopped keeps saying why, and it is the record this act reads.
-        if standing == Some(true) {
+        if standing.is_some() {
             if let Some(working) = held.as_deref_mut() {
                 self.end_the_drone(working).await;
             }
@@ -674,6 +686,18 @@ where
             cause,
         })
     }
+}
+
+/// Which Drone a restart may end. `#1763`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Ending {
+    /// One nothing can be heard from. A Drone Fleet can still speak to
+    /// refuses the restart, since a redirect is the cheaper act.
+    Unheard,
+    /// Any Drone on the Job. Restart this task on a group the Judge refused
+    /// asks for a new agent on that task alone, by the owner's decision, so
+    /// the Drone left idle after the refusal ends.
+    Any,
 }
 
 /// What a steer carries into the session. **Each is its own authorship**, so
