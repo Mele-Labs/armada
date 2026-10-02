@@ -5,6 +5,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { featureJudgeQuestioned } from "./job-groups-fixture";
+import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -94,6 +96,20 @@ test("a done task in a group that passed offers no Restart", async () => {
   await onThePlanList();
   await taskRow("T1").getByRole("button").first().click();
   const panel = page.getByRole("dialog", { name: "Draw a group's runs on its card" });
+  await expect.element(panel).toBeVisible();
+  expect(panel.getByRole("button", { name: "Restart this task" }).query()).toBeNull();
+});
+
+// The owner's, 2 Oct 2026: a group the Judge only questioned waits for his
+// answer, so its done task offers no Restart.
+test("a done task in a group the Judge only questioned offers no Restart", async () => {
+  await page.viewport(2000, 900);
+  mount(onJob(featureJudgeQuestioned()));
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "List" }).click();
+  await expect.element(taskRow("T4").getByRole("img", { name: "Done", exact: true })).toBeVisible();
+  await taskRow("T4").getByRole("button").first().click();
+  const panel = page.getByRole("dialog", { name: "Answer restart and move in the mock" });
   await expect.element(panel).toBeVisible();
   expect(panel.getByRole("button", { name: "Restart this task" }).query()).toBeNull();
 });

@@ -8,7 +8,10 @@ const GROUPS = role("list", "Groups, in the order they run");
 const groupOne = inside(GROUPS, role("listitem", "Group 1", { exact: true }));
 const t4 = inside(GROUPS, role("listitem", /^T4 /));
 
+const OVERVIEW_PLAN = role("region", "Plan", { exact: true });
+
 export const groupsRunByFleet = walk("real/groups-run-by-fleet", [
+  { hover: inside(OVERVIEW_PLAN, role("img", "Failed", { exact: true })), say: "Overview's rows draw a group's state as the same mark" },
   { press: tab("Plan"), say: "Fleet's plan, in its own three groups" },
   { press: tab("List"), say: "Groups one and two passed, each with its commit" },
   { hover: inside(groupOne, role("img", "Passed", { exact: true })), say: "A group's state is a mark, named on hover" },

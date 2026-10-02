@@ -7,7 +7,7 @@
 // first). One of them alone would leave the screen unchanged on one kind of
 // scenario or the other.
 
-import type { AddTask, DropTask, MovePlan, PlanTask, WorkPlan } from "@armada/protocol";
+import type { AddTask, DropTask, MovePlan, PlanTask, StepDetail, WorkPlan } from "@armada/protocol";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { TaskView } from "@armada/screens/src/draft/task";
 
@@ -80,9 +80,14 @@ export function groupsAdding(groups: readonly GroupView[], id: string, add: AddT
  * arc moment draws instead (`failedInDraft`) — unless it is a done task in a
  * group the Judge refused, which Fleet restarts too (owner, 2 Oct 2026).
  */
-export function planRestarting(plan: WorkPlan, taskId: string, failedInDraft = false): WorkPlan | undefined {
+export function planRestarting(
+  plan: WorkPlan,
+  taskId: string,
+  failedInDraft = false,
+  steps: readonly StepDetail[] = [],
+): WorkPlan | undefined {
   const state = plan.tasks.find((task) => task.id === taskId)?.state;
-  if (!failedInDraft && state !== "failed" && !(state === "done" && judgeRefused(plan, taskId))) return undefined;
+  if (!failedInDraft && state !== "failed" && !(state === "done" && judgeRefused(plan, steps, taskId))) return undefined;
   return {
     ...plan,
     tasks: plan.tasks.map((task) => {
@@ -93,14 +98,19 @@ export function planRestarting(plan: WorkPlan, taskId: string, failedInDraft = f
   };
 }
 
-/** Fleet's reading: the task's group last ended `gate_failure` with no task in it failed. */
-function judgeRefused(plan: WorkPlan, taskId: string): boolean {
+/**
+ * Fleet's reading: the task's group last ended `gate_failure` with no task in
+ * it failed, and the step that run was filed under stopped. A question holds
+ * that step at `awaiting_human` instead, and is refused.
+ */
+function judgeRefused(plan: WorkPlan, steps: readonly StepDetail[], taskId: string): boolean {
   const group = plan.groups?.find((one) => one.tasks.includes(taskId));
   const last = group?.attempts?.at(-1);
   return (
     group !== undefined &&
     last?.ended_at !== undefined &&
     last.verdict?.trigger === "gate_failure" &&
+    steps.find((step) => step.step_id === last.step_id)?.state === "stopped" &&
     !plan.tasks.some((task) => group.tasks.includes(task.id) && task.state === "failed")
   );
 }

@@ -193,3 +193,27 @@ export function featureJudgeRefused(): JobFixture {
   const detail = { ...whole, job, steps, work_plan: { ...whole.work_plan!, tasks, groups } };
   return { ...base, job, watched: { ...base.watched, detail } };
 }
+
+/**
+ * The same refusal asked of a person instead (`when_refused: always_ask`): the
+ * group's run ends `gate_failure` as a refusal's does, but the step holds at
+ * `awaiting_human` and the Job at `awaiting_review` until he answers, so
+ * Restart this task does not answer T4 (owner, 2 Oct 2026).
+ */
+export function featureJudgeQuestioned(): JobFixture {
+  const base = featureJudgeRefused();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const steps: StepDetail[] = whole.steps.map((step) => {
+    if (step.step_id !== "implement") return step;
+    const { last_verdict: _verdict, ...rest } = step;
+    return {
+      ...rest,
+      state: "awaiting_human",
+      attempts: [{ attempt: 1, outcome: "awaiting_human", started_at: AT(1), ended_at: AT(20) }],
+    };
+  });
+  const job = { ...base.job, title: "Draw the plan's groups, the last asked about", status: "awaiting_review" };
+  const detail = { ...whole, job, steps };
+  return { ...base, job, watched: { ...base.watched, detail } };
+}

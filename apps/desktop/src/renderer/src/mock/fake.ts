@@ -167,7 +167,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       const answer = editPlan(
         jobId,
         `/tasks/${taskId}/restart`,
-        (was) => planRestarting(was, taskId, failedInDraft),
+        (was) =>
+          planRestarting(was, taskId, failedInDraft, state.watched.state === "read" ? state.watched.detail.steps : []),
         (was) => groupsRestarting(was, taskId),
       );
       return answer.ok ? OK : answer.outcome;

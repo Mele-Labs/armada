@@ -13,7 +13,6 @@
 // 2026, in the decisions register.
 
 import {
-  Badge,
   Button,
   DestinationCard,
   FigureList,
@@ -22,14 +21,14 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  PlanGroupStateMark,
   Prose,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
@@ -64,10 +63,12 @@ export type OverviewPlan = {
     concurrent: boolean;
     /** What the drawing says to somebody who cannot see it. */
     shapeLabel: string;
-    /** The state's word, its status stem and its glyph, all `GROUP_STATE`'s. */
+    /**
+     * Where it stands, drawn as Plan's views draw it: `GROUP_STATE`'s glyph
+     * with a tooltip naming `said`, never a word (owner, 2 Oct 2026).
+     */
+    state: PlanGroupState;
     said: string;
-    status: string;
-    icon: LucideIcon;
   }[];
 };
 
@@ -254,9 +255,7 @@ export function OverviewBoard({
                       concurrent={group.concurrent}
                       label={group.shapeLabel}
                     />
-                    <Badge status={group.status} icon={group.icon}>
-                      {group.said}
-                    </Badge>
+                    <PlanGroupStateMark state={group.state} says={group.said} />
                   </li>
                 ))}
               </ul>
