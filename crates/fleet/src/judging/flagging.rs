@@ -5,7 +5,7 @@
 //! and the only place a flag can be cleared. `docs/concepts/judge.md`, Where it
 //! fires, holds the rule.
 
-use adapter_traits::{Ask, Patch};
+use adapter_traits::Patch;
 use core_model::{GamingCheck, GamingFlag, JudgeCheck};
 use verification::{Baseline, GamingBrief, SecondOpinion};
 
@@ -55,7 +55,7 @@ pub(crate) async fn gaming(
         flags.extend(verification::in_the_diff(patch, gaming.flag_if()));
         let model = model_for(check, &judging.default_model)?;
         for pattern in verification::judged_patterns(gaming.flag_if()) {
-            let Some(brief) = GamingBrief::about(step, pattern, patch, baseline, &judging.standing)
+            let Some(brief) = GamingBrief::about(step, pattern, patch, baseline, &judging.told())
             else {
                 continue;
             };
@@ -66,7 +66,7 @@ pub(crate) async fn gaming(
                 judging
                     .asked
                     .kept_gaming(step.id(), at.attempt(), pattern, brief.question());
-            let ask = Ask::put(model.clone(), brief.question(), judging.environment.clone())
+            let ask = judging.ask(&model, brief.question())
                 .map_err(|_| CallFailed::NothingToAsk)?;
             nth += 1;
             let answer = {
@@ -119,11 +119,7 @@ async fn read_again(
             .asked
             .kept_second_opinion(step.id(), at.attempt(), pattern, opinion.question());
     let model = &judging.second_opinion_model;
-    let Ok(ask) = Ask::put(
-        model.clone(),
-        opinion.question(),
-        judging.environment.clone(),
-    ) else {
+    let Ok(ask) = judging.ask(model, opinion.question()) else {
         return opinion.unanswered();
     };
     let _out = judging.marking.out(
