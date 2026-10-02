@@ -38,6 +38,7 @@ export function JobHoldsSheet({
 }: JobHoldsSheetProps) {
   return (
     <Sheet
+      kind="job-holds"
       open={open}
       contained
       floor={floor}

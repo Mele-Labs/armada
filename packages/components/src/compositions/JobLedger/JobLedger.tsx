@@ -296,6 +296,7 @@ export function JobLedger({
           the content column it read as cut off at that column's edge (the
           owner, 29 Sep 2026). */}
       <Sheet
+        kind="record-row"
         open={openRow !== null}
         floating
         floor={floor}

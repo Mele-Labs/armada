@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MessageSquare } from "lucide-react";
-import { expect, fireEvent, fn } from "storybook/test";
+import { useState } from "react";
+import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
+import { Button } from "../Button/Button";
 import { Sheet } from "./Sheet";
 
 const meta: Meta<typeof Sheet> = {
@@ -20,6 +22,7 @@ type Story = StoryObj<typeof Sheet>;
  */
 export const Right: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     side: "right",
     title: "Kit allowlist",
@@ -62,6 +65,7 @@ export const Right: Story = {
 
 export const Left: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     side: "left",
     title: "Kit allowlist",
@@ -78,6 +82,7 @@ export const Left: Story = {
  */
 export const Floating: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     floating: true,
     title: "screens_test",
@@ -98,6 +103,7 @@ export const Floating: Story = {
  */
 export const Leading: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     title: "Helm",
     leading: (
@@ -120,6 +126,7 @@ export const Leading: Story = {
  */
 export const Back: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     floating: true,
     size: "wide",
@@ -135,5 +142,92 @@ export const Back: Story = {
     await userEvent.click(canvas.getByRole("button", { name: /Back to T6/ }));
     await expect(args.back?.onBack).toHaveBeenCalled();
     await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+/** Two kinds of sheet, opened one at a time: a contained log and a floating task panel. */
+function TwoKinds() {
+  const [open, setOpen] = useState<"log" | "task" | null>(null);
+  const close = () => setOpen(null);
+  return (
+    // Wider than the test's viewport, so both sheets have room to drag, and
+    // `contain` lays the floating one out against this frame as against a window.
+    <div
+      style={{
+        position: "relative",
+        contain: "layout",
+        width: "calc(var(--w-dock) * 4)",
+        height: "var(--palette-max-height)",
+        background: "var(--bg-base)",
+      }}
+    >
+      <Button variant="secondary" size="sm" onClick={() => setOpen("log")}>
+        Open the log
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => setOpen("task")}>
+        Open the task
+      </Button>
+      <Sheet open={open === "log"} kind="story-log" contained size="wide" title="Job log" closeLabel="Close" onClose={close}>
+        The Job&apos;s own log.
+      </Sheet>
+      <Sheet open={open === "task"} kind="story-task" floating size="dock" title="T5" closeLabel="Close" onClose={close}>
+        Draw what is running, in four lists.
+      </Sheet>
+    </div>
+  );
+}
+
+/**
+ * **Every sheet resizes, and each kind keeps its own width** (owner, 2 Oct
+ * 2026). A contained sheet and a floating one each drag by their inner edge;
+ * the other kind still opens at its own width, and a kind reopened opens at
+ * the width it was dragged to.
+ */
+export const EachKindKeepsItsWidth: Story = {
+  render: () => <TwoKinds />,
+  play: async ({ canvas, userEvent }) => {
+    window.localStorage.removeItem("armada.bridge.sheet-width");
+    const open = (which: string) => userEvent.click(canvas.getByRole("button", { name: `Open the ${which}` }));
+    const close = (title: string) =>
+      userEvent.click(within(canvas.getByRole("dialog", { name: title })).getByRole("button", { name: "Close" }));
+    const handle = (title: string) => canvas.getByRole("separator", { name: `Resize ${title}` });
+    const now = (title: string) => Number(handle(title).getAttribute("aria-valuenow"));
+    const width = async (title: string) => {
+      await waitFor(() => expect(now(title)).toBeGreaterThan(0));
+      return now(title);
+    };
+    // Toward the content widens a sheet on the trailing edge.
+    const drag = (title: string, by: number) => {
+      const grip = handle(title);
+      const box = grip.getBoundingClientRect();
+      const at = { pointerId: 1, button: 0, clientY: box.y + box.height / 2 };
+      fireEvent.pointerDown(grip, { ...at, clientX: box.x });
+      fireEvent.pointerMove(grip, { ...at, clientX: box.x - by });
+      fireEvent.pointerUp(grip, { ...at, clientX: box.x - by });
+    };
+
+    await open("task");
+    const taskAtRest = await width("T5");
+    await close("T5");
+
+    await open("log");
+    const logAtRest = await width("Job log");
+    drag("Job log", 120);
+    await waitFor(() => expect(now("Job log")).toBe(logAtRest + 120));
+    await close("Job log");
+
+    // Another kind: the log's drag did not reach it.
+    await open("task");
+    await expect(await width("T5")).toBe(taskAtRest);
+    drag("T5", 64);
+    await waitFor(() => expect(now("T5")).toBe(taskAtRest + 64));
+    await close("T5");
+
+    // The same kind, reopened: where it was left, and the task's drag did not reach it.
+    await open("log");
+    await expect(await width("Job log")).toBe(logAtRest + 120);
+    await close("Job log");
+    await open("task");
+    await expect(await width("T5")).toBe(taskAtRest + 64);
   },
 };
