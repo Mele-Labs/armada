@@ -14,7 +14,7 @@ use std::process::{Command, Output};
 
 use adapter_traits::{
     Base, BaseOnTheRemote, BroughtUpToDate, Delivery, KeptCurrent, Merged, NotDelivered, NotMerged,
-    Opened, Pushed, RepositoryStanding, Review, UnderReview, WhatBecameOfIt,
+    Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UnderReview, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree};
 use git2::{BranchType, Repository};
@@ -226,6 +226,16 @@ impl Delivery for GitVcs {
         expected_head: &str,
     ) -> Result<Merged, NotMerged> {
         crate::landing::merge_pinned(in_repo, pull_request, expected_head)
+    }
+
+    fn merge_by_push(
+        &self,
+        in_repo: &str,
+        handle: &str,
+        declared: Option<&str>,
+        pull_request: Option<u64>,
+    ) -> Result<PushedOntoBase, NotMerged> {
+        crate::landing::merge_by_push(in_repo, handle, declared, pull_request)
     }
 
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding {

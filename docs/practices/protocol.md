@@ -2051,6 +2051,15 @@ Job is now escalated rather than never created: `fleet.no_workflow_fits` takes `
 request. Its `job.state_changed` is the move, not a `job.created`. The other Jobs of a split arrive
 as `job.created` with `dispatched_by` naming the head.
 
+## Protocol 21.7: a merge refused because the base moved
+
+`merge_pull_request` gains one refusal, `fleet.merge_base_moved`, a 409 carrying `refused:
+base_moved`. Only a repository whose Manifest says `merge_by: push` meets it: Fleet makes the
+merge commit itself and refuses a branch that does not hold the base it would land on, which the
+forge would have merged. No shape moves.
+
+**Minor because a refusal code added is additive**, for 14.14's reason.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

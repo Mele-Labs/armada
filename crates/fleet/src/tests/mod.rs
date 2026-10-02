@@ -105,6 +105,7 @@ mod looping;
 mod manifest_proposals;
 mod mending;
 mod merging;
+mod merging_by_push;
 mod migrating;
 mod modelling;
 mod noticing;

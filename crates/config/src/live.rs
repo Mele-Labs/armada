@@ -2,10 +2,10 @@
 //! handle that may change them.
 //!
 //! **Not the whole file, and not even the whole of one section.**
-//! `crates/config/settings.toml` files seven of `armada.yml`'s keys as
+//! `crates/config/settings.toml` files eight of `armada.yml`'s keys as
 //! `lifetime = "Live"`: four under `drone:` — `quiet_after_seconds`,
 //! `poke_limit`, `cost_cap_micros_per_job` and `turn_cap_per_job` — and the two
-//! top-level policies, `auto_merge` and `review_gate`, and `freeze`. The Checks and Commands
+//! top-level policies, `auto_merge` and `review_gate`, and `merge_by` and `freeze`. The Checks and Commands
 //! registries and `drone.exclude_paths` are *Frozen for the Job*; the last sits
 //! in the same `drone:` block as four live ones, which is why [`Frozen`] names a
 //! key there and a section everywhere else. What decides is what was resolved against a
@@ -30,7 +30,7 @@ use std::sync::{Arc, RwLock};
 use core_model::{AutoMerge, ReviewGate};
 
 use crate::error::LoadError;
-use crate::manifest::Manifest;
+use crate::manifest::{Manifest, MergeBy};
 
 /// What `drone:` says that a save may move, together because one re-read
 /// adopts all of it or none of it.
@@ -78,6 +78,8 @@ pub(crate) struct InForce {
     /// reading of a two-reading value.
     pub(crate) auto_merge: AutoMerge,
     pub(crate) review_gate: ReviewGate,
+    /// `merge_by`, defaulted for the policies' reason: absent means `forge`.
+    pub(crate) merge_by: MergeBy,
     /// `freeze`, defaulted for the policies' reason: absent means not frozen.
     pub(crate) freeze: bool,
 }
@@ -138,6 +140,8 @@ pub enum LiveKey {
     /// only two whose value is a word rather than a number.
     AutoMerge,
     ReviewGate,
+    /// Live for `AutoMerge`'s reason: it is read at the merge.
+    MergeBy,
     /// Live because a freeze only a restart could lift would stop the Fleet it
     /// was meant to leave running for every other repository.
     Freeze,
@@ -158,6 +162,7 @@ impl LiveKey {
             // other.
             LiveKey::AutoMerge => "auto_merge",
             LiveKey::ReviewGate => "review_gate",
+            LiveKey::MergeBy => "merge_by",
             LiveKey::Freeze => "freeze",
         }
     }
@@ -446,6 +451,13 @@ fn moved(before: InForce, after: InForce) -> Vec<Moved> {
             key: LiveKey::ReviewGate,
             before: Some(before.review_gate.as_written().to_string()),
             after: Some(after.review_gate.as_written().to_string()),
+        });
+    }
+    if before.merge_by != after.merge_by {
+        changed.push(Moved {
+            key: LiveKey::MergeBy,
+            before: Some(before.merge_by.as_written().to_string()),
+            after: Some(after.merge_by.as_written().to_string()),
         });
     }
     if before.freeze != after.freeze {
