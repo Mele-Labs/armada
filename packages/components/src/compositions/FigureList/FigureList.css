@@ -122,6 +122,13 @@
   white-space: nowrap;
 }
 
+/* A detail that wraps rather than clips, where the caller asked for it. */
+.armada-figures[data-wraps] .armada-figures__detail {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 /* The hue on the reading alone. A detail is when, and a time is not wrong. */
 .armada-figures__row[data-wrong] .armada-figures__reading {
   color: var(--error);

@@ -210,7 +210,6 @@ export const TheLandBoard: Story = {
         { label: "Drones", value: "10", detail: "group three ran again" },
         { label: "Checks", value: "32", detail: "group three ran twice" },
       ],
-      note: "Spend and turns are added up from each task's own agent, which is where cost arrives.",
     },
     runs: [
       {

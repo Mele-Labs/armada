@@ -48,6 +48,7 @@ test("nothing on the board describes what Fleet did not send", async () => {
     /No Manifest was read for this Job/,
     /has no worktree, so it has no branch/,
     /Nothing times a group/,
+    /Spend and turns are/,
     /Dispatch a follow-up/,
   ]) {
     expect(page.getByText(gone).elements(), String(gone)).toHaveLength(0);
@@ -70,8 +71,8 @@ test("the act beside the verdict is the registry's Dispatch, with its key", asyn
   expect(acts.filter((one) => one?.startsWith("Dispatchn"))).toHaveLength(1);
 });
 
-test("no value on the board is cut off at 1280 wide", async () => {
-  await landed(1280);
+test.for([1280, 1440])("no value on the board is cut off at %i wide", async (width) => {
+  await landed(width);
   const drawn = [...document.querySelectorAll<HTMLElement>(".armada-land .armada-outcome__value")];
   // The pull request, the commit, the branch and the record: Job 2 gave its
   // worktree back, so that row is not drawn at all.
@@ -84,6 +85,8 @@ test("no value on the board is cut off at 1280 wide", async () => {
   for (const one of [
     ...drawn,
     ...document.querySelectorAll<HTMLElement>(".armada-land .armada-outcome__meta"),
+    // What it cost: `group one, group two, …` under Drones and Checks.
+    ...document.querySelectorAll<HTMLElement>(".armada-land .armada-figures__detail"),
   ]) {
     expect(one.scrollWidth, one.textContent ?? "").toBeLessThanOrEqual(one.clientWidth);
     const region = one.closest<HTMLElement>(".armada-outcome")!.getBoundingClientRect();

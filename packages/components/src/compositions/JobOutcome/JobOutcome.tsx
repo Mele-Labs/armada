@@ -174,7 +174,7 @@ export type JobOutcomeProps = {
   /** How the Job was answered, above everything else it left. */
   headline?: JobOutcomeHeadline;
   /** What it cost, as labelled readings. `FigureList`'s own rows. */
-  cost?: { name: ReactNode; figures: Figure[]; note?: ReactNode };
+  cost?: { name: ReactNode; figures: Figure[] };
   /** The run, step by step, with what each came to. */
   steps?: { name: ReactNode; meta?: ReactNode; steps: JobOutcomeStep[]; absent?: ReactNode };
   /** The test runs, one set per heading. */
@@ -238,9 +238,8 @@ export function JobOutcome({
             <span className="armada-outcome__section-name">{cost.name}</span>
           </p>
           <div className="armada-outcome__cost">
-            <FigureList figures={cost.figures} column="fit" />
+            <FigureList figures={cost.figures} column="fit" wraps />
           </div>
-          {cost.note === undefined ? null : <p className="armada-outcome__aside">{cost.note}</p>}
         </section>
       )}
       {steps === undefined ? null : (
