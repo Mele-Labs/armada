@@ -4,11 +4,11 @@
 //! and answers with what came back or with why nothing did, and every question
 //! about what the answer means is above it.
 //!
-//! **Calls run in the process's temporary directory, never the worktree.** A
-//! `JudgeCall` carries no directory, so the repository is not something a call
-//! declines to open — it is somewhere the call is not. [`started`] is the one
-//! place that confinement is applied, so a flag added to one runner is added to
-//! both.
+//! **Calls run in the checkout they were given to read, or in the process's
+//! temporary directory, and never the worktree.** A `JudgeCall`'s directory is
+//! copied off its ask, so a call that reads nothing has none, and a Judge's is
+//! the repository's own checkout. [`started`] is the one place that is applied,
+//! so a flag added to one runner is added to both.
 
 use std::process::Stdio;
 
@@ -164,8 +164,13 @@ fn started(call: &adapter_traits::JudgeCall) -> Result<tokio::process::Child, Ca
         .args(call.args())
         .env_clear()
         .envs(call.environment().vars().iter().cloned())
-        // Not the worktree, and not Fleet's own directory either.
-        .current_dir(std::env::temp_dir())
+        // The checkout the ask was given to read, and otherwise somewhere with
+        // no repository under it. Never the worktree, and not Fleet's own
+        // directory either.
+        .current_dir(
+            call.directory()
+                .map_or_else(std::env::temp_dir, std::path::PathBuf::from),
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

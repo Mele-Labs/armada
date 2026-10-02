@@ -96,9 +96,9 @@ Discovery needs nothing from Armada for the MCP half: tools are self-describing,
 
 **A Drone's single worktree spans every declared Workspace's directory** — still one Drone, one worktree, one branch. Why: every declared Workspace descends from a single root `armada.yml`, so a Job cannot span repositories, which is what makes one worktree spanning Workspaces ordinary git. See [Manifest](manifest.md), Cross-Workspace Jobs.
 
-Where a worktree and its log live on disk is in `../contracts/system-architecture.md` section 7. It is not configurable, and is derived rather than stored.
+Where a worktree and its log live on disk is in `../contracts/system-architecture.md` section 7. It is not configurable: a Job's worktree is the pool slot it leased, recorded with the Job — [Fleet](fleet.md), *Worktree slots*.
 
-**A worktree outlives every Drone that uses it.** It is made once, when the Job dispatches, and held until retention sweeps it — so it outlives each step's Drone by construction, as well as the two acts that end one early. On a **person's** scope revision Fleet terminates the Drone, re-resolves configuration against the new Manifest set, and spawns a fresh Drone **on the same worktree and branch** — the same path [Pilot](pilot.md)'s Restart Step and every ordinary step boundary use.
+**A worktree outlives every Drone that uses it.** It is leased once, when the Job dispatches, and held until the Job ends — so it outlives each step's Drone by construction, as well as the two acts that end one early. On a **person's** scope revision Fleet terminates the Drone, re-resolves configuration against the new Manifest set, and spawns a fresh Drone **on the same worktree and branch** — the same path [Pilot](pilot.md)'s Restart Step and every ordinary step boundary use.
 
 **A Drone declares its own paths every step, and that is not the Job's `write_targets`.** `declare_scope` says where this step's work will be, after the code has been read, and the gate measures the real diff against it. The Job's list is what a person mentioned when asking, it is partial by design, and it meets no diff — [Change a Job's scope](../journeys/change-a-jobs-scope.md) holds the pair.
 

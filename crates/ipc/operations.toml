@@ -981,7 +981,7 @@ notes = """
 
 **Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought.
 
-There is no task. Fleet runs one Drone per step, and nothing joins a Drone to a plan task.
+**`task` names the plan task a Drone was put on**, since 23.1, on a step that declares `drone_per_task`, off the binding Fleet keeps at the spawn (`store::TaskDrone`). Absent on a Drone that worked its whole step. A task's Drone that handed its task in and left reads `done`: the next task's Drone ends its tenure on the step, and leaving is what its hand-in asks of it.
 """
 
 [operations.list_job_board]
@@ -1033,11 +1033,11 @@ Beside `list_manifests` rather than instead of it: Setup starts from a folder no
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, and the newest three that left it"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, the newest three that landed, and those sent back in the last three days"
 notes = """
 A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
 
-A repository nobody has run `armada land` in is left out rather than listed empty. `off` is bounded at three, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026.
+A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
@@ -1713,6 +1713,11 @@ owns that, on its own retention schedule and driven by disk rather than by a
 person clearing a Board — folding it in here would give one call two
 unrelated things to fail at, and a person deleting a finished Job's record
 should not also have to think about a directory.
+
+**It does give a pool slot the Job still holds back**, by the pool's rules,
+before the record goes: a lease held for a Job nobody can name again would
+never be given back. A completed Job holds its slot until this or
+`reclaim_worktree`.
 """
 
 [operations.reclaim_worktree]
@@ -1736,6 +1741,10 @@ in a Manifest and is a different act.
 
 **Refused on a Job that is not yet terminal**, for `forget_job`'s reason: there
 is no disk to reclaim while a Drone might still write to it.
+
+**A pool slot is given back rather than removed**, by the pool's rules. This
+is the act that gives back the slot a completed Job holds until a person
+clears it; one the pool refuses stays held, and the answer says why.
 
 **Runs with `UnmergedWork::Keep`**, matching `armada clean` without `--force`.
 A branch holding commits the base cannot reach survives, is named in the answer
@@ -1989,6 +1998,36 @@ notes = """
 **Reopening is not this.** `docs/concepts/job.md`'s decision stands: a dropped task stays dropped for a Drone, and only a person's add brings the work back, as a new task. This route never un-drops one.
 
 Delivery and the event are `add_task`'s.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""
+
+[operations.restart_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Restart this task: a fresh Drone on one failed task of the plan, with an optional note it reads first. Refused with `fleet.task_not_failed` on a task that has not failed"
+notes = """
+`POST /jobs/:job_id/tasks/:task_id/restart`, spike 022 slice 2 (`#1656`). The body is `RestartTask`, an optional `note`; **no body is valid**, and is the plain restart, `restart_step`'s rule. A blank note is refused as `restart_step` refuses one. Answers the Job's `JobSummary`.
+
+**Only a failed task**, which is a task whose group's Checks were still red when the step's retries ran out (answer 9). A task working or handed in is its group's own round to finish, so this is a 409 `fleet.task_not_failed` before the retries run out, as it is on a task open, done or dropped.
+
+**The task reopens, then `restart_step`'s own act runs**, so every refusal that act has is this one's too, and a refusal puts the task back to failed as it was. The Drone spawned is put on that task alone; the group's gate waits for it to hand in again and then runs over the whole group. A person's restart does not reset the group's retry budget, as `restart_step` does not reset a step's.
+
+`agent_access` is `Helm only`, `restart_step`'s own reason.
+"""
+
+[operations.move_plan]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person moves one task, into any group, or one group, by the task or group it comes after, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/plan/move`, spike 022 slice 2 (`#1685`). The body is `MovePlan`: `group`, and with `task` that task goes into `group` after the task `after` names, or first in it; without, `group` goes after the group `after` names, or first. **By `after`, never by index**: an index counted at the drag is stale the moment a Drone adds or drops a task. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published with `actor` `human`.
+
+**Refused by name.** A 409 `fleet.task_in_flight` on a task, or a group holding one, that is working or handed in, since its group's run is still going; a 422 `fleet.no_such_group` on a group the plan does not hold, and `fleet.no_such_task` on a task, or an `after` outside the group it moves into.
+
+**A move putting a task before one it needs is taken** (`#1685`'s own rule): the plan's scope-intersection warning is what says so, not a refusal here.
 
 `agent_access` is `Helm only`, `add_task`'s reason.
 """
@@ -2834,11 +2873,13 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A Job's plan was recorded, or one of its tasks was added or changed state"
 notes = """
-`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here.
+`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here. **And by Fleet, `actor` `fleet`, on a step that works a Drone per task**: a task's Drone spawned (`working`), handing in (`handed_in`), and its step's Checks passing (`done`).
+
+**`task` and `state` name the task a change moved and where it now stands**, since 23.1, so a timeline moves without a read. Both are absent on a whole recording, which moves every task at once.
 
 **The counts ride along and the plan does not.** A Board redraws a row's task figure from them without a read per row, and an open Job reads `get_job`, whose `work_plan` is the plan whole. A plan's approach and titles are free text, and this stream is one bounded drop-oldest channel every Job shares.
 
-It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names: one message per kept change, and a Drone makes a handful per task.
+It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names: one message per kept change, and a Drone makes a handful per task. A Drone per task adds three per task, beside a `drone.spawned` and `drone.exited` pair; `[broadcast-capacity]` is where the measured rate goes.
 """
 
 [operations."job.asking"]

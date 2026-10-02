@@ -270,6 +270,10 @@ pub enum Adrift {
     /// — forgetting takes the record and this takes the disk — and a message
     /// naming the wrong one sends a person to the wrong button.
     NotReclaimable { job: JobId, status: JobStatus },
+    /// A reclaim on a finished Job whose pool slot the pool would not take
+    /// back: the tree holds something uncommitted, or commits on neither the
+    /// remote nor the base. The slot stays the Job's.
+    SlotKept { job: JobId, slot: u32, why: String },
     /// A raise was asked for on a Job that has reached a terminal status.
     ///
     /// **Its own variant beside the two above, for the reason the second is
@@ -539,6 +543,12 @@ pub enum Adrift {
     /// gate — which is a redispatch, and is named as one rather than silently
     /// performed.
     WorktreeGone { job: JobId, path: String },
+    /// The Job's record names a pool slot it no longer holds: somebody else
+    /// took it, it was given back, or it is gone from disk.
+    ///
+    /// **Never answered by leasing another.** The earlier steps' work was in
+    /// that slot, and a fresh one would start the Job over without saying so.
+    SlotLost { job: JobId, slot: u32, why: String },
     /// A proposal carried a title nothing could be picked out of a list by.
     Unnameable,
     /// An override carried no reason.
@@ -776,6 +786,21 @@ pub enum Adrift {
     /// person's drop is answering a question already answered, and saying so
     /// by name is worth more than a silent no-op. `#897`.
     TaskAlreadySettled {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
+    /// Restart this task named a task that has not failed: one still working
+    /// or handed in is its group's own round to finish (answer 9), and one
+    /// open, done or dropped has nothing to restart. `#1656`.
+    TaskNotFailed {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
+    /// A person's move named a task, or a group holding one, that is working
+    /// or handed in: its group's run is still going. `#1685`.
+    TaskInFlight {
         job: JobId,
         named: TaskId,
         state: TaskState,

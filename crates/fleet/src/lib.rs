@@ -103,6 +103,7 @@ mod framing;
 mod freezing;
 mod gate;
 mod group;
+mod grouping;
 pub mod headroom;
 pub mod helm;
 /// What Fleet is holding disk for, and the five tests that decide whether it
@@ -121,6 +122,8 @@ mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
 mod landing;
+/// A Job's worktree is the pool slot it leased.
+mod leasing;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;
@@ -160,6 +163,7 @@ mod pending_evidence;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
+mod plan_acts;
 pub mod policy;
 pub mod ports;
 mod precedent;
@@ -262,6 +266,8 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+/// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
+pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;

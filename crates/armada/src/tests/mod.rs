@@ -16,9 +16,11 @@ mod cli;
 mod declared;
 mod kit;
 mod land;
+mod leasing;
 mod locating;
 mod loopback;
 mod mcp;
+mod reaching;
 mod setup;
 mod watching;
 

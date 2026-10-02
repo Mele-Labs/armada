@@ -43,6 +43,7 @@ mod ids;
 mod judge;
 mod narrowing;
 mod note;
+mod plan_group;
 mod policy;
 mod prerequisite;
 mod record;
@@ -66,7 +67,7 @@ mod tests;
 pub use allowed::{AllowedCommand, Reach, WhenBlocked};
 pub use asking::WhenRefused;
 pub use attempt::{Attempt, Iteration, Spent};
-pub use breakage::{Breakage, BreakageClaim, FixWaiter};
+pub use breakage::{Breakage, BreakageClaim, FixWaiter, LandedHold};
 pub use check::{CheckOutcome, StepCheck};
 pub use collision::{collisions, Collision, ScopeClaim};
 pub use covers::{BadPattern, Covers, PathPattern};
@@ -93,6 +94,7 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
+pub use plan_group::{GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
@@ -115,8 +117,9 @@ pub use transition::{
 };
 pub use verdict::GateVerdict;
 pub use work_plan::{
-    Approach, DropReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow,
+    Approach, DropReason, FailReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry,
+    PlanRefused, PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan,
+    WorkingWindow,
 };
 pub use workflow::{
     FrozenWorkflow, ResolvedCheck, ResolvedStep, ARTIFACT_EXISTS, DIFF_NONEMPTY,

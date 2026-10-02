@@ -201,6 +201,7 @@ export function JobDrones({
 
       {/* Floating over the whole work area, the Record's own sheet. */}
       <Sheet
+        kind="drone"
         open={reading !== undefined}
         floating
         floor={floor}

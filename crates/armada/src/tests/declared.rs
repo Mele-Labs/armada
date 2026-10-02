@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use checks_runner::{CheckSlots, Priority};
 
-use crate::declared::{execute, Registry};
+use crate::declared::{execute, Asked, Registry};
 use crate::tests::{repository, TempDir};
 
 const BUDGET: Duration = Duration::from_secs(30);
@@ -37,7 +37,7 @@ async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
         dir.path(),
         Registry::Checks,
         "build",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -58,7 +58,7 @@ async fn a_check_that_fails_carries_its_own_exit_code_out() {
         dir.path(),
         Registry::Checks,
         "test",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -78,7 +78,7 @@ async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
         dir.path(),
         Registry::Checks,
         "buidl",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -103,7 +103,7 @@ async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() 
         dir.path(),
         Registry::Commands,
         "build",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -123,7 +123,7 @@ async fn a_command_named_at_check_is_refused_the_same_way_round() {
         dir.path(),
         Registry::Checks,
         "fmt",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -144,7 +144,7 @@ async fn a_destructive_command_runs_and_says_it_is_destructive() {
         dir.path(),
         Registry::Commands,
         "wipe",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -165,7 +165,7 @@ async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
         dir.path(),
         Registry::Checks,
         "build",
-        None,
+        Asked::Whole,
         BUDGET,
         None,
         Priority::Normal,
@@ -186,7 +186,7 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
             &repository(),
             Registry::Commands,
             name,
-            None,
+            Asked::Whole,
             BUDGET,
             None,
             Priority::Normal,
@@ -201,7 +201,7 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
             &repository(),
             Registry::Checks,
             name,
-            None,
+            Asked::Whole,
             BUDGET,
             None,
             Priority::Normal,
@@ -250,7 +250,7 @@ async fn a_check_waits_for_a_machine_slot_and_hands_it_down() {
             &root,
             Registry::Checks,
             "env",
-            None,
+            Asked::Whole,
             BUDGET,
             Some(&waiting),
             Priority::Normal,
@@ -293,7 +293,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         dir.path(),
         Registry::Checks,
         "test",
-        Some("a b"),
+        Asked::OneTest("a b"),
         BUDGET,
         None,
         Priority::Normal,
@@ -308,7 +308,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         dir.path(),
         Registry::Checks,
         "build",
-        Some("a"),
+        Asked::OneTest("a"),
         BUDGET,
         None,
         Priority::Normal,
@@ -379,6 +379,20 @@ fn this_repositorys_checks_are_chosen_by_their_when() {
 #[test]
 fn a_change_to_the_documents_alone_hits_no_check() {
     assert_eq!(hits(&["docs/INDEX.md", "README.md"]), Vec::<String>::new());
+}
+
+/// **Except the documents code reads.** `fleet` takes `agent-prompt.md` by
+/// `include_str!`, `adapters`' tests read `docs/spikes/`, and `xtask`'s studio
+/// rule reads the lexicon out of `design-system.md`.
+#[test]
+fn a_document_the_code_reads_runs_test() {
+    for path in [
+        "docs/contracts/agent-prompt.md",
+        "docs/contracts/design-system.md",
+        "docs/spikes/017-a-transcript.ndjson",
+    ] {
+        assert!(hits(&[path]).contains(&"test".to_string()), "{path}");
+    }
 }
 
 /// **The lockfile is what `--locked` resolves**, so a bump nothing else in the
@@ -460,7 +474,7 @@ async fn a_lowered_check_runs_clamped_and_a_command_does_not() {
             dir.path(),
             registry,
             name,
-            None,
+            Asked::Whole,
             BUDGET,
             None,
             Priority::Low,

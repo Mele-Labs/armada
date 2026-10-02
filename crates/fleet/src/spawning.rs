@@ -105,6 +105,9 @@ where
         // asks this and answers no. `crate::landing` owns the rest, including
         // why a branch that would not go does not stop the step.
         self.sent_out_on_entry(job, step, &worktree).await;
+        // What a landed fix held is free once this copy has it, and the news
+        // rides the peer block below. #1673.
+        self.holds_caught_up(&job_id, moved.as_ref()).await;
         // Asked of the record on every spawn, and answered `None` on almost
         // all of them. It is read before the brief because it is part of the
         // brief, and kept beside it because clearing it needs the same value.
@@ -153,17 +156,24 @@ where
         // it is holding `update_task` for, the Drone either re-records and
         // loses every task's state, or works blind. `None` on a first
         // attempt either way, because no plan exists yet to show. `#1006`.
-        let the_plan = match job.workflow().step(step) {
-            Some(s) if s.follows_plan() || !s.records_plan() => self
+        //
+        // **A task's Drone is told its task instead**, and a step that works a
+        // Drone per task never offers the plan tools: Fleet marks its tasks.
+        // `crate::tasking`.
+        let task = self.task_to_work(job, step).await?;
+        let the_plan = match (&task, job.workflow().step(step)) {
+            (Some((plan, task)), _) => Some(ThePlan::for_task(plan, task)),
+            (None, Some(s)) if s.follows_plan() || !s.records_plan() => self
                 .plan_of(&job_id)
                 .await?
-                .map(|plan| ThePlan::of(&plan, s.follows_plan())),
+                .map(|plan| ThePlan::of(&plan, s.follows_plan() && !s.drone_per_task())),
             _ => None,
         };
         let opening = opening
             .also_carrying(waiting.clone())
             .overtaken_by(overtaken)
             .told_of_peers(peers)
+            .holding_off(&self.held_off(&job_id).await)
             .sent_back_by(sent_back)
             .carrying_the_plan(the_plan)
             .ruling_out(self.dismissed_for(job, step).await?)
@@ -264,6 +274,11 @@ where
         self.drone_at_work(&job_id, started.session.pid());
         self.drone_process_recorded(job, step, &drone, started.session.pid())
             .await?;
+        // Before the arrival is announced, since Bridge reads which task a
+        // Drone is on when it hears one arrive.
+        if let Some((_, task)) = &task {
+            self.put_on_task(job, step, &drone, task.id()).await?;
+        }
         self.drone_arrived(job, step, drone.clone()).await?;
         // After the process exists too, and for the same reason: a note
         // cleared over a spawn that then failed is a note nobody was told.
@@ -291,8 +306,11 @@ where
         // The first row of this step's record, written by Armada, before the
         // Drone has said anything. It is written after the slot exists rather
         // than before because the sinks live on it.
-        if let Some(at_work) = working.as_ref() {
+        if let Some(at_work) = working.as_mut() {
             at_work.briefed(&opened_with, headings, kinds);
+            if let Some((_, task)) = &task {
+                at_work.on_task(task.id());
+            }
         }
         // This step's baseline, read once the slot exists. A Job's first step
         // ordinarily starts on a worktree holding nothing, and reading it
@@ -511,6 +529,10 @@ where
         // if a path ever arrives where they are not.
         if dispatches(job, step) {
             belt = belt.and(Grant::DispatchAJob);
+        }
+        // Denied at launch as well as refused at declaration. #1673.
+        for path in self.held_off(job.id()).await.paths() {
+            belt = belt.holding_off(path.as_str());
         }
         // The same two predicates `crate::work_plan` refuses a call by.
         for grant in job

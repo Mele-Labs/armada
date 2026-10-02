@@ -160,6 +160,7 @@ describe("the rows the board draws", () => {
         kind: "brief",
         owner: null,
         about: "verify · gaming check",
+        path: "briefs/verify.1.gaming.md",
         writing: false,
         open: { kept: "briefs/verify.1.gaming.md", what: "brief" },
       },
@@ -182,6 +183,7 @@ describe("the rows the board draws", () => {
         kind: "brief",
         owner: null,
         about: "implement · no_drift",
+        path: "briefs/no_drift-1.md",
         bytes: 6_204,
         writing: false,
         open: { kept: "briefs/no_drift-1.md", what: "brief" },
@@ -189,13 +191,20 @@ describe("the rows the board draws", () => {
     ]);
   });
 
-  it("draws a brief only the reading lists by its file, with no Open main would refuse", () => {
+  it("draws a brief only the reading lists by its file, read in the panel, with no Open main would refuse", () => {
     const read = view({
       logs: [{ kind: "brief", path: "briefs/regression_verify.1.gaming.md", owner: null, bytes: 5_377, writing: false }],
     });
 
     expect(pulseReadingOf(read, null, null).logs).toEqual([
-      { kind: "brief", owner: null, about: "regression_verify.1.gaming", bytes: 5_377, writing: false },
+      {
+        kind: "brief",
+        owner: null,
+        about: "regression_verify.1.gaming",
+        path: "briefs/regression_verify.1.gaming.md",
+        bytes: 5_377,
+        writing: false,
+      },
     ]);
   });
 
@@ -210,6 +219,7 @@ describe("the rows the board draws", () => {
         kind: "brief",
         owner: null,
         about: "implement · no_drift",
+        path: "briefs/no_drift-1.md",
         writing: false,
         open: { kept: "briefs/no_drift-1.md", what: "brief" },
       },

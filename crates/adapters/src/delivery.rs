@@ -17,7 +17,7 @@ use adapter_traits::{
     NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UncheckedHead,
     UnderReview, WhatBecameOfIt,
 };
-use adapter_traits::{Standing, Worktree};
+use adapter_traits::{Standing, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository};
 
 use crate::merging_in::{self, MergedIn, OnConflict};
@@ -208,8 +208,8 @@ impl Delivery for GitVcs {
         crate::filing::file_issue(in_repo, title, body)
     }
 
-    fn kept_current(&self, in_repo: &str, handle: &str, base: &str) -> KeptCurrent {
-        crate::keeping_current::kept_current(in_repo, handle, base)
+    fn kept_current(&self, spec: &WorktreeSpec, base: &str) -> KeptCurrent {
+        crate::keeping_current::kept_current(spec, base)
     }
 
     fn base_tip(&self, in_repo: &str, base: &str) -> Option<String> {

@@ -799,6 +799,11 @@ export type StepDetail = {
    */
   delivers?: boolean;
   /**
+   * This step works the plan's tasks one at a time, each by a Drone of its own:
+   * the step a Job's tasks are worked at. **Absent is false.** Since 23.1.
+   */
+  drone_per_task?: boolean;
+  /**
    * Which pass this step is on, where it closes a loop. Since protocol 13.20.
    * **On the step that sends the work back, not the step it is sent to.**
    * Absent on every step that sends nothing back, and where Fleet cannot say.

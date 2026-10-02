@@ -301,6 +301,11 @@ impl fmt::Display for Adrift {
                 job.as_str(),
                 status.as_wire()
             ),
+            Adrift::SlotKept { job, slot, why } => write!(
+                out,
+                "{}'s worktree is slot-{slot}, and the pool would not take it back: {why}",
+                job.as_str()
+            ),
             // The repository, named. A person fixes this by looking at that
             // path, and a message that only said the Job would send them to
             // the Job.
@@ -473,6 +478,12 @@ impl fmt::Display for Adrift {
                 out,
                 "{} has no worktree at {path}, so the earlier steps' work is not on disk. \
                  Starting the work again from the approval gate is a redispatch",
+                job.as_str()
+            ),
+            Adrift::SlotLost { job, slot, why } => write!(
+                out,
+                "{}'s worktree was slot-{slot}, and {why}. Its earlier steps' work is not \
+                 its own any more, so Fleet will not go on with it or lease it another",
                 job.as_str()
             ),
             Adrift::Unnameable => out.write_str("a Job needs a title somebody can read"),
@@ -665,6 +676,20 @@ impl fmt::Display for Adrift {
                 job.as_str(),
                 state.as_wire()
             ),
+            Adrift::TaskNotFailed { job, named, state } => write!(
+                out,
+                "{}'s task {named} is {}, and only a failed task restarts on its own. A \
+                 task working or handed in is still in its group's run",
+                job.as_str(),
+                state.as_wire()
+            ),
+            Adrift::TaskInFlight { job, named, state } => write!(
+                out,
+                "{}'s task {named} is {}, so its group is still running and cannot move \
+                 until its gate has answered",
+                job.as_str(),
+                state.as_wire()
+            ),
             Adrift::PlanNotKept { job, because } => write!(
                 out,
                 "{}'s plan change could not be written down: {because}. The change was \
@@ -722,6 +747,7 @@ impl Adrift {
             | Adrift::NotReaped { job, .. }
             | Adrift::NotForgettable { job, .. }
             | Adrift::NotReclaimable { job, .. }
+            | Adrift::SlotKept { job, .. }
             | Adrift::NotCappable { job, .. }
             | Adrift::CapNotRaised { job, .. }
             | Adrift::CapAboveCeiling { job, .. }
@@ -758,9 +784,12 @@ impl Adrift {
             | Adrift::NotFileable { job, .. }
             | Adrift::DroneStillThere { job }
             | Adrift::WorktreeGone { job, .. }
+            | Adrift::SlotLost { job, .. }
             | Adrift::AttachmentUnreadable { job, .. }
             | Adrift::PlanRefused { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
+            | Adrift::TaskNotFailed { job, .. }
+            | Adrift::TaskInFlight { job, .. }
             | Adrift::PlanNotKept { job, .. }
             // Both name the Job whose command was being decided about, so a
             // reading that failed is readable from the Job it was asked on.
@@ -839,6 +868,7 @@ impl Error for Adrift {
             // its own fields rather than in a chain — `RepoUnreadable` is a
             // pair of strings and not an error type.
             | Adrift::NotReclaimable { .. }
+            | Adrift::SlotKept { .. }
             // The six the two raises make, which say what the record or the
             // request holds rather than wrapping anything that failed.
             | Adrift::NotCappable { .. }
@@ -902,6 +932,7 @@ impl Error for Adrift {
             | Adrift::NotFileable { .. }
             | Adrift::DroneStillThere { .. }
             | Adrift::WorktreeGone { .. }
+            | Adrift::SlotLost { .. }
             // The two a merge makes. `NotMerged` is not an `Error` either.
             | Adrift::NothingToMerge { .. }
             | Adrift::NotMerged { .. }
@@ -946,6 +977,8 @@ impl Error for Adrift {
             // or drop could not do — none of the three wraps a failure.
             | Adrift::PlanRefused { .. }
             | Adrift::TaskAlreadySettled { .. }
+            | Adrift::TaskNotFailed { .. }
+            | Adrift::TaskInFlight { .. }
             | Adrift::PlanNotKept { .. }
             | Adrift::Modelless => None,
             Adrift::NotProposed { cause, .. } => Some(cause),

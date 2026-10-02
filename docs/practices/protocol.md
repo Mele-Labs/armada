@@ -2214,6 +2214,116 @@ them, so `edges` is what it was plus one. Which of those edges Bridge draws is B
 (`docs/concepts/studio.md`, *Edges*). Store V91 adds the column, and every node before it sits on
 the board. Minor resets to 0.
 
+## Protocol 23.1: a Drone per task, and the task a change moved
+
+Spike 022, the wire lock for the new Job, slice 1b (#1762, carrying #1752).
+
+**Four optional fields on three bodies, all additive.** `JobDrone` gains `task`, the plan task a
+Drone was put on, absent on a Drone that worked its whole step. `JobPlanChanged` gains `task` and
+`state`, the task a change moved and where it now stands, both absent on a whole recording. Spike
+022's *why a transition rides `job.plan_changed`* is the reason the event carries them rather than
+a new kind. `StepDetail` gains `drone_per_task`, absent at false, because the spike has Bridge
+read the step key where it derived the step that works the tasks; the spike's wire row for 1b
+names the first three and not this one.
+
+**Fleet is a third author of `job.plan_changed`.** On a step declaring `drone_per_task`, Fleet
+marks each task itself, `actor` `fleet`: `working` when its Drone is spawned, `handed_in` at that
+Drone's `submit_evidence`, and `done` once the step's Checks pass. `update_task` still refuses
+`handed_in`, and a task's Drone is not offered it at all. `docs/concepts/plan.md`, *A Drone per
+task*.
+
+**On the unmeasured risk above: worse, by a counted amount.** A task adds three
+`job.plan_changed` and a `drone.spawned` and `drone.exited` pair, against one pair per step
+before. Measured on a dev Fleet on 2 Oct 2026, with a scripted agent handing in two seconds after
+each spawn: five events per task, and 43 in the minute that held a five-task Job's whole run,
+against a `BACKLOG` of 256. A real task takes minutes, so the rate per Job-minute is five over
+how long a task takes. #1759 has the line; `[broadcast-capacity]` stays open.
+
+**Store V92** keeps which Drone was put on which task, and what each handed in, so `JobDrone.task`
+and the step's one submission survive a Fleet restarting mid-step.
+
+## Protocol 23.2: what landed, and what was sent back
+
+Decided with the owner on 2 Oct 2026: the merge line's one list of what left it splits in two.
+`MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
+`red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
+bounds are in `adapters::land_state::line`. Both lists are `MergeLineEntry` rows, newest first, with
+the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
+
+**Additive, so the minor moves.** `off` is still served as it was, so a 23.1 Bridge connects behind
+the banner and draws what it drew. This Bridge does not read it. `off` could not carry the split by
+itself: its newest few of either means a run of landings pushes every red out of it.
+
+**The bound is the outcome file's own age, held against the instant Fleet's clock gives the read.**
+A red that ages out changes the answer, so `merge_lines.changed` publishes it.
+
+**`MergeLineEntry` gains `checks`**, each Check the turn runs as `MergeLineCheck { name, state }`,
+`state` a strict `LandCheckState`: `waiting`, `running`, `passed`, `failed`, `timed_out`. The
+runner writes the same list into the outcome file (`Outcome::checks`, through `OutcomePatch`) as
+each Check starts and ends. Served for `gating`, `red` and `stopped` only, and while a Check
+runs `doing` is left off: the list says it. Absent where empty, so additive like the rest.
+
+**`MergeLinePullRequest` gains `settled`**, the Job's own `Settled`: `merged` where the forge
+read the push as the merge, `closed_unmerged` where the runner closed it naming the merge or found
+it closed. The runner records it as `Outcome::pr_settled` when the branch lands, from `gh pr view`'s
+state; Fleet serves it for `landed` only. Absent is nothing known: a pull request still in line,
+one left open because the remote held more than landed, or a forge that would not answer.
+
+## Protocol 23.3: the files a fix holds off the Jobs that hit its test
+
+#1673, the Fleet half.
+
+**One optional field, additive.** `ClaimedBreakage` gains `held_off`, the files no Job on the claim
+but the fix may change while it stands: those the reporting Drone named in `draft_fix`, then those
+the fix has declared it will change. Absent is none, which is every claim from before 23.3 whose
+fix has declared nothing yet. It reads the same from either side of the claim, like the rest of
+the entry.
+
+**Bridge reads `whole.breakages` for everything else.** Which Job is the fix, its title, and which
+Check and test it is fixing were already there: `fix`, `fix_title`, `check`, `test`. A failed Check
+row matches a breakage by `check`.
+
+**A landed fix leaves `whole.breakages` at the merge, as before**, though its files stay held off
+each Job until that Job's next catch-up brings the fix in. That hold is not on the wire; the Drone
+is told, and `docs/concepts/fleet.md`, *A test another Job is fixing*, has why it outlives the merge.
+
+**Not on the wire: `draft_fix` gains a required `files`.** It is an MCP tool, not this protocol, and
+its own schema says so. **Store V94** keeps a claim's files and what a landed fix still holds.
+
+## Protocol 23.4: groups, a task that failed, and two acts on them
+
+Spike 022, the wire lock for the new Job, slice 2 (#1763, carrying #1652, #1656 and #1685).
+
+**Optional fields, one new DTO pair and two routes, all additive.** `WorkPlan` gains `groups`,
+each a `PlanGroup` naming its tasks, its `state` (`GroupState`, the registry's eight words) and
+every run as a `PlanGroupRun`: its own number, the step's run it was filed under, its verdict and
+the commit a green run made. `PlanTask` gains `group` and `failed_reason`, `reason` staying a
+drop's alone. `CheckRun` and `Recorded` gain `group` and `group_attempt`, absent where no group's
+gate made the row, which means exactly that and never "unknown" (#1652). `JobPlanChanged` gains
+`group`, on the change a group's verdict made.
+
+**Fleet writes `failed`, and only once a group's retries run out** (answer 9). A red group goes
+round on its own, its tasks staying `handed_in`; the last red run fails every task in the group
+with a reason naming the group and the run. A Judge refusal stops the group for a person, as it
+stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
+
+| Route | Body | Answers | Refused |
+|---|---|---|---|
+| `POST /jobs/:job_id/tasks/:task_id/restart`, `restart_task` | `RestartTask`, an optional `note`; no body is valid | `JobSummary` | 409 `fleet.task_not_failed` on a task that has not failed |
+| `POST /jobs/:job_id/plan/move`, `move_plan` | `MovePlan`: `group`, `task?`, `after?` | `WorkPlan` | 409 `fleet.task_in_flight` on a task, or a group holding one, still in its run; 422 `fleet.no_such_group`, `fleet.no_such_task` |
+
+**The bodies are the lock's.** Bridge sent `to`, an index; the wire takes `after`, as `add_task`
+places a task, because an index counted at the drag is stale the moment a Drone adds or drops one.
+`MovePlan` moved from `pending.ts` to `work-plan.ts` with that shape. Bridge's two pending entries
+go with the Bridge half, which draws the groups and answers both acts in the mock.
+
+**`record_plan` takes an optional `group` per task**, a number in the order groups run; a task
+naming none joins the group before it, so a plan recorded without groups is one group, which is
+how every plan before this reads.
+
+**Store V95** keeps each group's runs, the group and run in `job_step_checks`' key so two groups
+gated on one run of a step keep both their rows, and a plan's two moves and a failed task's reason.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

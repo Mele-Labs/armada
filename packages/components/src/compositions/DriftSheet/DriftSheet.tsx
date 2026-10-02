@@ -27,6 +27,7 @@ export type DriftSheetProps = DriftPanelProps & {
 export function DriftSheet({ open, file, floor = false, onClose, ...reading }: DriftSheetProps) {
   return (
     <Sheet
+      kind="drift"
       open={open}
       contained
       floor={floor}

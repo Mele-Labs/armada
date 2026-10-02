@@ -14,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::WorktreeSpec;
 use config::{EvidenceType, Manifest, ResolvedWorkflow, Roster, WorkflowDef};
 use core_model::{Job, JobStatus};
 use testkit::FakeWorkProduct;
@@ -134,8 +133,7 @@ fn a_fleet_showing_two_captured_steps(home: &TempDir) -> Arc<Fixture> {
 }
 
 fn worktree_of(home: &TempDir, job: &Job) -> PathBuf {
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     PathBuf::from(spec.worktree_path())
 }
 
@@ -399,6 +397,26 @@ async fn a_press_keeps_a_set_of_its_own_while_the_other_jobs_keep_turning() {
         .expect("the facts read");
     assert_eq!(facts.shown.len(), 1, "get_job carries the set");
     assert_eq!(facts.showing_since, None, "and no press is out any more");
+}
+
+/// **A completed Job holds its slot until a person clears it**, so a press
+/// after it finished runs in the tree it finished in.
+#[tokio::test]
+async fn a_completed_job_is_shown_again_in_the_slot_it_still_holds() {
+    let home = TempDir::new();
+    let fleet = a_fleet_showing(&home, HELD_WHILE_ASKED);
+    let job = shown_once(&fleet, &home, "show the panel", "the step's own picture").await;
+    assert_eq!(job.status(), JobStatus::CompletedSuccess);
+    std::fs::write(worktree_of(&home, &job).join("marker"), "after it finished")
+        .expect("the screen changed");
+
+    let pressed = Arc::clone(&fleet)
+        .show_again(job.id(), None)
+        .await
+        .expect("the press ran");
+
+    let set = pressed.set.expect("the harness captured a frame");
+    assert_eq!(read(&home, &set.frames[0].path), "after it finished");
 }
 
 /// **A second press is a second set.** The owner's decision: nothing a press

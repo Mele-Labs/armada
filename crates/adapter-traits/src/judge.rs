@@ -9,16 +9,24 @@
 //!
 //! # What a [`JudgeCall`] cannot say
 //!
-//! There is no worktree, no directory, no MCP configuration path and no
-//! toolbelt on this type. A Judge reads the evidence it was handed and cannot
-//! reach the repository, because there is no field in which to name one — not
-//! because a check rejects the attempt.
+//! There is no worktree, no MCP configuration path and no toolbelt on this
+//! type. The one directory it can carry is a [`Reading`]'s: a repository's own
+//! checkout, read-only, for a few turns, so a Judge can look up what the
+//! repository requires of a change the way a Drone does. Decided 2 Oct 2026.
+//! An ask without one is the fence as it was — a call that reaches nothing,
+//! because there is no field in which to name anything to reach.
+//!
+//! **A [`Reading`] names a checkout, never a worktree.** Nothing in this crate
+//! can tell the two paths apart, so the rule is the caller's: Fleet builds one
+//! from the repository it serves, and a Job's worktree is not a value it holds
+//! there. What the argument list makes of it is `adapters`'.
 //!
 //! The question goes in on stdin for [`crate::harness`]'s reason: argv is
 //! world-readable through `ps`, and a criterion quotes the work.
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::num::NonZeroU8;
 
 use crate::harness::{Environment, Model, SpawnConfigRefused};
 
@@ -32,6 +40,45 @@ pub struct Ask {
     model: Model,
     question: String,
     environment: Environment,
+    reading: Option<Reading>,
+}
+
+/// A repository's checkout a Judge may read, and for how many turns.
+///
+/// **Read-only is not a field.** There is no way to ask for a write here, so a
+/// client renders the read tools or nothing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reading {
+    checkout: String,
+    turns: NonZeroU8,
+}
+
+impl Reading {
+    /// `checkout` is the repository's own checkout, absolute. A relative one
+    /// would resolve wherever the call happened to start, which is the
+    /// mistake [`SpawnConfigRefused::McpConfigPathNotAbsolute`] already names.
+    pub fn checkout(checkout: &str, turns: NonZeroU8) -> Result<Reading, SpawnConfigRefused> {
+        if !checkout.starts_with('/') {
+            return Err(SpawnConfigRefused::CheckoutNotAbsolute {
+                given: String::from(checkout),
+            });
+        }
+        let trimmed = checkout.trim_end_matches('/');
+        Ok(Reading {
+            checkout: String::from(if trimmed.is_empty() { "/" } else { trimmed }),
+            turns,
+        })
+    }
+
+    /// The directory the call starts in and may read under.
+    pub fn directory(&self) -> &str {
+        &self.checkout
+    }
+
+    /// The most turns the call may take, reads and answer together.
+    pub fn turns(&self) -> NonZeroU8 {
+        self.turns
+    }
 }
 
 impl Ask {
@@ -53,7 +100,21 @@ impl Ask {
             model,
             question: String::from(question),
             environment,
+            reading: None,
         })
+    }
+
+    /// The same ask, able to read `reading`'s checkout.
+    pub fn reading(self, reading: Reading) -> Ask {
+        Ask {
+            reading: Some(reading),
+            ..self
+        }
+    }
+
+    /// What the call may read, or `None` for a call that reaches nothing.
+    pub fn reads(&self) -> Option<&Reading> {
+        self.reading.as_ref()
     }
 
     pub fn model(&self) -> &Model {
@@ -72,30 +133,38 @@ impl Ask {
 
 /// A one-shot model call: a process, not yet started.
 ///
-/// **No directory and no stdio.** Where it runs is chosen by whoever runs it,
-/// and a field here would be a way for an adapter to point a Judge at a
-/// worktree.
+/// **No stdio, and a directory only from the ask.** Where a call that reads
+/// nothing runs is chosen by whoever runs it. One that reads starts in its
+/// [`Reading`]'s checkout, copied off the ask in [`JudgeCall::rendered`], so an
+/// adapter cannot point a Judge anywhere it was not given.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JudgeCall {
     program: String,
     args: Vec<String>,
     environment: Environment,
     question: String,
+    directory: Option<String>,
 }
 
 impl JudgeCall {
     /// Render an ask into a startable process.
     ///
-    /// **The question and the environment come from the ask**, not from the
-    /// caller, so an implementation cannot put a different question on stdin
-    /// or hand the call something it was not given.
+    /// **The question, the environment and the directory come from the ask**,
+    /// not from the caller, so an implementation cannot put a different
+    /// question on stdin or hand the call something it was not given.
     pub fn rendered(ask: &Ask, program: &str, args: Vec<String>) -> JudgeCall {
         JudgeCall {
             program: String::from(program),
             args,
             environment: ask.environment().clone(),
             question: String::from(ask.question()),
+            directory: ask.reads().map(|reading| String::from(reading.directory())),
         }
+    }
+
+    /// The checkout the call starts in, where it was given one to read.
+    pub fn directory(&self) -> Option<&str> {
+        self.directory.as_deref()
     }
 
     pub fn program(&self) -> &str {
@@ -118,7 +187,8 @@ impl JudgeCall {
 }
 
 /// A model call that carries no toolset — the Judge, the Job-shape classifier,
-/// and generated copy. Distinct from [`crate::AgentHarness`], which carries one.
+/// and generated copy — beyond the read tools a [`Reading`] grants. Distinct
+/// from [`crate::AgentHarness`], which carries one.
 ///
 /// # Rendering cannot fail
 ///

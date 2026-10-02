@@ -244,6 +244,15 @@ const NO_SUCH_TASK: &str = "fleet.no_such_task";
 /// like the other status conflicts — the task was read, and what it read
 /// refuses this rather than the request's shape.
 const TASK_ALREADY_SETTLED: &str = "fleet.task_already_settled";
+/// Restart this task on a task that has not failed. A 409, for
+/// `TASK_ALREADY_SETTLED`'s reason. `#1656`.
+const TASK_NOT_FAILED: &str = "fleet.task_not_failed";
+/// A move of a task, or a group holding one, still in its group's run. A 409.
+/// `#1685`.
+const TASK_IN_FLIGHT: &str = "fleet.task_in_flight";
+/// A move named a group the plan does not hold. A 422, `NO_SUCH_TASK`'s
+/// reason. `#1685`.
+const NO_SUCH_GROUP: &str = "fleet.no_such_group";
 /// A person's add or drop reached a plan that would have taken it and a
 /// store that would not keep it. A 500: nothing about the request is wrong.
 const PLAN_NOT_KEPT: &str = "fleet.plan_not_kept";
@@ -333,7 +342,7 @@ where
             // A reclaim on a Job that is not yet terminal. The same shape as
             // the forget above and a code of its own, because the act a person
             // is told to try instead is not the same one.
-            Adrift::NotReclaimable { job, .. } => Refusal::IllegalMove(
+            Adrift::NotReclaimable { job, .. } | Adrift::SlotKept { job, .. } => Refusal::IllegalMove(
                 WireError::raised(NOT_RECLAIMABLE, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
@@ -374,6 +383,7 @@ where
             | Adrift::NotAnswerable { job, .. }
             | Adrift::DroneStillThere { job }
             | Adrift::WorktreeGone { job, .. }
+            | Adrift::SlotLost { job, .. }
             | Adrift::NotTheJudges { job, .. }
             | Adrift::CheckDidNotPass { job, .. }
             | Adrift::NotUndecided { job, .. }
@@ -424,9 +434,28 @@ where
             ),
             Adrift::PlanRefused {
                 job,
+                why: core_model::PlanRefused::NoSuchGroup { named },
+            } => Refusal::Unacceptable(
+                WireError::raised(NO_SUCH_GROUP, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("group", WireValue::Str(named.to_string())),
+            ),
+            // Unreachable from a person's act, which records no plan: a
+            // Drone's `record_plan` is refused by name in `fleet::work_plan`.
+            Adrift::PlanRefused {
+                job,
+                why: core_model::PlanRefused::GroupsOutOfOrder { named },
+            } => Refusal::Unacceptable(
+                WireError::raised(NO_SUCH_GROUP, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("group", WireValue::Str(named.to_string())),
+            ),
+            Adrift::PlanRefused {
+                job,
                 why:
                     core_model::PlanRefused::NoSuchTask { named }
                     | core_model::PlanRefused::NoSuchPlace { named }
+                    | core_model::PlanRefused::NotInGroup { named, .. }
                     | core_model::PlanRefused::StaysDropped { named },
             } => Refusal::Unacceptable(
                 WireError::raised(NO_SUCH_TASK, said, self.run_id())
@@ -438,6 +467,18 @@ where
             // from `add_task`/`drop_task`, which never ask to reopen one.
             Adrift::TaskAlreadySettled { job, named, state } => Refusal::IllegalMove(
                 WireError::raised(TASK_ALREADY_SETTLED, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("task", WireValue::Str(named.to_string()))
+                    .with_field("state", WireValue::Str(state.as_wire().to_string())),
+            ),
+            Adrift::TaskNotFailed { job, named, state } => Refusal::IllegalMove(
+                WireError::raised(TASK_NOT_FAILED, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("task", WireValue::Str(named.to_string()))
+                    .with_field("state", WireValue::Str(state.as_wire().to_string())),
+            ),
+            Adrift::TaskInFlight { job, named, state } => Refusal::IllegalMove(
+                WireError::raised(TASK_IN_FLIGHT, said, self.run_id())
                     .about_job(ipc::JobId::from(job))
                     .with_field("task", WireValue::Str(named.to_string()))
                     .with_field("state", WireValue::Str(state.as_wire().to_string())),

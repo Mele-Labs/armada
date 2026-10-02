@@ -38,6 +38,10 @@ pub(crate) enum NotPlanned {
     NotItsToFollow {
         step: StepId,
     },
+    /// The step works its tasks a Drone each, and Fleet marks them.
+    FleetMarksTasks {
+        step: StepId,
+    },
     Refused(PlanRefused),
     /// The store would not take a change the plan could. Not the Drone's.
     NotKept(String),
@@ -69,6 +73,13 @@ impl fmt::Display for NotPlanned {
                  update. {CARRY_ON}",
                 step.as_str()
             ),
+            NotPlanned::FleetMarksTasks { step } => write!(
+                out,
+                "on step `{}` each task is worked by an agent of its own, and its \
+                 state is kept from your submission, so there is nothing to add or \
+                 update. Submit your task when it is done",
+                step.as_str()
+            ),
             NotPlanned::Refused(PlanRefused::NoPlan) => write!(
                 out,
                 "no plan has been recorded for this Job, so there is no task to add or \
@@ -90,6 +101,14 @@ impl fmt::Display for NotPlanned {
                  is needed after all, say so in `not_claimed` when you submit; a person \
                  can add it back as a new task. {CARRY_ON}"
             ),
+            NotPlanned::Refused(PlanRefused::GroupsOutOfOrder { named }) => write!(
+                out,
+                "group {named} comes after a higher group. List the tasks group by group, \
+                 in the order the groups run, and call again"
+            ),
+            NotPlanned::Refused(
+                why @ (PlanRefused::NoSuchGroup { .. } | PlanRefused::NotInGroup { .. }),
+            ) => write!(out, "{why}. {CARRY_ON}"),
             NotPlanned::NotKept(why) => write!(
                 out,
                 "the change could not be written down ({why}). It is not yours to fix. \
@@ -113,7 +132,7 @@ pub(crate) fn plan_grants(step: &ResolvedStep) -> Vec<Grant> {
     if step.records_plan() {
         grants.push(Grant::RecordThePlan);
     }
-    if step.follows_plan() {
+    if step.follows_plan() && !step.drone_per_task() {
         grants.push(Grant::WorkThePlan);
     }
     grants
@@ -121,11 +140,18 @@ pub(crate) fn plan_grants(step: &ResolvedStep) -> Vec<Grant> {
 
 /// Whether this step may make this change. **A recording is the recording
 /// step's alone**, so no later step can replace the plan it is working from.
+/// **A step working a Drone per task makes none**: a Drone marking a later task
+/// done would have it skipped.
 pub(crate) fn permitted(step: &ResolvedStep, change: &PlanChange) -> Result<(), NotPlanned> {
     match change {
         PlanChange::Recorded { .. } if !step.records_plan() => Err(NotPlanned::NotItsToRecord {
             step: step.id().clone(),
         }),
+        PlanChange::Added { .. } | PlanChange::Updated { .. } if step.drone_per_task() => {
+            Err(NotPlanned::FleetMarksTasks {
+                step: step.id().clone(),
+            })
+        }
         PlanChange::Added { .. } | PlanChange::Updated { .. } if !step.follows_plan() => {
             Err(NotPlanned::NotItsToFollow {
                 step: step.id().clone(),
@@ -217,6 +243,23 @@ impl PlanChanged {
         ))
     }
 
+    /// A group's Checks went red and its last Drone goes round for all of it,
+    /// after the red Checks themselves. Spike 022, slice 2.
+    pub fn round(group: core_model::GroupId, plan: &WorkPlan) -> PlanChanged {
+        let tasks: Vec<String> = plan
+            .tasks_in(group)
+            .filter(|task| task.state() != TaskState::Dropped)
+            .map(|task| format!("{} {}", task.id(), task.title()))
+            .collect();
+        PlanChanged(format!(
+            "THE GROUP GOES ROUND\n\nThe Checks above ran at the end of group {group}, \
+             which is these tasks: {}. Fix what they found across all of them, not only \
+             your own, then call submit_evidence once for the group. Every one of them \
+             stays handed in while you do. Do not start a task of a later group.",
+            tasks.join("; ")
+        ))
+    }
+
     /// The turn, exactly as it reaches a Drone.
     pub fn text(&self) -> &str {
         &self.0
@@ -225,7 +268,7 @@ impl PlanChanged {
 
 /// Why the store would not keep a person's change, once the plan itself would
 /// have taken it. Not the person's to fix.
-fn plan_not_kept(job: &JobId, why: PlanNotKept) -> Adrift {
+pub(crate) fn plan_not_kept(job: &JobId, why: PlanNotKept) -> Adrift {
     match why {
         PlanNotKept::Refused(refused) => Adrift::PlanRefused {
             job: job.clone(),
@@ -244,6 +287,7 @@ pub(crate) fn receipt_word(change: &PlanChange, plan: &WorkPlan) -> String {
     match change {
         PlanChange::Recorded { .. } => "recorded".to_string(),
         PlanChange::Updated { .. } => "updated".to_string(),
+        PlanChange::MovedTask { .. } | PlanChange::MovedGroup { .. } => "moved".to_string(),
         PlanChange::Added { .. } => plan
             .tasks()
             .iter()
@@ -317,12 +361,8 @@ where
                 other => NotPlanned::NotKept(other.to_string()),
             })?;
         drop(working);
-        self.publish(ipc::Event::JobPlanChanged(ipc::JobPlanChanged {
-            job_id: (&job).into(),
-            tasks: plan.counts().into(),
-            actor: Actor::Drone.into(),
-            at: (&at).into(),
-        }));
+        let changed = ipc::JobPlanChanged::changed(&job, change, &plan, Actor::Drone, &at);
+        self.publish(ipc::Event::JobPlanChanged(changed));
         Ok(plan)
     }
 
@@ -404,7 +444,7 @@ where
             .map(PlanTask::id)
             .max()
             .expect("the task just added is in the plan it leaves");
-        self.told_plan_changed(job, &plan, &at);
+        self.told_plan_changed(job, &change, &plan, &at);
         self.deliver_plan_change(job, &PlanChanged::added(id, &task))
             .await;
         Ok(plan)
@@ -448,7 +488,7 @@ where
             .map(PlanTask::title)
             .unwrap_or_default()
             .to_string();
-        self.told_plan_changed(job, &plan, &at);
+        self.told_plan_changed(job, &change, &plan, &at);
         self.deliver_plan_change(job, &PlanChanged::dropped(task, &title, reason.as_str()))
             .await;
         Ok(plan)
@@ -456,13 +496,9 @@ where
 
     /// Publish `job.plan_changed`, actor `Human` — a person's act, never
     /// Fleet's own.
-    fn told_plan_changed(&self, job: &JobId, plan: &WorkPlan, at: &Timestamp) {
-        self.publish(ipc::Event::JobPlanChanged(ipc::JobPlanChanged {
-            job_id: job.into(),
-            tasks: plan.counts().into(),
-            actor: Actor::Human.into(),
-            at: at.into(),
-        }));
+    fn told_plan_changed(&self, job: &JobId, change: &PlanChange, plan: &WorkPlan, at: &Timestamp) {
+        let changed = ipc::JobPlanChanged::changed(job, change, plan, Actor::Human, at);
+        self.publish(ipc::Event::JobPlanChanged(changed));
     }
 
     /// Tell a working Drone what a person's add or drop changed. **Only where

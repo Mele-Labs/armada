@@ -49,9 +49,9 @@ pub use job::{
     Finding, FixWaiter, FollowUp, FrozenWorkflow, GamingCheck, GamingFlag, GamingPattern,
     GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
     IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
-    JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, ManifestId, ModelName, Narrowing,
-    NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin, PathPattern,
-    PilotReason, Prerequisite, ProposalId, Proves, QueuedReason, Reach, Recourse,
+    JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName,
+    Narrowing, NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin,
+    PathPattern, PilotReason, Prerequisite, ProposalId, Proves, QueuedReason, Reach, Recourse,
     RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath, ResolvedCheck,
     ResolvedPolicies, ResolvedStep, Resumption, ReviewGate, ReviewRecord, Runner, RunsAt,
     ScopeClaim, ScopeRevision, ScopeRevisionOutcome, Side, Spent, Standing, StepCheck, StepEdge,
@@ -63,9 +63,9 @@ pub use job::{
     EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
 };
 pub use job::{
-    Approach, DropReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow,
-    PLAN_RECORDED,
+    Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns,
+    GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused, PlanTask,
+    Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow, PLAN_RECORDED,
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,

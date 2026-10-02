@@ -8,7 +8,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::WorktreeSpec;
 use core_model::{
     Attempt, EscalationTrigger, JobId, JobStatus, Recourse, Spent, StepId, StepLevelTrigger,
     StepState, StepVerdict,
@@ -255,8 +254,7 @@ async fn it_is_refused_exactly_where_it_is_not_offered() {
     let home = TempDir::new();
     let (fleet, job_id) = held_for_repair(&home).await;
     let job = fleet.load(&job_id).await.expect("the Job reads");
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     std::fs::remove_dir_all(spec.worktree_path()).expect("the worktree is reclaimed");
 
     assert!(!offered(&fleet, &job_id)

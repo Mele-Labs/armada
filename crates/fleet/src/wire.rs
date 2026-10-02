@@ -157,8 +157,14 @@ pub(crate) fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep>
 /// It replays nothing. Every value below is copied across; none is put back
 /// through `Job::transition`, which `crates/store/src/fold.rs` has already done
 /// by the time this runs.
-pub(crate) fn recorded(event: &RecordedEvent) -> ipc::Recorded {
+///
+/// **With the group and run** where a group's verdict made the row, out of
+/// `coords`, which is Fleet's own record of each verdict's row.
+pub(crate) fn recorded(event: &RecordedEvent, coords: &[store::GroupCoord]) -> ipc::Recorded {
+    let coord = coords.iter().find(|coord| coord.event_seq == event.seq());
     ipc::Recorded {
+        group: coord.map(|coord| coord.group.to_string()),
+        group_attempt: coord.map(|coord| coord.run),
         seq: event.seq(),
         status: event.under().into(),
         moved: match event.moved() {
@@ -551,10 +557,9 @@ pub(crate) fn step_facts(
                     .iter()
                     .filter(|group| &group.step_id == step.step_id())
                     .flat_map(|group| {
-                        group
-                            .record
-                            .iter()
-                            .map(|check| CheckRun::of(group.attempt.number(), check))
+                        group.record.iter().map(|check| {
+                            CheckRun::of(group.attempt.number(), check).at(group.group)
+                        })
                     })
                     .collect(),
                 judged: judged
@@ -647,7 +652,9 @@ pub(crate) fn reclaimed(job_id: &core_model::JobId, gave_back: Reclaimed) -> Wor
             WorktreeGone::Removed { path }
             | WorktreeGone::RecordCleared { path }
             | WorktreeGone::DirectoryRemoved { path }
-            | WorktreeGone::Absent { path } => ReclaimedWorktree {
+            | WorktreeGone::Absent { path }
+            // Back with the pool: Fleet released it before asking for this.
+            | WorktreeGone::Pooled { path } => ReclaimedWorktree {
                 path,
                 removed: true,
                 why: None,

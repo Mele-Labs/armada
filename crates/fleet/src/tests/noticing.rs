@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use adapter_traits::{KeptCurrent, Landing, Rendering, RepositoryStanding};
 use api::Queries;
-use testkit::{FakeVcs, FakeWorkProduct};
+use testkit::{Delivered, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::noticing::Noticing;
@@ -263,6 +263,35 @@ async fn a_pull_request_whose_base_moved_is_kept_current() {
             .is_empty(),
         "nothing landed, so nothing is written down"
     );
+}
+
+/// **Kept current in the slot the Job still holds**, where its branch is
+/// checked out, never at the path its handle derives.
+#[tokio::test]
+async fn a_job_holding_its_slot_is_kept_current_in_the_slot() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home);
+    fleet
+        .vcs()
+        .keep_every_release("its branch holds commits on neither the remote nor the base");
+    let job = a_finished_job(&fleet, &home).await;
+    let held = crate::tests::daemon::spec_held(&home, &fleet.load(&job).await.unwrap())
+        .expect("the Job holds its slot");
+    assert!(held.slot().is_some());
+
+    fleet.vcs().now_landed(open_against_a_base_that_moved());
+    fleet.turn().await.unwrap();
+
+    let asked: Vec<String> = fleet
+        .vcs()
+        .delivered()
+        .into_iter()
+        .filter_map(|it| match it {
+            Delivered::KeptCurrent { worktree, .. } => Some(worktree),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(asked, vec![held.worktree_path()]);
 }
 
 /// **Once per base, and then never again until it moves further.** A

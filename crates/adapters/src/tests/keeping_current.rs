@@ -9,7 +9,9 @@
 
 use std::path::Path;
 
-use adapter_traits::{CommitTime, Delivery, KeptCurrent, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{
+    CommitTime, Delivery, KeptCurrent, SlotLeased, SlotPool, Vcs, Worktree, WorktreeSpec,
+};
 
 use crate::tests::repo::TempRepo;
 use crate::worktree::GitVcs;
@@ -26,6 +28,25 @@ fn spec_for(repo: &TempRepo) -> WorktreeSpec {
 fn a_delivered_worktree(repo: &TempRepo) -> Worktree {
     let spec = spec_for(repo);
     let worktree = GitVcs::new().create_worktree(&spec).expect("a worktree");
+    std::fs::write(format!("{}/work.txt", worktree.path()), "the job's work").expect("the file");
+    GitVcs::new()
+        .commit_all(
+            &worktree,
+            "the job's work",
+            CommitTime::seconds_since_epoch(1_787_734_800),
+        )
+        .expect("a commit");
+    GitVcs::new().push(&worktree).expect("the first push");
+    worktree
+}
+
+/// The same, in the pool slot a Job leases, where its branch stays checked out.
+fn a_delivered_slot(repo: &TempRepo) -> Worktree {
+    let pool = SlotPool::of(&repo.root_str(), 1, "main", Vec::new());
+    let worktree = match GitVcs::new().lease_slot(&pool, &spec_for(repo), "01JOB") {
+        Ok(SlotLeased::Took { worktree, .. }) => worktree,
+        other => panic!("no slot: {other:?}"),
+    };
     std::fs::write(format!("{}/work.txt", worktree.path()), "the job's work").expect("the file");
     GitVcs::new()
         .commit_all(
@@ -68,7 +89,10 @@ fn base_tip_of_a_branch_nobody_has_is_none() {
 #[test]
 fn a_branch_this_pull_request_derived_that_is_gone_answers_no_branch() {
     let repo = TempRepo::with_a_commit();
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), "01NOBRANCH00000000000001", "main");
+    let outcome = GitVcs::new().kept_current(
+        &WorktreeSpec::for_job(&repo.root_str(), "01NOBRANCH00000000000001").expect("a legal spec"),
+        "main",
+    );
     assert_eq!(outcome, KeptCurrent::NoBranch);
 }
 
@@ -86,7 +110,7 @@ fn a_behind_branch_is_rebased_and_pushed_in_the_jobs_own_worktree() {
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
     let onto = repo.git(&["rev-parse", "main"]);
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert_eq!(
         outcome,
         KeptCurrent::Rebased {
@@ -126,7 +150,7 @@ fn a_behind_branch_is_rebased_through_a_scratch_worktree_where_its_own_is_gone()
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
         matches!(outcome, KeptCurrent::Rebased { commits: 1, .. }),
         "{outcome:?}"
@@ -139,6 +163,32 @@ fn a_behind_branch_is_rebased_through_a_scratch_worktree_where_its_own_is_gone()
         remote_tip(&bare, &format!("armada/{JOB}")),
         repo.git(&["rev-parse", &format!("armada/{JOB}")]),
         "the rebase reached the remote even without a worktree to start from"
+    );
+}
+
+/// **A Job in a pool slot is kept current in the slot.** Its branch is checked
+/// out there, so a scratch checkout at the derived path could not attach to it.
+#[test]
+fn a_slotted_jobs_branch_is_kept_current_in_its_slot() {
+    let repo = TempRepo::with_a_commit();
+    let bare = repo.with_a_bare_remote();
+    repo.git(&["push", "--set-upstream", "origin", "main"]);
+    let worktree = a_delivered_slot(&repo);
+
+    repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo).in_slot(1), "main");
+    assert!(
+        matches!(outcome, KeptCurrent::Rebased { commits: 1, .. }),
+        "{outcome:?}"
+    );
+    assert!(
+        Path::new(&format!("{}/elsewhere.txt", worktree.path())).exists(),
+        "the slot carries what moved on the base"
+    );
+    assert_eq!(
+        remote_tip(&bare, &format!("armada/{JOB}")),
+        repo.git(&["rev-parse", &format!("armada/{JOB}")]),
     );
 }
 
@@ -179,7 +229,7 @@ fn a_conflicting_rebase_leaves_the_branch_exactly_as_it_was_and_pushes_nothing()
         "somebody else got there first",
     );
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     let KeptCurrent::Conflicted { files, .. } = &outcome else {
         panic!("two edits to one file conflict: {outcome:?}");
     };
@@ -236,7 +286,7 @@ fn a_conflicting_rebase_through_a_scratch_worktree_leaves_the_branch_untouched()
         "somebody else got there first",
     );
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
         matches!(&outcome, KeptCurrent::Conflicted { files, .. } if files == &["shared.txt".to_string()]),
         "{outcome:?}"
@@ -298,7 +348,7 @@ fn an_autostash_that_wont_reapply_leaves_the_branch_and_the_worktree_as_they_wer
         "somebody else got there first",
     );
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     let KeptCurrent::Conflicted { files, .. } = &outcome else {
         panic!("the uncommitted change conflicts with what moved on the base: {outcome:?}");
     };
@@ -353,7 +403,7 @@ fn keeping_current_never_takes_another_worktrees_stash_entry() {
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
     let onto = repo.git(&["rev-parse", "main"]);
 
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert_eq!(outcome, KeptCurrent::Rebased { onto, commits: 1 });
     assert_eq!(
         std::fs::read_to_string(format!("{}/still-writing.txt", worktree.path()))
@@ -430,7 +480,7 @@ fn a_commit_pushed_to_the_branch_by_hand_is_taken_before_the_push() {
     let by_hand = remote_tip(&bare, &branch);
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
-    let outcome = GitVcs::new().kept_current(&repo.root_str(), JOB, "main");
+    let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
         matches!(outcome, KeptCurrent::Rebased { .. }),
         "{outcome:?}"

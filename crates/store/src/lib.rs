@@ -49,6 +49,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// Where a verdict's own question was kept, and the column that points at it.
@@ -119,10 +120,14 @@ mod schema;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
+/// Which pool slot a Job's worktree is.
+mod slot;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
+/// Which Drone was put on which task, and what it handed in. Spike 022, 1b.
+mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
 /// A Job's plan and its tasks, kept as every change made to them. Not
@@ -143,6 +148,7 @@ pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, 
 pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
+pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use migrations::KNOWN_SCHEMA_VERSION;
@@ -162,4 +168,5 @@ pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
+pub use task_drones::{TaskDrone, TaskHandIn};
 pub use work_plan::{PlanHand, PlanNotKept};

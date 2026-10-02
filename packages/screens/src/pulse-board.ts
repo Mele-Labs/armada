@@ -66,7 +66,8 @@ export function pulseReadingOf(
  * open. Two paths that are equal are one file, since both are relative to
  * `records_root`. A brief only the reading lists — the board drawn without the
  * Job, or a brief kept before its verdict landed — is named by its file and
- * offers no `Open`, for the same reason.
+ * offers no `Open`, for the same reason. **Every brief row carries its path**,
+ * so a press reads it in the panel off `get_brief` (protocol 21.11).
  *
  * **A transcript opens by its own path**, which main checks against the
  * reading it holds, and is named by where its Drone worked (`dronePlacesOf`).
@@ -86,14 +87,14 @@ function logRowsOf(logs: readonly PulseLog[], whole: JobWhole | null, places: Dr
 function fileRowOf(log: PulseLog, places: DronePlaces): PulseLogRow {
   const row = { kind: log.kind, owner: log.owner, ...weighed(log), writing: log.writing };
   // The two a panel can read live: the Job's log on its socket, a transcript
-  // on the observe socket's rows for its Drone. A brief has no reader at all.
+  // on the observe socket's rows for its Drone. A brief is read once, whole.
   if (log.kind === "job" && log.owner === null) return { ...row, path: log.path, open: "log" };
   if (log.kind === "transcript") {
     const drone = stem(log.path);
     const open = { kept: log.path, what: "transcript" } as const;
     return { ...row, about: places.get(drone) ?? drone, path: log.path, open };
   }
-  return { ...row, about: stem(log.path) };
+  return { ...row, about: stem(log.path), path: log.path };
 }
 
 /** What the file weighs, where Fleet measured it. Absent is never zero. */
@@ -198,6 +199,7 @@ function briefsOf(whole: JobWhole | null): { path: string; row: PulseLogRow }[] 
           kind: "brief",
           owner: null,
           about: `${step.step_id} · ${judged.criterion_id}`,
+          path,
           writing: false,
           open: { kept: path, what: "brief" },
         },
@@ -208,7 +210,8 @@ function briefsOf(whole: JobWhole | null): { path: string; row: PulseLogRow }[] 
       if (path === undefined || seen.has(path)) continue;
       seen.add(path);
       const about = `${step.step_id} · ${GAMING_CHECK}`;
-      rows.push({ path, row: { kind: "brief", owner: null, about, writing: false, open: { kept: path, what: "brief" } } });
+      const open = { kept: path, what: "brief" } as const;
+      rows.push({ path, row: { kind: "brief", owner: null, about, path, writing: false, open } });
     }
   }
   return rows;

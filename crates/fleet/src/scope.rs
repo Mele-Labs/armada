@@ -136,6 +136,19 @@ where
             // declaration this quietly takes.
             Err(OutsideScope::Undeclared { .. }) | Err(OutsideScope::NothingDeclared) | Ok(_) => {}
         }
+        // No lift reaches this: the files are another Job's until its fix is
+        // in this Job's copy. #1673.
+        if let Some((hold, paths)) = self.held_off(&job).await.refusing(paths.paths()) {
+            return Err(NotDeclared::HeldOffByFix {
+                paths,
+                fix: hold.title.clone(),
+                handle: hold.handle.clone(),
+                test: hold.test.clone(),
+            });
+        }
+        // A task's Drone declares for its own task, and the step's gate reads
+        // every task's work, so what earlier task Drones declared stays in.
+        let paths = at_work.widened(paths);
         at_work.declares(paths.clone());
         drop(working);
         self.kept_plan(&job, &step, &paths).await;
@@ -359,6 +372,14 @@ pub enum NotDeclared {
     /// Drone to spend its one ask finding out. `verification::forbidden` carries
     /// why each one is absolute, and the reason travels into the sentence.
     Forbidden { paths: Vec<verification::Forbidden> },
+    /// The declaration names files of a test another Job is fixing, which no
+    /// Job that hit the test may change until the fix is in its copy. #1673.
+    HeldOffByFix {
+        paths: Vec<RepoPath>,
+        fix: String,
+        handle: String,
+        test: String,
+    },
 }
 
 impl fmt::Display for NotDeclared {
@@ -399,6 +420,19 @@ impl fmt::Display for NotDeclared {
                  again without it, and if the work truly cannot be done without \
                  it, say that in `not_claimed` when you submit",
                 Reasoned(paths)
+            ),
+            NotDeclared::HeldOffByFix {
+                paths,
+                fix,
+                handle,
+                test,
+            } => write!(
+                out,
+                "{} belongs to `{test}`, which \"{fix}\" ({handle}) is fixing, so no part of \
+                 this Job may change it until that fix lands and reaches your copy — asking \
+                 will not change the answer. Declare again without it, and do the rest of \
+                 your part around it",
+                Listed(paths)
             ),
         }
     }
