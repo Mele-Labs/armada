@@ -64,6 +64,14 @@ pub struct Recorded {
     /// will.
     pub actor: Actor,
     pub at: Instant,
+    /// The group whose gate made this move, `G1` and on: a round's `retrying`,
+    /// or the stop that failed its tasks. Absent on every other row. Since
+    /// 23.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// Which run of that group. Present exactly where `group` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_attempt: Option<u32>,
 }
 
 /// What the row says moved. The three shapes the log admits, and no fourth.

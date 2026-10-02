@@ -194,6 +194,14 @@ pub struct CheckRun {
     /// 13.39. `#1014`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reused_from_dry_run: Option<crate::ids::Instant>,
+    /// The group whose gate it ran at, `G1` and on. **Absent on a Check run at
+    /// a step's own gate**, which held back no group, and never "unknown".
+    /// Since 23.2. `#1652`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// Which run of that group, from one. Present exactly where `group` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_attempt: Option<u32>,
 }
 
 impl CheckRun {
@@ -213,6 +221,26 @@ impl CheckRun {
             produced: check.produced.clone(),
             output_path: check.output_path.clone(),
             reused_from_dry_run: check.reused_from_dry_run.as_ref().map(Into::into),
+            group: None,
+            group_attempt: None,
+        }
+    }
+
+    /// The same run, stamped with the group and the run of it whose gate it
+    /// ran at.
+    pub fn at_group(self, group: core_model::GroupId, run: u32) -> CheckRun {
+        CheckRun {
+            group: Some(group.to_string()),
+            group_attempt: Some(run),
+            ..self
+        }
+    }
+
+    /// [`at_group`](Self::at_group) where a record names one.
+    pub fn at(self, group: Option<(core_model::GroupId, u32)>) -> CheckRun {
+        match group {
+            Some((group, run)) => self.at_group(group, run),
+            None => self,
         }
     }
 }

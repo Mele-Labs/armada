@@ -22,8 +22,8 @@
 //! **Nothing here folds and the fold reads none of it**: an attempt is a
 //! coordinate on evidence about a `Job` state, never a way to reach one.
 use core_model::{
-    Attempt, CheckOutcome, CriterionId, EvidenceType, GamingFlag, GamingPattern, Iteration, JobId,
-    JudgeVerdict, Judgment, Spent, StepCheck, StepEvidence, StepId, Timestamp,
+    Attempt, CheckOutcome, CriterionId, EvidenceType, GamingFlag, GamingPattern, GroupId,
+    Iteration, JobId, JudgeVerdict, Judgment, Spent, StepCheck, StepEvidence, StepId, Timestamp,
 };
 use rusqlite::{Connection, Row};
 
@@ -41,6 +41,9 @@ use crate::row::{enum_value, maybe, maybe_number, string};
 pub struct Attempted<T> {
     pub step_id: StepId,
     pub attempt: Attempt,
+    /// The group and its run a gate's Checks ran at, which is how two groups
+    /// gated on one run of a step stay apart. `None` on every other record.
+    pub group: Option<(GroupId, u32)>,
     /// When that run wrote this down. Injected, like every instant here.
     pub at: Timestamp,
     pub record: T,
@@ -111,15 +114,19 @@ impl Store {
     ) -> Result<Vec<Attempted<Vec<StepCheck>>>, LoadJobError> {
         let rows = self
             .collect(
-                "SELECT step_id, attempt, ran_at, name, outcome, expected, produced, output_path,
-                        reused_from_dry_run
-                 FROM job_step_checks WHERE job_id = ?1 ORDER BY step_id, attempt, ordinal",
+                "SELECT step_id, attempt, grp, group_run, ran_at, name, outcome, expected,
+                        produced, output_path, reused_from_dry_run
+                 FROM job_step_checks WHERE job_id = ?1
+                 ORDER BY step_id, attempt, ran_at, grp, ordinal",
                 job_id,
                 "reading check results",
-                |row| Ok((coordinate(row, "job_step_checks", "ran_at")?, check(row)?)),
+                |row| {
+                    let (step_id, attempt, at) = coordinate(row, "job_step_checks", "ran_at")?;
+                    Ok(((step_id, attempt, at, at_group(row)?), check(row)?))
+                },
             )
             .map_err(LoadJobError::Unreadable)?;
-        Ok(grouped(rows))
+        Ok(grouped_at(rows))
     }
 
     /// What the Judge said, **every run of every step**, oldest run first.
@@ -195,6 +202,7 @@ impl Store {
                 Ok(Attempted {
                     step_id,
                     attempt,
+                    group: None,
                     at,
                     record: evidence(row)?,
                 })
@@ -471,19 +479,40 @@ fn evidence(row: &Row<'_>) -> Result<StepEvidence, RowError> {
 /// second index over a sorted list. The key is the pair now, so a step's second
 /// run opens a new group rather than joining its first.
 fn grouped<T>(rows: Vec<((StepId, Attempt, Timestamp), T)>) -> Vec<Attempted<Vec<T>>> {
+    grouped_at(
+        rows.into_iter()
+            .map(|((step_id, attempt, at), one)| ((step_id, attempt, at, None), one))
+            .collect(),
+    )
+}
+
+/// [`grouped`], keeping two groups' rows on one run of a step apart.
+fn grouped_at<T>(rows: Vec<(AtGroup, T)>) -> Vec<Attempted<Vec<T>>> {
     let mut grouped: Vec<Attempted<Vec<T>>> = Vec::new();
-    for ((step_id, attempt, at), one) in rows {
+    for ((step_id, attempt, at, group), one) in rows {
         match grouped.last_mut() {
-            Some(last) if last.step_id == step_id && last.attempt == attempt => {
+            Some(last)
+                if last.step_id == step_id && last.attempt == attempt && last.group == group =>
+            {
                 last.record.push(one)
             }
             _ => grouped.push(Attempted {
                 step_id,
                 attempt,
+                group,
                 at,
                 record: vec![one],
             }),
         }
     }
     grouped
+}
+
+type AtGroup = (StepId, Attempt, Timestamp, Option<(GroupId, u32)>);
+
+/// A Check row's group and run, `None` where it ran at a step's own gate.
+fn at_group(row: &Row<'_>) -> Result<Option<(GroupId, u32)>, RowError> {
+    let group = maybe_number(row, "grp")?.and_then(std::num::NonZeroU32::new);
+    let run = maybe_number(row, "group_run")?.unwrap_or(0);
+    Ok(group.map(|group| (GroupId::numbered(group), run)))
 }

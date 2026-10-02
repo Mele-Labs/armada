@@ -266,7 +266,7 @@ where
         ports,
         port_env,
         plan.map(WorkPlan::counts),
-        &checking::Stop::never(),
+        &checking::Stop::never().holding_handoff(at.holds_handoff()),
         dry_run,
         at.attempt(),
         footprint_now.as_ref(),

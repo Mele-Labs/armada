@@ -111,16 +111,24 @@ fn a_plan_v89_wrote_survives_and_the_two_states_are_admitted() {
         "crates/store/src/read.rs"
     );
 
-    let update = |seq: u32, state: &str| {
+    let update = |seq: u32, state: &str, reason: Option<&str>| {
         store.conn.execute(
-            "INSERT INTO job_work_plan_changes (job_id, seq, change, at, task_id, state)
-             VALUES ('01V89PLAN', ?1, 'updated', '2026-10-02T09:00:00.000Z', 1, ?2)",
-            rusqlite::params![seq, state],
+            "INSERT INTO job_work_plan_changes (job_id, seq, change, at, task_id, state, reason)
+             VALUES ('01V89PLAN', ?1, 'updated', '2026-10-02T09:00:00.000Z', 1, ?2, ?3)",
+            rusqlite::params![seq, state, reason],
         )
     };
-    update(3, "handed_in").expect("the store admits a handed-in task");
-    update(4, "failed").expect("and a failed one");
-    assert!(update(5, "finished").is_err(), "and still no word it lacks");
+    update(3, "handed_in", None).expect("the store admits a handed-in task");
+    // A failure says why since V94, as a drop does: spike 022, slice 2.
+    assert!(
+        update(4, "failed", None).is_err(),
+        "never a failure without a reason"
+    );
+    update(4, "failed", Some("G1's Checks were still red on run 3")).expect("and a failed one");
+    assert!(
+        update(5, "finished", None).is_err(),
+        "and still no word it lacks"
+    );
     assert!(
         store
             .conn

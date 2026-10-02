@@ -345,8 +345,12 @@ where
             .await
             .tolerated_criteria()
             .unwrap_or_default();
+        // A group's own run, as `crate::settling` reads it.
+        let at_group = self.group_at_gate(job, step).await?;
+        let spent = at_group.map_or(spent, |g| core_model::Spent::runs_this_pass(g.run));
         let ruling = rule_on(
-            at.on_attempt(attempt, spent),
+            at.on_attempt(attempt, spent)
+                .holding_handoff(at_group.is_some_and(|g| g.follows)),
             Request::of(job),
             submission,
             declared.as_ref(),
@@ -372,7 +376,8 @@ where
             .guarded_against_unpushed_delivery(job_id, at.step(), ruling)
             .await?;
 
-        self.recorded_checks(job_id, &job.handle(), step, attempt, &ruling)
+        let coord = at_group.map(|g| (g.group, g.run));
+        self.recorded_checks(job_id, &job.handle(), step, attempt, coord, &ruling)
             .await?;
         self.kept_what_the_gate_checked(job, &ruling).await;
         self.kept_timings(job, announcing.timings()).await;

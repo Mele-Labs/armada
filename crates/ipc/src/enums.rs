@@ -265,6 +265,12 @@ wire_enum! {
     /// `handed_in` and `failed` since 22.0, and Fleet's alone to write.
     TaskState, core_model::TaskState, "a task state"
 }
+wire_enum! {
+    /// Where one group of a Job's plan is. The registry's eight words, of which
+    /// Fleet writes `pending`, `running`, `retrying`, `passed` and `failed`
+    /// since 23.2; a peer must still read the other three.
+    GroupState, core_model::GroupState, "a group state"
+}
 
 /// The four origins a Job proposed over the wire may claim.
 ///

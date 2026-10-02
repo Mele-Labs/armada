@@ -62,6 +62,7 @@ where
         handle: &str,
         step: &StepId,
         attempt: Attempt,
+        group: Option<(core_model::GroupId, u32)>,
         ruling: &Ruling,
     ) -> Result<(), Adrift> {
         if ruling.checks().is_empty() {
@@ -78,13 +79,14 @@ where
             handle,
             step,
             attempt,
+            group.map(|(group, _)| group),
             ruling.checks(),
             &printed,
         );
         self.store()
             .lock()
             .await
-            .record_step_checks(job_id, step, &checks, &self.now())
+            .record_group_checks(job_id, step, group, &checks, &self.now())
             .map_err(Adrift::Writing)
     }
 
@@ -184,14 +186,19 @@ pub fn checks_dir(records_root: &str, handle: &str) -> PathBuf {
 /// A write that fails leaves the row's path absent rather than failing the
 /// ruling. The output is what a person reads afterwards; refusing to record a
 /// verdict because a log file would not open would lose the verdict as well.
+///
+/// **A group's gate names its group in the file**, so two groups gated on one
+/// run of a step keep both their files, as the rows keep both.
 pub fn kept(
     records_root: &str,
     handle: &str,
     step: &StepId,
     attempt: Attempt,
+    group: Option<core_model::GroupId>,
     checks: &[StepCheck],
     output: &[(String, Output)],
 ) -> Vec<StepCheck> {
+    let infix = group.map(|group| format!("{group}."));
     keeping(
         records_root,
         handle,
@@ -199,7 +206,7 @@ pub fn kept(
         attempt,
         checks,
         output,
-        RECORDED,
+        infix.as_deref().unwrap_or(RECORDED),
     )
 }
 

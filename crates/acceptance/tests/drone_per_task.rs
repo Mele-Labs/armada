@@ -18,7 +18,7 @@
 mod bench;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
-use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, Spent, StepTarget};
+use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, StepTarget};
 use fleet::tasking::{self, GroupEnd, HandIn, NotRestartable};
 use fleet::{briefing, Crossed, Ruling, ThePlan};
 use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesChanged};
@@ -509,7 +509,7 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
             // Fleet stamps the group's start at its first task's spawn.
             moves.push(runs.opening(g1, &implement, Attempt::FIRST, now(&bench)));
         }
-        plan = planned.marked(tasking::started(task(id)), "implement", 1);
+        planned.marked(tasking::started(task(id)), "implement", 1);
         plan = planned.marked(tasking::handed_in(task(id), "the diff"), "implement", 1);
         hand_ins.push(HandIn {
             task: task(id),
@@ -542,7 +542,11 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
             .await;
         let end = tasking::group_end(&ruling);
         if n < 3 {
-            assert_eq!(end, GroupEnd::Round, "run {n} is red with a retry left: {ruling:?}");
+            assert_eq!(
+                end,
+                GroupEnd::Round,
+                "run {n} is red with a retry left: {ruling:?}"
+            );
             // Fleet records the red run and opens the next, with no press.
             moves.push(
                 runs.closing(g1, tasking::verdict_of(&ruling), None, now(&bench))
@@ -622,7 +626,7 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
     // ------------------------------------ the group and its runs on the Record
     let g1_served = served.groups.iter().find(|g| g.id == "G1").expect("G1");
     assert_eq!(g1_served.tasks, ["T1", "T2"]);
-    assert_eq!(g1_served.state, ipc::GroupState::Failed);
+    assert_eq!(g1_served.state.as_wire(), "failed");
     let runs_served: Vec<(u32, u32, &str)> = g1_served
         .attempts
         .iter()
@@ -641,7 +645,7 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
     );
     assert!(g1_served.started_at.is_some() && g1_served.ended_at.is_some());
     let g2_served = served.groups.iter().find(|g| g.id == "G2").expect("G2");
-    assert_eq!(g2_served.state, ipc::GroupState::Pending);
+    assert_eq!(g2_served.state.as_wire(), "pending");
     let check = core_model::StepCheck {
         name: "diff_nonempty".to_string(),
         outcome: core_model::CheckOutcome::Failed,
