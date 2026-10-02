@@ -72,14 +72,13 @@ import {
   type Paired,
 } from "./frames";
 import { fileRowsOf, readingFor, whyNoFootprint } from "./files";
-import { WorkNarrated } from "./grouped";
 import { ACTIVITY_SAID, activityOf, FOOTPRINT_LABEL, footprintOf } from "./instruments";
 import { Log } from "./Log";
 import { keptOf, type KeptRead, type Opens } from "./phases";
 import { changeSummaryOf, moreSaid } from "./change-summary";
 import { producedIn } from "./produced";
 import type { OpenSheet } from "./Sheets";
-import { entriesOf, NOTHING_YET_ON_THIS_STEP, hideUnread } from "./story";
+import { entriesOf, hideUnread } from "./story";
 
 /** The chapters every step's story has, which the panel names before the step is read. */
 export const EVERY_STORY_TELLS = {
@@ -121,7 +120,6 @@ export function chaptersOf({
   onOpenCheck,
   attempt,
   ended,
-  jobTurns,
 }: {
   /** Now, injected, so a running Check's elapsed time moves with the clock. */
   now: number;
@@ -260,8 +258,6 @@ export function chaptersOf({
    * no control that would open somebody else's.
    */
   ended?: readonly WireFile[];
-  /** Every turn of the Job, for the files each task wrote on any run. #1187. */
-  jobTurns?: readonly Turn[];
 }): StepChapter[] {
   const { rows, unread } = hideUnread(watching === null ? [] : entriesOf(watching.rows, step.step_id));
   // **The turns Fleet sent, and not everything in Armada's voice.** The two
@@ -377,10 +373,8 @@ export function chaptersOf({
       // happening right now, so it is on the page while the Job runs rather
       // than a thing to go and open.
       //
-      // The note sits above the rows rather than replacing them: a socket that
-      // stopped is a fact about the reading, and the rows already in hand are
-      // still the step's record. With no rows the same sentence is the empty
-      // note, so it is said once either way.
+      // A socket that stopped is a fact about the reading, so it is said here
+      // whether or not any rows arrived before it stopped.
       preview: (
         <>
           {/* Above the rows, on a running Job only: a quiet Drone is a flat
@@ -388,27 +382,9 @@ export function chaptersOf({
           {activity === undefined ? null : (
             <ActivityInstrument {...ACTIVITY_SAID} windows={activity.windows} description={activity.description} />
           )}
-          {transcript === undefined || rows.length === 0 ? null : (
+          {transcript === undefined ? null : (
             <p className="text-2xs text-fg-muted">{transcript}</p>
           )}
-          {/* Folded, and the rows inside a group are the same `Log` chapter
-              one draws — so the region and payload names the keyboard reads
-              are the ones that were always there. The unread count is not
-              passed: the header summary above already carries it, and one
-              fact twice on one chapter is two places to disagree. */}
-          <WorkNarrated
-            rows={rows}
-            turns={watching === null ? [] : watching.rows}
-            stepId={step.step_id}
-            plan={whole?.work_plan}
-            live={live}
-            mostEntries={PREVIEWED_ENTRIES}
-            {...(produced === undefined ? {} : { diff: produced.files })}
-            {...(ended !== undefined || jobTurns === undefined ? {} : { jobTurns })}
-            emptyNote={transcript ?? NOTHING_YET_ON_THIS_STEP}
-            calls={calls}
-            log={log("log")}
-          />
           {/* Fixed under the rows rather than a longer version of them — #1154.
               This log does not scroll, so nothing here can cover a row the way
               it could in the sheet; it is simply the last thing in the card. */}
@@ -655,21 +631,6 @@ function summarised(files: Parameters<typeof changeSummaryOf>[0]) {
 
 /** How many files the Produced panel draws before `and 6 more files`. */
 const SUMMARISED = 12;
-
-/**
- * How much of the log the chapter's preview draws: the last ten entries, the
- * same entries the header above it counts.
- *
- * **Counted in entries, by the owner's decision of 18 Sep 2026.** It was eight
- * sentences, and eight groups before that, both bounding a stand-in for the
- * rows rather than the rows — so a preview under a bound of eight ran to
- * thousands of pixels on a step making a hundred calls, and the owner asked for
- * the log to be limited again. He was shown what counting entries costs, in his
- * own words: ten consecutive `Read` calls fill this, which is the case the
- * group counting was introduced to avoid. He took it: the preview is the tail,
- * and *Open the log* is where everything is read.
- */
-const PREVIEWED_ENTRIES = 10;
 
 /** What chapter one says before Armada has opened the step. */
 /**

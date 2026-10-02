@@ -49,6 +49,7 @@
 import { JOB_LIFECYCLE, RESUMPTION } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 import { instant } from "./duration";
+import { titleOf } from "./title";
 
 /** Which dispatch of one piece of work a Job is. */
 export type Dispatch = {
@@ -129,7 +130,7 @@ export function foldLineages(jobs: readonly JobSummary[]): Board {
  * are the row's.
  */
 export function headlineOf(job: JobSummary, dispatch: Dispatch | undefined): string {
-  return [job.title, ...dispatched(dispatch), ...resumed(job)].join(", ");
+  return [titleOf(job), ...dispatched(dispatch), ...resumed(job)].join(", ");
 }
 
 /** Which dispatch of the work this is, where the lineage has more than one. */

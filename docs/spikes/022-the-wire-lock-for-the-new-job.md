@@ -1,10 +1,12 @@
 # Spike 22 — The wire lock for the new Job
 
-**Status: awaiting the owner's sign-off.** Read against `main` at protocol 21.5
-on 1 Oct 2026. Once signed, the backend slices at the foot of this page run
-wave to wave without asking again, until one of them meets a question.
+**Status: questions answered 1 Oct 2026; awaiting the owner's read and sign-off.**
+Read against `main` at protocol 21.5 on 1 Oct 2026. Once signed, the backend
+slices at the foot of this page run wave to wave without asking again, until
+one of them meets a question.
 
-**Only a task's `failed` and the Record's new signers break a peer.** A Judge
+**Only a task's two new states and the Record's new signers break a peer.** A
+task gains *handed in, waiting for Checks* and `failed`. A Judge
 and a Check signing in their own names is also a store change with a migration.
 Every other field the boards draw is additive, and most of the majors spike 020
 priced are no longer needed.
@@ -18,10 +20,10 @@ A line number never follows a path here, because the gate reads a path inside
 backticks and a path with a line on it resolves to nothing. A file a slice
 would create is named in plain text for the same reason.
 
-## The questions for the owner
+## The owner's answers
 
-Each blocks the slice it names, and nothing else. The recommendation is the one
-this reading would defend.
+Each question blocked the slice it names, and nothing else. The options he
+weighed stay beside each answer, so the cost he took is on the page.
 
 ### 1. When a task says it is done
 
@@ -42,8 +44,9 @@ working on it, and all four turn done together at the end.
 - **C. A word in between: handed in, waiting for Checks.** Done arrives at
   green. Cost: one more task word to learn, and it rides a major bump.
 
-**Recommended: C.** Neither A's nor B's sentence is true of T1, and the major
-bump it needs is one the milestone takes anyway for `failed`. **Blocks slice 1.**
+**Decided by the owner, 1 Oct 2026: C, a word in between: handed in, waiting for Checks.** Done arrives at
+green. Neither A's nor B's sentence is true of T1, and the major bump rides with
+`failed` and the signers in slice 1. **Unblocks slice 1.**
 
 ### 2. Who gets the next agent when the machine is full
 
@@ -63,8 +66,9 @@ keeps its place between one task and the next.
   agent yields to a Job waiting to start. Cost: a busy Job runs slower while
   others queue.
 
-**Recommended: C.** Nothing stalls mid-plan, and the extra speed is what gives way.
-**Blocks slice 1** (between tasks) **and slice 5** (the extra agents).
+**Decided by the owner, 1 Oct 2026: C, every running Job keeps one agent; extra ones wait their turn.**
+Nothing stalls mid-plan, and the extra speed is what gives way. **Unblocks slice
+1** (between tasks) **and slice 5** (the extra agents).
 
 ### 3. When the Judge refuses a group
 
@@ -83,8 +87,9 @@ you. Groups make it possible to send just the group round.
 - **C. Only the tasks the refusal names go round on their own.** Cost: a refusal
   naming the group re-runs everything, and the Judge has to learn to name tasks.
 
-**Recommended: A.** A refusal is the exception that meets a person, and
-**Restart this task** (#1656) makes the retry one press. **Blocks slice 2.**
+**Decided by the owner, 1 Oct 2026: A, a refusal stops the group and waits for him, as today.** A refusal is
+the exception that meets a person, and **Restart this task** (#1656) makes the
+retry one press. **Unblocks slice 2.**
 
 ### 4. Your override, when the repository's rule changes after you approve
 
@@ -104,8 +109,9 @@ will say what the rule said at each gate.
 - **C. Whichever is stricter wins.** Cost: an override can only add a person,
   never remove one, which narrows what you decided on 22 Sep.
 
-**Recommended: A.** The override is a person's explicit choice about one Job, and
-the Record shows what every gate read. **Blocks slice 4.**
+**Decided by the owner, 1 Oct 2026: A, his override wins for the life of the Job.** The override is a
+person's explicit choice about one Job, and the Record shows what every gate
+read. **Unblocks slice 4.**
 
 ### 5. When Armada notices the issue a Job came from has changed
 
@@ -125,8 +131,8 @@ It asks the forge about open pull requests on a rotation, and about nothing else
 - **C. At the two moments you decide: approval and review.** Cost: a change
   between those moments shows only at review.
 
-**Recommended: A.** It is the only one where the sentence is true whenever you
-read it. **Blocks slice 4.**
+**Decided by the owner, 1 Oct 2026: A, checked on the rotation that watches pull requests.** It is the only
+one where the sentence is true whenever it is read. **Unblocks slice 4.**
 
 ### 6. Two agents in one copy, writing one file neither said it would touch
 
@@ -149,14 +155,17 @@ built.
 - **C. A copy per agent, joined at the group's end.** Cost: disk — this machine
   once held 74 copies and 220 GB — and a merge conflict to resolve at every join.
 
-**Recommended: B.** The lost write never lands, and it costs time only on the
-groups where it happened. **Blocks slice 5.**
+**Decided by the owner, 1 Oct 2026: B, caught at the group's end.** Where two tasks wrote one file, the group
+does not commit, and those tasks run again one after the other. The lost write
+never lands, and it costs time only on the groups where it happened. **Unblocks
+slice 5.**
 
 ## What is already decided, and where
 
 **These are the questions #1545 and #1530 name, read against the record before
 calling any open.** A question this page answers by choosing is marked
-*chosen here*; the owner may overturn any of them at sign-off.
+*chosen here*; the owner may overturn any of them at sign-off. *Question N* is
+one of his answers above.
 
 | Question | Answer | Where |
 |---|---|---|
@@ -166,15 +175,15 @@ calling any open.** A question this page answers by choosing is marked
 | Per-step gate ticks | Nothing ticked: nobody looks, Fleet's drift look stays | #1530, 22 Sep |
 | The repository-decides state | A fourth state, overridable for this Job | #1530, 22 Sep |
 | What a gate resolved to | Both policies recorded on every attempt; older reads absent | #1683, 1 Oct |
-| Which wins after an override | Open | Question 4 |
+| Which wins after an override | The override, for the life of the Job | Question 4 |
 | Difficulty tiers | A map on the Job, a tier on the task | #1530, 22 Sep |
 | A task's model | A person picks it directly, over the map | `.claude/decisions/2026-09-30-a-person-can-pick-a-tasks-model.md` |
 | A model nobody holds | Refused, as `set_model` refuses one today | `crates/fleet/src/job_settings.rs` |
 | A per-Job Drone cap | Yes, inside the machine's | #1550, 22 Sep |
 | The machine's cap | Recounted in Drones | #1530, 22 Sep |
-| Who goes first when full | Open | Question 2 |
+| Who goes first when full | Every running Job keeps one agent | Question 2 |
 | Criteria read from an issue | Editable to the press, frozen at approval, origin labelled | #1551, #1641 |
-| Noticing the issue moved | Open | Question 5 |
+| Noticing the issue moved | On the pull-request rotation | Question 5 |
 | Overlap at dispatch | Taken out | `.claude/decisions/2026-09-23-take-out-what-else-is-running.md` |
 | `CriterionView.cases` | No; *not covered* belongs to a case alone | `.claude/decisions/2026-09-22-no-verdict-recorded.md` |
 | A Judge and a Check sign the Record | Stored, with a migration | `.claude/decisions/2026-09-22-judge-and-check-sign-the-record.md` |
@@ -184,8 +193,8 @@ calling any open.** A question this page answers by choosing is marked
 | Classifying | Is `proposing`, on the wire since 19.0 | `.claude/decisions/2026-09-21-classifying-is-proposing.md` |
 | A request that splits | One Job; the rest are its members | `.claude/decisions/2026-09-30-a-dispatched-request-is-a-job.md` |
 | A member counts as landed | When its pull request merged | `.claude/decisions/2026-09-21-a-parent-job-holds-members.md` |
-| One copy per agent, in the contract | Amended in slice 5 | Question 6 |
-| A Judge refusal at a group | Open | Question 3 |
+| One copy per agent, in the contract | Amended in slice 5; overlap caught at the group's end | Question 6 |
+| A Judge refusal at a group | Stops the group and waits for a person | Question 3 |
 
 ### Why the plan stays on `get_job`
 
@@ -218,9 +227,9 @@ one rather than several.
 
 | Change | Bump | Why | Slice |
 |---|---|---|---|
-| `TaskState` gains `failed` | Major | Strict wire set; the task machine grew a state | 2, or 1 under question 1's C |
-| Question 1's waiting state, if C | Major | Same set, same bump | 1 |
-| `Actor` gains `judge` and `check` | Major | Strict set, stored on every recorded row | 2, or 1 under question 1's C |
+| `TaskState` gains `failed` | Major | Strict wire set; the task machine grew a state | 1 |
+| `TaskState` gains the waiting state | Major | Same set, same bump | 1 |
+| `Actor` gains `judge` and `check` | Major | Strict set, stored on every recorded row | 1 |
 | Every other row on this page | Minor | New DTO, route, event kind or optional field | Per row |
 
 **What spike 020 priced as major and the lock does without:**
@@ -248,7 +257,7 @@ is a type served today or one that never crosses.
 | Type | Lands on | Change | Bump | Source of truth | Slice |
 |---|---|---|---|---|---|
 | `RunCoord` | `CheckRun`, `Recorded` | Optional `group`, `group_attempt`, `task` | Minor | Fleet's group record | 2 |
-| `TaskState` | `TaskState` | Adds `failed` | Major | `crates/core-model/src/job/work_plan.rs` | 2, or 1 under question 1's C |
+| `TaskState` | `TaskState` | Adds the waiting state and `failed` | Major | `crates/core-model/src/job/work_plan.rs` | 1 |
 | `TaskTier` | `PlanTask.tier` | New, optional | Minor | The planner's `record_plan` | 3 |
 | `TaskTreatment` | Nothing | Every task gets its own Drone | None | — | — |
 | `TaskView` | `PlanTask` | Field by field below | Minor | `WorkPlan` in core-model | 1–5 |
@@ -298,7 +307,7 @@ pull request needs slice 2's groups.
 
 | Type | Lands on | Change | Bump | Source of truth | Slice |
 |---|---|---|---|---|---|
-| `LedgerActor` | `Actor` | Adds `judge`, `check`; no `contributor` yet | Major | `crates/core-model/src/envelope.rs` | 2, or 1 under question 1's C |
+| `LedgerActor` | `Actor` | Adds `judge`, `check`; no `contributor` yet | Major | `crates/core-model/src/envelope.rs` | 1 |
 | `LedgerRow` | `Recorded` | Optional coordinate fields; `kind` stays opaque | Minor | `job_events` | 2 |
 | `LedgerFamily`, `LedgerReads` | Nothing | Bridge's composition | None | — | — |
 | `MemberLink` | Nothing | Only `merged` is built; Bridge derives it | None | — | — |
@@ -456,18 +465,22 @@ is a person's to close.
 
 | | |
 |---|---|
-| Issues | #1752; per-task dispatch, to file |
-| Wire | Minor; major under question 1's C |
+| Issues | #1752; per-task dispatch, to file; the two signers, to file |
+| Wire | Major: the waiting state, `failed`, and the two signers |
 | Blocks | 2, 3, 5 |
-| Waits on | Questions 1 and 2 |
+| Waits on | Nothing |
 
 - A workflow step says it works the plan's tasks, one Drone each; feature, bug and
   refactor set it on `implement`. Bridge reads the flag where it now derives it.
 - Each task's Drone gets a brief naming its task, spawned in plan order, with
-  the machine's cap and headroom asked again at every spawn.
-- Fleet writes `working` at the spawn and the hand-in state question 1 picks, with
-  `shown` from the hand-in. `JobDrone` gains `task`; `job.plan_changed` gains the
-  task and its state.
+  the machine's cap and headroom asked again at every spawn. A Job keeps its one
+  agent between tasks, so a Job waiting to start never takes it mid-plan.
+- Fleet writes `working` at the spawn and *handed in, waiting for Checks* at the
+  hand-in, with `shown` from it, then `done` when the step's Checks pass.
+  `JobDrone` gains `task`; `job.plan_changed` gains the task and its state.
+- The milestone's majors land here together: the waiting state and `failed` on a
+  task, and a Judge and a Check signing the Record, with the store migration
+  above. Fleet writes `failed` from slice 2.
 - The step's Checks and Judge run once, at the step's end, as one group. A Drone
   that exits without handing in stops the step, as today.
 
@@ -476,8 +489,9 @@ Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
 `crates/fleet/src/drones_had.rs`, `crates/fleet/src/admitting.rs`,
 `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/job/workflow.rs`,
 `crates/config/src/workflow/step.rs`, `.armada/workflows/`, `crates/ipc/src/work_plan.rs`,
-`crates/ipc/src/drones.rs`, `crates/ipc/operations.toml`, `docs/concepts/plan.md`,
-`docs/contracts/agent-prompt.md`.
+`crates/ipc/src/drones.rs`, `crates/ipc/src/enums.rs`, `crates/ipc/operations.toml`,
+`crates/core-model/src/envelope.rs`, `crates/store/src/migrations.rs`,
+`crates/store/src/fold.rs`, `docs/concepts/plan.md`, `docs/contracts/agent-prompt.md`.
 
 ### 2 — Groups, and a task that failed
 
@@ -485,18 +499,20 @@ Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
 
 | | |
 |---|---|
-| Issues | #1652, #1656, #1685; groups recorded and run, to file; the two signers, to file |
-| Wire | Major: `failed`, and the two signers |
+| Issues | #1652, #1656, #1685; groups recorded and run, to file |
+| Wire | Minor; the majors landed in slice 1 |
 | Blocks | 3, 4, 5 |
-| Waits on | Slice 1, question 3 |
+| Waits on | Slice 1 |
 
 - The planner records groups; Fleet mints each group's id and stamps its start,
   its end and each attempt's verdict and commit. Checks run at each group's end,
   and a group commits once.
-- `CheckRun` and `Recorded` carry the coordinate. A task gains `failed`, its
+- `CheckRun` and `Recorded` carry the coordinate. Fleet writes `failed` with its
   reason, and the flag a later task's write sets.
-- Restart one task and move a task or a group, as routes. A Judge and a Check sign
-  the Record, with the store migration above, and the task-state registry rows land.
+- A Judge refusal stops the group and waits for a person; it never sends the
+  group round on its own.
+- Restart one task and move a task or a group, as routes. The task-state registry
+  rows land.
 
 Write scope: `crates/fleet/src/gate.rs`, `crates/fleet/src/checking.rs`,
 `crates/fleet/src/settling.rs`, `crates/fleet/src/work_plan.rs`,
@@ -538,14 +554,16 @@ Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
 | Issues | #1641, #1642, #1605, #1581, #1683 if still open, #1699's route; issue noticing, to file |
 | Wire | Minor |
 | Blocks | 6 |
-| Waits on | #1714 and #1716 landing; questions 4 and 5 |
+| Waits on | #1714 and #1716 landing |
 
 - One approval body carries the whole proposal (#1641). An edit that saves without
   releasing shares its fields, and is #1699's route.
 - Criteria freeze at approval, carry their origin and the issue's address, and say
   when the issue moved. The three documents #1581 names move in the same change.
-- Per-step gates with the override, the landing settings, the branch list, the
+- Per-step gates with the override, which holds for the life of the Job however
+  the repository's rule moves. The landing settings, the branch list, the
   dispatch settings and `approved_at`.
+- The rotation that watches pull requests also asks whether a linked issue moved.
 
 Write scope: `crates/fleet/src/proposing.rs`, `crates/fleet/src/commanding.rs`,
 `crates/fleet/src/policy.rs`, `crates/fleet/src/noticing.rs`,
@@ -562,13 +580,15 @@ and the three documents.
 | Issues | #1666, #1651; concurrency, to file |
 | Wire | Minor |
 | Blocks | Nothing in this milestone |
-| Waits on | Slices 0b and 2; questions 2 and 6 |
+| Waits on | Slices 0b and 2 |
 
 - The planner declares which tasks may run together. The machine's cap counts
-  Drones, and a Job carries its own cap inside it.
+  Drones, and a Job carries its own cap inside it. A Job's second Drone yields
+  to a Job waiting to start.
 - Redirect and kill take a Drone id and refuse one that is not live. A process
   names its Drone, and the header's Drone kill goes.
-- The group joins before its Checks, with question 6's catch.
+- The group joins before its Checks. Where two tasks wrote one file, it does not
+  commit, and those tasks run again one after the other.
   `docs/contracts/system-architecture.md` is amended in the same change.
 
 Write scope: `crates/fleet/src/slots.rs`, `crates/fleet/src/admitting.rs`,

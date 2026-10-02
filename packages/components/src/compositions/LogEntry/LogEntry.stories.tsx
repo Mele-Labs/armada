@@ -84,6 +84,30 @@ export const DroneMarkdown: Story = {
 };
 
 /**
+ * A plain row above a markdown one holding a heading, a list and a
+ * single-newline break. **The two are one line each**: a `<br>` the row did not
+ * hide once made it 48px against its 20px line, and nothing measured it.
+ */
+export const MarkdownHoldsTheLine: Story = {
+  name: "Markdown holds the one line",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <LogEntry at="14:26:31" actor="drone" message="Splitting the reducer." onToggle={() => {}} />
+      <LogEntry
+        at="14:26:35"
+        actor="drone"
+        message={<Prose text={"## The split\nSplitting the reducer.\nThe *public signature* stays:\n\n- one\n- two"} />}
+        onToggle={() => {}}
+      />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const [plain, marked] = canvas.getAllByRole("button");
+    await expect(marked!.getBoundingClientRect().height).toBe(plain!.getBoundingClientRect().height);
+  },
+};
+
+/**
  * The same call, with what it changed and how long it took. **Three hues on
  * one mono line**: the tool's family, the lines added, the lines removed. The
  * path between them stays neutral, because a line where everything is coloured
