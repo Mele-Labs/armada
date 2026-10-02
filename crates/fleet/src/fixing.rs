@@ -372,8 +372,12 @@ where
         };
         self.fixing_on_main().lock().await.remove(&request.root);
         let came_to = came_to?;
-        self.told_fix(caller, request, &FixReported::of(test, &fix.files, &came_to))
-            .await;
+        self.told_fix(
+            caller,
+            request,
+            &FixReported::of(test, &fix.files, &came_to),
+        )
+        .await;
         Some(came_to)
     }
 

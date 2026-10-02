@@ -12,7 +12,10 @@ use serde_json::{json, Map, Value};
 use super::tools::{closed, filled, list, NotAnArgument};
 
 /// A list that names at least one thing, every entry filled.
-fn named(arguments: &Map<String, Value>, field: &'static str) -> Result<Vec<String>, NotAnArgument> {
+fn named(
+    arguments: &Map<String, Value>,
+    field: &'static str,
+) -> Result<Vec<String>, NotAnArgument> {
     let listed = list(arguments, field)?;
     if listed.is_empty() || listed.iter().any(|entry| entry.trim().is_empty()) {
         return Err(NotAnArgument::Blank { field });

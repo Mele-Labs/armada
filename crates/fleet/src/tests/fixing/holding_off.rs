@@ -153,7 +153,11 @@ async fn a_job_is_held_off_a_test_another_job_fixes_until_the_fix_is_in_its_copy
 
     dispatched(&fleet, &a).await.expect("A dispatches");
     let (held, brief) = last_launch(&fleet);
-    assert_eq!(held, [HELD], "the plan's Drone is launched unable to edit it");
+    assert_eq!(
+        held,
+        [HELD],
+        "the plan's Drone is launched unable to edit it"
+    );
     assert!(brief.contains(BLOCK), "{brief}");
     assert!(brief.contains("fix the parser on main"), "{brief}");
     assert!(brief.contains(&format!("`{HELD}`")), "{brief}");
@@ -180,7 +184,10 @@ async fn a_job_is_held_off_a_test_another_job_fixes_until_the_fix_is_in_its_copy
         "{refused:?}"
     );
     assert!(
-        matches!(declares(&fleet, &a, "src").await, Err(NotDeclared::HeldOffByFix { .. })),
+        matches!(
+            declares(&fleet, &a, "src").await,
+            Err(NotDeclared::HeldOffByFix { .. })
+        ),
         "a directory over the file reaches it"
     );
     declares(&fleet, &a, "src/read.rs")
@@ -190,7 +197,10 @@ async fn a_job_is_held_off_a_test_another_job_fixes_until_the_fix_is_in_its_copy
     // B lands. A's copy has not taken it, so the hold stands.
     fleet.fix_settled(&b, true).await;
     assert!(
-        matches!(declares(&fleet, &a, HELD).await, Err(NotDeclared::HeldOffByFix { .. })),
+        matches!(
+            declares(&fleet, &a, HELD).await,
+            Err(NotDeclared::HeldOffByFix { .. })
+        ),
         "a landed fix not yet in A's copy still holds it"
     );
 
@@ -204,7 +214,10 @@ async fn a_job_is_held_off_a_test_another_job_fixes_until_the_fix_is_in_its_copy
     );
     hands_in(&fleet, EvidenceType::Diff, "The parser is bounded.").await;
     let (held, brief) = last_launch(&fleet);
-    assert!(held.is_empty(), "the second task's Drone may edit it: {held:?}");
+    assert!(
+        held.is_empty(),
+        "the second task's Drone may edit it: {held:?}"
+    );
     assert!(!brief.contains(BLOCK), "{brief}");
     assert!(
         brief.contains("that fix is already in your copy"),

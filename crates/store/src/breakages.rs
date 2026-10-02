@@ -405,8 +405,11 @@ impl Store {
             .map_err(unreadable)?;
         drop(statement);
         for claim in &mut claims {
-            claim.files =
-                self.claim_files(&claim.repository, &claim.breakage.check, &claim.breakage.test)?;
+            claim.files = self.claim_files(
+                &claim.repository,
+                &claim.breakage.check,
+                &claim.breakage.test,
+            )?;
         }
         Ok(claims)
     }

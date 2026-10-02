@@ -30,7 +30,12 @@ pub struct HeldOff(Vec<Hold>);
 
 impl HeldOff {
     pub(crate) fn of(holds: Vec<Hold>) -> HeldOff {
-        HeldOff(holds.into_iter().filter(|hold| !hold.paths.is_empty()).collect())
+        HeldOff(
+            holds
+                .into_iter()
+                .filter(|hold| !hold.paths.is_empty())
+                .collect(),
+        )
     }
 
     /// Every held path once, in the order the holds name them.
@@ -210,11 +215,7 @@ where
                         paths: paths.clone(),
                     };
                     let now = self.now();
-                    let _ = self
-                        .store()
-                        .lock()
-                        .await
-                        .hold_until_caught_up(&hold, &now);
+                    let _ = self.store().lock().await.hold_until_caught_up(&hold, &now);
                 }
                 let stands = match landed {
                     true => FixStands::Landed,
