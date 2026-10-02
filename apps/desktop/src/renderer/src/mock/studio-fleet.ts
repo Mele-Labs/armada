@@ -28,6 +28,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { foldStudio } from "@armada/screens/src/studio-reads";
 
 import type { BridgeApi } from "../../../shared/api";
+import { sheet } from "./manifest-fleet";
 import { onBoard, unanswered } from "./moment";
 import type { FleetHandle, Scenario } from "./moment";
 
@@ -539,6 +540,9 @@ export function studying(seeded: readonly Studio[] = [legend()]): StudioFleet {
       // is the half of the walkthrough a Studio's Job node is read against.
       behaves: (handle) => ({
         ...fleet.routes(handle),
+        // The checkout declares what Run offers on the rail — 2 Oct 2026.
+        watchCheckoutRunSheet: async (want: boolean) =>
+          handle.publish({ checkoutRunSheet: want ? { state: "read", sheet: sheet() } : { state: "none" } }),
         approveDispatch: async (jobId: string) => {
           handle.publish({
             jobs: handle.state().jobs.map((one) => (one.id === jobId ? { ...one, status: "running" } : one)),
