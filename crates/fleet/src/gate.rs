@@ -125,7 +125,7 @@ pub use crate::ruling::Ruling;
 /// | `keeping` | Where a copy of the step's deliverable goes. The repository and the Job are the caller's to know, and a worktree path is not something to reverse-engineer either of them out of. **Not an `Option`** — every caller is gating a real Job in a real repository, and a gate that could rule without keeping what it read is the gate `#223` was filed against |
 /// | `lifted` | The excluded paths a Judge has already cleared for this Job, off its own scope revisions. **Handed in rather than derived** because this function is given a step and not a Job, and because [`Lifted`] has one constructor: a caller with a record in hand can produce one and nothing else can. A gate that re-refused a path `declare_scope` had accepted would fail the step for being the plan Fleet took, which is `#417`'s own complaint |
 /// | `began` | What the worktree held when this step began, or a re-run's recorded answer — [`Began`] — **after the boundary rebase that started it**, which is `crate::dispatch::Fleet::marked`'s to place and not this function's. `diff_nonempty` is decided by comparing it against a second reading taken here — which is what catches the step that advanced having written nothing, where the check used to read the whole branch and count an earlier step's file as this step's work |
-/// | `policies` | What this repository has said about `auto_merge` and `review_gate`, folded across the Job's gating Manifests. **Handed in and never read here**, for `lifted`'s reason and one more: both settings are `Live`, so the answer is only true at the instant it is taken, and a gate that read the file for itself would be a second reader of a value the caller has already resolved. `crate::policy` is where it is built |
+/// | `policies` | What this repository has said about `auto_merge` and `review_gate`, folded across the Job's gating Manifests. **Handed in and never read here**, for `lifted`'s reason and one more: both settings are `Live`, so the answer is only true at the instant it is taken, and a gate that read the file for itself would be a second reader of a value the caller has already resolved. `crate::policy` is where it is built. **Carried out on every ruling but one**, so the run keeps what the rules said at the gate it stopped at, whichever that was (#1683) |
 /// | `room` | Where each Check waits for a place in the machine's one limit, shared with every other Job's, and whether the machine has the memory and disk. **Handed in for `lifted`'s reason** — the limits in force are the Fleet's to read, and a gate that began keeps them. `crate::places::Room` |
 /// | `announcing` | Where each Check is said to start and to finish while it runs. **Told, never read**: nothing below decides on it, and the ruling is what `crate::checking` hands back. Handed in because the entry it writes has to stand until the caller has written the ruling down, which is after this returns — `crate::underway` |
 /// | `ports`, `port_env` | The Job's claimed span, resolved to a name-to-port map and to the environment it sets. **Handed in for `lifted`'s reason** — this function is given a step and not a Job, and only a caller holding one can ask the store for its claim. `crate::ports` |
@@ -192,6 +192,7 @@ where
                 cause: Box::new(cause),
                 checks: Vec::new(),
                 output: Vec::new(),
+                policies,
             }
         }
     };
@@ -230,6 +231,7 @@ where
                     cause: Box::new(cause),
                     checks: Vec::new(),
                     output: Vec::new(),
+                    policies,
                 }
             }
         },
@@ -317,6 +319,7 @@ where
                 cause: Box::new(cause),
                 checks: Vec::new(),
                 output,
+                policies,
             }
         }
     };
@@ -385,6 +388,7 @@ where
                         cause: Box::new(cause),
                         checks,
                         output,
+                        policies,
                     }
                 }
             };
@@ -401,6 +405,7 @@ where
                         cause: Box::new(cause),
                         checks,
                         output,
+                        policies,
                     }
                 }
             };
@@ -432,6 +437,7 @@ where
                             cause: Box::new(cause),
                             checks,
                             output,
+                            policies,
                         }
                     }
                 },
@@ -466,6 +472,7 @@ where
                             cause: Box::new(cause),
                             checks,
                             output,
+                            policies,
                         }
                     }
                 },
@@ -498,6 +505,7 @@ where
                         checks,
                         output,
                         judged,
+                        policies,
                     }
                 }
                 Ok((judged, JudgeFold::Refused(refusals))) => {
@@ -512,6 +520,7 @@ where
                         cause: Box::new(cause),
                         checks,
                         output,
+                        policies,
                     }
                 }
             }
@@ -526,7 +535,11 @@ where
     // cleared stops nothing, and rides on the advance to be written down.
     let mut cleared = Vec::new();
     if verdict.advanced() {
-        match suspect(at, work, recorded, judging, &checks, &output, &judged).await {
+        match suspect(
+            at, work, recorded, judging, &checks, &output, &judged, policies,
+        )
+        .await
+        {
             ControlFlow::Break(stopped) => return stopped,
             ControlFlow::Continue(flags) => cleared = flags,
         }
@@ -571,7 +584,7 @@ where
                     judged,
                     cleared,
                     held,
-                    resolved: policies.resolved(),
+                    policies,
                 },
                 false => match at.next() {
                     Some(next) => Ruling::Advanced {
@@ -580,7 +593,7 @@ where
                         output,
                         judged,
                         cleared,
-                        resolved: policies.resolved(),
+                        policies,
                     },
                     None => Ruling::Finished {
                         tell: OutcomeTurn::advanced(step, None, Verified::of(&ran)),
@@ -588,7 +601,7 @@ where
                         output,
                         judged,
                         cleared,
-                        resolved: policies.resolved(),
+                        policies,
                     },
                 },
             }
@@ -600,11 +613,13 @@ where
                 output,
                 tell,
                 retrying,
+                policies,
             },
             None => Ruling::Failed {
                 failures,
                 checks,
                 output,
+                policies,
             },
         },
         Verdict::Refused(refusals) => Ruling::Refused {
@@ -612,6 +627,7 @@ where
             checks,
             output,
             judged,
+            policies,
         },
     }
 }
@@ -769,6 +785,8 @@ async fn suspect<W>(
     // it and a step whose Judge never ran are different facts, and a gaming
     // flag must not erase the first.
     judged: &[Judgment],
+    // Carried onto every ruling this stops a run with, for `rule_on`'s reason.
+    policies: Policies,
 ) -> ControlFlow<Ruling, Vec<GamingFlag>>
 where
     W: WorkProduct,
@@ -786,6 +804,7 @@ where
                 cause: Box::new(cause),
                 checks: checks.to_vec(),
                 output: output.to_vec(),
+                policies,
             })
         }
     };
@@ -806,6 +825,7 @@ where
                 checks: checks.to_vec(),
                 output: output.to_vec(),
                 judged: judged.to_vec(),
+                policies,
             }),
             Err(cleared) => ControlFlow::Continue(cleared),
         },
@@ -814,6 +834,7 @@ where
             cause: Box::new(cause),
             checks: checks.to_vec(),
             output: output.to_vec(),
+            policies,
         }),
     }
 }

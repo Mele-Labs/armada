@@ -198,10 +198,19 @@ impl ReviewGate {
 /// from before this was recorded has no value at all, and a `Default` here is
 /// the call that would let a reader turn that absence into `never` and
 /// `human_always`, a claim nobody made.
+///
+/// **Kept on every run that reached any gate**, the owner's decision of 2 Oct
+/// 2026: a run whose Checks failed, whose Judge refused or whose gaming check
+/// flagged it keeps what the rules said too, so the Record says what ran.
+/// `decided` is what tells those apart from a run the rule answered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedPolicies {
     pub auto_merge: AutoMerge,
     pub review_gate: ReviewGate,
+    /// Whether the run reached the advance gate, where the rule decides: held
+    /// or advanced. `false` is a run an earlier gate stopped, whose policies
+    /// say what the rules were and decided nothing.
+    pub decided: bool,
 }
 
 #[cfg(test)]

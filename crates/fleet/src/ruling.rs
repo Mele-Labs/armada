@@ -17,7 +17,7 @@ use core_model::{
 use verification::{CheckFailed, Flagged, NotWhatTheStepAsked, OutcomeTurn, Refusals};
 
 use crate::gate::CheckOutput;
-use crate::policy::HeldBecause;
+use crate::policy::{HeldBecause, Policies};
 
 /// What Fleet decided, and what follows from it.
 ///
@@ -66,10 +66,11 @@ pub enum Ruling {
         /// flag was raised.
         cleared: Vec<GamingFlag>,
         /// What both policies resolved to at this gate, kept on the run.
-        /// **Carried on every ruling that passed the tiers and on no other**,
-        /// so the record cannot be written beside a ruling that consulted no
-        /// policy. #1683.
-        resolved: ResolvedPolicies,
+        /// **Carried on every ruling a gate reached**, the owner's decision of
+        /// 2 Oct 2026, so the record cannot be written with a value other than
+        /// the one the gate held. Whether the rule decided is read off the
+        /// variant by [`Ruling::resolved`], never carried. #1683.
+        policies: Policies,
     },
     /// The last step passed. The Drone is told, then terminated, and the Job
     /// reaches `completed_success`. **The one advance that still tells its
@@ -81,7 +82,7 @@ pub enum Ruling {
         output: Vec<CheckOutput>,
         judged: Vec<Judgment>,
         cleared: Vec<GamingFlag>,
-        resolved: ResolvedPolicies,
+        policies: Policies,
     },
     /// Every tier the step declared held, and the gate answers a person.
     /// **The Job reaches `awaiting_review` and the step holds at
@@ -114,7 +115,7 @@ pub enum Ruling {
         judged: Vec<Judgment>,
         cleared: Vec<GamingFlag>,
         held: HeldBecause,
-        resolved: ResolvedPolicies,
+        policies: Policies,
     },
     /// A Check did not pass, the step's retry budget has room, and the failure
     /// goes back to the Drone that produced it.
@@ -147,6 +148,7 @@ pub enum Ruling {
         /// [`handed_back`], where a trigger that is not step-level falls
         /// through to [`Failed`](Ruling::Failed) instead.
         retrying: StepLevelTrigger,
+        policies: Policies,
     },
     /// A Check did not pass and nothing is left for the Drone to do about it
     /// unprompted: the step declared no retry budget, or spent it, or the
@@ -168,6 +170,7 @@ pub enum Ruling {
         /// Every declared Check with what it did, passes included.
         checks: Vec<StepCheck>,
         output: Vec<CheckOutput>,
+        policies: Policies,
     },
     /// Every Check passed and the Judge refused. **The Job escalates**, and
     /// that is what makes it different from [`Ruling::Failed`]: a Check failing
@@ -185,6 +188,7 @@ pub enum Ruling {
         checks: Vec<StepCheck>,
         output: Vec<CheckOutput>,
         judged: Vec<Judgment>,
+        policies: Policies,
     },
     /// Every Check passed, and one criterion refused that `docs/concepts/judge.md`'s
     /// asking design says to ask a person about rather than stop the step
@@ -209,6 +213,7 @@ pub enum Ruling {
         checks: Vec<StepCheck>,
         output: Vec<CheckOutput>,
         judged: Vec<Judgment>,
+        policies: Policies,
     },
     /// Every Check passed, the Judge did not refuse, and a gaming flag stood
     /// once a second reading was asked about it. **The Job escalates as `evidence_suspect`**, which
@@ -224,6 +229,7 @@ pub enum Ruling {
         checks: Vec<StepCheck>,
         output: Vec<CheckOutput>,
         judged: Vec<Judgment>,
+        policies: Policies,
     },
     /// The submission was not the kind of work product the step declared.
     /// **Nothing ran and nothing moved** — the Checks are not spent on it, and
@@ -259,6 +265,7 @@ pub enum Ruling {
         /// Check ran, and those results are real.
         checks: Vec<StepCheck>,
         output: Vec<CheckOutput>,
+        policies: Policies,
     },
 }
 
@@ -275,16 +282,35 @@ impl Ruling {
         matches!(self, Ruling::Advanced { .. } | Ruling::Finished { .. })
     }
 
-    /// What both policies resolved to, where the step passed its tiers and the
-    /// advance gate was read. `None` on every ruling that stopped first, which
-    /// consulted no policy and has nothing to record. #1683.
+    /// What both policies resolved to, on every ruling a gate reached, and
+    /// whether the rule decided. #1683, widened on 2 Oct 2026.
+    ///
+    /// **`decided` is read off the variant here and nowhere else**, so a
+    /// ruling cannot be written down as decided when it stopped before the
+    /// advance gate, or the reverse. Matched exhaustively, so a new ruling is a
+    /// compile error here rather than a run recorded under the wrong word.
+    ///
+    /// `None` only on [`NotWhatTheStepAsked`](Ruling::NotWhatTheStepAsked),
+    /// which ran nothing: the submission was refused before any gate, and the
+    /// run goes on.
     pub fn resolved(&self) -> Option<ResolvedPolicies> {
-        match self {
-            Ruling::Advanced { resolved, .. }
-            | Ruling::Finished { resolved, .. }
-            | Ruling::HeldForReview { resolved, .. } => Some(*resolved),
-            _ => None,
-        }
+        let (policies, decided) = match self {
+            Ruling::Advanced { policies, .. }
+            | Ruling::Finished { policies, .. }
+            | Ruling::HeldForReview { policies, .. } => (policies, true),
+            Ruling::HandedBack { policies, .. }
+            | Ruling::Failed { policies, .. }
+            | Ruling::Refused { policies, .. }
+            | Ruling::Questioned { policies, .. }
+            | Ruling::Suspect { policies, .. }
+            | Ruling::CouldNotDecide { policies, .. } => (policies, false),
+            Ruling::NotWhatTheStepAsked(_) => return None,
+        };
+        Some(ResolvedPolicies {
+            auto_merge: policies.auto_merge(),
+            review_gate: policies.review_gate(),
+            decided,
+        })
     }
 
     /// The turn to inject, where there is one. **Two advances and one

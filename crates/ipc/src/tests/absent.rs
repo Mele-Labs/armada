@@ -54,15 +54,17 @@ fn an_edit_answer_with_nothing_declared_carries_no_declared_key() {
     assert_eq!(read, edited);
 }
 
-/// **What a gate resolved, on the run that passed it** (21.9, #1683). Built the
-/// way Fleet builds it, from `core_model`'s value, so the words are the ones
-/// `armada.yml` writes. A run from a Fleet older than 21.9 sends no key and
-/// reads absent, never as either policy's default.
+/// **What a gate resolved, on the run that reached it** (21.9, #1683; `decided`
+/// since 21.10). Built the way Fleet builds it, from `core_model`'s value, so
+/// the words are the ones `armada.yml` writes, and compared byte for byte. A
+/// run an earlier gate stopped says `decided: false`. A 21.9 Fleet sends no
+/// `decided`, which reads `true`, and a Fleet older than 21.9 sends no
+/// `resolved`, which reads absent, never as either policy's default.
 #[test]
 fn a_run_s_resolved_policies_round_trip_and_an_older_run_reads_absent() {
-    let run = crate::StepAttempt {
+    let run = |outcome, decided| crate::StepAttempt {
         attempt: 1,
-        outcome: crate::StepState::from(core_model::StepState::AwaitingHuman),
+        outcome: crate::StepState::from(outcome),
         why: None,
         started_at: Instant::carried("2026-10-01T10:00:00.000Z"),
         ended_at: Some(Instant::carried("2026-10-01T10:05:00.000Z")),
@@ -70,23 +72,44 @@ fn a_run_s_resolved_policies_round_trip_and_an_older_run_reads_absent() {
             core_model::ResolvedPolicies {
                 auto_merge: core_model::AutoMerge::ChecksPass,
                 review_gate: core_model::ReviewGate::HumanAlways,
+                decided,
             }
             .into(),
         ),
     };
-    let written = encode(&run).expect("a run encodes");
-    assert!(
-        written.contains(r#""resolved":{"auto_merge":"checks-pass","review_gate":"human_always"}"#),
-        "{written}"
+    for (outcome, decided, bytes) in [
+        (
+            core_model::StepState::AwaitingHuman,
+            true,
+            r#"{"attempt":1,"outcome":"awaiting_human","started_at":"2026-10-01T10:00:00.000Z","ended_at":"2026-10-01T10:05:00.000Z","resolved":{"auto_merge":"checks-pass","review_gate":"human_always","decided":true}}"#,
+        ),
+        (
+            core_model::StepState::Stopped,
+            false,
+            r#"{"attempt":1,"outcome":"stopped","started_at":"2026-10-01T10:00:00.000Z","ended_at":"2026-10-01T10:05:00.000Z","resolved":{"auto_merge":"checks-pass","review_gate":"human_always","decided":false}}"#,
+        ),
+    ] {
+        let run = run(outcome, decided);
+        let written = encode(&run).expect("a run encodes");
+        assert_eq!(written, bytes);
+        let read: crate::StepAttempt = decode("a run", written.as_bytes()).expect("it reads");
+        assert_eq!(read, run);
+    }
+
+    let from_21_9 = r#"{"attempt":1,"outcome":"awaiting_human","started_at":"2026-10-01T10:00:00.000Z","ended_at":"2026-10-01T10:05:00.000Z","resolved":{"auto_merge":"checks-pass","review_gate":"human_always"}}"#;
+    let read: crate::StepAttempt = decode("a run", from_21_9.as_bytes()).expect("it reads");
+    assert_eq!(
+        read.resolved.map(|was| was.decided),
+        Some(true),
+        "21.9 kept only runs the rule decided"
     );
-    let read: crate::StepAttempt = decode("a run", written.as_bytes()).expect("it reads");
-    assert_eq!(read, run);
 
     let older = r#"{"attempt":1,"outcome":"advanced","started_at":"2026-10-01T10:00:00.000Z","ended_at":"2026-10-01T10:05:00.000Z"}"#;
     let read: crate::StepAttempt = decode("a run", older.as_bytes()).expect("it reads");
     assert_eq!(read.resolved, None);
-    assert!(
-        !encode(&read).expect("re-encodes").contains("resolved"),
+    assert_eq!(
+        encode(&read).expect("re-encodes"),
+        older,
         "absent stays absent on the way back out"
     );
 }
