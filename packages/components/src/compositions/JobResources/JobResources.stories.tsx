@@ -451,7 +451,7 @@ export const SeveralMembers: Story = {
     // as correct.
     expect(canvas.getAllByText("armada/22-give-the-store-one-shape")).toHaveLength(2);
     await expect(canvas.getByText("not placed")).toBeVisible();
-    await expect(canvas.getByText("being written", { exact: true })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Being written" })).toBeVisible();
     // Whose logs, over every sub job by default and each one that owns a row.
     const logs = within(canvas.getByRole("region", { name: "Job logs" }));
     const whose = logs.getByRole("combobox", { name: "Which sub job" });

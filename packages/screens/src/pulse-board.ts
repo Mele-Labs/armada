@@ -5,7 +5,7 @@
 // today's wire, and the panel knows nothing about either.
 
 import type { Figure, PulseLogRow, PulseReading, PulseWorktreeRow } from "@armada/components";
-import type { JobDetail as JobWhole, JobExamined, StepDetail } from "@armada/protocol";
+import type { JobDetail as JobWhole, JobExamined, Recorded, StepDetail } from "@armada/protocol";
 import type { PulseLog, PulseView } from "./draft/pulse";
 import { span } from "./duration";
 import { ordered, spent } from "./facts";
@@ -26,12 +26,15 @@ import { checksOf, isRunning } from "./gates";
  * because the job sheet draws this board from a caller that does not pass it;
  * that board lists the reading's files alone, a brief with no `Open`.
  * A size's age is off its own `measured_at`: Fleet keeps a size between reads.
+ * `places` names each transcript by where its Drone worked; a caller with
+ * none draws the Drone's id.
  */
 export function pulseReadingOf(
   view: PulseView,
   examined: JobExamined | null,
   whole?: JobWhole | null,
   now?: number,
+  places: DronePlaces = new Map(),
 ): PulseReading {
   const one = view.worktrees.length === 1;
   return {
@@ -53,7 +56,7 @@ export function pulseReadingOf(
       ...sizeAge(worktree.measured_at, now),
       ...(one ? { ...standing(view.held, examined), open: "worktree" as const } : { state: ON_DISK }),
     })),
-    logs: logRowsOf(view.logs, whole ?? null),
+    logs: logRowsOf(view.logs, whole ?? null, places),
   };
 }
 
@@ -68,31 +71,29 @@ export function pulseReadingOf(
  * Job, or a brief kept before its verdict landed — is named by its file and
  * offers no `Open`, for the same reason.
  *
- * **A transcript offers no `Open` either.** The host opens `transcript` by the
- * Job's assigned Drone, which is not the row's file once there are two.
+ * **A transcript opens by its own path**, which main checks against the
+ * reading it holds, and is named by where its Drone worked (`dronePlacesOf`).
  */
-function logRowsOf(logs: readonly PulseLog[], whole: JobWhole | null): PulseLogRow[] {
+function logRowsOf(logs: readonly PulseLog[], whole: JobWhole | null, places: DronePlaces): PulseLogRow[] {
   const read = new Map(logs.filter((one) => one.kind === "brief").map((one) => [one.path, one]));
   const named = briefsOf(whole).map(({ path, row }) => {
     const log = read.get(path);
     read.delete(path);
     return log === undefined ? row : { ...row, ...weighed(log), writing: log.writing };
   });
-  const files = logs.filter((one) => one.kind !== "brief").map(fileRowOf);
-  return [...files, ...named, ...[...read.values()].map(fileRowOf)];
+  const files = logs.filter((one) => one.kind !== "brief").map((one) => fileRowOf(one, places));
+  return [...files, ...named, ...[...read.values()].map((one) => fileRowOf(one, places))];
 }
 
 /** One file as the reading lists it. */
-function fileRowOf(log: PulseLog): PulseLogRow {
-  const own = log.kind === "job" && log.owner === null;
-  return {
-    kind: log.kind,
-    owner: log.owner,
-    ...(own ? {} : { about: stem(log.path) }),
-    ...weighed(log),
-    writing: log.writing,
-    ...(own ? { open: "log" as const } : {}),
-  };
+function fileRowOf(log: PulseLog, places: DronePlaces): PulseLogRow {
+  const row = { kind: log.kind, owner: log.owner, ...weighed(log), writing: log.writing };
+  if (log.kind === "job" && log.owner === null) return { ...row, open: "log" };
+  if (log.kind === "transcript") {
+    const drone = stem(log.path);
+    return { ...row, about: places.get(drone) ?? drone, open: { kept: log.path, what: "transcript" } };
+  }
+  return { ...row, about: stem(log.path) };
 }
 
 /** What the file weighs, where Fleet measured it. Absent is never zero. */
@@ -102,12 +103,56 @@ function weighed(log: PulseLog): { bytes?: number } {
 
 /**
  * A file's name without its directory or its extension: a transcript's Drone
- * id, a brief's step, run and criterion. What tells two rows of a kind apart.
+ * id, a brief's step, run and criterion.
  */
 function stem(path: string): string {
   const name = path.slice(path.lastIndexOf("/") + 1);
   const dot = name.lastIndexOf(".");
   return dot > 0 ? name.slice(0, dot) : name;
+}
+
+/**
+ * Where each Drone worked, by its id — what a transcript row is named by:
+ * `implement`, `implement · T5`, or `implement · run 2`.
+ */
+export type DronePlaces = ReadonlyMap<string, string>;
+
+/**
+ * Each Drone's step, off the Job's history, and its task where a plan names one.
+ *
+ * **The history is already in hand**: it opens with the Job, and each
+ * `drone_spawned` row names the step a Drone arrived on. Nothing is fetched
+ * for a label. **A task wins where there is one**; Fleet runs one Drone per
+ * step and names no task (`list_job_drones`), so two Drones on one step are
+ * told apart by the order they ran in, never by their ids.
+ */
+export function dronePlacesOf(
+  history: readonly Recorded[] | undefined,
+  tasks: readonly { id: string; drone_id?: string }[] = [],
+): DronePlaces {
+  const taskOf = new Map(
+    tasks.flatMap((task) => (task.drone_id === undefined ? [] : [[task.drone_id, task.id] as const])),
+  );
+  const spawned = [...(history ?? [])]
+    .sort((a, b) => a.seq - b.seq)
+    .flatMap((one) =>
+      one.moved.kind === "drone" && one.moved.presence === "drone_spawned"
+        ? [{ step: one.moved.step_id, drone: one.moved.drone_id }]
+        : [],
+    );
+  const onStep = new Map<string, number>();
+  for (const one of spawned) onStep.set(one.step, (onStep.get(one.step) ?? 0) + 1);
+  const ran = new Map<string, number>();
+  const places = new Map<string, string>();
+  for (const { step, drone } of spawned) {
+    if (places.has(drone)) continue;
+    const run = (ran.get(step) ?? 0) + 1;
+    ran.set(step, run);
+    const task = taskOf.get(drone);
+    const several = (onStep.get(step) ?? 0) > 1;
+    places.set(drone, task !== undefined ? `${step} · ${task}` : several ? `${step} · run ${run}` : step);
+  }
+  return places;
 }
 
 function sizeAge(measuredAt: string | undefined, now: number | undefined): { age?: string } {
@@ -133,7 +178,8 @@ function standing(held: string, examined: JobExamined | null): Pick<PulseWorktre
 }
 
 /**
- * One row per brief the Judge was asked with, across every step and run.
+ * One row per brief the Judge was asked with, across every step and run, and
+ * one per gaming check's brief, which main opens on the same rule.
  *
  * **Unweighed here, and not `being written`.** What it weighs and whether it
  * is held open are the reading's, which `logRowsOf` lays over these.
@@ -157,9 +203,19 @@ function briefsOf(whole: JobWhole | null): { path: string; row: PulseLogRow }[] 
         },
       });
     }
+    for (const flag of step.flagged) {
+      const path = flag.brief_path;
+      if (path === undefined || seen.has(path)) continue;
+      seen.add(path);
+      const about = `${step.step_id} · ${GAMING_CHECK}`;
+      rows.push({ path, row: { kind: "brief", owner: null, about, writing: false, open: { kept: path, what: "brief" } } });
+    }
   }
   return rows;
 }
+
+/** What a gaming check's brief is about, beside the step it was asked on. */
+const GAMING_CHECK = "gaming check";
 
 /**
  * What this Job is running and what it is taking, over the board.

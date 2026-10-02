@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { JobExamined, Look, StepDetail } from "@armada/protocol";
+import type { JobExamined, Look, Recorded, StepDetail } from "@armada/protocol";
 import type { PulseView } from "./draft/pulse";
 import { detail, job, spend } from "./fixtures/build/base";
-import { checksRunning, judgesRunning, pulseFiguresOf, pulseReadingOf } from "./resources";
+import { checksRunning, dronePlacesOf, judgesRunning, pulseFiguresOf, pulseReadingOf } from "./resources";
 
 const BRANCH = "armada/1538-pulse";
 const JOB_LOG = ".armada/logs/1538-pulse.jsonl";
@@ -123,7 +123,7 @@ describe("the rows the board draws", () => {
     expect(idle?.state).toBe("no drone working");
   });
 
-  it("offers Open on the Job's own log, and on no transcript", () => {
+  it("offers Open on the Job's own log, and on a transcript by the path Fleet listed", () => {
     const logs = pulseReadingOf(
       view({
         logs: [
@@ -134,13 +134,36 @@ describe("the rows the board draws", () => {
       null,
     ).logs;
 
-    expect(logs.map((one) => one.open)).toEqual(["log", undefined]);
+    expect(logs.map((one) => one.open)).toEqual(["log", { kept: TRANSCRIPT, what: "transcript" }]);
   });
 
-  it("names a transcript by its Drone, so two of them are two rows", () => {
+  it("names a transcript by where its Drone worked", () => {
+    const one = view({ logs: [{ kind: "transcript", path: TRANSCRIPT, owner: null, writing: true }] });
+
+    expect(pulseReadingOf(one, null, null, undefined, new Map([["01DRONE", "implement · T5"]])).logs[0]?.about).toBe(
+      "implement · T5",
+    );
+  });
+
+  it("names a transcript by its Drone's id where nothing says where it worked", () => {
     const one = view({ logs: [{ kind: "transcript", path: TRANSCRIPT, owner: null, writing: true }] });
 
     expect(pulseReadingOf(one, null).logs[0]?.about).toBe("01DRONE");
+  });
+
+  it("lists a gaming check's brief beside the Judge's, opened the same way", () => {
+    const flag = { attempt: 1, pattern: "assertion_weakened", cited: "", brief_path: "briefs/verify.1.gaming.md" };
+    const whole = detail(job("running"), [step({ step_id: "verify", flagged: [flag, { ...flag, attempt: 2 }] })]);
+
+    expect(pulseReadingOf(view({ logs: [] }), null, whole).logs).toEqual([
+      {
+        kind: "brief",
+        owner: null,
+        about: "verify · gaming check",
+        writing: false,
+        open: { kept: "briefs/verify.1.gaming.md", what: "brief" },
+      },
+    ]);
   });
 
   it("draws a brief on both reads once: named by the Job, weighed by the reading", () => {
@@ -197,6 +220,42 @@ describe("the rows the board draws", () => {
     const one = view({ logs: [{ kind: "job", path: JOB_LOG, owner: null, writing: true }] });
 
     expect(pulseReadingOf(one, null).logs[0]?.writing).toBe(true);
+  });
+});
+
+describe("where each Drone worked", () => {
+  /** A Drone arriving on a step, as the history records it. */
+  function spawned(seq: number, step: string, drone: string): Recorded {
+    return {
+      seq,
+      status: "running",
+      moved: { kind: "drone", step_id: step, drone_id: drone, presence: "drone_spawned" },
+      actor: "fleet",
+      at: "2026-09-22T10:00:00Z",
+    };
+  }
+
+  it("is the step a Drone arrived on, where it was the step's only one", () => {
+    expect(dronePlacesOf([spawned(1, "plan", "01A")]).get("01A")).toBe("plan");
+  });
+
+  it("tells two Drones on one step apart by the order they ran in, never by id", () => {
+    const places = dronePlacesOf([spawned(4, "implement", "01Z"), spawned(2, "implement", "01Y")]);
+
+    expect([places.get("01Y"), places.get("01Z")]).toEqual(["implement · run 1", "implement · run 2"]);
+  });
+
+  it("names the task where a plan carries one, rather than a run", () => {
+    const places = dronePlacesOf(
+      [spawned(1, "implement", "01Y"), spawned(2, "implement", "01Z")],
+      [{ id: "T5", drone_id: "01Z" }],
+    );
+
+    expect([places.get("01Y"), places.get("01Z")]).toEqual(["implement · run 1", "implement · T5"]);
+  });
+
+  it("names nothing where the Job's history is not in hand", () => {
+    expect(dronePlacesOf(undefined).size).toBe(0);
   });
 });
 

@@ -11,7 +11,7 @@
 // **A done task a later task edits stays done and is flagged** (#1530). T6
 // finished in group three; T7 writes the same file in group four.
 
-import type { Diff, JobProcess, LogFile, StepDetail } from "@armada/protocol";
+import type { Diff, JobProcess, LogFile, Recorded, StepDetail } from "@armada/protocol";
 import type { CaseRunView, CaseView, GroupView, LedgerRow, PulseView } from "../../draft";
 import type { JobFixture } from "../fixture";
 import type { ArcMoment } from "./arc-base";
@@ -61,11 +61,17 @@ function planAdvanced(): StepDetail {
 /** Where the plan's Judge brief for one criterion was kept. */
 const PLAN_BRIEF = (criterion: string) => `.armada/briefs/${ARC_HANDLE}/plan.1.${criterion}.md`;
 
-/** The transcript of one task's Drone, as the reading lists it. */
+/**
+ * The Drone that wrote the plan. Its id sorts before every task's, as a ULID
+ * minted first does, so Fleet lists its transcript first.
+ */
+const PLAN_DRONE = "01M2D5HKQN001DRONE00PLAN";
+
+/** The transcript of one task's Drone, or the plan's, as the reading lists it. */
 function transcript(task: string, bytes: number | undefined, writing: boolean | undefined): LogFile {
   return {
     kind: "transcript",
-    path: `.armada/transcripts/${ARC_HANDLE}/${ARC_DRONES[task] ?? task}.jsonl`,
+    path: `.armada/transcripts/${ARC_HANDLE}/${task === "plan" ? PLAN_DRONE : (ARC_DRONES[task] ?? task)}.jsonl`,
     ...(bytes === undefined ? {} : { bytes }),
     ...(writing === undefined ? {} : { being_written: writing }),
   };
@@ -73,7 +79,8 @@ function transcript(task: string, bytes: number | undefined, writing: boolean | 
 
 /**
  * Every file the Job has by group three: its own log and T5's transcript held
- * open, the four finished transcripts, and the plan's two briefs.
+ * open, the plan's and four tasks' finished transcripts, and the plan's two
+ * briefs.
  *
  * **T3's would not `stat`**, so it has no size and no answer about a writer:
  * with no inode to match, Fleet learns neither.
@@ -81,6 +88,7 @@ function transcript(task: string, bytes: number | undefined, writing: boolean | 
 function sequentialLogs(): LogFile[] {
   return [
     { kind: "job", path: `.armada/logs/${ARC_HANDLE}.jsonl`, bytes: 96_412, being_written: true },
+    transcript("plan", 842_551, false),
     transcript("T1", 1_288_304, false),
     transcript("T2", 402_118, false),
     transcript("T3", undefined, undefined),
@@ -89,6 +97,33 @@ function sequentialLogs(): LogFile[] {
     { kind: "brief", path: PLAN_BRIEF("a1"), bytes: 14_870, being_written: false },
     { kind: "brief", path: PLAN_BRIEF("a2"), bytes: 15_032, being_written: false },
   ];
+}
+
+/**
+ * Each Drone arriving and leaving, as the Job's history records it: the plan's,
+ * then one per task through T5, which is still on `implement`. What names a
+ * transcript row by its step.
+ */
+function sequentialHistory(): Recorded[] {
+  const drones: [string, string, string, string | undefined][] = [
+    ["plan", PLAN_DRONE, "2026-09-22T09:15:00Z", "2026-09-22T09:21:00Z"],
+    ["implement", ARC_DRONES.T1 ?? "T1", "2026-09-22T09:22:00Z", "2026-09-22T09:34:00Z"],
+    ["implement", ARC_DRONES.T2 ?? "T2", "2026-09-22T09:34:00Z", "2026-09-22T09:46:00Z"],
+    ["implement", ARC_DRONES.T3 ?? "T3", "2026-09-22T09:50:00Z", "2026-09-22T09:58:00Z"],
+    ["implement", ARC_DRONES.T4 ?? "T4", "2026-09-22T09:58:00Z", "2026-09-22T10:08:00Z"],
+    ["implement", ARC_DRONES.T5 ?? "T5", "2026-09-22T10:14:00Z", undefined],
+  ];
+  const moves = drones.flatMap(([step, drone, spawned, exited]) => [
+    { step, drone, presence: "drone_spawned", at: spawned },
+    ...(exited === undefined ? [] : [{ step, drone, presence: "drone_exited", at: exited }]),
+  ]);
+  return moves.map((one, seq) => ({
+    seq: seq + 1,
+    status: "running",
+    moved: { kind: "drone", step_id: one.step, drone_id: one.drone, presence: one.presence },
+    actor: "fleet",
+    at: one.at,
+  }));
 }
 
 /** One Drone's process, as `ps` reports it. */
@@ -253,6 +288,8 @@ function executing(args: {
   diff?: Diff;
   /** The files the reading lists, where this moment serves them. */
   logs?: LogFile[];
+  /** The Job's history, where this moment serves one. */
+  history?: Recorded[];
 }): JobFixture {
   const job = arcJob(args.status ?? "running", {
     current_step_id: "implement",
@@ -282,6 +319,7 @@ function executing(args: {
       diff: args.diff ?? { state: "none" },
       remarks: { state: "none" },
     },
+    ...(args.history === undefined ? {} : { history: { state: "read", jobId: ARC_JOB_ID, moves: args.history } }),
     calls: {},
     checkOutputs: {},
     frames: {},
@@ -378,6 +416,7 @@ export function executingSequential(): ArcMoment {
         step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:20:00Z"),
         processes: [droneProcess(52_118, "06:12")],
         logs: sequentialLogs(),
+        history: sequentialHistory(),
       }),
     ],
     opens: ARC_JOB_ID,

@@ -2,7 +2,7 @@
 // and the logs being written. Beside `JobResources.tsx` rather than inside it,
 // because that file is the verdict and the act and this is the reading.
 
-import { Power } from "lucide-react";
+import { CircleDot, Power } from "lucide-react";
 
 import type { Artifact, JobExamined } from "@armada/protocol";
 import { Button } from "../../primitives/Button/Button";
@@ -331,7 +331,9 @@ export function Worktrees({
  *
  * **Being written is the fact the list exists for.** A log that stopped
  * growing while its Job reads running is the shape of a hang, so a file still
- * open says so where its `Open` would be.
+ * open says so where its `Open` would be — as a mark and not a phrase (owner,
+ * 2 Oct: "I hate text over icons"). `circle-dot` with its centre pulsing, the
+ * glyph `DroneTurns` draws for a Drone still writing, and named by its tooltip.
  *
  * **A size Fleet could not measure is an empty cell** (owner, 29 Sep: "We dont
  * need to say anything"). The cell stays, so the column still lines up.
@@ -364,7 +366,11 @@ export function Logs({
             </Tooltip>
           )}
           {one.writing ? (
-            <span className="armada-holds__writing">being written</span>
+            <Tooltip label={BEING_WRITTEN} asChild>
+              <span className="armada-holds__writing" role="img" aria-label={BEING_WRITTEN}>
+                <CircleDot size={12} strokeWidth={2} aria-hidden="true" />
+              </span>
+            </Tooltip>
           ) : (
             <Opens open={one.open} onOpen={onOpen} />
           )}
@@ -427,6 +433,9 @@ function Opens({ open, onOpen }: { open?: Artifact; onOpen?: (what: Artifact) =>
     </Button>
   );
 }
+
+/** What the mark on a log a writer holds open is, said by its tooltip and its name. */
+const BEING_WRITTEN = "Being written";
 
 /** A Job nothing has written a log for. Not a missing read — there are none. */
 const NO_LOGS = "Nothing has been written to this job's logs.";
