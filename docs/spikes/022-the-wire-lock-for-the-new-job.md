@@ -659,7 +659,7 @@ are not recorded anywhere to count afterwards: `job.files_changed` and
 
 | | |
 |---|---|
-| Issues | To file |
+| Issues | #1759 |
 | Builds | A per-kind tally of what the broadcaster published, written to Fleet's log each minute; on `/observe`, a `missed` reopens the socket so the backfill redraws the pane |
 | Measures | Events per Job-minute by kind, from live runs on this machine, against `BACKLOG` |
 | Already built | `a_client_that_cannot_keep_up_is_told_and_resynced` in `crates/api/src/tests/stream.rs` covers `/events`' drop and resync |
@@ -679,7 +679,7 @@ close.
 
 | | |
 |---|---|
-| Issues | The two signers, to file |
+| Issues | #1760 |
 | Wire | Major: `handed_in` and `failed` on a task, `judge` and `check` on `Actor`; `TaskCounts` gains optional `handed_in` and `failed` |
 | Blocks | 1b |
 | Waits on | Nothing |
@@ -708,7 +708,7 @@ Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/en
 
 | | |
 |---|---|
-| Issues | #1752; per-task dispatch, to file |
+| Issues | #1762, carrying #1752 |
 | Wire | Minor: `JobDrone.task`; `job.plan_changed` gains the task and its state |
 | Blocks | 2 |
 | Waits on | 1a |
@@ -745,7 +745,7 @@ retries run out.
 
 | | |
 |---|---|
-| Issues | #1652, #1656, #1685; groups recorded and run, to file |
+| Issues | #1763, carrying #1652, #1656, #1685 |
 | Wire | Minor; the majors landed in 1a |
 | Blocks | 3 |
 | Waits on | 1b |
@@ -790,7 +790,7 @@ and the wire set above.
 
 | | |
 |---|---|
-| Issues | #1657; the tier map on the Job, to file |
+| Issues | #1764, carrying #1657 |
 | Wire | Minor |
 | Blocks | 4, 5 |
 | Waits on | Slice 2 |
@@ -816,7 +816,7 @@ Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
 
 | | |
 |---|---|
-| Issues | #1641, #1642, #1605, #1581, #1699's route; issue noticing, to file |
+| Issues | #1765, carrying #1641, #1642, #1605, #1581, #1699's route |
 | Wire | Minor |
 | Blocks | 6 |
 | Waits on | Slices 2 and 3 |
@@ -847,7 +847,7 @@ documents, and the wire set above.
 
 | | |
 |---|---|
-| Issues | #1666, #1651, #1648's remaining half; concurrency, to file |
+| Issues | #1766, carrying #1666, #1651, #1648's remaining half |
 | Wire | Minor |
 | Blocks | Nothing in this milestone |
 | Waits on | Slices 0b and 3 |
@@ -883,7 +883,7 @@ reading a group's edit calls from its Drones' transcripts, and the wire set abov
 
 | | |
 |---|---|
-| Issues | #1694, #1699, #1692; a parent completing on its members, to file |
+| Issues | #1767, carrying #1694, #1699, #1692 |
 | Wire | Minor |
 | Blocks | Nothing |
 | Waits on | Slice 4 |
@@ -907,7 +907,7 @@ Write scope: `crates/fleet/src/sub_dispatch.rs`, `crates/fleet/src/noticing.rs`,
 
 | | |
 |---|---|
-| Issues | To file, after a design pass |
+| Issues | #1768, a design pass first |
 | Blocks | Nothing |
 | Waits on | A design |
 
