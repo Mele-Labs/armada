@@ -91,11 +91,15 @@ The brief is the only context the agent has, so it carries:
 | The evidence | For a visual change, a walk under `mock/walks/` covering every surface it changed, on fixture data that shows the change, in a file named for this change alone. The report names the walk and the worktree's absolute path, so the mock can be served from it |
 | The landing | Commit and push after each piece that passes, open a PR, **do not merge**. Run heavy commands in the foreground and wait. A decision it runs into goes in a single `**QUESTION:**` line at the end, and nothing that depends on the answer gets built |
 
-**Verify what comes back yourself.** Read the diff, run its test, and look at
-the screen in the mock. **Run the whole suite the change reaches, not only the
-tests it added**: on 1 Oct 2026 the rail change in #1721 broke an existing Link
-test, it was reported to the owner as verified on its three new tests, and the
-next agent found the break.
+**Verify what comes back yourself.** Read the diff, rerun the tests it added,
+and look at the screen in the mock. **The whole suite the change reaches is run
+twice, by the agent and by the merge line, and not a third time here.** Check
+that the report names a whole-suite run with its counts, and send it back if it
+does not: on 1 Oct 2026 the rail change in #1721 broke an existing Link test, it
+was reported to the owner as verified on its three new tests, and the next agent
+found the break. `scripts/land` reruns every Check the change hits before it
+pushes `main`, so a repeat here buys nothing. On 2 Oct 2026 it was a repeat on
+every change, and the owner asked for it to stop.
 
 **A brief forbids the owner's clipboard, screen and apps.** On 1 Oct 2026 an
 agent measuring paste shapes overwrote his clipboard and opened Finder, Safari

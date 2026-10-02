@@ -14,7 +14,6 @@
 
 use std::path::Path;
 
-use adapter_traits::WorktreeSpec;
 use config::Manifest;
 use core_model::{EscalationTrigger, JobStatus, StepState, TransitionReason, TriggerLevel};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Gate, Sketch};
@@ -48,8 +47,7 @@ fn a_fleet_requiring(home: &TempDir, run: &str) -> Fleet<FakeHarness, FakeVcs, F
 
 /// Where the Job's worktree is, derived the way Fleet derives it.
 fn worktree(home: &TempDir, job: &core_model::Job) -> std::path::PathBuf {
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     std::path::PathBuf::from(spec.worktree_path())
 }
 

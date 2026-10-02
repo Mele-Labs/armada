@@ -3,7 +3,9 @@
 //! One row per repository, Check and test, owned by the fix: forgetting the fix
 //! removes its claims, and Fleet gives them back when the fix settles.
 
-use core_model::{Breakage, BreakageClaim, FixWaiter, JobId, ManifestId, Timestamp, Ulid};
+use core_model::{
+    Breakage, BreakageClaim, FixWaiter, JobId, LandedHold, ManifestId, RepoPath, Timestamp, Ulid,
+};
 
 use crate::error::{fault, LoadJobError, WriteError};
 use crate::open::Store;
@@ -42,17 +44,49 @@ CREATE TABLE job_fix_waiters (
 ) STRICT;
 "#;
 
+/// Version 94 — the test's files on a claim, and what a landed fix still
+/// holds off a Job until its copy takes the fix. #1673.
+///
+/// **Two tables beside the claim rather than a column on it**, for
+/// `crate::plan`'s reason: a list is rows. `job_id` is the fix on the first
+/// and the held Job on the second, so each goes with the Job that owns it.
+pub(crate) const V94: &str = r#"
+CREATE TABLE job_breakage_claim_files (
+    job_id      TEXT NOT NULL REFERENCES jobs(job_id),
+    repository  TEXT NOT NULL,
+    check_name  TEXT NOT NULL,
+    test        TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    PRIMARY KEY (repository, check_name, test, path)
+) STRICT;
+
+CREATE TABLE job_landed_holds (
+    job_id  TEXT NOT NULL REFERENCES jobs(job_id),
+    fix     TEXT NOT NULL,
+    test    TEXT NOT NULL,
+    path    TEXT NOT NULL,
+    at      TEXT NOT NULL,
+    PRIMARY KEY (job_id, fix, test, path)
+) STRICT;
+"#;
+
 impl Store {
     /// Claim a breakage for its fix. `false` where the same test in the same
     /// repository is already claimed, so a second report drafts nothing.
     ///
-    /// **One statement**, so two claims cannot both land.
+    /// **One statement decides**, so two claims cannot both land; the files
+    /// go in beside it, in the same transaction, only where it did.
     pub fn claim_breakage(
         &mut self,
         claim: &BreakageClaim,
         at: &Timestamp,
     ) -> Result<bool, WriteError> {
-        self.conn
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(fault("starting a claim"))
+            .map_err(WriteError::Database)?;
+        let claimed = tx
             .execute(
                 "INSERT INTO job_breakage_claims
                    (job_id, repository, check_name, test, failure, reported_by, at)
@@ -70,7 +104,29 @@ impl Store {
             )
             .map(|claimed| claimed == 1)
             .map_err(fault("claiming a breakage"))
-            .map_err(WriteError::Database)
+            .map_err(WriteError::Database)?;
+        if claimed {
+            for path in &claim.files {
+                tx.execute(
+                    "INSERT OR IGNORE INTO job_breakage_claim_files
+                       (job_id, repository, check_name, test, path)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![
+                        claim.fix.as_str(),
+                        claim.repository.as_str(),
+                        claim.breakage.check,
+                        claim.breakage.test,
+                        path.as_str(),
+                    ],
+                )
+                .map_err(fault("naming a claimed test's files"))
+                .map_err(WriteError::Database)?;
+            }
+        }
+        tx.commit()
+            .map_err(fault("committing a claim"))
+            .map_err(WriteError::Database)?;
+        Ok(claimed)
     }
 
     /// The claim on one test in one repository, where there is one.
@@ -198,14 +254,121 @@ impl Store {
 
     /// Give back every claim a fix Job holds, once it has ended.
     pub fn release_breakages(&mut self, fix: &JobId) -> Result<(), WriteError> {
+        for table in ["job_breakage_claim_files", "job_breakage_claims"] {
+            self.conn
+                .execute(
+                    &format!("DELETE FROM {table} WHERE job_id = ?1"),
+                    (fix.as_str(),),
+                )
+                .map_err(fault("releasing a fix's breakages"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
+
+    /// Hold these paths off a Job until its copy takes the fix that landed.
+    pub fn hold_until_caught_up(
+        &mut self,
+        hold: &LandedHold,
+        at: &Timestamp,
+    ) -> Result<(), WriteError> {
+        for path in &hold.paths {
+            self.conn
+                .execute(
+                    "INSERT OR IGNORE INTO job_landed_holds (job_id, fix, test, path, at)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![
+                        hold.held.as_str(),
+                        hold.fix.as_str(),
+                        hold.test,
+                        path.as_str(),
+                        at.as_str(),
+                    ],
+                )
+                .map_err(fault("holding a landed fix's files"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
+
+    /// What landed fixes still hold off one Job, one entry per fix and test.
+    pub fn landed_holds_on(&self, held: &JobId) -> Result<Vec<LandedHold>, LoadJobError> {
+        let unreadable =
+            |why: rusqlite::Error| LoadJobError::Database(fault("reading landed holds")(why));
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT fix, test, path FROM job_landed_holds
+                 WHERE job_id = ?1 ORDER BY at, fix, test, path",
+            )
+            .map_err(unreadable)?;
+        let rows = statement
+            .query_map((held.as_str(),), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(unreadable)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(unreadable)?;
+        let mut holds: Vec<LandedHold> = Vec::new();
+        for (fix, test, path) in rows {
+            let fix = JobId::carried(Ulid::carried(fix));
+            match holds
+                .iter_mut()
+                .find(|hold| hold.fix == fix && hold.test == test)
+            {
+                Some(hold) => hold.paths.push(RepoPath::new(&path)),
+                None => holds.push(LandedHold {
+                    held: held.clone(),
+                    fix,
+                    test,
+                    paths: vec![RepoPath::new(&path)],
+                }),
+            }
+        }
+        Ok(holds)
+    }
+
+    /// Give back everything landed fixes held off one Job, once its copy has
+    /// taken them.
+    pub fn release_landed_holds(&mut self, held: &JobId) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "DELETE FROM job_breakage_claims WHERE job_id = ?1",
-                (fix.as_str(),),
+                "DELETE FROM job_landed_holds WHERE job_id = ?1",
+                (held.as_str(),),
             )
             .map(|_| ())
-            .map_err(fault("releasing a fix's breakages"))
+            .map_err(fault("releasing landed holds"))
             .map_err(WriteError::Database)
+    }
+
+    /// The files named on one claim, in the order they were stored.
+    fn claim_files(
+        &self,
+        repository: &ManifestId,
+        check: &str,
+        test: &str,
+    ) -> Result<Vec<RepoPath>, LoadJobError> {
+        let unreadable =
+            |why: rusqlite::Error| LoadJobError::Database(fault("reading a claim's files")(why));
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT path FROM job_breakage_claim_files
+                 WHERE repository = ?1 AND check_name = ?2 AND test = ?3 ORDER BY rowid",
+            )
+            .map_err(unreadable)?;
+        let rows = statement
+            .query_map(rusqlite::params![repository.as_str(), check, test], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(unreadable)?;
+        rows.map(|path| path.map(|path| RepoPath::new(&path)))
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(unreadable)
     }
 
     fn breakage_claims(
@@ -233,10 +396,21 @@ impl Store {
                         failure: row.get(4)?,
                     },
                     reported_by: JobId::carried(Ulid::carried(row.get::<_, String>(5)?)),
+                    files: Vec::new(),
                 })
             })
             .map_err(unreadable)?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-            .map_err(unreadable)
+        let mut claims = rows
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(unreadable)?;
+        drop(statement);
+        for claim in &mut claims {
+            claim.files = self.claim_files(
+                &claim.repository,
+                &claim.breakage.check,
+                &claim.breakage.test,
+            )?;
+        }
+        Ok(claims)
     }
 }

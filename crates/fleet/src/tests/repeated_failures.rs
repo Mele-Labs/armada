@@ -14,7 +14,6 @@
 
 use std::sync::Arc;
 
-use adapter_traits::WorktreeSpec;
 use config::ResolvedWorkflow;
 use core_model::{Job, JobId, StepId};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Gate, OneTest, Sketch};
@@ -96,7 +95,7 @@ fn a_fleet(home: &TempDir, workflow: ResolvedWorkflow) -> Arc<Fixture> {
 /// The worktree `check.sh` runs in — the same derivation Fleet uses, per
 /// `worktree_directory`'s own doc on why a case cannot take a shortcut here.
 fn worktree_of(home: &TempDir, job: &Job) -> String {
-    WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle())
+    crate::tests::daemon::spec_held(&home, &job)
         .expect("a legal spec")
         .worktree_path()
 }

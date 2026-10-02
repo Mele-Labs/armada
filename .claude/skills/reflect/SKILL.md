@@ -247,6 +247,10 @@ nothing. Read back over the session's own tool calls for it:
 - a subagent dispatched for a lookup one command answers, or several where one
   would have done;
 - a cold build forced by a shared or deleted target directory;
+- a whole suite rerun after the agent already ran it and before the merge line
+  runs it again (`annotations`, *Verify what comes back*);
+- a brief that named files without lines, or five skills where two would do
+  (`work-issue`, *A brief points*);
 - a fact in a skill or doc that the session rediscovered from code because
   nothing routed it there.
 

@@ -297,6 +297,14 @@ impl Opening {
         }
     }
 
+    /// The same opening, plus the files another Job's fix holds off. #1673.
+    pub(crate) fn holding_off(self, held_off: &crate::fixing::HeldOff) -> Opening {
+        Opening {
+            crossed: self.crossed.and_held_off(held_off),
+            ..self
+        }
+    }
+
     /// The whole opening turn: the four blocks, what stopped the last attempt
     /// where there was one, and what the rebase came to where it came to
     /// anything.
@@ -769,6 +777,11 @@ fn assemble(
     // this part starts from and the Jobs writing beside it. #998.
     if let Some(peers) = crossed.peers() {
         blocks.headed(peers.text(), ipc::BlockKind::AboutThisJob);
+    }
+    // After the peers, which may say a fix landed, and before the step: what
+    // the part may not touch is read before the part. #1673.
+    if let Some(held_off) = crossed.held_off() {
+        blocks.headed(held_off, ipc::BlockKind::AboutThisJob);
     }
     // Before the step, so a review pass reads what was ruled out before it reviews. #907.
     if let Some(dismissed) = crossed.dismissed() {

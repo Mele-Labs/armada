@@ -2242,6 +2242,54 @@ how long a task takes. #1759 has the line; `[broadcast-capacity]` stays open.
 **Store V92** keeps which Drone was put on which task, and what each handed in, so `JobDrone.task`
 and the step's one submission survive a Fleet restarting mid-step.
 
+## Protocol 23.2: what landed, and what was sent back
+
+Decided with the owner on 2 Oct 2026: the merge line's one list of what left it splits in two.
+`MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
+`red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
+bounds are in `adapters::land_state::line`. Both lists are `MergeLineEntry` rows, newest first, with
+the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
+
+**Additive, so the minor moves.** `off` is still served as it was, so a 23.1 Bridge connects behind
+the banner and draws what it drew. This Bridge does not read it. `off` could not carry the split by
+itself: its newest few of either means a run of landings pushes every red out of it.
+
+**The bound is the outcome file's own age, held against the instant Fleet's clock gives the read.**
+A red that ages out changes the answer, so `merge_lines.changed` publishes it.
+
+**`MergeLineEntry` gains `checks`**, each Check the turn runs as `MergeLineCheck { name, state }`,
+`state` a strict `LandCheckState`: `waiting`, `running`, `passed`, `failed`, `timed_out`. The
+runner writes the same list into the outcome file (`Outcome::checks`, through `OutcomePatch`) as
+each Check starts and ends. Served for `gating`, `red` and `stopped` only, and while a Check
+runs `doing` is left off: the list says it. Absent where empty, so additive like the rest.
+
+**`MergeLinePullRequest` gains `settled`**, the Job's own `Settled`: `merged` where the forge
+read the push as the merge, `closed_unmerged` where the runner closed it naming the merge or found
+it closed. The runner records it as `Outcome::pr_settled` when the branch lands, from `gh pr view`'s
+state; Fleet serves it for `landed` only. Absent is nothing known: a pull request still in line,
+one left open because the remote held more than landed, or a forge that would not answer.
+
+## Protocol 23.3: the files a fix holds off the Jobs that hit its test
+
+#1673, the Fleet half.
+
+**One optional field, additive.** `ClaimedBreakage` gains `held_off`, the files no Job on the claim
+but the fix may change while it stands: those the reporting Drone named in `draft_fix`, then those
+the fix has declared it will change. Absent is none, which is every claim from before 23.3 whose
+fix has declared nothing yet. It reads the same from either side of the claim, like the rest of
+the entry.
+
+**Bridge reads `whole.breakages` for everything else.** Which Job is the fix, its title, and which
+Check and test it is fixing were already there: `fix`, `fix_title`, `check`, `test`. A failed Check
+row matches a breakage by `check`.
+
+**A landed fix leaves `whole.breakages` at the merge, as before**, though its files stay held off
+each Job until that Job's next catch-up brings the fix in. That hold is not on the wire; the Drone
+is told, and `docs/concepts/fleet.md`, *A test another Job is fixing*, has why it outlives the merge.
+
+**Not on the wire: `draft_fix` gains a required `files`.** It is an MCP tool, not this protocol, and
+its own schema says so. **Store V94** keeps a claim's files and what a landed fix still holds.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

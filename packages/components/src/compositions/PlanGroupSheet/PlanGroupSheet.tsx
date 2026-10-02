@@ -46,9 +46,6 @@ export type PlanGroupSheetProps = {
   /** Proposing a change to this group, beside its asks. */
   propose?: PlanBoardProps["propose"];
   floor?: boolean;
-  /** `PlanTaskSheet`'s pair: absent draws `--w-dock`, no `onResize` no handle. */
-  width?: number;
-  onResize?: (width: number) => void;
   /** Another layer — the add dialog — lies over this one and takes `Esc` first. */
   under?: boolean;
   onClose?: () => void;
@@ -65,8 +62,6 @@ export function PlanGroupSheet({
   askPending = false,
   propose,
   floor = false,
-  width,
-  onResize,
   under = false,
   onClose,
 }: PlanGroupSheetProps) {
@@ -76,7 +71,8 @@ export function PlanGroupSheet({
     <Sheet
       open={open}
       floating
-      {...(onResize === undefined ? {} : { width, onResize })}
+      kind="plan-group"
+      size="dock"
       floor={floor}
       title={`Group ${group.ordinal}`}
       subtitle={

@@ -23,7 +23,7 @@
 //!
 //! **The gate holds no Drone and no slot**, so a person's review costs no fleet
 //! time: both answers that keep the Job re-queue rather than resume.
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
     Actor, Component, Envelope, Job, JobId, JobStatus, Level, RedirectWaiting, StepId, StepTarget,
     Target,
@@ -579,14 +579,19 @@ where
 
     /// What a Job's worktree holds, where it still has one.
     ///
-    /// **`None` is "there is nothing to read"** — a Job at the approval gate, or
-    /// one whose worktree has been reclaimed — and it is a different answer from
-    /// a reading that found no change. A directory that will not open is an
-    /// error rather than either.
+    /// **`None` is "there is nothing to read"** — a Job at the approval gate,
+    /// one whose worktree has been reclaimed, or one whose slot is no longer its
+    /// own — and it is a different answer from a reading that found no change.
+    /// A directory that will not open is an error rather than either.
     pub(crate) fn worktree_of(&self, job: &Job) -> Result<Option<Worktree>, Adrift> {
         let served = self.served_by(job)?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle())
-            .map_err(Adrift::NoReadingWorktree)?;
+        let Some(spec) = self
+            .job_tree(&served, job)
+            .map_err(Adrift::NoReadingWorktree)?
+            .here()
+        else {
+            return Ok(None);
+        };
         if !Path::new(&spec.worktree_path()).is_dir() {
             return Ok(None);
         }

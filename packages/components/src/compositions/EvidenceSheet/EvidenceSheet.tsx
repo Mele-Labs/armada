@@ -117,6 +117,7 @@ export function EvidenceSheet({
 
   return (
     <Sheet
+      kind="evidence"
       open={open}
       contained
       size="wide"

@@ -35,6 +35,7 @@ export function StudioFrameSheet({ open, said, frame, picture = false, onClose }
     // Contained, so the layer belongs to the Studios surface rather than
     // covering the shell's rail, which nothing asked it to.
     <Sheet
+      kind="studio-frame"
       open={open}
       contained
       size="widest"

@@ -69,6 +69,7 @@ export function RunDiffSheet({
 }: RunDiffSheetProps) {
   return (
     <Sheet
+      kind="run-diff"
       open={open}
       contained
       size="widest"

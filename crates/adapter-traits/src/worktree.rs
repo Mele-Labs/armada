@@ -1,18 +1,17 @@
-//! Where a Job's checkout lives and what its branch is called — derived, in a
-//! crate that cannot open a file.
+//! Where a Job's checkout lives and what its branch is called, in a crate that
+//! cannot open a file.
 //!
-//! # Why the derivation is here and not in the implementation
+//! # A leased slot, recorded; or the old derived path
 //!
-//! The System Architecture fixes the layout: `<repo>/.armada/worktrees/<job-id>`,
-//! **not configurable, and derived rather than stored**. v1 stored the path as a
-//! string field on the Job record and then needed machinery to shorten it for
-//! display and expand it again at every use — a field that could disagree with
-//! the record holding it.
+//! A Job leases a slot from its repository's pool and works at
+//! `<repo>/.armada/slots/slot-<n>`. Which slot is recorded with the Job and
+//! looked up through [`WorktreeSpec::in_slot`], because a slot is reused and no
+//! formula over the Job can name it. A Job cut before the pool has no slot
+//! recorded and keeps `<repo>/.armada/worktrees/<job-id>`, derived as before.
+//! `docs/contracts/system-architecture.md` has the layout.
 //!
-//! Putting the derivation beside the trait rather than beside the
-//! implementation is what stops a second implementation inventing a second
-//! layout. An implementation is handed a [`WorktreeSpec`] and asks it where to
-//! go; it has no say in the answer.
+//! The layout sits beside the trait rather than in an implementation, so a
+//! second implementation cannot invent a second one.
 //!
 //! # Why a spec is refused at construction
 //!
@@ -33,8 +32,23 @@ use alloc::vec::Vec;
 /// of a branch a person is using.
 const BRANCH_NAMESPACE: &str = "armada/";
 
-/// The repo-relative directory holding every Job's checkout.
+/// The repo-relative directory holding the checkout of every Job cut before
+/// the pool.
 const WORKTREE_ROOT: &str = ".armada/worktrees/";
+
+/// The repo-relative directory holding the pool's slots, a Job's and an
+/// agent's alike.
+pub const SLOT_ROOT: &str = ".armada/slots";
+
+/// `<repo>/.armada/slots/slot-<n>`: one slot of a repository's pool.
+pub fn slot_path(repo_root: &str, slot: u32) -> String {
+    let trimmed = repo_root.trim_end_matches('/');
+    alloc::format!("{trimmed}/{SLOT_ROOT}/{}", slot_name(slot))
+}
+
+fn slot_name(slot: u32) -> String {
+    alloc::format!("slot-{slot}")
+}
 
 /// Why a spec was refused before anything touched a disk.
 ///
@@ -83,15 +97,19 @@ impl WorktreeSpecRefused {
     }
 }
 
-/// What a worktree is to be made from: one repository, one Job.
+/// What a worktree is made from: one repository, one Job, and the pool slot
+/// the Job leased where it leased one.
 ///
-/// Everything else about it — the directory, the branch, the name git
-/// registers it under — is derived from these two and cannot be overridden.
-/// There is no setter and no second constructor.
+/// The branch is derived from the Job and cannot be overridden. The directory
+/// is the slot where there is one and derived otherwise, and
+/// [`in_slot`](WorktreeSpec::in_slot) is the only way to name a slot.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorktreeSpec {
     repo_root: String,
     job_id: String,
+    slot: Option<u32>,
+    /// What git registers the checkout under: the job id, or `slot-<n>`.
+    registration: String,
 }
 
 impl WorktreeSpec {
@@ -130,7 +148,24 @@ impl WorktreeSpec {
         Ok(WorktreeSpec {
             repo_root: String::from(repo_root),
             job_id: String::from(job_id),
+            slot: None,
+            registration: String::from(job_id),
         })
+    }
+
+    /// The same Job, in the pool slot its record says it leased.
+    pub fn in_slot(self, slot: u32) -> WorktreeSpec {
+        WorktreeSpec {
+            slot: Some(slot),
+            registration: slot_name(slot),
+            ..self
+        }
+    }
+
+    /// The pool slot, where the Job leased one. `None` is a Job cut before the
+    /// pool, at its derived path.
+    pub fn slot(&self) -> Option<u32> {
+        self.slot
     }
 
     /// The repository the worktree is added to.
@@ -144,8 +179,12 @@ impl WorktreeSpec {
         &self.job_id
     }
 
-    /// `<repo>/.armada/worktrees/<job-id>` — where the checkout goes.
+    /// Where the checkout is: `<repo>/.armada/slots/slot-<n>` for a leased
+    /// slot, `<repo>/.armada/worktrees/<job-id>` for a Job cut before the pool.
     pub fn worktree_path(&self) -> String {
+        if let Some(slot) = self.slot {
+            return slot_path(&self.repo_root, slot);
+        }
         let mut path = String::from(&self.repo_root);
         if !path.ends_with('/') {
             path.push('/');
@@ -155,11 +194,11 @@ impl WorktreeSpec {
         path
     }
 
-    /// `<repo>/.armada/worktrees` — the directory the checkout goes inside,
-    /// which an implementation may have to create first.
+    /// The directory the checkout goes inside, which an implementation may
+    /// have to create first.
     pub fn worktree_parent(&self) -> String {
         let full = self.worktree_path();
-        let cut = full.len() - self.job_id.len() - 1;
+        let cut = full.len() - self.registration.len() - 1;
         let mut parent = full;
         parent.truncate(cut);
         parent
@@ -174,10 +213,10 @@ impl WorktreeSpec {
 
     /// The name git files the worktree's administrative record under.
     ///
-    /// The job id, matching the directory's own name, so a record left behind
-    /// under it is findable from the path a person is looking at.
+    /// The directory's own name — the job id, or `slot-<n>` — so a record left
+    /// behind under it is findable from the path a person is looking at.
     pub fn registration_name(&self) -> &str {
-        &self.job_id
+        &self.registration
     }
 }
 
@@ -337,6 +376,19 @@ mod tests {
     #[test]
     fn deriving_twice_gives_the_same_answer() {
         assert_eq!(derived(&spec()), derived(&spec()));
+    }
+
+    #[test]
+    fn a_slot_is_where_the_checkout_is_and_the_branch_stays_the_job_s() {
+        let slotted = spec().in_slot(3);
+        assert_eq!(
+            slotted.worktree_path(),
+            "/repos/armada/.armada/slots/slot-3"
+        );
+        assert_eq!(slotted.worktree_parent(), "/repos/armada/.armada/slots");
+        assert_eq!(slotted.registration_name(), "slot-3");
+        assert_eq!(slotted.branch(), spec().branch());
+        assert_eq!((slotted.slot(), spec().slot()), (Some(3), None));
     }
 
     #[test]

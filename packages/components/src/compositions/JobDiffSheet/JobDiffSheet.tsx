@@ -208,6 +208,7 @@ export function JobDiffSheet({
 }: JobDiffSheetProps) {
   return (
     <Sheet
+      kind="job-diff"
       open={open}
       contained
       size="widest"
