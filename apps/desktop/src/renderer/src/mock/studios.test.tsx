@@ -164,6 +164,9 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   node(/^Note: Drag me somewhere/).element().focus();
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByText("Studios · Untitled Studio · Note Drag me somewhere selected")).toBeVisible();
+  // Put away, because the dock is drawn over the board's right side and the relation's dot is there.
+  await userEvent.keyboard("{Meta>}j{/Meta}");
+  await expect.poll(() => page.getByRole("complementary", { name: "Helm" }).query()).toBeNull();
 
   await page.getByRole("button", { name: "Continue" }).click();
   expect(page.getByText("Read-only", { exact: true }).query()).toBeNull();

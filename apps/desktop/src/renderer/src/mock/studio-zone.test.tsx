@@ -197,17 +197,20 @@ test("a kind armed and pressed inside the Zone lands in it", async () => {
   expect(holds(box("Zone"), box(/^Note: Pressed inside the Zone/))).toBe(true);
 });
 
-test("a press inside a Cluster lands in the Zone round it, and a Zone pressed inside a Zone lands on the board", async () => {
+// A Cluster's Notes are its record, made by grouping, so it takes nothing by a press either.
+test("a press inside a Cluster lands in the Zone round it", async () => {
   const fleet = await openEditable();
 
-  // A Cluster's Notes are its record, made by grouping, so it takes nothing by a press either.
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
   await pressGround(node("Cluster: The problem today").element());
   await userEvent.fill(page.getByLabelText("Note", { exact: true }), "Pressed inside a Cluster");
   await page.getByRole("button", { name: "Add note" }).click();
   await expect.poll(() => said(fleet, "Pressed inside a Cluster")?.within).toBe("read-in-zone");
+});
 
-  // A Zone holds any kind but another Zone.
+// A Zone holds any kind but another Zone.
+test("a Zone pressed inside a Zone lands on the board", async () => {
+  const fleet = await openEditable();
   const zones = () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "zone");
   await page.getByRole("button", { name: "Add a Zone" }).click();
   await pressGround(node("Zone").element());
