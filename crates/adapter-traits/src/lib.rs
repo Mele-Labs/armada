@@ -39,6 +39,7 @@ mod delivery;
 mod event;
 mod harness;
 mod judge;
+mod landable;
 mod link_lookup;
 mod secret;
 mod setup;
@@ -64,6 +65,7 @@ pub use harness::{
     Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient};
+pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{LinkLookup, LookupCall};
 pub use secret::Secret;
 pub use setup::{
