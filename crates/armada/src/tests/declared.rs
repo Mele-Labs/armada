@@ -283,6 +283,11 @@ fn this_repositorys_checks_are_chosen_by_their_when() {
     let rust = hits(&["crates/fleet/src/lib.rs"]);
     assert!(rust.contains(&"acceptance".to_string()), "{rust:?}");
     assert!(!rust.contains(&"typecheck".to_string()), "{rust:?}");
+
+    // The gate leaves "passes" to `acceptance`, so a file the suite embeds
+    // has to reach it.
+    let workflow = hits(&[".armada/workflows/bug.json"]);
+    assert!(workflow.contains(&"acceptance".to_string()), "{workflow:?}");
 }
 
 /// **A change to the written record runs nothing**, which is what narrowing the
