@@ -2,8 +2,8 @@
 
    No hue of its own. It sits in the stopped band, which already carries the
    step's, and a flag is not a verdict: --step-failed here would draw a refused
-   criterion. Weight and order carry it instead — what it means, the lines,
-   what it asked, then the two answers. */
+   criterion. Weight and order carry it instead — the lines, what the gaming
+   check asked, then the note and the two answers. */
 .armada-held-flag {
   display: flex;
   flex-direction: column;
@@ -36,25 +36,6 @@
   text-wrap: pretty;
 }
 
-/* The wire spelling, where no headline arrived. A value, so mono. */
-.armada-held-flag__pattern {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-}
-
-/* What an answer does. --fg-muted and never --fg-subtle: this is the sentence
-   a person decides on, not metadata. */
-.armada-held-flag__means {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-  text-wrap: pretty;
-}
-
 .armada-held-flag__cited {
   font-family: var(--font-sans);
   font-size: var(--text-xs);
@@ -81,19 +62,17 @@
   min-width: 0;
 }
 
-.armada-held-flag__label {
-  font-family: var(--font-sans);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+/* Who asked, named in the sentence it starts rather than set over it as a
+   label: `It asked` named nobody (owner, 2 Oct 2026). */
+.armada-held-flag__asker {
   font-weight: var(--weight-medium);
-  color: var(--fg-muted);
+  color: var(--fg-default);
 }
 
-/* The check's own question quoted back, ruled the way GamingFlags rules it. */
+/* The question, as plain text. No rule down its side: a quotation drawn as a
+   quote read as somebody else's words set apart (owner, 2 Oct 2026). */
 .armada-held-flag__question {
   margin: 0;
-  padding-left: var(--space-2);
-  border-left: var(--border-width) solid var(--border-default);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
@@ -101,34 +80,21 @@
   text-wrap: pretty;
 }
 
-/* The two answers, stacked. Stacked rather than side by side, so the card
-   holds its shape at the window floor without a width of its own. */
+/* The note, and the two answers under it. */
 .armada-held-flag__decide {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding-top: var(--space-3);
   border-top: var(--border-width) solid var(--border-subtle);
   min-width: 0;
 }
 
-.armada-held-flag__answer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.armada-held-flag__answer-label {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
+/* Side by side, wrapping at the window floor rather than taking a width. */
 .armada-held-flag__press {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .armada-held-flag__withheld {

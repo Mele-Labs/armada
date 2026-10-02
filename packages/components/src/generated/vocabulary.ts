@@ -259,6 +259,22 @@ export const ORIGIN: Readonly<Record<string, Rendering | undefined>> = {
   "studio_helm_drafted": { verb: "From a Studio, via Helm", icon: null, badgeStatus: null, statusToken: null, hint: null },
 };
 
+/**
+ * What a gaming flag says happened, in the past tense, for the lead and the card
+ * a flag holds a step with. From `enum-verbs.toml`, beside the verb. #1672.
+ */
+export const GAMING_PATTERN_HEADLINE: Readonly<Record<string, string | undefined>> = {
+  "assertion_weakened": "An assertion was removed or loosened, which was judged to weaken the test coverage",
+  "test_scope_narrowed": "The tests were changed to cover less of the code, which was judged to weaken the test coverage",
+  "tautological_test": "A test was written so it passes whatever the code does, which was judged to make it check nothing",
+  "test_skipped": "A test that used to run was marked to skip, which was judged to weaken the test coverage",
+  "test_deleted": "A whole test file was deleted, which was judged to weaken the test coverage",
+  "check_config_edited": "A file a Check runs through was edited, which was judged to let the Check run less than it did",
+  "no_findings_on_substantial_diff": "The review found nothing in a large change, which was judged to mean it did not read the change",
+  "findings_not_tied_to_changed_lines": "The review named nothing this change touched, which was judged to mean it did not read the change",
+  "findings_generic": "The review's findings would fit any change, which was judged to mean they did not come from reading this one",
+};
+
 /** Where a Job is in its life, from `job-statuses.toml`. Not a rendering. */
 export type Lifecycle = {
   /** Whether the Job is over here. */

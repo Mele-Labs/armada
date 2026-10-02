@@ -73,8 +73,10 @@ describe("what the rail and the panel say", () => {
     expect(read.cleared).toEqual([cleared]);
   });
 
-  it("says what a flag caught in the registry's verb, and the wire spelling only without one", () => {
-    expect(flagSaid(held)).toBe("An assertion now asserts less");
+  it("says what happened in the registry's headline, and the wire spelling only without one", () => {
+    expect(flagSaid(held)).toBe(
+      "An assertion was removed or loosened, which was judged to weaken the test coverage",
+    );
     expect(flagSaid(flag({ pattern: "a_pattern_fleet_learned" }))).toBe("a_pattern_fleet_learned");
   });
 });
@@ -84,7 +86,9 @@ describe("the words Send it back redirects a Drone with", () => {
 
   it("carry what the pattern caught, what was cited, what was asked, and the note", () => {
     const words = sentBackWords([cited], "  Put it back  ");
-    expect(words).toContain("An assertion now asserts less.");
+    expect(words).toContain(
+      "An assertion was removed or loosened, which was judged to weaken the test coverage.",
+    );
     expect(words).toContain("It cited: `expect(a).toBe(b)` was removed");
     expect(words).toContain("It asked: Is that assertion made nowhere else?");
     expect(words).toContain("The person's note: Put it back");

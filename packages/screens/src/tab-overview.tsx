@@ -624,6 +624,7 @@ export function OverviewTab(props: OverviewTabProps) {
         onOverrule={props.onOverrule}
         onSendBack={props.onSendBack}
         onRedirect={onRedirect}
+        underTheLead
       />
     ),
     verdictSlot,

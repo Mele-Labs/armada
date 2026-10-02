@@ -1,23 +1,32 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button, STILL_WAITING, useStillWaiting } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Textarea } from "../../primitives/Textarea/Textarea";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { GamingFlagAt } from "../GamingFlags/GamingFlags";
 import { UnifiedDiff, type DiffFile } from "../UnifiedDiff/UnifiedDiff";
 
 /**
  * One flag holding a step, as a person has to read it to decide. #1079.
  *
- * **The headline is the registry's**, handed down by the caller. It is copy
- * about an enum, and written here it would be a second vocabulary that says
+ * **The words are the registry's**, handed down by the caller. They are copy
+ * about an enum, and written here they would be a second vocabulary that says
  * one pattern two ways.
  */
 export type HeldFinding = {
-  /** The wire spelling. Drawn in mono only where no headline arrived. */
-  pattern: string;
-  /** `An assertion now asserts less` — the pattern's registry verb. */
+  /**
+   * What happened, as the registry's headline says it. Names the finding to a
+   * reader who cannot see it, always.
+   */
+  label: string;
+  /**
+   * Drawn over the finding where nothing above the card already says it. Under
+   * Overview's lead, which says it, the card leaves it out rather than say one
+   * sentence twice on one screen.
+   */
   headline?: string;
   /**
    * The flagged lines, as the hunk of the patch that holds them. **Located by
@@ -30,7 +39,7 @@ export type HeldFinding = {
   cited?: string;
   /** Where it is, drawn where no hunk was located. */
   at?: GamingFlagAt;
-  /** The question the check answered. Absent on the three the diff decides. */
+  /** The question the gaming check answered. Absent on the three the diff decides. */
   asked?: string;
   /** The brief the question was asked in, by its path. */
   brief?: string;
@@ -38,8 +47,8 @@ export type HeldFinding = {
 
 /** What one answer does, and why it is off where it is. */
 export type HeldAnswer = {
-  /** What pressing it does, in a sentence, under the answer. */
-  consequence: ReactNode;
+  /** What pressing it does, in a sentence, on its tooltip. */
+  consequence: string;
   /** Why this answer cannot be taken here. Present turns its control off. */
   withheld?: ReactNode;
 };
@@ -48,12 +57,11 @@ export type HeldFlagProps = {
   /** Every flag holding the step, in the order the check answered. Empty draws nothing. */
   findings: HeldFinding[];
   onOpenBrief?: (brief: string) => void;
-  /** *No, the work is fine*. The reason is optional: a note, or nothing. */
+  /** *The work is fine*: the override, with the note as its reason, or none. */
   carryOn: HeldAnswer & { onCarryOn: (reason: string) => void };
   /**
-   * *Yes, the flag is right*. The note is optional and goes to the Drone.
-   * Whether that is a redirect or a restart is the caller's, and `consequence`
-   * says which.
+   * *The flag is right*: the note goes to the Drone, or none. Whether that is a
+   * redirect or a restart is the caller's, and `consequence` says which.
    */
   sendBack: HeldAnswer & { onSendBack: (note?: string) => void };
   /** An act on this Job is already out, or what is shown is not live. */
@@ -70,27 +78,29 @@ export type HeldFlagProps = {
 /** Which of the two answers `HeldFlag` draws. */
 export type HeldFlagAnswer = "carryOn" | "sendBack";
 
-const IT_ASKED = "It asked";
+/** Who asked. The registry's name for the machine, never a pronoun (owner, 2 Oct 2026). */
+const THE_CHECK_ASKED = "The gaming check asked:";
 const OPEN_THE_BRIEF = "Open the brief";
-const IS_IT_RIGHT = "Is the flag right?";
-const NO_IT_IS_FINE = "No, the work is fine";
+const ANSWER = "Answer the flag";
 const CARRY_ON = "Carry on";
-const YES_IT_WAS = "Yes, the flag is right";
 const SEND_IT_BACK = "Send it back";
 const NOTE = "Note (optional)";
-const NOTE_FOR_THE_DRONE = "Note for the drone (optional)";
 
 /**
- * The card a gaming flag holds a step with: what it means, the lines it is
- * about, what it asked, and the two answers a person can give.
+ * The card a gaming flag holds a step with: what it is about, the lines, what
+ * the gaming check asked, and the two answers.
  *
- * **Both answers, with what each does, and neither needs typing.** A reason
- * is asked for and never required, so *Carry on* and *Send it back* are each
- * one press — the definition of done in #1079.
+ * **Two buttons and one note, not two forms** (owner, 2 Oct 2026). The note
+ * goes with whichever is pressed — as the override's reason on Carry on, to
+ * the Drone on Send it back — and is never required, so each is one press.
+ * What each does is on its tooltip, and a note sent is spent: the field clears
+ * on the press.
  *
- * **Secondary, both.** Neither is an approval: carrying on says the check was
- * wrong, and sending it back says the Drone was. A fill on either would say
- * which the screen expects.
+ * **Carry on is the primary and Send it back the destructive outline**, each
+ * with its thumb: one lets the Job go forward and the other sends the work
+ * back, and the owner asked for the two to read as that before their words do.
+ * The exception to both the Kill-only red and the label-only buttons is
+ * recorded in `docs/contracts/design-system.md` and `iconography.md`.
  */
 export function HeldFlag({
   findings,
@@ -101,33 +111,16 @@ export function HeldFlag({
   disabledNote,
   pending,
 }: HeldFlagProps) {
-  const [reasonNote, setReasonNote] = useState("");
-  const [droneNote, setDroneNote] = useState("");
+  const [note, setNote] = useState("");
   const stillWaiting = useStillWaiting(pending !== undefined);
   if (findings.length === 0) return null;
-
-  function carry() {
-    // The note, or nothing — Fleet takes a blank reason on a gaming flag, and
-    // the words it does get are the person's own.
-    carryOn.onCarryOn(reasonNote.trim());
-  }
-
-  function sendIt() {
-    const said = droneNote.trim();
-    sendBack.onSendBack(said === "" ? undefined : said);
-  }
+  const said = note.trim();
 
   return (
     <div className="armada-held-flag">
       {findings.map((finding, at) => (
-        <article
-          className="armada-held-flag__finding"
-          key={`finding-${at}`}
-          aria-label={finding.headline ?? finding.pattern}
-        >
-          {finding.headline === undefined ? (
-            <span className="armada-held-flag__pattern">{finding.pattern}</span>
-          ) : (
+        <article className="armada-held-flag__finding" key={`finding-${at}`} aria-label={finding.label}>
+          {finding.headline === undefined ? null : (
             <p className="armada-held-flag__headline">{finding.headline}</p>
           )}
           {finding.hunk !== undefined ? (
@@ -148,10 +141,11 @@ export function HeldFlag({
           )}
           {finding.asked === undefined ? null : (
             <div className="armada-held-flag__asked">
-              <span className="armada-held-flag__label">{IT_ASKED}</span>
-              <p className="armada-held-flag__question">{finding.asked}</p>
+              <p className="armada-held-flag__question">
+                <span className="armada-held-flag__asker">{THE_CHECK_ASKED}</span> {finding.asked}
+              </p>
               {finding.brief === undefined || onOpenBrief === undefined ? null : (
-                <Button variant="ghost" size="sm" onClick={() => onOpenBrief(finding.brief as string)}>
+                <Button variant="secondary" size="sm" onClick={() => onOpenBrief(finding.brief as string)}>
                   {OPEN_THE_BRIEF}
                 </Button>
               )}
@@ -160,63 +154,53 @@ export function HeldFlag({
         </article>
       ))}
 
-      <div className="armada-held-flag__decide" role="group" aria-label={IS_IT_RIGHT}>
-        <p className="armada-held-flag__headline">{IS_IT_RIGHT}</p>
-
-        <div className="armada-held-flag__answer">
-          <span className="armada-held-flag__answer-label">{NO_IT_IS_FINE}</span>
-          <p className="armada-held-flag__means">{carryOn.consequence}</p>
-          <Textarea
-            label={NOTE}
-            rows={2}
-            value={reasonNote}
-            disabled={disabled || carryOn.withheld !== undefined}
-            onChange={(event) => setReasonNote(event.target.value)}
-          />
-          <div className="armada-held-flag__press">
+      <div className="armada-held-flag__decide" role="group" aria-label={ANSWER}>
+        <Textarea
+          label={NOTE}
+          rows={2}
+          value={note}
+          disabled={disabled}
+          onChange={(event) => setNote(event.target.value)}
+        />
+        <div className="armada-held-flag__press">
+          <Tooltip label={carryOn.consequence}>
             <Button
-              variant="secondary"
+              variant="primary"
               pending={pending === "carryOn"}
               disabled={disabled || carryOn.withheld !== undefined}
-              onClick={carry}
+              // The note, or nothing — Fleet takes a blank reason on a gaming
+              // flag, and the words it does get are the person's own.
+              onClick={() => {
+                setNote("");
+                carryOn.onCarryOn(said);
+              }}
             >
+              <ThumbsUp aria-hidden="true" size={16} />
               {pending === "carryOn" ? "Carrying on…" : CARRY_ON}
             </Button>
-          </div>
-          {carryOn.withheld === undefined ? null : (
-            <p className="armada-held-flag__withheld" role="note">
-              {carryOn.withheld}
-            </p>
-          )}
-        </div>
-
-        <div className="armada-held-flag__answer">
-          <span className="armada-held-flag__answer-label">{YES_IT_WAS}</span>
-          <p className="armada-held-flag__means">{sendBack.consequence}</p>
-          <Textarea
-            label={NOTE_FOR_THE_DRONE}
-            rows={2}
-            value={droneNote}
-            disabled={disabled || sendBack.withheld !== undefined}
-            onChange={(event) => setDroneNote(event.target.value)}
-          />
-          <div className="armada-held-flag__press">
+          </Tooltip>
+          <Tooltip label={sendBack.consequence}>
             <Button
-              variant="secondary"
+              variant="destructive"
               pending={pending === "sendBack"}
               disabled={disabled || sendBack.withheld !== undefined}
-              onClick={sendIt}
+              onClick={() => {
+                setNote("");
+                sendBack.onSendBack(said === "" ? undefined : said);
+              }}
             >
+              <ThumbsDown aria-hidden="true" size={16} />
               {pending === "sendBack" ? "Sending it back…" : SEND_IT_BACK}
             </Button>
-          </div>
-          {sendBack.withheld === undefined ? null : (
-            <p className="armada-held-flag__withheld" role="note">
-              {sendBack.withheld}
-            </p>
-          )}
+          </Tooltip>
         </div>
-
+        {[carryOn.withheld, sendBack.withheld].map((why, at) =>
+          why === undefined ? null : (
+            <p className="armada-held-flag__withheld" role="note" key={`withheld-${at}`}>
+              {why}
+            </p>
+          ),
+        )}
         {stillWaiting ? (
           <p className="armada-held-flag__withheld" role="status">
             {STILL_WAITING}

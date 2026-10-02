@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 
-import { GAMING_PATTERN } from "../../generated/vocabulary";
+import { GAMING_PATTERN_HEADLINE } from "../../generated/vocabulary";
 import { HeldFlag, type HeldFinding } from "./HeldFlag";
 
 const meta: Meta<typeof HeldFlag> = {
@@ -12,10 +12,10 @@ export default meta;
 
 type Story = StoryObj<typeof HeldFlag>;
 
-/** The registry's own verb, sentence-cased as the screen hands it down. */
-function meaning(pattern: string): Pick<HeldFinding, "headline"> {
-  const verb = GAMING_PATTERN[pattern]?.verb;
-  return verb == null ? {} : { headline: verb.charAt(0).toUpperCase() + verb.slice(1) };
+/** The registry's own headline, as the step panel hands it down. */
+function meaning(pattern: string): Pick<HeldFinding, "label" | "headline"> {
+  const said = GAMING_PATTERN_HEADLINE[pattern] ?? pattern;
+  return { label: said, headline: said };
 }
 
 const TEST_FILE = "packages/settings/test/useColumnSelectors.test.ts";
@@ -45,7 +45,6 @@ function answers(sendBack = RESTARTS) {
 }
 
 const ADDED_LINE: HeldFinding = {
-  pattern: "assertion_weakened",
   ...meaning("assertion_weakened"),
   hunk: {
     path: TEST_FILE,
@@ -90,7 +89,6 @@ export const OnARemovedLine: Story = {
     ...answers(),
     findings: [
       {
-        pattern: "assertion_weakened",
         ...meaning("assertion_weakened"),
         hunk: {
           path: TEST_FILE,
@@ -123,6 +121,25 @@ export const OnARemovedLine: Story = {
  */
 export const SendItBackToTheDroneStillThere: Story = {
   args: { ...answers(REDIRECTS), findings: [ADDED_LINE] },
+  // **One note, sent with whichever answer is pressed** (owner, 2 Oct 2026).
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Note (optional)" }), "Put it back");
+    await userEvent.click(canvas.getByRole("button", { name: "Send it back" }));
+    await expect(args.sendBack.onSendBack).toHaveBeenCalledWith("Put it back");
+    await expect(args.carryOn.onCarryOn).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * **Under Overview's lead**, which already says what the flag caught: the
+ * finding names itself to a reader who cannot see it and draws no headline.
+ */
+export const UnderTheLead: Story = {
+  args: { ...answers(REDIRECTS), findings: [{ ...ADDED_LINE, headline: undefined }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("article", { name: /An assertion was removed/ })).toBeVisible();
+    await expect(canvas.queryByText(/An assertion was removed/)).toBeNull();
+  },
 };
 
 /**
@@ -134,7 +151,6 @@ export const DecidedByTheDiff: Story = {
     ...answers(),
     findings: [
       {
-        pattern: "check_config_edited",
         ...meaning("check_config_edited"),
         hunk: {
           path: "packages/settings/package.json",
@@ -161,7 +177,6 @@ export const NoHunkLocated: Story = {
     ...answers(),
     findings: [
       {
-        pattern: "test_deleted",
         ...meaning("test_deleted"),
         cited: "`packages/settings/test/useColumnSelectors.test.ts` was deleted in the step it gates.",
         at: { file: TEST_FILE },
@@ -182,7 +197,6 @@ export const TwoFlagsOnOneStep: Story = {
     findings: [
       ADDED_LINE,
       {
-        pattern: "test_skipped",
         ...meaning("test_skipped"),
         hunk: {
           path: TEST_FILE,

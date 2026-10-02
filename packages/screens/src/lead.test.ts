@@ -125,19 +125,19 @@ describe("the headline names the thing and stops", () => {
 
   // **What the Drone did, not where the Job stopped** (owner, 2 Oct 2026,
   // #1672). It said *This Job stopped at Regression check* until then.
+  const WEAKENED = "An assertion was removed or loosened, which was judged to weaken the test coverage";
+  const HOLDS_UP = "Check the consumers still compile and 1 more do not start until you answer";
   it("a step the gaming check holds names what the flag caught", () => {
     const lead = leadFor(named("escalated · evidence_suspect"));
-    expect(lead.said).toBe("An assertion now asserts less");
-    expect(lead.because).toBe("Check the consumers still compile and 1 more do not start until you answer");
+    expect(lead.said).toBe(WEAKENED);
+    expect(lead.because).toBe(HOLDS_UP);
     expect(lead.tone).toBe("awaiting-review");
   });
 
   it("a step the gaming check holds leads with the commands the Drone was refused", () => {
     const lead = leadFor(withRefusals(named("escalated · evidence_suspect"), 3));
     expect(lead.said).toBe("3 commands were refused during Regression check");
-    expect(lead.because).toBe(
-      "An assertion now asserts less · Check the consumers still compile and 1 more do not start until you answer",
-    );
+    expect(lead.because).toBe(`${WEAKENED} · ${HOLDS_UP}`);
   });
 
   it("a Job Fleet stopped says why, in the registry's own verb and nothing more", () => {

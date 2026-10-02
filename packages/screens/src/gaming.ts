@@ -8,7 +8,7 @@
 // **A flag a second reading cleared is still a flag**, and it never holds a
 // step: it is drawn in the panel as cleared, with why, and nowhere else.
 
-import { GAMING_PATTERN, type DiffLine } from "@armada/components";
+import { GAMING_PATTERN_HEADLINE, type DiffLine } from "@armada/components";
 import type { Diff, Flagged, JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import { onlyCurrentAttempt } from "./facts";
@@ -45,12 +45,12 @@ export function heldByAFlag(whole: JobWhole | null, step: StepDetail | undefined
 }
 
 /**
- * What a flag caught, in the registry's own verb — *An assertion now asserts
- * less*. The wire spelling only where the registry has no word for it.
+ * What happened, as the registry's headline says it — *An assertion was
+ * removed or loosened, which was judged to weaken the test coverage* (owner,
+ * 2 Oct 2026). The wire spelling only where the registry has no words for it.
  */
 export function flagSaid(flag: Flagged): string {
-  const verb = GAMING_PATTERN[flag.pattern]?.verb;
-  return verb == null ? flag.pattern : verb.charAt(0).toUpperCase() + verb.slice(1);
+  return GAMING_PATTERN_HEADLINE[flag.pattern] ?? flag.pattern;
 }
 
 /**

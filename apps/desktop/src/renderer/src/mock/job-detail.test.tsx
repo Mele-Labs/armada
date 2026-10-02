@@ -158,10 +158,11 @@ test("held by the gaming check with the Drone still there: Send it back redirect
   const overrule = vi.spyOn(api, "overrideVerdict");
   const redirect = vi.spyOn(api, "redirectDrone");
   const restart = vi.spyOn(api, "restartStep");
-  await expect.element(page.getByText(/Sends the flag back to the drone still on this step/)).toBeVisible();
-  await userEvent.type(page.getByRole("textbox", { name: "Note for the drone (optional)" }), "Put it back");
-  await page.getByRole("button", { name: "Send it back" }).click();
-  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("An assertion now asserts less."));
+  const sendBack = page.getByRole("button", { name: "Send it back" });
+  await expect.element(sendBack).toHaveAccessibleDescription(/Sends the flag back to the drone still on this step/);
+  await userEvent.type(page.getByRole("textbox", { name: "Note (optional)" }), "Put it back");
+  await sendBack.click();
+  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("which was judged to weaken the test coverage."));
   expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("The person's note: Put it back"));
   expect(restart).not.toHaveBeenCalled();
   await page.getByRole("button", { name: "Carry on" }).click();
@@ -173,8 +174,9 @@ test("held by the gaming check with the Drone gone: Send it back restarts the st
   const api = await opened(heldByTheGamingCheck(["override_verdict", "restart_step", "redispatch_job"]));
   const redirect = vi.spyOn(api, "redirectDrone");
   const restart = vi.spyOn(api, "restartStep");
-  await expect.element(page.getByText(/Restarts the step with a fresh drone/)).toBeVisible();
-  await page.getByRole("button", { name: "Send it back" }).click();
+  const sendBack = page.getByRole("button", { name: "Send it back" });
+  await expect.element(sendBack).toHaveAccessibleDescription(/Restarts the step with a fresh drone/);
+  await sendBack.click();
   await expect.poll(() => restart.mock.calls.length).toBe(1);
   expect(restart).toHaveBeenCalledWith(JOB_ID, undefined);
   expect(redirect).not.toHaveBeenCalled();
@@ -183,12 +185,12 @@ test("held by the gaming check with the Drone gone: Send it back restarts the st
 test("held by the gaming check: the lead names the refused commands, and the step panel draws the same block", async () => {
   await opened(heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]));
   await expect.element(page.getByText("3 commands were refused during Regression check")).toBeVisible();
-  await expect.element(page.getByText(/^An assertion now asserts less ·/)).toBeVisible();
+  await expect.element(page.getByText(/^An assertion was removed or loosened, which was judged to weaken .* ·/)).toBeVisible();
   expect(page.getByText(/This Job stopped at/).query()).toBeNull();
   await page.getByRole("tab", { name: /^Workflow/ }).last().click();
   await page.getByRole("button", { name: /^Regression check, / }).last().click();
   const asks = page.getByRole("region", { name: "Question for you" }).last();
-  await expect.element(asks.getByRole("group", { name: "Is the flag right?" })).toBeVisible();
+  await expect.element(asks.getByRole("group", { name: "Answer the flag" })).toBeVisible();
   // The flagged hunk, as Overview draws it, and not the citation alone: a
   // line of context only the patch carries.
   await expect.element(asks.getByText(/expect\(next\.version\)/)).toBeVisible();

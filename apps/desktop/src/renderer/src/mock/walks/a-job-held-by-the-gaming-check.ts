@@ -8,10 +8,12 @@ const asks = region("Question for you");
 
 export const aJobHeldByTheGamingCheck = walk("held/gaming-check", [
   { look: text("3 commands were refused during Regression check"), say: "The lead names what the Drone did" },
-  { look: text(/^An assertion now asserts less ·/), say: "And what the gaming check caught" },
-  { look: role("group", "Is the flag right?"), say: "Answered under the lead: Carry on, or Send it back" },
-  { look: button("Send it back"), say: "The Drone is still on the step, so this redirects it with the flag" },
+  { look: text(/^An assertion was removed or loosened/), say: "What happened, and that it was judged to weaken coverage" },
+  { look: text("The gaming check asked:"), say: "Who asked, in plain words, with the brief one press away" },
+  { look: role("textbox", "Note (optional)"), say: "One note, sent with whichever answer you press" },
+  { look: button("Carry on"), say: "Thumbs up: the work is fine, and the Job goes on" },
+  { look: button("Send it back"), say: "Thumbs down, in red: the Drone still on the step gets the flag" },
   { press: tab("Workflow"), say: "The run, top to bottom" },
   { press: card("Regression check"), say: "The held step's panel" },
-  { look: inside(asks, role("group", "Is the flag right?")), say: "The same block, first in the panel" },
+  { look: inside(asks, role("group", "Answer the flag")), say: "The same block, first in the panel" },
 ]);

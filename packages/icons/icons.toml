@@ -709,6 +709,22 @@
   status = "Specified"
   reserved = "Pilot only."
 
+[icons.thumbs-down]
+  means = "A hand with its thumb pointed down — the work is not right"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Send it back on a step the gaming check holds, on its button only. Never a rejection, which is `ban`, never a kill, and never a Judge's refusal."
+  notes = "Minted 2 Oct 2026, the owner's call on the walk of #1672: the two answers to a flag read as agree and disagree before their words do. It breaks the Actions rule that text buttons carry no icon, and only on these two buttons, which are a pair whose whole meaning is the direction of the thumb. Paired with `thumbs-up`; the two differ by orientation alone, which is why they are only ever drawn side by side with their words. Refused: `undo-2`, reserved to taking back a canvas stroke; `x`, a system failure; `ban`, a person's rejection, which ends a Job where this sends work back."
+
+[icons.thumbs-up]
+  means = "A hand with its thumb raised — the work is fine"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
+  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."
+
 [icons.trash-2]
   means = "A bin with its lid lifted clear"
   group = "Node bar"

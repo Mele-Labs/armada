@@ -40,6 +40,11 @@ export type GamingHeldProps = {
   onSendBack: (jobId: string, note?: string) => void;
   /** Send it back where the Drone still holds its session: the redirect, with the flag and the note. */
   onRedirect: (jobId: string, instruction: string) => void;
+  /**
+   * Drawn under Overview's lead, which already says what each flag caught, so
+   * the card does not say it again. The step panel has no lead over it.
+   */
+  underTheLead?: boolean;
 };
 
 /** What *Send it back* does where the Drone still holds its session. */
@@ -75,6 +80,7 @@ export function GamingHeld({
   onOverrule,
   onSendBack,
   onRedirect,
+  underTheLead = false,
 }: GamingHeldProps) {
   if (step === undefined || !heldByAFlag(whole, step)) return null;
   const recourse = recourseOf(job, whole);
@@ -83,8 +89,8 @@ export function GamingHeld({
   const findings: HeldFinding[] = flags.map((flag) => {
     const located = hunkFor(flag, diff, job.id);
     return {
-      pattern: flag.pattern,
-      headline: flagSaid(flag),
+      label: flagSaid(flag),
+      ...(underTheLead ? {} : { headline: flagSaid(flag) }),
       // The lines where the patch holds them, and what the check quoted where
       // it does not — never a hunk near the one it meant.
       ...(located === undefined
