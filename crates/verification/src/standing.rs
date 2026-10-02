@@ -11,7 +11,7 @@
 //!
 //! **And a Judge may look the rest up.** Since 2 Oct 2026 a Judge's call can
 //! read the repository's checkout, and [`Standing::readable`] is what tells it
-//! so: that it may read CLAUDE.md and the docs to learn what the repository
+//! so: that it may read its agent instructions and docs to learn what it
 //! requires, and that work the repository requires is not scope expansion. The
 //! named file stays as the repository's explicit statement, quoted in full, and
 //! a repository that names none still gets a Judge that can read.
@@ -36,14 +36,14 @@ pub struct Standing {
 ///
 /// **Not to quote what it read**, because a refusal's quotation marks are held
 /// to the brief (`crate::quoted`), and the files it opens are not in the brief:
-/// a refusal quoting CLAUDE.md would be discarded as quoting what is not there.
+/// a refusal quoting one would be discarded as quoting what is not there.
 ///
 /// **No "turn" in it**, because the convergence look rides the same text and
 /// is held to never mention one: a turn count there would be judging the Drone.
 const READABLE: &str = "\
-You can read this repository's own checkout, read-only and briefly: its \
-CLAUDE.md, its docs and its skills, to learn what the repository requires of a \
-change. Look up what you need and no more. Work the repository requires of a \
+You can read this repository's own checkout, read-only and briefly: the \
+instructions it keeps for agents, its docs and its skills, to learn what it \
+requires of a change. Look up what you need and no more. Work the repository requires of a \
 change is not scope expansion, whatever the request says. The checkout is the \
 repository as it stands and not the work under judgment, which is only what \
 this brief shows. Name a file you read rather than quoting it: quotation marks \
