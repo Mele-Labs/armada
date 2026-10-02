@@ -139,13 +139,13 @@
 .armada-console__fold {
   display: grid;
   grid-template-columns: calc(var(--space-8) + var(--space-1)) minmax(0, 1fr);
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: 0 var(--space-2) 0 0;
   background: var(--surface-well);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-  color: var(--fg-muted);
+  color: var(--fg-default);
 }
 
 /* The line's own number in the file. Not selectable: a person copying a
@@ -168,9 +168,21 @@
   text-align: right;
   color: var(--fg-subtle);
   user-select: none;
+  padding-right: var(--space-2);
+  border-right: var(--border-width) solid var(--border-subtle);
 }
 
-/* Verbatim, and never wrapped: a transcript's own line is a unit, and folding
+/* The gutter (owner, 2 Oct 2026: "everything runs together"). The numbers
+   stand on their own ground, one surface step up from the well, behind a
+   rule, in the subtle hue against the reading's default one, with --space-3
+   before the text. A hued row (`against`, `landed`) keeps its hue across the
+   gutter through the `inherit` above. */
+.armada-console__line:not([data-against]):not([data-landed]) .armada-console__at,
+.armada-console__fold .armada-console__at {
+  background-color: var(--surface-card);
+}
+
+/* Verbatim, and never wrapped unless the reader asks: a transcript's own line is a unit, and folding
    it into the column width would be reflowing evidence rather than quoting
    it. `.armada-console__rows`' own `overflow-x: auto` is what a line longer
    than the column does instead — the row scrolls sideways under the pinned
@@ -180,6 +192,13 @@
 .armada-console__text {
   min-width: 0;
   white-space: pre;
+}
+
+/* The reader asked (`wrap`): a line longer than the column breaks under its
+   one number, its own spacing kept, and nothing scrolls sideways. */
+.armada-console[data-wrap="true"] .armada-console__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* The surface's own words beside a quoted line. Sans and set back, so nothing

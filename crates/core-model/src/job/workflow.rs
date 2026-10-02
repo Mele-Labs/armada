@@ -449,6 +449,11 @@ pub struct ResolvedStep {
     /// `update_task`. **False on every step that does not say so**, and on
     /// every row frozen before a step could.
     follows_plan: bool,
+    /// Whether this step works the plan's tasks one at a time, each by a Drone
+    /// of its own. **Not `follows_plan`**, which is set on steps where one
+    /// Drone works the whole plan (spike 022, *which step runs a Drone per
+    /// task*). False on every row frozen before the key existed.
+    drone_per_task: bool,
     /// Whether this step records the Job's plan, and so is given
     /// `record_plan`. **True where `evidence_type` is `plan`**, which
     /// [`frozen`](Self::frozen) sets without being asked, and also true where
@@ -501,6 +506,7 @@ impl ResolvedStep {
             quiet_after_seconds: None,
             poke_limit: None,
             follows_plan: false,
+            drone_per_task: false,
             // Inferred rather than left for a builder: the step's own product
             // being `plan` already settles this, so every caller building one
             // would otherwise have to restate a fact this constructor already
@@ -518,9 +524,23 @@ impl ResolvedStep {
         self
     }
 
-    /// **The one thing that grants `add_task` and `update_task`.**
+    /// **The one thing that grants `add_task` and `update_task`**, on a step
+    /// that does not also work a Drone per task.
     pub fn follows_plan(&self) -> bool {
         self.follows_plan
+    }
+
+    /// Whether this step's tasks are worked a Drone each, for
+    /// [`following_plan`](Self::following_plan)'s reason.
+    pub fn a_drone_per_task(mut self, each: bool) -> ResolvedStep {
+        self.drone_per_task = each;
+        self
+    }
+
+    /// **The one thing that puts a Drone on each task**, in plan order. Its
+    /// Drones are given neither plan tool: Fleet marks their tasks.
+    pub fn drone_per_task(&self) -> bool {
+        self.drone_per_task
     }
 
     /// This step also records the Job's plan, beside whatever

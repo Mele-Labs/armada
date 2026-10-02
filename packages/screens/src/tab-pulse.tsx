@@ -11,6 +11,7 @@ import { JobResources, type JobResourcesProps } from "@armada/components";
 import type { Journalled, Observed } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
+import type { ReadBrief } from "./pulse-brief";
 import { PulseLogSheet } from "./pulse-log-sheet";
 
 export type PulseTabProps = {
@@ -24,9 +25,11 @@ export type PulseTabProps = {
   observed: Observed;
   journalled: Journalled;
   floor: boolean;
+  /** Read a kept brief, for a brief row's panel. */
+  onReadBrief: ReadBrief;
 };
 
-export function PulseTab({ holds, jobId, onNeedPulse, observed, journalled, floor }: PulseTabProps) {
+export function PulseTab({ holds, jobId, onNeedPulse, observed, journalled, floor, onReadBrief }: PulseTabProps) {
   usePulseWatch(jobId, onNeedPulse);
   // Which log's panel is open, by its path. **The row is looked up again on
   // every reading**, so the panel's live mark is the board's and stops with it.
@@ -45,6 +48,7 @@ export function PulseTab({ holds, jobId, onNeedPulse, observed, journalled, floo
         observed={observed}
         journalled={journalled}
         floor={floor}
+        onReadBrief={onReadBrief}
         onClose={() => setViewing(null)}
       />
     </div>

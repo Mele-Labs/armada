@@ -17,8 +17,8 @@ use std::time::Duration;
 use adapter_traits::{Environment, Footprint, Model, Vcs, Worktree, WorktreeSpec};
 use core_model::{
     Attempt, DeclaredPaths, EvidenceType, Facts, FrozenWorkflow, Job, JobId, JobNumber, ManifestId,
-    ModelName, NewJob, PlanAuthor, PlanEntry, PlanRefused, RepoPath, StepEvidence, StepId,
-    StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WhenRefused, WorkPlan,
+    ModelName, NewJob, PlanAuthor, PlanChange, PlanEntry, PlanRefused, RepoPath, StepEvidence,
+    StepId, StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WhenRefused, WorkPlan,
 };
 use fleet::{
     rule_on, Asked, AtStep, CheckBudget, JudgeBudget, Judging, Keeping, Marking, Policies, Ruling,
@@ -252,6 +252,20 @@ impl Planned {
     pub fn kept(&mut self, call: PlanCall, step: &str, attempt: u32) -> WorkPlan {
         self.history.push(PlanEntry {
             change: call.change,
+            by: PlanAuthor::Step {
+                step_id: StepId::new(step),
+                attempt: Attempt::stored(attempt).expect("one-based"),
+            },
+            at: at(self.history.len() + 1),
+        });
+        self.plan().expect("a plan")
+    }
+
+    /// Keep one change Fleet makes itself, which reaches no tool: a task's
+    /// Drone starting it, handing it in, and its step's Checks passing.
+    pub fn marked(&mut self, change: PlanChange, step: &str, attempt: u32) -> WorkPlan {
+        self.history.push(PlanEntry {
+            change,
             by: PlanAuthor::Step {
                 step_id: StepId::new(step),
                 attempt: Attempt::stored(attempt).expect("one-based"),

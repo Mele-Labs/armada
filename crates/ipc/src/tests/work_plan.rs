@@ -135,16 +135,40 @@ fn a_row_with_no_plan_carries_no_task_field() {
 
 #[test]
 fn a_plan_change_travels_under_the_name_the_inventory_declares() {
-    let event = Event::JobPlanChanged(JobPlanChanged {
-        job_id: (job().id()).into(),
-        tasks: a_plan().counts().into(),
-        actor: core_model::Actor::Drone.into(),
-        at: (&Timestamp::from_rfc3339("2026-09-13T10:01:00.000Z")).into(),
-    });
+    let event = Event::JobPlanChanged(JobPlanChanged::recorded(
+        job().id(),
+        &a_plan(),
+        core_model::Actor::Drone,
+        &Timestamp::from_rfc3339("2026-09-13T10:01:00.000Z"),
+    ));
     assert_eq!(event.kind(), "job.plan_changed");
     let body = encode(&event).expect("plain data");
     let received: Event = decode("an event", body.as_bytes()).expect("reads back");
     assert_eq!(received, event);
+}
+
+/// 23.1: a change that moved one task names it and its new state, and a whole
+/// recording names neither, so a 23.0 body reads exactly as it did.
+#[test]
+fn a_task_that_moved_is_named_with_its_state_and_a_recording_names_none() {
+    let at = Timestamp::from_rfc3339("2026-09-13T10:01:00.000Z");
+    let recorded = JobPlanChanged::recorded(job().id(), &a_plan(), core_model::Actor::Drone, &at);
+    let body = encode(&recorded).expect("plain data");
+    assert!(
+        !body.contains("\"task\"") && !body.contains("\"state\""),
+        "{body}"
+    );
+
+    let t1 = core_model::TaskId::read("T1").expect("an id");
+    let moved =
+        JobPlanChanged::task_moved(job().id(), &a_plan(), t1, core_model::Actor::Fleet, &at);
+    let body = encode(&moved).expect("plain data");
+    let received: JobPlanChanged = decode("a plan change", body.as_bytes()).expect("reads back");
+    assert_eq!(received.task.as_deref(), Some("T1"));
+    assert_eq!(
+        received.state.map(|state| state.as_wire()),
+        a_plan().task(t1).map(|task| task.state().as_wire())
+    );
 }
 
 /// 22.0's two counts are left out at zero, so a row with no handed-in or failed

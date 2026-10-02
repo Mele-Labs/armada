@@ -30,6 +30,19 @@ pub(crate) struct Had {
     pub left_at: Option<Timestamp>,
 }
 
+impl Had {
+    /// A Drone put on a task. **One that handed it in and left is done**, not
+    /// failed: the next task's Drone ends its tenure on the step, and leaving
+    /// is what a hand-in asks of it. `crate::tasking`.
+    pub(crate) fn on_task(self, bound: &store::TaskDrone) -> Had {
+        let state = match (self.state, &bound.handed_in) {
+            (DroneState::Failed, Some(_)) => DroneState::Done,
+            (state, _) => state,
+        };
+        Had { state, ..self }
+    }
+}
+
 /// Every Drone the history names, in the order they were spawned. `events` is
 /// the Job's whole history in `seq` order, as `Store::events_for` answers.
 pub(crate) fn drones_had(events: &[RecordedEvent]) -> Vec<Had> {
@@ -161,7 +174,7 @@ where
             .load(&job_id.to_domain())
             .await
             .map_err(|why| self.refusal(why))?;
-        let (events, spends) = {
+        let (events, spends, on_tasks) = {
             let store = self.store().lock().await;
             let events = store.events_for(job.id()).map_err(|cause| {
                 self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause)))
@@ -169,10 +182,18 @@ where
             let spends = store
                 .drone_spends_for(job.id())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            (events, spends)
+            let on_tasks = store
+                .task_drones(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            (events, spends, on_tasks)
         };
         let mut drones = Vec::new();
         for had in drones_had(&events) {
+            let on_task = on_tasks.iter().find(|bound| bound.drone_id == had.drone);
+            let had = match on_task {
+                Some(bound) => had.on_task(bound),
+                None => had,
+            };
             let (turns, cost_micros) = match had.state {
                 DroneState::Running => {
                     let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
@@ -189,6 +210,7 @@ where
             drones.push(JobDrone {
                 drone_id: (&had.drone).into(),
                 step_id: (&had.step).into(),
+                task: on_task.map(|bound| bound.task.to_string()),
                 state: had.state,
                 since: (&had.spawned_at).into(),
                 ended_at: had.left_at.as_ref().map(Into::into),
