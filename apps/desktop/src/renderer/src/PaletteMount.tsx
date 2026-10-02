@@ -9,7 +9,7 @@
 import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
-import { checkoutRunnablesOf, studioName } from "@armada/screens";
+import { checkoutRunnablesOf, studioName, titleOf } from "@armada/screens";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
 /** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */
@@ -74,7 +74,7 @@ export function PaletteMount({
           ? `Studio — ${studioName(shownStudio)}`
           : on === undefined
           ? null
-          : `${on.id} — ${on.title}`
+          : `${on.id} — ${titleOf(on)}`
       }
       surfaces={surfaces}
       // **No filter rows.** They were the Job Board's state tabs, and that
@@ -86,7 +86,7 @@ export function PaletteMount({
       // answered, which is what `App.tsx`'s effect holds open.
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
       board={board}
-      jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${job.title}` }))}
+      jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
       // Fleet settings is the section's first row. It carries no value, because
       // choosing it opens the sheet rather than stating a field.
       settings={[{ id: "fleet_settings", label: "Fleet settings" }]}

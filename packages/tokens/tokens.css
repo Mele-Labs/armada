@@ -661,7 +661,7 @@
      diff, an evidence bundle and a log, which do not.
 
      The two numbers are what a 1280px window leaves, split where the run tree
-     stops being readable. At 1280 with the dock open `.armada-inside` is
+     stops being readable. At 1280 with the dock open `.armada-inside` was
      596px: 240 + --space-6 + 332. At 240 every step name but the longest sits
      beside its elapsed and that one ellipsises cleanly; at 208, which is what
      a 364px panel would cost, the names come out `Reproduc` and `Root cau`
@@ -737,7 +737,7 @@
   /* How much of the content stays uncovered, so a dock dragged wide never
      leaves the Board or Job detail a sliver. 380px is not a new number: it is
      --w-run-column's own precedent, a few lines up — `.armada-inside`
-     already treats "window-floor minus the run column" as the tightest a
+     treated "window-floor minus the run column" as the tightest a
      pane holding a diff is allowed to go, and what shows beside the dock is
      asked to hold the same kind of thing.
 

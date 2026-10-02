@@ -225,7 +225,6 @@
 @import "./compositions/WorkGroups/WorkGroups.css";
 
 /* A step as one timeline, the phases in order and an attempt per section. */
-@import "./compositions/StepTimeline/StepTimeline.css";
 @import "./compositions/ManifestFile/ManifestFile.css";
 @import "./compositions/ManifestForm/ManifestForm.css";
 
@@ -280,7 +279,6 @@
 @import "./file-input.css";
 
 /* A step's work as the Drone told it, under the plan task it served. #1185. */
-@import "./compositions/WorkNarration/WorkNarration.css";
 /* The graph surface both a Studio's board and a Job's workflow are drawn on,
    above each surface's own sheet so either may paint over it. #1539. */
 @import "./compositions/GraphCanvas/GraphCanvas.css";

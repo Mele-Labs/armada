@@ -1,13 +1,11 @@
-// Which files each plan task changed, and which changed files no task's edits
-// account for. #1187.
+// Which files each plan task changed. #1187.
 //
 // A task's files are its Edit and Write calls, placed by the working windows
 // (`taskAt`) and, where no window covers one, by the paths the task wrote down
 // in `scope` (`declaredBy`, #1498) — never matched to a task by its words.
 // **Their numbers are edit sizes**: the line counts `edited` in
-// `crates/adapters/src/transcript.rs` writes, not diff lines, so they are
-// labelled as such. A file Bash wrote names no task and goes in the row no task
-// owns.
+// `crates/adapters/src/transcript.rs` writes, not diff lines. A file Bash
+// wrote names no task.
 import { toolFamily, type ChangedFile } from "@armada/components";
 import type { PlanTask, Turn } from "@armada/protocol";
 
@@ -45,7 +43,7 @@ export function editsIn(turns: readonly Turn[], tasks: readonly PlanTask[]): Edi
     if (saw.detail === "") continue;
     const edit = editOf(saw.detail, saw.truncated);
     // A window wins where there is one; a declared path fills the gap one
-    // missing leaves, which is `narrationOf`'s rule for the same call.
+    // missing leaves.
     const task = taskAt(turn.ts, tasks) ?? declaredBy(edit.path, tasks);
     edits.push({
       id: String(turn.seq),
@@ -114,22 +112,6 @@ export function filesByTask(
   );
 }
 
-/**
- * The diff's files no task's edit names. Read against the whole Job's edits, so
- * a file a task wrote on an earlier attempt is not taken for one nobody owns.
- */
-export function unownedOf(edits: readonly Edit[], diff: readonly ChangedFile[]): ChangedFile[] {
-  const repo = diff.map((file) => file.path);
-  const owned = new Set<string>();
-  for (const edit of edits) {
-    if (edit.task === undefined) continue;
-    const path = repoPathOf(edit.path, repo);
-    if (path !== undefined) owned.add(path);
-  }
-  return diff.filter((file) => !owned.has(file.path));
-}
-
-/** What a task's file numbers are. */
 /** One path a task named, and whether its work reached it. */
 export type DeclaredFile = { path: string; touched: boolean };
 
@@ -161,11 +143,3 @@ export function declaredAgainstTouched(
     unplanned: paths.filter((path) => !declared.some((named) => under(path, named))),
   };
 }
-
-export const EDIT_SIZES = "sizes of its edits, not the diff";
-
-/** What the numbers in the row no task owns are. */
-export const DIFF_LINES = "lines in the diff";
-
-/** The heading over the files no task's edits account for. */
-export const OUTSIDE_TASK_EDITS = "Changed outside any task's edits";

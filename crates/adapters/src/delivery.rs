@@ -219,15 +219,6 @@ impl Delivery for GitVcs {
         crate::landing::merge(in_repo, pull_request)
     }
 
-    fn merge_pinned(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-        expected_head: &str,
-    ) -> Result<Merged, NotMerged> {
-        crate::landing::merge_pinned(in_repo, pull_request, expected_head)
-    }
-
     fn merge_by_push(
         &self,
         in_repo: &str,
