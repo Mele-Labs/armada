@@ -177,6 +177,35 @@ pub struct LogFile {
     pub being_written: Option<bool>,
 }
 
+/// One kept brief's contents — what a Judge or a gaming check was asked — read
+/// back into the app. `get_brief`'s answer, since 21.11.
+///
+/// **The tail, through [`CheckOutput`](crate::CheckOutput)'s window**: 2,000
+/// lines and 256 KiB, whichever is reached first. A brief ends on what it asks
+/// — the question and the answer format come after the diff — so a cut one
+/// keeps the question and loses the top.
+///
+/// Never on the event stream, for `CheckOutput`'s reason: a brief carries the
+/// whole branch diff.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BriefContents {
+    /// Relative to `records_root`, spelled the way `Judged::brief_path` and
+    /// [`LogFile::path`] spell it, so the answer joins back to the row pressed.
+    pub path: String,
+    /// The window, oldest line first, verbatim.
+    pub lines: Vec<String>,
+    /// The number of [`lines`](BriefContents::lines)`[0]` in the whole file,
+    /// counted from one — the file's numbering, never the window's.
+    pub from_line: u32,
+    /// How many lines the file has, counted by reading all of it.
+    pub total_lines: u32,
+    /// What the file weighs, in bytes.
+    pub bytes: u64,
+    /// Whether [`lines`](BriefContents::lines) is all of it. Stated rather than
+    /// inferred from the two counts, `CheckOutput::whole`'s rule.
+    pub whole: bool,
+}
+
 /// What one look came to, and what the whole examination came to.
 ///
 /// **One set for both**, because the answer to *is this working* and the answer

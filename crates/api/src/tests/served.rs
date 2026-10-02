@@ -15,8 +15,8 @@ use tower::ServiceExt;
 use crate::tests::fake::{at, running, FakeDaemon, THE_STUDIO};
 use crate::tests::shapes;
 use crate::tests::shapes::{
-    run_id, A_PROPOSAL, THE_ARGUMENT, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
-    THE_RECORDING,
+    run_id, A_PROPOSAL, THE_ARGUMENT, THE_BRIEF, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST,
+    THE_OUTPUT, THE_RECORDING,
 };
 use crate::{router, Broadcaster, Next, Served, Subscription, SERVED};
 
@@ -77,7 +77,8 @@ async fn every_operation_the_table_names_is_routed() {
             .replace(":drone_id", THE_DRONE)
             .replace(":manifest_id", THE_MANIFEST)
             .replace(":studio_id", THE_STUDIO)
-            .replace(":run/:name", THE_FRAME);
+            .replace(":run/:name", THE_FRAME)
+            .replace(":name", THE_BRIEF);
         let (status, _) = call(&app, route.method, &uri, A_PROPOSAL).await;
         assert_ne!(
             status,
@@ -575,6 +576,38 @@ async fn a_check_output_the_record_does_not_hold_is_not_a_missing_job() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 
     let (status, _) = call(&app, "GET", "/jobs/01NOTHERE/checks/never.0.log/output", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
+}
+
+/// **A brief comes back on the Job's own route**, and the two refusals are
+/// `get_check_output`'s: a name the Job did not keep — an escape spelled into
+/// the segment among them — is a 422, and a missing Job a 404.
+#[tokio::test]
+async fn a_kept_brief_comes_back_and_a_name_it_did_not_keep_is_refused() {
+    let events = Broadcaster::new();
+    let daemon = FakeDaemon::new(events.clone());
+    running(&daemon, "01RUNNING");
+    let app = wired(daemon, events);
+
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/jobs/01RUNNING/briefs/{THE_BRIEF}"),
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let served: ipc::BriefContents = ipc::decode("a brief", &body).expect("a brief");
+    assert!(served.path.ends_with(THE_BRIEF), "joins back to the row");
+    assert!(served.whole && served.total_lines == served.lines.len() as u32);
+
+    for refused in ["never.1.c.txt", "..%2F..%2Fsecret"] {
+        let uri = format!("/jobs/01RUNNING/briefs/{refused}");
+        let (status, _) = call(&app, "GET", &uri, "").await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    }
+    let uri = format!("/jobs/01NOTHERE/briefs/{THE_BRIEF}");
+    let (status, _) = call(&app, "GET", &uri, "").await;
     assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
 }
 
