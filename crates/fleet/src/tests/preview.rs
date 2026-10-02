@@ -202,28 +202,27 @@ async fn a_name_fleet_does_not_know_says_when_fleet_last_read_the_file() {
 }
 
 /// Every one of these servers, once each has been published as serving.
+///
+/// **No deadline**, for `super::servers`' `next_event`'s reason: a 30s one
+/// failed only when the whole machine stalled for 30s.
 async fn both_serving(watching: &mut Subscription, ids: [&str; 2]) -> Vec<ServerState> {
     let mut up: Vec<ServerState> = Vec::new();
-    tokio::time::timeout(Duration::from_secs(30), async {
-        while up.len() < ids.len() {
-            match watching.next().await {
-                Some(Next::Send(delivered)) => match delivered.event {
-                    Event::ServerServing(state) if ids.contains(&state.id.as_str()) => {
-                        up.push(state);
-                    }
-                    Event::ServerExited(state) if ids.contains(&state.id.as_str()) => {
-                        panic!("it ended before serving: {state:?}")
-                    }
-                    _ => continue,
-                },
-                Some(_) => continue,
-                None => panic!("the stream closed"),
-            }
+    while up.len() < ids.len() {
+        match watching.next().await {
+            Some(Next::Send(delivered)) => match delivered.event {
+                Event::ServerServing(state) if ids.contains(&state.id.as_str()) => {
+                    up.push(state);
+                }
+                Event::ServerExited(state) if ids.contains(&state.id.as_str()) => {
+                    panic!("it ended before serving: {state:?}")
+                }
+                _ => continue,
+            },
+            Some(_) => continue,
+            None => panic!("the stream closed"),
         }
-        up
-    })
-    .await
-    .expect("both served")
+    }
+    up
 }
 
 /// This server serving, or a failure naming how it ended instead.

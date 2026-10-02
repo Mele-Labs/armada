@@ -191,18 +191,17 @@ async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
         .expect("the Job claimed a span")
 }
 
+/// **No deadline.** Python starting and `ready` passing took longer than 30s
+/// only when the whole machine stalled for 30s, and that is not a failure of
+/// anything these tests claim.
 async fn next_event(watching: &mut Subscription, wanted: impl Fn(&Event) -> bool) -> Event {
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            match watching.next().await {
-                Some(Next::Send(delivered)) if wanted(&delivered.event) => return delivered.event,
-                Some(_) => continue,
-                None => panic!("the stream closed"),
-            }
+    loop {
+        match watching.next().await {
+            Some(Next::Send(delivered)) if wanted(&delivered.event) => return delivered.event,
+            Some(_) => continue,
+            None => panic!("the stream closed"),
         }
-    })
-    .await
-    .expect("the event arrived")
+    }
 }
 
 /// This server serving — or a failure naming how it ended instead, rather
@@ -277,13 +276,35 @@ async fn a_person_starts_storybook_for_a_job_and_gets_its_link_once_ready_passes
     assert!(BindConnectProbe.free(port), "Fleet stopping stops it");
 }
 
+/// `storybook` with its port and its link, and nothing that binds the port or
+/// waits for it: for a claim about which instance answers, not whether it does.
+const STORYBOOK_THAT_BINDS_NOTHING: &str = r#"version: 1
+id: 01FIXTUREMANIFEST
+ports:
+  storybook: {}
+commands:
+  storybook:
+    serve: /usr/bin/tail -f /dev/null
+    links:
+      - url: http://localhost:${port.storybook}
+        name: Storybook
+"#;
+
 /// **A Drone on the next step asks through the tool and gets the same
 /// address** — the instance a person started, not a second one on the port.
+///
+/// **Not python**: whether the address answers is the first case's claim, and
+/// here it only added a bind that could collide and a `ready` a stall outlasts.
 #[tokio::test]
 async fn a_drone_on_the_next_step_asks_and_gets_the_same_address() {
     let home = TempDir::new();
     let events = api::Broadcaster::new();
-    let fleet = a_fleet_serving(&home, &events);
+    let fleet = a_fleet_holding(
+        &home,
+        &events,
+        STORYBOOK_THAT_BINDS_NOTHING,
+        STORYBOOK_THAT_BINDS_NOTHING,
+    );
     let job = a_running_job(&fleet, &home).await;
     let port = storybook_port(&fleet, &job).await;
     let mut watching = events.subscribe();
