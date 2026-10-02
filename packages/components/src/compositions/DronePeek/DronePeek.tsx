@@ -4,7 +4,8 @@ import { Card } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { DroneTurns, type DroneTurn } from "../DroneTurns/DroneTurns";
-import type { JobDroneState } from "../JobDrones/JobDrones";
+import { DRONE_ACTIVITY, type JobDroneState } from "../JobDrones/JobDrones";
+import { StepActivityMark } from "../StepActivityMark/StepActivityMark";
 
 /**
  * Drone peek — one Drone, small: who it is, what it is writing, and a box to
@@ -65,11 +66,14 @@ export function DronePeek({
         <span className="armada-drone-peek__name" id={named}>
           {title}
         </span>
-        {/* Job drones' dot and word, so a state reads the same in both. */}
-        <span className="armada-drones__said" data-state={state}>
-          <span className="armada-drones__dot" aria-hidden />
-          {stateSays}
-        </span>
+        {/* Job drones' own mark, named on hover, so a state reads the same in
+            both — never the word (owner, 2 Oct 2026). */}
+        <StepActivityMark
+          activity={DRONE_ACTIVITY[state]}
+          label={stateSays}
+          says={stateSays}
+          pulsing={state === "running"}
+        />
         {ranFor === undefined ? null : (
           <Tooltip label="Run time">
             <span className="armada-drone-peek__ran">{ranFor}</span>

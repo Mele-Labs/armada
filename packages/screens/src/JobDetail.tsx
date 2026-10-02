@@ -347,6 +347,7 @@ function OneJob(props: JobDetailProps) {
             setTab("drones");
           }}
           trail={trail.of("overview")}
+          drones={drones}
         />
         </div>
       ) : tab === "workflow" ? (
@@ -414,6 +415,7 @@ function OneJob(props: JobDetailProps) {
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
           now={props.now}
+          drones={drones}
           onOpenDrone={(droneId) => {
             trail.push("plan");
             setOpensDrone(droneId);

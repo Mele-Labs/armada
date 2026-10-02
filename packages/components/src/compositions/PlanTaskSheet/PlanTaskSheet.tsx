@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
@@ -14,7 +13,9 @@ export type { PlanTaskDrop };
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { TASK_GLYPH, type TaskMarkState } from "../TaskMark/TaskMark";
+import { DRONE_ACTIVITY, type JobDroneState } from "../JobDrones/JobDrones";
+import { StepActivityMark } from "../StepActivityMark/StepActivityMark";
+import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
 import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 import { TaskField } from "./TaskFields";
@@ -134,6 +135,12 @@ export type PlanTaskSheetProps = {
    */
   drone?: PlanTaskDrone;
   /**
+   * Every Drone the task has had, oldest first, as the Drones tab lists them:
+   * a mark for its state, named on hover, its turns and cost, and a press that
+   * opens it there. **Empty draws nothing**, which is a task no Drone was put on.
+   */
+  drones?: readonly PlanTaskDroneRow[];
+  /**
    * The paths the Job's patch changed. **A file in it is a press** that opens
    * what the Job did to it; a file outside it stays text. Absent is a Job
    * with no patch yet, and no file is a press.
@@ -160,6 +167,20 @@ export type PlanTaskSheetProps = {
   onClose?: () => void;
   /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
   back?: SheetBack | undefined;
+};
+
+/** One Drone a task has had. */
+export type PlanTaskDroneRow = {
+  id: string;
+  /** `Drone on T3`, as the rest of job detail names it. */
+  label: string;
+  state: JobDroneState;
+  /** The state, spelled: the mark's tooltip and accessible name. */
+  stateSays: string;
+  /** Turns, and cost once it stopped. Absent draws nothing. */
+  spent?: string;
+  /** Open it in the Drones destination. Absent, the label is text. */
+  onOpen?: () => void;
 };
 
 /** Hold to stop the task's own Drone. */
@@ -240,30 +261,6 @@ export type PlanTaskTest = {
  */
 const FILES_SHOWN = 12;
 
-/** The words for a state, as the rail's own mark spells them. */
-const STATE_SAID: Record<TaskMarkState, string> = {
-  open: "Open",
-  working: "Working",
-  handed_in: "Handed in",
-  done: "Done",
-  failed: "Failed",
-  dropped: "Dropped",
-};
-
-/**
- * The status token stem each state's tag takes. **The hue the rail's mark
- * already draws**: `--step-advanced`, `--step-running` and `--step-failed` are
- * aliases of these three, and a drop is a person's decision, `killed`'s own.
- */
-const STATE_STATUS: Record<TaskMarkState, string> = {
-  open: "not-started",
-  working: "running",
-  handed_in: "running",
-  done: "completed-success",
-  failed: "completed-failed",
-  dropped: "killed",
-};
-
 export function PlanTaskSheet({
   open,
   id,
@@ -290,6 +287,7 @@ export function PlanTaskSheet({
   propose,
   redirect,
   drone,
+  drones = [],
   patched,
   file,
   onFile,
@@ -309,11 +307,9 @@ export function PlanTaskSheet({
       {...(onResize === undefined ? {} : { width, onResize })}
       floor={floor}
       title={title}
-      subtitle={
-        <Badge status={STATE_STATUS[state]} icon={TASK_GLYPH[state]}>
-          {STATE_SAID[state]}
-        </Badge>
-      }
+      // **The mark alone, named on hover** (owner, 2 Oct 2026): the row's own
+      // `TaskMark`, never a check beside the word.
+      subtitle={<TaskMark state={state} />}
       leading={<span className="armada-task-sheet__id">{id}</span>}
       back={back}
       closeLabel="Close"
@@ -374,6 +370,32 @@ export function PlanTaskSheet({
               waiting={redirect.waiting}
             />
           </section>
+        )}
+        {drones.length === 0 ? null : (
+          <TaskField label="Drones">
+            <ul className="armada-task-sheet__drones" aria-label="Drones on this task">
+              {drones.map((one) => (
+                <li key={one.id}>
+                  <StepActivityMark
+                    activity={DRONE_ACTIVITY[one.state]}
+                    label={one.stateSays}
+                    says={one.stateSays}
+                    pulsing={one.state === "running"}
+                  />
+                  {one.onOpen === undefined ? (
+                    <span>{one.label}</span>
+                  ) : (
+                    <button type="button" className="armada-task-sheet__drone-open" onClick={one.onOpen}>
+                      {one.label}
+                    </button>
+                  )}
+                  {one.spent === undefined ? null : (
+                    <span className="armada-task-sheet__drone-spent">{one.spent}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </TaskField>
         )}
         {lastEdit === undefined ? null : (
           <TaskField label="Last edit">
