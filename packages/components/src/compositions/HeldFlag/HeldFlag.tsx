@@ -96,7 +96,7 @@ const NOTE = "Note (optional)";
  * What each does is on its tooltip, and a note sent is spent: the field clears
  * on the press.
  *
- * **Carry on is the primary and Send it back the destructive outline**, each
+ * **Carry on is a secondary and Send it back the destructive outline**, each
  * with its thumb: one lets the Job go forward and the other sends the work
  * back, read so before their words are. Both exceptions (Kill-only red,
  * label-only buttons) are in `design-system.md` and `iconography.md`.
@@ -164,7 +164,7 @@ export function HeldFlag({
         <div className="armada-held-flag__press">
           <Tooltip label={carryOn.consequence}>
             <Button
-              variant="primary"
+              variant="secondary"
               pending={pending === "carryOn"}
               disabled={disabled || carryOn.withheld !== undefined}
               // The note, or nothing — Fleet takes a blank reason on a gaming
