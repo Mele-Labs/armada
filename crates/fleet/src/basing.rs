@@ -271,11 +271,19 @@ where
     ///
     /// `adapters` cannot read a Manifest — the layers forbid it — so this is
     /// where the two are held together.
+    ///
+    /// **A worktree a person cut from another branch is measured from that
+    /// branch** (spike 022, slice 4), which `crate::approving::CutFrom` holds
+    /// by the worktree's own branch: measured from the base, its work would
+    /// claim every commit between the two.
     pub(crate) fn based(
         &self,
         served: &crate::repositories::Served,
         worktree: Worktree,
     ) -> Worktree {
+        if let Some(from) = self.cut_from().of(worktree.branch()) {
+            return worktree.from_base(from);
+        }
         match served.manifest().base() {
             Some(base) => worktree.from_base(base),
             None => worktree,

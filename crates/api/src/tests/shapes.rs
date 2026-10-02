@@ -338,6 +338,10 @@ pub fn detail(job: JobSummary) -> JobDetail {
         model_override: None,
         review_model_override: None,
         tiers: ipc::TierModels::default(),
+        drone_cap: None,
+        landing: None,
+        policy_overrides: None,
+        approved_at: None,
         review_step: None,
         // Absent again: a waiting note is a column on `jobs`, and this
         // daemon's Jobs are wire summaries rather than records.

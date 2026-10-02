@@ -1051,6 +1051,26 @@ impl Vcs for FakeVcs {
         }
     }
 
+    /// Every ref the fake holds, by name: `declared`, or the first where
+    /// nothing is declared, is the base — `base_commit`'s own reading.
+    fn branches(
+        &self,
+        _repo_root: &str,
+        declared: Option<&str>,
+    ) -> Result<Vec<adapter_traits::BranchListed>, Self::Error> {
+        let refs = self.refs.lock().expect("not poisoned");
+        let base = declared.or_else(|| refs.keys().next().map(String::as_str));
+        let mut listed: Vec<adapter_traits::BranchListed> = refs
+            .keys()
+            .map(|name| adapter_traits::BranchListed {
+                name: name.clone(),
+                base: Some(name.as_str()) == base,
+            })
+            .collect();
+        listed.sort_by_key(|branch| !branch.base);
+        Ok(listed)
+    }
+
     /// **Answers the same checkout every time it is asked for one commit**,
     /// which is the sharing the real one promises. The `prepared` flag comes
     /// back as it was left, so a second Job on one base is told it need not

@@ -192,7 +192,7 @@ where
             // Read now rather than carried from the first gating: a re-gate is
             // a fresh reading of a live setting, and answering it with what the
             // file said the first time would be the one thing `Live` forbids.
-            self.gating_policies(&served),
+            self.policies_for(&served, job_id).await,
             &announcing,
             &ports,
             &port_env,

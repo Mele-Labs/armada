@@ -293,7 +293,11 @@ where
         let Ok(served) = self.served_by_id(job_id) else {
             return;
         };
-        if !self.gating_policies(&served).a_machine_may_merge(forge) {
+        if !self
+            .policies_for(&served, job_id)
+            .await
+            .a_machine_may_merge(forge)
+        {
             return;
         }
         {

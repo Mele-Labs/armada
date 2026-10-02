@@ -22,8 +22,8 @@
 mod bench;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
-use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, StepTarget};
 use core_model::{AdvanceGate, AutoMerge, CriterionOrigin, CriterionSource, ReviewGate, Timestamp};
+use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, StepTarget};
 use core_model::{ModelName, TaskTier, TierModels};
 use fleet::tasking::{self, GroupEnd, HandIn, NotRestartable};
 use fleet::{briefing, Crossed, Policies, Ruling, ThePlan};
@@ -32,8 +32,8 @@ use ipc::{JobPlanChanged, JobStateChanged, JobSummary, RepositoryList};
 use testkit::{FakeJudge, FakeWorkProduct};
 
 use adapter_traits::LinkLookup;
-use bench::arc::{feature_with_a_drone_per_task, per_task_with_two_retries, step_signers};
 use bench::arc::landing_by_the_repository;
+use bench::arc::{feature_with_a_drone_per_task, per_task_with_two_retries, step_signers};
 use bench::board::received_detail;
 use bench::focus::{drone, now};
 use bench::plan::{called, received_event, Planned};
@@ -921,7 +921,10 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
         .job
         .proposal_edited(decided.edit.clone(), &at(2))
         .expect("the Job is at its approval gate");
-    assert_eq!(planned.job.title().as_str(), "Bound the reader at the last row");
+    assert_eq!(
+        planned.job.title().as_str(),
+        "Bound the reader at the last row"
+    );
     assert_eq!(
         planned.job.facts().as_str(),
         "The cursor reads one row past the end. Stop it at the last row."
@@ -987,7 +990,11 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
         .job
         .model_spawned_for(&implement, None, None, &tiers)
         .clone();
-    assert_eq!(spawned.as_str(), "a-model", "a task with no tier is Armada picking");
+    assert_eq!(
+        spawned.as_str(),
+        "a-model",
+        "a task with no tier is Armada picking"
+    );
     assert_eq!(
         tiers.get(TaskTier::Difficult).map(ModelName::as_str),
         Some("the-strong-model")
@@ -1010,10 +1017,16 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
         "Stop it at the last row.",
         "the bound is named where the module says what it reads",
     ] {
-        assert!(brief.as_str().contains(said), "the brief says {said:?}: {}", brief.as_str());
+        assert!(
+            brief.as_str().contains(said),
+            "the brief says {said:?}: {}",
+            brief.as_str()
+        );
     }
     assert!(
-        !brief.as_str().contains("a test covers the reported symptom"),
+        !brief
+            .as_str()
+            .contains("a test covers the reported symptom"),
         "a criterion taken off is not one the Drone is held to"
     );
 
@@ -1048,9 +1061,15 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
         "the Job keeps the words it froze, and says the issue has moved since"
     );
     assert_eq!(back[1].origin, Some(ipc::CriterionOrigin::Person));
-    assert_eq!(back[1].origin_moved_at, None, "a person's line moved with nobody");
+    assert_eq!(
+        back[1].origin_moved_at, None,
+        "a person's line moved with nobody"
+    );
     let rendered = adapters::IssueLookup
-        .edited(&adapter_traits::IssueAddress::at(&issue.reference, &issue.url))
+        .edited(&adapter_traits::IssueAddress::at(
+            &issue.reference,
+            &issue.url,
+        ))
         .expect("the one issue shape it knows");
     assert!(
         rendered.args().iter().any(|arg| arg.contains("updatedAt")),
@@ -1079,9 +1098,10 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
 
     // ------------------------------------- what the lock refuses to pretend
     for refused in ["pr_merged", "pr_opened", "all_members_landed"] {
-        let body = APPROVED.replace(r#""complete_when": "delivered""#, &format!(
-            r#""complete_when": "{refused}""#
-        ));
+        let body = APPROVED.replace(
+            r#""complete_when": "delivered""#,
+            &format!(r#""complete_when": "{refused}""#),
+        );
         let job = Planned::from_an_issue("bound the reader", landing_by_the_repository()).job;
         assert!(
             matches!(

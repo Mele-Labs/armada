@@ -180,6 +180,13 @@ pub struct Fleet<H, V, W> {
     /// process would name a position in a list that has since changed, and the
     /// answers it produces are on the record already.
     sweeping: Mutex<Sweep>,
+    /// Where the issue rotation stands: its own cursor on the pull-request
+    /// rotation's interval (spike 022, answer 5). Never written down, for
+    /// `sweeping`'s reason — `crate::issue_noticing`.
+    issue_sweeping: Mutex<crate::issue_noticing::IssueSweep>,
+    /// Which branch each Job's worktree was cut from, where a person chose one
+    /// at approval — what its work is measured against. `crate::approving`.
+    cut_from: crate::approving::CutFrom,
     /// What each Job is owed about other Jobs writing where it writes, and when
     /// its Drone was last told. Never written down, for `sweeping`'s reason —
     /// `crate::peers`.

@@ -268,6 +268,11 @@ pub enum WriteError {
     NotAnAnswer {
         job_id: JobId,
     },
+    /// `record_proposal_edit` found the Job no longer at `awaiting_approval`:
+    /// it was approved, or stopped, between the read and the write.
+    NotAtApproval {
+        job_id: JobId,
+    },
 }
 
 /// Why one Job would not load.
@@ -464,6 +469,11 @@ display!(WriteError, |self, f| match self {
     WriteError::NotAnAnswer { job_id } => write!(
         f,
         "job {} was handed to record_answered with no frozen workflow",
+        job_id.as_str()
+    ),
+    WriteError::NotAtApproval { job_id } => write!(
+        f,
+        "job {} is no longer awaiting approval, so its proposal was not edited",
         job_id.as_str()
     ),
 });

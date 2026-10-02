@@ -227,11 +227,13 @@ pub fn criteria() -> Vec<AcceptanceCriterion> {
             criterion_id: CriterionId::new("c1"),
             text: String::from("the reported symptom no longer occurs"),
             source: CriterionSource::Check,
+            origin: core_model::CriterionOrigin::Unsaid,
         },
         AcceptanceCriterion {
             criterion_id: CriterionId::new("c2"),
             text: String::from("a test covers the reported symptom"),
             source: CriterionSource::Check,
+            origin: core_model::CriterionOrigin::Unsaid,
         },
     ]
 }

@@ -30,6 +30,9 @@ pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
 mod amending;
+/// What a person changes on a proposal, and the Job it leaves at the press.
+/// Spike 022, slice 4.
+pub mod approving;
 pub mod asked;
 pub mod asking;
 pub mod at_step;
@@ -109,6 +112,9 @@ pub mod helm;
 /// What Fleet is holding disk for, and the five tests that decide whether it
 /// may give one back without asking anybody.
 pub mod holding;
+/// The issue a Job came from, asked about again on its own cursor. Spike 022,
+/// answer 5.
+mod issue_noticing;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
