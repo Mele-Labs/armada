@@ -49,7 +49,7 @@ pub use job::{
     Finding, FixWaiter, FollowUp, FrozenWorkflow, GamingCheck, GamingFlag, GamingPattern,
     GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
     IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
-    JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, ManifestId, ModelName, Narrowing,
+    JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName, Narrowing,
     NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin, PathPattern,
     PilotReason, Prerequisite, ProposalId, Proves, QueuedReason, Reach, Recourse,
     RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath, ResolvedCheck,

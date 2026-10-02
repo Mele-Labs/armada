@@ -22,18 +22,42 @@ use crate::peers::News;
 pub(crate) enum FixStands {
     Fixing,
     Landed,
+    /// Landed, and this Job's copy has taken it. #1673.
+    InYourCopy,
     Gone,
 }
 
 impl FixStands {
-    /// The item's line in the turn.
-    pub(crate) fn line(self, title: &str, handle: &str, test: &str) -> String {
-        let said = match self {
-            FixStands::Fixing => format!("is fixing `{test}`, which your checks failed on"),
-            FixStands::Landed => format!("landed its fix for `{test}`"),
-            FixStands::Gone => {
+    /// The item's line in the turn. `files` are what the fix holds off this
+    /// Job, and empty where it holds nothing. #1673.
+    pub(crate) fn line(self, title: &str, handle: &str, test: &str, files: &[String]) -> String {
+        let named = files
+            .iter()
+            .map(|path| format!("`{path}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let said = match (self, files.is_empty()) {
+            (FixStands::Fixing, true) => format!("is fixing `{test}`, which your checks failed on"),
+            (FixStands::Fixing, false) => format!(
+                "is fixing `{test}`, which your checks failed on. Until that fix lands and \
+                 reaches your copy, {named} are outside what this Job may change"
+            ),
+            (FixStands::Landed, true) => format!("landed its fix for `{test}`"),
+            (FixStands::Landed, false) => format!(
+                "landed its fix for `{test}`. It reaches your copy when your next part starts, \
+                 and until then {named} stay outside what this Job may change"
+            ),
+            (FixStands::InYourCopy, _) => format!(
+                "landed its fix for `{test}`, and that fix is already in your copy. {named} \
+                 are yours to change again"
+            ),
+            (FixStands::Gone, true) => {
                 format!("ended without landing its fix for `{test}`, so nobody is fixing it now")
             }
+            (FixStands::Gone, false) => format!(
+                "ended without landing its fix for `{test}`, so nobody is fixing it now. \
+                 {named} are yours to change again"
+            ),
         };
         format!("\n- \"{title}\" ({handle}) {said}.")
     }
@@ -145,6 +169,12 @@ where
                 handle: fix.handle(),
                 test: waiter.test,
                 stands: FixStands::Fixing,
+                files: self
+                    .held_by(claim)
+                    .await
+                    .iter()
+                    .map(|path| path.as_str().to_string())
+                    .collect(),
             },
         )
         .await;
@@ -168,12 +198,17 @@ where
     /// Tell every Job pointed at this fix whether it landed, then give back the
     /// fix's claims and the pointers at it. A Job fixing nothing has neither.
     pub(crate) async fn fix_settled(&self, fix: &JobId, landed: bool) {
-        let waiting = self
+        // Those it held files off hear it with the files. #1673.
+        let told = self.settled_holds(fix, landed).await;
+        let waiting: Vec<FixWaiter> = self
             .store()
             .lock()
             .await
             .waiting_on_fix(fix)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|waiter| !told.contains(&waiter.waiting))
+            .collect();
         if !waiting.is_empty() {
             if let Ok(record) = self.load(fix).await {
                 for waiter in waiting {
@@ -185,6 +220,7 @@ where
                             true => FixStands::Landed,
                             false => FixStands::Gone,
                         },
+                        files: Vec::new(),
                     };
                     self.owe(&waiter.waiting, news).await;
                 }

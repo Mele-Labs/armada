@@ -85,6 +85,7 @@ fn fix_for(test: &str) -> DraftFix {
     DraftFix {
         check: String::from("suite"),
         test: test.to_string(),
+        files: Vec::new(),
         failure: String::from("exited 1"),
         title: format!("Fix {test} on main"),
         workflow: String::from("fixture-workflow"),

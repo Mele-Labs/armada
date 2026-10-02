@@ -2,8 +2,9 @@
 //!
 //! **One entry reads from either side.** The fix Job's detail names what it
 //! claims, and the detail of the Job whose Drone reported it names who is
-//! fixing what it found. Nothing here holds anything back: the reporter's own
-//! gate still fails until the fix lands.
+//! fixing what it found. The reporter's own gate still fails until the fix
+//! lands, and since 23.2 the test's files are outside the write scope of every
+//! Job on the claim but the fix: `held_off` names them. #1673.
 
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +34,14 @@ pub struct ClaimedBreakage {
     /// the same way. #1001.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waiting: Vec<WaitingOnFix>,
+    /// The files no Job on this claim but the fix may change while it stands:
+    /// those the reporting Drone named, then those the fix has declared it
+    /// will change. A Drone on the reporter or a waiting Job is told them,
+    /// and a declaration or an edit naming one is refused. **Since 23.2**, and
+    /// empty is none: a claim from before then, whose fix has declared
+    /// nothing yet. #1673.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_off: Vec<String>,
 }
 
 /// One Job pointed at a fix, waiting for it to land.

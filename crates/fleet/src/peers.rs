@@ -57,6 +57,8 @@ pub(crate) enum News {
         handle: String,
         test: String,
         stands: FixStands,
+        /// What the fix holds off this Job, or has just freed. #1673.
+        files: Vec<String>,
     },
 }
 
@@ -186,7 +188,8 @@ fn line(item: &News) -> String {
             handle,
             test,
             stands,
-        } => stands.line(title, handle, test),
+            files,
+        } => stands.line(title, handle, test, files),
     }
 }
 
@@ -234,6 +237,16 @@ where
             .entry(job.clone())
             .or_default()
             .push(news);
+    }
+
+    /// Take back a fix's queued landed line, which its in-your-copy line is
+    /// about to say better. #1673.
+    pub(crate) async fn unowe_landed(&self, job: &JobId, test: &str) {
+        if let Some(owed) = self.peering().lock().await.owed.get_mut(job) {
+            owed.retain(|item| {
+                !matches!(item, News::Fix { stands: FixStands::Landed, test: said, .. } if said == test)
+            });
+        }
     }
 
     /// Whether two Jobs belong to one repository.

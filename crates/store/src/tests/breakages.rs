@@ -3,7 +3,7 @@
 //! The last case is the one the table's shape exists for: the reporter is an id
 //! and not a key, so forgetting it leaves the fix's claim standing.
 
-use core_model::{Breakage, BreakageClaim, FixWaiter, ManifestId, Ulid};
+use core_model::{Breakage, BreakageClaim, FixWaiter, LandedHold, ManifestId, RepoPath, Ulid};
 
 use crate::tests::{created_at, job_id, open, top_level, TempDir};
 use crate::Store;
@@ -27,6 +27,10 @@ fn claim(fix: &str, on: &ManifestId) -> BreakageClaim {
             failure: "exited 101".to_string(),
         },
         reported_by: job_id(REPORTER),
+        files: vec![
+            RepoPath::new("crates/store/src/read.rs"),
+            RepoPath::new("crates/store/src/tests/read.rs"),
+        ],
     }
 }
 
@@ -231,4 +235,73 @@ fn forgetting_a_waiting_job_counts_its_pointer_by_name() {
         .forget_job(&job_id(SECOND_FIX))
         .expect("the waiting Job is forgotten");
     assert_eq!(removed.fix_waiters, 1);
+}
+
+#[test]
+fn a_claim_reads_back_with_its_files_and_gives_them_back_with_it() {
+    let dir = TempDir::new();
+    let mut store = with_jobs(&dir);
+    let here = repository("01REPOAAAAAAAAAAAAAAAAAAAA");
+    store
+        .claim_breakage(&claim(FIX, &here), &created_at())
+        .expect("written");
+
+    let standing = store
+        .breakage_claimed(&here, "test", "store::reads_the_last_row")
+        .expect("read")
+        .expect("claimed");
+    assert_eq!(standing, claim(FIX, &here), "the files come back in order");
+
+    store.release_breakages(&job_id(FIX)).expect("released");
+    let reclaimed = BreakageClaim {
+        files: vec![RepoPath::new("crates/store/src/write.rs")],
+        ..claim(SECOND_FIX, &here)
+    };
+    store
+        .claim_breakage(&reclaimed, &created_at())
+        .expect("written");
+    assert_eq!(
+        store
+            .breakage_claimed(&here, "test", "store::reads_the_last_row")
+            .expect("read")
+            .expect("claimed")
+            .files,
+        reclaimed.files,
+        "a released claim's files went with it"
+    );
+}
+
+#[test]
+fn a_landed_hold_reads_per_fix_and_test_until_it_is_given_back() {
+    let dir = TempDir::new();
+    let mut store = with_jobs(&dir);
+    let hold = LandedHold {
+        held: job_id(REPORTER),
+        fix: job_id(FIX),
+        test: "store::reads_the_last_row".to_string(),
+        paths: vec![
+            RepoPath::new("crates/store/src/read.rs"),
+            RepoPath::new("crates/store/src/tests/read.rs"),
+        ],
+    };
+    store
+        .hold_until_caught_up(&hold, &created_at())
+        .expect("written");
+
+    assert_eq!(
+        store.landed_holds_on(&job_id(REPORTER)).expect("read"),
+        vec![hold]
+    );
+    assert!(store
+        .landed_holds_on(&job_id(SECOND_FIX))
+        .expect("read")
+        .is_empty());
+
+    store
+        .release_landed_holds(&job_id(REPORTER))
+        .expect("released");
+    assert!(store
+        .landed_holds_on(&job_id(REPORTER))
+        .expect("read")
+        .is_empty());
 }

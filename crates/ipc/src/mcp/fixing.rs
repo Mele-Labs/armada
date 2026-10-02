@@ -11,6 +11,15 @@ use serde_json::{json, Map, Value};
 
 use super::tools::{closed, filled, list, NotAnArgument};
 
+/// A list that names at least one thing, every entry filled.
+fn named(arguments: &Map<String, Value>, field: &'static str) -> Result<Vec<String>, NotAnArgument> {
+    let listed = list(arguments, field)?;
+    if listed.is_empty() || listed.iter().any(|entry| entry.trim().is_empty()) {
+        return Err(NotAnArgument::Blank { field });
+    }
+    Ok(listed)
+}
+
 /// The fix tool's name, bare.
 pub const FIX_TOOL: &str = "draft_fix";
 
@@ -18,6 +27,7 @@ pub const FIX_TOOL: &str = "draft_fix";
 pub const FIX_FIELDS: &[&str] = &[
     "check",
     "test",
+    "files",
     "failure",
     "title",
     "workflow",
@@ -37,6 +47,11 @@ pub struct DraftFix {
     pub check: String,
     /// The failing test's name, copied from the Check's output.
     pub test: String,
+    /// The files the test lives in, as paths in the repository. **Required and
+    /// never empty from a Drone**: while the fix is worked they are outside the
+    /// write scope of every Job that hit the test, so Fleet has to know which
+    /// they are. #1673. Empty only on a fix Fleet spotted itself.
+    pub files: Vec<String>,
     /// What the output said about the failure, in a line or two.
     pub failure: String,
     pub title: String,
@@ -51,6 +66,7 @@ pub(super) fn asked_for(arguments: &Map<String, Value>) -> Result<DraftFix, NotA
     Ok(DraftFix {
         check: filled(arguments, "check")?,
         test: filled(arguments, "test")?,
+        files: named(arguments, "files")?,
         failure: filled(arguments, "failure")?,
         title: filled(arguments, "title")?,
         workflow: filled(arguments, "workflow")?,
@@ -85,6 +101,14 @@ pub(super) fn fix_tool() -> Value {
                 "test": {
                     "type": "string",
                     "description": "The failing test's name, copied exactly from the Check's output.",
+                },
+                "files": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 1,
+                    "description": "The files the failing test lives in, as paths from the \
+                                    repository root. Fleet checks each is on main. While the \
+                                    fix is worked, no Job that hit the test may change them.",
                 },
                 "failure": {
                     "type": "string",

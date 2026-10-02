@@ -486,6 +486,13 @@ export type ClaimedBreakage = {
    * Since protocol 13.42; absent is none. #1001.
    */
   waiting?: WaitingOnFix[];
+  /**
+   * The files no Job on this claim but the fix may change while it stands:
+   * those the reporting Drone named, then those the fix has declared. A write
+   * to one from any other Job on the claim is refused. Since protocol 23.2;
+   * absent is none. #1673.
+   */
+  held_off?: string[];
 };
 
 /** One Job pointed at a fix, waiting for it to land. `crates/ipc/src/breakage.rs`. */
