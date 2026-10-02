@@ -11,5 +11,5 @@ export const nothingToDisclose = walk("job/running", [
   { type: "disclose", into: query, say: "Search for disclose" },
   { look: text("Nothing matches “disclose”."), say: "Nothing matches" },
   { type: "expand and", into: query, say: "Search for the act's own verb" },
-  { look: text("Nothing matches “expand and”."), say: "No Expand and collapse: nothing on a job opens a row in place" },
+  { look: text("Nothing matches “expand and”."), say: "No Expand and collapse: the act is gone, with its keys" },
 ]);
