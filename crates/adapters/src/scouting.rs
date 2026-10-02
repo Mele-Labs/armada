@@ -29,7 +29,7 @@ use crate::harness::HeadlessAgent;
 use crate::transcript::under_home;
 
 /// The tools a scout is given: reading a file, searching files, listing them.
-const READ_TOOLS: &[&str] = &["Read", "Grep", "Glob"];
+pub(crate) const READ_TOOLS: &[&str] = &["Read", "Grep", "Glob"];
 const READ_FILE: &str = "Read";
 const SEARCH_CONTENT: &str = "Grep";
 /// The Grep mode that returns lines of files rather than names or counts.
@@ -38,7 +38,7 @@ const SHOWS_LINES: &str = "content";
 /// Every built-in the CLI offered in spike 017 that is not a read: what edits,
 /// runs, schedules, messages or reaches the network. **Denied as well as left
 /// out of the toolset**, for [`crate::conversing`]'s reason.
-const NOT_A_READ: &[&str] = &[
+pub(crate) const NOT_A_READ: &[&str] = &[
     "Bash",
     "Edit",
     "Write",
