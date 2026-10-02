@@ -63,8 +63,7 @@ export type StepRowFact = {
   value?: ReactNode;
   /**
    * That attempt's own Checks, Judge and Verdict, indented beneath it. Only
-   * an attempt fact carries these, on a step worked more than once — see
-   * `RunTreeFact.children`, which this is drawn from.
+   * an attempt fact carries these, on a step worked more than once.
    */
   children?: StepRowFact[];
   /**

@@ -4,9 +4,10 @@
 // read the Job's `JobSummary` — its status, its branch, its assigned Drone —
 // so the badge and the header draw as they would for any running Job. It is
 // `GET /jobs/:job_id` that came back a refusal: no steps, no brief, no work,
-// no machine reading. `whyNoSteps` in `run.ts`, and `whyNoBrief` and `workOf`
-// in `work.ts`, are what turn that one failed read into every "cannot be
-// read" sentence on the panel, so nothing here writes those sentences itself.
+// no machine reading. `whyNoSteps` in `run.ts`, `whyNoBrief` in `work.tsx` and
+// `whyUnreachable` in `while-reading.ts` are what turn that one failed read
+// into every "cannot be read" sentence on the panel, so nothing here writes
+// those sentences itself.
 
 import type { JobFixture } from "../fixture";
 import type { Outcome } from "@armada/protocol";

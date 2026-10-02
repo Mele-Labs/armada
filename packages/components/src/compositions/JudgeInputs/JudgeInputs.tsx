@@ -37,8 +37,7 @@ import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
  * **The wire serves this.** `Judged.given` arrived in protocol 8.3 — a digest
  * of the exact text one member's call was sent, beside its size and its model,
  * recorded per member so the comparison is a reading rather than a restatement
- * of Fleet's own loop. `screens`' `cited.ts` builds the rows and marks the ones
- * that differ. This block said fixtures only until 2026-09-09.
+ * of Fleet's own loop. This block said fixtures only until 2026-09-09.
  *
  * **One block per criterion, never one per step.** Every criterion is its own
  * brief, so a digest folded across criteria would differ for a reason that says

@@ -1,20 +1,9 @@
-// Where a Job's work is, as the rows `workOf` builds, and whether its own read
-// is still out.
+// Whether a Job's own read is still out.
 
 import { describe, expect, it } from "vitest";
 
-import type { JobDetail, JobSummary, ManifestSummary, WorkflowSummary, Watched } from "@armada/protocol";
-import type { OpenArtifact } from "./opening";
-import { stillReading, workOf, type WorkRehearsal } from "./work";
-
-/** A Job with no server and nowhere the run sheet has opened. */
-const noRehearsal: WorkRehearsal = {
-  onRun: () => {},
-  worktreeOnDisk: undefined,
-  servers: [],
-  onStopServer: () => {},
-  onOpenServerLink: () => {},
-};
+import type { JobDetail, JobSummary, Watched } from "@armada/protocol";
+import { stillReading } from "./work";
 
 function job(): JobSummary {
   return {
@@ -45,92 +34,6 @@ function detail(over: Partial<JobDetail> = {}): JobDetail {
   };
 }
 
-const noOpen: OpenArtifact = () => Promise.resolve({ ok: true });
-
-describe("a test broken on main, on the rows beside the overlaps", () => {
-  const broken = {
-    check: "test",
-    test: "auth::session::refreshes_once",
-    failure: "exited 101",
-    fix_title: "Fix the refresh test broken on main",
-    reported_by: "01M1REPORTER0000000000000000",
-  };
-
-  it("names the fix on a Job waiting on it", () => {
-    // #1001: a Job pointed at a fix is neither the fix nor the reporter.
-    const whole = detail({ breakages: [{ ...broken, fix: "01M1FIXJOB000000000000000000" }] });
-    const row = workOf(noOpen, job(), whole, manifest(), workflow(), noRehearsal).find(
-      (at) => at.value === broken.test,
-    );
-    expect(row?.iconLabel).toBe("Waiting");
-    expect(row?.meta).toBe("broken on main · Fix the refresh test broken on main is fixing it");
-  });
-
-  it("counts the Jobs waiting on the fix, and never lists them", () => {
-    const whole = detail({
-      breakages: [
-        {
-          ...broken,
-          fix: job().id,
-          waiting: [
-            { job_id: "01M1WAITINGONE00000000000000", title: "one" },
-            { job_id: "01M1WAITINGTWO00000000000000", title: "two" },
-          ],
-        },
-      ],
-    });
-    const row = workOf(noOpen, job(), whole, manifest(), workflow(), noRehearsal).find(
-      (at) => at.value === broken.test,
-    );
-    expect(row?.iconLabel).toBe("Fixing");
-    expect(row?.meta).toBe("broken on main under test · 2 Jobs wait on it");
-  });
-});
-
-function manifest(): ManifestSummary {
-  return {
-    id: "01M1CNPKTV0018H2M1CXDNBK06",
-    repository: "armada",
-    path: "/repo/armada.yml",
-    records_root: "/repo/.armada",
-    version: 1,
-    checks: [],
-  };
-}
-
-function workflow(): WorkflowSummary {
-  return { id: "bug", name: "bug", version: 1, steps: [], manifest_id: "01M1CNPKTV0018H2M1CXDNBK06" };
-}
-
-describe("where the work is", () => {
-  it("names every row before the job's own read answers", () => {
-    // The Board's row carries the branch and the Drone, and the Manifest and
-    // workflow holds are loaded for every job, so nothing here waits on the read.
-    const withDrone: JobSummary = { ...job(), assigned_drone: "01M10B1V2A0011VRS6RA2SKPQ7" };
-    const rows = workOf(noOpen, withDrone, null, manifest(), workflow(), noRehearsal);
-    expect(rows.map((row) => row.iconLabel)).toEqual(["Worktree", "Branch", "Manifest", "Workflow", "Drone"]);
-  });
-
-  it("says the worktree is not written yet where the board's row has no branch", () => {
-    const undispatched: JobSummary = { ...job() };
-    delete undispatched.branch;
-    const rows = workOf(noOpen, undispatched, null, manifest(), workflow(), noRehearsal);
-    expect(rows.find((row) => row.iconLabel === "Worktree")?.meta).toBe("not written yet");
-    expect(rows.map((row) => row.iconLabel)).not.toContain("Branch");
-  });
-
-  it("takes the branch from the job's own read once it answers", () => {
-    const rows = workOf(noOpen, job(), detail({ branch: "fix/settings-split-selectors" }), manifest(), workflow(), noRehearsal);
-    expect(rows.find((row) => row.iconLabel === "Branch")?.value).toBe("fix/settings-split-selectors");
-  });
-
-  it("falls back to the wire's own ids while the manifest and workflow holds are not there yet", () => {
-    const rows = workOf(noOpen, job(), null, undefined, undefined, noRehearsal);
-    expect(rows.find((row) => row.iconLabel === "Manifest")?.value).toBe(job().owner_manifest_id);
-    expect(rows.find((row) => row.iconLabel === "Workflow")?.value).toBe(job().workflow_id);
-  });
-});
-
 const JOB_ID = "01M130Y1380016YK5S0JXBXDQ5";
 
 describe("whether this job's own read has answered yet", () => {
@@ -158,39 +61,5 @@ describe("whether this job's own read has answered yet", () => {
     // `jobId` rather than one flag every per-job read shares.
     const read: Watched = { state: "read", jobId: "a-different-job", detail: detail() };
     expect(stillReading(read, JOB_ID)).toBe(true);
-  });
-});
-
-describe("the way back to the Studio a job came off", () => {
-  const FROM = { studio_id: "01STUDIO0000000000000000000", name: "Stale counts", node_id: "01JOBNODE" };
-  const studioRow = (whole: JobDetail | null, onOpenStudio?: (studioId: string, nodeId: string) => void) =>
-    workOf(noOpen, job(), whole, manifest(), workflow(), noRehearsal, onOpenStudio).find(
-      (row) => row.iconLabel === "Studio",
-    );
-
-  it("names the Studio where a value you go and find lives", () => {
-    expect(studioRow(detail({ from_studio: FROM }), () => {})?.value).toBe("Stale counts");
-  });
-
-  it("calls a Studio nobody named what every other surface calls one", () => {
-    const unnamed = { ...FROM, name: undefined };
-    expect(studioRow(detail({ from_studio: unnamed }), () => {})?.value).toBe("Untitled Studio");
-  });
-
-  it("draws nothing for a job nothing dispatched from a Studio", () => {
-    expect(studioRow(detail())).toBeUndefined();
-  });
-
-  it("draws nothing before the read lands, rather than a row that appears twice", () => {
-    expect(studioRow(null)).toBeUndefined();
-  });
-
-  it("offers no control where the surface has nowhere to navigate", () => {
-    expect(studioRow(detail({ from_studio: FROM }))?.actions).toBeUndefined();
-  });
-
-  it("is one row and never a list — a job reaches the board from one Issue draft", () => {
-    const rows = workOf(noOpen, job(), detail({ from_studio: FROM }), manifest(), workflow(), noRehearsal, () => {});
-    expect(rows.filter((row) => row.iconLabel === "Studio")).toHaveLength(1);
   });
 });
