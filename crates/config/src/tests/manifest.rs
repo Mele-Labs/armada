@@ -5,6 +5,7 @@
 //! eight and listed nine. Counting again would only move the number, so the
 //! counts are gone and the list lives in `crate::manifest`.
 
+mod merge_by;
 mod ports;
 mod seed;
 mod servers;
@@ -118,6 +119,7 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "after_merge",
             "auto_merge",
             "review_gate",
+            "merge_by",
             "freeze",
             "standing_rules"
         ]

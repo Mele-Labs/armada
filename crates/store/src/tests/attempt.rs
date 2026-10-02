@@ -14,9 +14,9 @@
 //! reads still answer where the step stands.
 
 use core_model::{
-    Actor, CheckOutcome, CriterionId, EscalationTrigger, EvidenceType, GamingFlag, GamingPattern,
-    Job, JudgeVerdict, Judgment, Side, StepCheck, StepEvidence, StepFrame, StepId,
-    StepLevelTrigger, StepTarget, Target,
+    Actor, AutoMerge, CheckOutcome, CriterionId, EscalationTrigger, EvidenceType, GamingFlag,
+    GamingPattern, Job, JudgeVerdict, Judgment, ResolvedPolicies, ReviewGate, Side, StepCheck,
+    StepEvidence, StepFrame, StepId, StepLevelTrigger, StepTarget, Target,
 };
 
 use crate::tests::{at, created_at, job_id, open, top_level, TempDir};
@@ -156,6 +156,17 @@ pub(super) fn record_a_whole_run(store: &mut Store, id: &str, saying: &str, when
             &at(when),
         )
         .expect("frames recorded");
+    store
+        .record_resolved_policies(
+            &job,
+            &step,
+            ResolvedPolicies {
+                auto_merge: AutoMerge::Never,
+                review_gate: ReviewGate::HumanAlways,
+            },
+            &at(when),
+        )
+        .expect("resolved policies recorded");
 }
 
 /// The whole of the issue, in one test: two runs, every per-step table, both

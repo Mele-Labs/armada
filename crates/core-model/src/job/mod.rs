@@ -93,7 +93,7 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
-pub use policy::{AutoMerge, ReviewGate};
+pub use policy::{AutoMerge, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
 pub use review::{

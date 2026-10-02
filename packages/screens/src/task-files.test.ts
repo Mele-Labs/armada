@@ -1,4 +1,4 @@
-// Which files each task changed, and which no task's edits account for. #1187.
+// Which files each task changed. #1187.
 import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "@armada/components";
@@ -11,7 +11,6 @@ import {
   editsIn,
   filesByTask,
   repoPathOf,
-  unownedOf,
 } from "./task-files";
 
 const STEP = "implement";
@@ -95,10 +94,6 @@ describe("a task that declared its files and was never marked working", () => {
     ]);
   });
 
-  it("leaves nothing changed outside any task's edits", () => {
-    expect(unownedOf(edits(), changed)).toEqual([]);
-  });
-
   it("reads both declared paths as touched", () => {
     const read = declaredAgainstTouched(
       declaring[1]?.scope ?? [],
@@ -109,21 +104,6 @@ describe("a task that declared its files and was never marked working", () => {
       { path: SPEC, touched: true },
     ]);
     expect(read.unplanned).toEqual([]);
-  });
-
-  it("still names a file no task declared in the row no task owns", () => {
-    const stray: ChangedFile = {
-      path: "packages/screens/src/TheShell.tsx",
-      change: "modified",
-      added: 1,
-    };
-    const also = editsIn(
-      [called(STEP, at(30), "d", "Edit", `${TREE}${stray.path} +1`)],
-      declaring,
-    );
-    expect(unownedOf([...edits(), ...also], [...changed, stray]).map((file) => file.path)).toEqual([
-      stray.path,
-    ]);
   });
 
   it("does not take an edit a window already covers, whatever another task declared", () => {
@@ -159,19 +139,6 @@ describe("each task's files", () => {
     expect(filesByTask(edits, DIFF).get("T1")).toEqual([
       { path: "~/notes/scratch.md", inDiff: false, added: 3, deleted: 0 },
     ]);
-  });
-});
-
-describe("the files no task's edits account for", () => {
-  it("are the diff's files that no task's edit names, so the two readings reconcile", () => {
-    const edits = [
-      { id: "1", path: `${TREE}crates/fleet/src/evidence.rs`, added: 4, task: "T2" },
-      { id: "2", path: `${TREE}crates/store/src/pending_evidence.rs`, added: 82, task: "T1" },
-      // Placed by neither a window nor a declaration, so it is outside every
-      // task's edits too.
-      { id: "3", path: `${TREE}crates/store/src/lib.rs`, added: 2 },
-    ];
-    expect(unownedOf(edits, DIFF).map((file) => file.path)).toEqual(["crates/store/src/lib.rs"]);
   });
 });
 

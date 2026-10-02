@@ -161,6 +161,10 @@ fn a_job_the_judge_ruled_on_can_still_be_forgotten() {
         "one frame from each of the two runs — the rows, not the images"
     );
     assert_eq!(
+        gone.step_policies, 2,
+        "one resolved-policy row from each of the two runs"
+    );
+    assert_eq!(
         gone.other, 0,
         "every table those rows are in has a count of its own"
     );

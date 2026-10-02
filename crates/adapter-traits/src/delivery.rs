@@ -311,6 +311,34 @@ pub enum Merged {
     AlreadyMerged,
 }
 
+/// What [`Delivery::merge_by_push`] came to.
+///
+/// **It carries the base, where [`Merged`] carries nothing**: there may be no
+/// forge reading to ask, and the push is the reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PushedOntoBase {
+    /// The branch the work landed on.
+    pub base: String,
+    pub merged: Merged,
+}
+
+/// What [`Delivery::merge_the_moved_base_in`] left on a Job's branch: the base
+/// the remote holds, merged in as one commit, waiting to be gated again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BaseMergedIn {
+    /// The base branch, by name.
+    pub base: String,
+    /// The base's commit that was merged in.
+    pub onto: String,
+    /// The branch's head with the base in it, which is what the Checks read.
+    pub head: String,
+    /// The branch's head before, which [`Delivery::put_back`] returns it to.
+    pub was: String,
+    /// Every path either side changed since the branch last held the base, for
+    /// each Check's `when`.
+    pub touched: Vec<String>,
+}
+
 /// Why the forge would not merge, in the kinds a person does something
 /// different about.
 ///
@@ -340,9 +368,16 @@ pub enum NotMerged {
     NotOpen { said: String },
     /// Nothing on this machine could ask: no tool, or nobody signed in.
     NoTool { said: String },
+    /// The base moved past what the branch holds, so a merge of it would land
+    /// a combination nothing gated. Only `merge_by: push` says this; the
+    /// answer is to bring the branch up and gate it again.
+    BaseMoved { said: String },
+    /// The branch, with the moved base merged in, did not pass its Checks, so
+    /// nothing was pushed. Only `merge_by: push` says this.
+    GateFailed { said: String },
     /// The forge refused and said something this vocabulary has no name for.
     ///
-    /// **Never folded into the five above.** A guess about which kind a
+    /// **Never folded into the seven above.** A guess about which kind a
     /// sentence is would send a person to fix the wrong thing, and the honest
     /// answer is the sentence itself.
     Refused { said: String },
@@ -360,6 +395,11 @@ impl NotMerged {
             }
             NotMerged::NotOpen { said } => ("the pull request is not open", said),
             NotMerged::NoTool { said } => ("nothing on this machine could ask the forge", said),
+            NotMerged::BaseMoved { said } => ("the base moved past what was gated", said),
+            NotMerged::GateFailed { said } => (
+                "the branch with the base merged in did not pass its Checks",
+                said,
+            ),
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");
@@ -380,6 +420,8 @@ impl NotMerged {
             NotMerged::ChecksNotPassed { .. } => "checks_not_passed",
             NotMerged::NotOpen { .. } => "not_open",
             NotMerged::NoTool { .. } => "no_tool",
+            NotMerged::BaseMoved { .. } => "base_moved",
+            NotMerged::GateFailed { .. } => "gate_failed",
             NotMerged::Refused { .. } => "refused",
         }
     }
@@ -700,26 +742,45 @@ pub trait Delivery {
     /// reclaimed long before anybody merges its work.
     fn merge(&self, in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged>;
 
-    /// Merge a pull request Armada opened, pinned to the commit it was gated
-    /// on. `#1315`.
+    /// Land a Job's branch by making the `--no-ff` merge commit here and
+    /// pushing the base, never forced — `merge_by: push`, and the same code
+    /// `armada land` lands through.
     ///
-    /// **Everything [`merge`](Delivery::merge) is, plus one more word on the
-    /// forge's own line.** `armada land`'s turn pushes a gate's merge commit
-    /// to the branch and only then calls this — `--match-head-commit
-    /// expected_head` is what keeps a second push landing in the gap between
-    /// the read and the write from being merged as though it were gated too.
+    /// **Only a branch that already holds the base lands.** One that does not,
+    /// or a base that moves before the push, is [`NotMerged::BaseMoved`]:
+    /// the merged tree is the branch's own, which is the tree its gate ran on.
     ///
-    /// **A second method, not a parameter on [`merge`].** The plain merge has
-    /// a caller — a person's press in Bridge — who read no gate and pinned no
-    /// commit; giving it an optional pin would let a future caller pass
-    /// `None` by habit and merge unpinned by omission rather than by
-    /// decision.
-    fn merge_pinned(
+    /// `handle` derives the branch, `declared` is `base:` in `armada.yml`, and
+    /// `pull_request` is named in the merge's subject; the forge reads it
+    /// merged once its head is in the base.
+    fn merge_by_push(
         &self,
         in_repo: &str,
-        pull_request: &str,
-        expected_head: &str,
-    ) -> Result<Merged, NotMerged>;
+        handle: &str,
+        declared: Option<&str>,
+        pull_request: Option<u64>,
+    ) -> Result<PushedOntoBase, NotMerged>;
+
+    /// Merge the base, as the remote holds it now, into a Job's branch in its
+    /// own worktree — never a rebase — so the branch can be gated again before
+    /// [`merge_by_push`](Delivery::merge_by_push) is asked once more.
+    ///
+    /// **A conflict leaves the branch exactly as it was**, as
+    /// [`NotMerged::Conflicted`] naming the files. So does a worktree holding
+    /// changes nothing committed: the Checks would read a tree that would not
+    /// land.
+    fn merge_the_moved_base_in(
+        &self,
+        in_repo: &str,
+        worktree: &Worktree,
+        declared: Option<&str>,
+    ) -> Result<BaseMergedIn, NotMerged>;
+
+    /// Take the branch back to where it was before
+    /// [`merge_the_moved_base_in`](Delivery::merge_the_moved_base_in), where
+    /// its gate went red. **Only while its head is still that merge**, so
+    /// nothing committed since is thrown away.
+    fn put_back(&self, worktree: &Worktree, merged: &BaseMergedIn) -> Result<(), NotDelivered>;
 
     /// Rebase a Job's branch onto a base that has moved, and push the result —
     /// in place of closing and reopening the pull request. `#663`.

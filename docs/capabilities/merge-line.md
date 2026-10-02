@@ -200,15 +200,15 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 | The two worktrees under `.armada/land/` | `.armada/worktrees/<handle>` and `.armada/bases/<sha>` | 8 |
 | Asking whether `main` fails it too | *A test broken on main* | 9 |
 | Rerunning the Checks | A gate run over the merged worktree | 4 |
-| The merge | `crates/adapters/src/landing.rs` | 5 |
+| The merge | `crates/adapters/src/onto_base.rs`, shared | 5 |
 | Outcome file and `--status` | The Job record, served on detail | 7 |
 
 1. `docs/concepts/fleet.md`, *Checks share one limit*. A press to merge joins a line the sweep turns, one landing per repository at a time.
 2. Fleet needs no port for this part.
 3. It already merges and never rebases, and leaves conflict markers for a Drone to clear.
 4. The reruns take places like any other Check run.
-5. `Delivery::merge_pinned` merges through the forge: `--merge --match-head-commit`, re-reading the pull request's head right before the write. `armada land` no longer does; it makes the merge commit and pushes `main` itself. Which of the two Fleet's own line takes is open.
-6. *Proving what merged*, in `docs/concepts/manifest.md`, reads the first parent after a forge merge. A line that pushes `main` itself, unforced, has nothing to prove that way: the push is refused unless `main` is still the gated base.
+5. A Manifest chooses, with `merge_by` ([Manifest](../concepts/manifest.md), *How work lands*). `forge`, the default, asks the forge to merge the pull request, as Fleet always has. `push` makes the merge commit and pushes the base through `adapters::onto_base`, the same code this line lands with, so the two cannot come to land work two ways. A base that moved past the branch is merged into it in the Job's own worktree and the Job's Checks run again, up to the same `ROUNDS` as this line, before the push is asked again ([Manifest](../concepts/manifest.md), *How work lands*).
+6. *Proving what merged*, in `docs/concepts/manifest.md`, holds for both: the forge names the base after a forge merge and the push names it after a push, and the main checkout is brought up to what the remote holds before the run. A push needs no first-parent reading to say whether an ungated combination landed: it is refused unless the base is still the one the branch holds.
 7. An outcome becomes a Job event and a log line.
 8. Same directory, same reason: a Job's Checks run inside the repository because that is where this project's tooling works. **Fleet's own lifecycle already answers the reuse half** — a base checkout belongs to a commit and every Job on that commit shares it, and `setup.seed` warms it when the base moves. What it does not do is drop the one it has superseded: two were found holding 16 GB after two merges, and `armada clean` is the only thing that takes them back.
 9. `docs/concepts/fleet.md`. Fleet runs one named test against a checkout of `main` on a Drone's word; the line asks the same question of a whole Check, without being asked.

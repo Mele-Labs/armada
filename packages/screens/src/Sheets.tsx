@@ -39,7 +39,7 @@ import type {
   Turn,
 } from "@armada/protocol";
 import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
-import type { PlanTaskRow } from "./InsideAJob";
+import type { PlanTaskRow } from "./plan";
 import type { Calls } from "./calls";
 import { checkSheetOf } from "./checks";
 import { DecidedDiff } from "./Decide";

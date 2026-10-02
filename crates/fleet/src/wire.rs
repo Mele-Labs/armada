@@ -499,6 +499,7 @@ pub(crate) fn step_facts(
     ran: Vec<Attempted<Vec<core_model::StepCheck>>>,
     judged: Vec<Attempted<Vec<core_model::Judgment>>>,
     flagged: Vec<Attempted<Vec<core_model::GamingFlag>>>,
+    resolved: Vec<Attempted<core_model::ResolvedPolicies>>,
     frames: Vec<store::KeptFrame>,
     moves: &[StepMove],
 ) -> Vec<StepFacts> {
@@ -508,7 +509,7 @@ pub(crate) fn step_facts(
             // The third source, beside the workflow and the per-step tables:
             // the log, which is where how many times a step ran has always
             // been and where `store::step_attempt` reads the same count from.
-            let attempts = ipc::StepAttempt::over(
+            let mut attempts = ipc::StepAttempt::over(
                 moves
                     .iter()
                     .filter(|moved| &moved.step_id == step.step_id())
@@ -518,6 +519,19 @@ pub(crate) fn step_facts(
                         at: &moved.at,
                     }),
             );
+            // What each run's gate resolved its policies to, joined by the
+            // ordinal both sides count. A run with no row stays absent. #1683.
+            for kept in resolved
+                .iter()
+                .filter(|kept| &kept.step_id == step.step_id())
+            {
+                if let Some(run) = attempts
+                    .iter_mut()
+                    .find(|run| run.attempt == kept.attempt.number())
+                {
+                    run.resolved = Some(kept.record.into());
+                }
+            }
             // Counted where the attempts are, off the same moves: a return
             // names the step that caused it, which is whose pass it is.
             let returns = moves

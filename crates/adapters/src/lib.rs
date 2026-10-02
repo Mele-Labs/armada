@@ -59,6 +59,9 @@ mod keeping_current;
 mod landing;
 mod mcp;
 mod merging_in;
+mod merging_the_base_in;
+/// The step onto a base, shared by `armada land` and `merge_by: push`.
+pub mod onto_base;
 mod pull_request_diff;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;

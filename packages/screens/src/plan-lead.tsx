@@ -11,7 +11,7 @@ import { Button, Card, CardContent, Skeleton, SkeletonText, Textarea } from "@ar
 
 import type { JobDetail as JobWhole, JobSummary, JudgeAnswer, StepDetail } from "@armada/protocol";
 
-import { Eyebrow } from "./InsideAJob";
+import { Eyebrow } from "./regions";
 import { decidedSaidOf, originLineOf } from "./draft/criterion";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import type { ActingAct } from "./pending";
@@ -61,7 +61,8 @@ export type PlanGateProps = {
  * confusing on 28 Sep. A second copy is how it came back the first time.
  */
 function originSaid(criterion: CriterionView): string {
-  return `${originLineOf(criterion)} · ${decidedSaidOf(criterion)}`;
+  const from = originLineOf(criterion);
+  return from === undefined ? decidedSaidOf(criterion) : `${from} · ${decidedSaidOf(criterion)}`;
 }
 
 /**

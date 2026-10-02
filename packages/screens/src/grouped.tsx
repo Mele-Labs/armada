@@ -9,34 +9,13 @@
 // **The ids line up because both sides use the socket's sequence.** A
 // `WorkingAct` is named `String(turn.seq)` and so is a `LogRow`, which is what
 // lets a run select its own rows without a second pass over the wire.
-import {
-  NarrationPlanBar,
-  ToolName,
-  WorkGroups,
-  WorkNarration,
-  type ChangedFile,
-  type NarrationFile,
-  type NarrationSection,
-  type TaskMarkState,
-  type WorkGroup,
-} from "@armada/components";
-import type { Turn, WorkPlan } from "@armada/protocol";
+import { ToolName, WorkGroups, type WorkGroup } from "@armada/components";
+import type { Turn } from "@armada/protocol";
 
 import type { Calls } from "./calls";
 import type { DetailKeys } from "./detail-keys";
-import { briefly, clock } from "./duration";
+import { briefly } from "./duration";
 import { Log } from "./Log";
-import { foldersOf, nameUnder } from "./change-summary";
-import { callsSaid, narrationOf, planBarOf, workSaid } from "./narration";
-import {
-  DIFF_LINES,
-  EDIT_SIZES,
-  OUTSIDE_TASK_EDITS,
-  editsIn,
-  filesByTask,
-  unownedOf,
-  type TaskFile,
-} from "./task-files";
 import type { LogRow } from "./story";
 import { runsOf, workingOf, type WorkingRun } from "./working";
 
@@ -45,12 +24,9 @@ import { runsOf, workingOf, type WorkingRun } from "./working";
  * *Open the log*.
  *
  * **It draws every row it is handed, and it is the one surface that does.** It
- * carried a bound in groups for the chapter's preview, on the argument that
- * five rows of a real step is five consecutive `Read` calls where five groups
- * is five different things the Drone did. The preview is `WorkNarrated` now and
- * bounds itself in entries — the owner's decision of 2026-09-18, below — so the
- * bound here was a second answer to a question this surface is not asked: it is
- * where everything is read.
+ * once carried a bound in groups for the chapter's preview. The preview draws
+ * no rows now, so a bound here would answer a question this surface is not
+ * asked: it is where everything is read.
  */
 export function WorkGrouped({
   rows,
@@ -124,144 +100,4 @@ export function WorkGrouped({
   return (
     <WorkGroups groups={groups} {...(unread === undefined ? {} : { unread })} emptyNote={emptyNote} />
   );
-}
-
-/**
- * The Working area: the Drone's sentences, under the plan task each served.
- * #1185. **The Activity log sheet keeps `WorkGrouped`**, the raw record.
- *
- * The section holding the newest row is open, and in it the newest sentence.
- * A sentence holding a failure is open wherever it is.
- */
-export function WorkNarrated({
-  rows,
-  turns,
-  stepId,
-  plan,
-  live,
-  emptyNote,
-  calls: fetched,
-  log,
-  mostEntries,
-  diff,
-  jobTurns,
-}: {
-  rows: LogRow[];
-  turns: readonly Turn[];
-  stepId: string;
-  /** The Job's plan. Absent draws the sentences with no task headings. */
-  plan: WorkPlan | undefined;
-  /** The step is being worked now, so the newest sentence reads `so far`. */
-  live: boolean;
-  emptyNote: string;
-  calls: Calls;
-  log: ReturnType<DetailKeys["inLog"]>;
-  /**
-   * How many of the step's entries are drawn, newest last, across the whole
-   * area. Absent draws every one of them.
-   *
-   * **Counted in entries — the rows the chapter's header counts** — so the
-   * header's `97 entries` and what is under it are the same unit. It bounded
-   * sentences before, and groups before that, and both let one preview run to
-   * thousands of pixels because neither counted what a person scrolls past.
-   */
-  mostEntries?: number;
-  /** The Job's diff, for each task's files and the row no task owns. #1187. */
-  diff?: readonly ChangedFile[];
-  /**
-   * Every turn of the Job, so a task's files include what it wrote on another
-   * run. Absent draws no row for the files no task owns.
-   */
-  jobTurns?: readonly Turn[];
-}) {
-  // Armada's instruction is the Instructed row above, and the log sheet keeps it.
-  const worked = rows.filter((row) => row.kind !== "instructed");
-  const narration = narrationOf(worked, turns, stepId, plan, mostEntries);
-  const edits = editsIn(jobTurns ?? turns, plan?.tasks ?? []);
-  const changed = diff ?? [];
-  const byTask = filesByTask(edits, changed);
-  const folders = foldersOf(changed.map((file) => file.path));
-  const named = (file: TaskFile | ChangedFile): NarrationFile => ({
-    path: file.path,
-    name:
-      folders.get(file.path) === undefined
-        ? (file.path.split("/").at(-1) ?? file.path)
-        : nameUnder(file.path, folders.get(file.path) as string),
-    ...(file.added === undefined ? {} : { added: file.added }),
-    ...(file.deleted === undefined ? {} : { deleted: file.deleted }),
-  });
-  const newestId = narration.sections.find((one) => one.newest)?.beats.at(-1)?.id;
-  // **The line for what was left out goes above the oldest thing drawn**, once
-  // for the whole area: the bound is the area's, and a section that kept
-  // nothing draws no beats to hang it on.
-  const oldestDrawn = narration.sections.find((work) => work.beats.length > 0);
-  const sections: NarrationSection[] = narration.sections.map((work) => {
-    const files = work.task === undefined ? [] : (byTask.get(work.task.id) ?? []);
-    const meta = [workSaid(work), filesSaid(files.length)].filter((part) => part !== undefined).join(" · ");
-    return {
-      id: work.task?.id ?? "outside",
-      ...(narration.plan === undefined
-        ? {}
-        : {
-            heading:
-              work.task === undefined
-                ? { title: OUTSIDE_ANY_TASK }
-                : { task: work.task.id, mark: markOf(work.task.state), title: work.task.title },
-          }),
-      ...(meta === "" ? {} : { meta }),
-      ...(files.length === 0 ? {} : { files: files.map(named), filesSay: EDIT_SIZES }),
-      open: work.newest || work.beats.some((beat) => beat.wrong),
-      ...(narration.earlier === 0 || work !== oldestDrawn
-        ? {}
-        : { earlier: `${narration.earlier} earlier, in the log` }),
-      beats: work.beats.map((beat) => {
-        const newest = beat.id === newestId;
-        return {
-          id: beat.id,
-          ...(beat.ts === undefined ? {} : { at: clock(beat.ts) }),
-          ...(beat.said === undefined ? {} : { said: beat.said }),
-          meta: callsSaid(beat, newest && live),
-          open: newest || beat.wrong,
-          ...(beat.rows.length === 0
-            ? {}
-            : { body: <Log rows={beat.rows} emptyNote={emptyNote} calls={fetched} {...log} /> }),
-        };
-      }),
-    };
-  });
-  // Only where there is a plan to own files and a whole Job to read edits in.
-  const unowned = narration.plan === undefined || jobTurns === undefined ? [] : unownedOf(edits, changed);
-  if (unowned.length > 0) {
-    sections.push({
-      id: "outside-task-edits",
-      heading: { title: OUTSIDE_TASK_EDITS },
-      meta: filesSaid(unowned.length),
-      beats: [],
-      files: unowned.map(named),
-      filesSay: DIFF_LINES,
-      apart: true,
-    });
-  }
-  return <WorkNarration sections={sections} emptyNote={emptyNote} />;
-}
-
-/** `4 files`, or nothing. */
-function filesSaid(count: number): string | undefined {
-  return count === 0 ? undefined : `${count} ${count === 1 ? "file" : "files"}`;
-}
-
-/**
- * `2 of 5`, on the Working header: tasks done over tasks not dropped, the
- * Plan well's own figure and bar. Nothing where the Job has no plan.
- */
-export function PlanBar({ plan }: { plan: WorkPlan | undefined }) {
-  const bar = planBarOf(plan);
-  return bar === undefined ? null : <NarrationPlanBar tasks={bar.states} done={bar.done} />;
-}
-
-/** The heading over work done while no task was marked working. */
-export const OUTSIDE_ANY_TASK = "Outside any task";
-
-function markOf(state: string): TaskMarkState {
-  return state === "working" || state === "done" || state === "dropped" ? state : "open";
 }

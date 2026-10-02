@@ -357,6 +357,7 @@ where
             }
         }
         self.recorded_judgments(&job_id, &step, &ruling).await?;
+        self.recorded_policies(&job_id, &step, &ruling).await?;
         self.recorded_evidence(&job_id, &step, &landed.submission, &ruling)
             .await?;
         self.recorded_gaming(&job_id, &step, &ruling).await?;
@@ -425,6 +426,7 @@ where
                 output,
                 judged,
                 cleared,
+                resolved,
             } => {
                 let delivery = self
                     .store()
@@ -439,6 +441,7 @@ where
                         judged,
                         cleared,
                         held: HeldBecause::TheBranchDidNotGoOut,
+                        resolved,
                     },
                     None => Ruling::Finished {
                         tell,
@@ -446,6 +449,7 @@ where
                         output,
                         judged,
                         cleared,
+                        resolved,
                     },
                 })
             }
