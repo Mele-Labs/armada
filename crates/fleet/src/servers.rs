@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Job, JobId};
 use ipc::mcp::ServerReport;
@@ -134,8 +134,7 @@ where
                 if job.status().is_terminal() {
                     return Err(Unservable::JobEnded);
                 }
-                let spec = WorktreeSpec::for_job(served.root(), &job.handle())
-                    .map_err(|_| Unservable::NoWorktree)?;
+                let spec = self.tree_spec(&served, job).ok_or(Unservable::NoWorktree)?;
                 let tree = PathBuf::from(spec.worktree_path());
                 if !tree.is_dir() {
                     return Err(Unservable::NoWorktree);

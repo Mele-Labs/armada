@@ -24,7 +24,6 @@
 
 use std::time::Duration;
 
-use adapter_traits::WorktreeSpec;
 use core_model::{EscalationTrigger, JobStatus, StepState};
 use store::Store;
 use testkit::FakeWorkProduct;
@@ -49,8 +48,8 @@ pub use fleets::{
     a_fleet_whose_manifest_declares_a_base, fitted_over, fitted_with, fittings,
 };
 pub use handed_in::{
-    a_proposal, a_proposal_for, diff_evidence, note_evidence, worktree_directory,
-    worktree_directory_named,
+    a_proposal, a_proposal_for, diff_evidence, first_slot, note_evidence, spec_held,
+    worktree_directory, worktree_directory_named,
 };
 pub use workflows::{
     manifest, one, plan_and_implement, shown_step, shown_step_with_no_harness,
@@ -176,7 +175,7 @@ async fn a_failed_check_holds_the_job_and_keeps_the_worktree() {
          gets round to reading the failure"
     );
 
-    let spec = WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).unwrap();
+    let spec = crate::tests::daemon::spec_held(&home, &job).unwrap();
     assert!(
         std::path::Path::new(&spec.worktree_path()).exists(),
         "the worktree is kept — nothing in this workspace can remove one"

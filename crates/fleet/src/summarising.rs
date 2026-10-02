@@ -186,12 +186,12 @@ where
                 frozen_by: Vec::new(),
             });
         }
-        // The same two `admit_next` folds, so a Board row never disagrees
+        // The same three `admit_next` folds, so a Board row never disagrees
         // with what Fleet is doing — `crate::admitting`.
         let mut slots = self.slots().lock().await;
         let room = self.room_for(&mut slots).await;
         drop(slots);
-        let short = !room.granted() || self.volume_is_short(job).await;
+        let short = !room.granted() || self.volume_is_short(job).await || self.slot_is_short(job);
         Ok(Waiting::on(
             short.then_some(CoreQueuedReason::WaitingOnResources),
         ))
