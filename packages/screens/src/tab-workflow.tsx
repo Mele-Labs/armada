@@ -16,6 +16,7 @@
 // is the caller's: this package holds no storage.
 
 import {
+  DRONE_ACTIVITY,
   RunTreeSkeleton,
   Tabs,
   Tooltip,
@@ -245,10 +246,6 @@ export function WorkflowTab({
       : one.state === "running"
         ? elapsedSince(one.since, now)
         : undefined;
-  // The Drone machine's four states on the step machine's marks: a finished
-  // Drone advanced its task, and a failed or killed one stopped.
-  const activityOf = (one: DroneView) =>
-    one.state === "running" ? ("running" as const) : one.state === "done" ? ("advanced" as const) : ("stopped" as const);
 
   // Nothing until a press, and then **the app's own panel**: the floating
   // Sheet Record, Drones and Plan draw theirs in, over the work area and
@@ -283,8 +280,10 @@ export function WorkflowTab({
           rows: here.map((one) => ({
             id: one.id,
             label: droneLabelOf(one, whole),
-            activity: activityOf(one),
-            said: DRONE_SAYS[one.state].toLowerCase(),
+            // The Drones tab's own mark for the state, named on hover — a
+            // mark, never a word (owner, 2 Oct 2026).
+            activity: DRONE_ACTIVITY[one.state],
+            said: DRONE_SAYS[one.state],
             says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),
           })),
           ...(onOpenDrone === undefined ? {} : { onOpen: onOpenDrone }),
