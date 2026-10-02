@@ -12,7 +12,12 @@ import { stagedSketch } from "./staging";
 
 /** The two writes a Sketch takes, as the open connection makes them. */
 type Writes = {
-  addNode: (studioId: string, node: { kind: "sketch"; drawing: SketchDrawn }, at: StudioPosition) => Promise<Outcome>;
+  addNode: (
+    studioId: string,
+    node: { kind: "sketch"; drawing: SketchDrawn },
+    at: StudioPosition,
+    within: string | null,
+  ) => Promise<Outcome>;
   editSketch: (studioId: string, nodeId: string, drawing: SketchDrawn) => Promise<Outcome>;
 };
 
@@ -29,13 +34,16 @@ type Hosts = {
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 
 export function handleSketches({ ipc, studios, whole, unsent }: Hosts): void {
-  ipc.handle(CHANNELS.addStudioSketch, async (_event, studioId: unknown, drawing: unknown, position: unknown) => {
-    const at = whole(position);
-    if (!text(studioId) || at === null) return undefined;
-    const drawn = await stagedSketch(drawing);
-    if (drawn === null) return undefined;
-    return (await studios()?.addNode(studioId, { kind: "sketch", drawing: drawn }, at)) ?? unsent;
-  });
+  ipc.handle(
+    CHANNELS.addStudioSketch,
+    async (_event, studioId: unknown, drawing: unknown, position: unknown, within: unknown) => {
+      const at = whole(position);
+      if (!text(studioId) || at === null || !(within === null || text(within))) return undefined;
+      const drawn = await stagedSketch(drawing);
+      if (drawn === null) return undefined;
+      return (await studios()?.addNode(studioId, { kind: "sketch", drawing: drawn }, at, within)) ?? unsent;
+    },
+  );
   ipc.handle(CHANNELS.saveStudioSketch, async (_event, studioId: unknown, nodeId: unknown, drawing: unknown) => {
     if (!text(studioId) || !text(nodeId)) return undefined;
     const drawn = await stagedSketch(drawing);

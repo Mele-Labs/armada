@@ -151,6 +151,30 @@ export function landing(nodes: readonly Framing[], id: string, position: At): La
   return { within: over.id, position: insideCorner({ x: board.x - into.x, y: board.y - into.y }) };
 }
 
+/**
+ * Where a node of `kind` put down by a press at `at` on the board lands — the
+ * owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and
+ * puts it in that Zone."*
+ *
+ * **The frame a drop would take it into**, so the two ways in agree: a Zone
+ * takes anything but a Zone, and a Cluster takes nothing, so a press inside a
+ * Cluster lands in the Zone round it, or on the board. Where frames overlap,
+ * the one drawn last is the one pressed.
+ */
+export function pressedIn(nodes: readonly Framing[], kind: string, at: At): Landing {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const sizes = frameSizes(nodes);
+  const over = [...nodes].reverse().find((frame) => {
+    if (!takes(frame.kind, kind)) return false;
+    const corner = onTheBoard(frame.id, byId);
+    const framed = sizes.get(frame.id) ?? EMPTY;
+    return at.x >= corner.x && at.x <= corner.x + framed.width && at.y >= corner.y && at.y <= corner.y + framed.height;
+  });
+  if (over === undefined) return { within: null, position: at };
+  const into = onTheBoard(over.id, byId);
+  return { within: over.id, position: insideCorner({ x: at.x - into.x, y: at.y - into.y }) };
+}
+
 /** A spot in a frame, kept clear of its edge and its head. */
 function insideCorner(position: At): At {
   return { x: Math.max(FRAME_INSET, position.x), y: Math.max(FRAME_HEAD, position.y) };

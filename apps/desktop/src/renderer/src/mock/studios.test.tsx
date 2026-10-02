@@ -152,6 +152,10 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   drag(node(/^Note: Drag me somewhere/).element(), 200, 0);
   await new Promise((resolve) => setTimeout(resolve, 200));
   expect(fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position).toEqual(left);
+  // The relation's dot, opened: it says how to answer and offers no answer.
+  const answers = page.getByRole("button", { name: /: Finding What does the note point at\? answers Note Drag me somewhere/ });
+  await answers.hover();
+  await expect.element(page.getByText("Continue to accept or reject.")).toBeVisible();
   expect(page.getByRole("button", { name: /^Accept: / }).query()).toBeNull();
 
   // Helm's footer names the Studio, and the node selected on it.
@@ -160,9 +164,13 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   node(/^Note: Drag me somewhere/).element().focus();
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByText("Studios · Untitled Studio · Note Drag me somewhere selected")).toBeVisible();
+  // Put away, because the dock is drawn over the board's right side and the relation's dot is there.
+  await userEvent.keyboard("{Meta>}j{/Meta}");
+  await expect.poll(() => page.getByRole("complementary", { name: "Helm" }).query()).toBeNull();
 
   await page.getByRole("button", { name: "Continue" }).click();
   expect(page.getByText("Read-only", { exact: true }).query()).toBeNull();
+  await answers.hover();
   await page.getByRole("button", { name: /^Accept: Finding What does the note point at\? answers Note Drag me somewhere/ }).click();
   await expect.poll(() => fleet.studios()[0]!.edges.map((edge) => edge.standing)).toEqual(["accepted"]);
   await expect.poll(() => page.getByRole("button", { name: /^Accept: / }).query()).toBeNull();
@@ -277,6 +285,7 @@ test("every-state keeps Studios, so the surface opens on a list and not a read f
   // A Job node reads its state off the Board row this window already holds.
   await expect.element(node(/^Job: /)).toBeVisible();
   // Reopened read-only, so its proposed relations say how to answer and nothing acts on them.
+  await page.getByRole("button", { name: /(proposes|proposed): /i }).first().hover();
   await expect.element(page.getByText("Continue to accept or reject.").first()).toBeVisible();
 });
 
@@ -572,24 +581,30 @@ test("a proposed relation is answered on its own edge, and no queue sits in the 
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
-  // The relation's own label, named by who proposed it and what it says.
-  const proposal = page.getByRole("group", { name: /^Helm proposes: Note It wraps at 720 wide same as / });
-  await expect.element(proposal).toBeVisible();
+  // The relation's own dot, named by who proposed it and what it says, and the
+  // card it opens — shut until the pointer or the focus is on it.
+  const named = /^Helm proposes: Note It wraps at 720 wide same as /;
+  const dot = page.getByRole("button", { name: named });
+  const proposal = page.getByRole("group", { name: named });
+  await expect.element(dot).toBeVisible();
+  expect(proposal.query()).toBeNull();
   expect(page.getByRole("group", { name: "Waiting on you", exact: true }).query()).toBeNull();
   expect(bar().query()).toBeNull();
   // **Drawn where the edge is drawn**: inside React Flow's layer of edge
   // labels, which is placed at the edge's midpoint and nowhere else.
-  expect(proposal.element().closest(".react-flow__edgelabel-renderer")).not.toBeNull();
+  expect(dot.element().closest(".react-flow__edgelabel-renderer")).not.toBeNull();
 
   // Read-only, so the footer says how to answer rather than answering.
+  await dot.hover();
   await expect.element(proposal.getByText("Continue to accept or reject.")).toBeVisible();
   expect(proposal.getByRole("button", { name: /^Accept: / }).query()).toBeNull();
 
   await page.getByRole("button", { name: "Continue" }).click();
+  await dot.hover();
   await expect.element(proposal.getByRole("button", { name: /^Reject: Note It wraps at 720 wide same as / })).toBeVisible();
   await proposal.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as / }).click();
 
-  await expect.poll(() => proposal.query()).toBeNull();
+  await expect.poll(() => dot.query()).toBeNull();
   await expect
     .poll(() => fleet.studios().flatMap((one) => one.edges).filter((edge) => edge.kind === "same_as").map((edge) => edge.standing))
     .toEqual(["accepted"]);
