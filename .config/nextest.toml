@@ -1,0 +1,4 @@
+# Read by every `cargo nextest` run in this workspace, so by the `test` and
+# `acceptance` Checks too. Why three minutes: docs/practices/rust.md, section 8.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 3 }
