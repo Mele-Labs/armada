@@ -20,7 +20,7 @@ use ipc::{Event, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::checkouts::Checkout;
-use crate::daemon::Fleet;
+use crate::daemon::{Fittings, Fleet};
 use crate::ports::{detect_ceiling, BindConnectProbe, PortProbe, PortRange};
 use crate::servers::{Place, Unservable};
 use crate::slots::Concurrency;
@@ -67,6 +67,18 @@ pub(super) fn a_fleet_holding(
     on_disk: &str,
     held: &str,
 ) -> Arc<Fixture> {
+    Arc::new(Fleet::assembled(fittings_holding(
+        home, events, on_disk, held,
+    )))
+}
+
+/// [`a_fleet_holding`]'s fittings, for a case that changes one before assembly.
+pub(super) fn fittings_holding(
+    home: &TempDir,
+    events: &api::Broadcaster,
+    on_disk: &str,
+    held: &str,
+) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
     let path = home.path().join("armada.yml");
     std::fs::write(&path, on_disk).expect("the file a Job snapshots");
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
@@ -74,13 +86,18 @@ pub(super) fn a_fleet_holding(
     fittings.events = events.clone();
     fittings.concurrency = Concurrency::of(2);
     fittings.port_range = a_range_of_its_own();
-    Arc::new(Fleet::assembled(fittings))
+    fittings
 }
 
 /// How many ports a fixture's range holds, and the floor of the band they are
 /// taken from.
 const SPAN: u16 = 20;
 const BAND_FLOOR: u16 = 20_000;
+
+/// Ports other fleet tests take by number: `tests::daemon`'s default range,
+/// and `ports`', `listener`'s, `repositories`' and `workspace_ports`' own. A
+/// span here is probed and bound by both sides with neither's lock.
+const NAMED_BY_OTHER_TESTS: std::ops::RangeInclusive<u16> = 41_000..=44_999;
 
 /// A range no other test is claiming from. **Each test is a process of its
 /// own with a store of its own**, so two claiming from one range could be
@@ -105,17 +122,20 @@ const BAND_FLOOR: u16 = 20_000;
 /// every one of them above 49152, this machine's `net.inet.ip.portrange.first`.
 /// It passed alone every time. 3,835 tests run in parallel here.
 ///
-/// **The slot is picked from the process id and then walked.** Each test is
-/// its own process, pids rise, and two live at once are rarely congruent —
-/// so the first slot tried is usually free, and the walk settles the rest
-/// without two processes racing from the same starting point.
+/// **The slot is picked from the process id and then walked**, so two test
+/// processes rarely start from the same one.
+///
+/// **And it is locked before it is probed.** A span found free is let go
+/// before the server binds it, so a probe alone let two processes take one
+/// span: `it_stops_when_the_job_ends_before_its_span_goes_and_its_port_is_free`
+/// failed 2 in 2,053 stress runs with python exiting 1 on port 40020.
 fn a_range_of_its_own() -> PortRange {
     let (base, _released) = a_span_held_below_the_floor();
     PortRange::of(base, base + SPAN - 1, 1)
 }
 
-/// The base of a free span below the ephemeral floor, with every port in it
-/// still bound by the caller.
+/// The base of a free span below the ephemeral floor, locked to this process
+/// for its life, with every port in it still bound by the caller.
 fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let top = detect_ceiling().saturating_sub(SPAN);
     let slots = top.saturating_sub(BAND_FLOOR) / SPAN;
@@ -123,11 +143,39 @@ fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let first = u16::try_from(std::process::id() % u32::from(slots)).unwrap_or(0);
     for step in 0..slots {
         let base = BAND_FLOOR + ((first + step) % slots) * SPAN;
+        if NAMED_BY_OTHER_TESTS.contains(&base) || NAMED_BY_OTHER_TESTS.contains(&(base + SPAN - 1))
+        {
+            continue;
+        }
+        let Some(lock) = a_slot_locked(base) else {
+            continue;
+        };
         if let Some(held) = a_span_held(base) {
+            kept_until_exit(lock);
             return (base, held);
         }
     }
     panic!("no run of {SPAN} free ports in {slots} slots below {top}");
+}
+
+/// An exclusive `flock` on this slot's file, or `None` where another test
+/// process holds it. The kernel lets go when the holder exits, however it
+/// exits, so a test that crashed leaves no slot taken.
+fn a_slot_locked(base: u16) -> Option<std::fs::File> {
+    let dir = std::env::temp_dir().join("armada-fleet-port-spans");
+    std::fs::create_dir_all(&dir).expect("the directory slot locks live in");
+    let file = std::fs::File::create(dir.join(format!("{base}.lock"))).expect("a slot's lock file");
+    file.try_lock().ok().map(|()| file)
+}
+
+/// Hold a slot's lock until the process exits. Under nextest each test is a
+/// process of its own, so that is the test's life; the fixture hands back only
+/// the Fleet, and has nowhere shorter-lived to keep it.
+fn kept_until_exit(lock: std::fs::File) {
+    static KEPT: std::sync::Mutex<Vec<std::fs::File>> = std::sync::Mutex::new(Vec::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .push(lock);
 }
 
 /// Whether every port from `base` up holds nothing right now.
@@ -164,18 +212,17 @@ async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
         .expect("the Job claimed a span")
 }
 
+/// **No deadline.** Python starting and `ready` passing took longer than 30s
+/// only when the whole machine stalled for 30s, and that is not a failure of
+/// anything these tests claim.
 async fn next_event(watching: &mut Subscription, wanted: impl Fn(&Event) -> bool) -> Event {
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            match watching.next().await {
-                Some(Next::Send(delivered)) if wanted(&delivered.event) => return delivered.event,
-                Some(_) => continue,
-                None => panic!("the stream closed"),
-            }
+    loop {
+        match watching.next().await {
+            Some(Next::Send(delivered)) if wanted(&delivered.event) => return delivered.event,
+            Some(_) => continue,
+            None => panic!("the stream closed"),
         }
-    })
-    .await
-    .expect("the event arrived")
+    }
 }
 
 /// This server serving — or a failure naming how it ended instead, rather
@@ -250,13 +297,35 @@ async fn a_person_starts_storybook_for_a_job_and_gets_its_link_once_ready_passes
     assert!(BindConnectProbe.free(port), "Fleet stopping stops it");
 }
 
+/// `storybook` with its port and its link, and nothing that binds the port or
+/// waits for it: for a claim about which instance answers, not whether it does.
+const STORYBOOK_THAT_BINDS_NOTHING: &str = r#"version: 1
+id: 01FIXTUREMANIFEST
+ports:
+  storybook: {}
+commands:
+  storybook:
+    serve: /usr/bin/tail -f /dev/null
+    links:
+      - url: http://localhost:${port.storybook}
+        name: Storybook
+"#;
+
 /// **A Drone on the next step asks through the tool and gets the same
 /// address** — the instance a person started, not a second one on the port.
+///
+/// **Not python**: whether the address answers is the first case's claim, and
+/// here it only added a bind that could collide and a `ready` a stall outlasts.
 #[tokio::test]
 async fn a_drone_on_the_next_step_asks_and_gets_the_same_address() {
     let home = TempDir::new();
     let events = api::Broadcaster::new();
-    let fleet = a_fleet_serving(&home, &events);
+    let fleet = a_fleet_holding(
+        &home,
+        &events,
+        STORYBOOK_THAT_BINDS_NOTHING,
+        STORYBOOK_THAT_BINDS_NOTHING,
+    );
     let job = a_running_job(&fleet, &home).await;
     let port = storybook_port(&fleet, &job).await;
     let mut watching = events.subscribe();
@@ -688,4 +757,18 @@ fn a_range_of_its_own_hands_out_a_free_span_below_the_ephemeral_floor() {
         std::net::TcpListener::bind(("127.0.0.1", port))
             .unwrap_or_else(|why| panic!("{port} in the handed-out range is taken: {why}"));
     }
+}
+
+/// **A span handed out stays its taker's**, so a second process walking to it
+/// moves on rather than probing ports the first has not bound yet. A second
+/// open of the lock file stands in for that process: `flock` is held per open,
+/// not per process.
+#[test]
+fn a_span_handed_out_is_not_handed_out_again() {
+    let (base, released) = a_span_held_below_the_floor();
+    drop(released);
+    assert!(
+        a_slot_locked(base).is_none(),
+        "{base} is free to bind, and still not free to take"
+    );
 }
