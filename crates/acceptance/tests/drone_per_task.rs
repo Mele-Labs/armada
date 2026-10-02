@@ -581,7 +581,7 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
                     "{id} stays handed in while G1 goes round"
                 );
                 assert_eq!(
-                    tasking::restartable(&plan, &GroupRuns::fold(&moves), task(id)),
+                    tasking::restartable(&plan, &GroupRuns::fold(&moves), &run.job, task(id)),
                     Err(NotRestartable::NotFailed {
                         task: task(id),
                         state: TaskState::HandedIn
@@ -674,11 +674,11 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
 
     // ------------------------------------- only now: restart, or move
     assert_eq!(
-        tasking::restartable(&plan, &GroupRuns::fold(&moves), task("T2")),
+        tasking::restartable(&plan, &GroupRuns::fold(&moves), &run.job, task("T2")),
         Ok(())
     );
     assert_eq!(
-        tasking::restartable(&plan, &GroupRuns::fold(&moves), task("T3")),
+        tasking::restartable(&plan, &GroupRuns::fold(&moves), &run.job, task("T3")),
         Err(NotRestartable::NotFailed {
             task: task("T3"),
             state: TaskState::Open

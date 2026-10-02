@@ -179,7 +179,11 @@ impl Delivery for GitVcs {
         crate::under_review::read(in_repo, pull_request)
     }
 
-    fn inline_remarks(&self, in_repo: &str, pull_request: &str) -> Vec<adapter_traits::Remark> {
+    fn inline_remarks(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<Vec<adapter_traits::Remark>> {
         crate::inline_comments::read(in_repo, pull_request)
     }
 

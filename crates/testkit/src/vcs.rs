@@ -222,7 +222,8 @@ pub enum Delivered {
     /// request it should have stopped asking about.
     AskedWhatIsUnderReview { pull_request: String },
     /// The forge was asked for inline diff comments. Counted apart from
-    /// [`AskedWhatIsUnderReview`]: the sweep must never pay for this call.
+    /// [`AskedWhatIsUnderReview`]: the sweep pays for it only on a turn that
+    /// found the pull request open and read it.
     AskedForInlineRemarks { pull_request: String },
     /// The forge was asked for a pull request's diff, for a Code Review Job's review.
     AskedForTheDiff { pull_request: String },
@@ -292,9 +293,11 @@ pub struct Delivering {
     /// and the one every case that is not about reviews should get, so that
     /// nothing reads an approval nobody scripted.
     pub under_review: UnderReview,
-    /// The forge's answer for inline diff comments. Empty by default, and
-    /// never inferred from `under_review` — a real forge does not either.
-    pub inline_remarks: Vec<Remark>,
+    /// The forge's answer for inline diff comments: answered and empty by
+    /// default, so a case that scripts only `under_review` counts what it
+    /// scripted. `None` is a forge that would not answer. Never inferred from
+    /// `under_review` — a real forge does not either.
+    pub inline_remarks: Option<Vec<Remark>>,
     /// The forge's answer for a pull request's diff. `None` by default, the forge's silence.
     pub pull_request_diff: Option<adapter_traits::PullRequestDiff>,
     /// What re-running failed CI runs comes to. One run started again by default.
@@ -332,7 +335,7 @@ impl Default for Delivering {
             title: Some(String::from("a job's pull request")),
             mergeable: Mergeable::Yes,
             under_review: UnderReview::unreadable(),
-            inline_remarks: Vec::new(),
+            inline_remarks: Some(Vec::new()),
             pull_request_diff: None,
             rerun: Ok(adapter_traits::Rerun { runs: 1 }),
             filed: Ok(adapter_traits::FiledIssue {
@@ -471,12 +474,12 @@ impl FakeVcs {
 
     /// Say what the forge answers for inline diff comments. `&self` for
     /// [`now_under_review`](FakeVcs::now_under_review)'s reason.
-    pub fn now_inline_remarks(&self, remarks: Vec<Remark>) {
+    pub fn now_inline_remarks(&self, remarks: Option<Vec<Remark>>) {
         self.delivery.lock().expect("not poisoned").inline_remarks = remarks;
     }
 
     /// How many times the forge has been asked for inline comments — the
-    /// query the sweep must never make.
+    /// query the sweep makes once per turn on an open pull request.
     pub fn times_asked_for_inline_remarks(&self) -> usize {
         self.counted(|it| matches!(it, Delivered::AskedForInlineRemarks { .. }))
     }
@@ -771,7 +774,7 @@ impl Delivery for FakeVcs {
             .clone()
     }
 
-    fn inline_remarks(&self, _in_repo: &str, pull_request: &str) -> Vec<Remark> {
+    fn inline_remarks(&self, _in_repo: &str, pull_request: &str) -> Option<Vec<Remark>> {
         self.delivered
             .lock()
             .expect("not poisoned")
