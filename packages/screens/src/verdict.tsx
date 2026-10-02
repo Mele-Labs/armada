@@ -635,6 +635,7 @@ export function verdictSlotAtGate({
   const sheetWith = (pending?: PendingChanges, folded = false) => (
     <VerdictSheet
       folded={folded}
+      jobId={job.id}
       {...verdictOf({
         job,
         whole,

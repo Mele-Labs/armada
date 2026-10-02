@@ -15,6 +15,7 @@ import type {
 } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import type { RecordAsked } from "@armada/components";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -40,6 +41,12 @@ export type Scenario = {
    * onto the fixture's own reads and this field loses a key.
    */
   draft?: ArcDraft;
+  /**
+   * An arrangement of The Job's record to draw in place of the one the app
+   * draws, by Job id — a design round's options, #1680. Absent is the record
+   * as it is, which is every real Fleet.
+   */
+  records?: Readonly<Record<string, RecordAsked>>;
   /**
    * The Studios this scenario's Fleet keeps. **Every scenario answers the Studio reads and
    * writes** (#1341), so one that names none keeps an empty list and the surface draws its empty

@@ -62,6 +62,7 @@ import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { zoning } from "./studio-read-in";
 import { job2Landed } from "./job-2-landed";
+import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -398,6 +399,31 @@ function recordedBoard(): Scenario {
 }
 
 /**
+ * #1680's three arrangements of The Job's record, each on its own copy of Job 2
+ * at its review gate. **Every scenario holds all three copies**, so a walk
+ * opened on one reaches the other two from the Board; each opens on its own.
+ * A copy's handle names its arrangement after Job 2's own number, which is how
+ * its Board row is told apart; the title is the owner's, unchanged. The record
+ * arrives open, so it can be compared without a press — the fold itself is
+ * unchanged.
+ */
+const RECORD_OPTIONS = [
+  { name: "review-gate/record-a-cards", arrangement: "cards", id: "01M3WJ4CVF0021ZQB9G8PQMAHA", handle: "2-a-cards" },
+  { name: "review-gate/record-b-glass-rows", arrangement: "rows", id: "01M3WJ4CVF0021ZQB9G8PQMAHB", handle: "2-b-glass-rows" },
+  { name: "review-gate/record-c-work-first", arrangement: "work-first", id: "01M3WJ4CVF0021ZQB9G8PQMAHC", handle: "2-c-work-first" },
+] as const;
+
+function recordOption(option: (typeof RECORD_OPTIONS)[number]): Scenario {
+  const fixtures = RECORD_OPTIONS.map((one) => job2AtReview(one.id, one.handle));
+  return {
+    ...holding(option.name, `Job 2 at its review gate, The Job's record as ${option.arrangement}`, fixtures, {
+      opens: option.id,
+    }),
+    records: Object.fromEntries(RECORD_OPTIONS.map((one) => [one.id, { arrangement: one.arrangement, open: true }])),
+  };
+}
+
+/**
  * Every scenario, by name. **The first is where the mock opens.**
  *
  * A recording added under `fixtures/recorded/` is a scenario and an `every-state`
@@ -487,6 +513,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // #1680: three arrangements of The Job's record, on Job 2 just before it landed.
+  ...RECORD_OPTIONS.map(recordOption),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),

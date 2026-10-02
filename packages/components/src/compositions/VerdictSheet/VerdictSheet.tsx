@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Prose } from "../../primitives/Prose/Prose";
+import { ArrangedRecord, useRecordAsked } from "./RecordArrangements";
 
 /**
  * Verdict sheet — the record job detail shows at the one place a Job stops for
@@ -96,6 +97,12 @@ export type VerdictSheetProps = {
    * folds behind one line a person can open, and `note` and `actions` stay open.
    */
   folded?: boolean;
+  /**
+   * The Job this record is of — read only to find an arrangement a mock
+   * scenario asked for (`RecordArrangements.tsx`, #1680). Nothing on a real
+   * Fleet asks, so the record draws as below.
+   */
+  jobId?: string;
 };
 
 export function VerdictSheet({
@@ -116,8 +123,10 @@ export function VerdictSheet({
   actions,
   recordNote,
   folded = false,
+  jobId,
 }: VerdictSheetProps) {
   const [open, setOpen] = useState(false);
+  const asked = useRecordAsked(jobId);
   const Mark = open ? ChevronDown : ChevronRight;
   const record = (
     <>
@@ -199,27 +208,47 @@ export function VerdictSheet({
           recipe. It was the flat region among Overview's cards, which is what
           the owner read on 30 Sep 2026. Folding is unchanged: the 29 Sep
           decision is that the record stays under the lead. */}
-      <div className="armada-verdict__record-card armada-glass">
-        {folded ? (
-          <>
-            <button
-              type="button"
-              className="armada-verdict__fold"
-              aria-expanded={open}
-              onClick={() => setOpen((was) => !was)}
-            >
-              <Mark size={12} aria-hidden="true" />
-              <span className="armada-verdict__label">The Job&apos;s record</span>
-            </button>
-            {/* `hidden`, not unmounted, on `DroneBrief`'s rule: a folded record stays in the page. */}
-            <div className="armada-verdict__record-body" hidden={!open}>
-              {record}
-            </div>
-          </>
-        ) : (
-          record
-        )}
-      </div>
+      {asked !== undefined ? (
+        <ArrangedRecord
+          asked={asked}
+          record={{
+            title,
+            brief,
+            criteria,
+            criteriaAbsent,
+            cameBack,
+            deliverable,
+            pullRequest,
+            provesIt,
+            provesItNote,
+            risks,
+            leftAlone,
+            figures,
+          }}
+        />
+      ) : (
+        <div className="armada-verdict__record-card armada-glass">
+          {folded ? (
+            <>
+              <button
+                type="button"
+                className="armada-verdict__fold"
+                aria-expanded={open}
+                onClick={() => setOpen((was) => !was)}
+              >
+                <Mark size={12} aria-hidden="true" />
+                <span className="armada-verdict__label">The Job&apos;s record</span>
+              </button>
+              {/* `hidden`, not unmounted, on `DroneBrief`'s rule: a folded record stays in the page. */}
+              <div className="armada-verdict__record-body" hidden={!open}>
+                {record}
+              </div>
+            </>
+          ) : (
+            record
+          )}
+        </div>
+      )}
 
       {note === undefined ? null : <p className="armada-verdict__said">{note}</p>}
 
