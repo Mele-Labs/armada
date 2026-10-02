@@ -656,11 +656,6 @@
   status = "Specified"
   notes = "Changed from git-fork, which loses its nodes at 12px. One line becoming two is literally what fanning out means, and it frees git-* for real git operations."
 
-  [[icons.split.usage]]
-    means = "wrap a reading's lines"
-    group = "Console"
-    size = "16px"
-    notes = "Added 2 Oct 2026 for the log panel's wrap toggle (owner: an icon with a tooltip, from a glyph already here). One line becoming two is what wrapping does to a long line. `wrap-text`, the obvious glyph, is not in the set, and minting it was not asked for. Rule 4 allows the cross-group use: the escalation reason is 12px on a Job badge, and this is a 16px icon button in a console's head, held down while lines wrap."
 
 [icons.square-pen]
   means = "A pen crossing out of a square's open corner — a name in a box being rewritten"
@@ -714,6 +709,14 @@
   size = "12 and 16px"
   status = "Specified"
   reserved = "Pilot only."
+
+[icons.text-wrap]
+  means = "Ruled lines, the longest bending back under itself onto the line below"
+  group = "Console"
+  size = "16px"
+  status = "Specified"
+  reserved = "Wrapping the lines of a reading in a console, the reader's own toggle. Never a layout or alignment control, never a return or a redirect, and never undo."
+  notes = "Minted 2 Oct 2026 for the log panel's wrap toggle, on the owner's annotation that `split`, borrowed for it first, \"is not a wrap lines icon\". The glyph is the act itself: a long line turning back under itself. `text-wrap` and not `wrap-text`, which lucide-react keeps only as an alias of it. Against the arrows already in the set, rule 4 holds on outline: `corner-up-right` is a bare turn with no ruled lines, and `undo-2` an open arrow pointing against the reading direction. Refused: `split`, one line becoming two, which is an escalation reason and reads as fanning out rather than wrapping; `align-left`, which says how text is set rather than where a line breaks."
 
 [icons.trash-2]
   means = "A bin with its lid lifted clear"

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Split } from "lucide-react";
+import { TextWrap } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -263,14 +263,15 @@ function Tools({ tools }: { tools: ConsoleTools }) {
 const WRAP_LINES = "Wrap lines";
 
 /**
- * The reader's own ask to wrap a reading's lines: `split`, one line becoming
- * two, held down while lines wrap. A bare glyph, so its tooltip names it.
+ * The reader's own ask to wrap a reading's lines: `text-wrap`, a line turning
+ * back under itself, held down while lines wrap. A bare glyph, so its tooltip
+ * names it.
  */
 export function ConsoleWrapToggle({ wrap, onToggle }: { wrap: boolean; onToggle: () => void }) {
   return (
     <Tooltip label={WRAP_LINES} asChild>
       <Button variant="ghost" size="sm" iconOnly aria-label={WRAP_LINES} aria-pressed={wrap} onClick={onToggle}>
-        <Split size={16} strokeWidth={2} aria-hidden="true" />
+        <TextWrap size={16} strokeWidth={2} aria-hidden="true" />
       </Button>
     </Tooltip>
   );
