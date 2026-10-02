@@ -39,20 +39,32 @@ test("with a Job open, its acts are back", async () => {
   await expect.element(list.getByRole("option", { name: /^Kill/ }).first()).toBeInTheDocument();
 });
 
-// **A greyed row sends a person somewhere that exists.** Both reasons named a
-// chapter of the step's story, and the Overview reframe of 29 Sep 2026 retired
-// the chapters. `L` and `f` are what reach the log and the patch now, and only
-// on an open Job's Overview, where `tab-overview.tsx` binds `useDetailKeys`.
-test.each([
-  ["log", /^Open the log/, "a job's Overview, with L"],
-  ["diff", /^Open the diff/, "a job's Overview, with f"],
-])("searching %s, the greyed row says where the act is", async (query, row, reason) => {
+/** A Job open, and the palette searched for `query`. */
+async function searched(query: string) {
   const fixture = running();
   mount(onJob(fixture));
   await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   const list = await palette();
   await userEvent.fill(list.getByRole("combobox"), query);
-  const option = list.getByRole("option", { name: row });
+  return list;
+}
+
+// **A greyed row sends a person somewhere that exists.** The reason named the
+// story's Produced chapter, and the Overview reframe of 29 Sep 2026 retired the
+// chapters. `f` is what reaches the patch now, and only on an open Job's
+// Overview, where `tab-overview.tsx` binds `useDetailKeys`.
+test("searching diff, the greyed row says where the act is", async () => {
+  const list = await searched("diff");
+  const option = list.getByRole("option", { name: /^Open the diff/ });
   await expect.element(option).toHaveAttribute("aria-disabled", "true");
-  await expect.element(option).toHaveTextContent(reason);
+  await expect.element(option).toHaveTextContent("a job's Overview, with f");
+});
+
+// **The owner removed Open the log on 2 Oct 2026**: nothing on a Job is a
+// single log. Its aliases went with it, so nothing in the palette answers the
+// word, and the palette's own miss is what is waited for.
+test("searching log offers no Open the log", async () => {
+  const list = await searched("log");
+  await expect.element(list.getByText("Nothing matches “log”.", { exact: false })).toBeVisible();
+  expect(list.getByRole("option", { name: /^Open the log/ }).query()).toBeNull();
 });
