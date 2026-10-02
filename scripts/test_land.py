@@ -137,6 +137,25 @@ else:
 '''
 
 
+def stub_checks(root):
+    """The pids of every stub `armada check` started from `root`'s fixture."""
+    found = subprocess.run(["pgrep", "-f", "--", f"{root}/bin/armada check"],
+                           capture_output=True, text=True)
+    return [int(pid) for pid in found.stdout.split()]
+
+
+# Every fixture root a test tore down, so the module can show none of their
+# Checks outlived it.
+STARTED_IN = []
+
+
+def tearDownModule():
+    survivors = {root: stub_checks(root) for root in STARTED_IN}
+    survivors = {root: pids for root, pids in survivors.items() if pids}
+    if survivors:
+        raise AssertionError(f"stub Checks outlived their test: {survivors}")
+
+
 def key(branch):
     return sha256(branch.encode()).hexdigest()[:16]
 
@@ -248,6 +267,15 @@ class LineFixture(unittest.TestCase):
                 print(open(line).read())
         # Only this test's runner, named by its own git directory.
         subprocess.run(["pkill", "-f", "--", f"--runner {self.repo}/.git"], capture_output=True)
+        # And every Check its runner started. Each stub `armada check` leads a
+        # process group of its own, as the real one's command does, so killing
+        # the runner leaves a Check waiting on a file nobody will write.
+        for pid in stub_checks(self.root):
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        STARTED_IN.append(self.root)
         shutil.rmtree(self.root, ignore_errors=True)
 
     # ------------------------------------------------------------ helpers
