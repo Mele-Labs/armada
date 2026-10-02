@@ -3,57 +3,32 @@
 //! request tidied after it. `docs/capabilities/merge-line.md`, *The merge*.
 
 use std::path::Path;
+use std::process::Output;
 use std::time::{Duration, Instant};
+
+use adapters::onto_base::{self, Onto};
 
 use super::dir::StateDir;
 use super::env::Env;
-use super::git::{best_effort, checked};
+use super::git::best_effort;
 use super::outcome::{OutcomePatch, OutcomeState};
 use super::queue::QueueEntry;
 use super::repo::{is_ancestor, remote_head, rev_parse};
-use super::shell::{gh_view, run};
+use super::shell::{gh_view, logged, run};
 use super::stop::Stopped;
 
-/// The message of the merge commit a branch lands as.
-pub fn message(branch: &str, pull_request: Option<u64>) -> String {
-    let subject = match pull_request {
-        Some(number) => format!("Merge pull request #{number} from {branch}"),
-        None => format!("Merge branch '{branch}'"),
-    };
-    format!("{subject}\n\nLanded-from: {branch}\n")
-}
+pub use adapters::onto_base::message;
 
-/// The commit `git merge --no-ff <candidate>` makes on `base`. The candidate
-/// already holds `base`, so its tree is the merge's tree, and what is pushed
-/// is exactly what was gated.
+/// The commit `git merge --no-ff <candidate>` makes on `base`:
+/// `adapters::onto_base`, which Fleet's `merge_by: push` lands through too.
 pub fn merge_commit(
     repo: &Path,
     base: &str,
     candidate: &str,
     message: &str,
 ) -> Result<String, Stopped> {
-    if !is_ancestor(repo, base, candidate) {
-        return Err(Stopped::stopped(format!(
-            "the candidate {} does not hold {}, so a merge of it would not be what was gated",
-            short(candidate),
-            short(base)
-        )));
-    }
-    let tree = format!("{candidate}^{{tree}}");
-    let made = checked(
-        repo,
-        &[
-            "commit-tree",
-            &tree,
-            "-p",
-            base,
-            "-p",
-            candidate,
-            "-m",
-            message,
-        ],
-    )?;
-    Ok(String::from_utf8_lossy(&made.stdout).trim().to_string())
+    onto_base::merge_commit(repo, base, candidate, message)
+        .map_err(|why| Stopped::stopped(why.to_string()))
 }
 
 /// What pushing a merge commit onto the base found.
@@ -72,33 +47,11 @@ pub fn push(
     base: &str,
     log: &Path,
 ) -> Result<Pushed, Stopped> {
-    let refspec = format!("{merge}:refs/heads/{}", env.base);
-    let pushed = run(
-        &[
-            "git",
-            "-C",
-            &repo.to_string_lossy(),
-            "push",
-            "--quiet",
-            &env.remote,
-            &refspec,
-        ],
-        repo,
-        None,
-        Some(log),
-    )?;
-    if pushed.success() {
-        return Ok(Pushed::Landed);
-    }
-    match remote_head(repo, &env.remote, &env.base) {
-        Ok(Some(now)) if now == merge => Ok(Pushed::Landed),
-        Ok(Some(now)) if now != base => Ok(Pushed::Moved),
-        _ => Err(Stopped::stopped(format!(
-            "the push of {} was refused, and {} has not moved: {}",
-            env.base,
-            env.base,
-            pushed.stderr().trim()
-        ))),
+    let ran = |argv: &[&str], output: &Output| logged(log, argv, output);
+    match onto_base::push(repo, &env.remote, &env.base, merge, base, ran) {
+        Ok(Onto::Landed) => Ok(Pushed::Landed),
+        Ok(Onto::Moved) => Ok(Pushed::Moved),
+        Err(why) => Err(Stopped::stopped(why.to_string())),
     }
 }
 
@@ -229,22 +182,5 @@ fn shell_quote(value: &str) -> String {
         value.to_string()
     } else {
         format!("'{}'", value.replace('\'', "'\\''"))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::message;
-
-    #[test]
-    fn a_landing_names_its_branch_in_a_trailer_and_its_pull_request_where_there_is_one() {
-        assert_eq!(
-            message("fix/one", Some(12)),
-            "Merge pull request #12 from fix/one\n\nLanded-from: fix/one\n"
-        );
-        assert_eq!(
-            message("fix/one", None),
-            "Merge branch 'fix/one'\n\nLanded-from: fix/one\n"
-        );
     }
 }

@@ -9,17 +9,21 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Button, Card, CardContent, Skeleton, SkeletonText, Textarea } from "@armada/components";
 
-import type { JobSummary, StepDetail } from "@armada/protocol";
+import type { JobDetail as JobWhole, JobSummary, JudgeAnswer, StepDetail } from "@armada/protocol";
 
-import { Eyebrow } from "./InsideAJob";
+import { Eyebrow } from "./regions";
 import { decidedSaidOf, originLineOf } from "./draft/criterion";
+import { JudgeAsked, judgeAskedOn } from "./judge-asked";
+import type { ActingAct } from "./pending";
 import type { CriterionView } from "./draft/criterion";
 
 export type PlanLeadProps = {
   criteria: readonly CriterionView[];
   /**
-   * Approve the plan and Propose a change, as `PlanReview` builds them — the
-   * same node Overview's gate draws, so the two cannot offer different acts.
+   * The plan's gate, as `PlanReview` builds it — the same node Overview's gate
+   * draws. At a Judge's refusal it is Overview's own refusal block,
+   * `JudgeAsked`, and Approve the plan is not drawn, so the two cannot offer
+   * different acts.
    */
   gate: ReactNode;
   /**
@@ -32,14 +36,19 @@ export type PlanLeadProps = {
 
 export type PlanGateProps = {
   job: JobSummary;
+  /** The Job whole, for the Judge's question where one is open on the step. */
+  whole: JobWhole | null;
   /** The step that recorded the plan. The gate is drawn only while it waits. */
   step: StepDetail | undefined;
   /** Every control is refused while what is shown is not live. */
   stale: boolean;
   acting: boolean;
   deciding: boolean;
+  actingAct?: ActingAct | undefined;
   onApproveReview: (jobId: string) => void;
   onRedirect: (jobId: string, instruction: string) => void;
+  /** Answer the Judge's question — Overview's own handler. */
+  onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
 };
 
 /**
@@ -63,19 +72,40 @@ function originSaid(criterion: CriterionView): string {
  * change one group or one task without sending the whole plan back, are on the
  * board's own cards and in the task inspector (`#1552`).
  *
- * Drawn only while the step that recorded the plan is waiting on a person, so
- * a Job already implementing offers nothing here to press.
+ * Drawn only while the step that recorded the plan is waiting on a person.
+ *
+ * **A Judge's refusal on the step is answered first, and only that** (owner,
+ * 1 Oct 2026, `#1748` row 13): Overview's own block, `JudgeAsked`, with the
+ * same handler and nothing else, as Overview offers nothing else there.
  */
 export function PlanGate({
   job,
+  whole,
   step,
   stale,
   acting,
   deciding,
+  actingAct,
   onApproveReview,
   onRedirect,
+  onAnswerJudge,
 }: PlanGateProps) {
   const [instruction, setInstruction] = useState("");
+  if (judgeAskedOn(whole, step)) {
+    return (
+      <div className="armada-plan-tab__gate">
+        <JudgeAsked
+          jobId={job.id}
+          whole={whole}
+          step={step}
+          stale={stale}
+          acting={acting}
+          actingAct={actingAct}
+          onAnswerJudge={onAnswerJudge}
+        />
+      </div>
+    );
+  }
   if (step === undefined || step.state !== "awaiting_human") return null;
   const empty = instruction.trim() === "";
   return (

@@ -26,6 +26,7 @@ pub mod gate;
 mod gating;
 pub mod git;
 pub mod lock;
+mod logs;
 mod merge_in;
 mod onto_main;
 pub mod outcome;

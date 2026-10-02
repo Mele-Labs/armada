@@ -144,6 +144,7 @@ pub fn checks(
     nothing_left(&where_, "the Checks")?;
 
     let mut already = Vec::new();
+    let mut base_timed_out = Vec::new();
     if !failed.is_empty() {
         tell(
             state,
@@ -159,7 +160,8 @@ pub fn checks(
                 ..OutcomePatch::default()
             },
         )?;
-        already = checks_on_the_base(repo, state, base, &failed, env, logs)?;
+        let on_base = checks_on_the_base(repo, state, base, &failed, env, logs)?;
+        (already, base_timed_out) = (on_base.already, on_base.timed_out);
         failed.retain(|name| !already.contains(name));
         for name in &already {
             log_paths.push(path_string(
@@ -199,12 +201,36 @@ pub fn checks(
         })
     };
     let theirs = (!already.is_empty()).then(|| {
+        let (slow, red): (Vec<String>, Vec<String>) = already
+            .iter()
+            .cloned()
+            .partition(|name| base_timed_out.contains(name));
+        let mut said = Vec::new();
+        if !red.is_empty() {
+            said.push(format!(
+                "{} already fails on {} itself",
+                red.join(", "),
+                env.base
+            ));
+        }
+        if !slow.is_empty() {
+            said.push(format!(
+                "{} timed out on {} itself, past its limit of {}",
+                slow.join(", "),
+                env.base,
+                spoken(env.check_limit)
+            ));
+        }
+        // A timeout is not remembered against the base, so the next turn asks again.
+        let next = if red.is_empty() {
+            "land again".to_string()
+        } else {
+            format!("fix {} and land that first", env.base)
+        };
         format!(
-            "{}{} already fails on {} itself, so that much is not this branch's — fix {} and land that first",
+            "{}{}, so that much is not this branch's — {next}",
             killed(&already).map_or(String::new(), |said| format!("{said}, and ")),
-            already.join(", "),
-            env.base,
-            env.base
+            said.join(", and "),
         )
     });
     if !failed.is_empty() || crashed.is_some() {

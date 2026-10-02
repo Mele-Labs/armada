@@ -105,7 +105,7 @@ pub struct WorktreeOnDisk {
     pub measured_at: Option<Instant>,
 }
 
-/// What one Job holds on this machine, at one instant.
+/// What one Job holds on this machine: one reading, save the worktree's size.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JobResources {
     pub job_id: JobId,

@@ -330,6 +330,10 @@ async fn every_refusal_kind_carries_its_own_code() {
             NotMerged::NoTool { said: said.clone() },
             "fleet.merge_no_tool",
         ),
+        (
+            NotMerged::BaseMoved { said: said.clone() },
+            "fleet.merge_base_moved",
+        ),
         (NotMerged::Refused { said }, "fleet.merge_refused"),
     ];
     for (why, code) in kinds {

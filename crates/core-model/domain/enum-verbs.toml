@@ -585,6 +585,14 @@ vocabulary = "Escalation reason"
 in_code = ""
 notes = "**It means the Drone said nothing back, never that the Drone did nothing.** `stalled`, `silent` and `hatch_unbidden` all draw the verb `stalled`, and `escalation-triggers.toml` gives that word to a Drone that produced nothing at all; the Drone this was minted for was producing plenty and answered none of it. A reader who collapses the two has erased the trigger, and this note is where the distinction is kept from eroding. Lowercase and in the plain past, the pattern `churning`, `interrupted` and `stopped at the gate` already use. Not `churning`, which is `thrashing`'s: that is the finding this one followed, and drawing them alike is the confusion the split exists to end. No glyph, and not for want of looking — `octagon-alert` is reserved to `stalled` and is the loudest shape in the set, `refresh-cw` is `churning`'s, `bell` is escalations-as-interrupt and its own note keeps it clear of `octagon-alert`, and `message-square` is Navigation's under a note banning metaphor outside proper nouns. Nothing in `packages/icons/icons.toml` claims the right thing, so the glyph is filed open as `[no-report-glyph]` on `docs/contracts/iconography.md` rather than borrowed. It draws a verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `evidence_too_large`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted` and `would_not_start`."
 
+[verbs.escalation_reason.no_workflow_fits]
+verb = "no workflow fits"
+icon = ""
+status_token = "--status-escalated"
+vocabulary = "Escalation reason"
+in_code = ""
+notes = "The same words `fleet.no_workflow_fits` refuses with at the route, so the badge on the escalated Job and the notice at the press say one thing. It names the request's problem and nobody's fault, which is what tells a person to rephrase rather than to look at the machine — `proposer_failed` beside it is the other answer, and the two must never read alike. No glyph: nothing in `packages/icons/icons.toml` claims a request nothing fits, and it draws its verb alone like the other escalation reasons that owe one."
+
 [verbs.escalation_reason.no_worktree]
 verb = "the worktree was unusable"
 icon = ""
@@ -608,6 +616,14 @@ status_token = "--status-escalated"
 vocabulary = "Escalation reason"
 in_code = "In code"
 notes = "Re-verbed 2026-08-31, from `the worktree was not prepared`. `no_worktree` was minted the same day and the two verbs would have been a near-homograph for two different people's problems — the disk's and the Manifest's — which is the confusion the mint existed to remove. This row gave up the noun because its identity is the command and not the tree: `setup.requires` is what a person edits, and `a required command did not succeed` is the first clause of the trigger's own meaning. The badge no longer repeats `NotPrepared`'s log line word for word, and does not need to: the line beneath names the command, the exit and what it printed, and the badge names who owns it. The verb names the state every path into this trigger leaves behind rather than the one that happened to occur, which is `gate_failure`'s lesson taken before it had to be learned twice: a `setup.requires` command can exit non-zero, be signalled, run past its budget, or not be on the path at all, and a verb saying `the install failed` would be wrong on three of the four and wrong about the command on any repository whose setup is not an install. It is the same sentence `NotPrepared` opens with in the Job's log, where the command and the exit are, so the badge and the line beneath it are one claim. It says nothing failed a check, because nothing was checked — no step had been entered when this fired. No glyph: the shield-* family is reserved to gates and Checks and this is neither, and `folder` and `folder-git-2` are the Git and config family labelling a value in a detail view rather than a state. It stays owed beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `evidence_too_large` and `resource_exhausted`."
+
+[verbs.escalation_reason.proposer_failed]
+verb = "the proposer could not answer"
+icon = ""
+status_token = "--status-escalated"
+vocabulary = "Escalation reason"
+in_code = ""
+notes = "**The call's problem, never the request's**: `no_workflow_fits` is the word that sends a person to rewrite, and this one has to read as nothing they typed being wrong. `could not answer` covers every arm it folds — a call that never got through, an answer unreadable twice, a model this machine does not run, a Fleet restart — without claiming which; the Job's log says that. Not `the proposer failed`, which reads as a verdict on the request. No glyph, for `no_workflow_fits`' reason."
 
 [verbs.escalation_reason.resource_exhausted]
 verb = "ran out of resources"

@@ -92,10 +92,12 @@ pub static EDGES: &[Edge] = &[
     edge(Piloted, Killed),
     edge(Piloted, Running),
     edge(Piloted, Superseded),
+    // Crossed by `Job::answered` alone — `transition` refuses it, because a
+    // Job reaching the gate here needs the workflow the answer froze.
     edge(Proposing, AwaitingApproval),
-    // Untriggered, and `escalation-triggers.toml` is where that is owed: the
-    // declined and the faulted proposal want different words, and neither
-    // exists yet. `[statuses.proposing]`'s `open_questions` carries it.
+    // Untriggered in the registry because two triggers claim it, and an `Edge`
+    // holds one. `admits` holds the pair instead: `no_workflow_fits` and
+    // `proposer_failed` declare it, and nothing else may take it.
     edge(Proposing, Escalated),
     edge(Proposing, Killed),
     edge(Queued, AwaitingApproval),
@@ -350,11 +352,50 @@ pub enum IllegalTransition {
     ///
     /// `awaiting_repair -> running` alone — see [`a_persons_edge`].
     NotAPersonsAct { from: JobStatus, to: JobStatus },
+    /// The edge is one that only the triggers declaring it may take, and
+    /// `given` does not declare it.
+    ///
+    /// `proposing -> escalated` is the one: two triggers claim it, so the
+    /// registry gives it no single trigger, and without this any reason at all
+    /// — `stalled` on a Job no Drone was ever on — would be admitted there.
+    UndeclaredTrigger {
+        from: JobStatus,
+        to: JobStatus,
+        given: EscalationTrigger,
+    },
+    /// `proposing -> awaiting_approval` asked for through
+    /// [`Job::transition`](crate::Job::transition).
+    ///
+    /// **That edge is [`Job::answered`](crate::Job::answered)'s alone**,
+    /// because crossing it is the moment a workflow is frozen into the Job and
+    /// its steps are made. A Job arriving at the gate any other way would stand
+    /// there with no workflow and no steps, which every reader past this
+    /// status assumes it cannot.
+    OnlyAnAnswerCrosses,
+    /// An answer handed to a Job not at `proposing`, whose workflow is frozen.
+    NothingToAnswer { from: JobStatus },
 }
 
 impl fmt::Display for IllegalTransition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            IllegalTransition::UndeclaredTrigger { from, to, given } => write!(
+                f,
+                "{} -> {} is taken only by the triggers that declare it, and {} does not",
+                from.as_wire(),
+                to.as_wire(),
+                given.as_wire()
+            ),
+            IllegalTransition::OnlyAnAnswerCrosses => write!(
+                f,
+                "proposing -> awaiting_approval is crossed by the proposer's answer, \
+                 which freezes the workflow, and by nothing else"
+            ),
+            IllegalTransition::NothingToAnswer { from } => write!(
+                f,
+                "a proposer's answer crosses from proposing, and the Job is at {}",
+                from.as_wire()
+            ),
             IllegalTransition::NotAPersonsAct { from, to } => write!(
                 f,
                 "{} -> {} is a person's act, and only a person may take it",
@@ -442,6 +483,18 @@ pub(crate) fn admits(
                 from,
                 to: arriving,
                 expected,
+                given: *given,
+            })
+        }
+        // An untriggered edge into `escalated` other than the default admits
+        // only the triggers that declare it. `running -> escalated` is the
+        // default and admits every trigger, as the registry says.
+        (None, Target::Escalated(given))
+            if from != Running && given.declared_edge() != Some((from, arriving)) =>
+        {
+            return Err(IllegalTransition::UndeclaredTrigger {
+                from,
+                to: arriving,
                 given: *given,
             })
         }

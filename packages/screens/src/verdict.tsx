@@ -21,7 +21,6 @@ import type { ReactNode } from "react";
 import { GitPullRequest, Minus } from "lucide-react";
 import {
   CheckRuns,
-  JudgeQuestion,
   VerdictSheet,
   type CheckRun as CheckRunRow,
   type VerdictFigure,
@@ -49,6 +48,7 @@ import { sitting } from "./held";
 import { checkRow, judgeRow, saidOf, iconOf } from "./checks";
 import { Decide } from "./Decide";
 import { PlanReview, type PlanReviewProps } from "./plan-review";
+import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import { checksOf, didNotPass, mechanicalRunsOf, panelsOf } from "./gates";
 import { basename, keptOf, type Opens } from "./phases";
 import type { Render } from "./render";
@@ -586,28 +586,17 @@ export function verdictSlotAtGate({
 }: VerdictSlotAtGateArgs): ReactNode {
   // A judge question outranks the rest of this slot: the gate is a human
   // boundary either way, but this step is answered before it is reviewed.
-  const question = whole?.judge_question;
-  if (question !== undefined && question.step_id === open.step_id) {
-    // **`acting`, not `deciding`.** `onAnswerJudge` sends under `acting` —
-    // `pending.ts`'s `answer_judge` is an `ActingAct`, never a `DecidingAct` —
-    // so gating this on `deciding` left its own buttons live for the whole of
-    // the press they had just sent. #1117.
+  // `JudgeAsked` is the one block Plan and the step panel draw for it too.
+  if (judgeAskedOn(whole, open)) {
     return (
-      <JudgeQuestion
-        question={question.question}
-        expected={question.expected}
-        produced={question.produced}
-        consequence={question.consequence}
-        disabled={stale || acting}
-        disabledNote={
-          stale
-            ? "This job is not live, so nothing can be sent."
-            : acting
-              ? "Something sent to this job is still on its way to Fleet."
-              : undefined
-        }
-        pending={acting && actingAct === "answer_judge"}
-        onAnswer={(answer, note) => onAnswerJudge(job.id, question.asked_at, answer, note)}
+      <JudgeAsked
+        jobId={job.id}
+        whole={whole}
+        step={open}
+        stale={stale}
+        acting={acting}
+        actingAct={actingAct}
+        onAnswerJudge={onAnswerJudge}
       />
     );
   }

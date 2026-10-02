@@ -9,12 +9,21 @@
 // Split out of `JobDetail.tsx`, which the 900-line refusal caught at 909.
 // **Not `reading.ts`**, which is how a Job's *status* reads.
 
+import type { ReactNode } from "react";
 import type { RunTreeSkeletonProps } from "@armada/components";
 import type { JobSummary, Watched, WorkflowSummary } from "@armada/protocol";
 import { EVERY_STEP_PHASE } from "./timeline";
-import type { StepReading } from "./InsideAJob";
 import { stepsAhead } from "./run";
 import { stillReading } from "./work";
+
+/** The open step while it is read: what is already known of it. */
+export type StepReading = {
+  /** The step's name off the workflow. Absent draws a bar in its place. */
+  label?: ReactNode;
+  labelIsAnIdentifier?: boolean;
+  /** The phases every step is read against, by name. */
+  phases: readonly ReactNode[];
+};
 
 /** The two regions that draw differently while the read is out. */
 export type WhileReading = {

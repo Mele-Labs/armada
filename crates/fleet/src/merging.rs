@@ -24,13 +24,18 @@
 //! approval with a write to the forge in front of it**, and what it does to the
 //! machines is [`approve_review`](Fleet::approve_review), called not restated.
 
+use std::sync::Arc;
+
 use adapter_traits::{
-    AgentHarness, Delivery, Merged, NotMerged, Vcs, WhatBecameOfIt, WhatTheForgeRan, WorkProduct,
+    AgentHarness, Delivery, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Vcs,
+    WhatBecameOfIt, WhatTheForgeRan, WorkProduct,
 };
+use config::MergeBy;
 use core_model::{Actor, AdvanceGate, Component, Envelope, FieldValue, Job, JobId, Level};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -101,45 +106,13 @@ where
         // somebody most wants to know what was attempted.
         self.said_about_the_merge(&job, Level::Warn, why, &url, None);
         let served = self.served_by(&job)?;
-        match self.vcs().merge(served.root(), &url) {
-            Ok(Merged::Taken) => self.said_about_the_merge(
-                &job,
-                Level::Info,
-                "the forge merged the pull request",
-                &url,
-                None,
-            ),
-            // **Not a failure**, so the press carries on: the work is where it
-            // was trying to put it, and everything below is what the record
-            // still has to be told.
-            Ok(Merged::AlreadyMerged) => self.said_about_the_merge(
-                &job,
-                Level::Info,
-                "the pull request was already merged, so the press moved the \
-                 record rather than the forge",
-                &url,
-                None,
-            ),
-            Err(why) => {
-                self.said_about_the_merge(
-                    &job,
-                    Level::Warn,
-                    "the forge would not merge the pull request, and the Job is \
-                     where it was",
-                    &url,
-                    Some(&why),
-                );
-                return Err(Adrift::NotMerged {
-                    job: job_id.clone(),
-                    why,
-                });
-            }
-        }
-        // **The same question the sweep asks, asked from the other end.** What
-        // it merged into, whether the forge agrees it is merged, and what the
-        // base is on now are one `landed` — and everything that follows a merge
-        // is `crate::noticing`'s, reached rather than done again.
-        let read: WhatBecameOfIt = self.vcs().landed(served.root(), &url);
+        // `merge_by:` picks the road and nothing after it differs: both answer
+        // what became of the pull request, and `settled_landing` takes it from
+        // there. `docs/capabilities/merge-line.md`, *The merge*.
+        let read: WhatBecameOfIt = match served.manifest().merge_by() {
+            MergeBy::Forge => self.merged_by_the_forge(&job, served.root(), &url)?,
+            MergeBy::Push => self.merged_by_push(&job, &served, &url).await?,
+        };
         // **Held, never raised.** The merge happened; a record that would not
         // write must not leave a person told their press failed and their work
         // on `main`. The sweep asks again on its next rotation, because a Job
@@ -159,6 +132,123 @@ where
         // is what merging has done: taken the work. The actor is carried
         // through, so the road this arrived by is on the record.
         self.approved(job_id, by).await
+    }
+
+    /// `merge_by: forge`: the forge merges, and is then asked what it did.
+    fn merged_by_the_forge(
+        &self,
+        job: &Job,
+        root: &str,
+        url: &str,
+    ) -> Result<WhatBecameOfIt, Adrift> {
+        match self.vcs().merge(root, url) {
+            Ok(Merged::Taken) => self.said_about_the_merge(
+                job,
+                Level::Info,
+                "the forge merged the pull request",
+                url,
+                None,
+            ),
+            // **Not a failure**, so the press carries on: the work is where it
+            // was trying to put it, and everything below is what the record
+            // still has to be told.
+            Ok(Merged::AlreadyMerged) => self.said_about_the_merge(
+                job,
+                Level::Info,
+                "the pull request was already merged, so the press moved the \
+                 record rather than the forge",
+                url,
+                None,
+            ),
+            Err(why) => {
+                self.said_about_the_merge(
+                    job,
+                    Level::Warn,
+                    "the forge would not merge the pull request, and the Job is \
+                     where it was",
+                    url,
+                    Some(&why),
+                );
+                return Err(Adrift::NotMerged {
+                    job: job.id().clone(),
+                    why,
+                });
+            }
+        }
+        // **The same question the sweep asks, asked from the other end.** What
+        // it merged into, whether the forge agrees it is merged, and what the
+        // base is on now are one `landed` — and everything that follows a merge
+        // is `crate::noticing`'s, reached rather than done again.
+        Ok(self.vcs().landed(root, url))
+    }
+
+    /// `merge_by: push`: the merge commit is made here and pushed onto the
+    /// base, never forced, through the code `armada land` lands through.
+    ///
+    /// **The answer is written from the push**, not read from the forge: the
+    /// forge reads the pull request merged once its head is in the base, which
+    /// it may not have caught up to yet, and there is nothing else to ask.
+    /// Under `merge_end`, for `crate::currency`'s reason.
+    async fn merged_by_push(
+        &self,
+        job: &Job,
+        served: &Served,
+        url: &str,
+    ) -> Result<WhatBecameOfIt, Adrift> {
+        let number = url.rsplit('/').next().and_then(|tail| tail.parse().ok());
+        let (vcs, root, handle, declared) = (
+            Arc::clone(self.vcs()),
+            served.root().to_string(),
+            job.handle(),
+            served.manifest().base().map(str::to_string),
+        );
+        let pushed = {
+            let _at_the_merge_end = self.merge_end().lock().await;
+            tokio::task::spawn_blocking(move || {
+                vcs.merge_by_push(&root, &handle, declared.as_deref(), number)
+            })
+            .await
+            .unwrap_or_else(|stopped| {
+                Err(NotMerged::Refused {
+                    said: stopped.to_string(),
+                })
+            })
+        };
+        let base = match pushed {
+            Ok(PushedOntoBase { base, merged }) => {
+                let said = match merged {
+                    Merged::Taken => "the merge commit was pushed onto the base",
+                    Merged::AlreadyMerged => {
+                        "the base already held the branch, so the press moved the record \
+                         rather than the base"
+                    }
+                };
+                self.said_about_the_merge(job, Level::Info, said, url, None);
+                base
+            }
+            Err(why) => {
+                self.said_about_the_merge(
+                    job,
+                    Level::Warn,
+                    "the merge commit was not pushed onto the base, and the Job is where it was",
+                    url,
+                    Some(&why),
+                );
+                return Err(Adrift::NotMerged {
+                    job: job.id().clone(),
+                    why,
+                });
+            }
+        };
+        Ok(WhatBecameOfIt {
+            landing: Landing::Merged {
+                url: url.to_string(),
+            },
+            base: Some(base),
+            number,
+            title: None,
+            mergeable: Mergeable::Unreadable,
+        })
     }
 
     /// Merge this Job's pull request where the repository's `auto_merge` policy

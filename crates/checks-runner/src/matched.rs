@@ -34,6 +34,18 @@ pub fn one_test_ran(exit: &Exit, output: &Output, expect_exit_code: i64) -> OneT
     }
 }
 
+/// How many tests [`crate::one_test`]'s command ran, from the runner's own
+/// summary: a bare name can match several. `None` where no summary was read.
+pub fn one_test_count(output: &Output) -> Option<u32> {
+    let combined = format!("{}\n{}", output.stdout, output.stderr);
+    nextest_ran_count(&combined).or_else(|| {
+        combined.lines().find_map(|line| {
+            let after = line.trim().strip_prefix("Tests")?;
+            Some(total_in_parens(after)?.saturating_sub(skipped_count(after)))
+        })
+    })
+}
+
 fn matched_nothing(output: &Output) -> bool {
     nextest_matched_nothing(output) || vitest_matched_nothing(output)
 }

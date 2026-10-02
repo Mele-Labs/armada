@@ -47,6 +47,9 @@ use crate::job::step_machine::{admits_step, IllegalStepTransition, StepTarget};
 use crate::job::transition::{admits, IllegalTransition, Target};
 use crate::job::workflow::{FrozenWorkflow, ResolvedStep};
 
+mod proposing;
+pub use proposing::{Answered, NewProposal};
+
 /// Everything creation decides, and nothing it does not.
 ///
 /// A plain struct with public fields rather than a builder: there is no
@@ -140,6 +143,11 @@ pub struct Job {
     created_at: Timestamp,
     status: JobStatus,
     workflow: FrozenWorkflow,
+    /// Whether `workflow` is one a WorkflowDef froze. **False on a Job at
+    /// `proposing` and nowhere else**: there `workflow` names at most the
+    /// workflow the proposer has settled on, with no steps, and the freeze is
+    /// [`Job::answered`]'s. See [`frozen_workflow`](Job::frozen_workflow).
+    workflow_frozen: bool,
     owner_manifest_id: ManifestId,
     origin: Origin,
     urgency: Urgency,
@@ -235,6 +243,9 @@ impl Job {
             created_at: at,
             status: entry,
             workflow: new.workflow,
+            // Every constructor but `create_proposing` is handed a frozen one,
+            // and that one writes `false` over this.
+            workflow_frozen: true,
             owner_manifest_id: new.owner_manifest_id,
             origin,
             urgency: new.urgency,
@@ -293,6 +304,11 @@ impl Job {
         at: Timestamp,
     ) -> Result<Transitioned, IllegalTransition> {
         admits(self.status, &to, &self.steps)?;
+        // The gate from `proposing` is the answer's, which freezes a workflow
+        // on the way across — `answered`, beside this.
+        if self.status == JobStatus::Proposing && to == Target::AwaitingApproval {
+            return Err(IllegalTransition::OnlyAnAnswerCrosses);
+        }
         if crate::job::transition::a_persons_edge(self.status, to.status())
             && !matches!(by, Actor::Human)
         {
@@ -624,6 +640,17 @@ impl Job {
     /// file, so a step declares at dispatch what it declared at approval.
     pub fn workflow(&self) -> &FrozenWorkflow {
         &self.workflow
+    }
+    /// The workflow, where one has been frozen — `None` on a Job still at
+    /// `proposing`, whose [`workflow`](Job::workflow) has no steps and names
+    /// at most the one the proposer settled on.
+    ///
+    /// **Asked only where the difference is written down**: the store's
+    /// `workflow` column and the wire's `workflow_source`. Every other reader
+    /// takes [`workflow`](Job::workflow), whose empty step list already
+    /// answers every step lookup with nothing.
+    pub fn frozen_workflow(&self) -> Option<&FrozenWorkflow> {
+        self.workflow_frozen.then_some(&self.workflow)
     }
     /// Read off the frozen workflow rather than stored beside it: two
     /// statements of one fact can disagree, and this one is a join key.

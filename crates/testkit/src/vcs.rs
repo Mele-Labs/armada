@@ -31,8 +31,8 @@ use std::sync::Mutex;
 use adapter_traits::{
     Base, BaseCheckout, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change, CommitTime, Committed,
     Delivery, KeptCurrent, Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened,
-    Pushed, Remark, RepositoryStanding, Review, Standing, UnderReview, Vcs, WhatBecameOfIt,
-    Worktree, WorktreeSpec,
+    Pushed, PushedOntoBase, Remark, RepositoryStanding, Review, Standing, UnderReview, Vcs,
+    WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
@@ -210,6 +210,12 @@ pub enum Delivered {
     MergedPinned {
         pull_request: String,
         expected_head: String,
+    },
+    /// The work was landed by a merge commit pushed onto the base —
+    /// `Delivery::merge_by_push`, a Manifest's `merge_by: push`.
+    MergedByPush {
+        handle: String,
+        pull_request: Option<u64>,
     },
 }
 
@@ -446,6 +452,13 @@ impl FakeVcs {
     /// merged nothing is asserting on the whole run rather than on a status.
     pub fn times_asked_to_merge(&self) -> usize {
         self.counted(|it| matches!(it, Delivered::Merged { .. }))
+    }
+
+    /// How many times a merge commit was pushed onto the base. Apart from
+    /// [`times_asked_to_merge`](FakeVcs::times_asked_to_merge), so a test can
+    /// tell which road a Manifest sent the work down.
+    pub fn times_pushed_onto_the_base(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::MergedByPush { .. }))
     }
 
     /// Say what keeping the branch current will come to.
@@ -798,6 +811,34 @@ impl Delivery for FakeVcs {
             Merging::AlreadyMerged => Ok(Merged::AlreadyMerged),
             Merging::Refuses(why) => Err(why),
         }
+    }
+
+    fn merge_by_push(
+        &self,
+        _in_repo: &str,
+        handle: &str,
+        declared: Option<&str>,
+        pull_request: Option<u64>,
+    ) -> Result<PushedOntoBase, NotMerged> {
+        // Scripted through `merging`, for `merge_pinned`'s reason.
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::MergedByPush {
+                handle: handle.to_string(),
+                pull_request,
+            });
+        let base = match (declared, &self.delivery.lock().expect("not poisoned").base) {
+            (Some(declared), _) => declared.to_string(),
+            (None, Some(base)) => base.name().to_string(),
+            (None, None) => String::from("main"),
+        };
+        let merged = match self.merging.lock().expect("not poisoned").clone() {
+            Merging::Takes => Merged::Taken,
+            Merging::AlreadyMerged => Merged::AlreadyMerged,
+            Merging::Refuses(why) => return Err(why),
+        };
+        Ok(PushedOntoBase { base, merged })
     }
 
     fn base_tip(&self, _in_repo: &str, base: &str) -> Option<String> {
