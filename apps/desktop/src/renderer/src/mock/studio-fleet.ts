@@ -465,6 +465,8 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         // mock that minted the node alone would draw a bare id and prove
         // nothing about the thing a person came to the Studio to do.
         if (answer.ok && promotion.act === "dispatch") atTheGate(handle, answer.studio);
+        // A scout still reading ends a moment later, on its own write, the way Fleet's does.
+        if (answer.ok && promotion.act === "read_in") setTimeout(() => write(studioId, answeredWithNothing), SCOUT_READS_MS);
         return answer.ok ? OK : answer.outcome;
       },
     };
@@ -897,6 +899,21 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
   }
 }
 
+/** An address whose scout reads it and asks for nothing — what Fleet makes of an empty answer. */
+export const READS_AS_NOTHING = "https://example.invalid/o/r/wiki/Glossary";
+/** How long the mock's scout reads a source that comes back with nothing. */
+const SCOUT_READS_MS = 400;
+
+/** Every read-in still reading, ended answered with nothing beside it: Fleet makes no node for it. */
+function answeredWithNothing(studio: Studio): Studio {
+  const ended = (node: StudioNode): StudioNode => {
+    if (node.kind !== "finding" || node.state !== "gathering") return node;
+    const { state: _reading, ...rest } = node;
+    return { ...rest, learned: "Nothing in the page bears on this repository.", ended: { outcome: "answered", cost_micros: 900 } };
+  };
+  return { ...studio, nodes: studio.nodes.map(ended) };
+}
+
 /**
  * An address read in — #1293, #1394. **What Fleet fetched is decided here by
  * the address**, since a mock has no network: an Epic fills in as one Issue per
@@ -922,6 +939,12 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     learned: "Two claims, and one of them disagrees with the checkout.",
     ended: { outcome: "answered", cost_micros: 3_100 },
   };
+  if (link.address === READS_AS_NOTHING) {
+    // Still reading: no `learned` and no `ended` yet, and its state says so.
+    const { learned: _, ended: __, ...asked } = finding as Extract<StudioNodeContent, { kind: "finding" }>;
+    const reading = made(zoned, asked, [nodeId], down(0), zone);
+    return { ...reading, nodes: reading.nodes.map((node, at) => (node.kind === "finding" && at === reading.nodes.length - 1 ? { ...node, state: "gathering" } : node)) };
+  }
   // Ended, so no state: `frozen` went on 1 Oct 2026.
   const marked = made(zoned, finding, [nodeId], down(0), zone);
   const clustered = made(marked, { kind: "cluster", title: "What to read in first" }, [nodeId], { x: INSET + 340, y: HEAD }, zone);

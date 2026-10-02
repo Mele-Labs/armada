@@ -1021,6 +1021,7 @@ export function App({ draft }: AppProps = {}) {
                 // the clock the rest of the app already ticks on — #1345.
                 now={now}
                 onCopied={setCopied}
+                onSaid={setTelling}
               />
             ) : kitting ? (
               /* What a person already has, and then Kit's servers with both

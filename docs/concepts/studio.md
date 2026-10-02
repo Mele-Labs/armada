@@ -235,6 +235,9 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
 > Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
 
+> **Rule.** A read-in draws no Cluster round fewer than two Notes; the Notes it named land loose in the Zone. A read-in that answers with nothing to place says so in a toast.
+> Why: grouping by hand refuses a Cluster of one, and a scout naming one Note left a frame round it. Of both, the owner, 2 Oct 2026: *"Fix it and there should be a toast notification or something saying nothing was found."*
+
 > **Rule.** An Epic reads in as one Issue per issue, each carrying that issue's own address, number, title and state, and makes no Issue draft.
 > Why: an Issue draft is Armada's own unfiled text. An issue already on a forge is an Issue node, and dispatching from it is the address's job. The read already answers all three fields, so nothing is left for a later fetch.
 
