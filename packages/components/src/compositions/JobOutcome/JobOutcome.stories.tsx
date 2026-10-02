@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { GitBranch, GitCommitHorizontal, GitPullRequest, FileCheck } from "lucide-react";
+import { GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest, FileCheck } from "lucide-react";
 import { expect } from "storybook/test";
 import { JobOutcome } from "./JobOutcome";
 
@@ -139,7 +139,6 @@ export const TheLandBoard: Story = {
   args: {
     headline: {
       verb: "Landed",
-      count: "2 of 2 met",
       says: "Everything this Job was held to was met.",
       criteria: [
         {
@@ -153,7 +152,6 @@ export const TheLandBoard: Story = {
           status: "completed-success",
         },
       ],
-      completes: "Completes when its pull request lands.",
     },
     sections: [
       {
@@ -164,7 +162,8 @@ export const TheLandBoard: Story = {
             icon: GitPullRequest,
             iconLabel: "Pull request",
             value: "https://git.example/armada/pull/1604",
-            meta: "merged into main",
+            badge: { status: "completed-success", icon: GitMerge, label: "Merged" },
+            meta: "into main",
           },
           {
             name: "Commit",
@@ -211,12 +210,10 @@ export const TheLandBoard: Story = {
         { label: "Drones", value: "10", detail: "group three ran again" },
         { label: "Checks", value: "32", detail: "group three ran twice" },
       ],
-      note: "Spend and turns are added up from each task's own agent, which is where cost arrives.",
     },
     runs: [
       {
-        name: "The test set, run again at handoff",
-        meta: "4 cases · before the pull request was offered",
+        name: "Test runs",
         runs: [
           { spec: "crates/api/src/tests/running.rs", who: "Fleet", outcome: "ran", status: "running", meta: "0 frames", when: "11:09:20" },
           { spec: "packages/screens/src/overview.test.ts", who: "Fleet", outcome: "ran", status: "running", meta: "2 frames", when: "11:09:44" },
@@ -228,27 +225,19 @@ export const TheLandBoard: Story = {
             meta: "no spec covers Board.tsx",
             when: "11:10:40",
           },
+          { spec: "packages/screens/src/Running.test.tsx", who: "you", outcome: "ran", status: "running", meta: "1 frame", when: "11:31:02" },
         ],
-        note: "There is no before-run: the baseline capture is off, so each of these stands alone.",
-      },
-      {
-        name: "Run by hand",
-        runs: [],
-        absent: "Nobody has run one of these themselves, before or since it landed.",
-        note: "A run from another contributor's machine needs a store between Armada instances.",
       },
     ],
   },
   /**
-   * **The claim is that the two absences are said in words.** A case with no
-   * spec is the one row this board could get wrong in the direction that
-   * matters, and a set nobody has run is the other; both are sentences here
-   * rather than a blank cell or an empty table.
+   * **The claim is that a case with no spec is said in words**, the one row
+   * this board could get wrong in the direction that matters. And the pull
+   * request's state is a badge, not a word in the meta (owner, 1 Oct 2026).
    */
   play: async ({ canvas }) => {
     await expect(canvas.getByText("not covered")).toBeVisible();
     await expect(canvas.getByText("no spec covers Board.tsx")).toBeVisible();
-    await expect(canvas.getByText(/There is no before-run/)).toBeVisible();
-    await expect(canvas.getByText(/Nobody has run one of these/)).toBeVisible();
+    await expect(canvas.getByText("Merged", { exact: true }).closest(".armada-badge")).not.toBeNull();
   },
 };
