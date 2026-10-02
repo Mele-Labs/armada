@@ -1,11 +1,8 @@
 //! The pool of warm worktrees a repository leases out, and takes back.
 //!
-//! A slot is a permanent checkout at `<repo>/.armada/slots/slot-<n>`. A lease
-//! points it at a new branch cut from the base and cleans everything but the
-//! build directories, so the next build starts warm; a release refuses while
-//! the tree holds anything that is not on the remote or the base, because a
-//! slot is reused and reuse must never be what throws work away.
-//! `docs/concepts/fleet.md`, *Worktree slots*, has the design.
+//! A slot is a permanent checkout at `<repo>/.armada/slots/slot-<n>`, leased
+//! onto a new branch with its build kept, and released only when nothing on it
+//! would be lost. `docs/concepts/fleet.md`, *Worktree slots*, has the design.
 //!
 //! **The holder is recorded, and never a lock held open.** The command that
 //! leases exits at once, so an `flock` would let go before the caller had read

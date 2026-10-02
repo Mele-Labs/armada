@@ -1,7 +1,4 @@
-//! One worktree per Job, on its own new branch, created before a Drone exists.
-//! **Fleet leases one from the repository's pool** — `crate::leasing::jobs`,
-//! behind [`Vcs::lease_slot`] — and what is below cuts a Job its own tree at
-//! the derived path, which only the tests' fixtures still do.
+//! A Job's tree at its derived path. Fleet leases pool slots; only test fixtures cut one.
 //!
 //! **Every refusal happens before anything is written.** v1's bug was that the
 //! branch collision was discovered by `git worktree add` failing halfway, which
