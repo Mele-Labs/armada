@@ -33,10 +33,11 @@
 //
 // # The pull request is one fact, and what became of it continues it
 //
-// `Pull request #4711` while it is open, `Pull request #4711, merged` once
+// `Pull request #4711` while it is open, `Pull request #4711 [Merged]` once
 // somebody has taken it. Two facts with the run's gap between them would read
 // as two things to know; they are one thing — what the branch came to — said
-// to whatever depth the record can say it, so the second continues the first.
+// to whatever depth the record can say it, so the state rides on the fact as a
+// badge (owner, 1 Oct 2026), the same one the Land board's row draws.
 //
 // **A Job with no pull request draws neither**, and that is most Jobs: one
 // still running, one in a repository with no remote, one that stopped before
@@ -52,7 +53,7 @@ import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/prot
 import { freezeLineOf } from "./freeze";
 import { fromAStudio, originReading } from "./origin";
 import { leading } from "./reading";
-import { LANDED, elapsedOf } from "./Row";
+import { LANDED, LANDED_STATUS, elapsedOf } from "./Row";
 
 /**
  * The run, in the order the drawing runs it: what is holding this Job, what
@@ -67,10 +68,11 @@ import { LANDED, elapsedOf } from "./Row";
  */
 export function factsOf(job: JobSummary, whole: JobWhole | null, now: number): JobDetailField[] {
   const address = whole?.delivery?.pull_request;
+  const settled = settledBadgeOf(whole?.delivery?.landed);
   return [
     ...freezeFact(job),
-    ...pullRequestFact(address),
-    ...landedFact(whole, address !== undefined),
+    ...pullRequestFact(address, settled),
+    ...landedFact(settled, address !== undefined),
     ...runTimeFact(job, now),
     ...dispatchedByFact(job),
     ...studioGoneFact(job, whole),
@@ -150,11 +152,12 @@ function studioGoneFact(job: JobSummary, whole: JobWhole | null): JobDetailField
  * pull requests some other way falls back to the words alone, still linked —
  * see `pullRequestNumber`.
  */
-function pullRequestFact(address: string | undefined): JobDetailField[] {
+function pullRequestFact(address: string | undefined, settled: Settled | undefined): JobDetailField[] {
   if (address === undefined) return [];
   const number = pullRequestNumber(address);
-  if (number === null) return [{ value: "Pull request", href: address }];
-  return [{ label: "Pull request", value: number, mono: true, href: address }];
+  const badge = settled === undefined ? {} : { badge: settled };
+  if (number === null) return [{ value: "Pull request", href: address, ...badge }];
+  return [{ label: "Pull request", value: number, mono: true, href: address, ...badge }];
 }
 
 /**
@@ -206,9 +209,22 @@ export function hostLabel(address: string): string {
   }
 }
 
+/** A settled pull request's badge: the word `Row.tsx` spells and the hue beside it. */
+type Settled = { status: string; label: string };
+
 /**
- * What became of that pull request — continuing the fact that names it, where
- * there is one to continue.
+ * What a settled pull request reads as, as a badge. Sentence case, the way
+ * the Job's own badge reads `Done`.
+ */
+export function settledBadgeOf(landed: string | undefined): Settled | undefined {
+  const said = LANDED[landed ?? ""];
+  const status = LANDED_STATUS[landed ?? ""];
+  return said === undefined || status === undefined ? undefined : { status, label: leading(said) };
+}
+
+/**
+ * What became of that pull request — on the fact that names it, where there
+ * is one.
  *
  * **Absent on nearly every Job, which is why it is beside the branch and not a
  * fact of its own line.** It appears the moment there is something to say and
@@ -217,15 +233,12 @@ export function hostLabel(address: string): string {
  * "nobody has merged it yet" is the state a pull request is in from the moment
  * it exists and is not news about this Job. The address above it is.
  *
- * **`continues` where the address is drawn, standalone where it is not.** With
- * one, this is the second half of a sentence and reads mid-line: `Pull request
- * #4711, merged`. Without one — a Job old enough that Fleet recorded the
- * verdict and not the address — it opens a fact of its own and takes a capital.
+ * **On the address's fact where one is drawn, a badge of its own where it is
+ * not** — a Job old enough that Fleet recorded the verdict and not the
+ * address. `pullRequestFact` carries the first; this is the second.
  */
-function landedFact(whole: JobWhole | null, linked: boolean): JobDetailField[] {
-  const landed = LANDED[whole?.delivery?.landed ?? ""];
-  if (landed === undefined) return [];
-  return linked ? [{ label: landed, continues: true }] : [{ label: leading(landed) }];
+function landedFact(settled: Settled | undefined, linked: boolean): JobDetailField[] {
+  return settled === undefined || linked ? [] : [{ badge: settled }];
 }
 
 /** The freeze holding this Job, first: it is why nothing else on the line is moving. */

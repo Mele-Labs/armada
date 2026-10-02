@@ -128,45 +128,44 @@ describe("what a number is read out of an address", () => {
 });
 
 describe("did this land", () => {
-  it("continues the pull request rather than standing beside it", () => {
+  /** Every badge the run draws, by its word. */
+  const badges = (whole: JobDetail | null): ReactNode[] =>
+    run(whole).flatMap((field) => (field.badge === undefined ? [] : [field.badge.label]));
+
+  it("rides on the pull request's own fact as a badge, rather than standing beside it", () => {
     // One thought — what the branch came to — said to the depth the record can
-    // say it. Two facts with the run's gap between them would read as two.
-    const fields = run(
-      detail({ pull_request: "https://forge.invalid/pull/1", landed: "merged" }),
-    );
-    const settled = fields.at(fields.findIndex((field) => field.href !== undefined) + 1);
-    expect(settled).toEqual({ label: "merged", continues: true });
+    // say it, and its state a badge like the Job's own (owner, 1 Oct 2026).
+    const whole = detail({ pull_request: "https://forge.invalid/pull/1", landed: "merged" });
+    expect(linked(whole)?.badge).toEqual({ status: "completed-success", label: "Merged" });
+    // And not a second fact continuing it in words.
+    expect(badges(whole)).toHaveLength(1);
+    expect(labels(whole)).not.toContain("merged");
   });
 
   it("tells a pull request that was turned down from one that landed", () => {
-    const drawn = labels(
+    const drawn = badges(
       detail({ pull_request: "https://forge.invalid/pull/1", landed: "closed_unmerged" }),
     );
-    expect(drawn).toContain("closed without merging");
-    expect(drawn).not.toContain("merged");
+    expect(drawn).toEqual(["Closed without merging"]);
   });
 
   it("draws nothing for a pull request nobody has merged yet", () => {
     // The state a pull request is in from the moment it exists. A word here
     // would be a slot on every open one saying that nothing has happened.
-    const drawn = labels(detail({ pull_request: "https://forge.invalid/pull/1" }));
-    expect(drawn).not.toContain("merged");
-    expect(drawn).not.toContain("closed without merging");
+    expect(badges(detail({ pull_request: "https://forge.invalid/pull/1" }))).toEqual([]);
   });
 
-  it("opens a fact of its own where there is no address to continue", () => {
+  it("stands as a badge of its own where there is no address to carry it", () => {
     // A Job old enough that Fleet recorded the verdict and not the address.
-    // Sentence-initial, so it takes a capital.
-    const drawn = labels(detail({ landed: "merged" }));
-    expect(drawn).toContain("Merged");
+    expect(badges(detail({ landed: "merged" }))).toEqual(["Merged"]);
   });
 
   it("draws nothing in a repository with no remote", () => {
-    expect(labels(detail({ commit: "abc123", pushed: "no remote" }))).not.toContain("merged");
+    expect(badges(detail({ commit: "abc123", pushed: "no remote" }))).toEqual([]);
   });
 
   it("draws nothing on a Job whose detail has not arrived", () => {
-    expect(labels(null)).not.toContain("merged");
+    expect(badges(null)).toEqual([]);
   });
 });
 

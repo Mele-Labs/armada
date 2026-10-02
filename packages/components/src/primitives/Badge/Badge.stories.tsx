@@ -143,6 +143,15 @@ export const Superseded: Story = {
 };
 
 /**
+ * A pull request's state, the one badge that is not a Job's (owner, 1 Oct
+ * 2026). **No glyph**: the registry has none for a merged or a closed pull
+ * request, and the word stands alone until it does.
+ */
+export const PullRequestMerged: Story = {
+  args: { status: "completed-success", children: "Merged" },
+};
+
+/**
  * The escalation reasons share one hue and differentiate by label and icon —
  * a column of oranges would be unreadable. Drawn together because the rule is
  * about the set, not about any one of them: categorically different outlines,

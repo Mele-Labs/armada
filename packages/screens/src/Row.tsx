@@ -126,6 +126,18 @@ export const LANDED: Record<string, string | undefined> = {
   closed_unmerged: "closed without merging",
 };
 
+/**
+ * The hue a settled pull request's badge takes (owner, 1 Oct 2026: its state
+ * reads as a badge, the way the Job's does). **Merged is the landed hue**, the
+ * one the Land board's edge already draws. **Closed without merging is
+ * neutral**: nothing on the wire says why it closed, and a refusal's or a
+ * failure's hue would say what nobody recorded.
+ */
+export const LANDED_STATUS: Record<string, string | undefined> = {
+  merged: "completed-success",
+  closed_unmerged: "not-started",
+};
+
 export function Row({
   job,
   headline,

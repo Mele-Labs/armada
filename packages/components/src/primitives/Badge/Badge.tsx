@@ -21,12 +21,17 @@ export type BadgeProps = {
    */
   status: string;
   /**
-   * The glyph, required on every state. Redundant encoding, not decoration:
-   * hue alone fails under deuteranopia, on a miscalibrated monitor and in a
-   * screenshot, and several statuses share one hue and are told apart by
-   * glyph. Take it from `packages/icons/icons.toml`, group `Job state`.
+   * The glyph, required on every Job state. Redundant encoding, not
+   * decoration: hue alone fails under deuteranopia, on a miscalibrated monitor
+   * and in a screenshot, and several statuses share one hue and are told apart
+   * by glyph. Take it from `packages/icons/icons.toml`, group `Job state`.
+   *
+   * **Absent on one badge only: a pull request's state** (`merged`, `closed
+   * without merging`), which the owner asked to read as a badge on 1 Oct 2026.
+   * The registry has no glyph for either state, and one is not minted at a
+   * call site, so that badge draws its word alone until it has one.
    */
-  icon: LucideIcon;
+  icon?: LucideIcon;
   /**
    * The verb, from the enum→verb map. Never written by hand at a call site
    * that ships — the stories write them because the map is not generated yet.

@@ -2,8 +2,10 @@
 // recording. Editing it by hand is lost on the next one.
 
 import r0 from "./done-worktree-given-back/recording.json";
+import r1 from "./landed-and-merged/recording.json";
 
 /** Every recording, by its directory. Replayed by `../recorded.ts`. */
 export const RECORDINGS: Record<string, unknown> = {
   "done-worktree-given-back": r0,
+  "landed-and-merged": r1,
 };
