@@ -55,6 +55,7 @@ import {
   neverDelivers,
   checksLineOf,
   pullRequestBlockOf,
+  pullRequestNamedOf,
   verdictSlotAtGate,
   verdictSlotFinished,
   type VerdictSlotAtGateArgs,
@@ -420,6 +421,7 @@ export function verdictSlotAfterAnswer({
           undefined,
           {
             landed,
+            ...pullRequestNamedOf(whole),
             ...(job.branch === undefined ? {} : { branch: job.branch }),
             ...(checks === undefined ? {} : { checks }),
           },

@@ -341,17 +341,33 @@ export type PullRequestFacts = {
   branch?: string;
   /** Armada's own Checks across the Job, `checksLineOf`'s line. */
   checks?: string;
-  /** How many comments it holds, where the remarks were read for this Job. */
+  /** Its title — `delivery.pull_request_title`. Since 23.5; absent where no read has named it. */
+  title?: string;
+  /** How many comments it holds — `delivery.pull_request_comments`. Since 23.5; absent is unknown. */
   comments?: number;
   /** What became of it — `delivery.landed`. Absent is open. */
   landed?: string;
 };
 
 /**
+ * The pull request's title and comment count as Fleet keeps them on
+ * `delivery`, open or settled. Since protocol 23.5. **Each absent is drawn as
+ * nothing** — an old pull request no read has named, or a count nobody took —
+ * never as a count of none or a stand-in title. A served 0 is a count, and is drawn.
+ */
+export function pullRequestNamedOf(whole: JobWhole | null): Pick<PullRequestFacts, "title" | "comments"> {
+  const delivery = whole?.delivery;
+  return {
+    ...(delivery?.pull_request_title === undefined ? {} : { title: delivery.pull_request_title }),
+    ...(delivery?.pull_request_comments === undefined ? {} : { comments: delivery.pull_request_comments }),
+  };
+}
+
+/**
  * The pull request, where this Job has one: a `PullRequestCard` that opens it.
  *
- * **The card draws on the address alone.** Before the rotation has read the
- * pull request there is no title to show, and the owner asked on 11 Sep 2026
+ * **The card draws on the address alone.** Before a read has named the pull
+ * request there is no title to show, and the owner asked on 11 Sep 2026
  * for the review to reach its pull request without going back up to the
  * header. It opens through `openPullRequest`, the header's own path, so the
  * address a click carries never decides what opens.
@@ -378,7 +394,7 @@ export function pullRequestBlockOf(
     <PullRequestCard
       number={number}
       address={address}
-      {...(detail?.title === undefined ? {} : { title: detail.title })}
+      {...(facts.title === undefined ? {} : { title: facts.title })}
       {...(facts.branch === undefined ? {} : { branch: facts.branch })}
       {...(state === undefined ? {} : { state })}
       {...(facts.checks === undefined ? {} : { checks: facts.checks })}
@@ -451,8 +467,6 @@ export type VerdictArgs = {
     onOpen?: () => void;
     /** Present where the last commit never reached this pull request. Since protocol 11.2, `#691`. */
     unpushed?: string;
-    /** How many comments it holds, where the remarks were read for this Job. */
-    comments?: number;
   };
   /** Fleet's own reason the gate could not decide, scoped to this step. */
   undecided?: string;
@@ -490,7 +504,7 @@ export function verdictOf({
       : pullRequestBlockOf(pullRequest.address, pullRequest.detail, now, pullRequest.onOpen, pullRequest.unpushed, {
           ...(job.branch === undefined ? {} : { branch: job.branch }),
           ...(checksLineOf(steps) === undefined ? {} : { checks: checksLineOf(steps) }),
-          ...(pullRequest.comments === undefined ? {} : { comments: pullRequest.comments }),
+          ...pullRequestNamedOf(whole),
           ...(whole?.delivery?.landed === undefined ? {} : { landed: whole.delivery.landed }),
         });
   const note = proof.length === 0 ? NOTHING_PROVED : provesItNoteOf(step, render);
@@ -663,8 +677,6 @@ export function verdictSlotAtGate({
       : address === undefined
         ? "The run tree on the left is where each step's own evidence is. This reads the Job."
         : undefined;
-  const remarks = recorded.remarks;
-  const comments = remarks.state === "read" && remarks.jobId === job.id ? remarks.review.remarks.length : undefined;
   const sheetWith = (pending?: PendingChanges) => (
     <VerdictSheet
       {...verdictOf({
@@ -684,7 +696,6 @@ export function verdictSlotAtGate({
               if (because !== null) onSaid(because);
             }),
           unpushed,
-          ...(comments === undefined ? {} : { comments }),
         },
         undecided,
       })}

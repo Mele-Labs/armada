@@ -8,7 +8,7 @@ export const theRecordAtTheGate = walk("real/job-2-at-review", [
   { look: region("What you asked for"), say: "The record, open under the lead: a card per section" },
   {
     look: role("link", "Pull request #1750"),
-    say: "The pull request, small: its branch, the Job's Checks and its comments. The card opens it",
+    say: "The pull request, small: its title, branch, the Job's Checks and its comments. The card opens it",
   },
   { look: region("The work"), say: "The figures under it, read and not editable" },
   {
