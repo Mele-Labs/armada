@@ -19,7 +19,7 @@ import type {
 } from "@armada/protocol";
 import { artifactPath, recordsOf, repoOf } from "@armada/protocol";
 
-import { costOf, groupOf, summaryOf, GROUPS_NOTE, type LandedCost, type LandedGroup } from "./landed-cost";
+import { costOf, groupOf, summaryOf, type LandedCost, type LandedGroup } from "./landed-cost";
 import { clock, span } from "./duration";
 import type { JobDraft } from "./draft/held";
 import {
@@ -112,7 +112,6 @@ export type LandedRead = {
   runs: LandedRuns[];
   groups: LandedGroup[];
   groupsSummary: string;
-  groupsNote: string;
   groupsAbsent: string;
 };
 
@@ -144,7 +143,10 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
     verb: verbOf(whole),
     ...(says === undefined ? {} : { says }),
     criteria,
-    sections: [producedOf(whole, rule), leftBehindOf(job, whole, manifest, holding)],
+    // A section left with no row is not drawn: a heading over nothing.
+    sections: [producedOf(whole, rule), leftBehindOf(job, whole, manifest, holding)].filter(
+      (one) => one.parts.length > 0,
+    ),
     steps: {
       name: "The run",
       meta: whole.job.workflow_id,
@@ -155,7 +157,6 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
     runs: runSetsOf(cases, runs),
     groups: groups.map(groupOf),
     groupsSummary: summaryOf(groups),
-    groupsNote: GROUPS_NOTE,
     groupsAbsent: "This Job recorded no plan, so it ran as one piece.",
   };
 }
@@ -272,18 +273,24 @@ function leftBehindOf(
   // handle: Job 2's record read `logs/01M3WJ4C….jsonl` where Fleet's own
   // read named `logs/2-retire-guides-….jsonl` (1 Oct 2026).
   const log = holding?.logs?.find((one) => one.kind === "job")?.path;
+  const record =
+    records === null
+      ? undefined
+      : log !== undefined
+        ? `${records}/${log}`
+        : repo === null
+          ? undefined
+          : artifactPath("log", repo, records, job.id, job.assigned_drone);
+  // **Only a row with a value** (owner, 1 Oct 2026). Job 2 gave its checkout
+  // back, and the Worktree row said nobody had read what it held, on a read
+  // that had answered `held: none`; Record said no Manifest had been read. A
+  // sentence about what Bridge does not have is not a fact about the Job.
+  //
   // `folder` means workspace in the registry and a worktree has no row of its
   // own — `work.tsx` names the same gap on the same row rather than inventing
   // a glyph. `file` is the log row's, which is what a Job's record is.
   const parts: LandedPart[] = [
-    {
-      name: "Branch",
-      mark: "branch",
-      ...(branch === undefined ? { absent: "This Job has no worktree, so it has no branch." } : { value: branch }),
-    },
-    // **Only a worktree that is there** (owner, 1 Oct 2026). Job 2 gave its
-    // checkout back, and the row said nobody had read what it held, on a
-    // read that had answered `held: none`.
+    ...(branch === undefined ? [] : [{ name: "Branch", mark: "branch" as const, value: branch }]),
     ...(worktree === undefined
       ? []
       : [
@@ -294,18 +301,7 @@ function leftBehindOf(
             ...(worktree.bytes === undefined ? {} : { meta: `${sized(worktree.bytes)} on disk` }),
           },
         ]),
-    {
-      name: "Record",
-      mark: "log",
-      ...(records === null || repo === null
-        ? { absent: "No Manifest was read for this Job, so its record has no home to name." }
-        : {
-            value:
-              log === undefined
-                ? artifactPath("log", repo, records, job.id, job.assigned_drone)
-                : `${records}/${log}`,
-          }),
-    },
+    ...(record === undefined ? [] : [{ name: "Record", mark: "log" as const, value: record }]),
   ];
   // No note. *Reclaiming the worktree takes the checkout back and leaves the
   // branch and the record* stood here and is true of a Job that never ran, so

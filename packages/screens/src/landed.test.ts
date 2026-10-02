@@ -227,6 +227,16 @@ describe("what it produced and what it left", () => {
     expect(read({ holding: null }).sections[1]!.parts.map((one) => one.name)).toEqual(["Branch", "Record"]);
   });
 
+  it("draws no record row where no Manifest was read, and no section where nothing is left", () => {
+    const board = read({
+      holding: null,
+      manifest: undefined,
+      job: { ...FIXTURE.job, branch: undefined },
+      whole: { ...inputOf().whole!, branch: undefined },
+    });
+    expect(board.sections.map((one) => one.name)).not.toContain("Left behind");
+  });
+
   it("names the record where Fleet says it is, rather than by the Job's id", () => {
     const holding = {
       ...inputOf().holding!,

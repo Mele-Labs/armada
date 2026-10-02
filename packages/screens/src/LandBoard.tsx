@@ -78,7 +78,6 @@ export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: Land
             <ProducedGroups
               groups={read.groups}
               emptyNote={read.groupsAbsent}
-              note={read.groupsNote}
             />
           </ProducedPanel>
         </div>

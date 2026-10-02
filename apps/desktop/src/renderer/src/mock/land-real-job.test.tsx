@@ -45,6 +45,9 @@ test("nothing on the board describes what Fleet did not send", async () => {
     /Nobody has run one of these/,
     /no before-run/,
     /Nothing has read what this Job holds/,
+    /No Manifest was read for this Job/,
+    /has no worktree, so it has no branch/,
+    /Nothing times a group/,
     /Dispatch a follow-up/,
   ]) {
     expect(page.getByText(gone).elements(), String(gone)).toHaveLength(0);
