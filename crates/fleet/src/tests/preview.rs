@@ -16,7 +16,7 @@ use ipc::{Event, ServerPhase, ServerState, StartedBy};
 
 use crate::checkouts::Checkout;
 use crate::servers::{Place, Unservable};
-use crate::tests::servers::{a_fleet_serving, serving};
+use crate::tests::servers::{a_fleet_holding, a_fleet_serving};
 use crate::tests::tmp::TempDir;
 
 /// **A Job's server says which worktree and which branch answers it.** A name
@@ -73,25 +73,37 @@ async fn a_main_checkout_server_starts_level_with_the_checkout_it_serves() {
     fleet.stopped_every_server().await;
 }
 
+/// A server with no port and no `ready`, so nothing but Fleet's own steps
+/// stands between its start and its being published as serving.
+const HELD_WITHOUT_A_PORT: &str = r#"version: 1
+id: 01FIXTUREMANIFEST
+commands:
+  idle:
+    serve: /usr/bin/tail -f /dev/null
+"#;
+
 /// **Work lands and the server held over it says how far behind it now is,
 /// without being restarted.** Restarting under somebody mid-look is worse than
 /// telling them, so the row moves and the process does not.
+///
+/// **Not storybook**: a real port and `ready` add nothing to this claim, and
+/// its 30s wait for them failed it when every test on the machine stalled 30s.
 #[tokio::test]
 async fn work_landing_tells_the_server_held_on_the_main_checkout() {
     let home = TempDir::new();
     let events = api::Broadcaster::new();
-    let fleet = a_fleet_serving(&home, &events);
+    let fleet = a_fleet_holding(&home, &events, HELD_WITHOUT_A_PORT, HELD_WITHOUT_A_PORT);
     let mut watching = events.subscribe();
 
     let (started, _) = Arc::clone(&fleet)
         .hold_server(
             Place::Checkout(Checkout::main(fleet.first())),
-            "storybook",
+            "idle",
             StartedBy::Person,
         )
         .await
         .expect("it starts");
-    let up = serving(&mut watching, &started.id).await;
+    let up = up_or_ended(&mut watching, &started.id).await;
     assert_eq!(up.checkout.behind, Some(0));
 
     let root = fleet.first().root().to_string();
@@ -212,6 +224,27 @@ async fn both_serving(watching: &mut Subscription, ids: [&str; 2]) -> Vec<Server
     })
     .await
     .expect("both served")
+}
+
+/// This server serving, or a failure naming how it ended instead.
+///
+/// **No deadline.** With no `ready`, Fleet publishes one or the other straight
+/// after the spawn, so the wait is bounded by that order and not by a clock a
+/// stalled machine can run out.
+async fn up_or_ended(watching: &mut Subscription, id: &str) -> ServerState {
+    loop {
+        match watching.next().await {
+            Some(Next::Send(delivered)) => match delivered.event {
+                Event::ServerServing(state) if state.id == id => return state,
+                Event::ServerExited(state) if state.id == id => {
+                    panic!("it ended before serving: {state:?}")
+                }
+                _ => continue,
+            },
+            Some(_) => continue,
+            None => panic!("the stream closed"),
+        }
+    }
 }
 
 /// This server's row, the next time it is published as serving.
