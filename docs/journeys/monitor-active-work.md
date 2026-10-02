@@ -176,7 +176,7 @@ sheet.
 
 ### The inspector
 
-**The story is Drone instructions, then Activity log.** Each is a card with its own header. **Produced is the Job's own panel beside the run**, not a chapter inside the step: one card carrying both the work and what the work changed was doing two jobs, and the second shortcut in its header was the tell. Working keeps "Open the log"; Produced carries "Open the diff". #1187.
+**The story is Drone instructions, then Activity log.** Each is a card with its own header. **Produced is the Job's own panel beside the run**, not a chapter inside the step: one card carrying both the work and what the work changed was doing two jobs, and the second shortcut in its header was the tell. Produced carries "Open the diff". #1187. "Open the log" was removed on 2 Oct 2026, because a Job has no single log.
 
 **Opening one chapter collapses the others to their header line.** Why: the order stays readable while one part of it is long.
 

@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "../../primitives/Table/Table";
 import { DroneTurns, type DroneTurn } from "../DroneTurns/DroneTurns";
+import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 
 /**
  * Job drones — every Drone a Job has used, and one of them read whole.
@@ -28,6 +29,20 @@ import { DroneTurns, type DroneTurn } from "../DroneTurns/DroneTurns";
 /** Where a Drone is. `failed` stopped on its own; `killed` was ended by hand. */
 export type JobDroneState = "running" | "done" | "failed" | "killed";
 
+/**
+ * A Drone's state as the mark its step would carry for the same claim — the
+ * Workflow step panel's own borrowing. **A mark and never a word** (the owner,
+ * 2 Oct 2026: *"I hate text over icons"*), named on hover and to a screen
+ * reader; the running one pulses, and stops under reduced motion. The sheet's
+ * subtitle takes the same mark.
+ */
+export const DRONE_ACTIVITY: Record<JobDroneState, StepActivity> = {
+  running: "running",
+  done: "advanced",
+  failed: "failed",
+  killed: "killed",
+};
+
 export type JobDronesRow = {
   /** What a selection names. The Drone's id. */
   id: string;
@@ -36,7 +51,7 @@ export type JobDronesRow = {
   /** The step and task it worked. */
   where: ReactNode;
   state: JobDroneState;
-  /** The state, spelled. */
+  /** The state, spelled — the mark's tooltip and accessible name. */
   stateSays: string;
   /** Turns, and cost once it stopped. Absent draws nothing. */
   spent?: ReactNode;
@@ -163,10 +178,12 @@ export function JobDrones({
                       {row.where}
                     </TableCell>
                     <TableCell className="armada-drones__state">
-                      <span className="armada-drones__said" data-state={row.state}>
-                        <span className="armada-drones__dot" aria-hidden />
-                        {row.stateSays}
-                      </span>
+                      <StepActivityMark
+                        activity={DRONE_ACTIVITY[row.state]}
+                        label={row.stateSays}
+                        says={row.stateSays}
+                        pulsing={row.state === "running"}
+                      />
                     </TableCell>
                     <TableCell variant="metadata" className="armada-drones__spent">
                       {row.spent}
