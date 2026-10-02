@@ -239,7 +239,7 @@ anything where the input and expected output both fit in the test function.
 once M1 fills the crate in.
 
 **Integration tests** live in `crates/acceptance/tests/` — the directory
-`xtask` rule one (`acceptance_test_exists_and_passes`) watches. What that test
+`xtask` rule one (`acceptance_test_exists`) and the `acceptance` Check watch. What that test
 is and why it is written before the code it tests is
 `docs/practices/acceptance-tests.md`. These are for anything that crosses a
 crate boundary for real: a Drone's output stream

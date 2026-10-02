@@ -459,6 +459,7 @@ where
             | Adrift::NoSuchDrone { .. }
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
+            | Adrift::NoSuchBrief { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::AttachmentUnreadable { .. } => {

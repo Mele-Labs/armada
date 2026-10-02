@@ -31,6 +31,7 @@ import type {
   JobSpend,
   JobSummary,
   Journalled,
+  LogFile,
   ManifestSummary,
   RepositorySummary,
   Noted,
@@ -585,6 +586,24 @@ export function resources(held: Held, over: Partial<JobResources> = {}): JobReso
     worktree: { path: WORKTREE, branch: BRANCH, bytes: 1_288_490_188, measured_at: "2026-09-10T14:30:40.000Z" },
     ...over,
   };
+}
+
+/**
+ * The Job's own log and its Drone's transcript, as `logs` lists them.
+ *
+ * **Both held open or neither**: Fleet writes the two from one loop for as
+ * long as the Drone's output is being read, which is what `writing` says.
+ */
+export function droneLogs(writing: boolean): LogFile[] {
+  return [
+    { kind: "job", path: `.armada/logs/${JOB_HANDLE}.jsonl`, bytes: 48_211, being_written: writing },
+    {
+      kind: "transcript",
+      path: `.armada/transcripts/${JOB_HANDLE}/${DRONE_ID}.jsonl`,
+      bytes: 734_906,
+      being_written: writing,
+    },
+  ];
 }
 
 export function holdsRead(reading: JobResources): Holds {

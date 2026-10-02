@@ -101,6 +101,12 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
+> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why.
+> Why: the owner asked why Run sat in a card at the board's top-right rather than on the rail, and chose the rail. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
+
+> **Rule.** While a Studio is read-only, all four acts on the rail are drawn off, each with a tooltip saying Continue turns it on, and none is hidden.
+> Why: the owner chose a rail that looks the same in both modes over one that changes when Continue is pressed, at the cost of four dead buttons whenever an old Studio is reread. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
+
 > **Rule.** A person adds a Note, an address, a Sketch, a File and a Picture by hand, and no other kind. Every other kind is made by the act that earns it.
 > Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026.
 

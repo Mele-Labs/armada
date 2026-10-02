@@ -159,12 +159,19 @@ checks:
     # workspace member changed.
     one_test:
       run: cargo nextest run -p acceptance -E test(/(^|::){}$/)
-    # Rust only. `build` and `test` above run unconditionally; this one is
-    # scoped so a Bridge-only change does not pay for the acceptance suite.
+    # Everything the suite compiles from, and no further, so a Bridge-only
+    # change does not pay for it. It is the only run of the suite on the merge
+    # line: `verify-foundations` checks each test exists and leaves passing
+    # here, so a path missing from this list is a change nothing tests.
+    # `config` embeds `.armada/workflows/`, and `ipc`'s build reads
+    # `protocol-version.toml`.
     when:
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - ".cargo/**"
+      - "protocol-version.toml"
+      - ".armada/workflows/**"
       - ".config/nextest.toml"
 
   # The Bridge half — `build` and `test` say nothing about `apps/` or

@@ -43,6 +43,7 @@ import { reading } from "./reading";
 import { unreadable } from "./unreadable";
 import { gateChecksStreaming, retryingCheckFailure, runningAtGate } from "./gating";
 import { reviewAfterAnOverrule, reviewAtDelivery } from "./delivering";
+import { reviewHeldByPolicy } from "./policy";
 
 export {
   running,
@@ -53,6 +54,7 @@ export {
   escalatedEvidenceSuspect,
   reviewAtDelivery,
   reviewAfterAnOverrule,
+  reviewHeldByPolicy,
   queued,
   awaitingApproval,
   awaitingRepair,
@@ -85,6 +87,7 @@ export const FIXTURES = [
   escalatedEvidenceSuspect(),
   reviewAtDelivery(),
   reviewAfterAnOverrule(),
+  reviewHeldByPolicy(),
   queued(),
   awaitingApproval(),
   awaitingRepair(),
