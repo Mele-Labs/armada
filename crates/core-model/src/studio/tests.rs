@@ -23,7 +23,7 @@ fn at() -> Timestamp {
 
 #[test]
 fn every_set_reads_back_from_its_own_spelling() {
-    assert_eq!(StudioNodeKind::ALL.len(), 16, "studio.md's sixteen kinds");
+    assert_eq!(StudioNodeKind::ALL.len(), 17, "the registry's seventeen kinds");
     for kind in StudioNodeKind::ALL {
         assert_eq!(StudioNodeKind::from_wire(kind.as_wire()), Some(*kind));
     }

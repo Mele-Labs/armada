@@ -74,6 +74,12 @@ pub struct StudioNode {
     /// state is read off the run or the Job and never copied here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<StudioNodeState>,
+    /// The frame it sits in, a Zone or a Note's Cluster. **Absent is on the
+    /// board.** Since 22.0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub within: Option<StudioNodeId>,
+    /// From the corner of the frame it is `within`, or from the board's
+    /// origin where it is in none. Since 22.0, where it was always the board's.
     pub position: StudioPosition,
     pub created_at: Instant,
     /// A person or Helm. Absent only on a node added before it was kept.
@@ -109,9 +115,14 @@ pub enum StudioNodeContent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         capture: Option<StudioCapture>,
     },
+    /// Notes a person accepted as one thing, drawn as a frame around them:
+    /// the nodes whose `within` names it. Since 22.0.
     Cluster {
         title: String,
     },
+    /// Other nodes, ringed off so they move together: the nodes whose
+    /// `within` names it. Nothing of its own. Since 22.0, `#1620`.
+    Zone,
     /// What a scout was asked, and from its start what it read. `#1292`.
     Finding {
         asked: String,
@@ -496,11 +507,16 @@ pub struct AddStudioNode {
     pub produced_by: Option<StudioNodeId>,
 }
 
-/// `move_studio_node`. **Position only**: no act on this seam writes a node's
-/// content after it is added.
+/// `move_studio_node`. **Where it sits only**: no act on this seam writes a
+/// node's content after it is added.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveStudioNode {
     pub node_id: StudioNodeId,
+    /// The frame it is put down in, measured from whose corner `position` is.
+    /// **Absent is the board**, so a node dragged out of a Zone says so by
+    /// naming none. Since 22.0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub within: Option<StudioNodeId>,
     pub position: StudioPosition,
 }
 
@@ -672,6 +688,7 @@ impl StudioNode {
             id: StudioNodeId::from(node.id()),
             content: StudioNodeContent::from(node.content()),
             state: node.state().map(StudioNodeState::from),
+            within: node.within().map(StudioNodeId::from),
             position: StudioPosition::from(node.position()),
             created_at: Instant::from(node.created_at()),
             added_by: node.added_by().map(StudioAuthor::from),
@@ -828,6 +845,7 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
                 capture: capture.as_ref().map(StudioCapture::from),
             },
             C::Cluster { title } => StudioNodeContent::Cluster { title },
+            C::Zone => StudioNodeContent::Zone,
             C::Finding(finding) => crate::scouting::finding_on_the_wire(&finding),
             C::Contradiction {
                 first,
@@ -929,6 +947,7 @@ impl StudioNodeContent {
                 capture: capture.map(StudioCapture::to_domain),
             },
             StudioNodeContent::Cluster { title } => C::Cluster { title },
+            StudioNodeContent::Zone => C::Zone,
             StudioNodeContent::Finding {
                 asked,
                 checkout,

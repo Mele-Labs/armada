@@ -90,7 +90,13 @@ fn a_studio_reads_back_whole_after_a_reopen_with_every_node_where_it_was_left() 
         .add_studio_edge(&studio, &proposed("01EDGE", &first, &second), &at(2))
         .expect("proposed");
     store
-        .move_studio_node(&studio, &second, StudioPosition { x: 480, y: -120 }, &at(3))
+        .move_studio_node(
+            &studio,
+            &second,
+            None,
+            StudioPosition { x: 480, y: -120 },
+            &at(3),
+        )
         .expect("moved");
     let before = store.studio(&studio).expect("reads");
     drop(store);

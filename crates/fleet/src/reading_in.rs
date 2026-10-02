@@ -13,6 +13,7 @@
 //! back is cost spent on a transcription; Fleet mints a Link per issue itself.
 
 mod epic;
+mod zone;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,6 +31,7 @@ use tokio::process::Command;
 use tokio::time::timeout;
 
 use crate::daemon::Fleet;
+use crate::framing::{HEAD, INSET};
 use crate::promoting::NOT_A_LINK;
 use crate::studios::author;
 
@@ -151,15 +153,34 @@ where
         let at = self.now();
         let author = author(by);
         let link = source.id().clone();
-        let took = {
+        // **Its issues land in one Zone**, made on its first read and filled
+        // on every one after — the owner, 2 Oct 2026. An Epic whose block was
+        // laid out on the board before Zones keeps it there.
+        let (took, zone, new_zone) = {
             let store = self.store().lock().await;
             let graph = self.studio_held(&store, &studio_id.to_domain(), within.as_ref())?;
-            epic::what_it_took(&graph, source, take, &read, at_position.to_domain())
+            let held = epic::zone_of(&graph, source.id()).map(|zone| zone.id().clone());
+            let new_zone = (held.is_none() && !epic::laid_out_before(&graph, source)).then(|| {
+                StudioNode::added(
+                    StudioNodeId::carried(self.mint().ulid()),
+                    StudioNodeContent::Zone,
+                    at_position.to_domain(),
+                    at.clone(),
+                    author,
+                )
+            });
+            let zone = held.or_else(|| new_zone.as_ref().map(|zone| zone.id().clone()));
+            let from = match &new_zone {
+                Some(_) => StudioPosition { x: INSET, y: HEAD },
+                None => at_position.to_domain(),
+            };
+            let took = epic::what_it_took(&graph, source, take, &read, from);
+            (took, zone, new_zone)
         };
-        let made: Vec<(StudioNode, StudioEdgeId)> = took
-            .made
+        let made: Vec<(StudioNode, StudioEdgeId)> = new_zone
             .into_iter()
-            .map(|(content, at_cell)| {
+            .map(|zone| (zone, StudioEdgeId::carried(self.mint().ulid())))
+            .chain(took.made.into_iter().map(|(content, at_cell)| {
                 (
                     StudioNode::added(
                         StudioNodeId::carried(self.mint().ulid()),
@@ -167,10 +188,11 @@ where
                         at_cell,
                         at.clone(),
                         author,
-                    ),
+                    )
+                    .placed(zone.clone(), at_cell),
                     StudioEdgeId::carried(self.mint().ulid()),
                 )
-            })
+            }))
             .collect();
         // **What the Epic itself now says**: the node survives with its
         // address and gains its title, which of its issues the read took, how
@@ -241,13 +263,25 @@ where
         }
         let checkout = self.checkout_read(&root).await?;
         let at = self.now();
-        let proposed = StudioNode::added(
+        // **Everything the read-in brings back lands in one Zone**, its Finding
+        // first — the owner, 2 Oct 2026. The Zone goes where the person is
+        // looking, and what the scout answers is laid out in it later.
+        let zone = StudioNode::added(
             StudioNodeId::carried(self.mint().ulid()),
-            StudioNodeContent::Finding(StudioFinding::asked(&format!("Read in {address}"))),
+            StudioNodeContent::Zone,
             at_position.to_domain(),
             at.clone(),
             author(by),
         );
+        let first = StudioPosition { x: INSET, y: HEAD };
+        let proposed = StudioNode::added(
+            StudioNodeId::carried(self.mint().ulid()),
+            StudioNodeContent::Finding(StudioFinding::asked(&format!("Read in {address}"))),
+            first,
+            at.clone(),
+            author(by),
+        )
+        .placed(Some(zone.id().clone()), first);
         let gathering = proposed
             .reading_in(
                 checkout,
@@ -259,8 +293,12 @@ where
             )
             .expect("a node just added is a Proposed Finding");
         let edge = StudioEdgeId::carried(self.mint().ulid());
-        let node_id = ipc::StudioNodeId::from(gathering.node().id());
-        let made = [(gathering.node().clone(), edge)];
+        let zone_edge = StudioEdgeId::carried(self.mint().ulid());
+        let node_ids = vec![
+            ipc::StudioNodeId::from(zone.id()),
+            ipc::StudioNodeId::from(gathering.node().id()),
+        ];
+        let made = [(zone, zone_edge), (gathering.node().clone(), edge)];
         let studio = self
             .written(studio_id, within.clone(), |store, id| {
                 store.keep_read_in(id, &link, resolved.as_ref(), &made, &[], &[], &at)
@@ -271,7 +309,7 @@ where
             &studio,
             HelmStudioAct::ReadIn {
                 from: ipc::StudioNodeId::from(&link),
-                node_ids: vec![node_id],
+                node_ids,
             },
         );
         let told = crate::scout::told_a_read_in(&root, &source.told(), &text);
@@ -305,21 +343,25 @@ where
             return;
         }
         let at = self.now();
-        let from = ended.node().position();
+        // In the Finding's own Zone, beside it, where the read-in put one.
+        let zone = ended.node().within().cloned();
+        let laid = zone::laid_out_beside(ended.node().position(), &read);
         let mut made: Vec<(StudioNode, StudioEdgeId)> = Vec::new();
         let mut by_handle: Vec<(String, StudioNodeId)> = Vec::new();
-        let mut placed = 0i64;
-        let mut mint = |content: StudioNodeContent, handle: Option<&str>| {
+        let mut mint = |content: StudioNodeContent,
+                        handle: Option<&str>,
+                        within: Option<StudioNodeId>,
+                        to: StudioPosition| {
             let node = StudioNode::added(
                 StudioNodeId::carried(self.mint().ulid()),
                 content,
-                laid_out(across(from), placed),
+                to,
                 at.clone(),
                 // A scout runs on a person's ask, and a Studio records a
                 // person or Helm: whoever asked owns what came back.
                 ended.node().added_by().unwrap_or(StudioAuthor::Person),
-            );
-            placed += 1;
+            )
+            .placed(within, to);
             let id = node.id().clone();
             if let Some(handle) = handle {
                 by_handle.push((handle.to_string(), id.clone()));
@@ -327,26 +369,36 @@ where
             made.push((node, StudioEdgeId::carried(self.mint().ulid())));
             id
         };
-        for note in &read.notes {
-            mint(
-                StudioNodeContent::Note {
-                    said: note.said.clone(),
-                    capture: None,
-                },
-                Some(&note.id),
-            );
-        }
+        // **Each frame before what it holds**, which the store's key needs.
         let mut clusters: Vec<(StudioNodeId, &[String])> = Vec::new();
-        for cluster in &read.clusters {
+        for (cluster, corner) in read.clusters.iter().zip(&laid.clusters) {
             let id = mint(
                 StudioNodeContent::Cluster {
                     title: cluster.title.clone(),
                 },
                 None,
+                zone.clone(),
+                *corner,
             );
             clusters.push((id, &cluster.of));
         }
-        for one in &read.contradictions {
+        let mut drawn_in: Vec<(StudioNodeId, StudioNodeId)> = Vec::new();
+        for (note, (cluster, to)) in read.notes.iter().zip(&laid.notes) {
+            let frame = cluster.map(|at| clusters[at].0.clone());
+            let id = mint(
+                StudioNodeContent::Note {
+                    said: note.said.clone(),
+                    capture: None,
+                },
+                Some(&note.id),
+                frame.clone().or_else(|| zone.clone()),
+                *to,
+            );
+            if let Some(frame) = frame {
+                drawn_in.push((id, frame));
+            }
+        }
+        for (one, to) in read.contradictions.iter().zip(&laid.contradictions) {
             mint(
                 StudioNodeContent::Contradiction {
                     first: one.first.clone(),
@@ -354,6 +406,8 @@ where
                     answer: None,
                 },
                 Some(&one.id),
+                zone.clone(),
+                *to,
             );
         }
         let named = |handle: &str| -> Option<StudioNodeId> {
@@ -366,7 +420,8 @@ where
         let mut edges: Vec<StudioEdge> = Vec::new();
         // A Cluster is its Notes, by a `produced` edge from each, the way
         // grouping makes one. A handle naming no Note in this answer is
-        // skipped, as an unknown one in a relation is.
+        // skipped, as an unknown one in a relation is, and so is a Note
+        // already drawn in an earlier Cluster: a Note is in one at a time.
         for (cluster, of) in &clusters {
             let mut joined: Vec<StudioNodeId> = Vec::new();
             for handle in *of {
@@ -375,7 +430,10 @@ where
                 else {
                     continue;
                 };
-                if joined.contains(&note) {
+                let elsewhere = drawn_in
+                    .iter()
+                    .any(|(drawn, frame)| drawn == &note && frame != cluster);
+                if joined.contains(&note) || elsewhere {
                     continue;
                 }
                 joined.push(note.clone());
@@ -547,14 +605,6 @@ pub(crate) fn laid_out(from: StudioPosition, n: i64) -> StudioPosition {
     StudioPosition {
         x: from.x + (n / DOWN_A_COLUMN) * ACROSS,
         y: from.y + (n % DOWN_A_COLUMN) * DOWN,
-    }
-}
-
-/// One column to the right of the Finding, where what came back is laid out.
-fn across(from: StudioPosition) -> StudioPosition {
-    StudioPosition {
-        x: from.x + ACROSS,
-        y: from.y,
     }
 }
 

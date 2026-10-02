@@ -170,6 +170,7 @@ async fn a_studio_reads_back_whole_after_fleet_restarts() {
             studio.id.clone(),
             MoveStudioNode {
                 node_id: second,
+                within: None,
                 position: StudioPosition { x: 480, y: -120 },
             },
             None,
