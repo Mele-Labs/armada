@@ -436,7 +436,7 @@ impl fmt::Display for Adrift {
             Adrift::ChecksRunningAgain { job } => write!(
                 out,
                 "{}'s Checks are running again on its worktree. Wait for that run to finish \
-                 before restarting the step or replacing the Job",
+                 before acting on the Job",
                 job.as_str()
             ),
             Adrift::ProposalAbandoned => write!(

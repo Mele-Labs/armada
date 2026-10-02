@@ -24,8 +24,6 @@
 //! approval with a write to the forge in front of it**, and what it does to the
 //! machines is [`approve_review`](Fleet::approve_review), called not restated.
 
-use std::sync::Arc;
-
 use adapter_traits::{
     AgentHarness, Delivery, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Vcs,
     WhatBecameOfIt, WhatTheForgeRan, WorkProduct,
@@ -183,12 +181,13 @@ where
     }
 
     /// `merge_by: push`: the merge commit is made here and pushed onto the
-    /// base, never forced, through the code `armada land` lands through.
+    /// base, never forced, through the code `armada land` lands through. A
+    /// base that moved past the branch is brought into it and the branch gated
+    /// again first — `crate::pushing_onto_base`.
     ///
     /// **The answer is written from the push**, not read from the forge: the
     /// forge reads the pull request merged once its head is in the base, which
     /// it may not have caught up to yet, and there is nothing else to ask.
-    /// Under `merge_end`, for `crate::currency`'s reason.
     async fn merged_by_push(
         &self,
         job: &Job,
@@ -196,23 +195,10 @@ where
         url: &str,
     ) -> Result<WhatBecameOfIt, Adrift> {
         let number = url.rsplit('/').next().and_then(|tail| tail.parse().ok());
-        let (vcs, root, handle, declared) = (
-            Arc::clone(self.vcs()),
-            served.root().to_string(),
-            job.handle(),
-            served.manifest().base().map(str::to_string),
-        );
-        let pushed = {
-            let _at_the_merge_end = self.merge_end().lock().await;
-            tokio::task::spawn_blocking(move || {
-                vcs.merge_by_push(&root, &handle, declared.as_deref(), number)
-            })
-            .await
-            .unwrap_or_else(|stopped| {
-                Err(NotMerged::Refused {
-                    said: stopped.to_string(),
-                })
-            })
+        let pushed = match self.pushed_onto_the_base(job, served, number).await {
+            Err(Adrift::NotMerged { why, .. }) => Err(why),
+            Err(other) => return Err(other),
+            Ok(pushed) => Ok(pushed),
         };
         let base = match pushed {
             Ok(PushedOntoBase { base, merged }) => {

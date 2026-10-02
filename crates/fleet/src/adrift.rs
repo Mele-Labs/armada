@@ -497,8 +497,9 @@ pub enum Adrift {
         job: JobId,
         why: crate::rechecking::Unrecheckable,
     },
-    /// A restart or a redispatch was asked for while this Job's Checks are
-    /// running again. Both would take the worktree the Checks are reading.
+    /// An act was asked of a Job whose Checks are running again — a person's
+    /// re-run, or a `merge_by: push` merge gating a moved base. Each would
+    /// change the worktree the Checks are reading.
     ChecksRunningAgain { job: JobId },
     /// The task a re-run of the Checks ran on ended without answering, which
     /// only a panic in it does. The Job is pressable again, as a press is.
