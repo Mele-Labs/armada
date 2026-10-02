@@ -451,6 +451,11 @@ works too; for a vitest Check, any part of the test's name, quotes and
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 
+**`armada check <name> --changed` runs it over what the paths on stdin reach**,
+the way the merge line does: `git diff --name-only main | armada check test
+--changed`. It adds no dependents of its own, so name every crate you want
+measured. *Landing a branch* below has the rules.
+
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
 
@@ -656,6 +661,15 @@ every Check what landed on `main` hits. The design is
 |---|---|
 | Not moved | The gate, and every Check the branch hits |
 | Moved | The gate, and every Check either side hits |
+
+**`test` and `build` run over the crates the turn reaches, not the workspace.**
+That is every crate the change touched and every crate depending on one, and
+`xtask` for `test`. A change to a lockfile, any `Cargo.toml`, a build script, `.cargo/`,
+a file under a crate that is not Rust source, or anything outside `crates/`
+those two read, runs both whole. The status line and the outcome say `test
+narrowed to -p …` when it was; nothing said is a whole run, and the turn's
+`reach.log` says why. A `main` rerun of a red is always whole.
+[Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
 
 **A new gate line ends the turn red before any Check runs.** It is red whatever
 they say, and they take minutes. The red names the lines.

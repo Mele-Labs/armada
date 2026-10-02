@@ -104,7 +104,7 @@ pub fn checks_on_the_base(
         super::prepare::setup(&at, env, logs)?;
         for name in unknown {
             let log = logs.join(format!("{name}-on-{}.log", env.base));
-            let ran = check(&env.armada, &at, name, &log, env.check_limit)?;
+            let ran = check(&env.armada, &at, name, None, &log, env.check_limit)?;
             if ran.timed_out {
                 timed_out.push(name.clone());
             } else {
