@@ -89,6 +89,8 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// A pull request's title and comment count, kept past the merge.
+mod pull_request_kept;
 mod read;
 /// Giving a Job's resources back without giving up its record.
 mod rechecking;
@@ -157,6 +159,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::Preferences;
 pub use process::DroneProcess;
 pub use proving::Proved;
+pub use pull_request_kept::KeptPullRequest;
 pub use read::{Loaded, RowIdentity, StatusRepair, UnreadableRow};
 pub use report::Report;
 pub use resolving::{NamedJob, ResolveJobError};

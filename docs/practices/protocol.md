@@ -2290,6 +2290,26 @@ is told, and `docs/concepts/fleet.md`, *A test another Job is fixing*, has why i
 **Not on the wire: `draft_fix` gains a required `files`.** It is an MCP tool, not this protocol, and
 its own schema says so. **Store V94** keeps a claim's files and what a landed fix still holds.
 
+## Protocol 23.4: a pull request's title and comment count, after it merges
+
+**Two optional fields on `JobDelivery`, additive.** `pull_request_title` and `pull_request_comments`
+sit beside `pull_request` and are served only where it is. Unlike `pull_request_detail`, which is the
+sweep's live reading and goes away when the pull request settles, both come off the Job's record, so
+a merged Job still has them.
+
+**`pull_request_title`** is written when Fleet opens the pull request, from the title it opened it
+with, and again on every read of the forge, the settling read included, so a title edited on the
+forge replaces it. Absent means no read has named it: a pull request opened before 23.4 and not read
+since.
+
+**`pull_request_comments`** is the count the sweep's read finds while the pull request is open:
+conversation comments plus reviews that say something. A comment on one line of the diff is not
+counted, because that is the second query only `get_remarks` asks. **Absent is unknown, never 0**:
+the pull request settled before the rotation reached it open. Opening a new pull request clears it.
+
+**No forge call on a Job read.** Both are written on reads Fleet already makes. **Store V95** keeps
+them, in two `jobs` columns.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
