@@ -19,7 +19,7 @@ import type { StepAttempt, StepDetail } from "@armada/protocol";
  *
  * The verbs are the registry's: `review_gate` is spelled with the gate's own
  * two words, so `advance_gate`'s rows name it. A word with no verb draws
- * nothing. `decided` absent is a Fleet that recorded only at the advance gate.
+ * nothing. `decided` false is a run an earlier gate stopped (21.10).
  */
 export function repositorySaid(
   step: Pick<StepDetail, "advance_gate">,
@@ -34,7 +34,7 @@ export function repositorySaid(
         ? AUTO_MERGE[resolved.auto_merge]?.verb
         : undefined;
   if (verb === null || verb === undefined) return undefined;
-  return resolved.decided === false
-    ? `the repository said ${verb}, but the run ended before that gate`
-    : `the repository said ${verb}`;
+  return resolved.decided
+    ? `the repository said ${verb}`
+    : `the repository said ${verb}, but the run ended before that gate`;
 }

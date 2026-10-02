@@ -1,7 +1,7 @@
 # Spike 22 — The wire lock for the new Job
 
-**Status: questions answered 1 Oct 2026; awaiting the owner's read and sign-off.**
-Read against `main` at protocol 21.9 on 2 Oct 2026. Once signed, the backend
+**Status: signed off by the owner, 2 Oct 2026.**
+Read against `main` at protocol 21.9 on 2 Oct 2026. The backend
 slices at the foot of this page run wave to wave without asking again, until
 one of them meets a question.
 
@@ -150,7 +150,7 @@ sixty seconds as shipped, from `pull_requests_unsettled()`. A running Job that
 came from an issue has no pull request yet, so it is in no rotation at all, and
 A holds only once slice 4 adds one.
 
-| | What slice 4 builds, chosen here |
+| | What slice 4 builds, chosen here; stood at the owner's sign-off, 2 Oct 2026 |
 |---|---|
 | The set | Every running Job whose request came from an issue |
 | The mechanism | A second cursor on the same interval, beside the pull-request one |
@@ -231,19 +231,19 @@ Slice 5 builds it.
 
 **These are the questions #1545 and #1530 name, read against the record before
 calling any open.** A question this page answers by choosing is marked
-*chosen here*; the owner may overturn any of them at sign-off. *Answer N* is
+*chosen here*; each stood at the owner's sign-off, 2 Oct 2026. *Answer N* is
 one of his answers above.
 
 | Question | Answer | Where |
 |---|---|---|
-| Where task transitions ride | `job.plan_changed`, which gains the task and its new state | Chosen here |
-| Where per-task turns ride | `/observe`, filtered by `drone_id` (21.4); a Drone row names its task. Live rows follow one Drone at a time until slice 5 | Chosen here |
-| Plan on `get_job`, or `get_plan` | Stays on `get_job` | Chosen here |
-| The waiting word on the wire | `handed_in` | Chosen here |
-| How a task's Drone hands in | `submit_evidence`, unchanged; Fleet keeps it as the task's | Chosen here |
-| Which step runs a Drone per task | A new step key on `implement`; not `follows_plan` | Chosen here |
-| Who does a group's own round | One Drone for the group, as a step retry is one Drone today | Chosen here |
-| A move's place | `after`, as `add_task` places one | Chosen here |
+| Where task transitions ride | `job.plan_changed`, which gains the task and its new state | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| Where per-task turns ride | `/observe`, filtered by `drone_id` (21.4); a Drone row names its task. Live rows follow one Drone at a time until slice 5 | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| Plan on `get_job`, or `get_plan` | Stays on `get_job` | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| The waiting word on the wire | `handed_in` | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| How a task's Drone hands in | `submit_evidence`, unchanged; Fleet keeps it as the task's | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| Which step runs a Drone per task | A new step key on `implement`; not `follows_plan` | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| Who does a group's own round | One Drone for the group, as a step retry is one Drone today | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
+| A move's place | `after`, as `add_task` places one | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
 | Per-step gate ticks | Nothing ticked: nobody looks, Fleet's drift look stays | #1530, 22 Sep |
 | The repository-decides state | A fourth state, overridable for this Job | #1530, 22 Sep |
 | What a gate resolved to | Both policies recorded on every attempt; older reads absent | Landed at 21.9, #1683 |
@@ -262,7 +262,7 @@ one of his answers above.
 | A Judge and a Check sign the Record | Stored, with a migration | `.claude/decisions/2026-09-22-judge-and-check-sign-the-record.md` |
 | The bounded stream | Built on `/events`; slice 0b measures it and answers `/observe`'s gap | `crates/api/src/stream.rs` |
 | A group's id | Minted by Fleet when the plan is recorded | Forced by #1685's move |
-| A group's clock | Fleet stamps a group's start and end | Chosen here |
+| A group's clock | Fleet stamps a group's start and end | Chosen here; stood at the owner's sign-off, 2 Oct 2026 |
 | Classifying | Is `proposing`, on the wire since 19.0 | `.claude/decisions/2026-09-21-classifying-is-proposing.md` |
 | A request that splits | One Job; the rest are its members | `.claude/decisions/2026-09-30-a-dispatched-request-is-a-job.md` |
 | A member counts as landed | When its pull request merged | `.claude/decisions/2026-09-21-a-parent-job-holds-members.md` |
@@ -292,7 +292,7 @@ lets a timeline move without a read, and costs two optional fields. The plan
 itself still does not ride: titles are free text, and the channel is one
 drop-oldest bound every Job shares.
 
-### Which model a Drone runs, chosen here
+### Which model a Drone runs, chosen here; stood at the owner's sign-off, 2 Oct 2026
 
 A person's pick on the task, then the Job's map for the task's tier, then the
 model the workflow step declares, then the Job's own. A later and more specific
@@ -300,7 +300,7 @@ choice wins, and every spawn records which one it ran as. **A tier the map
 leaves empty is Armada picking** (answer 8): the order falls through to the
 step's model and then the Job's, and the Drone's row names the model it ran.
 
-### How a task's Drone hands in, chosen here
+### How a task's Drone hands in, chosen here; stood at the owner's sign-off, 2 Oct 2026
 
 **The tool is `submit_evidence`, unchanged in shape.** A Drone is bound to its
 Job by `crate::peer` already, and 1b binds it to its task at the spawn, so the
@@ -320,7 +320,7 @@ it can get wrong.
 submission in the step's inbox, carrying every task's claim, and the gate weighs
 it as it weighs a step's submission today. 1b owns this; 1a only adds the word.
 
-### Which step runs a Drone per task, chosen here
+### Which step runs a Drone per task, chosen here; stood at the owner's sign-off, 2 Oct 2026
 
 **A new step key, not `follows_plan`.** `follows_plan` grants `add_task` and
 `update_task`, and it is already set where a Drone per task is not meant:
@@ -659,7 +659,7 @@ are not recorded anywhere to count afterwards: `job.files_changed` and
 
 | | |
 |---|---|
-| Issues | To file |
+| Issues | #1759 |
 | Builds | A per-kind tally of what the broadcaster published, written to Fleet's log each minute; on `/observe`, a `missed` reopens the socket so the backfill redraws the pane |
 | Measures | Events per Job-minute by kind, from live runs on this machine, against `BACKLOG` |
 | Already built | `a_client_that_cannot_keep_up_is_told_and_resynced` in `crates/api/src/tests/stream.rs` covers `/events`' drop and resync |
@@ -667,7 +667,7 @@ are not recorded anywhere to count afterwards: `job.files_changed` and
 | Blocks | 5 |
 | Waits on | Nothing |
 
-**Reopening is the turn socket's answer, chosen here.** It is `/events`' resync
+**Reopening is the turn socket's answer, chosen here; stood at the owner's sign-off, 2 Oct 2026.** It is `/events`' resync
 one socket over: the history is the transcript file, so a redraw costs one
 bounded backfill and `skipped` says what lies beyond it. The number answers
 `[broadcast-capacity]` in `docs/practices/protocol.md`, which is a person's to
@@ -679,7 +679,7 @@ close.
 
 | | |
 |---|---|
-| Issues | The two signers, to file |
+| Issues | #1760 |
 | Wire | Major: `handed_in` and `failed` on a task, `judge` and `check` on `Actor`; `TaskCounts` gains optional `handed_in` and `failed` |
 | Blocks | 1b |
 | Waits on | Nothing |
@@ -708,7 +708,7 @@ Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/en
 
 | | |
 |---|---|
-| Issues | #1752; per-task dispatch, to file |
+| Issues | #1762, carrying #1752 |
 | Wire | Minor: `JobDrone.task`; `job.plan_changed` gains the task and its state |
 | Blocks | 2 |
 | Waits on | 1a |
@@ -734,6 +734,11 @@ Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
 `.armada/workflows/`, `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`,
 `docs/concepts/plan.md`, `docs/contracts/agent-prompt.md`, and the wire set above.
 
+**Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
+Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
+for no task on today's Fleet (`packages/screens/src/task-live.ts`). This slice
+is what turns them on.
+
 ### 2 — Groups, and a task that failed
 
 **Claim: when a group's Checks go red, it goes round again on its own, with no press of mine, as many times as the step's retries allow; only when the last round is still red do its tasks read failed, with the group and the run named on the Record, and only then can I restart one task or move it.**
@@ -745,7 +750,7 @@ retries run out.
 
 | | |
 |---|---|
-| Issues | #1652, #1656, #1685; groups recorded and run, to file |
+| Issues | #1763, carrying #1652, #1656, #1685 |
 | Wire | Minor; the majors landed in 1a |
 | Blocks | 3 |
 | Waits on | 1b |
@@ -790,7 +795,7 @@ and the wire set above.
 
 | | |
 |---|---|
-| Issues | #1657; the tier map on the Job, to file |
+| Issues | #1764, carrying #1657 |
 | Wire | Minor |
 | Blocks | 4, 5 |
 | Waits on | Slice 2 |
@@ -816,7 +821,7 @@ Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
 
 | | |
 |---|---|
-| Issues | #1641, #1642, #1605, #1581, #1699's route; issue noticing, to file |
+| Issues | #1765, carrying #1641, #1642, #1605, #1581, #1699's route |
 | Wire | Minor |
 | Blocks | 6 |
 | Waits on | Slices 2 and 3 |
@@ -847,7 +852,7 @@ documents, and the wire set above.
 
 | | |
 |---|---|
-| Issues | #1666, #1651, #1648's remaining half; concurrency, to file |
+| Issues | #1766, carrying #1666, #1651, #1648's remaining half |
 | Wire | Minor |
 | Blocks | Nothing in this milestone |
 | Waits on | Slices 0b and 3 |
@@ -877,13 +882,18 @@ Write scope: `crates/fleet/src/slots.rs`, `crates/fleet/src/admitting.rs`,
 `crates/config/settings.toml`, `docs/contracts/system-architecture.md`, a new module
 reading a group's edit calls from its Drones' transcripts, and the wire set above.
 
+**Waiting on it in Bridge:** Plan's task sheet already offers Hold to stop this
+task, on a task with a Drone of its own. It is mock-fed and mocked — the press
+ends the Job's Drone, as the Drones sheet's kill does — and #1666 is what makes
+it end that task's Drone alone.
+
 ### 6 — Jobs under a Job
 
 **Claim: an Epic's next wave is real Jobs I can read and correct before I approve it, one press starts them all, and the parent finishes when every member's pull request has merged.**
 
 | | |
 |---|---|
-| Issues | #1694, #1699, #1692; a parent completing on its members, to file |
+| Issues | #1767, carrying #1694, #1699, #1692 |
 | Wire | Minor |
 | Blocks | Nothing |
 | Waits on | Slice 4 |
@@ -907,7 +917,7 @@ Write scope: `crates/fleet/src/sub_dispatch.rs`, `crates/fleet/src/noticing.rs`,
 
 | | |
 |---|---|
-| Issues | To file, after a design pass |
+| Issues | #1768, a design pass first |
 | Blocks | Nothing |
 | Waits on | A design |
 

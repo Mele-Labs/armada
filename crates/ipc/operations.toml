@@ -994,7 +994,7 @@ There is no name here because `armada.yml` declares none — `version`, `id`, `c
 
 Every Manifest Fleet serves, the one it was started in first: one Fleet serves many repositories and the rail's project picker switches between them. A repository added with no `armada.yml` is not here until one loads — `list_repositories` lists it.
 
-It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that passed it and served as `StepAttempt.resolved` since 21.9.
+It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that reached it and served as `StepAttempt.resolved` since 21.9, with `decided` since 21.10 for a run an earlier gate stopped.
 """
 
 [operations.list_repositories]
@@ -1628,8 +1628,8 @@ redispatch or restart one, when asked to.
 [operations.kill_process]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends one process a Job holds, and everything under it"
+agent_access = "Helm only"
+description = "Ends one process a Job holds, and everything under it. A child of the Drone is not the Drone: killing one leaves the Drone, its step and the Job running. The Drone's own pid is `kill_drone`, and is answered as that. A pid outside the Job's process tree is refused with `fleet.not_the_jobs_process`"
 notes = """
 `POST /jobs/:job_id/processes/:pid/kill`, from a row of Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
@@ -1638,19 +1638,23 @@ notes = """
 **A child of the Drone is not the Drone dying.** Killing a runaway `cargo` ends it, leaves the Drone, its step and the Job as they were, and writes nothing to the record: the Drone sees a tool call fail and carries on. What the process started goes with it, leaves first, because a build killed at its root leaves its compilers reparented out of the Job's tree, past every later reading and every later kill.
 
 **The Drone's own pid is `kill_drone`**, so its step stops under `drone_killed` exactly as there, and its descendants go as `kill_processes` says.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**: Helm can kill one process of a Job, or all of them, with the same reach it has over `kill_drone`. It was `No` when the route landed. Fleet's guard is unchanged by who calls it — a pid outside the Job's tree is refused with `fleet.not_the_jobs_process` for Helm exactly as for Bridge — and the act is Destructive in `fleet::helm::deciding`, so Helm's call is put to a person as `kill_drone`'s is.
 """
 
 [operations.kill_processes]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends every process a Job holds; the Job survives"
+agent_access = "Helm only"
+description = "Ends every process a Job holds, the Drone included; the Job survives. This is `kill_drone` and what its group signal misses, so the Drone's step stops. To end one runaway child and keep the Drone working, `kill_process` it instead"
 notes = """
 `POST /jobs/:job_id/processes/kill`, from Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
 **`kill_drone`, and then what its group signal misses.** The Drone is in the tree, so its step stops by hand as there. A Drone leads its own process group and `kill_drone` signals that group; a tool that started a group of its own — a shell with job control does — is not in it, and would outlive the Drone reparented and invisible. This reaches every descendant the tree holds, leaves first, before the Drone ends.
 
 **Not `kill_job`.** The Job survives with its worktree held, and a restart lands on the stopped step. Where the tree will not read, or the Drone is gone, this is `kill_drone` alone.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**, `kill_process`'s reason: the same reach Helm has over `kill_drone`, and Destructive in `fleet::helm::deciding` as that is.
 """
 
 [operations.forget_job]
