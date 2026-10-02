@@ -504,6 +504,17 @@ purpose = "The nested machine, read from the current job_steps row."
 in_code = "Not yet"
 notes = "Advances only while the Job is `running` or `awaiting_review`; frozen otherwise, never cleared, still rendered."
 
+[fields.worktree_slot]
+type = "int"
+table = "jobs"
+storage = "Column"
+nullable = "Yes"
+frozen_at = "Dispatch"
+purpose = "The pool slot the Job's worktree is, `<repo>/.armada/slots/slot-<n>`. Null on a Job never dispatched, and on one cut before the pool, whose worktree is still at the path its handle derives."
+in_code = "Yes"
+notes = "Written when dispatch leases the slot, `branch`'s way: no event describes a worktree, so the column is this field's authority. The lease itself is held by the Job's id in the pool's record beside the slot, and that record, not this column, says whether the Job still holds it — a slot given back at a terminal state is reused, and this column then names where the Job's worktree was."
+why = "A slot is reused, so no formula over the Job can name it; the derived `.armada/worktrees/<handle>` held only while every Job cut its own tree. `docs/concepts/fleet.md`, *Worktree slots*."
+
 [fields."write_targets[]"]
 type = "array<path>"
 table = "job_write_targets"

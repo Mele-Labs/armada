@@ -647,7 +647,9 @@ pub(crate) fn reclaimed(job_id: &core_model::JobId, gave_back: Reclaimed) -> Wor
             WorktreeGone::Removed { path }
             | WorktreeGone::RecordCleared { path }
             | WorktreeGone::DirectoryRemoved { path }
-            | WorktreeGone::Absent { path } => ReclaimedWorktree {
+            | WorktreeGone::Absent { path }
+            // Back with the pool: Fleet released it before asking for this.
+            | WorktreeGone::Pooled { path } => ReclaimedWorktree {
                 path,
                 removed: true,
                 why: None,

@@ -219,6 +219,9 @@ fn worktree(gone: &WorktreeGone) -> String {
         WorktreeGone::NotRemoved { path, why } => {
             format!("worktree NOT removed — {why}: {path}")
         }
+        WorktreeGone::Pooled { path } => format!(
+            "worktree left to the pool, which a release gives back and nothing removes: {path}"
+        ),
     }
 }
 

@@ -364,7 +364,7 @@ export type BridgeState = {
    * The line `armada land` keeps in each served repository that has one, or `null` before Fleet
    * has answered. **Read once per connection and replaced whole by `merge_lines.changed`**,
    * `servers`' terms: Fleet reads the files, and Bridge keeps no timer of its own. Shared, not
-   * this window's own: the panel folds it against the window's pick (`mergeLineView`).
+   * this window's own: the panels fold it against the window's pick (`mergeLineViews`).
    */
   mergeLines: MergeLines | null;
   /**
@@ -607,6 +607,7 @@ export const CHANNELS = {
   readDiff: "bridge:read-diff",
   readRemarks: "bridge:read-remarks",
   readCheckOutput: "bridge:read-check-output",
+  readBrief: "bridge:read-brief",
   readFrame: "bridge:read-frame",
   readReports: "bridge:read-reports",
   readHeld: "bridge:read-held",

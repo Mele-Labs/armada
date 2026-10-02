@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use adapters::leasing::{Full, Holder, Lease, LeaseRefused, Pool, ReleaseRefused, Slot, SlotState};
+use adapters::leasing::{Full, Holder, Lease, LeaseRefused, Pool, Slot, SlotState};
 use config::Manifest;
 use fleet::{CopyOnWrite, NotCloned, TheVolume};
 
@@ -89,25 +89,7 @@ pub fn release(within: &Path, path: Option<PathBuf>) -> u8 {
             );
             0
         }
-        Err(ReleaseRefused::NotASlot(path)) => refused(&format!(
-            "{} is not one of this repository's worktree slots",
-            path.display()
-        )),
-        Err(ReleaseRefused::NotLeased(path)) => refused(&format!(
-            "{} is not leased, so there is nothing to give back",
-            path.display()
-        )),
-        Err(ReleaseRefused::Dirty { path, files }) => refused(&format!(
-            "{} has {} uncommitted, first {}. Commit or remove them, then release",
-            path.display(),
-            files.len(),
-            files[0]
-        )),
-        Err(ReleaseRefused::Unlanded { branch, commits }) => refused(&format!(
-            "{branch} has {commits} commits on neither the remote nor the base. \
-             Land or push them, then release"
-        )),
-        Err(ReleaseRefused::Vcs(why)) => refused(&why),
+        Err(why) => refused(&why.said()),
     }
 }
 
@@ -124,7 +106,7 @@ pub fn status(within: &Path) -> u8 {
     0
 }
 
-fn line(slot: &Slot, now: u64) -> String {
+pub(crate) fn line(slot: &Slot, now: u64) -> String {
     let name = format!("slot-{}", slot.number);
     let path = slot.path.display();
     match &slot.state {
@@ -138,10 +120,32 @@ fn line(slot: &Slot, now: u64) -> String {
             branch,
             holder,
             since,
+            kept: Some(why),
+            ..
         } => format!(
-            "{name}  held     {path}  {branch}  by {} (pid {}) for {}",
-            holder.command().unwrap_or_default(),
-            holder.pid(),
+            "{name}  kept     {path}  {branch}  by {} for {}, which ended and could not give it back: {why}",
+            holder.said(),
+            ago(now, *since)
+        ),
+        SlotState::Held {
+            branch,
+            holder,
+            since,
+            completed: true,
+            ..
+        } => format!(
+            "{name}  done     {path}  {branch}  by {} for {}, which is done and holds it until the Job is cleared",
+            holder.said(),
+            ago(now, *since)
+        ),
+        SlotState::Held {
+            branch,
+            holder,
+            since,
+            ..
+        } => format!(
+            "{name}  held     {path}  {branch}  by {} for {}",
+            holder.said(),
             ago(now, *since)
         ),
         SlotState::Abandoned { branch, since } => format!(

@@ -46,6 +46,7 @@ fn judged_by(client: FakeJudge) -> Judging {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     }
 }
 
@@ -382,6 +383,7 @@ async fn a_step_that_declares_no_criterion_never_asks() {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     };
 
     let ruling = rule_on(
@@ -445,6 +447,7 @@ async fn a_failing_check_never_reaches_the_judge() {
         marking: Marking::detached(),
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
+        reading: None,
     };
 
     let ruling = rule_on(

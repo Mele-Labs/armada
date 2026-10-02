@@ -13,8 +13,8 @@
 //! what it runs.
 //!
 //! **Once per worktree, by where it is called rather than by a record.**
-//! `crate::dispatch` calls this straight after `Vcs::create_worktree` and is
-//! the only caller; every other spawn path goes through
+//! `crate::dispatch` calls this straight after `Vcs::lease_slot` and is the
+//! only caller; every other spawn path goes through
 //! `resume::surviving_worktree` and finds one already on disk. So a Job whose
 //! three steps mean three Drones pays for one install, and a record saying so
 //! would restate a fact the call site already makes.

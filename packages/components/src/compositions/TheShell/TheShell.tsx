@@ -131,8 +131,8 @@ export type TheShellDock = {
   binding?: string;
   onOpen: (open: boolean) => void;
   /**
-   * The resting width in px. Absent draws `--w-dock`. Read while the panel is
-   * over the content; a folded dock is the `Sheet`'s own width, never a drag.
+   * The resting width in px. Absent draws `--w-dock`. A folded dock is a
+   * `Sheet` that reads and drags this same width, clamped to its own area.
    */
   width?: number;
   /**
@@ -462,6 +462,8 @@ function Dock({
       title={DOCK_TITLE}
       binding={binding}
       controls={action}
+      width={width}
+      onResize={onResize}
       onClose={() => onOpen(false)}
     >
       {body}

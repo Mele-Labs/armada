@@ -11,7 +11,7 @@ use adapters::onto_base::{self, Onto};
 use super::dir::StateDir;
 use super::env::Env;
 use super::git::best_effort;
-use super::outcome::{OutcomePatch, OutcomeState};
+use super::outcome::{OutcomePatch, OutcomeState, PullRequestSettled};
 use super::queue::QueueEntry;
 use super::repo::{is_ancestor, remote_head, rev_parse};
 use super::shell::{gh_view, logged, run};
@@ -74,6 +74,7 @@ pub fn landed(
         short(base)
     );
     let remote = remote_head(repo, &env.remote, branch).ok().flatten();
+    let mut settled = None;
     match remote {
         Some(at) if !is_ancestor(repo, &at, merge) => {
             detail.push_str(&format!(
@@ -87,7 +88,9 @@ pub fn landed(
         }
         _ => {
             if let Some(pr) = entry.pr {
-                if let Some(said) = settle(repo, env, pr, merge) {
+                let (ended, said) = settle(repo, env, pr, merge);
+                settled = ended;
+                if let Some(said) = said {
                     detail.push_str(&format!(". {said}"));
                 }
             }
@@ -115,6 +118,7 @@ pub fn landed(
         OutcomePatch {
             merge_commit: Some(merge.to_string()),
             cleanup: Some(cleanup),
+            pr_settled: settled,
             ..OutcomePatch::default()
         },
     )
@@ -123,8 +127,14 @@ pub fn landed(
 /// Wait for the forge to read the push as the pull request's merge, which it
 /// does once the head is in the base, before the branch is deleted — deleting
 /// it first would close the pull request unmerged. Past [`Env::pr_wait`] it
-/// is closed with a comment naming the merge. `Some` says what was done.
-fn settle(repo: &Path, env: &Env, pr: u64, merge: &str) -> Option<String> {
+/// is closed with a comment naming the merge. Answers how the pull request
+/// ended, where the forge said, and what was done, where anything was.
+fn settle(
+    repo: &Path,
+    env: &Env,
+    pr: u64,
+    merge: &str,
+) -> (Option<PullRequestSettled>, Option<String>) {
     let number = pr.to_string();
     let deadline = Instant::now() + env.pr_wait;
     loop {
@@ -134,7 +144,9 @@ fn settle(repo: &Path, env: &Env, pr: u64, merge: &str) -> Option<String> {
                 std::thread::sleep(Duration::from_millis(500));
             }
             Some("OPEN") => break,
-            _ => return None,
+            Some("MERGED") => return (Some(PullRequestSettled::Merged), None),
+            Some("CLOSED") => return (Some(PullRequestSettled::ClosedUnmerged), None),
+            _ => return (None, None),
         }
     }
     let comment = format!("Landed on {} as {merge} by the merge line.", env.base);
@@ -144,13 +156,21 @@ fn settle(repo: &Path, env: &Env, pr: u64, merge: &str) -> Option<String> {
         None,
         None,
     );
-    Some(match closed {
-        Ok(ran) if ran.success() => format!(
-            "#{pr} did not read as merged, so it was closed naming {}",
-            short(merge)
+    match closed {
+        Ok(ran) if ran.success() => (
+            Some(PullRequestSettled::ClosedUnmerged),
+            Some(format!(
+                "#{pr} did not read as merged, so it was closed naming {}",
+                short(merge)
+            )),
         ),
-        _ => format!("#{pr} did not read as merged and could not be closed; close it by hand"),
-    })
+        _ => (
+            None,
+            Some(format!(
+                "#{pr} did not read as merged and could not be closed; close it by hand"
+            )),
+        ),
+    }
 }
 
 /// Where a killed runner's push already landed the branch: the merge commit

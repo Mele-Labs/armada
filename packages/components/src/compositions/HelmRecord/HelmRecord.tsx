@@ -63,6 +63,7 @@ export function HelmRecord({ open, record, reading = false, failed, onCopied, on
 
   return (
     <Sheet
+      kind="helm-record"
       open={open}
       size="wide"
       title="Session record"

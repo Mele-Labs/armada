@@ -103,6 +103,7 @@ export function ProposalSheet(props: ProposalSheetProps) {
 
   return (
     <Sheet
+      kind="proposal"
       open={open}
       title={`Proposal for ${dir}`}
       subtitle={<span className="armada-proposal-sheet__file">{file}</span>}

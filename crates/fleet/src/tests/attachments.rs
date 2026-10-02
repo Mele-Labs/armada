@@ -5,7 +5,6 @@
 //! cannot be read, and the worktree copy plus the brief line dispatch adds
 //! before a Drone's first turn is assembled.
 
-use adapter_traits::WorktreeSpec;
 use core_model::JobStatus;
 
 use crate::adrift::Adrift;
@@ -118,8 +117,7 @@ async fn dispatch_copies_the_attachment_and_the_brief_names_it() {
     let approved = dispatched(&fleet, job.id()).await.expect("dispatch runs");
     assert_eq!(approved.status(), JobStatus::Running);
 
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     let worktree_path = spec.worktree_path();
     let copied = std::path::Path::new(&worktree_path)
         .join(".armada")

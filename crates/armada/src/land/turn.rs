@@ -139,6 +139,7 @@ fn land_group(
             already: Some(Vec::new()),
             new_lines: Some(Vec::new()),
             conflicts: Some(Vec::new()),
+            checks: Some(Vec::new()),
             ..OutcomePatch::default()
         },
     ) {

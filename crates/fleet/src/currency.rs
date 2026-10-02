@@ -49,9 +49,8 @@ where
         let Some(base) = read.base.as_deref() else {
             return;
         };
-        // A Job whose record will not read is not one this can derive a
-        // handle for, and there is no worktree or scratch checkout without
-        // one.
+        // A Job whose record will not read has no worktree to look up, and
+        // no branch to attach a scratch checkout onto.
         let Ok(job) = self.load(job_id).await else {
             return;
         };
@@ -59,6 +58,11 @@ where
             return;
         }
         let Ok(served) = self.served_by(&job) else {
+            return;
+        };
+        // The slot the Job still holds, where its branch is checked out, or the
+        // derived path a scratch checkout is attached at.
+        let Ok(spec) = self.reclaimed_spec(&served, &job) else {
             return;
         };
         // **The cheap read, asked first.** A local `git rev-parse` against no
@@ -94,13 +98,8 @@ where
         // push refuses its head until they pass on it, `crate::pushing_onto_base`.
         let outcome = {
             let _at_the_merge_end = self.merge_end().lock().await;
-            let (vcs, repo_root, handle, owned_base) = (
-                Arc::clone(self.vcs()),
-                served.root().to_string(),
-                job.handle(),
-                base.to_string(),
-            );
-            tokio::task::spawn_blocking(move || vcs.kept_current(&repo_root, &handle, &owned_base))
+            let (vcs, owned_base) = (Arc::clone(self.vcs()), base.to_string());
+            tokio::task::spawn_blocking(move || vcs.kept_current(&spec, &owned_base))
                 .await
                 .expect("git/gh panicked keeping the branch current")
         };

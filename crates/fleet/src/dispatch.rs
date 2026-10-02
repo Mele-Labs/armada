@@ -9,12 +9,13 @@
 //!
 //! # The order in `dispatch` is the specification
 //!
-//! `queued -> running` happens **first**, before the worktree and the Drone,
-//! and that is not the order it reads as. The registry forces it. A step
-//! cannot be started from `queued`, because the inner machine advances only
-//! beneath `running`; and `queued`'s outbound edges give a disk that will not
-//! give up a worktree **no expressible destination**, where `running` has every
-//! one.
+//! **The slot is asked for first, and `queued -> running` happens next**,
+//! before the worktree is used and before the Drone. A pool with no slot free
+//! leaves the Job `queued`, waiting, which is the one answer that must not
+//! move it. Every other failure moves it to `running` and escalates from there,
+//! because the registry forces it: a step cannot be started from `queued`, and
+//! `queued`'s outbound edges give a disk that will not give up a worktree **no
+//! expressible destination**, where `running` has every one.
 //!
 //! # Nothing here removes a worktree, on any path
 //!
@@ -23,7 +24,9 @@
 //! trait. A failed Job's branch is exactly as its Drone left it, which is what
 //! "a person reads the branch" depends on.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree, WorktreeSpec};
+use adapter_traits::{
+    AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, Worktree, WorktreeSpec,
+};
 use core_model::{
     Actor, Branch, Component, Envelope, EscalationTrigger, FieldValue, Job, JobId, Level, StepId,
     StepLevelTrigger, StepState, StepTarget, Target, Transitioned,
@@ -36,6 +39,7 @@ use crate::crossing::{Cleared, Crossed, Produced};
 use crate::daemon::Fleet;
 use crate::drone::{aftermath, Aftermath, Ending, Left};
 use crate::gate::{apply, Ruling};
+use crate::leasing::pool_of;
 use crate::session::{LiveSession, Occasion};
 use crate::terms::Declaring;
 use crate::working::Working;
@@ -71,9 +75,12 @@ where
         &self,
         job: Job,
         working: &mut Option<Working>,
-    ) -> Result<(), Adrift> {
+    ) -> Result<Dispatched, Adrift> {
         if job.branch().is_some() {
-            return self.readmitted(job, working).await;
+            return self
+                .readmitted(job, working)
+                .await
+                .map(|()| Dispatched::Started);
         }
         let job_id = job.id().clone();
         // The Job's own copy, never the file. A workflow edited while this Job
@@ -86,8 +93,6 @@ where
         };
         let step = first.id().clone();
 
-        let job = self.move_job(&job, Target::Running, Actor::Fleet).await?;
-
         let served = self.served_by(&job)?;
         let spec = WorktreeSpec::for_job(served.root(), &job.handle()).map_err(|cause| {
             Adrift::Unworkable {
@@ -95,11 +100,28 @@ where
                 cause,
             }
         })?;
+        // **Held by the Job's id**, so a Fleet restart is not the Job letting
+        // go. A Job that already holds one — a dispatch that died after the
+        // lease — is handed the same slot back, untouched.
+        let leased = match self
+            .vcs()
+            .lease_slot(&pool_of(&served), &spec, job_id.as_str())
+        {
+            Ok(SlotLeased::Full) => return Ok(Dispatched::NoSlot),
+            Ok(SlotLeased::Took { slot, worktree, .. }) => Ok((slot, worktree)),
+            Err(cause) => Err(cause),
+        };
+
+        let job = self.move_job(&job, Target::Running, Actor::Fleet).await?;
+
         // **With the Manifest's base on it**, which `Vcs` cannot put there —
         // `adapters` may not read a Manifest. Without it this step's readings
         // measure from the checkout's HEAD and later steps' from the base.
-        let worktree = match self.vcs().create_worktree(&spec) {
-            Ok(worktree) => self.based(&served, worktree),
+        let (worktree, job) = match leased {
+            Ok((slot, worktree)) => (
+                self.based(&served, worktree),
+                self.slotted(&job, slot).await?,
+            ),
             Err(cause) => {
                 self.stopped_before_a_drone(&job, EscalationTrigger::NoWorktree)
                     .await?;
@@ -111,17 +133,16 @@ where
         };
 
         // **Claimed before preparation, so a `setup.requires` command already
-        // sees its own `${port.NAME}`.** Here and nowhere else, for
-        // `create_worktree`'s own reason above: "once per worktree" is a
+        // sees its own `${port.NAME}`.** Here and nowhere else: this is the
+        // one lease of a slot for a new Job, so "once per worktree" is a
         // property of this call site rather than of a record Fleet would have
         // to keep. See `crate::ports`.
         self.claimed_ports(&job).await?;
 
         // **What the repository says has to be true of a worktree before work
-        // starts in one.** Here and nowhere else because this is the only
-        // `create_worktree` in the workspace, which is what makes "once per
-        // worktree" a property of the call site rather than of a record Fleet
-        // would have to keep. `crate::preparing` holds the rest.
+        // starts in one.** Here and nowhere else, for the ports' reason above.
+        // A reused slot is prepared again: its last lease prepared it for
+        // another branch. `crate::preparing` holds the rest.
         self.prepared(&job, &worktree).await?;
 
         // Every attachment the Job carries, copied again into this fresh
@@ -161,6 +182,7 @@ where
         // have started two commits back is told so on its first turn.
         self.put_a_drone_on(&job, &step, worktree, Opening::fresh(), working)
             .await
+            .map(|()| Dispatched::Started)
     }
 
     /// Read what the worktree holds now, and hold it as this step's baseline.
@@ -747,6 +769,9 @@ where
             // person answers it.
             self.stopped_servers_of(moved.job.id()).await;
             self.released_ports(&moved.job).await;
+            // The same moment, for the Job's pool slot: held by a completed
+            // Job until a person clears it, else given back. `crate::leasing`.
+            self.slot_at_the_end(&moved.job).await;
             // A fix that ended gives back the test it claimed, so a test broken
             // again can be claimed again (#999) — or holds it until its pull
             // request settles, telling the Jobs pointed at it either way (#1001).
@@ -960,4 +985,14 @@ fn copy_attachments(job: &Job, worktree: &Worktree) -> Result<(), (String, std::
             .map_err(|cause| (attachment.filename.clone(), cause))?;
     }
     Ok(())
+}
+
+/// What a dispatch came to, short of an error.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Dispatched {
+    /// A Drone is on the Job.
+    Started,
+    /// Every slot in the Job's pool is held. Nothing moved, and the Job waits
+    /// at `queued` as admission's own predicate already says it should.
+    NoSlot,
 }

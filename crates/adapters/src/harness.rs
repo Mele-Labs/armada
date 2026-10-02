@@ -276,8 +276,14 @@ impl AgentHarness for HeadlessAgent {
         // `Grant::ReadTheRepository` is present — the floor holds for a
         // Drone with no git access too. `git_guard`'s module doc has the
         // three surprises that shape this list.
+        // A held-off path rides the same flag. An `Edit` rule covers every
+        // tool that edits a file, by the CLI's own docs; not measured. #1673.
+        let mut denied = git_guard::disallowed_git_rules();
+        for path in config.toolbelt().held_off() {
+            denied.extend(held_off_rules(path)?);
+        }
         args.push("--disallowedTools".into());
-        args.push(git_guard::disallowed_git_rules().join(","));
+        args.push(denied.join(","));
 
         Launch::rendered(config, &self.program, args)
             .waiting_on_permission(TOOL_WAIT)
@@ -382,6 +388,26 @@ fn command_rule(run: &str) -> Result<String, HarnessRefused> {
     Ok(format!("Bash({run}:*)"))
 }
 
+/// The deny rules for one held-off path, relative to the Drone's working
+/// directory: the path itself, and everything under it where it is a
+/// directory. **Refused rather than dropped** where the rule's own syntax
+/// cannot carry it, so a hold is never quietly missing from a launch.
+fn held_off_rules(path: &str) -> Result<[String; 2], HarnessRefused> {
+    let path = path.trim().trim_end_matches('/');
+    let found = path
+        .chars()
+        .find(|c| matches!(c, '(' | ')' | ',' | '\n'))
+        .or_else(|| path.is_empty().then_some(' '))
+        .or_else(|| path.starts_with('/').then_some('/'));
+    if let Some(found) = found {
+        return Err(HarnessRefused::HeldOffNotExpressibleAsARule {
+            path: String::from(path),
+            found,
+        });
+    }
+    Ok([format!("Edit(./{path})"), format!("Edit(./{path}/**)")])
+}
+
 /// What a Drone may never run, whatever a person says and whether or not a
 /// rule is being written. **Every arm is about the command**, not about the
 /// allowlist's syntax — `command_rule` owns that half.
@@ -445,6 +471,9 @@ pub enum HarnessRefused {
     /// The config's environment already names the variable the permission
     /// wait goes in. Fleet cannot spell it, so this is a Fleet bug.
     PermissionWaitNotSet(adapter_traits::SpawnConfigRefused),
+    /// A held-off path the deny rule's own syntax cannot carry, or one that
+    /// is empty or absolute. #1673.
+    HeldOffNotExpressibleAsARule { path: String, found: char },
 }
 
 impl fmt::Display for HarnessRefused {
@@ -456,6 +485,12 @@ impl fmt::Display for HarnessRefused {
                  answer: {}. Without it the harness gives up on a held question \
                  after a minute",
                 cause.said()
+            ),
+            HarnessRefused::HeldOffNotExpressibleAsARule { path, found } => write!(
+                out,
+                "the path `{path}` is held off this Drone, and `{found}` cannot be written \
+                 into the rule that denies it, so the Drone was not started rather than \
+                 started able to edit it"
             ),
             HarnessRefused::CommandEmpty => {
                 out.write_str("a declared command is empty, so nothing can be allowed for it")

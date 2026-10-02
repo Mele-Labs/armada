@@ -34,8 +34,8 @@ async fn a_jobs_server_says_which_worktree_and_branch_it_serves() {
         .await
         .expect("it starts");
     assert!(
-        started.checkout.path.ends_with(&job.handle()),
-        "the worktree, not the repository root: {}",
+        started.checkout.path.ends_with(".armada/slots/slot-1"),
+        "the Job's slot, not the repository root: {}",
         started.checkout.path
     );
     assert_eq!(
@@ -455,8 +455,11 @@ async fn a_path_that_is_not_this_repositorys_checkout_is_refused() {
         "a directory that is not a checkout of anything"
     );
 
-    let spec = adapter_traits::WorktreeSpec::for_job(fleet.first().root(), &job.handle())
-        .expect("the Job's own");
+    let spec = crate::leasing::spec_of(
+        fleet.first().root(),
+        &fleet.load(job.id()).await.expect("the Job"),
+    )
+    .expect("the Job's own");
     let jobs = Checkout::beside(fleet.first(), &spec.worktree_path());
     let Err(why) = jobs else {
         panic!("a Job's worktree is not reachable by path");

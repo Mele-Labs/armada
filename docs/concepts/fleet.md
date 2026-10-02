@@ -135,6 +135,8 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 
 **A person's act is never refused for a machine.** An approval, a restart, an override and a request for changes all leave the Job at `queued` whatever the machine holds; admission is the only thing that starts a Drone, so a Job a person just re-queued waits exactly as any other queued Job does.
 
+**A free worktree slot in the Job's own repository is asked the same way, per Job** — *Worktree slots* below. `get_capacity` does not name it, because it is a repository's rather than the machine's.
+
 **Which of the three reasons is holding a Job is fleet-wide, not per row.** The Board has one label for all of them; `get_capacity` says which one it is — the cap, memory or disk.
 
 **That poll only covers Jobs that have not started.** A Job that exhausts CPU or memory while already running has nowhere to queue back to and escalates as `resource_exhausted`.
@@ -213,7 +215,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 ### A test broken on main
 
-**A Drone that hits a test already failing on main says so, and Fleet checks before anything is drafted.** Through `draft_fix` it names the Check and the test; Fleet runs just that test against a checkout of main, with the command the Check's `one_test` declares. The call answers once that run has started, and what it came to reaches the Drone as a later turn, as a dry run's report does. Only a failure there drafts the fix, and the fix waits at the approval gate like any proposal. A pass there means the failure is the Drone's own, and nothing is drafted. [Manifest](manifest.md), Running one test by name, holds the key.
+**A Drone that hits a test already failing on main says so, and Fleet checks before anything is drafted.** Through `draft_fix` it names the Check, the test and the files the test lives in, which Fleet checks are files in main's checkout; Fleet then runs just that test against a checkout of main, with the command the Check's `one_test` declares. The call answers once that run has started, and what it came to reaches the Drone as a later turn, as a dry run's report does. Only a failure there drafts the fix, and the fix waits at the approval gate like any proposal. A pass there means the failure is the Drone's own, and nothing is drafted. [Manifest](manifest.md), Running one test by name, holds the key.
 
 **The fix claims the test, so the same breakage is fixed once.** A claim names the repository, the Check and the test. A second Drone reporting that test is told which Job is fixing it, and nothing new is drafted. The claim ends when the fix's pull request merges or closes, or when the fix Job ends without one, and forgetting the fix removes it; the Job that reported it is kept by id rather than linked, so forgetting the reporter first leaves the claim standing.
 
@@ -222,6 +224,25 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 **Bounded the way a dry run is, one directory over.** A Drone waits on one Check run at a time, a step asks for at most one fix, and the checkout of main is shared by every Job on the repository, so one run is out there at a time.
 
 **It passes nothing.** A Drone told a test is someone else's still has its own step decided by its Checks, and a fix drafted from its report still takes a person's approval.
+
+### A test another Job is fixing
+
+**Decided by the owner, 2 Oct 2026: Fleet keeps the Job off the test, rather than only telling a person.** While a claim stands, the test's files are outside the write scope of the Job that reported it and of every Job pointed at the fix. The fix itself is not held. #1673.
+
+**Which files.** The files the reporting Drone named in `draft_fix`, then whatever the fix has declared it will change: its `write_targets` and its steps' plans, the claims the write-scope overlap above compares. A claim from before #1673, or one Fleet drafted itself from a repeated failure, names no files and holds only what the fix declares. Both Jobs' detail carry the list as `held_off`.
+
+**Where a held Job meets it**, and none of these takes the Drone's word:
+
+| Where | What happens |
+|---|---|
+| The opening brief | A block names the files and the fix, for every Drone the Job puts on, a task's included |
+| The Drone's launch | An edit to each file is denied on the argument list, as a git verb is |
+| `declare_scope` and `request_scope` | A path under a held file, or a directory over one, is refused with its own answer, and no Judge's lift reaches it |
+| A Drone already working | Told by the fix report or the peer turn, which name the files |
+
+**The hold outlives the merge.** Fleet merges the base into a Job's branch only as a Drone is put on it (*Catching a branch up*, below), so when the fix lands every held Job's copy is still as broken as it was. The claim is given back at the merge as before, and what it held stays held off each Job until that Job's next catch-up takes the base. Then the files are the Job's again, for any reason of its own, and that Drone is told the fix is already in its copy. A catch-up git could not replay keeps the hold. A fix that ends without landing frees the files at once.
+
+**Refusing a held file at the gate is not built yet.** A write that gets past the launch's deny — a shell command, say — is caught by nothing here until the gate refuses a change to a held file, which waits on the gate work in flight.
 
 ### Catching a branch up
 
@@ -315,10 +336,10 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,
-so an agent's build starts from the last one's `target/` instead of from
-nothing. Each slot is a checkout at `.armada/slots/slot-<n>`, beside
-`.armada/worktrees/` and never inside it, and the Manifest's
-`setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
+to agents and to Fleet's Jobs alike, so a build starts from the last one's
+`target/` instead of from nothing. Each slot is a checkout at
+`.armada/slots/slot-<n>`, beside `.armada/worktrees/` and never inside it, and
+the Manifest's `setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
 worktrees a repository leases*.
 
 > **Rule.** The pool is the cap. With every slot held, a lease waits and says
@@ -332,11 +353,11 @@ worktrees a repository leases*.
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
 
-**A lease is held for a process, recorded beside the slot as its pid and start
-time.** The command that leases exits at once, so a lock held open could not
-be the holder; the `flock` on `slot-<n>.lease` only makes one take or release
-at a time. The holder is the process that ran the shell the command was run
-from — an agent's session, or the terminal a person typed in.
+**An agent's lease is held for a process, recorded beside the slot as its pid
+and start time.** The command that leases exits at once, so a lock held open
+could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
+release at a time. The holder is the process that ran the shell the command was
+run from — an agent's session, or the terminal a person typed in.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and nothing on it is unlanded. Otherwise it stays held, and a lease
@@ -348,11 +369,58 @@ from — an agent's session, or the terminal a person typed in.
 > Why: a lease cuts its branch fresh from the base, and resetting one that
 > holds work would orphan it.
 
-**Fleet's Jobs do not lease from the pool.** A Job still cuts its own worktree
-under `.armada/worktrees/<handle>`, derived from its id, and holds it until
-retention sweeps it — see `../contracts/system-architecture.md`, which fixes
-that path. `armada worktree` and its forms are in
-`../practices/running-locally.md`, *Leasing a worktree*.
+`armada worktree` and its forms are in `../practices/running-locally.md`,
+*Leasing a worktree*.
+
+### A Job's slot
+
+**A Job leases its slot when it is first dispatched, and its worktree is that
+slot from then on.** The slot is recorded with the Job and looked up, never
+derived — `../contracts/system-architecture.md`. Its branch is still
+`armada/<handle>`.
+
+> **Rule.** A Job's lease is held by the Job's id, never a process.
+> Why: Fleet restarts often, and a pid holder would make every Job's slot read
+> as abandoned after one.
+
+> **Rule.** A slot a Job holds is never taken back for a dead holder. It is
+> given back only when the Job reaches a terminal state, or, for a
+> `completed_success` Job, when a person clears it.
+> Why: `awaiting_review`, `escalated` and `interrupted` Jobs still need their
+> work; a person may answer them days later.
+
+> **Rule.** A completed Job holds its slot until a person clears it, from the
+> Board's Clear or by deleting its record. The sweep never gives it back.
+> Why: the owner's decision of 2 Oct 2026, so Show again and anything else
+> reading a finished Job's tree keeps working.
+
+| The Job | Its slot |
+|---|---|
+| Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
+| `running`, `awaiting_review`, `escalated`, interrupted | Held |
+| `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
+| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
+
+> **Rule.** A Job never loses its slot quietly. One whose recorded slot is
+> held by another, given back, or gone is escalated as `no_worktree`, naming
+> the slot and why; Fleet never leases it a second.
+> Why: the earlier steps' work was in that slot, and a fresh one would start
+> the Job over without saying so.
+
+**A new slot is seeded from the warm base the way any lease's is; a reused one
+keeps the build its last lease left**, and the Job's log says which. A Job cut
+before the pool has no slot recorded and keeps `.armada/worktrees/<handle>`
+until it ends.
+
+**A finished Job's worktree is gone once its slot is given back.** What reads
+a finished Job's tree — Show again, a reclaim — finds it while a completed Job
+holds its slot, and for any other end only while the pool kept it.
+
+**Completed Jobs nobody clears can fill the pool.** With every slot held, the
+next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
+--status` names the `done` slots. Clear the finished Jobs on the Board, which
+gives each slot back, or `armada worktree release <path>` one by hand.
 
 ## Ports
 

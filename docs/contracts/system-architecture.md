@@ -460,25 +460,36 @@ the split is made.
 
 | Path | Holds | Written by |
 | --- | --- | --- |
-| `worktrees/<job-id>` | The Drone's checkout | `adapters`, via git2 |
+| `slots/slot-<n>` | The Drone's checkout: the pool slot the Job leased | `adapters` |
+| `slots/slot-<n>.lease` | Who holds the slot — a Job's id, or an agent's process | `adapters` |
+| `worktrees/<job-id>` | The checkout of a Job cut before the pool, until it ends | `adapters`, via git2 |
 
 **The deciding argument is discoverability.** Rung 3 of the Intervention
 Ladder is a raw terminal takeover in that worktree. Burying it under
 `~/Library/Application Support/` makes break-glass harder exactly when
 things are already going badly. See the decision in Armada Decisions.
 
-**The path is not configurable, and any path Fleet needs is derived rather
-than stored.** A `Worktree root path` settings row existed and is tracked
-as debt in Armada Decisions — a setting able to move the worktree off-repo
-would undo the discoverability argument above. Deriving rather than
-storing follows from there: with no setting that can change, there is
-nothing for a stored path to dangle against.
+> **Rule.** A Job's worktree is the pool slot it leased, recorded with the
+> Job as `worktree_slot` and looked up rather than derived.
+> Why: the pool decision of 2 Oct 2026 — a slot is reused, so no formula
+> over the Job can name it. [Fleet](../concepts/fleet.md), *Worktree slots*.
+
+**A Job with no slot recorded was cut before the pool** and keeps the path
+its handle derives, `worktrees/<job-id>`, until it ends. Nothing migrates
+its tree.
+
+**The location is not configurable.** A `Worktree root path` settings row
+existed and is tracked as debt in Armada Decisions — a setting able to move
+the worktree off-repo would undo the discoverability argument above. The
+slot number is stored because the pool reuses slots, not because the root
+can move.
 
 Two costs accepted: Armada adds `.armada/` to `.gitignore` during Manifest
 setup, and Fleet sweeps worktrees for terminal Jobs past retention on
 startup, alongside the crash reconciliation already running there. An
 `interrupted` Job's worktree is never swept — see the decision in Armada
-Decisions.
+Decisions. **A slot is never swept**: it goes back to the pool when its Job
+ends, or when a person clears a completed one, by the pool's own rules.
 
 **Manifests are not in `.armada/`.** An `armada.yml` lives at the
 workspace root, version-controlled with the project it configures. For a

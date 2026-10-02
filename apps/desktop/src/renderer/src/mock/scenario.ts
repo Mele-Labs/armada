@@ -47,7 +47,7 @@ import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
-import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
+import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
@@ -114,9 +114,10 @@ function holding(
   };
 }
 
-/** The same scenario with Fleet serving the merge line `armada land --status` printed on 2 Oct 2026. */
+/** The same scenario with Fleet serving three lines: `armada land --status`, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
-  return { ...scenario, state: { ...scenario.state, mergeLines: mergeLines() } };
+  const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
+  return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
 }
 
 /**
@@ -447,13 +448,12 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
-  // `armada land --status` as it read on 2 Oct 2026, under a few Jobs. Overview draws the line
-  // below its lists; nothing else here reads it.
   lined(
     holding(
       "merge-line",
-      "Six branches in line, four gating as one batch, three just off it",
+      "Three repositories with a line: six in one, nobody in another, nothing ever landed in the third",
       EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`))),
+      { alsoServed: [NOTES, SCRATCH] },
     ),
   ),
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),

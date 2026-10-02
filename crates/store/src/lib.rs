@@ -119,6 +119,8 @@ mod schema;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
+/// Which pool slot a Job's worktree is.
+mod slot;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.

@@ -229,6 +229,8 @@ pub enum Grant {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Toolbelt {
     granted: Vec<Grant>,
+    /// Paths the Drone may not edit, whatever it was granted. #1673.
+    held_off: Vec<String>,
 }
 
 impl Toolbelt {
@@ -236,7 +238,21 @@ impl Toolbelt {
     pub fn evidence_only() -> Toolbelt {
         Toolbelt {
             granted: Vec::new(),
+            held_off: Vec::new(),
         }
+    }
+
+    /// One path, relative to the worktree, the Drone may not edit: a file, or
+    /// a directory and everything under it. **Additive only**, as a grant is,
+    /// so nothing can take a hold back off a toolbelt once it is on.
+    pub fn holding_off(mut self, path: &str) -> Toolbelt {
+        self.held_off.push(path.to_string());
+        self
+    }
+
+    /// Every held-off path, in the order held.
+    pub fn held_off(&self) -> &[String] {
+        &self.held_off
     }
 
     /// One more capability. Additive only — there is no way to take one away,
@@ -406,6 +422,11 @@ pub enum SpawnConfigRefused {
     EnvNameTwice {
         name: String,
     },
+    /// A Judge's checkout was relative, so it would read wherever the call
+    /// happened to start. [`crate::Reading::checkout`].
+    CheckoutNotAbsolute {
+        given: String,
+    },
 }
 
 /// What a harness turns a [`DroneSpawnConfig`] into: a process, not yet started.
@@ -531,6 +552,12 @@ impl SpawnConfigRefused {
                 let mut said = String::from("`");
                 said.push_str(name);
                 said.push_str("` was named twice, and which one wins is not decided here");
+                said
+            }
+            SpawnConfigRefused::CheckoutNotAbsolute { given } => {
+                let mut said = String::from("the checkout `");
+                said.push_str(given);
+                said.push_str("` is relative, so a Judge would read wherever it started");
                 said
             }
         }
