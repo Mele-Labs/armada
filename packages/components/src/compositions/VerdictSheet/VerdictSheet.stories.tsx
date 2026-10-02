@@ -452,7 +452,7 @@ export const MarkdownInTheRecord: Story = {
   },
   play: async ({ canvas }) => {
     const strong = canvas.getAllByRole("strong").map((one) => one.textContent);
-    await expect(strong).toEqual(["two", "not covered here", "untouched"]);
+    await expect(strong).toEqual(["not covered here", "two", "untouched"]);
     const code = canvas.getAllByRole("code").map((one) => one.textContent);
     await expect(code).toEqual(["src/tests/", "proving.rs"]);
     // The criteria are a list of their own, so the claim's two items sit among them.
