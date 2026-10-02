@@ -433,9 +433,9 @@
   means = "The merge line: two paths bending into one and rising as a single arrow, branches taking their turn onto main"
   group = "Navigation"
   size = "16px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "The Merge line surface only. Never the merge act at a gate, which is a button with its own word, and never a merged pull request, which is `git-merge`."
-  notes = "Proposed 2 Oct 2026 for the Merge line's rail row, Proposed until the owner has walked it. Every Navigation glyph is reserved to its own surface, so none could be borrowed. Against the set: `layout-dashboard` is a grid of panes, `hard-drive` a horizontal vessel, `presentation` a board on legs, `briefcase` a case, `book-open` two leaves; two strokes converging into an arrowhead is none of them. Against `git-merge`, the Pull request state badge: that is two nodes on strands, drawn at 12px in a Job header; this is open paths with an arrowhead at 16px in the rail, and the two never sit together. The other candidate was `list-end`, lines with a turn into the end, which says a queue but at 16px reads close to `menu`'s three bars. Refused: `list-ordered`, reserved to Studio outlines; `git-merge`, reserved to the badge; `waypoints`, the graph toggle."
+  notes = "Added 2 Oct 2026 for the Merge line's rail row, and chosen by the owner over `list-end` on the walk the same day. Every Navigation glyph is reserved to its own surface, so none could be borrowed. Against the set: `layout-dashboard` is a grid of panes, `hard-drive` a horizontal vessel, `presentation` a board on legs, `briefcase` a case, `book-open` two leaves; two strokes converging into an arrowhead is none of them. Against `git-merge`, the Pull request state badge: that is two nodes on strands, drawn at 12px in a Job header; this is open paths with an arrowhead at 16px in the rail, and the two never sit together. The other candidate was `list-end`, lines with a turn into the end, which says a queue but at 16px reads close to `menu`'s three bars. Refused: `list-ordered`, reserved to Studio outlines; `git-merge`, reserved to the badge; `waypoints`, the graph toggle."
 
 [icons.message-square]
   means = "Helm"
@@ -736,8 +736,8 @@
     means = "A branch on the merge line that main does not merge into cleanly"
     group = "Land state"
     size = "12px"
-    status = "Proposed"
-    notes = "Added 2 Oct 2026 with `land_state` in `crates/core-model/domain/enum-verbs.toml`, after the owner refused `split` on the walk, and Proposed until he picks between this and `wrench`. Two halves with a gap where they should join is the merge that would not close. The row carries no reservation. It meets `interrupted` and a `signalled` Check in neither place: those mark a Job and a Check, and this marks a branch on the merge line. `wrench` is the other candidate and is reserved to `job_status.awaiting_repair`, so taking it would need that reservation widened. Refused: `split`, by the owner; `git-merge` and `git-pull-request-closed`, each reserved to a pull request's badge, and a closed-PR mark beside a row's own `#1770` would read as that pull request closed; `x`, which `red` takes; `triangle-alert`, reserved to Doctor."
+    status = "Specified"
+    notes = "Added 2 Oct 2026 with `land_state` in `crates/core-model/domain/enum-verbs.toml`, after the owner refused `split` on the walk, and chosen by him over `wrench` on the next walk the same day. Two halves with a gap where they should join is the merge that would not close. The row carries no reservation. It meets `interrupted` and a `signalled` Check in neither place: those mark a Job and a Check, and this marks a branch on the merge line. `wrench`, the other candidate, stays reserved to `job_status.awaiting_repair`. Refused: `split`, by the owner; `git-merge` and `git-pull-request-closed`, each reserved to a pull request's badge, and a closed-PR mark beside a row's own `#1770` would read as that pull request closed; `x`, which `red` takes; `triangle-alert`, reserved to Doctor."
 
 [icons.user-check]
   means = "A human figure with a check beside it — the only human silhouette in the badge set"

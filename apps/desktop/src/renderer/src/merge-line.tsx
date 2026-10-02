@@ -2,15 +2,21 @@
 // its own. **One panel in both places**, the same rows and the same acts, so nothing on the line
 // needs the other view to reach it. They share one fold too.
 //
-// **Only the mock hands a line over.** Fleet does not serve it yet, so a real Bridge draws no
-// panel on Overview and an empty surface here, rather than a sentence about an absence.
+// **Only the mock hands a line over.** Fleet does not serve it yet, so a real Bridge draws neither
+// the panel nor the rail row, rather than a sentence about an absence or a row opening nothing.
 
 import { MergeLine } from "@armada/components";
-import { Boundary } from "@armada/shell";
+import { Boundary, SURFACE } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import type { Drafted } from "./drafted";
 import { useDrafted } from "./drafted";
 import { usePanelOpen } from "./panel-open";
+
+/** The surfaces the rail and the palette leave off: the merge line's, until there is a line. */
+export function hiddenSurfaces({ mergeLine }: Drafted): readonly string[] {
+  return mergeLine === undefined ? [SURFACE.mergeLine] : [];
+}
 
 /** The panel, where a line was handed over. */
 export function MergeLinePanel({ onOpenLink }: { onOpenLink: (address: string) => void }) {

@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronUp, type LucideIcon } from "lucide-react";
+import { ChevronRight, ChevronUp } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
 import { Separator } from "../../primitives/Separator/Separator";
@@ -36,11 +36,6 @@ export type MergeLineEntry = {
   failed?: readonly string[];
   /** Conflict: the files main did not merge into. */
   conflicts?: readonly string[];
-  /**
-   * A glyph drawn in place of the registry's, so a walk can set two candidates for one state
-   * side by side. Goes once the owner picks one. Nothing Fleet serves will carry it.
-   */
-  candidate?: LucideIcon;
 };
 
 export type MergeLineProps = {
@@ -139,7 +134,7 @@ function Entry({
   onOpenPullRequest: (url: string) => void;
 }) {
   const reading = LAND_STATE[entry.state];
-  const Icon = entry.candidate ?? reading?.icon ?? null;
+  const Icon = reading?.icon ?? null;
   const said = reading?.verb ?? entry.state;
   return (
     <li className="armada-merge-line__row" aria-label={`${entry.branch}, ${said}`}>

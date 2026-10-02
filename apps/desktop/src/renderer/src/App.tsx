@@ -130,16 +130,14 @@ import {
   watchOverview,
 } from "./commands";
 import { useDrafted } from "./drafted";
-import { MergeLineSurface } from "./merge-line";
+import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { statsOf, fleetPanelOf } from "./left-column";
-import { useCommandPalette } from "@armada/shell";
-import { copyDebugInfoFor } from "@armada/shell";
-import { Shell } from "@armada/shell";
-import { SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
+import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
+import { Shell, SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
@@ -219,6 +217,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
+  const hidden = hiddenSurfaces(useDrafted()); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -610,6 +609,7 @@ export function App({ draft }: AppProps = {}) {
     <ProseLinks.Provider value={openProseLink}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
         <Shell
+          hidden={hidden}
           connection={state.connection}
           repositories={repositories}
           listed={listed}
@@ -1150,7 +1150,7 @@ export function App({ draft }: AppProps = {}) {
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
-          surfaces={SURFACES}
+          surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           jobs={state.jobs}
           checkoutRunSheet={state.checkoutRunSheet}
           cursor={cursor}

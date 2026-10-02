@@ -1,7 +1,6 @@
 // The merge line: what `armada land --status` prints, drawn as a panel under Overview's lists and
 // again on a rail surface of its own. The batch a turn gates is one group, each state is a mark
-// with its word on hover, and the three outcomes a branch leaves the line with read below it. The
-// two conflicts carry the two candidate glyphs for that state, one each.
+// with its word on hover, and the three outcomes a branch leaves the line with read below it.
 
 import { button, inside, region, role, text, walk } from "../walk";
 
@@ -17,8 +16,10 @@ export const theMergeLine = walk("merge-line", [
   { look: inside(LINE, role("list", "Left the line")), say: "Off the line: landed, red, conflict" },
   { look: inside(LINE, text("29064cc27a")), say: "Landed, with its merge commit" },
   { look: inside(LINE, text("desktop_test")), say: "Red, with the Checks that failed" },
-  { look: inside(LINE, role("listitem", "bridge/overview-strip-width")), say: "Conflict candidate 1: unplug" },
-  { look: inside(LINE, role("listitem", "fleet/land-status-json")), say: "Conflict candidate 2: wrench" },
+  {
+    look: inside(LINE, role("listitem", "bridge/overview-strip-width")),
+    say: "Conflict, with the files that did not merge",
+  },
   { press: inside(LINE, button("Collapse Merge line")), say: "It folds like the panels above it" },
   { press: inside(LINE, button("Expand Merge line")), say: "And opens again" },
   { press: button("Merge line", { exact: true }), say: "Its own row in the rail, under Work" },
