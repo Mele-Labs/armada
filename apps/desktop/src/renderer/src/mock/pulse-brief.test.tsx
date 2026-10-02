@@ -48,6 +48,35 @@ test("a gaming check's brief opens the same way, and its row keeps the Open that
   await expect.element(panel.getByText(/asserts less than it did/)).toBeVisible();
 });
 
+test("a brief opens wrapped, and the panel's toggle unwraps it", async () => {
+  mount(onJob(escalatedEvidenceSuspect()));
+  await onPulse();
+
+  await page.getByRole("button", { name: "Judge brief, regression_verify · gaming check" }).click();
+
+  const panel = page.getByRole("dialog", { name: "Judge brief" });
+  const toggle = panel.getByRole("button", { name: "Wrap lines" });
+  await expect.element(panel.getByText(/asserts less than it did/)).toBeVisible();
+  await expect.element(toggle).toHaveAttribute("aria-pressed", "true");
+  expect(document.querySelector(".armada-console")?.getAttribute("data-wrap")).toBe("true");
+
+  await toggle.click();
+
+  await expect.element(toggle).toHaveAttribute("aria-pressed", "false");
+  expect(document.querySelector(".armada-console")?.hasAttribute("data-wrap")).toBe(false);
+});
+
+test("a transcript's panel draws no wrap toggle, having no console lines to wrap", async () => {
+  mount(onJob(escalatedEvidenceSuspect()));
+  await onPulse();
+
+  await page.getByRole("button", { name: /^Drone transcript/ }).click();
+
+  const panel = page.getByRole("dialog", { name: "Drone transcript" });
+  await expect.element(panel).toBeVisible();
+  expect(panel.getByRole("button", { name: "Wrap lines" }).elements()).toHaveLength(0);
+});
+
 test("a brief Fleet no longer holds says so inside the panel", async () => {
   mount(onJob({ ...escalatedEvidenceSuspect(), briefs: {} }));
   await onPulse();

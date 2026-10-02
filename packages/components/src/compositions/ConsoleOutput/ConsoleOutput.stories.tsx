@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 import { Button } from "../../primitives/Button/Button";
-import { ConsoleOutput, type ConsoleRow } from "./ConsoleOutput";
+import { ConsoleOutput, ConsoleWrapToggle, type ConsoleRow } from "./ConsoleOutput";
 
 /**
  * One story per state the viewer has to hold: the reading a selector lands on,
@@ -223,5 +223,39 @@ export const AFoldSaysWhetherItIsOpen: Story = {
 
     const open = canvas.getByRole("button", { name: /running 315 tests/ });
     await expect(open).toHaveAttribute("aria-expanded", "true");
+  },
+};
+
+const LONG =
+  "Does cargo nextest run --workspace still assert that selectVisibleColumns memoises, so a regression in it would fail the suite, where that assertion is made nowhere else in this change?";
+
+/**
+ * A line never wraps unless the reader asks. Unasked, a long line runs past
+ * the column and scrolls sideways under its number; asked, it breaks under the
+ * same number and the reading is no wider than its column.
+ */
+export const ALineWrapsOnlyWhenAsked: Story = {
+  render: () => (
+    <div style={{ width: 360 }}>
+      <div data-testid="unasked">
+        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} />
+      </div>
+      <div data-testid="asked">
+        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} wrap />
+      </div>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const rows = (id: string) => canvas.getByTestId(id).querySelector<HTMLElement>(".armada-console__rows")!;
+    await expect(rows("unasked").scrollWidth).toBeGreaterThan(rows("unasked").clientWidth);
+    await expect(rows("asked").scrollWidth).toBeLessThanOrEqual(rows("asked").clientWidth);
+  },
+};
+
+/** The reader's toggle: a bare glyph named by its tooltip, held down while lines wrap. */
+export const TheWrapToggle: Story = {
+  render: () => <ConsoleWrapToggle wrap onToggle={() => undefined} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Wrap lines" })).toHaveAttribute("aria-pressed", "true");
   },
 };

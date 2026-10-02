@@ -20,7 +20,7 @@ export type ReadBrief = (jobId: string, name: string) => Promise<BriefRead>;
 /** What a brief panel holds: nothing yet, the brief, or why there is none. */
 type Held = { state: "reading" } | { state: "got"; brief: BriefContents } | { state: "absent"; note: string };
 
-export function BriefPane({ jobId, path, read }: { jobId: string; path: string; read: ReadBrief }) {
+export function BriefPane({ jobId, path, read, wrap }: { jobId: string; path: string; read: ReadBrief; wrap: boolean }) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
   useEffect(() => {
     let current = true;
@@ -36,7 +36,7 @@ export function BriefPane({ jobId, path, read }: { jobId: string; path: string; 
   // Nothing while the one read is out: an empty slot stays empty.
   if (held.state === "reading") return null;
   if (held.state === "absent") return <ConsoleOutput rows={[]} emptyNote={held.note} />;
-  return <ConsoleOutput rows={rowsOf(held.brief)} region={regionOf(held.brief)} emptyNote={EMPTY} />;
+  return <ConsoleOutput rows={rowsOf(held.brief)} region={regionOf(held.brief)} emptyNote={EMPTY} wrap={wrap} />;
 }
 
 /** The file's own name, which is all `get_brief` takes. Fleet resolves it inside the Job's briefs. */

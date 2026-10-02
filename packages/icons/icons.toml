@@ -640,6 +640,12 @@
   status = "Specified"
   notes = "Changed from git-fork, which loses its nodes at 12px. One line becoming two is literally what fanning out means, and it frees git-* for real git operations."
 
+  [[icons.split.usage]]
+    means = "wrap a reading's lines"
+    group = "Console"
+    size = "16px"
+    notes = "Added 2 Oct 2026 for the log panel's wrap toggle (owner: an icon with a tooltip, from a glyph already here). One line becoming two is what wrapping does to a long line. `wrap-text`, the obvious glyph, is not in the set, and minting it was not asked for. Rule 4 allows the cross-group use: the escalation reason is 12px on a Job badge, and this is a 16px icon button in a console's head, held down while lines wrap."
+
 [icons.square-pen]
   means = "A pen crossing out of a square's open corner — a name in a box being rewritten"
   group = "Action"

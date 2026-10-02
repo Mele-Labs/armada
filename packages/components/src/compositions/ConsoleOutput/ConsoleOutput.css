@@ -170,7 +170,7 @@
   user-select: none;
 }
 
-/* Verbatim, and never wrapped: a transcript's own line is a unit, and folding
+/* Verbatim, and never wrapped unless the reader asks: a transcript's own line is a unit, and folding
    it into the column width would be reflowing evidence rather than quoting
    it. `.armada-console__rows`' own `overflow-x: auto` is what a line longer
    than the column does instead — the row scrolls sideways under the pinned
@@ -180,6 +180,13 @@
 .armada-console__text {
   min-width: 0;
   white-space: pre;
+}
+
+/* The reader asked (`wrap`): a line longer than the column breaks under its
+   one number, its own spacing kept, and nothing scrolls sideways. */
+.armada-console[data-wrap="true"] .armada-console__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* The surface's own words beside a quoted line. Sans and set back, so nothing
