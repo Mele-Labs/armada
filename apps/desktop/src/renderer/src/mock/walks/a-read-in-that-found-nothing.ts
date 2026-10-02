@@ -13,6 +13,7 @@ export const aReadInThatFoundNothing = walk("studio-read-nothing", [
   { press: button("Continue", { exact: true }), say: "Continue it, so it can be read in" },
   { press: role("group", /^Link: /), say: "Pick the Link" },
   { press: inside(picked, button("Read in", { exact: true })), say: "Read it in" },
-  { press: inside(role("dialog"), button("Read in", { exact: true })), say: "The scout starts reading, in a Zone of its own" },
+  { press: inside(role("dialog"), button("Read in", { exact: true })), say: "The scout reads it, in a Zone of its own" },
+  { press: button("Fit", { exact: true }), say: "Fit the board to see what came back" },
   { look: role("group", `Note: ${NOTHING_FOUND}`, { exact: true }), say: "It answered and asked for nothing, so a Note off the Finding says so" },
 ]);

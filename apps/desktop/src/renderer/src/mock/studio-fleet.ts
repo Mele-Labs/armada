@@ -465,8 +465,6 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         // mock that minted the node alone would draw a bare id and prove
         // nothing about the thing a person came to the Studio to do.
         if (answer.ok && promotion.act === "dispatch") atTheGate(handle, answer.studio);
-        // A scout still reading ends a moment later, on its own write, the way Fleet's does.
-        if (answer.ok && promotion.act === "read_in") setTimeout(() => write(studioId, answeredWithNothing), SCOUT_READS_MS);
         return answer.ok ? OK : answer.outcome;
       },
     };
@@ -901,8 +899,6 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
 
 /** An address whose scout reads it and asks for nothing — what Fleet makes of an empty answer. */
 export const READS_AS_NOTHING = "https://example.invalid/o/r/wiki/Glossary";
-/** How long the mock's scout reads a source that comes back with nothing. */
-const SCOUT_READS_MS = 400;
 
 /** What Fleet's one Note says when a read-in finds nothing — `NOTHING_FOUND` in `crates/fleet/src/reading_in.rs`. */
 export const NOTHING_FOUND = "Nothing was found that could be pulled into the studio.";
@@ -959,7 +955,9 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     // Still reading: no `learned` and no `ended` yet, and its state says so.
     const { learned: _, ended: __, ...asked } = finding as Extract<StudioNodeContent, { kind: "finding" }>;
     const reading = made(zoned, asked, [nodeId], down(0), zone);
-    return { ...reading, nodes: reading.nodes.map((node, at) => (node.kind === "finding" && at === reading.nodes.length - 1 ? { ...node, state: "gathering" } : node)) };
+    const gathering = { ...reading, nodes: reading.nodes.map((node, at) => (node.kind === "finding" && at === reading.nodes.length - 1 ? { ...node, state: "gathering" } : node)) };
+    // Answered at once: a walk frames the board after it, so nothing waits on a timer.
+    return answeredWithNothing(gathering);
   }
   // Ended, so no state: `frozen` went on 1 Oct 2026.
   const marked = made(zoned, finding, [nodeId], down(0), zone);
