@@ -29,6 +29,7 @@ import { caseViewsOf, type CaseView } from "./draft/cases";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { familyOf, type LedgerRow } from "./draft/ledger";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
+import type { JobCheckLog } from "./check-log-sheet";
 import { RowRead } from "./record-read";
 import type { TrailProps } from "./trail";
 
@@ -61,6 +62,11 @@ export type RecordTabProps = {
    * not this tab's** — `JobDetail.tsx` owns which destination is open.
    */
   onOpenStep: (stepId: string) => void;
+  /**
+   * Open a boundary Check's log in the log panel, from a task row's group.
+   * **The screen's**, which holds the panel, as Plan's boundary does.
+   */
+  onOpenCheckLog: (log: JobCheckLog) => void;
   /**
    * The Check whose row opens with the tab — by its name and the step attempt
    * that ran it — where another destination sent a person here. Read once.
@@ -123,6 +129,7 @@ export function RecordTab({
   cases: givenCases,
   onSaid,
   onOpenStep,
+  onOpenCheckLog,
   opensCheck,
   opensRow,
   trail,
@@ -148,8 +155,6 @@ export function RecordTab({
     }
     setOpenRow(id);
   };
-  const openCheck = (name: string, stepAttempt: number) =>
-    openRowOf(checkRowOf(rows, detail, { name, stepAttempt }));
   const openTask = (taskId: string) => openRowOf(taskRowOf(rows, taskId));
 
   const outputs = useCheckOutputs(onReadCheckOutput, jobId);
@@ -248,7 +253,7 @@ export function RecordTab({
                     cases={cases}
                     onSaid={onSaid}
                     onOpenStep={onOpenStep}
-                    onOpenCheck={openCheck}
+                    onOpenCheckLog={onOpenCheckLog}
                     onOpenTask={openTask}
                     taskRowOf={(taskId) => taskRowOf(rows, taskId)}
                   />

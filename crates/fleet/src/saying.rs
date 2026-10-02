@@ -606,6 +606,16 @@ impl fmt::Display for Adrift {
                  its `brief_path`, and one whose `.armada/briefs` directory has since been \
                  reclaimed reaches no file"
             ),
+            Adrift::NoSuchLandLog {
+                root,
+                branch,
+                check,
+            } => write!(
+                out,
+                "no Check named `{check}` has a log for `{branch}` on the merge line in {root}. \
+                 The branch's outcome names its turn and the Checks that turn has started, and \
+                 nothing else is opened"
+            ),
             Adrift::NoSuchManifest { named, held } => write!(
                 out,
                 "no Manifest is named `{named}`. This Fleet holds `{held}`, and `list_manifests` \
@@ -800,6 +810,7 @@ impl Adrift {
             | Adrift::Unresolvable(_)
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::NoReadingWorktree(_)
@@ -878,6 +889,7 @@ impl Error for Adrift {
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             // The five resume refusals are refusals rather than faults: a Job
             // that cannot be redirected has nothing underneath saying why, only
             // the state it is in.

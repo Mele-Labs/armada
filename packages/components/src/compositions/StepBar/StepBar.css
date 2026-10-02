@@ -95,3 +95,30 @@
 
 /* The bar never animates. Its job is where the work got to, which is a static
    fact — the badge carries "still working" on a list row. */
+
+/* A segment that opens something: a boundary's Check, which opens its log. The
+   mark keeps its 4px; the press reaches a row's height around it, and across
+   half the gap either side, so a 12px segment is a target and not a hairline. */
+.armada-step-bar__press {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+.armada-step-bar__press::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-1) / 4);
+}
+
+.armada-step-bar__press:hover {
+  outline: var(--border-width) solid var(--border-strong);
+  outline-offset: var(--border-width);
+}
+
+.armada-step-bar__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

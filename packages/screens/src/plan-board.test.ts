@@ -15,6 +15,7 @@ import {
   groupFailed,
 } from "./fixtures/build/arc";
 import type { ArcMoment } from "./fixtures/build/arc-base";
+import type { JobCheckLog } from "./check-log-sheet";
 import { boundaryOf, planBoardOf, shapeSaid, verdictSaid } from "./plan-board";
 import { runBySaid } from "./tab-plan-read";
 import { tasksField } from "./step";
@@ -144,24 +145,25 @@ describe("a boundary that failed", () => {
     expect(screens.result).toBe("1 of 1384 failed: the Drones row opened the Board");
   });
 
-  test("pressing a Check that ran opens its run, by name and step attempt", () => {
+  test("pressing a Check that ran opens its kept log, by the file's own name", () => {
     const read = reading(groupFailed());
-    const opened: [string, number][] = [];
-    const onOpenCheck = (name: string, at: number) => void opened.push([name, at]);
-    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheck)!;
+    const opened: JobCheckLog[] = [];
+    const onOpenCheckLog = (log: JobCheckLog) => void opened.push(log);
+    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheckLog)!;
     drawn.groups[2]!.boundary.checks.find((one) => one.name === "screens_test")!.onOpen!();
-    expect(opened).toEqual([["screens_test", 1]]);
+    expect(opened).toEqual([{ name: "screens_test", kept: "implement.1.screens_test.log", live: false }]);
   });
 
   // The step's runs are every group's, so a group nothing reached would
   // otherwise open another group's run, and a passed one another group's red.
-  test("a Check with no run of its own to open is not pressable", () => {
+  // A run that kept no file has no log to open either.
+  test("a Check with no log of its own to open is not pressable", () => {
     const read = reading(groupFailed());
-    const onOpenCheck = () => undefined;
-    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheck)!;
+    const onOpenCheckLog = () => undefined;
+    const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheckLog)!;
     expect(drawn.groups[3]!.boundary.checks.every((one) => one.onOpen === undefined)).toBe(true);
     const first = drawn.groups[0]!.boundary.checks;
-    expect(first.filter((one) => one.onOpen !== undefined).map((one) => one.name)).toEqual(["test"]);
+    expect(first.filter((one) => one.onOpen !== undefined).map((one) => one.name)).toEqual([]);
   });
 
   // A step's `check_runs` is one list for every group in it, so a passed group

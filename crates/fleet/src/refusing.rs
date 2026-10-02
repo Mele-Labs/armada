@@ -461,6 +461,7 @@ where
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::AttachmentUnreadable { .. } => {

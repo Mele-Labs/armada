@@ -814,6 +814,26 @@ where
         Ok(crate::merge_lines::answer(self).await)
     }
 
+    /// One Check's log on a served line — [`crate::merge_lines::land_log`].
+    async fn observe_land_check(
+        &self,
+        root: String,
+        branch: String,
+        check: String,
+    ) -> Result<api::LandOutput, Refusal> {
+        let asked = (root.clone(), branch.clone(), check.clone());
+        crate::merge_lines::land_log(self, root, branch, check)
+            .await
+            .ok_or_else(|| {
+                let (root, branch, check) = asked;
+                self.refusal(Adrift::NoSuchLandLog {
+                    root,
+                    branch,
+                    check,
+                })
+            })
+    }
+
     /// What a Job may be spawned as, resolved once by the composition root.
     async fn list_models(&self) -> Result<ModelChoices, Refusal> {
         Ok(self.models().clone())
