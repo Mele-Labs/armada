@@ -19,6 +19,6 @@ export const aReadInLandsInAZone = walk("studio-zone", [
     say: "A Note sits inside the Cluster it was read into, Risks to watch",
   },
   { drag: zone, by: { x: 0, y: 160 }, say: "Drag the Zone, and everything in it comes along" },
-  { look: role("group", "Cluster: Acceptance"), say: "Still inside, where it was" },
+  { look: role("group", "Cluster: What to build"), say: "Still inside, where it was" },
   { press: button("Add a Zone"), say: "Add a zone, from the rail. Press the board to put it down" },
 ]);
