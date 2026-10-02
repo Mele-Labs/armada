@@ -327,7 +327,7 @@
   group = "Pull request state"
   size = "12px"
   status = "Specified"
-  reserved = "A merged pull request's badge only, in the Job header and on the Land board's Delivered row. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
+  reserved = "A merged pull request's badge, in the Job header and on the Land board's Delivered row, and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
   notes = "Minted 1 Oct 2026, the owner's call: a pull request's state reads as a badge the way a Job's does (*Every badge carries an icon*). It renders `--status-completed-success`, which `check` also renders. A forked join and a tick share no outline at 12px, so rule 4 holds. `git-pull-request` stays the row mark for what the part is. This mark is the state the part settled in, and the two sit on one row without saying the same thing."
 
 [icons.git-pull-request-closed]
@@ -345,14 +345,6 @@
   status = "Specified"
   reserved = "Accepting several Notes as one Cluster. Never a generic grouping control, never a folder, and never the Plan's own groups, which draw their boundary instead of a glyph."
   notes = "Minted 2026-09-28 with the node bar's mint. Clustering is the one act that takes several nodes and gives back one, and a marquee round two figures depicts that rather than standing for it. Against `shapes` on the rail beside it: that is three unlike figures overlapping and carries no frame, this is two like figures inside one \u2014 the frame is both the outline difference rule 3 asks for and the whole of the claim. Refused: `layers`, reserved to how many places a Job writes; `boxes`, three cubes, which says a pile rather than a union; `combine` and `merge`, whose arrows promise something is consumed, where a Cluster leaves every Note standing."
-
-[icons.hammer]
-  means = "A hammer: a head across the top of an angled handle"
-  group = "Job state"
-  size = "12px"
-  status = "Specified"
-  reserved = "A branch on the merge line being put together before its Checks run, and nothing else. Never a Check or a repair: a Check's marks are the `shield-*` family, and repair is `wrench`'s."
-  notes = "Chosen by the owner on 2 Oct 2026 after walking theMergeLine. Proposed 2 Oct 2026 for `land_state.preparing`, Bridge's name for the part of a `gating` turn before any Check runs: main merged in, the generators rerun, `verify-foundations` read. The owner asked for a state of its own beside *Running Checks before landing*. Rule 4: it renders `--status-running` and pulses, so it must differ from `circle-dot` and `scan-line`; a head across an angled shaft is neither rings nor detached corners. Rule 3: the T of head and handle is the silhouette at 12px, and nothing inside it carries the meaning. An object standing for its verb, the construction `stamp` and `wrench` use, so P1 is not crossed. Refused: `circle-dot-dashed` and `loader-circle`, rings beside `circle-dot` on the same hue; `hourglass`, banned; `clock`, the waiting mark; `wrench`, escalation's repair; `git-merge`, a merged pull request's; `package`, a box beside `archive`'s."
 
 [icons.hard-drive]
   means = "A drum lying on its side, cut through by a line running the full width of the grid, with two short marks below it — disk, drawn as the object and never as anything done to one"

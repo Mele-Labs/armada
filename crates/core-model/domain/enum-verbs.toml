@@ -1255,11 +1255,11 @@ notes = "In its turn: main merged in, the generators, `verify-foundations` and t
 
 [verbs.land_state.preparing]
 verb = "Preparing to land"
-icon = "hammer"
+icon = "git-merge"
 status_token = "--status-running"
 vocabulary = "Land state"
 in_code = ""
-notes = "Bridge's own, not a word `OutcomeState::word` prints: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `hammer`, pulsing in the running hue as `gating` does; see its row in `packages/icons/icons.toml`."
+notes = "Bridge's own, not a word `OutcomeState::word` prints: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `git-merge` (the owner chose it over `hammer`), pulsing in the running hue as `gating` does; see its row in `packages/icons/icons.toml`."
 
 [verbs.land_state.merging]
 verb = "Pushing onto main"

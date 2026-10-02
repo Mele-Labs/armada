@@ -260,7 +260,7 @@
 }
 
 /* The pulse stops. The running hue still carries the reading. */
-/* Preparing's hammer has no inner dot, so the whole mark breathes, opacity
+/* Preparing's git-merge has no inner dot, so the whole mark breathes, opacity
    alone so nothing beside it moves. */
 .armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg {
   animation: armada-merge-line-breathe var(--duration-pulse) var(--ease) infinite;
