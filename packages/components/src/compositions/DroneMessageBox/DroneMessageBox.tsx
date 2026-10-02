@@ -9,10 +9,8 @@ import { SendKbd, sendsOn } from "../../send-message";
  * control for the moment a person is already reading the log and does not
  * want to leave it to reach one.
  *
- * **One component, two mounts.** The inline log and the Activity log sheet
- * each put this at their own foot, so the two cannot draw the availability
- * rule two different ways — `screens`' wiring reads `steeringOf` once and
- * hands both the same answer.
+ * **One component, every mount.** Each caller puts this at its own foot, so
+ * no two draw the availability rule two different ways.
  *
  * **Disabled is not blank.** A field that goes grey with nothing said reads as
  * broken; `disabledReason` is the one line a caller gives for why a step with

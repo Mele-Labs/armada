@@ -75,6 +75,7 @@ pub(super) fn written(content: &StudioNodeContent) -> String {
             Some(capture) => json!({ "said": said, "capture": capture_written(capture) }),
         },
         StudioNodeContent::Cluster { title } => json!({ "title": title }),
+        StudioNodeContent::Zone => json!({}),
         StudioNodeContent::Finding(finding) => finding_written(finding),
         StudioNodeContent::Contradiction {
             first,
@@ -207,6 +208,7 @@ pub(super) fn read(kind: &str, stored: &str) -> Result<StudioNodeContent, Unread
         StudioNodeKind::Cluster => StudioNodeContent::Cluster {
             title: text("title")?,
         },
+        StudioNodeKind::Zone => StudioNodeContent::Zone,
         StudioNodeKind::Finding => StudioNodeContent::Finding(finding_read(&object)?),
         StudioNodeKind::Contradiction => StudioNodeContent::Contradiction {
             first: text("first")?,

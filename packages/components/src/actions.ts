@@ -48,7 +48,6 @@ export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = 
   report_job: ["bug", "file", "wrong"],
   observe: ["watch", "transcript", "terminal"],
   open_diff: ["patch", "changes", "files"],
-  open_log: ["activity", "turns", "history"],
   open_stage: ["gate", "phase", "check"],
   state_filter: ["tab", "narrow", "status"],
   // "hide the rail" left on 2026-09-22 (#1591): nothing hides the column, at

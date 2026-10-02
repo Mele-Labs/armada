@@ -130,6 +130,7 @@ async fn a_stopped_run_ends_its_group_and_keeps_what_printed() {
         crate::run::Writing::Nowhere,
         &[],
         tokio::time::sleep(Duration::from_millis(300)),
+        crate::Priority::Normal,
     )
     .await;
     assert!(started.elapsed() < Duration::from_secs(10));
@@ -159,6 +160,7 @@ async fn an_appended_log_keeps_what_was_there() {
         crate::run::Writing::Appending(&live),
         &[],
         std::future::pending(),
+        crate::Priority::Normal,
     )
     .await;
     let whole = std::fs::read_to_string(&live).unwrap_or_default();
@@ -484,3 +486,5 @@ mod slots;
 
 /// What a narrowing comes to on the merge line. `src/tests/at_the_gate.rs`.
 mod at_the_gate;
+/// At what priority a Check runs, read back from `ps`. `src/tests/priority.rs`.
+mod priority;

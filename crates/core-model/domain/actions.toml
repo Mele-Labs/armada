@@ -168,10 +168,10 @@ tier = "Contextual"
 verb = "Move focus"
 icon = ""
 shortcut = "j / k / ↓ / ↑"
-scope = "list and detail"
+scope = "list"
 destructive = false
 confirms = false
-notes = "The two navigation keys the destructive-key rule is measured against. A list is a listbox and already roves on the arrows; j and k are here because nothing else claims them. The scope covers detail because the run tree and the activity log are listboxes too — moving between steps and moving between rows are one act, and a second pair of keys for it would be the ⌘F deletion made again. #265 builds the detail half."
+notes = "The two navigation keys the destructive-key rule is measured against. A list is a listbox and already roves on the arrows; j and k are here because nothing else claims them. The scope covered detail too, because the run tree and the activity log were listboxes — moving between steps and moving between rows are one act. **Retired:** the run tree went with Overview's reframe of 29 Sep 2026 and the activity log with #1761, so nothing on detail roves and the owner had the detail half removed (2 Oct 2026). The Board's list keeps it."
 
 [actions.open_focused]
 kind = "Motion"
@@ -371,17 +371,6 @@ destructive = false
 confirms = false
 notes = "The glyph is the registry's own assignment for Redispatch — a single arrow, distinct from the two chasing arrows that mean churning. The long verb is deliberate: a redispatch makes a new Job with a new id, and the short form read as a retry of the Job in front of you. `Kill & Redispatch` is a different act and is not this row."
 
-[actions.disclose]
-kind = "Action"
-tier = "Contextual"
-verb = "Expand and collapse"
-icon = "chevron-right"
-shortcut = "h / l / ← / →"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "One act, not two. A step's facts and a log entry's payload both open in place beneath the focused row, and giving each its own key would put two bindings on one gesture. The keys mirror `move_focus` on the other axis — a tree discloses sideways and roves vertically — and the glyph is the icon registry's own word for it, taken under the reservation's tree reading rather than its record reading: the run tree is a tree, and a Job row still does not grow a caret, which is why the scope is detail and not the list."
-
 [actions.move_in_plan]
 kind = "Action"
 tier = "Contextual"
@@ -392,19 +381,7 @@ shortcut = "⌥↑ ⌥↓"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus`, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
-
-[actions.open_log]
-kind = "Action"
-tier = "Contextual"
-verb = "Open the log"
-icon = ""
-icon_absent = "undecided"
-shortcut = "L"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "The step's activity log, opened to the layer that can hold it — 1676 entries on a real Job, which is not a longer version of anything the panel holds. `L` and not `Enter`, changed 2026-09-08. The old binding argued that every mnemonic letter was spent and that `Enter` already belonged to whatever holds focus; both were true of the lowercase set and neither is true of the shifted one, where `X` has held shifted-`x` since kill & redispatch landed. What `Enter` cost was that job detail grew a second chapter with a reading behind it — a Check's output — and one `Enter` cannot open both: which of them answered depended on which chapter `[` `]` happened to land on, a binding nobody can learn, drawn as `Enter` twice in one story. Shifted rather than plain, because lowercase `l` is `disclose` — the expand half of `h`/`l` — and a mistyped motion key must not open a layer. `open_focused` keeps `Enter` on the list, where nothing else holds focus. No glyph — `list` and `file-text` are not registered, and inventing one belongs in the icon registry rather than here."
+notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus` wherever a list roves, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
 
 [actions.open_output]
 kind = "Action"
@@ -416,7 +393,7 @@ shortcut = "o"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "A Check's own stdout, opened to the layer that can hold it — 2,180 lines on a real suite, which is the third reading on this screen with no end, after the activity log and the patch. Added 2026-09-08 with the Checks chapter: a chapter that opens a sheet gets a letter, which `open_diff` established with `f`, and this one had none. `o` rather than a spare letter because it is the mnemonic and it is free here — `open` holds `o` on the list, where this act does not exist, so the two never contend for one press. No glyph — the `shield-*` family is a Check's result rather than its output, and minting one belongs in the icon registry rather than here."
+notes = "A Check's own stdout, opened to the layer that can hold it — 2,180 lines on a real suite, which is a reading on this screen with no end, as the patch is. Added 2026-09-08 with the Checks chapter, retired with the Overview reframe of 29 Sep 2026: a chapter that opens a sheet gets a letter, which `open_diff` established with `f`, and this one had none. `o` rather than a spare letter because it is the mnemonic and it is free here — `open` holds `o` on the list, where this act does not exist, so the two never contend for one press. No glyph — the `shield-*` family is a Check's result rather than its output, and minting one belongs in the icon registry rather than here."
 
 [actions.open_diff]
 kind = "Action"
@@ -427,7 +404,7 @@ shortcut = "f"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "The focused Produced chip, opened to what the step actually wrote. `f` for the file, since `d` is Redirect and `o` is Open, which on a list means a Job — this opens a file inside one and the two must not read as the same key doing different things. The glyph was registered for this row."
+notes = "The Job's patch, opened on the sheet that can hold it. The focused Produced chip opened it until the Overview reframe of 29 Sep 2026 retired the chapters; the key is the route that survived. `f` for the file, since `d` is Redirect and `o` is Open, which on a list means a Job — this opens a file inside one and the two must not read as the same key doing different things. The glyph was registered for this row."
 
 [actions.raise_cost_cap]
 kind = "Action"
@@ -439,7 +416,7 @@ shortcut = "B"
 scope = "detail"
 destructive = false
 confirms = true
-notes = "The first of two budget rows in this registry, added 2026-09-09 with the act; `raise_turn_cap` is the other ceiling. A job past its cost cap waits at `queued` reading `over_budget` until somebody raises the cap — the one reason a queued job carries that does not clear on its own — and there was no key, no route and no control for it. Shifted `B`, on `open_log`'s precedent: the lowercase mnemonic is spent, `b` being `report_job`, and a budget is the one thing on this screen where the mnemonic is worth reaching for. Shifted rather than a spare letter for the reason `kill_and_redispatch` takes `X`: a letter chosen for convenience is what the destructive-key rule refuses, and this one changes what a job may spend. Not destructive — nothing is ended or overruled, and the job stays exactly where it was — and it confirms because `B` opens a dialog that collects the figure, which is the field-collecting exception the safety rules name. No glyph: `arrow-up-to-line` is the escalation reason `loop_cap`, a ceiling that stopped something, which is the opposite reading, and the registry has no coin, wallet or currency silhouette at all. Minting one is a decision for packages/icons/icons.toml."
+notes = "The first of two budget rows in this registry, added 2026-09-09 with the act; `raise_turn_cap` is the other ceiling. A job past its cost cap waits at `queued` reading `over_budget` until somebody raises the cap — the one reason a queued job carries that does not clear on its own — and there was no key, no route and no control for it. Shifted `B`, because the lowercase mnemonic is spent, `b` being `report_job`, and a budget is the one thing on this screen where the mnemonic is worth reaching for. Shifted rather than a spare letter for the reason `kill_and_redispatch` takes `X`: a letter chosen for convenience is what the destructive-key rule refuses, and this one changes what a job may spend. Not destructive — nothing is ended or overruled, and the job stays exactly where it was — and it confirms because `B` opens a dialog that collects the figure, which is the field-collecting exception the safety rules name. No glyph: `arrow-up-to-line` is the escalation reason `loop_cap`, a ceiling that stopped something, which is the opposite reading, and the registry has no coin, wallet or currency silhouette at all. Minting one is a decision for packages/icons/icons.toml."
 
 [actions.raise_turn_cap]
 kind = "Action"
@@ -502,3 +479,14 @@ scope = "open studio"
 destructive = false
 confirms = false
 notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` owns and #1345 builds. `S` for sketch, shifted because `s` is Restart step. Placing a Sketch opens the pad where it was put down, and the node draws the drawing left on it (1 Oct 2026); an image pasted on its own is a Picture. No glyph, for `add_note`'s reason."
+
+[actions.add_zone]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a zone"
+icon = "vector-square"
+shortcut = "Z"
+scope = "open studio"
+destructive = false
+confirms = false
+notes = "A Zone rings off part of a Studio so what is in it moves together (#1620). The word is the owner's, 28 Sep 2026: `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. Placing one puts an empty Zone where the board was pressed, with no field: a Zone holds no words, and a node dropped on it goes in. `Z` for zone, shifted because a single letter on an open Studio is a node's and `z` is free only by accident. The glyph is `packages/icons/icons.toml`'s `vector-square`, group `Canvas rail`."

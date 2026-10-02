@@ -67,14 +67,21 @@ pub fn check(
     log: &Path,
     limit: Duration,
 ) -> Result<CheckRan, Stopped> {
+    // The merge line's Checks keep normal priority, while every other caller's
+    // are lowered beneath them (`checks_runner::Priority`), and ask ahead of
+    // every other for a Check slot: a turn holds every branch behind it.
+    let line = [
+        (checks_runner::PRIORITY_ENV, "normal"),
+        (checks_runner::AHEAD_ENV, "1"),
+    ];
     let limited = match changed {
         Some(paths) => {
             let mut stdin = paths.join("\n");
             stdin.push('\n');
             let argv = [armada, "check", name, CHANGED];
-            run_limited(&argv, cwd, Some(&stdin), log, limit)?
+            run_limited(&argv, cwd, Some(&stdin), log, limit, &line)?
         }
-        None => run_limited(&[armada, "check", name], cwd, None, log, limit)?,
+        None => run_limited(&[armada, "check", name], cwd, None, log, limit, &line)?,
     };
     let output = limited.ran.stdout();
     Ok(CheckRan {
@@ -95,4 +102,38 @@ pub struct CheckRan {
     /// a whole run.
     pub narrowed: Option<String>,
     pub output: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::os::unix::fs::PermissionsExt as _;
+    use std::time::Duration;
+
+    use super::check;
+    use crate::tests::TempDir;
+
+    /// The merge line's Checks are what everyone else's yield to, so it says
+    /// so explicitly rather than leaving it to whatever its caller inherited:
+    /// normal priority, and first ask for a Check slot.
+    #[test]
+    fn the_merge_line_runs_its_checks_at_normal_priority_and_asks_first() {
+        let dir = TempDir::new();
+        dir.write(
+            "armada",
+            "#!/bin/sh\necho \"$ARMADA_CHECK_PRIORITY $ARMADA_CHECK_AHEAD\"\n",
+        );
+        let stub = dir.path().join("armada");
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let Ok(ran) = check(
+            stub.to_str().expect("a UTF-8 path"),
+            dir.path(),
+            "test",
+            None,
+            &dir.path().join("check.log"),
+            Duration::from_secs(30),
+        ) else {
+            panic!("the stub runs");
+        };
+        assert_eq!(ran.output.trim(), "normal 1");
+    }
 }

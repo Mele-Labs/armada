@@ -174,7 +174,8 @@ impl Servers {
 
     /// `commits` landed in the checkout `holder` serves: every instance it
     /// holds is that much further behind what it serves, and each moved row is
-    /// handed back for publishing.
+    /// handed to `published` **under the row's write lock**, so its event and
+    /// the task's own go out in the order the row moved.
     ///
     /// **Added, never set.** Two merges in a minute are two calls, and a
     /// server started between them counts only the second — which is why the
@@ -183,9 +184,8 @@ impl Servers {
     ///
     /// **Nothing is restarted here.** `docs/concepts/fleet.md`, *Servers*:
     /// restarting under somebody mid-look is worse than telling them.
-    pub(crate) fn moved_on(&self, holder: &Holder, commits: u32) -> Vec<ServerState> {
+    pub(crate) fn moved_on(&self, holder: &Holder, commits: u32, published: impl Fn(&ServerState)) {
         let book = self.book();
-        let mut moved = Vec::new();
         for ((whose, _), live) in book.live.iter() {
             if whose != holder {
                 continue;
@@ -193,10 +193,9 @@ impl Servers {
             // In place, for `now_serving`'s reason: the task moves this row too.
             live.now.send_modify(|state| {
                 state.checkout.behind = Some(state.checkout.behind.unwrap_or(0) + commits);
+                published(state);
             });
-            moved.push(live.now.borrow().clone());
         }
-        moved
     }
 
     /// Every instance up, by id — what a sweep of old directories keeps.
@@ -228,8 +227,18 @@ pub(crate) struct Held {
 impl Held {
     /// The instance ended: kept as the last one, so a server that fell over
     /// can still be read, and the name is free to start again.
-    pub(crate) fn ended(mut self, state: ServerState) {
+    ///
+    /// **`ending` is applied to the row as it stands under the lock**, the one
+    /// [`Servers::moved_on`] writes under, so no merge falls between the read
+    /// and the instance leaving what `moved_on` walks. Answers the ended row.
+    pub(crate) fn ended(
+        mut self,
+        now: &watch::Sender<ServerState>,
+        ending: impl FnOnce(&mut ServerState),
+    ) -> ServerState {
         let mut book = self.servers.book();
+        let mut state = now.borrow().clone();
+        ending(&mut state);
         if book
             .live
             .get(&self.key)
@@ -240,12 +249,13 @@ impl Held {
         book.ended.insert(
             self.key.clone(),
             Ended {
-                state,
+                state: state.clone(),
                 dir: self.dir.clone(),
             },
         );
         drop(book);
         self.done = true;
+        state
     }
 }
 

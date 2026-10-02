@@ -176,7 +176,6 @@ function landedFixture(): JobFixture {
       diff: { state: "none" },
       remarks: { state: "none" },
     },
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: ARC_NOW,

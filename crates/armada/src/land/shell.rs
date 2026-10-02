@@ -102,15 +102,16 @@ pub struct Limited {
 /// still holding the pipe would otherwise hold the turn.
 const DRAINED_WITHIN: Duration = Duration::from_secs(5);
 
-/// [`run`], killed past `limit` along with every process group its
-/// descendants lead: `armada check` puts a Check's command in a group of its
-/// own, which killing the child's group alone would miss.
+/// [`run`] with `env` added, killed past `limit` along with every process
+/// group its descendants lead: `armada check` puts a Check's command in a group
+/// of its own, which killing the child's group alone would miss.
 pub fn run_limited(
     argv: &[&str],
     cwd: &Path,
     stdin: Option<&str>,
     log: &Path,
     limit: Duration,
+    env: &[(&str, &str)],
 ) -> Result<Limited, Stopped> {
     let spawn_failed = |cause: std::io::Error| {
         Stopped::stopped(format!(
@@ -122,6 +123,7 @@ pub fn run_limited(
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .current_dir(cwd)
+        .envs(env.iter().copied())
         .stdin(match stdin {
             Some(_) => Stdio::piped(),
             None => Stdio::null(),
@@ -129,9 +131,6 @@ pub fn run_limited(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0)
-        // Each run here is one of the line's Checks, and asks ahead of every
-        // other for a Check slot: a turn holds every branch behind it.
-        .env(checks_runner::AHEAD_ENV, "1")
         .spawn()
         .map_err(spawn_failed)?;
     if let (Some(input), Some(mut pipe)) = (stdin, child.stdin.take()) {
@@ -315,6 +314,7 @@ mod tests {
             None,
             &log,
             Duration::from_secs(2),
+            &[],
         )
         .expect("sh runs");
         assert!(limited.timed_out);
@@ -345,6 +345,7 @@ mod tests {
             None,
             &dir.path().join("quick.log"),
             Duration::from_secs(30),
+            &[],
         )
         .expect("sh runs");
         assert!(!limited.timed_out);

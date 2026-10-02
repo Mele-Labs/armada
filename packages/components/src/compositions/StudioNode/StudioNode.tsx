@@ -67,7 +67,10 @@ export type StudioNodeOf =
   /** `state` absent: the run has not been read, and nothing is said about it. */
   | { kind: "run"; state?: StudioRunState }
   | { kind: "note"; frame?: StudioNodeFrame }
+  /** Drawn as a frame round its Notes on the whiteboard — `StudioFrame`. */
   | { kind: "cluster" }
+  /** Drawn as a frame round what it holds on the whiteboard — `StudioFrame`. #1620. */
+  | { kind: "zone" }
   /** `state` absent: its scout ended, and how is one of its facts. Never `frozen` (1 Oct 2026). */
   | { kind: "finding"; state?: StudioFindingState }
   | { kind: "contradiction"; state: StudioContradictionState }
@@ -125,6 +128,7 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
   run: "Run",
   note: "Note",
   cluster: "Cluster",
+  zone: "Zone",
   finding: "Finding",
   contradiction: "Contradiction",
   sketch: "Sketch",

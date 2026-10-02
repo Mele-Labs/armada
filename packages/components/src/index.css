@@ -125,7 +125,6 @@
 /* The two trailing sheets — Journey 4's frames 4i-4m. Appended, per the rule
    at the head of this file: a stylesheet the app does not import renders its
    component as a vertical stack, which is exactly what a sheet must not be. */
-@import "./compositions/ActivityLogSheet/ActivityLogSheet.css";
 @import "./compositions/JobDiffSheet/JobDiffSheet.css";
 
 /* The token specimens. They read the sheet above rather than restating it. */
@@ -218,7 +217,6 @@
 @import "./compositions/MachineSettings/MachineSettings.css";
 
 /* A step's work, with runs of one tool folded to a line. */
-@import "./compositions/WorkGroups/WorkGroups.css";
 
 /* A step as one timeline, the phases in order and an attempt per section. */
 @import "./compositions/ManifestFile/ManifestFile.css";
@@ -362,6 +360,10 @@
 /* The wait a Job at `proposing` is in, drawn inside Overview's lead. #1159. */
 @import "./compositions/ProposerWait/ProposerWait.css";
 @import "./compositions/SketchPreview/SketchPreview.css";
+/* The branches waiting to land on main, as Overview's panel draws them. */
+@import "./compositions/MergeLine/MergeLine.css";
+/* A Zone, or a Cluster round its Notes, on a Studio's whiteboard. #1620. */
+@import "./compositions/StudioFrame/StudioFrame.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

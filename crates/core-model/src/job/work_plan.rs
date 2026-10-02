@@ -55,11 +55,18 @@ impl fmt::Display for TaskId {
 }
 
 /// Where one task stands, as the last change to it said.
+///
+/// **`HandedIn` and `Failed` have no [`TaskUpdate`]**, so nothing can write
+/// either yet: slice 1b writes the first at a task Drone's hand-in, and slice 2
+/// the second when its group's Checks go red. Spike 022, answer 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TaskState {
     Open,
     Working,
+    /// Its agent handed the work in, and the step's Checks have not answered.
+    HandedIn,
     Done,
+    Failed,
     Dropped,
 }
 
@@ -67,7 +74,9 @@ impl TaskState {
     pub const ALL: &'static [TaskState] = &[
         TaskState::Open,
         TaskState::Working,
+        TaskState::HandedIn,
         TaskState::Done,
+        TaskState::Failed,
         TaskState::Dropped,
     ];
 
@@ -75,7 +84,9 @@ impl TaskState {
         match self {
             TaskState::Open => "open",
             TaskState::Working => "working",
+            TaskState::HandedIn => "handed_in",
             TaskState::Done => "done",
+            TaskState::Failed => "failed",
             TaskState::Dropped => "dropped",
         }
     }
@@ -126,6 +137,11 @@ pub enum NotAnUpdate {
     ReasonWithoutADrop {
         state: TaskState,
     },
+    /// A state only Fleet marks, from a hand-in or a group's Checks, and never
+    /// from a Drone's `update_task` or a person's act.
+    FleetMarksIt {
+        state: TaskState,
+    },
 }
 
 impl TaskUpdate {
@@ -136,6 +152,9 @@ impl TaskUpdate {
         })?;
         let given = DropReason::new(reason);
         match (named, given) {
+            (state @ (TaskState::HandedIn | TaskState::Failed), _) => {
+                Err(NotAnUpdate::FleetMarksIt { state })
+            }
             (TaskState::Dropped, Some(reason)) => Ok(TaskUpdate::Dropped(reason)),
             (TaskState::Dropped, None) => Err(NotAnUpdate::DroppedWithoutAReason),
             (state, Some(_)) => Err(NotAnUpdate::ReasonWithoutADrop { state }),
@@ -389,18 +408,21 @@ impl PlanTask {
 }
 
 /// How many tasks stand where. `done` over [`not_dropped`](Self::not_dropped)
-/// is the figure a person reads.
+/// is the figure a person reads: a handed-in task and a failed one are owed
+/// work, so both join the total and neither joins `done`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TaskCounts {
     pub done: u32,
     pub working: u32,
     pub open: u32,
     pub dropped: u32,
+    pub handed_in: u32,
+    pub failed: u32,
 }
 
 impl TaskCounts {
     pub fn not_dropped(&self) -> u32 {
-        self.done + self.working + self.open
+        self.done + self.working + self.open + self.handed_in + self.failed
     }
 }
 
@@ -535,7 +557,9 @@ impl WorkPlan {
             match task.state() {
                 TaskState::Open => counts.open += 1,
                 TaskState::Working => counts.working += 1,
+                TaskState::HandedIn => counts.handed_in += 1,
                 TaskState::Done => counts.done += 1,
+                TaskState::Failed => counts.failed += 1,
                 TaskState::Dropped => counts.dropped += 1,
             }
         }

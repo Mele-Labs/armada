@@ -113,7 +113,7 @@ export const Live: Story = {
   play: async ({ canvasElement }) => {
     const loops = canvasElement
       .getAnimations({ subtree: true })
-      .filter((one) => (one as CSSAnimation).animationName === "armada-log-sheet-pulse");
+      .filter((one) => (one as CSSAnimation).animationName === "armada-chapter-pulse");
     await expect(loops).toHaveLength(1);
   },
 };

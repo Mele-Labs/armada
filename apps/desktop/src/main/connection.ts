@@ -16,7 +16,7 @@
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
-import type { CallRead, CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { CheckOutputRead, FrameRead } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
@@ -486,10 +486,6 @@ export class FleetConnection {
 
   async readRemarks(jobId: string | null): Promise<void> {
     await this.jobReads.readRemarks(jobId);
-  }
-
-  async readCall(jobId: string, callId: string): Promise<CallRead> {
-    return await this.jobReads.readCall(jobId, callId);
   }
 
   async readCheckOutput(jobId: string, kept: string): Promise<CheckOutputRead> {

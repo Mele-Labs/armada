@@ -14,8 +14,8 @@
 // quietly stops matching what Fleet sends.
 
 import type {
-  CallRead,
   CheckOutputRead,
+  Crewed,
   FrameRead,
   History,
   Holds,
@@ -23,6 +23,7 @@ import type {
   Journalled,
   ManifestSummary,
   Observed,
+  Turn,
   Watched,
   WorkflowSummary,
 } from "@armada/protocol";
@@ -42,14 +43,12 @@ export type JobFixture = {
   resources: Holds;
   /** `GET /jobs/:job_id/events`, where the fixture carries the Job's history. */
   history?: History;
-  recorded: FoldedReads;
   /**
-   * Answers to `onReadCall`, keyed by the call id a transcript row carries —
-   * `Saw.called.call` and `Saw.answered.call`, the same id `CallArguments.call`
-   * echoes back. `Log.tsx` reads through this key (`cut.id`) when a person
-   * presses a cut argument open.
+   * `GET /jobs/:job_id/drones`, where the fixture carries the Job's Drones.
+   * Absent is a list never read, which lists the Job's own Drone alone.
    */
-  calls: Record<string, CallRead>;
+  jobDrones?: Crewed;
+  recorded: FoldedReads;
   /**
    * Answers to `onReadCheckOutput`, keyed by the **basename** of
    * `CheckRun.output_path` — `checks.tsx`'s `ChecksOutput` calls
@@ -64,4 +63,11 @@ export type JobFixture = {
   frames: Record<string, FrameRead>;
   /** The clock the fixture was taken at, so an elapsed reads the same every time. */
   now: number;
+  /**
+   * Rows the observe socket carries after it opens, one at a time, where the
+   * moment has a Drone writing — so a walk can watch a transcript's tail grow.
+   * The mock appends them to `observed` on its own clock. Absent is a socket
+   * that only ever holds what it opened with.
+   */
+  arriving?: Turn[];
 };

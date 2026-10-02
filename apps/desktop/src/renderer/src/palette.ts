@@ -102,9 +102,9 @@ export function dormantIn(where: {
     // reference in a renderer string reads to the design gate as a hex
     // colour, which is its own finding.
     submit_for_verification: "nothing pilots a job yet",
-    disclose: "the focused row, with h and l",
-    open_log: "the story's own chapter",
-    open_diff: "the story's own Produced chapter",
+    // A key alone since the Overview reframe retired the story's chapters, and
+    // only on the Overview tab, which is where `useDetailKeys` is bound.
+    open_diff: "a job's Overview, with f",
     open_stage: "the phase strip",
     move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 

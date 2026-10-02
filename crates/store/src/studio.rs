@@ -16,6 +16,7 @@
 
 mod carrying_on;
 mod content;
+mod framing;
 mod reading;
 mod reading_in;
 mod scouting;
@@ -314,6 +315,71 @@ DROP TABLE studio_nodes_parked;
 DROP TABLE studio_edges_parked;
 "#;
 
+/// Version 91 — a Zone is a node kind, and a node may sit inside a frame: a
+/// Zone, or a Note's Cluster. `#1620`, decided with the owner on 2 Oct 2026.
+///
+/// **[`V79`]'s rebuild, with `zone` in the `CHECK` and one new column**, for
+/// its reasons. `within` names the frame a node sits in, and its `x` and `y`
+/// are then measured from that frame's corner. It references a node on the
+/// same Studio, and **deleting a frame with anything still in it is refused**
+/// by the key rather than cascaded: [`Store::remove_studio_nodes`] lifts what
+/// a frame holds onto whatever held the frame before it deletes one. Every row
+/// before this sits on the board, so no row moves.
+pub(crate) const V91: &str = r#"
+CREATE TABLE studio_nodes_parked AS SELECT * FROM studio_nodes;
+CREATE TABLE studio_edges_parked AS SELECT * FROM studio_edges;
+
+DROP TABLE studio_edges;
+DROP TABLE studio_nodes;
+
+CREATE TABLE studio_nodes (
+    id         TEXT PRIMARY KEY,
+    studio_id  TEXT NOT NULL REFERENCES studios (id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL CHECK (kind IN ('run', 'note', 'cluster', 'zone', 'finding',
+               'contradiction', 'sketch', 'link', 'file', 'picture', 'issue', 'pull_request',
+               'epic', 'deferral', 'outline', 'issue_draft', 'job')),
+    state      TEXT CHECK (state IS NULL OR state IN ('proposed', 'gathering', 'reported',
+               'issue_draft', 'deferral', 'not_a_problem', 'resolved_here', 'open', 'answered',
+               'draft')),
+    content    TEXT NOT NULL,
+    within     TEXT,
+    x          INTEGER NOT NULL,
+    y          INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    added_by   TEXT CHECK (added_by IS NULL OR added_by IN ('person', 'helm')),
+    UNIQUE (studio_id, id),
+    CHECK (within IS NULL OR within <> id),
+    FOREIGN KEY (studio_id, within) REFERENCES studio_nodes (studio_id, id)
+) STRICT;
+
+CREATE TABLE studio_edges (
+    id         TEXT PRIMARY KEY,
+    studio_id  TEXT NOT NULL REFERENCES studios (id) ON DELETE CASCADE,
+    from_node  TEXT NOT NULL,
+    to_node    TEXT NOT NULL,
+    kind       TEXT NOT NULL CHECK (kind IN ('produced', 'same_as', 'blocks', 'answers')),
+    standing   TEXT NOT NULL CHECK (standing IN ('proposed', 'accepted')),
+    created_at TEXT NOT NULL,
+    added_by   TEXT CHECK (added_by IS NULL OR added_by IN ('person', 'helm')),
+    FOREIGN KEY (studio_id, from_node) REFERENCES studio_nodes (studio_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (studio_id, to_node) REFERENCES studio_nodes (studio_id, id) ON DELETE CASCADE,
+    UNIQUE (from_node, to_node, kind),
+    CHECK (from_node <> to_node),
+    CHECK (kind <> 'produced' OR standing = 'accepted')
+) STRICT;
+
+INSERT INTO studio_nodes (id, studio_id, kind, state, content, x, y, created_at, added_by)
+SELECT id, studio_id, kind, state, content, x, y, created_at, added_by
+FROM studio_nodes_parked;
+
+INSERT INTO studio_edges (id, studio_id, from_node, to_node, kind, standing, created_at, added_by)
+SELECT id, studio_id, from_node, to_node, kind, standing, created_at, added_by
+FROM studio_edges_parked;
+
+DROP TABLE studio_nodes_parked;
+DROP TABLE studio_edges_parked;
+"#;
+
 /// Why a Studio read or write did not happen.
 #[derive(Debug)]
 pub enum StudioError {
@@ -338,6 +404,23 @@ pub enum StudioError {
     /// Only a proposed edge is accepted or rejected.
     NotProposed {
         edge_id: String,
+    },
+    /// A frame named that does not hold a node of this kind: a Zone holds
+    /// anything but a Zone, a Cluster its Notes, and nothing else holds
+    /// anything.
+    CannotHold {
+        frame: String,
+        frame_kind: core_model::StudioNodeKind,
+        kind: core_model::StudioNodeKind,
+    },
+    /// A Note put in a Cluster that it is not one of the Notes of.
+    NotItsCluster {
+        node_id: String,
+        cluster: String,
+    },
+    /// A Note moved out of its Cluster. Its Cluster is its record.
+    StaysInItsCluster {
+        node_id: String,
     },
     /// A row that does not read back as what was written.
     Unreadable {
@@ -367,6 +450,23 @@ impl core::fmt::Display for StudioError {
                 out,
                 "edge `{edge_id}` is not proposed, so there is nothing to accept or reject"
             ),
+            StudioError::CannotHold {
+                frame,
+                frame_kind,
+                kind,
+            } => write!(
+                out,
+                "`{frame}` is a {} and holds no {}",
+                frame_kind.as_wire(),
+                kind.as_wire()
+            ),
+            StudioError::NotItsCluster { node_id, cluster } => write!(
+                out,
+                "`{node_id}` is not one of the Notes `{cluster}` was made of"
+            ),
+            StudioError::StaysInItsCluster { node_id } => {
+                write!(out, "`{node_id}` is in a Cluster, and stays in it")
+            }
             StudioError::Unreadable { table, id, why } => {
                 write!(out, "{table} row `{id}` does not read back: {why:?}")
             }
@@ -501,46 +601,28 @@ impl Store {
         let tx = self.writing()?;
         touched(&tx, studio_id, at)?;
         node_kept(&tx, studio_id, node)?;
-        for (from, id) in produced_by {
-            let by = node.added_by().unwrap_or(StudioAuthor::Person);
-            let edge = StudioEdge::produced(
-                id.clone(),
-                (*from).clone(),
-                node.id().clone(),
-                at.clone(),
-                by,
-            )
-            // Only reachable by naming the node being added as its own maker.
-            .map_err(|_| StudioError::NoSuchNode {
-                node_id: from.as_str().to_string(),
-            })?;
-            edge_kept(&tx, studio_id, &edge)?;
-        }
+        produced_edges(&tx, studio_id, node, produced_by, at)?;
         tx.commit().map_err(database("adding a node to a Studio"))
     }
 
-    /// Move a node to where a person left it.
-    pub fn move_studio_node(
+    /// Add a frame made by several nodes, and put `holding` inside it, each
+    /// at its spot measured from the frame's corner — a Cluster a person made
+    /// of Notes, drawn around them. `add_studio_node_produced_by`'s write, and
+    /// the move, in one transaction.
+    pub fn add_studio_frame(
         &mut self,
         studio_id: &StudioId,
-        node_id: &StudioNodeId,
-        to: StudioPosition,
+        node: &StudioNode,
+        produced_by: &[(&StudioNodeId, StudioEdgeId)],
+        holding: &[(StudioNodeId, StudioPosition)],
         at: &Timestamp,
     ) -> Result<(), StudioError> {
         let tx = self.writing()?;
         touched(&tx, studio_id, at)?;
-        let moved = tx
-            .execute(
-                "UPDATE studio_nodes SET x = ?3, y = ?4 WHERE studio_id = ?1 AND id = ?2",
-                (studio_id.as_str(), node_id.as_str(), to.x, to.y),
-            )
-            .map_err(database("moving a node"))?;
-        if moved == 0 {
-            return Err(StudioError::NoSuchNode {
-                node_id: node_id.as_str().to_string(),
-            });
-        }
-        tx.commit().map_err(database("moving a node"))
+        node_kept(&tx, studio_id, node)?;
+        produced_edges(&tx, studio_id, node, produced_by, at)?;
+        framing::held_by(&tx, studio_id, node, holding)?;
+        tx.commit().map_err(database("adding a frame to a Studio"))
     }
 
     /// Remove every node named, and every edge on any of them, in **one**
@@ -576,6 +658,8 @@ impl Store {
                 });
             }
         }
+        // What a frame going held stays where it was on the board.
+        framing::lift_out_of(&tx, studio_id, node_ids)?;
         for node_id in node_ids {
             tx.execute(
                 "DELETE FROM studio_nodes WHERE studio_id = ?1 AND id = ?2",
@@ -757,24 +841,55 @@ fn touched(tx: &Transaction<'_>, studio_id: &StudioId, at: &Timestamp) -> Result
     }
 }
 
-/// Write one edge, naming which end is missing or that it already exists.
+/// The Studio's own `produced` edge from each maker to a node just added.
+/// **Built here**, so no caller can point one anywhere but at that node.
+fn produced_edges(
+    tx: &Transaction<'_>,
+    studio_id: &StudioId,
+    node: &StudioNode,
+    produced_by: &[(&StudioNodeId, StudioEdgeId)],
+    at: &Timestamp,
+) -> Result<(), StudioError> {
+    for (from, id) in produced_by {
+        let by = node.added_by().unwrap_or(StudioAuthor::Person);
+        let edge = StudioEdge::produced(
+            id.clone(),
+            (*from).clone(),
+            node.id().clone(),
+            at.clone(),
+            by,
+        )
+        // Only reachable by naming the node being added as its own maker.
+        .map_err(|_| StudioError::NoSuchNode {
+            node_id: from.as_str().to_string(),
+        })?;
+        edge_kept(tx, studio_id, &edge)?;
+    }
+    Ok(())
+}
+
 /// One node, inserted. **Every write that adds one goes through here**, so a
-/// column added to the table is added in one place.
+/// column added to the table is added in one place — and a frame it names is
+/// checked to hold its kind in one place too.
 fn node_kept(
     tx: &Transaction<'_>,
     studio_id: &StudioId,
     node: &StudioNode,
 ) -> Result<(), StudioError> {
+    if let Some(frame) = node.within() {
+        framing::fits(tx, studio_id, node.kind(), frame)?;
+    }
     tx.execute(
         "INSERT INTO studio_nodes \
-         (id, studio_id, kind, state, content, x, y, created_at, added_by) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+         (id, studio_id, kind, state, content, within, x, y, created_at, added_by) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         (
             node.id().as_str(),
             studio_id.as_str(),
             node.kind().as_wire(),
             node.state().map(|state| state.as_wire()),
             content::written(node.content()),
+            node.within().map(StudioNodeId::as_str),
             node.position().x,
             node.position().y,
             node.created_at().as_str(),
@@ -785,6 +900,7 @@ fn node_kept(
     .map_err(database("adding a node to a Studio"))
 }
 
+/// Write one edge, naming which end is missing or that it already exists.
 fn edge_kept(
     tx: &Transaction<'_>,
     studio_id: &StudioId,

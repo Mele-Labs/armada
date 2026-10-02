@@ -2,6 +2,8 @@
 
 use std::time::Duration;
 
+use checks_runner::Priority;
+
 use crate::declared::{execute, Asked, Ran, Reached, Registry};
 use crate::tests::TempDir;
 
@@ -34,6 +36,7 @@ async fn changed(dir: &TempDir, paths: &[&str]) -> Ran {
         Asked::Changed(&paths),
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`test` is declared")

@@ -147,7 +147,7 @@ export type NamedRun = { id: string };
 
 /**
  * What `list_runs` came back as. **Answered to the caller rather than held
- * as state**, `CallRead`'s reason: the sheet asks for it once, when a person
+ * as state**, `CheckOutputRead`'s reason: the sheet asks for it once, when a person
  * opens *Earlier runs*, and it does not move once Fleet has answered.
  */
 export type RunListRead = { ok: true; runs: RunList } | { ok: false; outcome: Outcome };

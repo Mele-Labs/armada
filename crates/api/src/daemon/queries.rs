@@ -17,12 +17,12 @@ use crate::daemon::Refusal;
 use crate::observing::Observed;
 use crate::reference::Resolved;
 use ipc::{
-    AlertList, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet, CommandExplained,
-    DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail,
-    JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources,
-    KeptFrame, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
-    ManifestSummary, ModelChoices, ReportList, RunList, RunOutput, RunSheet, WorkflowSummary,
-    WorktreesHeld,
+    AlertList, BriefContents, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet,
+    CommandExplained, DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth,
+    FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
+    JobResources, KeptFrame, ManifestConfig, ManifestDrift, ManifestFile, ManifestId,
+    ManifestReading, ManifestSummary, ModelChoices, ReportList, RunList, RunOutput, RunSheet,
+    WorkflowSummary, WorktreesHeld,
 };
 
 /// What a caller asked for of a frame's bytes.
@@ -549,6 +549,23 @@ pub trait Queries: Send + Sync + 'static {
         kept: String,
     ) -> impl Future<Output = Result<CheckOutput, Refusal>> + Send;
 
+    /// `get_brief` — one brief a Judge or a gaming check was asked, read back
+    /// into the app. [`Queries::get_check_output`]'s split, for the file a
+    /// verdict was argued from: `Judged::brief_path` names it and this reads it.
+    ///
+    /// **`name` is the file's own name, resolved inside this Job's briefs
+    /// directory.** A name that would leave it — `..`, a separator, a link out
+    /// — reaches no file.
+    ///
+    /// [`Refusal::NoSuchJob`] where the id names no Job.
+    /// [`Refusal::Unacceptable`] where the Job is there and kept no brief under
+    /// that name.
+    fn get_brief(
+        &self,
+        job_id: JobId,
+        name: String,
+    ) -> impl Future<Output = Result<BriefContents, Refusal>> + Send;
+
     /// `get_frame` — one frame a step's harness produced, as the file itself.
     ///
     /// **The only query on this seam that answers bytes rather than JSON.** A
@@ -811,6 +828,12 @@ pub trait Queries: Send + Sync + 'static {
     fn list_repositories(
         &self,
     ) -> impl Future<Output = Result<ipc::RepositoryList, Refusal>> + Send;
+
+    /// `get_merge_lines` — the line `armada land` keeps in each served
+    /// repository that has one, read off disk. **It reads and starts nothing**:
+    /// no runner, and no state directory where there is none. It never refuses;
+    /// a line that will not read is left out, `get_capacity`'s reasoning.
+    fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
 
     fn search_files(
         &self,

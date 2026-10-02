@@ -58,6 +58,10 @@ pub const THE_ARGUMENT: &str = "cat <<'EOF' > notes.md\n  one\n  two\n  three\nE
 /// missing Job.
 pub const THE_OUTPUT: &str = "implement.1.0.log";
 
+/// The one kept brief this fake's Job holds, spelled as `fleet::asked` names
+/// a Judge's: step, attempt, criterion.
+pub const THE_BRIEF: &str = "implement.1.tests_pass.txt";
+
 /// The one kept frame this fake's record holds, spelled the way a frame is
 /// named: the run's directory and the harness's own file name, joined.
 ///
@@ -610,6 +614,27 @@ pub fn check_output(kept: String) -> CheckOutput {
         total_lines: 2_180,
         bytes: 61_204,
         whole: false,
+    }
+}
+
+/// One kept brief, short enough to come back whole: `from_line` one, `whole`
+/// true and every line counted.
+pub fn brief(name: &str) -> ipc::BriefContents {
+    let lines: Vec<String> = [
+        "You are judging one criterion of one step.",
+        "",
+        "Criterion `tests_pass`: the suite passes and no test was skipped.",
+    ]
+    .iter()
+    .map(|line| line.to_string())
+    .collect();
+    ipc::BriefContents {
+        path: format!(".armada/briefs/fix-the-parser/{name}"),
+        from_line: 1,
+        total_lines: lines.len() as u32,
+        bytes: lines.iter().map(|line| line.len() as u64 + 1).sum(),
+        lines,
+        whole: true,
     }
 }
 

@@ -77,41 +77,6 @@
   border-radius: var(--radius-sm);
 }
 
-/* The state, as a dot and a word in the status hue. Never a chip, which is a
-   Job state and nothing else. */
-.armada-drones__said {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-}
-
-.armada-drones__dot {
-  flex: none;
-  width: var(--dot);
-  height: var(--dot);
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.armada-drones__said[data-state="running"] {
-  color: var(--status-running);
-}
-
-.armada-drones__said[data-state="done"] {
-  color: var(--status-completed-success);
-}
-
-.armada-drones__said[data-state="failed"] {
-  color: var(--status-completed-failed);
-}
-
-.armada-drones__said[data-state="killed"] {
-  color: var(--status-killed);
-}
-
 /* The redirect box, the sheet foot's full width: the foot lines a single
    action up at its trailing edge, and a text field there is a slot. */
 .armada-drones__foot {

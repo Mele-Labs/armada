@@ -88,8 +88,12 @@ export const addStudioSketch = (studioId: string, drawing: SketchToKeep, positio
   window.armada.addStudioSketch(studioId, drawing, position);
 export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
   window.armada.saveStudioSketch(studioId, nodeId, drawing);
-export const moveStudioNode = (studioId: string, nodeId: string, position: { x: number; y: number }) =>
-  window.armada.moveStudioNode(studioId, nodeId, position);
+export const moveStudioNode = (
+  studioId: string,
+  nodeId: string,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.moveStudioNode(studioId, nodeId, position, within);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>
   window.armada.removeStudioNodes(studioId, nodeIds);
 export const decideStudioEdge = (studioId: string, edgeId: string, accepted: boolean) =>
@@ -116,7 +120,6 @@ export const readEvidence = (jobId: string | null): void => void window.armada.r
 export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
 /** Pulse's own 10 s tick, held open for as long as the board is drawn. #1571. */
 export const watchPulse = (jobId: string | null): void => void window.armada.watchPulse(jobId);
-export const readCall = (jobId: string, callId: string) => window.armada.readCall(jobId, callId);
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
 /** New job's own reads for the repository its ask answered, on All — #959. */

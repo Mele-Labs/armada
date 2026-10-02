@@ -25,6 +25,7 @@ import type {
 
 import { CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
 import { fileNameOf } from "../editing";
+import { repositorySaid } from "../gate-policy";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
 import type { GroupView } from "./group";
@@ -130,6 +131,7 @@ const FAMILY_OF: Readonly<Record<string, LedgerFamily>> = {
   plan_revised: "tasks",
   task_open: "tasks",
   task_working: "tasks",
+  task_handed_in: "tasks",
   task_done: "tasks",
   task_failed: "tasks",
   task_dropped: "tasks",
@@ -284,16 +286,19 @@ function outcomeOf(move: Recorded): string {
   }
 }
 
-// The wire's `Actor` is `human`, `fleet` or `drone`. `judge` and `check` are
-// the draft's own — a Judge call and a Check run are what the new Record draws
-// most of, and today they arrive as Fleet acting. So neither can be derived,
-// and a row that would be one of them reads as `fleet` rather than as a guess.
+// The wire's `Actor` gained `judge` and `check` at 22.0: a Judge's refusal and
+// a failed Check sign the rows their answer wrote. `helm` and anything this
+// Bridge has never heard of read as `fleet` rather than as a guess.
 function actorOf(actor: string): LedgerActor {
   switch (actor) {
     case "drone":
       return "drone";
     case "human":
       return "person";
+    case "judge":
+      return "judge";
+    case "check":
+      return "check";
     default:
       return "fleet";
   }
@@ -343,7 +348,7 @@ export type LedgerReads = {
 export function ledgerOf(reads: LedgerReads): LedgerRow[] {
   const { detail } = reads;
   const moves = reads.history ?? [];
-  const rows: LedgerRow[] = moves.map(ledgerRowOf);
+  const rows: LedgerRow[] = moves.map((move) => withPolicy(ledgerRowOf(move), move, detail));
   const mint = minting(moves);
 
   if (moves.length === 0) rows.push(...jobRowsOf(detail, mint));
@@ -360,6 +365,24 @@ export function ledgerOf(reads: LedgerReads): LedgerRow[] {
   rows.push(...testRowsOf(detail, mint));
 
   return rows.sort(newestFirst);
+}
+
+/**
+ * A step move that closed a run, with what the repository said where its gate
+ * asked it. #1683.
+ *
+ * **Joined on the instant, which is exact.** `StepAttempt::over` closes a run
+ * at the `at` of the move that left `running`, so the run a move ended is the
+ * one whose `ended_at` is that move's own.
+ */
+function withPolicy(row: LedgerRow, move: Recorded, detail: JobDetail): LedgerRow {
+  if (move.moved.kind !== "step" || move.moved.from !== "running") return row;
+  const stepId = move.moved.step_id;
+  const step = detail.steps.find((one) => one.step_id === stepId);
+  const run = step?.attempts.find((one) => one.ended_at === move.at);
+  const said = step === undefined ? undefined : repositorySaid(step, run);
+  if (said === undefined) return row;
+  return { ...row, outcome: row.outcome === "" ? sentenceCase(said) : `${row.outcome}: ${said}` };
 }
 
 // A cursor for a row the log never carried. It starts past every `seq` the
@@ -526,13 +549,18 @@ function droneRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
       actor: "drone",
       kind: "drone_exited",
       what: `Drone ended · ${step.label}`,
-      outcome: sentenceCase(
-        attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`,
-      ),
+      outcome: sentenceCase(ranTo(step, attempt)),
       cursor: mint(),
     });
   }
   return rows;
+}
+
+/** What a run came to, and what the repository said where its gate asked it. */
+function ranTo(step: StepDetail, attempt: StepAttempt): string {
+  const outcome = attempt.why === undefined ? attempt.outcome : `${attempt.outcome} — ${attempt.why}`;
+  const said = repositorySaid(step, attempt);
+  return said === undefined ? outcome : `${outcome}: ${said}`;
 }
 
 // ---------------------------------------------------------- the plan's work
@@ -613,6 +641,7 @@ function taskRowsOf(
 /** What was done to a task, by the state it moved to. */
 const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
   working: "started",
+  handed_in: "handed in",
   done: "marked done",
   failed: "marked failed",
   dropped: "dropped",
@@ -621,6 +650,7 @@ const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
 /** The short reason a task's row gives: what it showed, or why it stopped. */
 function reasonOf(task: TaskView): string {
   switch (task.state) {
+    case "handed_in":
     case "done":
       return task.shown ?? "";
     case "failed":

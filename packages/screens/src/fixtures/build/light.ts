@@ -153,7 +153,6 @@ export function lightFixture(one: LightJob, now: number): JobFixture {
       diff: { state: "none" },
       remarks: { state: "none" },
     },
-    calls: {},
     checkOutputs: {},
     frames: {},
     now,

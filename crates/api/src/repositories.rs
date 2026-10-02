@@ -18,6 +18,14 @@ pub(crate) async fn list_repositories<D: Queries>(State(served): State<Served<D>
     }
 }
 
+/// Each served repository's merge line, where it has one.
+pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_merge_lines().await {
+        Ok(lines) => answer(StatusCode::OK, &lines, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 201: the repository is served when this answers.
 pub(crate) async fn add_repository<D: Commands>(
     State(served): State<Served<D>>,

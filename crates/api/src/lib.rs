@@ -101,7 +101,9 @@ pub use observing::{Feed, Observed, Seen, Turns, Watch, WATCHING};
 pub use reference::Resolved;
 pub use routes::{router, Route, SERVED};
 pub use served::Served;
-pub use stream::{Broadcaster, Next, Subscription, BACKLOG, TALLIED};
+pub use stream::{
+    tally_every, Broadcaster, Next, Subscription, Tally, BACKLOG, TALLIED, TALLY_EVERY,
+};
 pub use watching_run::{
     ObservedCheckoutRun, ObservedRun, ObservedServer, RunChunk, RunFeed, RunSeen, RunWatch,
     RUN_BACKLOG,

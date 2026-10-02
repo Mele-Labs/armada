@@ -809,13 +809,14 @@ test("an issue is read in and an epic fills the board, with each address node le
   await expect.element(node(/^Contradiction: The issue says Connections have no home yet/)).toBeVisible();
 
   const studio = () => fleet.studios()[0]!;
-  // The node keeps its address whatever came back, and everything hangs off it.
+  // The node keeps its address whatever came back, and everything hangs off it: the Zone it all
+  // landed in (#1620), the Finding, a Cluster and its two Notes, and the Contradiction.
   expect(studio().nodes.find((one) => one.id === "legend-issue")).toMatchObject({
     kind: "issue",
     address: "https://example.invalid/o/r/issues/1293",
     number: "1293",
   });
-  expect(studio().edges.filter((edge) => edge.from === "legend-issue" && edge.kind === "produced")).toHaveLength(4);
+  expect(studio().edges.filter((edge) => edge.from === "legend-issue" && edge.kind === "produced")).toHaveLength(6);
   // A relation the scout asked for waits on a person.
   expect(studio().edges.filter((edge) => edge.standing === "proposed" && edge.kind === "blocks")).toHaveLength(1);
 
@@ -829,9 +830,13 @@ test("an issue is read in and an epic fills the board, with each address node le
   await expect.element(node(/^Issue: An issue cannot be read into a Studio/)).toBeVisible();
   await expect.element(node(/^Issue: Kit manages connections/)).toBeVisible();
 
+  // Every Issue in the one Zone the read-in made — #1620.
   const issues = studio()
     .edges.filter((edge) => edge.from === "legend-milestone" && edge.kind === "produced")
-    .map((edge) => studio().nodes.find((one) => one.id === edge.to));
+    .map((edge) => studio().nodes.find((one) => one.id === edge.to))
+    .filter((one) => one?.kind !== "zone");
+  const zone = studio().nodes.find((one) => one.kind === "zone" && issues.every((issue) => issue?.within === one.id));
+  expect(zone).toBeDefined();
   expect(issues.map((one) => (one?.kind === "issue" ? one.address : null))).toEqual([
     "https://example.invalid/o/r/issues/1293",
     "https://example.invalid/o/r/issues/1291",

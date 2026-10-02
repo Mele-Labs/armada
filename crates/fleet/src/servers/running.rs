@@ -80,23 +80,29 @@ where
         let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing));
         // Its group has been ended by now, on every road out of `lived`.
         super::left::forgotten(&plan.dir);
-        let mut state = plan.now.borrow().clone();
-        state.phase = ServerPhase::Exited;
-        state.ended_at = Some(ipc::Instant::from(&self.now()));
-        state.exit_code = match end.exit {
+        let ended_at = ipc::Instant::from(&self.now());
+        let exit_code = match end.exit {
             Exit::Code(code) => Some(code),
             _ => None,
         };
-        state.ended = Some(match answering_now(&state, &end).await {
+        let serving = plan.now.borrow().clone();
+        let ended = match answering_now(&serving, &end).await {
             Some(port) => format!(
                 "{}. Something else is answering on port {port} now, so the address still \
                  opens and what it draws is not this",
                 said(&end.exit, end.stopped)
             ),
             None => said(&end.exit, end.stopped),
+        };
+        // **The row is read again as it is let go, never kept from above**: a
+        // merge landing during the probe moved it, and a copy would drop that.
+        let state = held.ended(&plan.now, |state| {
+            state.phase = ServerPhase::Exited;
+            state.ended_at = Some(ended_at);
+            state.exit_code = exit_code;
+            state.ended = Some(ended);
+            state.stopped = end.stopped;
         });
-        state.stopped = end.stopped;
-        held.ended(state.clone());
         self.noted_server(&state);
         self.publish(Event::ServerExited(state.clone()));
         // **Before the final state is sent**, so a Studio holding this server
@@ -119,6 +125,7 @@ where
                 Writing::Appending(log),
                 &plan.env,
                 until(stopped.clone()),
+                checks_runner::Priority::Normal,
             )
             .await;
             if *stopped.borrow() {
@@ -160,6 +167,7 @@ where
                         Writing::Nowhere,
                         &plan.env,
                         std::future::pending(),
+                        checks_runner::Priority::Normal,
                     )
                     .await;
                     let up = answered.exit == Exit::Code(0);
@@ -216,14 +224,15 @@ where
 
     /// **Changed in place, never from a copy**: a merge can move the same row
     /// from another thread, and a copy taken before it would drop its count.
+    /// **Published under the same write lock**, as a merge's row is, so a
+    /// reader is never handed this row after a newer one.
     fn now_serving(&self, plan: &Plan) {
         let since = ipc::Instant::from(&self.now());
         plan.now.send_modify(|state| {
             state.phase = ServerPhase::Serving;
             state.serving_since = Some(since);
+            self.publish(Event::ServerServing(state.clone()));
         });
-        let state = plan.now.borrow().clone();
-        self.publish(Event::ServerServing(state));
     }
 
     /// Write a Job's server's end into the Job's own log. **Fields, never an

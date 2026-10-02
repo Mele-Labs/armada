@@ -17,6 +17,7 @@ import {
   DRONE_ID,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   freshStep,
   holdsRead,
@@ -160,6 +161,7 @@ export function running(): JobFixture {
           },
         ],
         wrote_last_at: "2026-09-10T14:24:00.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads({
@@ -200,17 +202,6 @@ export function running(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_edit_1: {
-        ok: true,
-        call: {
-          tool: "Edit",
-          call: "call_edit_1",
-          arguments: "packages/settings/src/selectors.ts: extract selectColumnOrder",
-          whole: true,
-        },
-      },
-    },
     checkOutputs: {},
     frames: {},
     now: NOW,

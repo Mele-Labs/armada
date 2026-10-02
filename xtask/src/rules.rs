@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 use crate::{crate_dirs, files_with_ext, walk, Report};
 
@@ -14,29 +13,20 @@ const SOURCE_ROOTS: &[&str] = &["crates", "apps", "packages", "xtask"];
 
 // ---------------------------------------------------------------- rule one
 
-/// The acceptance test exists and passes.
+/// Where each milestone's acceptance test is named, one table row per claim.
+const ACCEPTANCE_DOC: &str = "docs/practices/acceptance-tests.md";
+
+/// Every milestone's acceptance test exists, and holds a test.
 ///
-/// **A milestone that can fake itself green proves nothing.** That is why this
-/// rule has always been here; what changed at the end of M0 is the direction the
-/// falsehood would run. Through M0 the test was written before the code it
-/// tested, so a green run meant something had been stubbed, weakened or made to
-/// pass, and the rule was satisfied by a non-zero exit. The code the test names
-/// now exists, so a red run means the milestone's claim is not carried, and the
-/// rule is satisfied by a green one.
+/// **That it passes is the `acceptance` Check's**, which the merge line runs
+/// on every turn this rule could change the answer for. Running it here as
+/// well compiled the suite twice a turn. `docs/practices/acceptance-tests.md`
+/// says which owns which half.
 ///
-/// It reports *which kind* of failure, because they are not the same signal.
-/// "Does not compile" means the test names an API that moved out from under it,
-/// and reconciling it is a change to what the milestone claims. "Failed an
-/// assertion" means it builds and the behaviour is gone.
-///
-/// **A run of nothing is the same falsehood pointing the other way.** An empty
-/// test binary exits zero, so the rule counts the tests that ran rather than
-/// reading the exit status alone.
-///
-/// The invocation is `cargo test -p acceptance`. What an acceptance test is
-/// here, and what one costs, is `docs/practices/acceptance-tests.md`.
-pub fn acceptance_test_exists_and_passes(root: &Path) -> Report {
-    let mut report = Report::new("the acceptance test exists and passes");
+/// **A file with no test in it is the falsehood a green run over nothing
+/// tells**, so a named file must carry a test attribute, not merely exist.
+pub fn acceptance_test_exists(root: &Path) -> Report {
+    let mut report = Report::new("every milestone's acceptance test exists");
 
     if !root.join("crates/acceptance/Cargo.toml").is_file() {
         report.fail("crates/acceptance — the package holding the acceptance test");
@@ -48,53 +38,47 @@ pub fn acceptance_test_exists_and_passes(root: &Path) -> Report {
         return report;
     }
 
-    let run = Command::new("cargo")
-        .args(["test", "--package", "acceptance", "--quiet"])
-        .current_dir(root)
-        .output();
-    let Ok(run) = run else {
-        report.fail("the run — `cargo test -p acceptance` could not be started");
-        return report;
-    };
-
-    if !run.status.success() {
-        let stderr = String::from_utf8_lossy(&run.stderr);
-        let kind = if stderr.contains("error[E") || stderr.contains("could not compile") {
-            "does not compile — it names an API that is no longer there. \
-             Reconciling it changes what the milestone claims, and is named as such"
-        } else {
-            "failed an assertion — it builds, and the claim it makes is not carried"
-        };
-        report.fail(format!("a passing acceptance test — it {kind}"));
-        return report;
+    let named = fs::read_to_string(root.join(ACCEPTANCE_DOC))
+        .map(|doc| milestone_tests(&doc))
+        .unwrap_or_default();
+    if named.is_empty() {
+        report.fail(format!(
+            "{ACCEPTANCE_DOC} — the table naming each milestone's acceptance test"
+        ));
     }
-
-    if tests_that_ran(&String::from_utf8_lossy(&run.stdout)) == 0 {
-        report.fail(
-            "a passing acceptance test — it ran none. An empty test binary exits \
-             zero, and green over nothing claims nothing",
-        );
+    for (milestone, rel) in named {
+        match fs::read_to_string(root.join(&rel)) {
+            Err(_) => report.fail(format!("{rel} — {milestone}'s acceptance test")),
+            Ok(text) if !holds_a_test(&text) => report.fail(format!(
+                "{rel} — {milestone}'s acceptance test holds no `#[test]`, \
+                 and a file with none claims nothing"
+            )),
+            Ok(_) => {}
+        }
     }
     report
 }
 
-/// How many tests the run actually executed, read out of libtest's own summary
-/// lines. Every harness in the package reports one, including the ones with
-/// nothing in them, so the counts are summed rather than taken from the first.
-fn tests_that_ran(stdout: &str) -> usize {
-    let mut total = 0;
-    for line in stdout.lines() {
-        let Some(rest) = line.trim().strip_prefix("test result: ") else {
-            continue;
-        };
-        let Some((_, counts)) = rest.split_once(". ") else {
-            continue;
-        };
-        if let Some((passed, _)) = counts.split_once(" passed") {
-            total += passed.trim().parse::<usize>().unwrap_or(0);
-        }
-    }
-    total
+/// `(milestone, path)` for each row of the doc's `| Milestone |` table whose
+/// last cell names a file under `crates/acceptance/tests/`.
+fn milestone_tests(doc: &str) -> Vec<(String, String)> {
+    doc.lines()
+        .skip_while(|line| !line.starts_with("| Milestone |"))
+        .take_while(|line| line.starts_with('|'))
+        .filter_map(|row| {
+            let cells: Vec<&str> = row.trim_matches('|').split('|').map(str::trim).collect();
+            let rel = cells.last()?.trim_matches('`');
+            rel.starts_with("crates/acceptance/tests/")
+                .then(|| (cells[0].to_string(), rel.to_string()))
+        })
+        .collect()
+}
+
+fn holds_a_test(text: &str) -> bool {
+    text.lines().any(|line| {
+        let t = line.trim_start();
+        t.starts_with("#[test]") || t.starts_with("#[tokio::test")
+    })
 }
 
 // ---------------------------------------------------------------- rule two
@@ -494,3 +478,6 @@ pub fn no_comment_block_too_long(root: &Path) -> Report {
     }
     report
 }
+
+#[cfg(test)]
+mod tests;

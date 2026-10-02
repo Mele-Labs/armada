@@ -14,12 +14,14 @@
 //! reads `gh`'s own JSON answer through the same doorway. A turn ends in
 //! [`onto_main`], which pushes the base itself.
 
+// The state on disk is `adapters`', so Fleet reads the same files with the
+// same types without depending on this binary. `docs/capabilities/merge-line.md`.
+pub use adapters::land_state::{codec, dir, outcome, queue};
+
 mod armada_cli;
 mod batch;
 mod blame;
 mod caches;
-pub mod codec;
-pub mod dir;
 mod enqueue;
 pub mod env;
 pub mod gate;
@@ -29,10 +31,8 @@ pub mod lock;
 mod logs;
 mod merge_in;
 mod onto_main;
-pub mod outcome;
 mod preflight;
 mod prepare;
-pub mod queue;
 mod reach;
 mod repo;
 pub mod runner;

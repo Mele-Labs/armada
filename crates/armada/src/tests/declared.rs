@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use checks_runner::CheckSlots;
+use checks_runner::{CheckSlots, Priority};
 
 use crate::declared::{execute, Asked, Registry};
 use crate::tests::{repository, TempDir};
@@ -40,6 +40,7 @@ async fn a_check_that_passes_comes_back_with_its_command_and_a_zero_status() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`build` is declared");
@@ -60,6 +61,7 @@ async fn a_check_that_fails_carries_its_own_exit_code_out() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`test` is declared");
@@ -79,6 +81,7 @@ async fn a_name_that_is_not_declared_is_refused_by_naming_what_is() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("`buidl` is not a Check")
@@ -103,6 +106,7 @@ async fn a_check_named_at_run_is_refused_with_the_verb_that_would_have_worked() 
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("`build` is a Check, not a Command")
@@ -122,6 +126,7 @@ async fn a_command_named_at_check_is_refused_the_same_way_round() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("`fmt` is a Command, not a Check")
@@ -142,6 +147,7 @@ async fn a_destructive_command_runs_and_says_it_is_destructive() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`wipe` is declared");
@@ -162,6 +168,7 @@ async fn a_directory_with_no_manifest_is_refused_by_naming_the_file() {
         Asked::Whole,
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("there is no Manifest here")
@@ -182,6 +189,7 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
             Asked::Whole,
             BUDGET,
             None,
+            Priority::Normal,
         )
         .await
         .expect_err("they are Checks, not Commands")
@@ -196,6 +204,7 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
             Asked::Whole,
             BUDGET,
             None,
+            Priority::Normal,
         )
         .await
         .expect_err("they are Commands, not Checks")
@@ -244,6 +253,7 @@ async fn a_check_waits_for_a_machine_slot_and_hands_it_down() {
             Asked::Whole,
             BUDGET,
             Some(&waiting),
+            Priority::Normal,
         )
         .await
     });
@@ -286,6 +296,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         Asked::OneTest("a b"),
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect("`test` declares a one_test");
@@ -300,6 +311,7 @@ async fn one_test_runs_through_the_checks_one_test() {
         Asked::OneTest("a"),
         BUDGET,
         None,
+        Priority::Normal,
     )
     .await
     .expect_err("`build` declares no one_test")
@@ -354,6 +366,11 @@ fn this_repositorys_checks_are_chosen_by_their_when() {
     let rust = hits(&["crates/fleet/src/lib.rs"]);
     assert!(rust.contains(&"acceptance".to_string()), "{rust:?}");
     assert!(!rust.contains(&"typecheck".to_string()), "{rust:?}");
+
+    // The gate leaves "passes" to `acceptance`, so a file the suite embeds
+    // has to reach it.
+    let workflow = hits(&[".armada/workflows/bug.json"]);
+    assert!(workflow.contains(&"acceptance".to_string()), "{workflow:?}");
 }
 
 /// **A change to the written record runs nothing**, which is what narrowing the
@@ -419,6 +436,50 @@ fn the_scripts_carry_their_own_check() {
 
     let rust = hits(&["crates/fleet/src/lib.rs"]);
     assert!(!rust.contains(&"scripts_test".to_string()), "{rust:?}");
+}
+
+/// **`armada check` lowers a Check and never a Command.** `main` hands in the
+/// priority `ARMADA_CHECK_PRIORITY` names; this is what each registry does
+/// with a lowered one, read back from `ps` as the process's own priority.
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn a_lowered_check_runs_clamped_and_a_command_does_not() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\n\
+         id: a-test-project\n\
+         checks:\n  \
+           pri:\n    run: /bin/sh -c 'ps -o pri= -p $$'\n\
+         commands:\n  \
+           priority:\n    run: /bin/sh -c 'ps -o pri= -p $$'\n",
+    );
+    let mut printed = Vec::new();
+    for (registry, name) in [(Registry::Checks, "pri"), (Registry::Commands, "priority")] {
+        let ran = execute(
+            dir.path(),
+            registry,
+            name,
+            Asked::Whole,
+            BUDGET,
+            None,
+            Priority::Low,
+        )
+        .await
+        .expect("declared");
+        let said = ran.attempt.output.stdout.trim().to_string();
+        printed.push(said.parse::<u32>().expect("ps printed a number"));
+    }
+    let own = std::process::Command::new("ps")
+        .args(["-o", "pri=", "-p", &std::process::id().to_string()])
+        .output()
+        .expect("ps runs");
+    let own: u32 = String::from_utf8_lossy(&own.stdout)
+        .trim()
+        .parse()
+        .expect("a number");
+    assert!(printed[0] <= 20, "a lowered Check ran at {}", printed[0]);
+    assert_eq!(printed[1], own, "a Command ran at a priority of its own");
 }
 
 /// This repository's Manifest, asked what a change hits.

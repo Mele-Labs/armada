@@ -107,6 +107,8 @@ mod manifest_proposal;
 /// Fleet to Bridge — so it is a module rather than a flat re-export and none of
 /// its types are in `operations.toml`.
 pub mod mcp;
+/// The merge line `armada land` keeps in each served repository, as Fleet reads it.
+mod merge_line;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
 mod overlap;
@@ -269,6 +271,7 @@ pub use manifest_proposal::{
     ProposedCheck, ProposedCommand, ProposedId, ProposedPolicy, ProposedPort, ProposedRunner,
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
+pub use merge_line::{LandState, MergeLine, MergeLineEntry, MergeLinePullRequest, MergeLines};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
 pub use proposing::{
@@ -297,8 +300,8 @@ pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
 pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
 pub use repositories::{AddRepository, CloneRepository, RepositoryList, RepositorySummary};
 pub use resources::{
-    Asked, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind, Look,
-    WorktreeOnDisk,
+    Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
+    Look, WorktreeOnDisk,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,

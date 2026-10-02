@@ -175,21 +175,29 @@ export function columnsFor(
 }
 
 /**
- * A Job's tasks as the bar draws them — done segments first, then the one
- * working, then what is left open. `TaskCounts` carries no order of its own;
- * this is the order the bar reads them in.
+ * A Job's tasks as the bar draws them — done segments first, then those in
+ * flight, then the failed, then what is left open. A handed-in task is in
+ * flight until its Checks answer, so it takes `working`'s segment. `TaskCounts`
+ * carries no order of its own; this is the order the bar reads them in.
  */
 export function taskBarSegmentsOf(counts: TaskCounts): TaskBarSegment[] {
   return [
     ...Array.from({ length: counts.done }, (): TaskBarSegment => "done"),
+    ...Array.from({ length: counts.handed_in ?? 0 }, (): TaskBarSegment => "working"),
     ...Array.from({ length: counts.working }, (): TaskBarSegment => "working"),
+    ...Array.from({ length: counts.failed ?? 0 }, (): TaskBarSegment => "failed"),
     ...Array.from({ length: counts.open }, (): TaskBarSegment => "open"),
   ];
 }
 
+/** Every task but the dropped: what done is counted against. */
+export function tasksOwed(counts: TaskCounts): number {
+  return counts.done + counts.working + counts.open + (counts.handed_in ?? 0) + (counts.failed ?? 0);
+}
+
 /** The figure beside the bar — done over tasks not dropped. */
 export function taskFigureOf(counts: TaskCounts): string {
-  return `${counts.done} of ${counts.done + counts.working + counts.open}`;
+  return `${counts.done} of ${tasksOwed(counts)}`;
 }
 
 /**

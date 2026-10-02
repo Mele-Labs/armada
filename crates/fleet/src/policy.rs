@@ -20,7 +20,7 @@
 //! second arrives.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WhatTheForgeRan, WorkProduct};
-use core_model::{AutoMerge, JobId, ResolvedPolicies, ResolvedStep, ReviewGate, StepId};
+use core_model::{AutoMerge, JobId, ResolvedStep, ReviewGate, StepId};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -66,15 +66,6 @@ impl Policies {
 
     pub fn review_gate(&self) -> ReviewGate {
         self.review_gate
-    }
-
-    /// Both answers, as the run that passed a gate records them. Both and not
-    /// only the one that gated, which the owner decided on 1 Oct 2026.
-    pub fn resolved(&self) -> ResolvedPolicies {
-        ResolvedPolicies {
-            auto_merge: self.auto_merge,
-            review_gate: self.review_gate,
-        }
     }
 
     /// Whether a machine may take the work off a `manifest_rule:auto_merge`
@@ -216,11 +207,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Write down what both policies resolved to, on a run whose ruling read
-    /// the advance gate. **Read off the ruling and never handed in**, so the
-    /// value written is the one the gate acted on, and a ruling that stopped
-    /// before the gate writes nothing. Called before the step moves, beside the
-    /// run's Checks, so it lands on the run that was ruled on.
+    /// Write down what both policies resolved to, on every run a gate reached,
+    /// and whether the advance gate's rule decided. **Read off the ruling and
+    /// never handed in**, so the value written is the one the gate held, and a
+    /// submission refused before any gate writes nothing. Called before the
+    /// step moves, beside the run's Checks, so it lands on the run that was
+    /// ruled on.
     pub(crate) async fn recorded_policies(
         &self,
         job_id: &JobId,

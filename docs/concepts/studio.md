@@ -41,8 +41,14 @@ flowchart LR
 
 > **Rule.** A Studio reopens read-only, and a person continues it on request.
 
-> **Rule.** A Studio is laid out by hand. A person places each node and moves it, and the Studio keeps every position.
+> **Rule.** A Studio is laid out by hand. A person places each node and moves it, and the Studio keeps every position. What an act makes lands where the act put it, and is the person's to move from there.
 > Why: where a person put a node is part of how they read the work.
+
+> **Rule.** A Zone rings off part of the board, and what is in it moves with it. A node dropped on a Zone goes in, and one dragged off it comes out. A node inside a frame keeps its place measured from the frame's corner, so moving the frame is one write. A Zone holds any kind but another Zone.
+> Why: the owner, 2 Oct 2026, of a read-in's eighteen loose cards: *"they should get all put into a nice framed region to indicate they all go together. Then I could move them all around."* `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`.
+
+> **Rule.** A frame is sized round what it holds and its size is never kept. Deleting a frame leaves what it held where it was on the board.
+> Why: a size kept beside the positions it was worked out from is a second answer that goes stale the first time a node inside moves.
 
 > **Rule.** The whiteboard is drawn with React Flow.
 
@@ -101,8 +107,17 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A person adds a Note, an address, a Sketch, a File and a Picture by hand, and no other kind. Every other kind is made by the act that earns it.
-> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026.
+> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why.
+> Why: the owner asked why Run sat in a card at the board's top-right rather than on the rail, and chose the rail. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
+
+> **Rule.** While a Studio is read-only, every act on the rail is drawn off, each with a tooltip saying Continue turns it on, and none is hidden.
+> Why: the owner chose a rail that looks the same in both modes over one that changes when Continue is pressed, at the cost of a dead button for every act whenever an old Studio is reread. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
+
+> **Rule.** A person adds a Note, an address, a Sketch, a File, a Picture and a Zone by hand, and no other kind. Every other kind is made by the act that earns it.
+> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. One of those added by hand would carry a claim nothing stands behind. A Zone claims nothing: it is a ring a person draws round their own work. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026; the Zone, #1620.
+
+> **Rule.** A Cluster is drawn as a titled frame round its Notes, and may sit inside a Zone. Its Notes are the ones with a `Produced` edge into it, and a Note is in one Cluster at a time and never leaves it by being moved.
+> Why: the owner, 2 Oct 2026: *"Shouldn't clusters just be frames around a bunch of nodes?"* A Note drawn in two frames would have to be drawn twice, which is the cost he took.
 
 > **Rule.** A Picture is a picture and nothing else. It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
 > Why: a screenshot pasted onto the board has no words, and a Note is never wordless. The owner chose a kind of its own over a Note made to carry it. `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
@@ -168,6 +183,9 @@ flowchart LR
 
 > **Rule.** No edge carries colour. Weight and label tell them apart.
 
+> **Rule.** A `Produced` edge is drawn as the frame it ends in where the frame says it: one into a node inside a frame its source also produced, and one from a Note into the Cluster round it. The record keeps every edge.
+> Why: a read-in's Issue drew eighteen lines to what it made, and the owner asked for one, to the Zone. What made each node is still on the record, which an agent reads.
+
 ## Notes
 
 > **Rule.** A Note is fixed at capture, and nothing writes to it afterwards.
@@ -214,6 +232,9 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** A node read in keeps its address, and everything that came back hangs off it by `Produced` edges.
 > Why: the address is what a Job is dispatched from, and a Link rewritten by what was read in it would be a record of the reading rather than of the source.
 
+> **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
+> Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
+
 > **Rule.** An Epic reads in as one Issue per issue, each carrying that issue's own address, number, title and state, and makes no Issue draft.
 > Why: an Issue draft is Armada's own unfiled text. An issue already on a forge is an Issue node, and dispatching from it is the address's job. The read already answers all three fields, so nothing is left for a later fetch.
 
@@ -229,11 +250,11 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** An Epic says which of its issues it took, how many that left out and how many it kept, beside how many of how many are on the Studio. An Epic read in before the answer existed says nothing about one.
 > Why: a board narrower than the milestone and a board that is the milestone read the same otherwise. A count drawn as an answer nobody gave is a claim.
 
-> **Rule.** Narrowing takes back only the Issue nodes the read-in made, and never one a person has worked on: one carrying an edge beyond the `Produced` edge that made it, a line of their own beside its address, or a position off the block it was laid out in. The Epic counts what it kept.
+> **Rule.** Narrowing takes back only the Issue nodes the read-in made, and never one a person has worked on: one carrying an edge beyond the `Produced` edge that made it, a line of their own beside its address, a position off the block it was laid out in, or a place out of the Epic's Zone. The Epic counts what it kept.
 > Why: a person's own work is not the read-in's to remove, and a Note written against a closed issue, a Deferral raised on it and a Job dispatched from it are all that work. An Issue is never added by hand — a person pastes an address — so an Issue hanging off an Epic is that Epic's read-in's and nothing else is.
 
-> **Rule.** An Epic's issues sit in one block for the Epic's life, and a read-in fills that block's gaps rather than starting a second one.
-> Why: a widening that laid a second grid wherever the person was looking would leave one milestone drawn in two places — and where a node was put is only readable as a person's own act against a block that is still where it was laid out.
+> **Rule.** An Epic's issues sit in one block, inside the Epic's Zone, for the Epic's life, and a read-in fills that block's gaps rather than starting a second one. An Epic whose block was laid out before Zones keeps it on the board.
+> Why: a widening that laid a second grid wherever the person was looking would leave one milestone drawn in two places — and where a node was put is only readable as a person's own act against a block that is still where it was laid out. The block is measured from the Zone's corner, so dragging the Zone moves it whole.
 
 > **Rule.** An Epic takes no scout and leaves no Finding.
 > Why: nothing was learned; a list was copied. A model asked to echo one back is cost spent on a transcription, and a Finding that cost nothing and read nothing says nothing.

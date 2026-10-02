@@ -243,6 +243,7 @@ function groupStateOf(task: TaskState, worksAt: StepDetail | undefined): GroupSt
     case "retrying":
       return "retrying";
     default:
-      return task === "working" ? "running" : "pending";
+      // A handed-in task's group is live until its Checks answer.
+      return task === "working" || task === "handed_in" ? "running" : "pending";
   }
 }

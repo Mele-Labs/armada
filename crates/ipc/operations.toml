@@ -299,7 +299,7 @@ A node starts in its kind's first state and nothing in the request sets one. `pr
 
 **From Helm, only a kind that starts `proposed`** — a Finding today — and anything else is refused as `fleet.studio_node_not_helms`: Helm adds proposed nodes, and a Note is what a person pointed at. A blank field is refused as `fleet.studio_node_blank`.
 
-**From Bridge, only a kind a person makes**: a Note typed, an address pasted, a Sketch placed, decided with the owner on #1364, a File's path pasted, decided with him on 1 Oct 2026, and a Picture pasted, decided with him on 28 Sep 2026. An address arrives as a Link and Fleet writes what it is — an Issue, a Pull request, an Epic, or the Link it stays — because which host is the forge is `crates/adapters`' to know and nothing on this seam may name a kind an address did not earn (`#1394`). Anything else is refused as `fleet.studio_node_not_a_persons` — a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. So the two refusals meet over the kinds neither side mints by hand, and the route carries a person's `+ Node` as well as Helm's proposal.
+**From Bridge, only a kind a person makes**: a Note typed, an address pasted, a Sketch placed, decided with the owner on #1364, a File's path pasted, decided with him on 1 Oct 2026, a Picture pasted, decided with him on 28 Sep 2026, and an empty Zone put down, #1620. An address arrives as a Link and Fleet writes what it is — an Issue, a Pull request, an Epic, or the Link it stays — because which host is the forge is `crates/adapters`' to know and nothing on this seam may name a kind an address did not earn (`#1394`). Anything else is refused as `fleet.studio_node_not_a_persons` — a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. So the two refusals meet over the kinds neither side mints by hand, and the route carries a person's `+ Node` as well as Helm's proposal.
 
 **A Picture arrives as `staged`, never as `frame`**: the PNG Bridge's main staged, which Fleet keeps the way `capture_studio_note` keeps a frame — over 4 MiB is `fleet.studio_frame_too_large` and a file it cannot read `fleet.studio_frame_unreadable` — and answers with the Picture naming the file it kept. A body naming a kept `frame` does not decode, since `get_studio_frame` opens what a node names, and neither does a Note whose `capture.frame` is set: a captured Note's frame arrives staged, through `capture_note`.
 
@@ -333,9 +333,11 @@ The development annotation layer (`⌥⌘A`, `.armada/annotations/`) is untouche
 kind = "command"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "Move a node to where a person left it, and answer with the Studio"
+description = "Move a node to where a person left it, in the frame it was put down in, and answer with the Studio"
 notes = """
-Position only. A Studio is laid out by hand, so no agent is offered a move; a node Helm adds is placed by the request that adds it.
+Where it sits only. A Studio is laid out by hand, so no agent is offered a move; a node Helm adds is placed by the request that adds it.
+
+**`within` names the frame it was put down in, and absent is the board** (since 23.0, #1620); `position` is measured from that frame's corner. A Zone holds any kind but a Zone and a Cluster only the Notes with a `produced` edge into it; anything else is `fleet.studio_frame_cannot_hold`. A Note in a Cluster stays in it, and moving it anywhere else is `fleet.studio_note_stays_in_its_cluster`.
 """
 
 [operations.remove_studio_nodes]
@@ -378,6 +380,8 @@ notes = """
 The first rung of `docs/concepts/studio.md`'s *Promotion* that joins nodes rather than adding one. The new node is placed where the request says and the Studio draws a `produced` edge from each node in `from`, **in the order they were given** — an Outline is an ordered reading, and edges read back oldest first, so the order a person picked is the order it keeps.
 
 `agent_access` is `Bridge only`: a Cluster is Notes a person accepted as one thing, and accepting is a person's act whatever Helm's authority setting says.
+
+**A Cluster is drawn round its Notes** (since 23.0, #1620): it lands inside the frame they all share, or on the board, at their corner, and each Note goes inside it where it was; `position` places an Outline only. A Note already in a Cluster is refused as `fleet.studio_note_in_a_cluster` — one Cluster at a time, decided with the owner on 2 Oct 2026.
 
 Only a Cluster or an Outline decodes here; any other kind is refused as `fleet.studio_group_not_a_group`, because every other kind has a rung of its own that makes it. A Cluster of anything but Notes is refused as `fleet.studio_cluster_is_of_notes`. A node named twice, or none at all, is `fleet.studio_group_is_of_several`. A blank field is `fleet.studio_node_blank`, as `add_studio_node` has it.
 """
@@ -601,6 +605,23 @@ The split is `get_call`'s, made against the same measurement. A Check's output i
 **A window, and it says it is one.** The tail is served, for the reason `checks_runner` captures the tail: a test runner prints its failures last. `from_line` is the file's own numbering, `total_lines` is exact because the file is counted as it is read, and `whole` is stated rather than left to be inferred.
 
 `agent_access` is `Yes` since `#697`, and the context cost it was refused for is answered at the door rather than by this column. A tool answer is cut at 64 KiB and says so, naming this route for the rest — and this operation was already a window, which makes it the cheapest of the six to open. What the refusal cost was the larger number: an agent may `start_run` and could not read what the run printed, which is an agent that cannot verify its own work.
+"""
+
+[operations.get_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One brief a Judge or a gaming check was asked, read back into the app"
+notes = """
+**The other end of `brief_path`.** `Judged.brief_path` and a gaming flag's `brief_path` have named the file a verdict was argued from since Fleet kept it, and `JobResources.logs` lists it as kind `brief` — but nothing served its contents, so the row opened outside Bridge. The owner decided on 2 Oct 2026 that a brief opens in Pulse's log panel the way a transcript does, and this is what that panel reads.
+
+The split is `get_check_output`'s, on the same measurement: a brief carries the whole branch diff, so it rides no event and no `get_job`. The cheap fact — that there is one, and where — rides the row; the bytes are fetched once, by whoever pressed it.
+
+**`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
+
+**The tail, through `get_check_output`'s window**: 2,000 lines and 256 KiB. A brief ends on what it asks — the diff comes before the question and the answer format — so a cut brief keeps the question. `from_line` is the file's own numbering, `total_lines` is exact and `whole` is stated.
+
+`agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
 """
 
 [operations.get_frame]
@@ -994,7 +1015,7 @@ There is no name here because `armada.yml` declares none — `version`, `id`, `c
 
 Every Manifest Fleet serves, the one it was started in first: one Fleet serves many repositories and the rail's project picker switches between them. A repository added with no `armada.yml` is not here until one loads — `list_repositories` lists it.
 
-It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that passed it and served as `StepAttempt.resolved` since 21.9.
+It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that reached it and served as `StepAttempt.resolved` since 21.9, with `decided` since 21.10 for a run an earlier gate stopped.
 """
 
 [operations.list_repositories]
@@ -1006,6 +1027,19 @@ notes = """
 Beside `list_manifests` rather than instead of it: Setup starts from a folder nobody wrote an `armada.yml` for, and that repository has a root and records before it has a Manifest. The root is what `?repository=` names on Scan and its proposals.
 
 `agent_access` is `No` for `get_repository_scan`'s reason: a root is the owner's checkout on disk.
+"""
+
+[operations.get_merge_lines]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, and the newest three that left it"
+notes = """
+A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
+
+A repository nobody has run `armada land` in is left out rather than listed empty. `off` is bounded at three, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026.
+
+`agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
 
 [operations.add_repository]
@@ -1628,8 +1662,8 @@ redispatch or restart one, when asked to.
 [operations.kill_process]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends one process a Job holds, and everything under it"
+agent_access = "Helm only"
+description = "Ends one process a Job holds, and everything under it. A child of the Drone is not the Drone: killing one leaves the Drone, its step and the Job running. The Drone's own pid is `kill_drone`, and is answered as that. A pid outside the Job's process tree is refused with `fleet.not_the_jobs_process`"
 notes = """
 `POST /jobs/:job_id/processes/:pid/kill`, from a row of Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
@@ -1638,19 +1672,23 @@ notes = """
 **A child of the Drone is not the Drone dying.** Killing a runaway `cargo` ends it, leaves the Drone, its step and the Job as they were, and writes nothing to the record: the Drone sees a tool call fail and carries on. What the process started goes with it, leaves first, because a build killed at its root leaves its compilers reparented out of the Job's tree, past every later reading and every later kill.
 
 **The Drone's own pid is `kill_drone`**, so its step stops under `drone_killed` exactly as there, and its descendants go as `kill_processes` says.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**: Helm can kill one process of a Job, or all of them, with the same reach it has over `kill_drone`. It was `No` when the route landed. Fleet's guard is unchanged by who calls it — a pid outside the Job's tree is refused with `fleet.not_the_jobs_process` for Helm exactly as for Bridge — and the act is Destructive in `fleet::helm::deciding`, so Helm's call is put to a person as `kill_drone`'s is.
 """
 
 [operations.kill_processes]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends every process a Job holds; the Job survives"
+agent_access = "Helm only"
+description = "Ends every process a Job holds, the Drone included; the Job survives. This is `kill_drone` and what its group signal misses, so the Drone's step stops. To end one runaway child and keep the Drone working, `kill_process` it instead"
 notes = """
 `POST /jobs/:job_id/processes/kill`, from Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
 **`kill_drone`, and then what its group signal misses.** The Drone is in the tree, so its step stops by hand as there. A Drone leads its own process group and `kill_drone` signals that group; a tool that started a group of its own — a shell with job control does — is not in it, and would outlive the Drone reparented and invisible. This reaches every descendant the tree holds, leaves first, before the Drone ends.
 
 **Not `kill_job`.** The Job survives with its worktree held, and a restart lands on the stopped step. Where the tree will not read, or the Drone is gone, this is `kill_drone` alone.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**, `kill_process`'s reason: the same reach Helm has over `kill_drone`, and Destructive in `fleet::helm::deciding` as that is.
 """
 
 [operations.forget_job]
@@ -2936,6 +2974,19 @@ Published when a repository is added by folder, when a clone lands and is added,
 Names no Job, no Drone and no step. No actor and no `at`: the add that caused it answered its own caller, and every other Bridge only needs the list.
 
 A resync does not carry it. A client that reconnects asks `list_repositories` again, as it did before this existed.
+"""
+
+[operations."merge_lines.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A merge line moved on disk, and this is every line now"
+notes = """
+Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
+
+Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """
 
 [operations."studio.changed"]

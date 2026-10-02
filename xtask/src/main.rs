@@ -80,7 +80,9 @@ impl Report {
 fn main() -> ExitCode {
     let task = std::env::args().nth(1);
     match task.as_deref() {
-        Some("verify-foundations") => verify_foundations(),
+        Some("verify-foundations") => {
+            verify_foundations(std::env::args().any(|a| a == "--timings"))
+        }
         Some("verify-tokens") => {
             let write = std::env::args().any(|a| a == "--write");
             verify_tokens(write)
@@ -93,68 +95,87 @@ fn main() -> ExitCode {
         }
         Some(other) => {
             eprintln!("xtask: unknown task `{other}`");
-            eprintln!("tasks: verify-foundations, verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
             ExitCode::FAILURE
         }
         None => {
             eprintln!("xtask: no task given");
-            eprintln!("tasks: verify-foundations, verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
             ExitCode::FAILURE
         }
     }
 }
 
-fn verify_foundations() -> ExitCode {
-    let root = repo_root();
-    let reports = vec![
-        rules::acceptance_test_exists_and_passes(&root),
-        rules::every_failure_mode_has_a_fixture(&root),
-        rules::no_file_too_long(&root),
-        rules::no_comment_block_too_long(&root),
-        rules::no_untyped_json_outside_store_and_ipc(&root),
-        rules::no_vendor_literal_outside_adapters(&root),
-        rules::no_bloated_claude_md(&root),
-        rules_gitnexus::no_skill_runs_a_bare_analyze(&root),
-        rules::the_v1_harvest_has_an_index(&root),
-        rules_privacy::nothing_names_a_person_or_a_machine(&root),
-        rules_unsafe::unsafe_is_spoken_only_where_named(&root),
-        rules::nothing_writes_its_own_log_format(&root),
-        rules_tokens::the_tokens_generate_what_is_checked_in(&root),
-        rules_tokens::no_media_query_resolves_through_a_custom_property(&root),
-        rules_design::no_off_contract_design_value(&root),
-        rules_var_names::every_var_names_a_declared_property(&root),
-        rules_docs::every_open_question_is_collected(&root),
-        rules_docs::every_document_is_indexed(&root),
-        rules_docs::every_path_a_document_names_exists(&root),
-        capabilities::every_capability_is_bound_and_indexed(&root),
-        rules_icons::every_glyph_in_use_is_registered(&root),
-        rules_icons::contract::the_contract_and_the_registry_agree_on_meaning(&root),
-        rules_actions::every_action_carries_three_columns(&root),
-        rules_stories::every_story_names_its_own_path(&root),
-        rules_guides::every_guides_piece_is_drawn(&root),
-        rules_layers::every_package_imports_downward(&root),
-        rules_layers::nothing_in_the_main_process_reads_the_draft_schema(&root),
-        rules_bundled::no_workspace_package_is_left_for_node(&root),
-        rules_node::the_pinned_node_satisfies_the_declared_floor(&root),
-        rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads(&root),
-        rules_stylesheets::claims::no_two_compositions_claim_one_class(&root),
-        rules_tests::every_test_file_is_declared(&root),
-        rules_transcripts::no_bare_transcript_read_in_a_test(&root),
-        rules_protocol::the_router_serves_what_the_inventory_names(&root),
-        rules_protocol::unserved::every_operation_the_inventory_names_is_served(&root),
-        rules_protocol::version::the_version_and_its_generated_constant_agree(&root),
-        rules_protocol::nulls::no_optional_field_is_sent_as_null(&root),
-        rules_errors::one_code_names_one_failure(&root),
-        rules_enums::every_registry_key_is_a_variant(&root),
-        rules_enums::edges::the_registry_and_the_edge_table_hold_the_same_edges(&root),
-        rules_enums::reachability::every_status_declares_the_step_states_it_holds(&root),
-        rules_enums::declared::every_status_row_names_the_edges_it_carries(&root),
-        rules_studio::the_kinds_are_one_set_everywhere(&root),
-        rules_toolbelt::the_roster_and_the_allowlist_hold_the_same_set(&root),
-        rules_vocabulary::the_generated_vocabulary_says_what_the_registries_say(&root),
-        rules_vocabulary::readers::every_generated_vocabulary_has_a_reader(&root),
-    ];
+/// Every rule `verify-foundations` runs, in the order it prints them.
+const FOUNDATIONS: &[fn(&Path) -> Report] = &[
+    rules::acceptance_test_exists,
+    rules::every_failure_mode_has_a_fixture,
+    rules::no_file_too_long,
+    rules::no_comment_block_too_long,
+    rules::no_untyped_json_outside_store_and_ipc,
+    rules::no_vendor_literal_outside_adapters,
+    rules::no_bloated_claude_md,
+    rules_gitnexus::no_skill_runs_a_bare_analyze,
+    rules::the_v1_harvest_has_an_index,
+    rules_privacy::nothing_names_a_person_or_a_machine,
+    rules_unsafe::unsafe_is_spoken_only_where_named,
+    rules::nothing_writes_its_own_log_format,
+    rules_tokens::the_tokens_generate_what_is_checked_in,
+    rules_tokens::no_media_query_resolves_through_a_custom_property,
+    rules_design::no_off_contract_design_value,
+    rules_var_names::every_var_names_a_declared_property,
+    rules_docs::every_open_question_is_collected,
+    rules_docs::every_document_is_indexed,
+    rules_docs::every_path_a_document_names_exists,
+    capabilities::every_capability_is_bound_and_indexed,
+    rules_icons::every_glyph_in_use_is_registered,
+    rules_icons::contract::the_contract_and_the_registry_agree_on_meaning,
+    rules_actions::every_action_carries_three_columns,
+    rules_stories::every_story_names_its_own_path,
+    rules_guides::every_guides_piece_is_drawn,
+    rules_layers::every_package_imports_downward,
+    rules_layers::nothing_in_the_main_process_reads_the_draft_schema,
+    rules_bundled::no_workspace_package_is_left_for_node,
+    rules_node::the_pinned_node_satisfies_the_declared_floor,
+    rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads,
+    rules_stylesheets::claims::no_two_compositions_claim_one_class,
+    rules_tests::every_test_file_is_declared,
+    rules_transcripts::no_bare_transcript_read_in_a_test,
+    rules_protocol::the_router_serves_what_the_inventory_names,
+    rules_protocol::unserved::every_operation_the_inventory_names_is_served,
+    rules_protocol::version::the_version_and_its_generated_constant_agree,
+    rules_protocol::nulls::no_optional_field_is_sent_as_null,
+    rules_errors::one_code_names_one_failure,
+    rules_enums::every_registry_key_is_a_variant,
+    rules_enums::edges::the_registry_and_the_edge_table_hold_the_same_edges,
+    rules_enums::reachability::every_status_declares_the_step_states_it_holds,
+    rules_enums::declared::every_status_row_names_the_edges_it_carries,
+    rules_studio::the_kinds_are_one_set_everywhere,
+    rules_toolbelt::the_roster_and_the_allowlist_hold_the_same_set,
+    rules_vocabulary::the_generated_vocabulary_says_what_the_registries_say,
+    rules_vocabulary::readers::every_generated_vocabulary_has_a_reader,
+];
 
+/// `--timings` lists each rule's wall time on stderr, slowest first, so stdout
+/// stays the report the merge line parses.
+fn verify_foundations(timings: bool) -> ExitCode {
+    let root = repo_root();
+    let mut took = Vec::new();
+    let reports: Vec<Report> = FOUNDATIONS
+        .iter()
+        .map(|rule| {
+            let started = std::time::Instant::now();
+            let report = rule(&root);
+            took.push((started.elapsed(), report.rule));
+            report
+        })
+        .collect();
+    if timings {
+        took.sort_by(|a, b| b.0.cmp(&a.0));
+        for (elapsed, rule) in &took {
+            eprintln!("{:>8.2}s  {rule}", elapsed.as_secs_f64());
+        }
+    }
     render("verify-foundations", &reports)
 }
 

@@ -245,6 +245,7 @@ impl Studios for FakeDaemon {
                 id,
                 content,
                 state: None,
+                within: None,
                 position: add.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -280,6 +281,7 @@ impl Studios for FakeDaemon {
                     capture: Some(pointed),
                 },
                 state: None,
+                within: None,
                 position: capture.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -300,6 +302,7 @@ impl Studios for FakeDaemon {
                 .iter_mut()
                 .filter(|node| node.id == moving.node_id)
             {
+                node.within = moving.within.clone();
                 node.position = moving.position;
             }
             Ok(studio.clone())
@@ -402,6 +405,7 @@ impl Studios for FakeDaemon {
                 id: StudioNodeId::carried(format!("01NODE{}", studio.nodes.len())),
                 content: StudioNodeContent::finding_asked(&ask.asked),
                 state: StudioNodeState::from_wire("gathering"),
+                within: None,
                 position: ask.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -427,6 +431,7 @@ impl Studios for FakeDaemon {
                     read_in.node_id.as_str()
                 )),
                 state: StudioNodeState::from_wire("gathering"),
+                within: None,
                 position: read_in.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -484,6 +489,7 @@ impl Studios for FakeDaemon {
                     kept: None,
                 },
                 state: None,
+                within: None,
                 position: run.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -521,6 +527,7 @@ impl Studios for FakeDaemon {
                     kept: None,
                 },
                 state: None,
+                within: None,
                 position: server.position,
                 created_at: Instant::carried(AT),
                 added_by: None,
@@ -748,6 +755,7 @@ fn added(
         id: id.clone(),
         content,
         state: None,
+        within: None,
         position,
         created_at: Instant::carried(AT),
         added_by: None,
