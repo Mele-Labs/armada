@@ -308,10 +308,10 @@ export type DetailShape = {
 
 /** The open state this file holds, in the shape the screen takes it in. */
 export type DetailKeys = {
-  /** `InsideAJob.openSteps` — which steps have their facts open. */
+  /** Which steps have their facts open. */
   openSteps: readonly string[];
   onOpenStep: (stepId: string, open: boolean) => void;
-  /** `StepPanel.openChapterId` — the one chapter that is open, or none. */
+  /** The one chapter that is open, or none. */
   openChapterId: string | null;
   onOpenChapter: (chapterId: string | null) => void;
   /**

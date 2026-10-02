@@ -11,7 +11,7 @@ import { Button, Card, CardContent, Skeleton, SkeletonText, Textarea } from "@ar
 
 import type { JobSummary, StepDetail } from "@armada/protocol";
 
-import { Eyebrow } from "./InsideAJob";
+import { Eyebrow } from "./regions";
 import { decidedSaidOf, originLineOf } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 

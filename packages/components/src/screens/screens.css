@@ -194,9 +194,8 @@
 /* What the shell mounts a screen into: a column that fills the mount and lets
    the screen inside it be bounded.
    
-   **This is the link that was missing, and it lived nowhere.** A screen like
-   `InsideAJob` is `height: 100%`, and a percentage needs a definite parent to
-   measure. Bridge wrapped the mount's child in a div spelling Tailwind
+   **This is the link that was missing, and it lived nowhere.** A screen that is
+   `height: 100%` needs a definite parent to measure. Bridge wrapped the mount's child in a div spelling Tailwind
    utilities — `flex flex-col gap-6` — and no utility in this app emits a rule,
    in Bridge or in Storybook, so it was a plain block box of automatic height.
    The screen measured against nothing, grew to its content, and scrolled the
@@ -755,69 +754,6 @@
 
 /* ---- inside a job: the one arrangement -------------------------------- */
 
-/* The run on the left, the panel on the right, at every state.
-
-   `--w-run-column` is the drawn 380px and the panel takes every pixel of
-   slack — that is the drawing's own rule and it is what the tokens file argues
-   for at length.
-
-   It was a 2fr/3fr pair here, defended in a comment that read well and was
-   wrong: a proportional rail widens with the window, so the tree of six short
-   names grew to half a maximised screen while the panel that has to hold a
-   diff grew by the same fraction rather than by the surplus.
-
-   **THE RUN COLUMN YIELDS WHEN THE SLACK RUNS OUT, and the panel has a floor.**
-   The fixed track that replaced the ratio had no give at all, and the old note
-   that worried it "keeps demanding its width in a narrow window" was right
-   about the symptom even though it was wrong about the cure. The arithmetic
-   this comment used to carry — "380px against `--window-floor`'s 768 leaves
-   363 for the panel" — forgot the 48px rail, the shell's own four gutters and
-   this card's padding. The real figure at that window is 196px, and with
-   Helm's dock beside the content the same 196 arrives at 1280, where the owner
-   found it: `Extract selectColumnOrder into its own module` one letter a line.
-   Measured in the mock on `job/workingAPlan`, at heights 860:
-
-     window  1512  1400  1300  1280  1200  1150  1100  1000   900   768
-     was      424   312   212   192   112    62   528   428   328   196
-     #1428    424   332   332   332   252   202   528   428   332   332
-     now      424   332   332   332   332   332   528   428   332   332
-
-   1100 and below drew no dock, which is why those two columns did not move and
-   why the band was worst at exactly laptop width. The third row is what the
-   token pair alone could do; the fourth is 1200 and 1150 getting their floor
-   back once the left column collapsed to its rail there rather than holding
-   200px. **The table is a record, not a reading**: since #1583 the dock takes
-   nothing, so every column of it is at least the fourth row's figure with the
-   left column still at 200px.
-
-   **1101-1127 was the one band still short**, by up to 27px, because the rail
-   costs 80px where #1435's absence cost 16. It is not short any more, and the
-   left column does not go to its rail there at all.
-
-   **Three tracks, and each says one thing.** `minmax(--w-run-column-min,
-   --w-run-column)` is the run: it rests at 380 and gives up width down to its
-   floor, and it is what gives first because a list of step names and elapsed
-   times reads narrower than a diff does. The panel's own min is what reserves
-   its floor *before* the run grows — a plain `minmax(0, 1fr)` beside a fixed
-   track is exactly the bug, since grid maximises the fixed track to its limit
-   and hands the flexible one the remainder.
-
-   **The panel's floor is `min()`, not the token alone.** Two hard minimums in
-   a window that cannot pay for both overflow this card and clip the log
-   mid-word — which is the defect again, wearing the other hat. `calc(100% -
-   gutter - the run's floor)` is what the grid can actually afford, so the
-   panel keeps its floor wherever the window has it and degrades smoothly where
-   it does not, with the run column holding 240 throughout.
-
-   **Nothing is left wanting pixels above --layout-breakpoint.** 1101-1127 was,
-   and what it wanted was the dock: #1583 took Helm's 412px out of the layout,
-   so the whole range above the breakpoint pays for both floors with the left
-   column at its full width. The rule stays — a drag can still spend the room,
-   and that is what it degrades.
-
-   The middle track is the rule between them. Half a gap either side, so the
-   drawn 24px gutter still measures 24 with a hairline down the middle of it
-   rather than 24 plus a rule plus another 24. */
 /* The strip under the Job header — the whole of navigation inside a Job. It
    does not scroll away: a destination is chosen from wherever the reading got
    to, so the strip stays put and the tab under it is what scrolls. */
@@ -962,74 +898,6 @@
   min-width: 0;
 }
 
-/* `align-items: stretch` and not `start`, so both columns are the grid's full
-   height and can scroll inside it rather than pushing the screen taller. */
-.armada-inside {
-  display: grid;
-  grid-template-columns:
-    minmax(var(--w-run-column-min), var(--w-run-column))
-    minmax(min(var(--w-step-panel-min), calc(100% - var(--space-6) - var(--w-run-column-min))), 1fr);
-  column-gap: var(--space-6);
-  row-gap: var(--space-4);
-  align-items: stretch;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-}
-
-/* Each column scrolls itself.
-
-   **Two scrollers, not one.** The run and the panel are read against each
-   other — which step, and what that step did — so a reader deep in a 47-entry
-   log must not have taken the tree off the screen to get there. It is also
-   what lets the sheet be the height of the screen: a layer over a column that
-   scrolls the page has nothing fixed to be flush to. */
-.armada-inside__run,
-.armada-inside__panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* The panel is a card, which is what separates the two columns — the drawing
-   carries no rule between them, only this surface against the 24px gutter. */
-.armada-inside__panel {
-  gap: var(--space-3);
-  padding: var(--pad-card);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-
-/* Under `--layout-breakpoint` the run is the whole content and the inspector
-   is the sheet over it — `InsideAJob`'s `narrow`. A single track rather than a
-   panel squeezed under its floor: 305px was the bottom of what the two-column
-   band could pay for, and below the bound there is less than that. */
-.armada-inside[data-narrow] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-/* Folded, the panel is the sheet's body rather than a card beside the run: the
-   sheet already draws the surface, the border and the radius, so drawing them
-   again would be a card inside a card. It keeps its own padding, which is why
-   the sheet is `bleed`. */
-.armada-inside__panel[data-folded] {
-  flex: 1;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.armada-inside__region-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
 /* Pulse's title line, with the control that opens its full reading at the
    trailing edge. Spaced from the run above the way a spaced title is. */
 .armada-inside__pulse-head {
@@ -1038,14 +906,6 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding-top: var(--space-2);
-}
-
-/* A region head's trailing word — "The run"'s own workflow name since #1093,
-   sans and muted rather than the mono a measured figure would take. */
-.armada-inside__region-meta {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
 }
 
 /* The Plan region, named so a reader hears the same word the strip's Plan tab
@@ -1248,252 +1108,10 @@
   gap: var(--space-4);
 }
 
-/* Where things are — the drawing's `.where`. A stack with a hairline gap, so
-   the rows read as one block and each still lights its own hover. The label
-   column, the value and the act are `WhereRow`'s; what lives here is only what
-   a single row cannot know about its neighbours. */
-/* The same card as Pulse above it, so the column reads as one list. The rows
-   carry their own --space-2 inset for their hover, so the card adds
-   --space-1 to it and the labels line up with Pulse's. No rule between
-   groups: a card and a label column already say where each fact is. */
-.armada-inside__where {
-  display: flex;
-  flex-direction: column;
-  gap: var(--border-width);
-  min-width: 0;
-  padding: var(--space-2) var(--space-1);
-  border-radius: var(--radius-md);
-  background: var(--surface-well);
-}
-
-/* Where things are' own head, closed by default. A plain button reset, on
-   `armada-inside__pulse-head`'s own layout. */
-.armada-inside__where-toggle {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-}
-
-.armada-inside__where-toggle:hover .armada-inside__where-branch {
-  color: var(--fg-default);
-}
-
-.armada-inside__where-toggle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
-}
-
-.armada-inside__where-head-text {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* The label never wraps — the branch is what gives way, onto an ellipsis. */
-.armada-inside__where-head-text > .armada-screen__eyebrow {
-  flex: none;
-  white-space: nowrap;
-}
-
-/* The branch, shown in the collapsed header's own place. */
-.armada-inside__where-branch {
-  min-width: 0;
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color var(--duration-fast) var(--ease);
-}
-
-.armada-inside__where-fold {
-  flex: none;
-  color: var(--fg-subtle);
-}
-
-/* Why a path did not open, under the row it was pressed on. A failed open is
-   the one case in this region that has to speak: opening a file behind the
-   window looks exactly like nothing happening. */
-.armada-inside__where-unopened {
-  margin: 0;
-  padding: 0 var(--space-2);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--status-completed-failed);
-  text-wrap: pretty;
-}
-
-/* The Job's brief, at the top of the panel: the label above it, and the text
-   along the panel's own edge beneath. **Still no card.** It was once a caption
-   over `JobBrief`'s well, a darker card inside a region already labelled
-   BRIEF. Then it was one line, the label inline and the text beside it, which
-   indented every line of the brief by the label's width. The owner asked on
-   11 Sep 2026 for the label above and the text flush with the edge. */
-.armada-inside__brief {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-/* Only as wide as its word, so the label's hover is the label and not the row. */
-.armada-inside__brief > .armada-screen__eyebrow {
-  align-self: flex-start;
-}
-
-/* The brief itself, or the sentence saying why there is none. `min-width: 0`
-   lets a long unbroken word wrap rather than push the panel wider. */
-.armada-inside__brief > :not(.armada-screen__eyebrow) {
-  min-width: 0;
-}
-
-/* The workflow overview, drawn instead of the step panel while a Job waits for
-   approval — the diagram, then the same field chips the step head uses for
-   its own facts, reused rather than restated. #1149. */
-.armada-inside__overview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid var(--border-subtle);
-  min-width: 0;
-}
-
-/* --- the step's own header ----------------------------------------------- */
-
-.armada-inside__step-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid var(--border-subtle);
-  min-width: 0;
-}
-
-.armada-inside__step-titles {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  min-width: 0;
-}
-
-/* The step is the object of attention on this screen, so its name is the
-   panel heading — one step down from the Job's title above it. */
-.armada-inside__step-name {
-  font-size: var(--text-lg);
-  line-height: var(--leading-lg);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-inside__step-name[data-identifier="true"] {
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-}
-
-.armada-inside__step-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.armada-inside__field {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
 .armada-inside__field-label {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
-}
-
-.armada-inside__field-value {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-default);
-  white-space: nowrap;
-}
-
-.armada-inside__field-value[data-mono="true"] {
-  font-family: var(--font-mono);
-}
-
-/* The step acts. The accent goes with them, because they act on the object of
-   attention — the Job header keeps the acts that end or replace the Job. */
-.armada-inside__step-acts {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* --- the band that says why you are here --------------------------------- */
-
-/* Hue below Job level, only where tokens/status.css declares it — and these
-   are about a step, so they take the step tokens. Amber for waiting is the
-   load-bearing one: everything mechanical has cleared, and red there would
-   make the workflow working look like the workflow failing. */
-.armada-inside__notice {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: var(--border-width) solid var(--border-default);
-  background: var(--bg-sunken);
-  min-width: 0;
-}
-
-.armada-inside__notice[data-tone="failed"] {
-  border-color: var(--step-failed);
-  background: var(--step-failed-bg);
-}
-
-.armada-inside__notice[data-tone="stopped"] {
-  border-color: var(--status-escalated);
-  background: var(--step-stopped-bg);
-}
-
-.armada-inside__notice[data-tone="waiting"] {
-  border-color: var(--step-waiting);
-  background: var(--status-awaiting-review-bg);
-}
-
-.armada-inside__notice-title {
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-inside__notice-body {
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-  text-wrap: pretty;
-}
-
-.armada-inside__before,
-.armada-inside__after {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
 }
 
 /* A region of the panel the wire cannot fill. Named in place, never blank. */
@@ -1503,27 +1121,6 @@
   line-height: var(--leading-xs);
   color: var(--fg-subtle);
   text-wrap: pretty;
-}
-
-/* The whole Job unread, because Fleet did not answer. One calm message where
-   the step goes: a red box per region, each saying the same thing, read as
-   four failures. Muted, because nothing about the Job itself is wrong. */
-.armada-inside__unreachable {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding-block: var(--space-12);
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  text-align: center;
-}
-
-.armada-inside__unreachable svg {
-  color: var(--fg-subtle);
 }
 
 /* The Studios surface, one Studio open (#1287): a head, then the whiteboard
@@ -1916,15 +1513,6 @@
   min-height: 0;
   max-height: 66%;
   overflow-y: auto;
-}
-
-/* A region band beside its `?`. The head it sits in is space-between, so the
-   two have to be one child or the mark lands in the middle of the row. */
-.armada-inside__region-name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 /* The train — Overview for a Job whose members are Jobs. It takes the

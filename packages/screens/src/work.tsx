@@ -1,5 +1,5 @@
-// Where a Job's work is, and what the Job was told — the region a person opens
-// when they want a path rather than a reading.
+// Where a Job's work is — the region a person opens when they want a path
+// rather than a reading.
 //
 // # Derived is not served
 //
@@ -25,18 +25,10 @@
 // header's four facts, and a log path is not one of the things this region
 // names. **The drawing keeps a `Job log` and a `Transcript` row; the issue asks
 // for them dropped.** Reported.
-//
-// # The brief is one line
-//
-// `Done means` and `What it was told` were two sub-headings inside a tall card
-// and neither is in the drawing. The brief is the sentence the Job was given,
-// on the panel's own surface, above the step. What the Job's criteria are is
-// what the Judge stage of the phase strip opens to, which is where a person
-// asks the question.
 
 import { File, Folder, GitBranch } from "lucide-react";
 import { Button } from "@armada/components";
-import type { JobBriefProps, JobLogReferenceRow, NotOpened } from "@armada/components";
+import type { JobLogReferenceRow, NotOpened } from "@armada/components";
 
 import type { ServerState, Watched } from "@armada/protocol";
 import { artifactPath, recordsOf, repoOf } from "@armada/protocol";
@@ -81,34 +73,6 @@ export function workRehearsalOf(
 }
 
 export { repoOf };
-
-/**
- * What the Job was told, in the words it was told it — one line, on the panel's
- * raised surface, above the step every step is read against.
- *
- * **The waiting note rides with it and is never remembered.** Fleet clears it
- * off the record the instant a drone's opening brief is built from it, so
- * `redirect_waiting` absent is both "nobody wrote one" and "the one somebody
- * wrote has gone in" — and neither of those is a thing to draw. The move that
- * delivers it puts the job at `running`, which is a `job.state_changed` that
- * `connection.ts` re-reads the open job on, so the block leaves the screen on
- * the same transition that empties the field.
- */
-export function briefOf(whole: JobWhole): JobBriefProps {
-  return {
-    // Required by the shape and not drawn: `only` picks the half this region
-    // is. The criteria are what the Judge stage opens to, with each one's
-    // verdict beside it, which is one place rather than two.
-    criteria: [],
-    only: "facts",
-    // No label. The region is called Brief and the sentence follows it; a
-    // second heading over one line is the sub-heading this screen removed.
-    factsLabel: null,
-    facts: whole.facts,
-    factsAbsent: "This job was given no context beyond its title.",
-    waiting: whole.redirect_waiting?.note,
-  };
-}
 
 /**
  * Open one of a Job's artifacts, and say why it did not when it did not.
