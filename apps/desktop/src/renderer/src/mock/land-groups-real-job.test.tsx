@@ -60,7 +60,9 @@ const overlaps = (a: Box, b: Box) =>
 async function groups() {
   await page.viewport(1280, 800);
   mount(onJob(job2Landed()));
-  const list = page.getByRole("list", { name: "Groups" });
+  // By what it holds rather than by its name, so this finds the list as it was
+  // before the fix too, and the run against the fix reverted fails on the geometry.
+  const list = page.getByRole("list").filter({ hasText: "Group one" }).last();
   await expect.element(list).toBeVisible();
   return list;
 }
