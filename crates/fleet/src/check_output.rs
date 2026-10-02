@@ -389,8 +389,7 @@ fn write(dir: &Path, name: &str, printed: &Output) -> bool {
 /// runner prints its failures last, and a runaway command prints forever, so
 /// keeping the beginning keeps the part nobody opened the Job for.
 ///
-/// `crate::asked::read_back` reads a kept brief under the same two bounds,
-/// from the other end.
+/// `crate::asked::read_back` reads a kept brief through the same window.
 pub(crate) const A_READING: usize = 2_000;
 
 /// How many bytes of those lines one read carries.

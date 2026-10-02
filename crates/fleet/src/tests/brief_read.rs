@@ -54,17 +54,20 @@ async fn a_kept_brief_comes_back_whole_under_its_own_path() {
         format!(".armada/briefs/{}/{JUDGE}", job.handle())
     );
     assert_eq!(judged.lines, ["Criterion `tests_pass`", "", "  indented"]);
-    assert_eq!((judged.total_lines, judged.bytes), (3, 35));
+    assert_eq!(
+        (judged.from_line, judged.total_lines, judged.bytes),
+        (1, 3, 35)
+    );
     assert!(judged.whole);
 
     let gaming = read(&fleet, &job, GAMING).await.expect("the gaming brief");
     assert_eq!(gaming.lines, ["Pattern `skipped_test`"]);
 }
 
-/// The claim: a brief past the bound comes back as its head, and says so —
-/// every line still counted.
+/// The claim: a brief past the bound comes back as its tail, where its
+/// question is, and says so — numbered as the file is, every line counted.
 #[tokio::test]
-async fn a_long_brief_comes_back_as_its_head_and_says_it_is_cut() {
+async fn a_long_brief_comes_back_as_its_tail_and_says_it_is_cut() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let job = fleet
@@ -77,9 +80,13 @@ async fn a_long_brief_comes_back_as_its_head_and_says_it_is_cut() {
     let text: String = (1..=over).map(|n| format!("line {n}\n")).collect();
     std::fs::write(briefs.join(JUDGE), text).expect("a brief");
 
-    let read = read(&fleet, &job, JUDGE).await.expect("the head");
+    let read = read(&fleet, &job, JUDGE).await.expect("the tail");
     assert_eq!(read.lines.len(), crate::check_output::A_READING);
-    assert_eq!(read.lines[0], "line 1", "the head, not the tail");
+    assert_eq!(
+        read.lines.last().map(String::as_str),
+        Some(format!("line {over}").as_str())
+    );
+    assert_eq!(read.from_line, 6, "the file's numbering, not the window's");
     assert_eq!(read.total_lines as usize, over);
     assert!(!read.whole);
 }

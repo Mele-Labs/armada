@@ -615,7 +615,7 @@ The split is `get_check_output`'s, on the same measurement: a brief carries the 
 
 **`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
 
-**A window from the top**, where `get_check_output`'s is from the bottom, under the same two bounds: 2,000 lines and 256 KiB. A brief opens on the criterion and ends in the diff. `total_lines` is exact and `whole` is stated.
+**The tail, through `get_check_output`'s window**: 2,000 lines and 256 KiB. A brief ends on what it asks — the diff comes before the question and the answer format — so a cut brief keeps the question. `from_line` is the file's own numbering, `total_lines` is exact and `whole` is stated.
 
 `agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
 """

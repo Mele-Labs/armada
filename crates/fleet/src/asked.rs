@@ -161,8 +161,8 @@ impl Asked {
     }
 }
 
-/// One brief this Job kept, read back for `get_brief`: its head, bounded the
-/// way `check_output::kept_output` bounds a Check's output.
+/// One brief this Job kept, read back for `get_brief`: its tail, through the
+/// window `check_output::kept_output` reads a Check's output through.
 ///
 /// **The Job's briefs directory is the allowlist.** `name` is one path
 /// component — [`one_component`], the predicate the writing half uses — and
@@ -172,8 +172,9 @@ impl Asked {
 /// directory, and for a file that is not there; the caller cannot tell them
 /// apart, and does not need to.
 ///
-/// **The head and not the tail**, because a brief opens on the criterion and
-/// ends in the diff — the reverse of a test runner's output.
+/// **The tail, as a Check's is**, because a brief ends on what it asks: the
+/// diff comes before the question and the answer format, and a cut brief that
+/// kept its start would have lost the question.
 pub(crate) fn read_back(
     records_root: &str,
     handle: &str,
@@ -195,27 +196,20 @@ pub(crate) fn read_back(
         return None;
     }
 
-    let (mut lines, mut kept_bytes, mut total) = (Vec::new(), 0usize, 0u32);
-    let mut whole = true;
     // A line that will not decode ends the reading, `kept_output`'s rule: a
     // skipped line would renumber everything after it.
-    for line in BufReader::new(file).lines().map_while(Result::ok) {
-        total = total.saturating_add(1);
-        let fits = lines.len() < crate::check_output::A_READING
-            && (lines.is_empty() || kept_bytes + line.len() <= crate::check_output::MOST);
-        if whole && fits {
-            kept_bytes += line.len();
-            lines.push(line);
-        } else {
-            whole = false;
-        }
-    }
+    let (window, first, total) = crate::check_output::windowed(
+        BufReader::new(file).lines().map_while(Result::ok),
+        crate::check_output::A_READING,
+        crate::check_output::MOST,
+    );
     Some(ipc::BriefContents {
         path: format!(".armada/briefs/{handle}/{name}"),
-        lines,
+        lines: window.into(),
+        from_line: first,
         total_lines: total,
         bytes: held.len(),
-        whole,
+        whole: first == 1,
     })
 }
 
