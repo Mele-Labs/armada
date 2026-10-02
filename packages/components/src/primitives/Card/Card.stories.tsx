@@ -108,7 +108,7 @@ export const InsideACard: Story = {
  */
 export const InsideASheet: Story = {
   render: () => (
-    <Sheet open side="right" title="Manifest">
+    <Sheet kind="story-manifest" open side="right" title="Manifest">
       <Card>
         <CardTitle>Drift</CardTitle>
         <CardDescription>Three entries name a path that no longer exists.</CardDescription>

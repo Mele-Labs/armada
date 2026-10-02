@@ -268,7 +268,7 @@ wire_enum! {
 wire_enum! {
     /// Where one group of a Job's plan is. The registry's eight words, of which
     /// Fleet writes `pending`, `running`, `retrying`, `passed` and `failed`
-    /// since 23.2; a peer must still read the other three.
+    /// since 23.4; a peer must still read the other three.
     GroupState, core_model::GroupState, "a group state"
 }
 

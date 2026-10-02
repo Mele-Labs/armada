@@ -54,6 +54,13 @@ impl SystemClock {
     pub fn new() -> SystemClock {
         SystemClock
     }
+
+    /// The same reading as an instant, to hold against a file's own write: the
+    /// merge line's *Sent back* bound. A [`Timestamp`] has no arithmetic, by
+    /// this module's rule, and a file's mtime is not one.
+    pub fn instant(&self) -> SystemTime {
+        SystemTime::now()
+    }
 }
 
 impl Clock for SystemClock {

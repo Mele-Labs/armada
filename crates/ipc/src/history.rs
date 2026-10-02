@@ -66,7 +66,7 @@ pub struct Recorded {
     pub at: Instant,
     /// The group whose gate made this move, `G1` and on: a round's `retrying`,
     /// or the stop that failed its tasks. Absent on every other row. Since
-    /// 23.2.
+    /// 23.4.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
     /// Which run of that group. Present exactly where `group` is.

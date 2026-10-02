@@ -19,6 +19,7 @@ import type {
   PlanMove,
   PlanBoardTask,
 } from "@armada/components";
+import { GUIDE_GROUP_BOUNDARY } from "@armada/components";
 import type { JobDetail as JobWhole, MovePlan, StepDetail } from "@armada/protocol";
 
 import type { CaseView } from "./draft/cases";
@@ -202,6 +203,8 @@ export function boundaryOf(
   }));
   return {
     checks,
+    // What a boundary is: the one Armada word on the strip, so the one mark.
+    guide: GUIDE_GROUP_BOUNDARY,
     checksAbsent: "No Check runs at this group's end.",
     ...(verdict === undefined ? {} : { verdictSays: verdict }),
     ...(failed.length > 0

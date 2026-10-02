@@ -34,6 +34,13 @@
   color: var(--fg-default);
 }
 
+/* The repository, where more than one line draws: set back from the heading. */
+.armada-merge-line__repository {
+  margin-left: var(--space-2);
+  font-weight: var(--weight-body);
+  color: var(--fg-muted);
+}
+
 .armada-merge-line__fold {
   display: flex;
   align-items: center;
@@ -90,11 +97,48 @@
   margin: var(--space-2) 0;
 }
 
+/* Recently landed, Sent back: on the place column's edge, under the rule. */
+.armada-merge-line__subheading {
+  grid-column: 2 / -1;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+/* Nobody in line, nothing landed, nothing sent back: the picture alone. */
+.armada-merge-line__empty {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-merge-line__picture {
+  width: calc(var(--space-12) * 3);
+  height: auto;
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: var(--border-width);
+  stroke-linecap: round;
+}
+
+.armada-merge-line__picture-branch {
+  stroke-dasharray: var(--space-1) var(--space-1);
+}
+
+.armada-merge-line__picture-place {
+  fill: var(--bg-raised);
+}
+
+/* Every cell sits on the row's first line, each in a box one line tall, so a
+   detail that wraps leaves the place, mark and branch where its first line is. */
 .armada-merge-line__row {
   grid-column: 2 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  align-items: baseline;
+  align-items: start;
   padding: var(--space-1) 0;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
@@ -138,7 +182,7 @@
 
 .armada-merge-line__mark {
   display: inline-flex;
-  align-self: center;
+  height: var(--leading-sm);
   align-items: center;
   justify-content: center;
   width: var(--space-4);
@@ -155,7 +199,11 @@
   white-space: nowrap;
 }
 
+/* The number, and the Job's own badge for how it ended where that is known. */
 .armada-merge-line__pr {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   white-space: nowrap;
 }
@@ -177,6 +225,16 @@
   font-size: var(--text-xs);
   color: var(--fg-muted);
   overflow-wrap: anywhere;
+}
+
+/* The Checks strip takes the detail's whole width, under any words beside it,
+   its head centred on the row's first line rather than hanging below it. */
+.armada-merge-line__detail > .armada-boundary {
+  flex: 1 1 100%;
+}
+
+.armada-merge-line__detail > .armada-boundary:first-child {
+  margin-top: calc((var(--leading-sm) - var(--h-row-header)) / 2 - var(--border-width));
 }
 
 .armada-merge-line__check {
@@ -206,8 +264,25 @@
 }
 
 /* The pulse stops. The running hue still carries the reading. */
+/* Preparing's git-merge has no inner dot, so the whole mark breathes, opacity
+   alone so nothing beside it moves. */
+.armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg {
+  animation: armada-merge-line-breathe var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-merge-line-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .armada-merge-line__mark[data-pulsing] > svg > circle + circle {
+  .armada-merge-line__mark[data-pulsing] > svg > circle + circle,
+  .armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg {
     animation: none;
   }
 }

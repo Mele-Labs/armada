@@ -251,6 +251,7 @@ export function RunSheet({
 
   return (
     <Sheet
+      kind="run"
       open={open}
       contained
       size="reading"

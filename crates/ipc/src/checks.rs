@@ -196,7 +196,7 @@ pub struct CheckRun {
     pub reused_from_dry_run: Option<crate::ids::Instant>,
     /// The group whose gate it ran at, `G1` and on. **Absent on a Check run at
     /// a step's own gate**, which held back no group, and never "unknown".
-    /// Since 23.2. `#1652`.
+    /// Since 23.4. `#1652`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
     /// Which run of that group, from one. Present exactly where `group` is.

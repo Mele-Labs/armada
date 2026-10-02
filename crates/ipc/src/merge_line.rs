@@ -23,8 +23,17 @@ pub struct MergeLine {
     pub root: String,
     /// Waiting, or in a turn, in place order. Empty is a line with nobody in it.
     pub line: Vec<MergeLineEntry>,
-    /// The newest few that left the line with an outcome, newest first.
+    /// The newest few that left the line with an outcome, newest first, as
+    /// one list. What a Bridge before 23.2 draws; `landed` and `sent_back`
+    /// replace it.
     pub off: Vec<MergeLineEntry>,
+    /// The newest few that left the line landed, newest first. Since 23.2.
+    #[serde(default)]
+    pub landed: Vec<MergeLineEntry>,
+    /// Red, conflict or stopped and not back in line, written within the last
+    /// three days, newest first. Since 23.2.
+    #[serde(default)]
+    pub sent_back: Vec<MergeLineEntry>,
 }
 
 /// One branch, in line or just off it.
@@ -54,6 +63,32 @@ pub struct MergeLineEntry {
     /// `conflict`: the files main did not merge into.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// `gating`, `red` and `stopped`: each Check the turn runs, as it stands,
+    /// in the order they run. Since 23.2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<MergeLineCheck>,
+}
+
+/// One Check a turn runs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MergeLineCheck {
+    /// Its name in `armada.yml`.
+    pub name: String,
+    pub state: LandCheckState,
+}
+
+/// Where one Check stands in a turn: `waiting` until it is run, then
+/// `running`, then one of the three ends.
+///
+/// **Strict, for [`LandState`]'s reason**: Bridge draws each as a segment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LandCheckState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    TimedOut,
 }
 
 /// A pull request, by number and address.
@@ -61,6 +96,10 @@ pub struct MergeLineEntry {
 pub struct MergeLinePullRequest {
     pub number: u64,
     pub url: String,
+    /// `landed` only: how it ended, the Job's own `Settled`. Absent is
+    /// nothing known, which is every pull request still in line. Since 23.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled: Option<crate::Settled>,
 }
 
 /// Where one branch is on the line: `land_state` in `enum-verbs.toml`.

@@ -17,6 +17,7 @@
 .armada-sheet {
   --armada-hairline: var(--border-width);
   --armada-sheet-width: var(--w-sheet);
+  --armada-sheet-dock: var(--w-dock);
   --armada-sheet-wide: 62%;
   --armada-sheet-widest: 76%;
   --armada-sheet-reading: 88%;
@@ -84,6 +85,10 @@
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
   min-width: 0;
+}
+
+.armada-sheet[data-size="dock"] {
+  max-width: var(--armada-sheet-dock);
 }
 
 .armada-sheet[data-size="wide"] {
@@ -302,20 +307,29 @@
   border-top: var(--armada-hairline) solid var(--border-subtle);
 }
 
-/* A resizing floating sheet's leading edge: Helm's handle
-   (`src/dock-handle.css`), in the `--space-4` gap the sheet's own margin would
-   have spent. It takes the sheet's place at the trailing end, so the sheet
-   sits flush to it, and it is held off the top and bottom as the sheet is.
-   The width is `Sheet`'s, inline. */
-.armada-sheet-scrim[data-floating] > .armada-dock-handle {
+/* Every sheet's inner edge: Helm's handle (`src/dock-handle.css`), in a
+   `--space-4` gap — the one a floating sheet's own margin would have spent.
+   It takes the sheet's auto margin, so the sheet sits flush to it; a floating
+   one's is held off the top and bottom as the sheet is. A dragged width is
+   `Sheet`'s, inline; until then the `size` draws. */
+.armada-sheet-scrim > .armada-dock-handle:first-child {
   margin-left: auto;
+}
+
+.armada-sheet-scrim > .armada-sheet + .armada-dock-handle {
+  margin-right: auto;
+}
+
+.armada-sheet-scrim[data-floating] > .armada-dock-handle {
   margin-block: var(--space-4);
 }
 
-.armada-sheet-scrim[data-floating] > .armada-dock-handle + .armada-sheet[data-floating] {
-  flex: none;
-  max-width: none;
+.armada-sheet-scrim > .armada-dock-handle + .armada-sheet[data-side] {
   margin-left: 0;
+}
+
+.armada-sheet-scrim > .armada-sheet[data-side]:has(+ .armada-dock-handle) {
+  margin-right: 0;
 }
 
 /* Beside another floating sheet: the file diff to the left of Plan's task
@@ -325,7 +339,7 @@
    trailing margin and the `--space-4` gap between them clear, and the panel
    stops at the work area's leading margin rather than past it.
    `--armada-sheet-beside` is the other sheet's width as drawn, set by `Sheet`
-   where that sheet resizes; absent, it is at rest. No travel in either: it
+   once it has measured the area; until then, `--w-dock`. No travel in either: it
    would slide across the sheet it sits beside. */
 .armada-sheet-scrim[data-beside] {
   background: none;
@@ -336,6 +350,10 @@
 .armada-sheet-scrim[data-beside] > .armada-sheet {
   pointer-events: auto;
   animation: none;
+}
+
+.armada-sheet-scrim[data-beside] > .armada-dock-handle {
+  pointer-events: auto;
 }
 
 /* The leading `--space-4` is padding rather than the panel's own margin: the

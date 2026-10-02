@@ -18,7 +18,7 @@ use crate::row::{maybe, maybe_number, string};
 
 const RUNS: &str = "job_group_runs";
 
-/// Version 94 — a plan's groups, a task that failed, and each group's runs.
+/// Version 95 — a plan's groups, a task that failed, and each group's runs.
 ///
 /// One version for four tables, because each is half of one fact: the plan's
 /// changes gain two moves and a failed task's reason, a recorded task the
@@ -26,7 +26,7 @@ const RUNS: &str = "job_group_runs";
 /// (so two groups gated on one run of a step keep both), and `job_group_runs`
 /// is new. Rebuilt the way [`V90`](crate::work_plan::V90) is. Nothing is
 /// backfilled: a plan recorded before this reads as one group.
-pub(crate) const V94: &str = r#"
+pub(crate) const V95: &str = r#"
 CREATE TABLE job_work_plan_changes_wide (
     job_id     TEXT NOT NULL REFERENCES jobs(job_id),
     seq        INTEGER NOT NULL CHECK (seq > 0),

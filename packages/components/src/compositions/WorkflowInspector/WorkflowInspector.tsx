@@ -414,6 +414,7 @@ export function WorkflowInspector({
   if (sheet !== undefined) {
     return (
       <Sheet
+        kind="workflow-step"
         open
         floating
         floor={sheet.floor ?? false}

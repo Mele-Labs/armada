@@ -287,10 +287,10 @@ export type CheckRun = {
   reused_from_dry_run?: string;
   /**
    * The group whose gate it ran at, `G1` and on. **Absent on a Check run at a
-   * step's own gate**, which held back no group — never "unknown". Since 23.2.
+   * step's own gate**, which held back no group — never "unknown". Since 23.4.
    */
   group?: string;
-  /** Which run of that group, from one. Present exactly where `group` is. Since 23.2. */
+  /** Which run of that group, from one. Present exactly where `group` is. Since 23.4. */
   group_attempt?: number;
 };
 
@@ -493,6 +493,13 @@ export type ClaimedBreakage = {
    * Since protocol 13.42; absent is none. #1001.
    */
   waiting?: WaitingOnFix[];
+  /**
+   * The files no Job on this claim but the fix may change while it stands:
+   * those the reporting Drone named, then those the fix has declared. A write
+   * to one from any other Job on the claim is refused. Since protocol 23.3;
+   * absent is none. #1673.
+   */
+  held_off?: string[];
 };
 
 /** One Job pointed at a fix, waiting for it to land. `crates/ipc/src/breakage.rs`. */

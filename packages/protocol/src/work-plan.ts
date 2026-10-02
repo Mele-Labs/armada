@@ -15,14 +15,14 @@ export type WorkPlan = {
   tasks: PlanTask[];
   /**
    * The groups, in the order they run, each naming its tasks and its runs.
-   * Absent from a Fleet before 23.2, which ran a plan as one group.
+   * Absent from a Fleet before 23.4, which ran a plan as one group.
    */
   groups?: PlanGroup[];
 };
 
 /**
  * One group of the plan: the tasks the step's gate runs at the end of, and how
- * each of its runs went. Since 23.2.
+ * each of its runs went. Since 23.4.
  */
 export type PlanGroup = {
   /** `G1`, `G2`, … — minted by Fleet at the recording, never renumbered. */
@@ -32,7 +32,7 @@ export type PlanGroup = {
   /**
    * `pending`, `running`, `joining`, `checking`, `passed`, `failed`,
    * `retrying` or `landed`. Fleet writes `pending`, `running`, `retrying`,
-   * `passed` and `failed` since 23.2.
+   * `passed` and `failed` since 23.4.
    */
   state: string;
   /** When its first run began. */
@@ -43,7 +43,7 @@ export type PlanGroup = {
   attempts?: PlanGroupRun[];
 };
 
-/** One run of a group. Since 23.2. */
+/** One run of a group. Since 23.4. */
 export type PlanGroupRun = {
   /** Which run of the group, from one: a `CheckRun`'s `group_attempt`. */
   attempt: number;
@@ -98,11 +98,11 @@ export type PlanTask = {
   state: string;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
-  /** The group it runs in, `G1` and on. Since 23.2. */
+  /** The group it runs in, `G1` and on. Since 23.4. */
   group?: string;
   /**
    * Present on a failed task and on nothing else: which group's Checks were
-   * still red on which run. Since 23.2.
+   * still red on which run. Since 23.4.
    */
   failed_reason?: string;
   /**
@@ -151,7 +151,7 @@ export type JobPlanChanged = {
   task?: string;
   /** That task's state after the change, a `PlanTask.state` word. Present exactly where `task` is. Since 23.1. */
   state?: string;
-  /** The group a gate's verdict moved, on that change alone. Since 23.2. */
+  /** The group a gate's verdict moved, on that change alone. Since 23.4. */
   group?: string;
   actor: string;
   at: string;
@@ -174,7 +174,7 @@ export type AddTask = {
 
 /**
  * Restart this task — `restart_task`, `POST /jobs/{job_id}/tasks/{task_id}/restart`.
- * Since 23.2. **No body is valid**, and is the plain restart; `note` is what
+ * Since 23.4. **No body is valid**, and is the plain restart; `note` is what
  * the new Drone reads first, and is never blank.
  */
 export type RestartTask = {
@@ -183,7 +183,7 @@ export type RestartTask = {
 
 /**
  * A person moves a task or a group — `move_plan`, `POST /jobs/{job_id}/plan/move`.
- * Since 23.2. With `task`, that task goes into `group` after the task `after`
+ * Since 23.4. With `task`, that task goes into `group` after the task `after`
  * names, or first where `after` is absent; without, `group` goes after the
  * group `after` names, or first. **By `after`, never by index.**
  */

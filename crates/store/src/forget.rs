@@ -107,9 +107,11 @@ pub struct Forgotten {
     pub reviews: usize,
     /// The parts of those reviews, counted together across their tables.
     pub review_parts: usize,
-    /// The tests broken on main this Job was drafted to fix, one row each. #999.
+    /// The tests broken on main this Job was drafted to fix, one row each, and
+    /// their files, one row each. #999, #1673.
     pub breakage_claims: usize,
-    /// The fixes this Job was pointed at, one row each. #1001.
+    /// The fixes this Job was pointed at, one row each, and the files landed
+    /// fixes still hold off it, one row each. #1001, #1673.
     pub fix_waiters: usize,
     /// The submission waiting for the gate when the Job ended, if any. #796.
     pub pending_evidence: usize,
@@ -173,8 +175,8 @@ impl Forgotten {
             | "job_step_review_view"
             | "job_review_dismissals"
             | "job_review_followups" => &mut self.review_parts,
-            "job_breakage_claims" => &mut self.breakage_claims,
-            "job_fix_waiters" => &mut self.fix_waiters,
+            "job_breakage_claims" | "job_breakage_claim_files" => &mut self.breakage_claims,
+            "job_fix_waiters" | "job_landed_holds" => &mut self.fix_waiters,
             "job_pending_evidence" => &mut self.pending_evidence,
             "job_task_drones" => &mut self.task_drones,
             "job_group_runs" => &mut self.group_runs,

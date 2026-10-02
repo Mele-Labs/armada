@@ -35,7 +35,7 @@ Groups exist because a parallel schedule cannot be derived. Intersecting the tas
 | `scope` | Task | The repository-relative paths this task touches |
 | `expects` | Task | What should prove it, written by the step that plans |
 | `shown` | Task | What did prove it, written by the step that does the work |
-| `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; Fleet writes `handed_in` since 23.1 and `failed` since 23.2 |
+| `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; Fleet writes `handed_in` since 23.1 and `failed` since 23.4 |
 | `group` | Task | The group it runs in, `G1` and on, minted by Fleet at the recording and never renumbered by a move. The planner numbers groups with `record_plan`'s `group`; a task naming none joins the one before it, so a plan naming none is one group |
 | `reason` | Task | Required when `state` is `dropped` |
 | `concurrent_with` | Task | Which tasks in its group may run at the same time, declared by the planner. *Not yet built* |
@@ -110,7 +110,7 @@ them is still on the branch, so the plan does not reset with the step.
 
 ## Groups
 
-**Spike 022, slice 2.** Fleet keeps each group's runs beside the plan (store V94): when each began and was answered, the step's run it was filed under, its verdict, and the commit a green run made. A group's run begins at its first task's spawn.
+**Spike 022, slice 2.** Fleet keeps each group's runs beside the plan (store V95): when each began and was answered, the step's run it was filed under, its verdict, and the commit a green run made. A group's run begins at its first task's spawn.
 
 | At a group's end | What Fleet does |
 | --- | --- |

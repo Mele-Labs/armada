@@ -119,7 +119,7 @@ fn a_plan_v89_wrote_survives_and_the_two_states_are_admitted() {
         )
     };
     update(3, "handed_in", None).expect("the store admits a handed-in task");
-    // A failure says why since V94, as a drop does: spike 022, slice 2.
+    // A failure says why since V95, as a drop does: spike 022, slice 2.
     assert!(
         update(4, "failed", None).is_err(),
         "never a failure without a reason"

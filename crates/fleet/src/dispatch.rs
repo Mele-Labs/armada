@@ -781,9 +781,9 @@ where
             // person answers it.
             self.stopped_servers_of(moved.job.id()).await;
             self.released_ports(&moved.job).await;
-            // The same moment, for the Job's pool slot: given back by the
-            // pool's rules, or kept and said so. `crate::leasing`.
-            self.released_slot(&moved.job).await;
+            // The same moment, for the Job's pool slot: held by a completed
+            // Job until a person clears it, else given back. `crate::leasing`.
+            self.slot_at_the_end(&moved.job).await;
             // A fix that ended gives back the test it claimed, so a test broken
             // again can be claimed again (#999) — or holds it until its pull
             // request settles, telling the Jobs pointed at it either way (#1001).

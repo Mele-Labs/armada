@@ -3,7 +3,8 @@
 //! **A Job's lease is held by its id, never a process.** Fleet restarts often,
 //! and a lease held for a pid would make every Job's slot read as abandoned
 //! after one. A slot a Job holds is never taken back for a dead holder; it is
-//! given back when the Job ends, by the pool's own rules.
+//! given back when the Job ends, or when a person clears a completed one, by
+//! the pool's own rules.
 //! `docs/concepts/fleet.md`, *Worktree slots*.
 
 use alloc::string::String;

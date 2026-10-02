@@ -20,13 +20,13 @@ pub struct WorkPlan {
     pub recorded_at: Instant,
     pub tasks: Vec<PlanTask>,
     /// The groups, in the order they run, each naming its tasks and its runs.
-    /// Left out by a Fleet before 23.2, which ran a plan as one group.
+    /// Left out by a Fleet before 23.4, which ran a plan as one group.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<PlanGroup>,
 }
 
 /// One group of the plan: the tasks the step's gate runs at the end of, and how
-/// each of its runs went. Since 23.2.
+/// each of its runs went. Since 23.4.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlanGroup {
     /// `G1`, `G2`, … — minted by Fleet at the recording, never renumbered.
@@ -45,7 +45,7 @@ pub struct PlanGroup {
     pub attempts: Vec<PlanGroupRun>,
 }
 
-/// One run of a group. Since 23.2.
+/// One run of a group. Since 23.4.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlanGroupRun {
     /// Which run of the group, from one: a `CheckRun`'s `group_attempt`.
@@ -100,11 +100,11 @@ pub struct PlanTask {
     /// Present on a dropped task and on nothing else.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// The group it runs in, `G1` and on. Since 23.2.
+    /// The group it runs in, `G1` and on. Since 23.4.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
     /// Present on a failed task and on nothing else: which group's Checks were
-    /// still red on which run. Since 23.2.
+    /// still red on which run. Since 23.4.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_reason: Option<String>,
     /// Each stretch the task was marked `working`, oldest first — what Bridge
@@ -159,7 +159,7 @@ pub struct JobPlanChanged {
     /// read. Present exactly where `task` is. Since 23.1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<TaskState>,
-    /// The group a gate's verdict moved, on that change alone. Since 23.2.
+    /// The group a gate's verdict moved, on that change alone. Since 23.4.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
     /// A Drone's tool call, a person's act, or Fleet marking a task's Drone
