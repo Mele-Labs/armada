@@ -47,4 +47,17 @@ describe("smallFixesOf", () => {
       }),
     ).toEqual([{ id: "small-fix-0", from: "Small fix", text: "store.rs is over 500 lines: Move the migration out" }]);
   });
+
+  it("lists a small fix's finding in plain words, with no markdown marks", () => {
+    const [listed] = smallFixesOf({
+      says: "confident",
+      reasons: [],
+      areas: [],
+      needs_you: [],
+      small_fixes: [{ finding: "`run_one` is **over** 500 lines", why: "Split it" }],
+      for_context: [],
+    });
+    // The underscore inside a name stays: the finding is parsed, not scrubbed.
+    expect(listed?.text).toBe("run_one is over 500 lines: Split it");
+  });
 });

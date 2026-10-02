@@ -256,11 +256,16 @@ fn a_step_moves_beneath_awaiting_review_too() {
 
 // ---------------------------------------------------------- what is refused
 
-/// `proposing` is skipped, and it is not a third advancing status: a Job there
-/// has no step rows to freeze and nothing builds one to ask. See
-/// [`super::reach`].
+/// `proposing` is not a third advancing status, and a Job there has no step
+/// rows to freeze: asking for one is the step not existing.
 #[test]
 fn a_step_is_frozen_beneath_every_status_but_the_two() {
+    assert_eq!(
+        reach(JobStatus::Proposing)
+            .transition_step(&first(), StepTarget::Running, Actor::Fleet, when())
+            .map(|moved| moved.job.status()),
+        Err(IllegalStepTransition::NoSuchStep { step_id: first() })
+    );
     for status in JobStatus::ALL {
         if ADVANCING_STATUSES.contains(status) || *status == JobStatus::Proposing {
             continue;

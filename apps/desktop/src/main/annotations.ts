@@ -9,6 +9,7 @@
 // preload exposes `window.armadaDev` only when main passed `ANNOTATE_FLAG`. A
 // packaged Bridge has neither end of the channel.
 
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -68,12 +69,19 @@ export async function listAnnotations(dir: string): Promise<Annotation[]> {
   return notes.sort(byCreation);
 }
 
-/** Writes one note to `<id>.json`, through a rename so a reader never sees half of it. */
+/**
+ * Writes one note to `<id>.json`, through a rename so a reader never sees half of it.
+ *
+ * **The partial is named per write**, so two saves of one note at once never
+ * share one and the last rename lands a whole note. One shared `<id>.json.partial`
+ * failed the second rename with ENOENT on 1 Oct 2026. A partial a crash leaves
+ * does not end in `.json`, so `listAnnotations` never reads it.
+ */
 export async function saveAnnotation(dir: string, note: unknown): Promise<void> {
   if (!isAnnotation(note)) throw new Error("not an annotation");
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${note.id}.json`);
-  const partial = `${path}.partial`;
+  const partial = `${path}.${randomUUID()}.partial`;
   await writeFile(partial, serializeAnnotation(note), "utf8");
   await rename(partial, path);
 }

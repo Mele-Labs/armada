@@ -73,8 +73,8 @@ const PROPOSER_UNREACHABLE: &str = "fleet.proposer_unreachable";
 /// `NO_WORKFLOW_FITS` makes against `UNACCEPTABLE` one step along: a client
 /// that rendered this as `PROPOSER_UNREACHABLE` would tell somebody Armada
 /// broke when what happened is that they pressed a control Armada offered them.
-/// Nothing was created and what they typed comes back, so the surface returns
-/// them to the form rather than to an error.
+/// The Job it was dispatched as is killed and what they typed comes back, so
+/// the surface returns them to the form rather than to an error.
 const PROPOSER_STOPPED: &str = "fleet.proposer_stopped";
 /// The proposer answered — twice — and neither reply could be turned into a
 /// plan. **Never [`PROPOSER_UNREACHABLE`]** — that code says the call could
@@ -459,7 +459,7 @@ where
             // The request was read and declined, and it goes back on the field
             // rather than being echoed in the message: what the person retypes
             // or hands to `propose_job` is what they wrote, character for
-            // character. No Job exists.
+            // character. The Job it was dispatched as is escalated.
             Adrift::NoWorkflowFits { request, .. } => Refusal::Unacceptable(
                 WireError::raised(NO_WORKFLOW_FITS, said, self.run_id())
                     .with_field("request", WireValue::Str(request.clone())),

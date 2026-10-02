@@ -92,7 +92,7 @@ fn a_summary_carries_the_title_a_person_reads() {
 fn the_summary_of_a_sub_dispatched_job_says_so() {
     let parent = DispatchOrigin {
         job_id: JobId::carried(Ulid::carried("01PARENT")),
-        step_id: StepId::new("fix"),
+        step_id: Some(StepId::new("fix")),
     };
     let sub = Job::create_sub_dispatched(
         NewJob {

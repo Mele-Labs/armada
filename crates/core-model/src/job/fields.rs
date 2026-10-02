@@ -508,14 +508,17 @@ pub struct DependencyEdge {
     pub peer: JobId,
 }
 
-/// The step of another Job that dispatched this one.
+/// The Job that dispatched this one, and the step of it that did.
 ///
 /// Distinct from [`DependencyEdge`], which sequences peers. A Judge call is not
 /// a sub-dispatch and never produces one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DispatchOrigin {
     pub job_id: JobId,
-    pub step_id: StepId,
+    /// `Some` on a sub-dispatch. `None` on one of a split's extras, which the
+    /// head of the request dispatched without any step of it doing so —
+    /// [`Job::create_split`](crate::Job::create_split).
+    pub step_id: Option<StepId>,
 }
 
 /// What a Job is about. Neither sequencing nor provenance.

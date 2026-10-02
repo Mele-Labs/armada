@@ -372,9 +372,14 @@ class LineFixture(unittest.TestCase):
     def outcome(self, branch):
         return load(self.state_file("outcomes", key(branch) + ".json"))
 
+    def turns(self, branch):
+        """Each turn's own log directory for `branch`, oldest first."""
+        return sorted(os.listdir(self.state_file("logs", key(branch))))
+
     def logged(self, branch):
-        """What the turn wrote a log for, apart from the merge itself."""
-        return sorted(set(os.listdir(self.state_file("logs", key(branch)))) - {"merge.log"})
+        """What the latest turn wrote a log for, apart from the merge itself."""
+        latest = self.state_file("logs", key(branch), self.turns(branch)[-1])
+        return sorted(set(os.listdir(latest)) - {"merge.log"})
 
 
 # ---------------------------------------------------------------- the claims
@@ -1043,7 +1048,28 @@ class Line(LineFixture):
         done = self.settle(after, "fix/behind-a-hung-main")
         self.assertEqual(done.returncode, 7, done.stdout)
         self.assertIn("test timed out after 2 seconds", done.stdout)
-        self.assertIn("already fails on main", done.stdout)
+        self.assertIn("test timed out on main itself, past its limit of 2 seconds", done.stdout)
+        self.assertNotIn("already fails", done.stdout, "a timeout is not a failure")
+
+    def test_a_timeout_on_main_is_worded_as_one(self):
+        # The branch's own run fails at once; main's hangs. What the turn says
+        # is that main timed out, not that main fails the Check.
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        after = self.branch("fix/fails-beside-a-hung-main", {"after.txt": "1\n"})
+        self.onto_main({"checks/test.sh": "[ -f after.txt ] && exit 1\nsleep 600\n"}, "hang test on main")
+
+        self.land(after, "preflight")
+        self.land(after)
+        done = self.settle(after, "fix/fails-beside-a-hung-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("test timed out on main itself, past its limit of 2 seconds", done.stdout)
+        self.assertNotIn("already fails", done.stdout)
+        on_main = next(path for path in self.outcome("fix/fails-beside-a-hung-main")["logs"]
+                       if path.endswith("/test-on-main.log"))
+        turn = self.turns("fix/fails-beside-a-hung-main")[-1]
+        self.assertIn(os.path.join(key("fix/fails-beside-a-hung-main"), turn), on_main,
+                      "main's rerun logs into the turn's own directory")
+        self.assertTrue(os.path.exists(on_main))
 
     def test_a_check_past_its_limit_on_main_is_not_remembered_against_it(self):
         # Main's run hangs once and passes after, as a slow machine would; the
@@ -1064,7 +1090,7 @@ class Line(LineFixture):
         self.land(first)
         done = self.settle(first, "fix/first-behind-a-slow-main")
         self.assertEqual(done.returncode, 7, done.stdout)
-        self.assertIn("already fails on main", done.stdout, "this turn still reads it as main's")
+        self.assertIn("test timed out on main itself", done.stdout, "this turn still reads it as main's")
 
         self.land(second, "preflight")
         self.land(second)
@@ -1122,6 +1148,33 @@ class Line(LineFixture):
         self.land(two)
         self.assertEqual(self.outcome("fix/two")["place"], place)
         self.assertEqual(self.settle(two, "fix/two").returncode, 0)
+
+    def test_a_red_turn_keeps_its_logs_after_the_rerun_lands(self):
+        one = self.branch("fix/one", {"one.txt": "1\n"})
+        two = self.branch("fix/two", {"two.txt": "2\n"})
+        for wt in (one, two):
+            self.land(wt, "preflight")
+            self.land(wt)
+        self.assertEqual(self.settle(one, "fix/one").returncode, 0)
+        self.assertEqual(self.settle(two, "fix/two").returncode, 4)
+        red_logs = self.outcome("fix/two")["logs"]
+        red_test_log = next(path for path in red_logs if path.endswith("/test.log"))
+        red_said = self.read(self.root, red_test_log)
+
+        self.git(two, "fetch", "--quiet", "origin")
+        self.git(two, "merge", "--no-edit", "origin/main")
+        self.commit(two, {"checks/test.sh": "exit 0\n"}, "make the combination pass")
+        self.land(two, "preflight")
+        self.land(two)
+        self.assertEqual(self.settle(two, "fix/two").returncode, 0)
+
+        self.assertEqual(len(self.turns("fix/two")), 2, "one directory a turn")
+        for path in red_logs:
+            self.assertTrue(os.path.exists(path), f"the red turn's {path} outlived the rerun")
+        self.assertEqual(self.read(self.root, red_test_log), red_said, "and was not overwritten")
+        green_logs = self.outcome("fix/two")["logs"]
+        self.assertTrue(green_logs)
+        self.assertFalse(set(green_logs) & set(red_logs), "the outcome points at its own turn")
 
     def test_both_sides_of_the_comparison_are_prepared_the_same_way(self):
         mover = self.branch("fix/moves-8", {"moved.txt": "1\n"})

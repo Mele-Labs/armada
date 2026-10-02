@@ -63,8 +63,8 @@ impl fmt::Display for NotFixed {
             ),
             NotFixed::NotOneArgument { test } => write!(
                 out,
-                "`{test}` cannot be passed as one argument, so it cannot be run by name. \
-                 Copy the test's name without quotes"
+                "`{test}` names no test, so nothing can be run by name. Copy the test's \
+                 name as the runner printed it"
             ),
             NotFixed::AlreadyRunning => out.write_str(
                 "Fleet is already running something for you — your checks, or a test on \

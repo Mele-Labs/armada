@@ -13,7 +13,7 @@
 import WebSocket from "ws";
 
 import type { Observed, Turns } from "@armada/protocol";
-import { NO_TURNS, SOCKET_CLOSED, turnArrived } from "@armada/protocol";
+import { NO_TURNS, SOCKET_CLOSED, turnsArrived } from "@armada/protocol";
 import type { TurnMessage } from "@armada/protocol";
 import { HOST } from "./runtime-file";
 
@@ -32,6 +32,9 @@ export class ObserveSocket {
   private turns: Turns = NO_TURNS;
   /** Monotonic per connection. A row's own identity, since none carries one. */
   private seq = 0;
+  /** What arrived this tick, folded and published once — a backfill lands as a few. */
+  private pending: TurnMessage[] = [];
+  private folding: NodeJS.Immediate | null = null;
 
   constructor(publish: (observed: Observed) => void) {
     this.publish = publish;
@@ -70,6 +73,9 @@ export class ObserveSocket {
   }
 
   close(): void {
+    this.pending = [];
+    if (this.folding !== null) clearImmediate(this.folding);
+    this.folding = null;
     const socket = this.socket;
     this.socket = null;
     if (socket === null) return;
@@ -95,11 +101,27 @@ export class ObserveSocket {
       this.broke("Fleet sent a message this Bridge could not read.");
       return;
     }
+    this.pending.push(message);
+    this.folding ??= setImmediate(() => this.fold());
+  }
 
-    // What the message does to the turns is `turnArrived`'s, in the wire
+  /**
+   * Everything that arrived since the last fold, folded at once. `ws` emits
+   * every frame of a chunk synchronously, so a 2048-row backfill copies its
+   * rows a few times rather than once per row.
+   */
+  private fold(): void {
+    const jobId = this.jobId;
+    const pending = this.pending;
+    this.pending = [];
+    if (this.folding !== null) clearImmediate(this.folding);
+    this.folding = null;
+    if (jobId === null || pending.length === 0) return;
+
+    // What the messages do to the turns is `turnsArrived`'s, in the wire
     // package, so a recorded Job replayed in Storybook folds the same way.
-    const next = turnArrived(this.turns, message, this.seq);
-    if (message.message === "row") this.seq += 1;
+    const next = turnsArrived(this.turns, pending, this.seq);
+    this.seq = next.seq;
     this.turns = next.turns;
     if (next.ended === undefined) {
       this.publish({ state: "watching", jobId, turns: this.turns });
@@ -116,6 +138,8 @@ export class ObserveSocket {
   }
 
   private ended(because: string): void {
+    // A `closed` still waiting to be folded is the reason a reader wanted.
+    this.fold();
     const jobId = this.jobId;
     if (jobId === null || this.socket === null) return;
     this.socket.removeAllListeners();
@@ -132,8 +156,11 @@ export class ObserveSocket {
    * reading as a step nothing had happened on — #324.
    */
   private broke(detail: string): void {
+    // The rows before the break are read first; a `closed` among them ended
+    // the stream, and the break is past its end.
+    this.fold();
     const jobId = this.jobId;
-    if (jobId === null) return;
+    if (jobId === null || this.socket === null) return;
     // **Let go, not merely dropped** — `journal.ts` carries why at length: a
     // frame this Bridge could not parse leaves a healthy socket, and dropping
     // it without closing left Fleet holding a connection for a pane that had

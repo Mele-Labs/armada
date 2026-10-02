@@ -346,8 +346,10 @@ function OneJob(props: JobDetailProps) {
           narrow={narrow}
           view={props.workflowView ?? FIRST_WORKFLOW_VIEW}
           onView={(view) => props.onWorkflowView?.(view)}
+          stale={props.stale}
           acting={props.acting}
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
+          onAnswerJudge={props.onAnswerJudge}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           onRedirect={props.onRedirect}
           onAct={props.onAct}
@@ -380,7 +382,9 @@ function OneJob(props: JobDetailProps) {
           stale={props.stale}
           acting={props.acting}
           deciding={props.deciding}
+          {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
           onApproveReview={props.onApproveReview}
+          onAnswerJudge={props.onAnswerJudge}
           {...(props.onApproveWave === undefined ? {} : { onApproveWave: props.onApproveWave })}
           board={props.board ?? []}
           onRedirect={props.onRedirect}

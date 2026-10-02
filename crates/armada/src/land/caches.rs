@@ -61,6 +61,14 @@ pub fn base_foundations(
     Ok(said)
 }
 
+/// Which of the Checks asked about are `base`'s for this turn.
+pub struct OnTheBase {
+    /// Red on `base`, or timed out there: every name in `timed_out` too.
+    pub already: Vec<String>,
+    /// Killed at the limit on `base`, which is not a failure.
+    pub timed_out: Vec<String>,
+}
+
 /// Of `names`, the ones already known to fail on `base` itself — running
 /// whichever of them the per-base cache has not already answered, and
 /// answering nothing about a Check nobody has asked this yet.
@@ -78,7 +86,7 @@ pub fn checks_on_the_base(
     names: &[String],
     env: &Env,
     logs: &Path,
-) -> Result<Vec<String>, Stopped> {
+) -> Result<OnTheBase, Stopped> {
     let cache_path = state.checks_cache_path(base);
     let mut known: BTreeMap<String, bool> = codec::read("check verdicts on the base", &cache_path)
         .map_err(|why| Stopped::stopped(why.to_string()))?
@@ -105,12 +113,13 @@ pub fn checks_on_the_base(
         }
         codec::write(&cache_path, &known).map_err(|why| Stopped::stopped(why.to_string()))?;
     }
-    let already = already_red_on_base(names, &known);
-    Ok(names
+    let red = already_red_on_base(names, &known);
+    let already = names
         .iter()
-        .filter(|name| already.contains(name) || timed_out.contains(name))
+        .filter(|name| red.contains(name) || timed_out.contains(name))
         .cloned()
-        .collect())
+        .collect();
+    Ok(OnTheBase { already, timed_out })
 }
 
 fn exit_code(ran: &super::shell::Ran) -> i32 {

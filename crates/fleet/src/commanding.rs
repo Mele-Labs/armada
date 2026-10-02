@@ -80,23 +80,34 @@ where
     /// Read a request and draft the Job it proposes. **The same gate, and the
     /// same `job.created`** — the workflow is the only thing filled in
     /// differently.
+    ///
+    /// **On a task of its own**, because the Job exists from the press: a
+    /// caller that stops waiting drops this future, and the call, the answer
+    /// and the move it makes on the Job have to go on without it.
     async fn propose_from_request(
-        &self,
+        self: Arc<Self>,
         request: ipc::JobRequest,
         manifest_id: Option<ipc::ManifestId>,
         by: api::Redirector,
     ) -> Result<ipc::ProposedPlan, Refusal> {
-        let made = self
-            .propose_from_with_attachments(
-                &request.request,
-                request.client_ref,
-                request.attachments,
-                &self.served_named(manifest_id.as_ref())?,
-                by,
-                // A composer dispatch is *Dispatched by you*, not Fleet's find.
-                crate::proposal::requested(by),
-            )
+        let served = self.served_named(manifest_id.as_ref())?;
+        let fleet = Arc::clone(&self);
+        let proposing = tokio::spawn(async move {
+            fleet
+                .propose_from_with_attachments(
+                    &request.request,
+                    request.client_ref,
+                    request.attachments,
+                    &served,
+                    by,
+                    // A composer dispatch is *Dispatched by you*, not Fleet's find.
+                    crate::proposal::requested(by),
+                )
+                .await
+        });
+        let made = proposing
             .await
+            .unwrap_or(Err(Adrift::ProposalAbandoned))
             .map_err(|why| self.refusal(why))?;
         let mut jobs = Vec::with_capacity(made.len());
         for job in &made {
