@@ -410,3 +410,39 @@ test("an Epic says which of its issues it took, how many that left out and how m
     facts: ["#17", "12 of 30 issues"],
   });
 });
+
+/** A read-in in its Zone: an Issue, the Zone it made, a Finding and a Cluster of one Note in it — #1620. */
+const ZONED: Studio = {
+  id: "s2",
+  manifest_id: "armada",
+  created_at: AT,
+  touched_at: AT,
+  nodes: [
+    { id: "issue", kind: "issue", address: LONG_ADDRESS, number: "1657", position: { x: 0, y: 0 }, created_at: AT },
+    { id: "zone", kind: "zone", position: { x: 340, y: 0 }, created_at: AT },
+    { id: "finding", kind: "finding", asked: "Read in #1657", within: "zone", position: { x: 24, y: 48 }, created_at: AT },
+    { id: "cluster", kind: "cluster", title: "Risks to watch", within: "zone", position: { x: 364, y: 48 }, created_at: AT },
+    { id: "note", kind: "note", said: "Watch for a scope change", within: "cluster", position: { x: 24, y: 48 }, created_at: AT },
+    { id: "loose", kind: "note", said: "Somebody's own", position: { x: 0, y: 400 }, created_at: AT },
+  ],
+  edges: [
+    { id: "to-zone", from: "issue", to: "zone", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "to-finding", from: "issue", to: "finding", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "to-cluster", from: "issue", to: "cluster", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "to-note", from: "issue", to: "note", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "member", from: "note", to: "cluster", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "own", from: "issue", to: "loose", kind: "produced", standing: "accepted", created_at: AT },
+    { id: "relation", from: "loose", to: "note", kind: "blocks", standing: "accepted", created_at: AT },
+  ],
+};
+
+test("a read-in draws one line to its Zone, and a Cluster's Notes draw none to it", () => {
+  expect(whiteboardEdges(ZONED).map((edge) => edge.id)).toEqual(["to-zone", "own", "relation"]);
+});
+
+test("a node in a frame names it, and a Zone is drawn with no words", () => {
+  const drawn = whiteboardNodes(ZONED, []);
+  expect(drawn.find((node) => node.id === "note")?.within).toBe("cluster");
+  expect(drawn.find((node) => node.id === "issue")?.within).toBeUndefined();
+  expect(drawn.find((node) => node.id === "zone")?.node).toEqual({ kind: "zone", title: "" });
+});

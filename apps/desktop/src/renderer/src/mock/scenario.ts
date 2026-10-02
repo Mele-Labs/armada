@@ -18,6 +18,7 @@ import {
   escalatedEvidenceSuspect,
   reviewAtDelivery,
   reviewAfterAnOverrule,
+  reviewHeldByPolicy,
   queued,
   awaitingApproval,
   awaitingRepair,
@@ -41,11 +42,12 @@ import {
   gateChecksStreaming,
   proposing,
 } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_MOMENTS, dispatchTyping } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
@@ -58,7 +60,9 @@ import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
+import { zoning } from "./studio-read-in";
 import { job2Landed } from "./job-2-landed";
+import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -107,6 +111,11 @@ function holding(
     reads: Object.fromEntries(fixtures.map((one) => [one.job.id, one])),
     opens,
   };
+}
+
+/** The same scenario with Fleet serving the merge line `armada land --status` printed on 2 Oct 2026. */
+function lined(scenario: Scenario): Scenario {
+  return { ...scenario, state: { ...scenario.state, mergeLines: mergeLines() } };
 }
 
 /**
@@ -179,6 +188,7 @@ export const BUILDERS = {
   escalatedEvidenceSuspect,
   reviewAtDelivery,
   reviewAfterAnOverrule,
+  reviewHeldByPolicy,
   queued,
   awaitingApproval,
   awaitingRepair,
@@ -229,6 +239,7 @@ const EVERY_STATE_TITLES: Record<Builder, string> = {
   escalatedEvidenceSuspect: "Prune the evidence bundle before it is written",
   reviewAtDelivery: "Carry the branch name into the pull request body",
   reviewAfterAnOverrule: "Name the attempt a step's log file belongs to",
+  reviewHeldByPolicy: "Say on the Record why a step held for review",
   queued: "Move the worktree prune off the startup path",
   awaitingApproval: "Widen the allowlist to cover read-only git commands",
   awaitingRepair: "Coalesce the journal writes into one flush",
@@ -432,14 +443,26 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
+  // `armada land --status` as it read on 2 Oct 2026, under a few Jobs. Overview draws the line
+  // below its lists; nothing else here reads it.
+  lined(
+    holding(
+      "merge-line",
+      "Six branches in line, four gating as one batch, three just off it",
+      EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`))),
+    ),
+  ),
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
+  zoning().scenario,
   talking(),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a
   // scenario here without a second edit.
   ...ARC_MOMENTS.map((one) => moment("arc", one)),
+  // The arc's request dispatched, on a Fleet whose proposer fills its Job in a field at a time.
+  fillingIn(moment("arc", dispatchTyping())),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),

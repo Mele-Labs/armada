@@ -391,7 +391,6 @@ function executing(args: {
       remarks: { state: "none" },
     },
     ...(args.history === undefined ? {} : { history: { state: "read", jobId: ARC_JOB_ID, moves: args.history } }),
-    calls: {},
     checkOutputs: {},
     briefs: PLAN_BRIEFS,
     frames: {},

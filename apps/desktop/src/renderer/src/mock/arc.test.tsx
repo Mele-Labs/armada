@@ -1167,7 +1167,7 @@ describe("one Job per workflow kind", () => {
     expect(last.label).toBe("Deliver the review");
     await expect.element(stepCard(last.label).first()).toBeVisible();
     // Nothing on this run lands anything: a code review delivers a review.
-    expect(page.getByRole("button", { name: /^Merge/ }).query()).toBeNull();
+    expect(page.getByRole("button", { name: /^Merge(?! line)/ }).query()).toBeNull();
     expect(page.getByRole("button", { name: /^Land/ }).query()).toBeNull();
   });
 });

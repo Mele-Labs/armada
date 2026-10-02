@@ -11,7 +11,6 @@
 import type {
   BranchDeleted,
   BriefContents,
-  CallArguments,
   CheckOutput,
   CommandExplained,
   EvidenceSubmitted,
@@ -254,26 +253,9 @@ export type Turn = {
 };
 
 /**
- * What one call's arguments came back as.
- *
- * **Answered to the caller rather than published as state.** Every other read
- * here is held by main and republished as events arrive, because a Job that
- * moves has to redraw. A recorded argument never moves: it is fetched once, by
- * the person who opened one row, and it is theirs. Putting it in `BridgeState`
- * would make one reader's gesture part of what every surface re-renders on.
- *
- * A refusal is the row's own, never the screen's — `refused` on this route is
- * the Job standing and the call not being in its transcripts, which is a thing
- * to say inside the payload and not an error state for the Job.
- */
-export type CallRead =
-  | { ok: true; call: CallArguments }
-  | { ok: false; outcome: Outcome };
-
-/**
  * What a reading of one command came back as. Since protocol 11.5.
  *
- * **`CallRead`'s shape, and for its reasons.** A reading is asked for by one
+ * **`CheckOutputRead`'s shape, and for its reasons.** A reading is asked for by one
  * person about one call and answered once; it never moves afterwards, so it is
  * answered to the caller rather than published as state that every surface
  * re-renders on.
@@ -291,10 +273,12 @@ export type CommandExplainedRead =
 /**
  * What one Check's output came back as.
  *
- * **Answered to the caller rather than published as state**, for `CallRead`'s
- * reason and with one more behind it: a recorded output never moves, it is
- * fetched by the person who pressed one row, and holding it in `BridgeState`
- * would keep a test runner's whole log alive for as long as the Job is open.
+ * **Answered to the caller rather than published as state.** Every other read
+ * here is held by main and republished as events arrive, because a Job that
+ * moves has to redraw. A recorded output never moves, it is fetched by the
+ * person who pressed one row, and holding it in `BridgeState` would make one
+ * reader's gesture part of what every surface re-renders on — and keep a test
+ * runner's whole log alive for as long as the Job is open.
  *
  * A refusal is the row's own. `refused` on this route is the Job standing and
  * no row of it holding an output under that name — a reclaimed `.armada` — and

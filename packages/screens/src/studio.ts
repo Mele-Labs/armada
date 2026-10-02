@@ -8,6 +8,7 @@ import type {
   ScoutSource,
   ServerState,
   Studio,
+  StudioEdge,
   StudioNode,
   StudioRunKept,
   StudioSummary,
@@ -291,6 +292,9 @@ function cardOf(
         : { kind: "note", title: node.said };
     case "cluster":
       return { kind: "cluster", title: node.title };
+    // A Zone holds no words: the whiteboard draws it as a frame round what it holds.
+    case "zone":
+      return { kind: "zone", title: "" };
     case "finding":
       // What it was handed beyond the checkout, and what did not fit. A scout
       // asked about the code alone has none and says nothing about sources.
@@ -383,8 +387,29 @@ export function whiteboardNodes(
 ): StudioWhiteboardNode[] {
   return studio.nodes.flatMap((node) => {
     const card = cardOf(node, jobs, frameOf, live);
-    return card === null ? [] : [{ id: node.id, position: node.position, node: card }];
+    if (card === null) return [];
+    const placed = { id: node.id, position: node.position, node: card };
+    return [node.within === undefined ? placed : { ...placed, within: node.within }];
   });
+}
+
+/**
+ * Whether a `produced` edge is drawn as the frame it ends in rather than as a
+ * line — `#1620`, the owner's 2 Oct 2026. **The record keeps every edge**; this
+ * is only what the board draws.
+ *
+ * Two are: one into a node sitting inside a frame its source also produced —
+ * a read-in's Issue draws one line to its Zone, not eighteen to what is in it
+ * — and one from a Note into the Cluster it sits in, which the Cluster's frame
+ * round it already says.
+ */
+function drawnAsAFrame(edge: StudioEdge, within: ReadonlyMap<string, string>, produced: ReadonlySet<string>): boolean {
+  if (edge.kind !== "produced") return false;
+  if (within.get(edge.from) === edge.to) return true;
+  for (let frame = within.get(edge.to), held = 0; frame !== undefined && held < 8; frame = within.get(frame), held += 1) {
+    if (produced.has(`${edge.from} ${frame}`)) return true;
+  }
+  return false;
 }
 
 const RELATIONS = ["same_as", "blocks", "answers"] as const;
@@ -399,7 +424,14 @@ const isRelation = (kind: string): kind is Relation => (RELATIONS as readonly st
  * and Reject.
  */
 export function whiteboardEdges(studio: Studio): StudioWhiteboardEdge[] {
+  const within = new Map(
+    studio.nodes.flatMap((node) => (node.within === undefined ? [] : [[node.id, node.within] as const])),
+  );
+  const produced = new Set(
+    studio.edges.filter((edge) => edge.kind === "produced").map((edge) => `${edge.from} ${edge.to}`),
+  );
   return studio.edges.flatMap((edge): StudioWhiteboardEdge[] => {
+    if (drawnAsAFrame(edge, within, produced)) return [];
     const ends = { id: edge.id, source: edge.from, target: edge.to };
     if (edge.kind === "produced") return [{ ...ends, kind: "produced" }];
     if (!isRelation(edge.kind)) return [];

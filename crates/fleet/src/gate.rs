@@ -839,11 +839,27 @@ where
     }
 }
 
-/// The Job move a ruling implies, or `None` where the Job does not move.
-///
-/// **The actor is always Fleet.** A Drone is never the actor on a transition
-/// its own evidence led to, which is what the recorded event has to say: the
-/// evidence was a signal and Fleet made the decision.
+impl Ruling {
+    /// Who signs every row this ruling writes, the step's and the Job's.
+    ///
+    /// **The Judge or the Check whose answer decided it**, so the Record can
+    /// say which tier stopped the work (spike 022, slice 1a). Fleet signs the
+    /// rest: an advance, a policy hold and a gate that could not read what it
+    /// needed are each decided on more than one answer. A Drone never signs
+    /// one: its evidence was a signal, never the decision.
+    pub fn signed_by(&self) -> Actor {
+        match self {
+            Ruling::Refused { .. } | Ruling::Questioned { .. } | Ruling::Suspect { .. } => {
+                Actor::Judge
+            }
+            Ruling::Failed { .. } | Ruling::HandedBack { .. } => Actor::Check,
+            _ => Actor::Fleet,
+        }
+    }
+}
+
+/// The Job move a ruling implies, or `None` where the Job does not move,
+/// signed by [`Ruling::signed_by`].
 ///
 /// # A failure and a refusal go to different statuses, and neither ends the Job
 ///
@@ -873,8 +889,8 @@ pub fn apply(
         Ruling::Failed { .. } => Target::AwaitingRepair,
         // The one move in this function that is not an ending. `running ->
         // awaiting_review` is the edge `fleet::reviewing`'s three acts all
-        // start from, and Fleet is the actor: the person has not answered yet,
-        // they have only been asked.
+        // start from, and no person signs it: they have not answered yet, they
+        // have only been asked.
         // The same target `HeldForReview` uses, and the same reason: the
         // machine is satisfied and a person answers next, so the Job is
         // waiting on them rather than stopped. `Ruling::Questioned`'s own doc
@@ -888,5 +904,5 @@ pub fn apply(
         // outer one, and the other two move neither.
         _ => Target::Escalated(ruling.stops_the_step()?.trigger()),
     };
-    Some(job.transition(target, Actor::Fleet, at))
+    Some(job.transition(target, ruling.signed_by(), at))
 }

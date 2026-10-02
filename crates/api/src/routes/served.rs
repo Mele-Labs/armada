@@ -179,6 +179,13 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/add",
     },
+    // Each served repository's merge line, beside the list it is keyed by. Not
+    // under `/repositories`: that is the list and its two acts.
+    Route {
+        operation: "get_merge_lines",
+        method: "GET",
+        path: "/merge_lines",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",

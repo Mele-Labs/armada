@@ -10,13 +10,13 @@
 //! order existed to prevent. That is over: the code the test named exists, the
 //! test was reconciled against the vocabulary actually built, and it passes.
 //!
-//! **The two mechanisms that said otherwise are retired.** `cargo xtask
-//! verify-foundations` rule one now asserts that `cargo test -p acceptance`
-//! passes and ran something, and the Stop hook that ended a session on a green
-//! run is deleted. Neither was weakened to admit what it was watching for — the
-//! reasoning they carried, that a milestone which can fake itself green proves
-//! nothing, is what rule one still enforces in the direction the falsehood now
-//! runs. `docs/practices/acceptance-tests.md` is the account of all of it.
+//! **The two mechanisms that said otherwise are retired.** The `acceptance`
+//! Check now asserts the suite passes, `cargo xtask verify-foundations` rule
+//! one that each milestone's test exists and holds a test, and the Stop hook
+//! that ended a session on a green run is deleted. The reasoning they carried,
+//! that a milestone which can fake itself green proves nothing, still holds in
+//! the direction the falsehood now runs. `docs/practices/acceptance-tests.md`
+//! is the account of all of it.
 //!
 //! What the test is, in one line: one hermetic run of a Bug Job — no process,
 //! no repository, no network — plus the invariants that make the run mean

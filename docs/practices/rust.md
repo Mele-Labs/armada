@@ -239,7 +239,7 @@ anything where the input and expected output both fit in the test function.
 once M1 fills the crate in.
 
 **Integration tests** live in `crates/acceptance/tests/` — the directory
-`xtask` rule one (`acceptance_test_exists_and_passes`) watches. What that test
+`xtask` rule one (`acceptance_test_exists`) and the `acceptance` Check watch. What that test
 is and why it is written before the code it tests is
 `docs/practices/acceptance-tests.md`. These are for anything that crosses a
 crate boundary for real: a Drone's output stream
@@ -412,6 +412,16 @@ cargo nextest run --workspace
 **Run it through `armada check test`**, which is that line at `${width}`, in
 one of the machine's Check slots — `../concepts/manifest.md`, *How many Checks
 run at once*. Bare, it takes neither.
+
+**A test that hangs is ended at three minutes**, by `.config/nextest.toml`,
+which every `nextest` run in the workspace reads — `test`, `acceptance` and one
+test by name alike. It prints `SLOW` at each minute and then fails as `TIMEOUT`,
+naming the test. Without it a hung test held an agent's `armada check test`
+for good, because the tests wait on events with no deadline of their own and
+the merge line's Check limit covers only the line. **Measured 2 Oct 2026 at
+load 15–18**: the slowest of 4,023 tests took 5.1s. Across 121 runs of the
+line, the slowest that passed took 52s, during a stall that failed three other
+tests. No test is legitimately slow enough for an override of its own.
 
 **It has to be installed before a check needs it, and v1 got that wrong.** The
 setup step claimed to install it and installed nothing; the failure surfaced on

@@ -7,7 +7,6 @@
 // fixtures exist to close.
 
 import type {
-  CallRead,
   BriefRead,
   CheckOutputRead,
   FrameRead,
@@ -23,7 +22,6 @@ import type { JobFixture } from "./fixture";
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 const UNKNOWN_JOB_OPENED: Opened = { ok: false, why: "unknown_job" };
 const UNKNOWN_JOB_FOLLOWED: Followed = { ok: false, why: "unknown_job" };
-const NOT_ANSWERED_CALL: CallRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_OUTPUT: CheckOutputRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_BRIEF: BriefRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_FRAME: FrameRead = { ok: false, outcome: NOT_CONNECTED };
@@ -73,7 +71,6 @@ export function propsFor(fixture: JobFixture): JobDetailProps {
     onOpenArtifact: async () => UNKNOWN_JOB_OPENED,
     onOpenPullRequest: async () => UNKNOWN_JOB_FOLLOWED,
     onOpenRemarkLink: noop,
-    onReadCall: async (_jobId, callId) => fixture.calls[callId] ?? NOT_ANSWERED_CALL,
     // Offered on every fixture so the control is drawn, and answered as a
     // refusal: a story is a reading of one moment and no Fleet is behind it.
     onExplainCommand: async () => ({ ok: false, outcome: NOT_CONNECTED }),

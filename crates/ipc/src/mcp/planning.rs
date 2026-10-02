@@ -63,6 +63,12 @@ impl fmt::Display for PlanArgument {
                 out,
                 "`state` is `{named}`. It is one of `open`, `working`, `done` or `dropped`"
             ),
+            PlanArgument::NotAnUpdate(NotAnUpdate::FleetMarksIt { state }) => write!(
+                out,
+                "`state` is `{}`, which Armada marks itself. Send `open`, `working`, \
+                 `done` or `dropped`",
+                state.as_wire()
+            ),
             PlanArgument::NotAnUpdate(NotAnUpdate::DroppedWithoutAReason) => out.write_str(
                 "`dropped` needs a `reason`: say in a sentence why the task will not be \
                  done, and call again",

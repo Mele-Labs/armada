@@ -199,6 +199,7 @@ impl StudioNode {
             self.created_at().clone(),
             self.added_by(),
         )
+        .map(|node| node.placed(self.within().cloned(), self.position()))
         .map(Rewritten)
         .map_err(|fault| NotRewritable {
             kind: fault.kind,

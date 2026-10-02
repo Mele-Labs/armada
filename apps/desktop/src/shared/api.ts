@@ -14,7 +14,6 @@ import type {
   EditJob,
   Artifact,
   CaptureOpened,
-  CallRead,
   CheckOutputRead,
   BriefRead,
   ClearOutcome,
@@ -71,7 +70,7 @@ import type {
 } from "@armada/screens/src/setup-reads";
 
 /**
- * What `explain_command` came back as. **Protocol's, beside `CallRead`**, and
+ * What `explain_command` came back as. **Protocol's, beside `CheckOutputRead`**, and
  * re-exported here because this is the surface the renderer reads.
  */
 export type { CommandExplainedRead } from "@armada/protocol";
@@ -740,32 +739,16 @@ export type BridgeApi = {
    */
   readDiff: (jobId: string | null) => Promise<void>;
   /**
-   * Read one recorded tool call's arguments — the whole of what the socket cut.
-   *
-   * **The one read here that answers rather than publishes**, and the one that
-   * names something smaller than a Job. Every other read is held open and kept
-   * current because the thing it draws moves; a recorded argument is finished,
-   * and a person opening one row is asking about that row. So it takes a call
-   * id, answers once, and nothing is left held.
-   *
-   * Read-only, like the reads above it. Nothing on it reaches a Drone, and the
-   * call id is one Fleet already put on a row this window was streamed.
-   */
-  readCall: (jobId: string, callId: string) => Promise<CallRead>;
-  /**
    * Read one Check's own output, whole enough to read on the screen it is on.
    *
-   * **`readCall`'s shape one record over.** `CheckRun.output_path` has always
-   * said where the file is and `openArtifact` hands it to the operating system;
-   * this is what brings the lines in, so a suite that went green for the wrong
-   * reason can be argued with without leaving the app.
+   * **It answers once rather than publishing**: a recorded output is finished,
+   * and a person opening one Check is asking about that Check. `openArtifact`
+   * hands the file to the operating system; this brings the lines in, so a
+   * suite that went green for the wrong reason can be argued with in the app.
    *
    * `kept` is the row's own file name, off `output_path`. **Nothing here
    * composes a path** — `artifacts.ts` owns that rule — and Fleet resolves the
-   * name against its own record, so this reaches no file the record does not
-   * name.
-   *
-   * Read-only, like the reads above it.
+   * name against its own record. Read-only, like the reads above it.
    */
   readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
   /** One kept brief a Judge or a gaming check was asked, by its file name. `readCheckOutput`'s shape. */
@@ -773,7 +756,7 @@ export type BridgeApi = {
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask
-   * answered — #959. `readCall`'s shape: a repository named by root rather
+   * answered — #959. `readCheckOutput`'s shape: a repository named by root rather
    * than a Job by id, answered once, and held nowhere — the Board stays on
    * All throughout, so nothing else on screen ever reads this repository.
    */
@@ -866,8 +849,12 @@ export type BridgeApi = {
    */
   addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
-  /** Save where a person put a node down. Position only: nothing else about a node is written. */
-  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition) => Promise<Outcome>;
+  /**
+   * Save where a person put a node down: the frame it landed in, `null` for the
+   * board, and its spot from that frame's corner. Nothing else about a node is
+   * written. `within` since protocol 23.0, #1620.
+   */
+  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition, within: string | null) => Promise<Outcome>;
   /**
    * Delete everything picked, and every edge on it, as one write — #1411. A
    * person's act, and only from the Studios surface.
@@ -1088,7 +1075,7 @@ export type BridgeApi = {
   /**
    * The Helm session Bridge is pointed at, as one quotable record — #1367.
    *
-   * **`readCall`'s shape, for `readCall`'s reasons.** It is one person's
+   * **`readCheckOutput`'s shape, for its reasons.** It is one person's
    * gesture on one conversation, answered once and never republished: a record
    * in `BridgeState` would redraw every surface each time a reply arrived.
    */

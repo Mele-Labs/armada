@@ -11,7 +11,6 @@ import type { SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { Pattern } from "../shared/haptics";
 import type {
-  CallRead,
   CheckOutputRead,
   BriefRead,
   FrameRead,
@@ -490,14 +489,6 @@ const api: BridgeApi = {
   readRemarks: (jobId: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.readRemarks, jobId),
 
-  // The rest of one cut call argument. **A separate entry from `observeJob`,
-  // and the narrowest read here**: it names a call id off a row this window was
-  // already streamed rather than opening anything, and it answers once instead
-  // of holding a subscription. Read-only like every entry around it — an
-  // argument the record kept is a fact, and nothing on this channel can put one
-  // there or reach the Drone that sent it.
-  readCall: (jobId: string, callId: string): Promise<CallRead> =>
-    ipcRenderer.invoke(CHANNELS.readCall, jobId, callId),
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
@@ -506,7 +497,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for
   // the repository the ask answered, named by root since the pick stays put.
-  // `readCall`'s shape: answered once, and nothing here is held or republished.
+  // `readCheckOutput`'s shape: answered once, and nothing here is held or republished.
   readComposing: (repository: string): Promise<ComposingRead> =>
     ipcRenderer.invoke(CHANNELS.readComposing, repository),
 
@@ -555,8 +546,9 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position),
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveStudioSketch, studioId, nodeId, drawing),
-  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position),
+  // `within` is the frame it was put down in, and `null` the board — #1620.
+  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position, within),
   // The frame is main's: this hands over what was pointed at and nothing else,
   // so the capability added here is a Note on a Studio and not a screenshot.
   captureStudioNote: (studioId: string, said: string, capture: StudioCapture): Promise<Outcome> =>

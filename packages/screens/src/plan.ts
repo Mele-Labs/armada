@@ -43,8 +43,8 @@ export type PlanRegionRead =
   | ({ recorded: true } & PlanRegionData)
   | { recorded: false; stepLabel: string };
 
-/** The four states a task's own wire string may be. Anything else is `open`. */
-const STATES: readonly TaskMarkState[] = ["open", "working", "done", "dropped"];
+/** The six states a task's own wire string may be since 22.0. Anything else is `open`. */
+const STATES: readonly TaskMarkState[] = ["open", "working", "handed_in", "done", "failed", "dropped"];
 
 function markStateOf(state: string): TaskMarkState {
   return (STATES as readonly string[]).includes(state) ? (state as TaskMarkState) : "open";

@@ -22,6 +22,7 @@
 | `armada run <name>` | Runs one Command it declares. Checks gate advancement; Commands do not |
 | `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading a Job's gate uses. Needs nothing running |
 | `armada clean [--all] [--force]` | Gives this repository's worktrees, branches and Jobs back, keeping any branch whose work is not merged |
+| `armada worktree lease <branch>` | Leases a warm worktree from the repository's pool, waiting while every slot is held; `release` gives it back once clean and landed, `--status` lists who holds each. `docs/practices/running-locally.md`, *Leasing a worktree* |
 
 What holds today, and how each is known:
 

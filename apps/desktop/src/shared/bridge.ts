@@ -34,6 +34,7 @@ import type {
   FleetCapacity,
   FleetLimits,
   JobSummary,
+  MergeLines,
   Preferences,
   ProposalInFlight,
   RepositorySummary,
@@ -360,6 +361,13 @@ export type BridgeState = {
    */
   servers: ServerList;
   /**
+   * The line `armada land` keeps in each served repository that has one, or `null` before Fleet
+   * has answered. **Read once per connection and replaced whole by `merge_lines.changed`**,
+   * `servers`' terms: Fleet reads the files, and Bridge keeps no timer of its own. Shared, not
+   * this window's own: the panel folds it against the window's pick (`mergeLineView`).
+   */
+  mergeLines: MergeLines | null;
+  /**
    * What this repository's Manifest declares, for the Manifest surface.
    *
    * **The second read here no Job scopes, and not for the reports' reason.**
@@ -460,6 +468,7 @@ export const NOTHING_YET: BridgeState = {
   runSheet: { state: "none" },
   runFollowed: { state: "none" },
   servers: { servers: [] },
+  mergeLines: null,
   checkoutRunSheet: { state: "none" },
   checkoutRunFollowed: { state: "none" },
   manifestDrift: { state: "none" },
@@ -597,7 +606,6 @@ export const CHANNELS = {
   examineJob: "bridge:examine-job",
   readDiff: "bridge:read-diff",
   readRemarks: "bridge:read-remarks",
-  readCall: "bridge:read-call",
   readCheckOutput: "bridge:read-check-output",
   readBrief: "bridge:read-brief",
   readFrame: "bridge:read-frame",
@@ -619,7 +627,7 @@ export const CHANNELS = {
   openRemarkLink: "bridge:open-remark-link",
   summoned: "bridge:summoned",
   // New job's own reads for the repository its ask answered, on All — #959.
-  // A request/response like `readCall`/`readCheckOutput`, answered to the
+  // A request/response like `readCheckOutput`, answered to the
   // caller and published nowhere: `BridgeState` carries nothing about it.
   readComposing: "bridge:read-composing",
   // Helm's conversation: say something, forget it, and point it at a

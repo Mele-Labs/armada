@@ -119,7 +119,6 @@ export function dispatchedFixture(one: Dispatched, now: number): JobFixture {
       diff: { state: "none" },
       remarks: { state: "none" },
     },
-    calls: {},
     checkOutputs: {},
     frames: {},
     now,

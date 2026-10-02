@@ -27,7 +27,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use checks_runner::{resolve_width, Attempt, CheckSlots, CheckWidth, HELD_ENV};
+use checks_runner::{resolve_width, Attempt, CheckSlots, CheckWidth, Priority, Writing, HELD_ENV};
 use config::Manifest;
 use verification::{Exit, NeverRan};
 
@@ -72,7 +72,8 @@ impl Registry {
 ///
 /// `test` runs one test through the Check's `one_test` instead of the whole
 /// Check. `slots` is the machine's: a Check takes its `places` of them for its
-/// prerequisites and its run, and a Command takes none.
+/// prerequisites and its run, and a Command takes none. `priority` is a
+/// Check's and its prerequisites': a Command runs at normal priority.
 pub async fn execute(
     root: &Path,
     registry: Registry,
@@ -80,6 +81,7 @@ pub async fn execute(
     test: Option<&str>,
     budget: Duration,
     slots: Option<&CheckSlots>,
+    priority: Priority,
 ) -> Result<Ran, NotDeclared> {
     let manifest = Manifest::load(&root.join(MANIFEST)).map_err(|why| NotDeclared::NoManifest {
         path: root.join(MANIFEST),
@@ -164,12 +166,12 @@ pub async fn execute(
         _ => None,
     };
     let env = [(HELD_ENV.to_string(), String::from("1"))];
-    let env: &[(String, String)] = match registry {
-        Registry::Checks => &env,
-        Registry::Commands => &[],
+    let (env, priority): (&[(String, String)], _) = match registry {
+        Registry::Checks => (&env, priority),
+        Registry::Commands => (&[], Priority::Normal),
     };
 
-    if let Some(blocked) = first_unmet(requires, root, budget, width, env).await {
+    if let Some(blocked) = first_unmet(requires, root, budget, width, env, priority).await {
         return Ok(Ran {
             name: name.to_string(),
             command,
@@ -180,7 +182,7 @@ pub async fn execute(
         });
     }
 
-    let attempt = checks_runner::run_writing_with_env(&command, root, budget, None, env).await;
+    let attempt = run_at(&command, root, budget, env, priority).await;
     Ok(Ran {
         name: name.to_string(),
         command,
@@ -255,10 +257,11 @@ async fn first_unmet(
     budget: Duration,
     width: CheckWidth,
     env: &[(String, String)],
+    priority: Priority,
 ) -> Option<Attempt> {
     for needed in requires {
         let run = resolve_width(needed.run(), width);
-        let attempt = checks_runner::run_writing_with_env(&run, root, budget, None, env).await;
+        let attempt = run_at(&run, root, budget, env, priority).await;
         if attempt.exit != Exit::Code(0) {
             return Some(Attempt {
                 exit: Exit::NeverRan(NeverRan::PrerequisiteFailed {
@@ -271,6 +274,18 @@ async fn first_unmet(
         }
     }
     None
+}
+
+/// `command` in `root`, at `priority`, with nothing to stop it but `budget`.
+async fn run_at(
+    command: &str,
+    root: &Path,
+    budget: Duration,
+    env: &[(String, String)],
+    priority: Priority,
+) -> Attempt {
+    let stop = std::future::pending();
+    checks_runner::run_until(command, root, budget, Writing::Nowhere, env, stop, priority).await
 }
 
 /// What running it produced, with everything a caller needs to report it.

@@ -17,7 +17,6 @@
 import type { Rendering } from "@armada/components/src/generated/vocabulary";
 
 import type { CaseRunOutcome, CaseState } from "./cases";
-import type { TaskState } from "./task";
 
 /**
  * A draft word, shaped exactly like a generated `Rendering` minus its glyph.
@@ -30,27 +29,10 @@ import type { TaskState } from "./task";
 export type DraftWord = Omit<Rendering, "icon" | "hint">;
 
 /**
- * `failed` is the one task state the wire cannot produce.
- *
- * The other four are `TaskState` on the wire and are rendered from the
- * generated vocabulary as before; they are repeated here only so a board has
- * one map to read rather than two.
+ * **Task state was promoted at protocol 22.0** (spike 022, slice 1a), with
+ * `handed_in` and `failed` on the wire. It is `TASK_STATE` in
+ * `@armada/components`, generated from `verbs.task_state.*`, glyphs and all.
  */
-export const TASK_STATE_WORDS: Readonly<Record<TaskState, DraftWord>> = {
-  open: { verb: "open", badgeStatus: "not-started", statusToken: "--status-not-started" },
-  working: { verb: "working", badgeStatus: "running", statusToken: "--status-running" },
-  done: {
-    verb: "done",
-    badgeStatus: "completed-success",
-    statusToken: "--status-completed-success",
-  },
-  failed: {
-    verb: "failed",
-    badgeStatus: "completed-failed",
-    statusToken: "--status-completed-failed",
-  },
-  dropped: { verb: "dropped", badgeStatus: "killed", statusToken: "--status-killed" },
-};
 
 /**
  * **Group state was promoted on 29 Sep 2026** and its map is gone from here.
@@ -68,15 +50,9 @@ export const TASK_STATE_WORDS: Readonly<Record<TaskState, DraftWord>> = {
  */
 
 /**
- * `classifying` is #1159's `proposing` status by the word the boards use. It is
- * the one Job status in this file, and it is here because the registry spells
- * it the other way.
+ * **`classifying` went at 22.0**: the status is `proposing`, already on the
+ * wire with its own registry row (spike 022).
  */
-export const CLASSIFYING_WORD: DraftWord = {
-  verb: "classifying",
-  badgeStatus: "awaiting-approval",
-  statusToken: "--status-awaiting-approval",
-};
 
 /**
  * What became of a run — **never of the work**.
@@ -129,9 +105,7 @@ export const DRAFT_VOCABULARIES: readonly {
   readonly vocabulary: string;
   readonly words: Readonly<Record<string, DraftWord>>;
 }[] = [
-  { vocabulary: "task_state", words: TASK_STATE_WORDS },
   { vocabulary: "case_run_outcome", words: CASE_RUN_OUTCOME_WORDS },
   { vocabulary: "case_state", words: CASE_STATE_WORDS },
-  { vocabulary: "job_status", words: { classifying: CLASSIFYING_WORD } },
   { vocabulary: "criterion_reading", words: { no_verdict: CRITERION_NO_VERDICT_WORD } },
 ];

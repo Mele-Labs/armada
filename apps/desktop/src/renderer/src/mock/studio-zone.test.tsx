@@ -1,0 +1,120 @@
+// A read-in in its Zone, through `App` — #1620, decided with the owner on 2 Oct 2026: everything the
+// read-in brings back lands inside one Zone with one line to it from the issue, a Cluster is a box
+// round its Notes, dragging the Zone carries what is in it, and a Zone is put down from the rail.
+
+import { afterEach, expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { mountApp, type Mounted } from "./mount";
+import { READ_IN_NAME, zoning } from "./studio-read-in";
+
+let mounted: { app: Mounted; host: HTMLElement } | null = null;
+
+afterEach(() => {
+  mounted?.app.unmount();
+  mounted?.host.remove();
+  mounted = null;
+});
+
+const node = (name: RegExp | string) => page.getByRole("group", { name, exact: typeof name === "string" });
+const box = (name: RegExp | string) => node(name).element().getBoundingClientRect();
+/** Whether `inner` is drawn wholly inside `outer`. */
+const holds = (outer: DOMRect, inner: DOMRect) =>
+  inner.left >= outer.left && inner.right <= outer.right && inner.top >= outer.top && inner.bottom <= outer.bottom;
+
+/** A pointer drag, the way React Flow hears one: down on the node, moves and up on the window. */
+function drag(element: Element, dx: number, dy: number): void {
+  const from = element.getBoundingClientRect();
+  const at = (x: number, y: number) => ({
+    bubbles: true,
+    view: window,
+    clientX: from.x + from.width / 2 + x,
+    clientY: from.y + 12 + y,
+    button: 0,
+    buttons: 1,
+  });
+  element.dispatchEvent(new MouseEvent("mousedown", at(0, 0)));
+  for (const step of [0.1, 0.5, 1]) window.dispatchEvent(new MouseEvent("mousemove", at(dx * step, dy * step)));
+  window.dispatchEvent(new MouseEvent("mouseup", at(dx, dy)));
+}
+
+/** The read-in's Studio, open and Continued, so it is the person's to move. */
+async function openEditable() {
+  const fleet = zoning();
+  const host = document.createElement("div");
+  host.id = "root";
+  document.body.append(host);
+  mounted = { app: mountApp(fleet.scenario, host), host };
+  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await page.getByRole("cell", { name: READ_IN_NAME, exact: true }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(node("Zone")).toBeVisible();
+  return fleet;
+}
+
+const kept = (fleet: ReturnType<typeof zoning>, id: string) => fleet.studios()[0]!.nodes.find((one) => one.id === id)!;
+
+test("a read-in is one Zone with one line to it, and each Cluster is a box round its Notes", async () => {
+  await openEditable();
+  const zone = box("Zone");
+  for (const cluster of ["The problem today", "What to build", "Risks to watch", "Acceptance"]) {
+    expect(holds(zone, box(`Cluster: ${cluster}`)), `${cluster} is inside the Zone`).toBe(true);
+  }
+  const risks = box("Cluster: Risks to watch");
+  expect(holds(risks, box(/^Note: Watch for a `scope` change/))).toBe(true);
+  expect(holds(risks, box(/^Note: Watch for an edit after the gate/))).toBe(true);
+  expect(holds(box("Cluster: Acceptance"), box(/^Note: Watch for a `scope` change/))).toBe(false);
+  expect(holds(zone, box(/^Finding: Read in/))).toBe(true);
+  expect(holds(zone, box(/^Issue: Nobody can change a task/)), "the issue stays outside what it made").toBe(false);
+
+  // One line out of the issue, to the Zone, where the read-in drew eighteen — and none from a
+  // Note to the Cluster round it.
+  const lines = [...document.querySelectorAll("[aria-label]")]
+    .map((one) => one.getAttribute("aria-label")!)
+    .filter((said) => said.includes(" produced "));
+  expect(lines).toEqual(["Issue Nobody can change a task's title, brief, files, done-when or model produced Zone"]);
+});
+
+test("dragging the Zone moves everything in it, and its Notes stay where they are in it", async () => {
+  const fleet = await openEditable();
+  const zoneWas = kept(fleet, "read-in-zone").position;
+  const noteWas = kept(fleet, "read-in-risks-note-2");
+  const drawnWas = box(/^Note: Watch for a `scope` change/);
+  const frameWas = box("Zone");
+
+  drag(node("Zone").element(), 0, 160);
+  await expect.poll(() => kept(fleet, "read-in-zone").position.y).toBeGreaterThan(zoneWas.y + 60);
+
+  // One write: the Zone moved, and what it holds is still where it was in it.
+  expect(kept(fleet, "read-in-risks-note-2")).toEqual(noteWas);
+  const drawn = box(/^Note: Watch for a `scope` change/);
+  const frame = box("Zone");
+  expect(Math.round(drawn.top - drawnWas.top)).toBe(Math.round(frame.top - frameWas.top));
+  expect(holds(box("Cluster: Risks to watch"), drawn)).toBe(true);
+});
+
+test("a Zone is put down from the rail, and a Note dropped on it goes in", async () => {
+  const fleet = await openEditable();
+  const zones = () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "zone");
+
+  await page.getByRole("button", { name: "Add a Zone" }).click();
+  // **React Flow's pane has no role**, so it is found by its class, and the press lands on a
+  // point checked to be the pane itself rather than a node over it.
+  const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
+  const loose = box(/^Note: Ask whether a Judge/);
+  const area = pane.getBoundingClientRect();
+  let at: { x: number; y: number } | undefined;
+  for (let y = area.bottom - 80; at === undefined && y > area.top; y -= 40) {
+    for (let x = area.left + 120; at === undefined && x < area.right - 120; x += 40) {
+      if (document.elementFromPoint(x, y) === pane) at = { x, y };
+    }
+  }
+  await userEvent.click(page.elementLocator(pane), { position: { x: at!.x - area.left, y: at!.y - area.top } });
+  await expect.poll(() => zones().length).toBe(2);
+  const added = zones().find((one) => one.id !== "read-in-zone")!;
+
+  await expect.poll(() => node("Zone").elements().length).toBe(2);
+  const empty = node("Zone").elements().map((one) => one.getBoundingClientRect()).find((one) => !holds(one, box(/^Finding/)))!;
+  drag(node(/^Note: Ask whether a Judge/).element(), empty.left + empty.width / 2 - (loose.left + loose.width / 2), empty.top + 60 - (loose.top + 12));
+  await expect.poll(() => kept(fleet, "read-in-loose").within).toBe(added.id);
+});

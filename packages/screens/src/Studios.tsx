@@ -11,7 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2 } from "lucide-react";
+import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2, VectorSquare, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   ACTION,
@@ -22,7 +22,6 @@ import {
   CardHeader,
   CardTitle,
   Dialog,
-  DropdownMenu,
   GraphCanvasNodeBar,
   GraphCanvasRailGroup,
   SplitButton,
@@ -109,6 +108,7 @@ const ADD_BY_HAND: readonly { kind: StudioNodeByHandKind; icon: LucideIcon; shor
   { kind: "note", icon: StickyNote, ...bindingOf("add_note") },
   { kind: "link", icon: LinkGlyph, ...bindingOf("add_link") },
   { kind: "sketch", icon: Shapes, ...bindingOf("add_sketch") },
+  { kind: "zone", icon: VectorSquare, ...bindingOf("add_zone") },
 ];
 
 /** One act's binding, or nothing where the registry gives it none. */
@@ -119,6 +119,16 @@ function bindingOf(act: string): { shortcut?: string } {
 
 /** What the rail is, and what hovers over what is picked. */
 const RAIL_LABEL = "What you can put on this Studio";
+
+/** Why Run is off, said in its tooltip — `docs/contracts/iconography.md`, *The canvas rail*. */
+const RUN_READ_ONLY = "Continue this Studio to run something.";
+const RUN_NOT_LIVE = "Fleet is not connected, so nothing can be run.";
+/** Why Note, Link, Sketch and Zone are off — the owner, 2 Oct 2026: every act greyed, never hidden. */
+const ADD_READ_ONLY = "Continue this Studio to add to it.";
+const ADD_NOT_LIVE = "Fleet is not connected, so nothing can be added.";
+const RUN_SHEET_READING = "Reading what this checkout declares.";
+const RUN_SHEET_FAILED = "What this checkout declares could not be read.";
+const RUN_NOTHING_DECLARED = "This checkout declares nothing a Studio can run.";
 
 const PICKED_LABEL = "What is picked";
 
@@ -179,7 +189,8 @@ export type StudiosProps = {
    * owns**, so leaving the Studio does not take them off its pad.
    */
   onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
-  onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
+  /** Where a person put a node down: its spot from the corner of the frame it landed in, `null` the board. */
+  onMoveNode: (nodeId: string, position: { x: number; y: number }, within: string | null) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
    * node or eighteen, and **all of them or none**: Fleet takes the whole
@@ -546,6 +557,14 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       sketch.placed({ x: Math.round(at.x), y: Math.round(at.y) });
       return;
     }
+    // A Zone holds no words, so it lands where it was put down, empty, with
+    // no field — and a node dropped on it goes in. #1620.
+    if (arming === "zone") {
+      setDraft(null);
+      setArming(null);
+      void props.onAddNode({ kind: "zone" }, { x: Math.round(at.x), y: Math.round(at.y) }).then(answered);
+      return;
+    }
     drafted += 1;
     written.current = null;
     setAddRefused(null);
@@ -746,10 +765,12 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           // from the edge it was about.
           onDecide={decide}
           deciding={deciding}
-          onNodeMoved={(nodeId, position) => {
+          onNodeMoved={(nodeId, position, within) => {
             // The whiteboard refuses a move while read-only already. This is the second lock.
             if (!editable) return;
-            void props.onMoveNode(nodeId, { x: Math.round(position.x), y: Math.round(position.y) }).then(answered);
+            void props
+              .onMoveNode(nodeId, { x: Math.round(position.x), y: Math.round(position.y) }, within)
+              .then(answered);
           }}
           onSelectionChange={(ids) => {
             // **The same list keeps its identity.** React Flow re-subscribes whenever this handler
@@ -761,7 +782,15 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             onSelectNode(ids[0] ?? null);
           }}
           rail={
-            editable ? <AddRail armed={arming} onArm={arm} /> : undefined
+            <AddRail
+              addOff={addOff(open.editable, live)}
+              armed={arming}
+              onArm={arm}
+              starts={starts}
+              starting={starting}
+              runOff={runOff(open.editable, live, props.runSheet)}
+              onStart={start}
+            />
           }
           placing={editable && arming !== null}
           {...(editable ? { onPaste: pasted } : {})}
@@ -807,13 +836,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             </GraphCanvasNodeBar>
           }
         >
-          {editable && starts.length > 0 ? (
-            <Card aria-label="Run">
-              <CardContent>
-                <StartRun starts={starts} saving={starting} onStart={start} />
-              </CardContent>
-            </Card>
-          ) : null}
           {studio.nodes.length === 0 ? (
             <Card>
               <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
@@ -857,57 +879,75 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 }
 
 /**
- * The `Run` control, on the board's own aside — #1345.
- *
- * **A component and not markup**, because `useStudioPlacement` reads the
- * viewport React Flow holds, and only a component drawn inside the board is
- * inside that provider. What it buys is the rule: the Run node lands where the
- * person is looking rather than at the origin.
+ * Why Run is off, or nothing where it is on. **Read-only first**, because
+ * Continue is the press that turns it on; then the connection; then what the
+ * checkout declares.
  */
-function StartRun(props: {
-  starts: readonly StudioStart[];
-  saving: boolean;
-  onStart: (start: StudioStart, position: StudioPosition) => void;
-}) {
-  const place = useStudioPlacement();
-  const entries = studioStartEntries(props.starts);
-  if (entries === undefined) return null;
-  return (
-    <DropdownMenu
-      triggerLabel="Run"
-      disabled={props.saving}
-      entries={entries}
-      onSelect={(id) => {
-        const started = props.starts.find((one) => one.id === id);
-        if (started !== undefined) props.onStart(started, place());
-      }}
-    />
-  );
+function runOff(editable: boolean, live: boolean, sheet: CheckoutRunSheetRead): string | undefined {
+  if (!editable) return RUN_READ_ONLY;
+  if (!live) return RUN_NOT_LIVE;
+  if (sheet.state === "failed") return RUN_SHEET_FAILED;
+  if (sheet.state !== "read") return RUN_SHEET_READING;
+  return studioStarts(sheet).length === 0 ? RUN_NOTHING_DECLARED : undefined;
+}
+
+/** Why the kinds are off, or nothing where they are on. Read-only first, as Run's. */
+function addOff(editable: boolean, live: boolean): string | undefined {
+  if (!editable) return ADD_READ_ONLY;
+  return live ? undefined : ADD_NOT_LIVE;
 }
 
 /**
- * The rail's tool group: one icon per kind a person puts on a Studio by hand.
+ * The rail's place group: one icon per kind a person puts on a Studio by hand,
+ * and Run. **A kind's press arms it and puts nothing down**: the next press on
+ * empty board puts it there — the owner's notes of 28 Sep and 1 Oct 2026.
  *
- * **It replaced the `+ Node` panel and its menu** — the owner's note of 28 Sep
- * 2026, which asked for a vertical bar of icons on the canvas's left. **A press
- * arms the kind and puts nothing down**: the next press on empty board puts it
- * there — the owner's notes of 1 Oct 2026, which refused the panel the field
- * was written in, and then a node that landed wherever placement chose.
+ * **Run opens the checkout's commands and its node lands where the person is
+ * looking** — the owner, 2 Oct 2026. `useStudioPlacement` reads the viewport
+ * React Flow holds, which the rail is inside. **While read-only every act is
+ * drawn off with their reason**, so the rail is the same in both modes.
  */
 function AddRail({
+  addOff: off,
   armed,
   onArm,
+  starts,
+  starting,
+  runOff: why,
+  onStart,
 }: {
+  addOff: string | undefined;
   armed: StudioNodeByHandKind | null;
   onArm: (kind: StudioNodeByHandKind) => void;
+  starts: readonly StudioStart[];
+  /** A start is out to Fleet, so the menu does not send a second. */
+  starting: boolean;
+  runOff: string | undefined;
+  onStart: (start: StudioStart, position: StudioPosition) => void;
 }) {
-  const acts: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
+  const place = useStudioPlacement();
+  const kinds: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
     icon,
     pressed: armed === kind,
-    ...(shortcut === undefined ? {} : { shortcut }),
+    // Off, the key is dead too, so the tooltip offers no binding beside the reason.
+    ...(off === undefined ? (shortcut === undefined ? {} : { shortcut }) : { disabled: true, why: off }),
     onPress: () => onArm(kind),
   }));
-  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={acts} />;
+  const run: GraphCanvasRailAct = {
+    id: "run",
+    name: STUDIO_NODE_KIND.run,
+    icon: Zap,
+    disabled: why !== undefined || starting,
+    ...(why === undefined ? {} : { why }),
+    menu: {
+      entries: studioStartEntries(starts) ?? [],
+      onSelect: (id) => {
+        const started = starts.find((one) => one.id === id);
+        if (started !== undefined) onStart(started, place());
+      },
+    },
+  };
+  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={[...kinds, run]} />;
 }

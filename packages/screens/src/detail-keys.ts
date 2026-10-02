@@ -12,44 +12,23 @@
 //
 // | Key | `actions.toml` | Here |
 // |---|---|---|
-// | `j` `k` `↓` `↑` | `move_focus`, scope `list and detail` | move between the rows of the log the cursor is in |
-// | `h` `l` `←` `→` | `disclose`, scope `detail` | open and close the focused log entry's payload |
 // | `f` | `open_diff`, scope `detail` | open the diff sheet |
 // | `b` | `report_job`, scope `detail` | open the dialog that says this job failed in error |
 // | `r` | `run`, scope `detail` | open the run sheet, nothing selected — Journey 9 |
 // | `n` | `new_job`, scope `anywhere` | open the composer — the Board's own key, answered the same way here |
 // | `Esc` | `back`, scope `detail` | the list, and `App.tsx` owns it |
 //
-// # It names what it opens, and holds what it opened
+// # No cursor, and no keys that move one
 //
-// This file used to find its controls by the class names the components ship —
-// `.armada-srow__name`, `button.armada-entry`, `.armada-story__chapter`,
-// `button.armada-phases__control` — and press them. It worked, and it was a
-// component's internals leaking into the app: a class rename broke the keyboard
-// with nothing to catch it, because typecheck cannot see a string selector.
-// #271.
-//
-// **The state moved here instead.** This file holds which log row is showing
-// its payload, and the screen passes it down. Opening a thing is naming it now,
-// and a name is a value the compiler reads.
-//
-// # Focus is still the cursor, because nothing draws another one
-//
-// `j`/`k` move between rows and a row is a control; there is no prop for "the
-// row the keyboard is on", and a cursor held in state that nothing renders is a
-// cursor nobody can see. So the rows the cursor roves are still found in the
-// document — but by a name **this app writes itself**: the payload id `Log`
-// gives every row. A rename of it is a rename in this package, and it is one
-// the compiler follows.
-//
-// Hover on the strip is not among them and never will be: it reports where the
-// pointer is, not what a reader decided.
+// `j` `k` `↓` `↑` moved between a log's rows and `h` `l` `←` `→` opened the
+// focused row's payload. Both went when the activity log did (#1761): nothing
+// on the Overview draws a log now, so they reached nothing, and the arrows are
+// the browser's again. `j`/`k` are still `move_focus` on the Board's list, in
+// `keys.ts`.
 
-import { useEffect, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useRef } from "react";
 
 import { holdsText } from "./keys";
-import { LOG_REGION, rowOfPayload } from "./Log";
 
 /* `FLEET_LOG` was here, naming the region that drew what Fleet did to the Job
    itself. That region is gone: it and the holdings card both answered *what is
@@ -60,10 +39,6 @@ import { LOG_REGION, rowOfPayload } from "./Log";
 
 /** What a press on job detail means. `null` is a key this surface does not carry. */
 export type DetailPress =
-  /** `j` `k` `↓` `↑` — move the cursor within whichever list holds it. */
-  | { act: "move"; by: 1 | -1 }
-  /** `h` `l` `←` `→` — open or close what the focused row holds. */
-  | { act: "disclose"; open: boolean }
   /** `f` — open the Job's patch, on the layer that can hold it. */
   | { act: "diff" }
   /** `o` — open a Check's output, on the layer that can hold it. */
@@ -93,25 +68,11 @@ export function detailPressOf(event: KeyboardEvent): DetailPress | null {
   // the rail's `⌘1`–`⌘5`, and `⌘[` `⌘]` for back and forward.
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
   if (holdsText(event.target)) return null;
-  // A held key repeats. Only movement accepts one — a repeat that opened
+  // A held key repeats, and nothing here accepts one — a repeat that opened
   // fourteen diffs is a repeat nobody asked for.
-  const moves =
-    event.key === "j" || event.key === "k" || event.key === "ArrowDown" || event.key === "ArrowUp";
-  if (event.repeat && !moves) return null;
+  if (event.repeat) return null;
 
   switch (event.key) {
-    case "j":
-    case "ArrowDown":
-      return { act: "move", by: 1 };
-    case "k":
-    case "ArrowUp":
-      return { act: "move", by: -1 };
-    case "l":
-    case "ArrowRight":
-      return { act: "disclose", open: true };
-    case "h":
-    case "ArrowLeft":
-      return { act: "disclose", open: false };
     case "f":
       return { act: "diff" };
     case "o":
@@ -215,66 +176,30 @@ export type DetailShape = {
   onCompose: () => void;
 };
 
-/** The open state this file holds, in the shape the screen takes it in. */
-export type DetailKeys = {
-  /**
-   * What one log takes: its own name, the row of *its* rows that is open, and
-   * how to say one was pressed. **Per log**, so two logs over one stream,
-   * which hold equal ids, never open a row in both at once.
-   */
-  inLog: (region: string) => {
-    region: string;
-    openId: string | null;
-    onOpen: (rowId: string | null) => void;
-  };
-};
-
-/** A row of a log, which is a row and the log it is in. */
-type OpenEntry = { region: string; row: string };
-
 /**
- * Bind the detail's contextual tier, and hold what it opened.
+ * Bind the detail's contextual tier.
  *
  * The listener is bound once, for the life of the open Job, and reads the
  * screen through a ref: the run and the story are rebuilt on every tick of the
  * clock, and a listener re-bound sixty times a minute is a listener that is
  * sometimes not bound at all.
  */
-export function useDetailKeys(shape: DetailShape): DetailKeys {
-  const [openEntry, setOpenEntry] = useState<OpenEntry | null>(null);
-
+export function useDetailKeys(shape: DetailShape): void {
   const held = useRef(shape);
   useEffect(() => {
     held.current = shape;
-  });
-
-  const moves = useRef<Moves>({
-    entry: setOpenEntry,
   });
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
       const press = detailPressOf(event);
       if (press === null) return;
-      if (act(press, held.current, moves.current)) event.preventDefault();
+      if (act(press, held.current)) event.preventDefault();
     }
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
   }, []);
-
-  return {
-    inLog: (region) => ({
-      region,
-      openId: openEntry?.region === region ? openEntry.row : null,
-      onOpen: (row) => setOpenEntry(row === null ? null : { region, row }),
-    }),
-  };
 }
-
-/** What a press can move. Passed as one so `act` stays a function. */
-type Moves = {
-  entry: Dispatch<SetStateAction<OpenEntry | null>>;
-};
 
 /**
  * Carry out a press.
@@ -282,17 +207,9 @@ type Moves = {
  * **`false` where nothing was there to act on**, so the caller knows not to
  * swallow the key — `f` on a Job with no diff should leave the browser's own
  * behaviour alone rather than silently eating the press.
- *
- * Every mover takes the updater form. A state updater runs twice under
- * StrictMode, so each one is a pure reading of what was open and nothing else
- * happens inside them.
  */
-function act(press: DetailPress, shape: DetailShape, on: Moves): boolean {
+function act(press: DetailPress, shape: DetailShape): boolean {
   switch (press.act) {
-    case "move":
-      return move(press.by);
-    case "disclose":
-      return disclose(press.open, on);
     case "diff":
       return diff(shape);
     case "output":
@@ -361,72 +278,6 @@ function raiseTurns(shape: DetailShape): boolean {
   if (shape.onRaiseTurnCap === undefined) return false;
   shape.onRaiseTurnCap();
   return true;
-}
-
-/** A row the cursor can be on: what it is called, and the control it is. */
-type Row = { id: string; control: HTMLElement };
-
-/** A row of a log, which is one of those and the log it was drawn in. */
-type Entry = Row & { region: string };
-
-/**
- * The log's rows, in document order and across every log the story is drawing.
- * A row is named by the payload it points at, which `Log` writes and nothing
- * else reads.
- */
-function entryRows(): Entry[] {
-  return [...document.querySelectorAll<HTMLElement>(`[${LOG_REGION}] button`)].flatMap(
-    (control) => {
-      const id = rowOfPayload(control.getAttribute("aria-controls"));
-      const region = control.closest(`[${LOG_REGION}]`)?.getAttribute(LOG_REGION);
-      return id === null || region == null ? [] : [{ id, control, region }];
-    },
-  );
-}
-
-/** Whether a row is the one the cursor is on. */
-function under(row: Row): boolean {
-  const focused = document.activeElement;
-  return row.control === focused || (focused !== null && row.control.contains(focused));
-}
-
-/**
- * Move the cursor between the rows of the log that holds it. Focus outside a
- * log is left alone, and the press with it.
- */
-function move(by: 1 | -1): boolean {
-  const inLog = document.activeElement?.closest(`[${LOG_REGION}]`) != null;
-  if (!inLog) return false;
-  const rows = entryRows();
-  if (rows.length === 0) return false;
-  const at = rows.findIndex(under);
-  // Wrapping is deliberate: these are short lists a person roves rather than
-  // scrolls, and a cursor that stops dead at the end of six rows is a cursor
-  // somebody presses `j` at twice.
-  const next = at < 0 ? 0 : (at + by + rows.length) % rows.length;
-  rows[next]?.control.focus();
-  return true;
-}
-
-/**
- * Open or close the payload of the log entry under the cursor.
- *
- * **It is named, never pressed.** A payload already open stays open on
- * `l` and closes on `h`; pressing regardless would make the two keys one
- * toggle, which is what having two of them is for avoiding.
- */
-function disclose(open: boolean, on: Moves): boolean {
-  if (!(document.activeElement instanceof HTMLElement)) return false;
-
-  const entry = entryRows().find(under);
-  if (entry !== undefined) {
-    const now = { region: entry.region, row: entry.id };
-    on.entry((was) =>
-      open ? now : was?.region === now.region && was.row === now.row ? null : was,
-    );
-    return true;
-  }
-  return false;
 }
 
 /**

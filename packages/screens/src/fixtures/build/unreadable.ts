@@ -33,7 +33,6 @@ export function unreadable(): JobFixture {
     journalled: NO_JOURNALLED,
     resources: { state: "failed", jobId: JOB_ID, outcome: FLEET_DID_NOT_ANSWER },
     recorded: foldedReads(),
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: NOW,

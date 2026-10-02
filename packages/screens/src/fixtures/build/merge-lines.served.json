@@ -1,0 +1,61 @@
+{
+  "lines": [
+    {
+      "root": "/repo",
+      "line": [
+        { "branch": "fleet/helm-kills-processes", "place": 1, "state": "waiting" },
+        {
+          "branch": "docs/wire-lock-signed",
+          "place": 2,
+          "state": "gating",
+          "doing": "reading verify-foundations against main",
+          "batch": "docs/wire-lock-signed"
+        },
+        {
+          "branch": "worktree-agent-a",
+          "place": 3,
+          "state": "gating",
+          "doing": "reading verify-foundations against main",
+          "batch": "docs/wire-lock-signed"
+        },
+        {
+          "branch": "fleet/gate-policy-every-run",
+          "place": 4,
+          "state": "gating",
+          "doing": "merging main (c527f60e09) into fleet/gate-policy-every-run",
+          "batch": "docs/wire-lock-signed"
+        },
+        {
+          "branch": "fleet/push-the-base",
+          "place": 5,
+          "state": "merging",
+          "doing": "pushing the merge onto main"
+        },
+        {
+          "branch": "fleet/read-in-cluster-membership",
+          "place": 6,
+          "pull_request": { "number": 1770, "url": "https://git.example/armada-dev/armada/pull/1770" },
+          "state": "waiting"
+        }
+      ],
+      "off": [
+        {
+          "branch": "bridge/overview-strip-width",
+          "state": "conflict",
+          "conflicts": ["apps/desktop/src/renderer/src/App.tsx"]
+        },
+        {
+          "branch": "fleet/pulse-log-rows",
+          "pull_request": { "number": 1768, "url": "https://git.example/armada-dev/armada/pull/1768" },
+          "state": "red",
+          "failed": ["desktop_test", "screens_test"]
+        },
+        {
+          "branch": "bridge/land-board-reads-plainly",
+          "state": "landed",
+          "merge_commit": "29064cc27aaf70cbbb924eee1d2212693540c9ad"
+        }
+      ]
+    }
+  ]
+}

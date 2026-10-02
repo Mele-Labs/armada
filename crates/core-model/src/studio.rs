@@ -100,6 +100,36 @@ pub struct StudioPosition {
     pub y: i64,
 }
 
+impl StudioPosition {
+    /// This position measured from `corner` rather than from the origin.
+    pub fn from_corner(self, corner: StudioPosition) -> StudioPosition {
+        StudioPosition {
+            x: self.x - corner.x,
+            y: self.y - corner.y,
+        }
+    }
+
+    /// This position, measured from `corner`, as the origin measures it.
+    pub fn past(self, corner: StudioPosition) -> StudioPosition {
+        StudioPosition {
+            x: self.x + corner.x,
+            y: self.y + corner.y,
+        }
+    }
+}
+
+impl StudioGraph {
+    /// Where a node sits on the board itself: its position added to that of
+    /// every frame it is inside. `None` where no node on this Studio is `id`.
+    pub fn on_the_board(&self, id: &StudioNodeId) -> Option<StudioPosition> {
+        let node = self.nodes.iter().find(|node| node.id() == id)?;
+        match node.within() {
+            None => Some(node.position()),
+            Some(frame) => Some(node.position().past(self.on_the_board(frame)?)),
+        }
+    }
+}
+
 /// Declare a closed set spelled on the wire, with `ALL`, `as_wire` and
 /// `from_wire` written once.
 macro_rules! spelled {
@@ -135,6 +165,9 @@ spelled! {
         Run => "run",
         Note => "note",
         Cluster => "cluster",
+        /// Other nodes, ringed off so they move together. `#1620`, decided
+        /// with the owner on 28 Sep 2026 and built on 2 Oct 2026.
+        Zone => "zone",
         Finding => "finding",
         Contradiction => "contradiction",
         Sketch => "sketch",
@@ -299,6 +332,7 @@ impl StudioNodeKind {
             StudioNodeKind::Run
             | StudioNodeKind::Note
             | StudioNodeKind::Cluster
+            | StudioNodeKind::Zone
             | StudioNodeKind::Link
             | StudioNodeKind::File
             | StudioNodeKind::Picture
@@ -360,7 +394,21 @@ impl StudioNodeKind {
                 | StudioNodeKind::Sketch
                 | StudioNodeKind::File
                 | StudioNodeKind::Picture
+                | StudioNodeKind::Zone
         )
+    }
+
+    /// Whether a node of `kind` may sit inside a frame of this kind.
+    ///
+    /// **A Zone holds anything but another Zone, and a Cluster holds its
+    /// Notes.** Nothing else holds anything, so a frame is at most two deep —
+    /// a Note in a Cluster in a Zone — and no chain of them can loop.
+    pub fn holds(&self, kind: StudioNodeKind) -> bool {
+        match self {
+            StudioNodeKind::Zone => kind != StudioNodeKind::Zone,
+            StudioNodeKind::Cluster => kind == StudioNodeKind::Note,
+            _ => false,
+        }
     }
 }
 
@@ -465,8 +513,11 @@ pub enum StudioNodeContent {
         said: String,
         capture: Option<StudioCapture>,
     },
-    /// Notes a person accepted as one thing.
+    /// Notes a person accepted as one thing, drawn as a frame around them.
     Cluster { title: String },
+    /// Other nodes, ringed off so they move together. **Nothing of its own**:
+    /// what a Zone holds is every node whose `within` names it.
+    Zone,
     /// What a scout was asked, and what it read.
     Finding(StudioFinding),
     /// Two sources that disagree, and the answer where a person settled it
@@ -591,6 +642,7 @@ impl StudioNodeContent {
             StudioNodeContent::Run { .. } => StudioNodeKind::Run,
             StudioNodeContent::Note { .. } => StudioNodeKind::Note,
             StudioNodeContent::Cluster { .. } => StudioNodeKind::Cluster,
+            StudioNodeContent::Zone => StudioNodeKind::Zone,
             StudioNodeContent::Finding(_) => StudioNodeKind::Finding,
             StudioNodeContent::Contradiction { .. } => StudioNodeKind::Contradiction,
             StudioNodeContent::Sketch { .. } => StudioNodeKind::Sketch,
@@ -626,8 +678,9 @@ impl StudioNodeContent {
             // name is a Link, and both are normalised to absent, never blank.
             StudioNodeContent::Link { address, .. } => &[("address", address)],
             StudioNodeContent::File { path } => &[("path", path)],
-            // The frame is Fleet's to name, so nothing a person typed is here.
-            StudioNodeContent::Picture { .. } => &[],
+            // The frame is Fleet's to name, so nothing a person typed is here,
+            // and a Zone holds no words at all.
+            StudioNodeContent::Picture { .. } | StudioNodeContent::Zone => &[],
             // Neither `title` nor `state` is here: what the forge says is
             // absent until the node is read in, never blank.
             StudioNodeContent::Issue {
@@ -775,6 +828,11 @@ pub struct StudioNode {
     id: StudioNodeId,
     content: StudioNodeContent,
     state: Option<StudioNodeState>,
+    /// The frame it sits in — a Zone, or a Note's Cluster — or `None` on the
+    /// board itself. [`position`](StudioNode::position) is measured from that
+    /// frame's corner, so moving a frame moves what it holds with no write to
+    /// any of them.
+    within: Option<StudioNodeId>,
     position: StudioPosition,
     created_at: Timestamp,
     /// `None` only on a node added before who added it was kept.
@@ -802,6 +860,7 @@ impl StudioNode {
             id,
             content,
             state,
+            within: None,
             position,
             created_at,
             added_by: Some(by),
@@ -830,6 +889,7 @@ impl StudioNode {
             id,
             content,
             state,
+            within: None,
             position,
             created_at,
             added_by,
@@ -841,6 +901,17 @@ impl StudioNode {
         StudioNode {
             position: to,
             ..self.clone()
+        }
+    }
+
+    /// The same node in a frame, at `to` from that frame's corner, or on the
+    /// board where `within` is `None`. **Moving, still**: which frame a node
+    /// sits in is where it is, and its content is untouched.
+    pub fn placed(self, within: Option<StudioNodeId>, to: StudioPosition) -> StudioNode {
+        StudioNode {
+            within,
+            position: to,
+            ..self
         }
     }
 
@@ -856,8 +927,12 @@ impl StudioNode {
     pub fn state(&self) -> Option<StudioNodeState> {
         self.state
     }
+    /// Where it sits, from the corner of the frame it is [`within`](Self::within).
     pub fn position(&self) -> StudioPosition {
         self.position
+    }
+    pub fn within(&self) -> Option<&StudioNodeId> {
+        self.within.as_ref()
     }
     pub fn created_at(&self) -> &Timestamp {
         &self.created_at

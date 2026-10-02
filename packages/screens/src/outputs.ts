@@ -1,6 +1,6 @@
 // What a Check printed, fetched by the person who opened the Check.
 //
-// **`calls.ts`'s shape one record over, and for its reasons.** Every other read
+// **Answered once, not published.** Every other read
 // Bridge makes is published by main and kept current, because the thing it
 // draws moves as the Job does. A recorded output is finished the moment the
 // Check exited, and it is asked for by one reader about one Check — putting it

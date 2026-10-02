@@ -22,17 +22,22 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  * would answer a press and the key would not.
  */
 
-export type StudioNodeByHandKind = "note" | "link" | "sketch";
+export type StudioNodeByHandKind = "note" | "link" | "sketch" | "zone";
 
-/** The kinds written in a field here. A Sketch is drawn on the pad instead. */
-export type StudioNodeWrittenKind = Exclude<StudioNodeByHandKind, "sketch">;
+/**
+ * The kinds written in a field here. A Sketch is drawn on the pad instead, and
+ * a Zone holds no words, so it lands where it is put down with no field.
+ */
+export type StudioNodeWrittenKind = Exclude<StudioNodeByHandKind, "sketch" | "zone">;
 
 export type StudioNodeByHand =
   | { kind: "note"; said: string }
   /** `said` is the line beside the address, absent where none was typed. `#1378`. */
   | { kind: "link"; address: string; said?: string }
   /** A path, pasted onto the board. **No field writes one**, so it is no `StudioNodeByHandKind`. */
-  | { kind: "file"; path: string };
+  | { kind: "file"; path: string }
+  /** An empty Zone, put down where the board was pressed. #1620. */
+  | { kind: "zone" };
 
 export type StudioAddNodeProps = {
   /** The kind being written, or `null` for the menu alone. */
@@ -72,6 +77,7 @@ const ACT: Readonly<Record<StudioNodeByHandKind, string>> = {
   note: "add_note",
   link: "add_link",
   sketch: "add_sketch",
+  zone: "add_zone",
 };
 
 /** What the field is called, what it asks for, and how tall it is drawn. */
@@ -85,9 +91,10 @@ const NAMED: Readonly<Record<StudioNodeByHandKind, string>> = {
   note: "Note",
   link: "Link",
   sketch: "Sketch",
+  zone: "Zone",
 };
 
-const KINDS: readonly StudioNodeByHandKind[] = ["note", "link", "sketch"];
+const KINDS: readonly StudioNodeByHandKind[] = ["note", "link", "sketch", "zone"];
 
 /**
  * What reading an address in produces, said before anybody presses it —

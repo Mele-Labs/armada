@@ -35,7 +35,7 @@ Groups exist because a parallel schedule cannot be derived. Intersecting the tas
 | `scope` | Task | The repository-relative paths this task touches |
 | `expects` | Task | What should prove it, written by the step that plans |
 | `shown` | Task | What did prove it, written by the step that does the work |
-| `state` | Task | `open`, `working`, `done`, `dropped`. A fifth, `failed`, is decided and not built |
+| `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; nothing writes `handed_in` or `failed` yet |
 | `reason` | Task | Required when `state` is `dropped` |
 | `concurrent_with` | Task | Which tasks in its group may run at the same time, declared by the planner. *Not yet built* |
 
@@ -80,7 +80,11 @@ them is still on the branch, so the plan does not reset with the step.
 
 **Not yet built.** Fleet marks a task `working` when it dispatches a Drone for it and `done` when the group's Checks come back green, in place of a Drone claiming both afterwards. On the Job of 18 Sep three tasks flipped to `done` within 1.6 seconds of each other and five never entered `working` at all, which is what a self-reported state is worth.
 
-**`failed` is the state that has nowhere to go today.** A task whose group's Checks went red is not `open`, not `working`, not `done` and not `dropped`. Fleet writes it, and the retry that re-runs the group is what clears it.
+**`handed_in` is the state in between**, the owner's answer 1 in spike 022: the task's agent handed its work in and the group's Checks have not answered. Done arrives at green. Slice 1b writes it.
+
+**`failed` is a task whose group's Checks went red.** It is not `open`, not `working`, not `done` and not `dropped`. Fleet writes it from slice 2, and the retry that re-runs the group is what clears it.
+
+**Neither is a Drone's or a person's to set.** `update_task` refuses both, because Fleet marks them from a hand-in and from a group's Checks.
 
 **A done task a later task edits stays done, and is flagged.** The work behind it is still on the branch, so nothing reopens it; what a person needs is to know that somebody wrote into its files afterwards, which the flag says and the state does not.
 

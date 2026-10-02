@@ -44,6 +44,7 @@ import type {
   TaskView,
   WaveView,
 } from "../../draft";
+import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
@@ -117,6 +118,8 @@ export type ArcDraft = {
   members?: JobMembersView;
   /** The wave this Job dispatched, and which of its Jobs waits on which. */
   wave?: WaveView;
+  /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
+  mergeLine?: MergeLineView;
 };
 
 /**

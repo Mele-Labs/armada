@@ -39,6 +39,66 @@ ALTER TABLE job_work_plan_changes ADD COLUMN expects TEXT;
 ALTER TABLE job_work_plan_changes ADD COLUMN shown TEXT;
 "#;
 
+/// Version 90 — a task may stand `handed_in` or `failed`, and a Judge or a
+/// Check may sign a row (spike 022, slice 1a).
+///
+/// **The signers change no column**: `job_events.actor` is unconstrained text.
+/// What they change is what a build can read, so the version moves and a build
+/// that knows 89 refuses this file at open rather than failing to fold a Job
+/// signed `judge`. The plan's `state` check is rebuilt to admit the two states
+/// for the same reason, though nothing writes either yet.
+///
+/// Rebuilt under a `_wide` name and renamed over, [`V13`](crate::schema)'s way,
+/// because SQLite cannot alter a check. Every column V59 and V80 gave it, in
+/// order, and its two triggers again: a dropped table takes its triggers.
+pub(crate) const V90: &str = r#"
+CREATE TABLE job_work_plan_changes_wide (
+    job_id     TEXT NOT NULL REFERENCES jobs(job_id),
+    seq        INTEGER NOT NULL CHECK (seq > 0),
+    change     TEXT NOT NULL CHECK (change IN ('recorded', 'added', 'updated')),
+    by_step    TEXT,
+    by_attempt INTEGER CHECK (by_attempt IS NULL OR by_attempt > 0),
+    at         TEXT NOT NULL,
+    approach   TEXT,
+    task_id    INTEGER CHECK (task_id IS NULL OR task_id > 0),
+    title      TEXT,
+    detail     TEXT,
+    after_task INTEGER CHECK (after_task IS NULL OR after_task > 0),
+    state      TEXT CHECK (state IS NULL OR state IN
+                   ('open', 'working', 'handed_in', 'done', 'failed', 'dropped')),
+    reason     TEXT,
+    scope      TEXT,
+    expects    TEXT,
+    shown      TEXT,
+    PRIMARY KEY (job_id, seq),
+    CHECK ((by_step IS NULL) = (by_attempt IS NULL)),
+    CHECK (state IS NULL OR ((state = 'dropped') = (reason IS NOT NULL AND trim(reason) <> '')))
+) STRICT;
+
+INSERT INTO job_work_plan_changes_wide (
+    job_id, seq, change, by_step, by_attempt, at, approach, task_id, title, detail,
+    after_task, state, reason, scope, expects, shown
+) SELECT job_id, seq, change, by_step, by_attempt, at, approach, task_id, title, detail,
+         after_task, state, reason, scope, expects, shown
+  FROM job_work_plan_changes;
+
+DROP TABLE job_work_plan_changes;
+ALTER TABLE job_work_plan_changes_wide RENAME TO job_work_plan_changes;
+
+CREATE TRIGGER job_work_plan_changes_are_never_edited
+BEFORE UPDATE ON job_work_plan_changes
+BEGIN
+    SELECT RAISE(ABORT, 'a plan change is never edited');
+END;
+
+CREATE TRIGGER job_work_plan_changes_are_never_removed_from_a_job_that_exists
+BEFORE DELETE ON job_work_plan_changes
+WHEN EXISTS (SELECT 1 FROM jobs WHERE jobs.job_id = OLD.job_id)
+BEGIN
+    SELECT RAISE(ABORT, 'a plan change is never removed from a Job that exists');
+END;
+"#;
+
 /// The scope list, as one column. **Newline-separated**, because a repository
 /// path cannot hold one and every other separator this repository uses appears
 /// in a path somewhere.

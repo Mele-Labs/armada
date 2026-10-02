@@ -6,11 +6,11 @@
 // lookup — `port` arrives as a function so this file never learns how a port
 // is found, only that one might not be.
 
-import type { BriefRead, CallRead, CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
-import { briefOf, callArgumentsOf, checkOutputOf, composingOf, frameOf } from "./request";
+import { briefOf, checkOutputOf, composingOf, frameOf } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -58,26 +58,14 @@ export class JobReads {
   }
 
   /**
-   * One recorded call's arguments — the rest of a row the socket cut.
-   *
-   * **It answers the caller and publishes nothing.** Every read above is held
-   * because the thing it draws moves; a recorded argument is finished, and it
-   * is one reader's gesture on one row rather than state the window renders
-   * from. Nothing connected is the caller's to say, so it comes back as the
-   * refusal every other operation here uses rather than as silence.
-   */
-  async readCall(jobId: string, callId: string): Promise<CallRead> {
-    const port = this.wiring.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    return await callArgumentsOf(port, jobId, callId);
-  }
-
-  /**
    * One Check's own output, for the person who opened that Check.
    *
-   * **`readCall`'s shape, for `readCall`'s reasons.** A recorded output does
-   * not move, so nothing here is held or republished; `kept` is the row's own
-   * file name and Fleet resolves it against its record, so this passes it
+   * **It answers the caller and publishes nothing.** Every read above is held
+   * because the thing it draws moves; a recorded output does not, and it is one
+   * reader's gesture on one Check rather than state the window renders from.
+   * Nothing connected is the caller's to say, so it comes back as the refusal
+   * every other operation here uses rather than as silence. `kept` is the row's
+   * own file name and Fleet resolves it against its record, so this passes it
    * through and composes nothing.
    */
   async readCheckOutput(jobId: string, kept: string): Promise<CheckOutputRead> {
@@ -115,7 +103,7 @@ export class JobReads {
 
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask
-   * answered, on All — #959. **`readCall`'s shape, for a repository rather
+   * answered, on All — #959. **`readCheckOutput`'s shape, for a repository rather
    * than a Job**: nothing here is held or republished, because it belongs to
    * the composer that asked and not to `BridgeState` — the Board stays on
    * All throughout, so nothing else on screen reads this repository at all.

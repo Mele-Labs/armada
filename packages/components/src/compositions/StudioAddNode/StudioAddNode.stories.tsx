@@ -24,7 +24,7 @@ type Story = StoryObj<typeof StudioAddNode>;
 export const Control: Story = {};
 
 /**
- * The three kinds a person writes by hand, each with the binding the registry
+ * The kinds a person puts down by hand, each with the binding the registry
  * gives it. A File and a Picture are pasted onto the board rather than written,
  * and every other kind is made by the act that earns it.
  */
@@ -33,7 +33,7 @@ export const Menu: Story = {
     const board = within(canvasElement);
     await userEvent.click(board.getByRole("button", { name: /Node/ }));
     const items = board.getAllByRole("menuitem");
-    await expect(items.map((item) => item.textContent)).toEqual(["NoteN", "LinkV", "SketchS"]);
+    await expect(items.map((item) => item.textContent)).toEqual(["NoteN", "LinkV", "SketchS", "ZoneZ"]);
     await userEvent.click(board.getByRole("menuitem", { name: /Note/ }));
     await expect(args.onAdding).toHaveBeenCalledWith("note");
   },

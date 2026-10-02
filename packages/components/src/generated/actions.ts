@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronLeft, ChevronRight, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, X } from "lucide-react";
+import { ChevronLeft, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, VectorSquare, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -200,7 +200,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: null,
     shortcut: "j / k / ↓ / ↑",
-    scope: "list and detail",
+    scope: "list",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -427,19 +427,6 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "disclose",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Expand and collapse",
-    icon: ChevronRight,
-    iconAbsent: null,
-    shortcut: "h / l / ← / →",
-    scope: "detail",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
     id: "move_in_plan",
     kind: "Action",
     tier: "Contextual",
@@ -551,6 +538,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "S",
+    scope: "open studio",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "add_zone",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Add a zone",
+    icon: VectorSquare,
+    iconAbsent: null,
+    shortcut: "Z",
     scope: "open studio",
     destructive: false,
     confirms: false,

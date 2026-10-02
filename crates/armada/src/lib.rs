@@ -29,6 +29,9 @@
 //! [`locating`](mod@locating) reads a folder a person adds into one more
 //! repository Fleet serves, and holds every watch.
 //!
+//! [`leasing`](mod@leasing) is `armada worktree`, the pool of warm
+//! worktrees agents lease.
+//!
 //! [`land`](mod@land) is `armada land`, ported from `scripts/land` in
 //! stages — state on disk, the gate's pure comparisons, and now the two
 //! reused worktrees, the turn lock and the detached runner. **Not yet a
@@ -39,6 +42,7 @@ pub mod clean;
 pub mod cli;
 pub mod declared;
 pub mod land;
+pub mod leasing;
 pub mod locating;
 pub mod loopback;
 pub mod mcp;

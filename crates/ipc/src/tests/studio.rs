@@ -26,6 +26,7 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             capture: None,
         },
         K::Cluster => C::Cluster { title: text() },
+        K::Zone => C::Zone,
         K::Finding => C::Finding(core_model::StudioFinding::asked(&text())),
         K::Contradiction => C::Contradiction {
             first: text(),

@@ -202,17 +202,6 @@ export function running(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_edit_1: {
-        ok: true,
-        call: {
-          tool: "Edit",
-          call: "call_edit_1",
-          arguments: "packages/settings/src/selectors.ts: extract selectColumnOrder",
-          whole: true,
-        },
-      },
-    },
     checkOutputs: {},
     frames: {},
     now: NOW,

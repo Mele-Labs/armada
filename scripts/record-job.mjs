@@ -118,14 +118,8 @@ const [observe, log] = await Promise.all([
 ]);
 
 // The reads a person opens on demand, and only the ones this Job's panel can
-// offer: a cut call's arguments, each Check's output, each frame a step kept.
+// offer: each Check's output, each frame a step kept.
 const detail = reads.detail.status === 200 ? reads.detail.body : { steps: [] };
-const calls = {};
-for (const message of observe.messages) {
-  if (message.message === "row" && message.event === "called" && message.truncated) {
-    calls[message.call] ??= await get(`/jobs/${id}/calls/${encodeURIComponent(message.call)}`);
-  }
-}
 const checkOutputs = {};
 const frames = {};
 for (const step of detail.steps ?? []) {
@@ -151,7 +145,6 @@ const recording = {
   manifests,
   observe,
   log,
-  calls,
   checkOutputs,
   frames,
 };
@@ -169,7 +162,7 @@ console.log(`  workflows  ${workflows.status}\n  manifests  ${manifests.status}`
 console.log(`  observe    ${observe.messages.length} messages, ${observe.open ? "still open" : "closed"}`);
 console.log(`  log        ${log.messages.length} messages, ${log.open ? "still open" : "closed"}`);
 console.log(
-  `  on demand  ${Object.keys(calls).length} calls, ${Object.keys(checkOutputs).length} Check outputs, ` +
+  `  on demand  ${Object.keys(checkOutputs).length} Check outputs, ` +
     `${Object.keys(frames).length} frames`,
 );
 console.log(`  scrubbed   ${replaced} occurrences; ${Math.round(text.length / 1024)} KiB written`);
