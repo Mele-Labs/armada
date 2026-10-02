@@ -146,6 +146,8 @@ checks:
       - "protocol-version.toml"
       - ".armada/workflows/**"
       - "armada.yml"
+      # Where a hung test is ended. docs/practices/rust.md, section 8.
+      - ".config/nextest.toml"
 
   acceptance:
     # A milestone's own claim, checked on its own so a red `acceptance` names
@@ -170,6 +172,7 @@ checks:
       - ".cargo/**"
       - "protocol-version.toml"
       - ".armada/workflows/**"
+      - ".config/nextest.toml"
 
   # The Bridge half — `build` and `test` say nothing about `apps/` or
   # `packages/`. Three, because none subsumes another. All need `node_modules`,

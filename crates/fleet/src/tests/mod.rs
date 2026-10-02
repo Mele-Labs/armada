@@ -175,6 +175,7 @@ mod scouting;
 mod second_opinion;
 pub(crate) mod seeding;
 mod sending_back;
+mod server_rows;
 pub(crate) mod servers;
 mod serving;
 mod session;

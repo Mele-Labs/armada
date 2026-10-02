@@ -75,7 +75,7 @@ async fn a_main_checkout_server_starts_level_with_the_checkout_it_serves() {
 
 /// A server with no port and no `ready`, so nothing but Fleet's own steps
 /// stands between its start and its being published as serving.
-const HELD_WITHOUT_A_PORT: &str = r#"version: 1
+pub(super) const HELD_WITHOUT_A_PORT: &str = r#"version: 1
 id: 01FIXTUREMANIFEST
 commands:
   idle:
@@ -159,11 +159,11 @@ async fn work_landing_tells_the_server_held_on_the_main_checkout() {
 /// A clock that, once armed, stops the first reading taken off the test's own
 /// thread until the test lets it go. The server's task reads it as it becomes
 /// serving, so this is where a merge is made to land.
-struct StopsTheServersReading {
-    ticking: crate::tests::planted::Ticking,
-    armed: std::sync::Mutex<Option<std::thread::ThreadId>>,
-    reached: std::sync::Barrier,
-    released: std::sync::Barrier,
+pub(super) struct StopsTheServersReading {
+    pub(super) ticking: crate::tests::planted::Ticking,
+    pub(super) armed: std::sync::Mutex<Option<std::thread::ThreadId>>,
+    pub(super) reached: std::sync::Barrier,
+    pub(super) released: std::sync::Barrier,
 }
 
 impl crate::clock::Clock for StopsTheServersReading {
@@ -312,7 +312,7 @@ async fn both_serving(watching: &mut Subscription, ids: [&str; 2]) -> Vec<Server
 /// **No deadline.** With no `ready`, Fleet publishes one or the other straight
 /// after the spawn, so the wait is bounded by that order and not by a clock a
 /// stalled machine can run out.
-async fn up_or_ended(watching: &mut Subscription, id: &str) -> ServerState {
+pub(super) async fn up_or_ended(watching: &mut Subscription, id: &str) -> ServerState {
     loop {
         match watching.next().await {
             Some(Next::Send(delivered)) => match delivered.event {
