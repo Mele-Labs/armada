@@ -16,8 +16,11 @@ export type ProposalCriterion = {
   /** Stable for the life of the proposal, where anything has minted one. */
   id?: string;
   text: string;
-  /** Where the words came from, as a person reads it. */
-  origin: string;
+  /**
+   * Where the words came from, as a person reads it. **Absent draws nothing**
+   * where nothing names it — a Job no person dispatched (`#1748` row 17).
+   */
+  origin?: string;
   /**
    * The issue those words came from, where they came from one.
    *
@@ -116,10 +119,14 @@ export function ProposalDoneWhen({
                 </div>
               )}
               <p className="armada-proposal__criterion-origin">
-                <Origin criterion={criterion} {...(onOpenIssue === undefined ? {} : { onOpenIssue })} />
-                <span className="armada-proposal__criterion-dot" aria-hidden="true">
-                  ·
-                </span>
+                {criterion.origin === undefined ? null : (
+                  <>
+                    <Origin criterion={criterion} {...(onOpenIssue === undefined ? {} : { onOpenIssue })} />
+                    <span className="armada-proposal__criterion-dot" aria-hidden="true">
+                      ·
+                    </span>
+                  </>
+                )}
                 <span>{criterion.decidedBy}</span>
               </p>
               {criterion.movedSince === undefined ? null : (
