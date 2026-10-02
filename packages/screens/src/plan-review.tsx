@@ -379,15 +379,23 @@ export function usePlanReview({
           .filter((one) => reading.beside.includes(one.id))
           .map((one) => taskCard(one, () => openTaskAt(one.id)));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
-  // below, these two, and Edit this task, each ahead of its route.
+  // below, these two, and Edit this task, each ahead of its route. A done task
+  // in a group the Judge refused offers Restart alone (owner, 2 Oct 2026).
+  const refused =
+    reading?.state === "done" &&
+    groups.some((group) => group.judge_refused === true && group.tasks.some((task) => task.id === reading.id));
   const acts =
-    reading === undefined || reading.state !== "failed"
+    reading === undefined
       ? undefined
-      : {
-          onPilot: () => void onTaskAct?.("pilot_task", job.id, reading.id),
-          onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id),
-          disabled: stale,
-        };
+      : reading.state === "failed"
+        ? {
+            onPilot: () => void onTaskAct?.("pilot_task", job.id, reading.id),
+            onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id),
+            disabled: stale,
+          }
+        : refused
+          ? { onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id), disabled: stale }
+          : undefined;
   // **Edit this task, on a task nothing is working on yet or any more**: open
   // or failed. A working task's Drone is mid-way through what the fields say,
   // and a done or dropped one has nothing left to change (owner, 30 Sep 2026).

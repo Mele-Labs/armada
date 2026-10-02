@@ -77,10 +77,12 @@ export function groupsAdding(groups: readonly GroupView[], id: string, add: AddT
  * Restart this task (#1656): the failed task reopened with its Drone on it,
  * which is where a real Fleet has it a turn later. `undefined` where the task
  * has not failed, as Fleet refuses one — in the plan, or in the draft groups an
- * arc moment draws instead (`failedInDraft`).
+ * arc moment draws instead (`failedInDraft`) — unless it is a done task in a
+ * group the Judge refused, which Fleet restarts too (owner, 2 Oct 2026).
  */
 export function planRestarting(plan: WorkPlan, taskId: string, failedInDraft = false): WorkPlan | undefined {
-  if (!failedInDraft && plan.tasks.find((task) => task.id === taskId)?.state !== "failed") return undefined;
+  const state = plan.tasks.find((task) => task.id === taskId)?.state;
+  if (!failedInDraft && state !== "failed" && !(state === "done" && judgeRefused(plan, taskId))) return undefined;
   return {
     ...plan,
     tasks: plan.tasks.map((task) => {
@@ -89,6 +91,18 @@ export function planRestarting(plan: WorkPlan, taskId: string, failedInDraft = f
       return { ...rest, state: "working" };
     }),
   };
+}
+
+/** Fleet's reading: the task's group last ended `gate_failure` with no task in it failed. */
+function judgeRefused(plan: WorkPlan, taskId: string): boolean {
+  const group = plan.groups?.find((one) => one.tasks.includes(taskId));
+  const last = group?.attempts?.at(-1);
+  return (
+    group !== undefined &&
+    last?.ended_at !== undefined &&
+    last.verdict?.trigger === "gate_failure" &&
+    !plan.tasks.some((task) => group.tasks.includes(task.id) && task.state === "failed")
+  );
 }
 
 /** The groups with the restarted task working, as `planRestarting` has it. */

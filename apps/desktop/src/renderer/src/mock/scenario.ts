@@ -63,7 +63,7 @@ import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } fro
 import { zoning } from "./studio-read-in";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
-import { featureRunInGroups } from "./job-groups-fixture";
+import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -496,6 +496,7 @@ export const SCENARIOS: readonly Scenario[] = [
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
   holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
+  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

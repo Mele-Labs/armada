@@ -3,7 +3,7 @@
 // group's card opens that group's own run (#1652).
 
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { mount, unmountAfterEach } from "./testing";
 
@@ -55,4 +55,45 @@ test("a red run of test names the group it held back from the record, not by inf
   await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByText("Exited 1 — 2 of 1104 failed")).toBeVisible();
   await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
+});
+
+// The owner's, 2 Oct 2026: a group's state is a mark with a tooltip naming it,
+// in the list as in the graph, and never a word.
+test("a group's state is a mark naming it, not a word", async () => {
+  await onThePlanList();
+  // The head's own mark, by its slot: a task's mark names its own state.
+  const head = (ordinal: number) => groupCard(ordinal).element().querySelector(".armada-plan-board__state");
+  expect([1, 2, 3].map((ordinal) => [head(ordinal)?.getAttribute("role"), head(ordinal)?.getAttribute("aria-label")])).toEqual([
+    ["img", "Passed"],
+    ["img", "Passed"],
+    ["img", "Failed"],
+  ]);
+  expect(groupCard(1).getByText("passed", { exact: true }).query()).toBeNull();
+});
+
+// The owner's, 2 Oct 2026: after a Judge refusal, run one task again is one
+// press. T4 reads done, since the Checks passed, and its panel offers Restart.
+test("a done task in a group the Judge refused offers Restart this task alone, and the press works it again", async () => {
+  await page.viewport(2000, 900);
+  mount("real/groups-judge-refused");
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "List" }).click();
+  await expect.element(taskRow("T4").getByRole("img", { name: "Done", exact: true })).toBeVisible();
+  await taskRow("T4").getByRole("button").first().click();
+  const panel = page.getByRole("dialog", { name: "Answer restart and move in the mock" });
+  const restart = panel.getByRole("button", { name: "Restart this task" });
+  await expect.element(restart).toBeVisible();
+  expect(panel.getByRole("button", { name: "Pilot", exact: true }).query()).toBeNull();
+  await restart.click();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(taskRow("T4").getByRole("img", { name: "Working", exact: true })).toBeVisible();
+  expect(page.getByText("Not implemented", { exact: true }).query()).toBeNull();
+});
+
+test("a done task in a group that passed offers no Restart", async () => {
+  await onThePlanList();
+  await taskRow("T1").getByRole("button").first().click();
+  const panel = page.getByRole("dialog", { name: "Draw a group's runs on its card" });
+  await expect.element(panel).toBeVisible();
+  expect(panel.getByRole("button", { name: "Restart this task" }).query()).toBeNull();
 });

@@ -11,6 +11,7 @@ const t4 = inside(GROUPS, role("listitem", /^T4 /));
 export const groupsRunByFleet = walk("real/groups-run-by-fleet", [
   { press: tab("Plan"), say: "Fleet's plan, in its own three groups" },
   { press: tab("List"), say: "Groups one and two passed, each with its commit" },
+  { hover: inside(groupOne, role("img", "Passed", { exact: true })), say: "A group's state is a mark, named on hover" },
   { hover: inside(t4, role("img", "Failed", { exact: true })), say: "T4 failed: group three was still red on its last run" },
   { press: inside(groupOne, button(/^Checks/)), say: "Group one's Checks" },
   { press: inside(groupOne, button("test, passed")), say: "Its own run of test, though group three ran test too" },

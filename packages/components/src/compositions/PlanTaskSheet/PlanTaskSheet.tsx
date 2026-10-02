@@ -171,10 +171,11 @@ export type PlanTaskDrone = Omit<DronePeekProps, "message">;
  * task offers four acts*: these two, Edit this task, and the message box.
  * **Pilot is on screen ahead of its Fleet route** (#250), so a press answers
  * `Not implemented` naming the issue until the route ships. Restart is served
- * since 23.4 (#1656).
+ * since 23.4 (#1656). **No `onPilot` draws Restart alone**: a done task in a
+ * group the Judge refused (owner, 2 Oct 2026).
  */
 export type PlanTaskActs = {
-  onPilot: () => void;
+  onPilot?: () => void;
   onRestart: () => void;
   /** Nothing is live to send it over. */
   disabled?: boolean;
@@ -502,9 +503,11 @@ function Acts({
       <div className="armada-task-sheet__acts">
         {acts === undefined ? null : (
           <>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
-              Pilot
-            </Button>
+            {acts.onPilot === undefined ? null : (
+              <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
+                Pilot
+              </Button>
+            )}
             <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
               Restart this task
             </Button>

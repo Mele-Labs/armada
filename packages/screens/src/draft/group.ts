@@ -63,6 +63,12 @@ export type GroupView = {
   retry_count: number;
   /** The commit the group left, where it left one. */
   commit?: string;
+  /**
+   * The Judge refused its last run after green Checks: `gate_failure` over
+   * tasks none of which failed, Fleet's own reading. Restart this task then
+   * answers each of its done tasks (owner, 2 Oct 2026). Absent otherwise.
+   */
+  judge_refused?: true;
 };
 
 /**
@@ -133,6 +139,13 @@ function servedGroupsOf(detail: JobDetail, served: readonly PlanGroup[]): GroupV
       if (group.ended_at !== undefined) view.ended_at = group.ended_at;
       if (verdict !== undefined) view.verdict = verdict;
       if (commit !== undefined) view.commit = commit;
+      const last = runs.at(-1);
+      if (
+        last?.ended_at !== undefined &&
+        last.verdict?.trigger === "gate_failure" &&
+        !own.some((task) => task.state === "failed")
+      )
+        view.judge_refused = true;
       return view;
     });
 }

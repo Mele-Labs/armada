@@ -146,3 +146,50 @@ export function featureRunInGroups(): JobFixture {
   };
   return { ...base, job, watched: { ...base.watched, detail } };
 }
+
+/**
+ * The same Job with group three's one run refused by the Judge after green
+ * Checks, as Fleet serves that: T4 stays done, the group's run ends
+ * `gate_failure`, the step stops and the Job escalates with its Drone idle.
+ * Restart this task answers T4 (owner, 2 Oct 2026).
+ */
+export function featureJudgeRefused(): JobFixture {
+  const base = featureRunInGroups();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const steps: StepDetail[] = whole.steps.map((step) =>
+    step.step_id !== "implement"
+      ? step
+      : {
+          ...step,
+          last_verdict: { attempt: 1, ...red },
+          attempts: [{ attempt: 1, outcome: "stopped", why: "gate_failure", started_at: AT(1), ended_at: AT(20) }],
+          check_runs: [...ranAt("G1", 1, 1, "passed"), ...ranAt("G2", 1, 1, "passed"), ...ranAt("G3", 1, 1, "passed")],
+          updated_at: AT(20),
+        },
+  );
+  const refusedRun = {
+    attempt: 1,
+    step_id: "implement",
+    step_attempt: 1,
+    started_at: AT(16),
+    ended_at: AT(20),
+    verdict: { attempt: 1, ...red },
+  };
+  const groups = GROUPS.map((group) =>
+    group.id !== "G3" ? group : { ...group, ended_at: AT(20), attempts: [refusedRun] },
+  );
+  const tasks = TASKS.map((task) => {
+    if (task.id !== "T4") return task;
+    const { failed_reason: _failed, ...rest } = task;
+    return { ...rest, state: "done" as const };
+  });
+  const job = {
+    ...base.job,
+    title: "Draw the plan's groups, the last refused by the Judge",
+    status: "escalated",
+    tasks: { done: 4, working: 0, open: 0, dropped: 0, failed: 0 },
+  };
+  const detail = { ...whole, job, steps, work_plan: { ...whole.work_plan!, tasks, groups } };
+  return { ...base, job, watched: { ...base.watched, detail } };
+}
