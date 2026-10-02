@@ -3,7 +3,9 @@
 //! No process, the same as the harness cases beside these: whether a call
 //! carries a session, a toolset or a directory is a question about a rendering.
 
-use adapter_traits::{Ask, Environment, Model, ModelClient};
+use std::num::NonZeroU8;
+
+use adapter_traits::{Ask, Environment, Model, ModelClient, Reading, SpawnConfigRefused};
 
 use crate::HeadlessAgent;
 
@@ -18,14 +20,23 @@ fn ask() -> Ask {
     .expect("a legal ask")
 }
 
+/// The same ask, able to read a checkout for six turns.
+fn reading() -> Ask {
+    ask().reading(
+        Reading::checkout("/repos/armada/", NonZeroU8::new(6).expect("six"))
+            .expect("an absolute checkout"),
+    )
+}
+
 fn arg_after(args: &[String], flag: &str) -> Option<String> {
     let at = args.iter().position(|arg| arg == flag)?;
     args.get(at + 1).cloned()
 }
 
-/// The one-shot properties, each as a flag on the list. A Judge that could take
-/// a second turn could go looking, and a verifier that goes looking is not
-/// reproducible.
+/// The one-shot properties of an ask given nothing to read, each as a flag on
+/// the list: the proposer, generated copy and a link lookup. A call that could
+/// take a second turn could go looking, and nothing asked this way has
+/// anywhere to look.
 #[test]
 fn a_judge_call_takes_one_turn_and_holds_no_tool() {
     let call = HeadlessAgent::on_path().render(&ask());
@@ -40,7 +51,8 @@ fn a_judge_call_takes_one_turn_and_holds_no_tool() {
 
 /// `--allowedTools ""` denies each use and leaves the toolset standing; a
 /// single denied use still spends `--max-turns 1` and the call exits 1. Only
-/// `--tools ""` disables the toolset itself, and both renders carry it. `#1047`.
+/// `--tools ""` disables the toolset itself, and both renders of an ask with no
+/// reading carry it. `#1047`.
 #[test]
 fn both_renders_carry_no_tools_at_all() {
     let plain = HeadlessAgent::on_path().render(&ask());
@@ -77,11 +89,13 @@ fn the_question_is_on_stdin_and_not_on_the_argument_list() {
     );
 }
 
-/// **There is no field for a worktree**, so a Judge cannot be pointed at one.
-/// The environment is the caller's and the adapter cannot substitute another.
+/// **There is no field for a worktree**, so a Judge cannot be pointed at one,
+/// and an ask that reads nothing names no directory at all. The environment is
+/// the caller's and the adapter cannot substitute another.
 #[test]
 fn a_judge_call_names_no_directory_and_carries_the_environment_it_was_given() {
     let call = HeadlessAgent::on_path().render(&ask());
+    assert_eq!(call.directory(), None);
     assert_eq!(call.environment().names(), vec!["PATH"]);
     assert!(
         !call.args().iter().any(|arg| arg.contains("worktree")),
@@ -135,5 +149,81 @@ fn a_flag_is_read_again_on_a_stronger_model_than_raised_it() {
     assert!(
         at(HeadlessAgent::second_opinion_model()) < at(HeadlessAgent::judge_model()),
         "the roster runs strongest first"
+    );
+}
+
+/// Decided 2 Oct 2026: **a Judge reads the repository, and nothing more.** The
+/// three read tools are the whole toolset and the whole allowlist; every
+/// built-in that writes, runs a command or reaches the network is denied by
+/// name, and so is Fleet's own directory, where the Drone's worktree is. Both
+/// renders, because a watched call is not a call with a longer leash.
+#[test]
+fn a_reading_judge_holds_the_read_tools_and_nothing_that_writes() {
+    let agent = HeadlessAgent::on_path();
+    for call in [agent.render(&reading()), agent.render_watched(&reading())] {
+        let args = call.args();
+        let reads = Some("Read,Grep,Glob".to_string());
+        assert_eq!(arg_after(args, "--tools"), reads);
+        assert_eq!(arg_after(args, "--allowedTools"), reads);
+        assert!(args.iter().any(|arg| arg == "--restricted"), "{args:?}");
+        assert!(args.iter().any(|arg| arg == "--strict-mcp-config"));
+        assert!(!args.iter().any(|arg| arg == "--mcp-config"));
+
+        let denied = arg_after(args, "--disallowedTools").expect("a deny list");
+        let denied: Vec<&str> = denied.split(',').collect();
+        for not_a_read in [
+            "Bash",
+            "Edit",
+            "Write",
+            "NotebookEdit",
+            "Task",
+            "WebFetch",
+            "WebSearch",
+            "Read(./.armada/**)",
+        ] {
+            assert!(denied.contains(&not_a_read), "`{not_a_read}`: {denied:?}");
+        }
+        for read in ["Read", "Grep", "Glob"] {
+            assert!(!denied.contains(&read), "a Judge reads: {read}");
+        }
+    }
+}
+
+/// The cap is the reading's, and it is the only `--max-turns` on the list.
+#[test]
+fn a_reading_judge_takes_the_turns_its_reading_names() {
+    let call = HeadlessAgent::on_path().render(&reading());
+    assert_eq!(arg_after(call.args(), "--max-turns").as_deref(), Some("6"));
+    assert_eq!(
+        call.args()
+            .iter()
+            .filter(|arg| *arg == "--max-turns")
+            .count(),
+        1
+    );
+}
+
+/// The call starts in the checkout it was given, copied off the ask, and the
+/// question still goes in on stdin rather than the list.
+#[test]
+fn a_reading_judge_starts_in_the_checkout_its_ask_names() {
+    let call = HeadlessAgent::on_path().render(&reading());
+    assert_eq!(call.directory(), Some("/repos/armada"));
+    assert!(
+        !call.args().iter().any(|arg| arg.contains("/repos/armada")),
+        "the directory is where it starts, not an argument: {:?}",
+        call.args()
+    );
+    assert!(!call.args().iter().any(|arg| arg.contains("the note names")));
+}
+
+/// A relative checkout would be read wherever the call happened to start.
+#[test]
+fn a_relative_checkout_is_refused() {
+    assert_eq!(
+        Reading::checkout("repos/armada", NonZeroU8::new(6).expect("six")),
+        Err(SpawnConfigRefused::CheckoutNotAbsolute {
+            given: "repos/armada".to_string()
+        })
     );
 }

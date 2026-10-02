@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use adapter_traits::{KeptCurrent, Landing, NotMerged, Rendering, WorktreeSpec};
+use adapter_traits::{KeptCurrent, Landing, NotMerged, Rendering};
 use adapters::onto_base::ROUNDS;
 use config::{Manifest, ResolvedWorkflow, Roster, WorkflowDef};
 use core_model::{JobId, JobStatus};
@@ -59,8 +59,8 @@ fn holding_the_work_under(home: &TempDir, text: &str) -> Fixture {
 }
 
 async fn worktree_of(fleet: &Fixture, home: &TempDir, job_id: &JobId) -> PathBuf {
-    let handle = fleet.load(job_id).await.expect("the Job").handle();
-    let spec = WorktreeSpec::for_job(&home.path().to_string_lossy(), &handle).expect("a spec");
+    let job = fleet.load(job_id).await.expect("the Job");
+    let spec = crate::tests::daemon::spec_held(home, &job).expect("a spec");
     PathBuf::from(spec.worktree_path())
 }
 

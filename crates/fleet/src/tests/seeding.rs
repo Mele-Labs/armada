@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{BaseSpec, WorktreeSpec};
+use adapter_traits::BaseSpec;
 use api::Commands;
 use config::Manifest;
 use core_model::JobStatus;
@@ -116,8 +116,7 @@ fn a_seed(home: &TempDir, commit: &str, warm: bool) -> BaseSpec {
 }
 
 fn worktree(home: &TempDir, job: &core_model::Job) -> PathBuf {
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     PathBuf::from(spec.worktree_path())
 }
 

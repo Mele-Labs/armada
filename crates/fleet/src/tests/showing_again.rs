@@ -14,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::WorktreeSpec;
 use config::{EvidenceType, Manifest, ResolvedWorkflow, Roster, WorkflowDef};
 use core_model::{Job, JobStatus};
 use testkit::FakeWorkProduct;
@@ -53,7 +52,7 @@ fn a_fleet_showing(home: &TempDir, run: &str) -> Arc<Fixture> {
     // A press held on a file is bounded by the Check budget, and the fixture's
     // five seconds would end one on a loaded machine before the test lifts it.
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    Arc::new(Fleet::assembled(fittings))
+    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
 }
 
 /// A one-step workflow that asks to be captured, holding at
@@ -100,7 +99,7 @@ evidence:
     fittings.starting().manifest = armada_yml;
     // A press held while `ready` is asked is bounded by the Check budget.
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    Arc::new(Fleet::assembled(fittings))
+    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
 }
 
 /// A two-step workflow whose steps are both captured, so one Job's Drones name
@@ -130,12 +129,21 @@ fn a_fleet_showing_two_captured_steps(home: &TempDir) -> Arc<Fixture> {
     fittings.starting().workflows = one(resolved);
     fittings.starting().manifest = armada_yml;
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    Arc::new(Fleet::assembled(fittings))
+    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
+}
+
+/// **A finished Job's worktree is on disk only while the pool keeps its slot**,
+/// which it does while the branch holds work on neither the remote nor the
+/// base. A press on a finished Job is a press on such a slot.
+fn kept_when_finished(fleet: Arc<Fixture>) -> Arc<Fixture> {
+    fleet
+        .vcs()
+        .keep_every_release("its branch holds commits on neither the remote nor the base");
+    fleet
 }
 
 fn worktree_of(home: &TempDir, job: &Job) -> PathBuf {
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     PathBuf::from(spec.worktree_path())
 }
 

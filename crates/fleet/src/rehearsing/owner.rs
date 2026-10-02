@@ -14,7 +14,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{Job, JobId};
 use ipc::WireError;
 
@@ -164,7 +164,7 @@ where
             });
         };
         let served = place.checkout.served()?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).ok()?;
+        let spec = self.tree_spec(served, job)?;
         let path = PathBuf::from(spec.worktree_path());
         path.is_dir().then(|| Tree {
             // Measured from the Manifest's base like every other reading of a
