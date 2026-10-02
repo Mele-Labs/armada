@@ -6,7 +6,7 @@
 // That is what lets a screen be rendered, storied and tested with no daemon.
 //
 // The host calls a screen needs arrive as arguments — `onReadDiff`,
-// `onOpenArtifact`, `onReadCall`, `onNeedMaterial`, `onStage`, `onWant`. Each
+// `onOpenArtifact`, `onNeedMaterial`, `onStage`, `onWant`. Each
 // used to be a `window.armada` call written inline, which is precisely what
 // held these files inside the app.
 
@@ -41,7 +41,6 @@ export * from "./title";
 export * from "./board";
 // On All repositories, the question a surface that needs one repository asks first.
 export * from "./AskRepository";
-export * from "./calls";
 export * from "./outputs";
 export * from "./checkout-runs";
 export * from "./checkout-run-diff";

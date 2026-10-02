@@ -15,8 +15,12 @@ import type { GroupView } from "./draft/group";
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
-import type { CommandAnswer, CommandInFlight, JobDetail as JobWhole } from "@armada/protocol";
-import type { CommandExplainedRead } from "./calls";
+import type {
+  CommandAnswer,
+  CommandExplainedRead,
+  CommandInFlight,
+  JobDetail as JobWhole,
+} from "@armada/protocol";
 import { offeredOf, said } from "./copy";
 import type { ActingAct } from "./pending";
 import { shownOf } from "./refused";
@@ -134,7 +138,7 @@ const NO_READING = "Fleet did not explain this command.";
  * The box, and the one thing in this file that holds state: what came back from
  * asking what the command does.
  *
- * **Held here rather than on the published state**, on `useCallArguments`'s
+ * **Held here rather than on the published state**, on `outputs.ts`'s
  * terms — one person asks about one call, the answer does not move once it has
  * arrived, and the window does not re-render because somebody read a paragraph.
  */

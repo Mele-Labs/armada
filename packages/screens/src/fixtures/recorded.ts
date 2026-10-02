@@ -14,7 +14,6 @@
 
 import { journalledFrom, observedFrom, refusedWith } from "@armada/protocol";
 import type {
-  CallArguments,
   CheckOutput,
   JobDetail as WireDetail,
   JobDiff,
@@ -54,7 +53,6 @@ export type Recording = {
   manifests: Answered;
   observe: Streamed<TurnMessage>;
   log: Streamed<JournalMessage>;
-  calls: Record<string, Answered>;
   checkOutputs: Record<string, Answered>;
   frames: Record<string, Photographed>;
 };
@@ -103,9 +101,6 @@ export function replayed(recording: Recording): JobFixture {
       diff: read(jobId, at("/diff"), reads.diff, (body) => ({ work: (body as JobDiff).work })),
       remarks: read(jobId, at("/remarks"), reads.remarks, (body) => ({ review: body as JobRemarks })),
     },
-    calls: each(recording.calls, (answer, id) =>
-      settled(answer, at(`/calls/${id}`), (body) => ({ call: body as CallArguments })),
-    ),
     checkOutputs: each(recording.checkOutputs, (answer, kept) =>
       settled(answer, at(`/checks/${kept}/output`), (body) => ({ output: body as CheckOutput })),
     ),

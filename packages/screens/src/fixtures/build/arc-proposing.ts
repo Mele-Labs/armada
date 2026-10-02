@@ -317,7 +317,6 @@ function atTheGate(status: string, over = {}): JobFixture {
       diff: { state: "none" },
       remarks: { state: "none" },
     },
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: ARC_NOW,

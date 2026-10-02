@@ -311,7 +311,7 @@ fails typecheck there until the fake answers it.
 | Call | Answer |
 |---|---|
 | A per-Job read — `watchJob`, `readHistory`, `readDiff` and the rest | The fixture's read, published as main would publish it |
-| A read that returns a value — `readCall`, `readFrame`, `readCheckOutput` | The fixture's answer, where it has one |
+| A read that returns a value — `readFrame`, `readCheckOutput` | The fixture's answer, where it has one |
 | Any read the scenario holds nothing for | A failure whose sentence says it is not in this mock scenario |
 | An act | Succeeds. Where it changes one field on a Job — approve, kill, reject, a model, a clear — that field moves |
 | A Studio read or write | The scenario's own Studios, kept by the fake and written to as Fleet would |

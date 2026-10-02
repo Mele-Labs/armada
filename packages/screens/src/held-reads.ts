@@ -1,9 +1,10 @@
 // What one Job's readers have fetched, by key, and nothing about what it means.
 //
 // **Three reads were the same thirty lines.** A call's arguments, a Check's
-// output and a step's frames are each fetched when somebody asks, asked for
+// output and a step's frames were each fetched when somebody asked, asked for
 // once however often the story is rebuilt, and dropped when the Job changes —
-// `calls.ts`, `outputs.ts` and `frames.ts` each spelled that out again. What
+// `calls.ts`, `outputs.ts` and `frames.ts` each spelled that out again, and
+// the first went with the activity log (#1761). What
 // differs is what an answer draws as, and that stays in each file.
 //
 // **Held for one Job, and the Job is part of what is held.** A key names a row
