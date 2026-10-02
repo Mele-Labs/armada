@@ -69,7 +69,7 @@ export type WorktreeOnDisk = {
   measured_at?: string;
 };
 
-/** `GET /jobs/:job_id/resources` — what one Job holds, at one instant. */
+/** `GET /jobs/:job_id/resources` — what one Job holds: one reading, save the worktree's size. */
 export type JobResources = {
   job_id: string;
   /**
