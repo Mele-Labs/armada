@@ -797,7 +797,7 @@
     size = "12px"
     status = "Specified"
     reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label, and never a control that expands in place."
-    notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as WhereRow's into act and Job detail's Details act draw it."
+    notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as Job detail's Details act draws it."
 
   [[icons.chevron-right.usage]]
     means = "forward — the forward half of the history act"

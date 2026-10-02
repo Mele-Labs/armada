@@ -59,8 +59,7 @@ const boxOf = (selector: string): DOMRect => {
  * has. **A run of text never needs more lines than it has words** — one line
  * each is the worst honest wrapping — so a ratio above 1 is a word that was
  * broken down the middle, which is the defect this file exists for. Measured
- * with a range over each text node, `WorkflowDiagram.stories.tsx`'s `linesOf`
- * at the scale of a whole destination.
+ * with a range over each text node.
  *
  * **Read on the cards since 29 Sep 2026.** It read the step panel, which the
  * Overview reframe deleted — and the panel was where the 192px log broke, so
