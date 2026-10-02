@@ -10,6 +10,7 @@
 
 import type {
   BranchDeleted,
+  BriefContents,
   CallArguments,
   CheckOutput,
   CommandExplained,
@@ -302,6 +303,13 @@ export type CommandExplainedRead =
 export type CheckOutputRead =
   | { ok: true; output: CheckOutput }
   | { ok: false; outcome: Outcome };
+
+/**
+ * What one kept brief came back as. `CheckOutputRead`'s shape and reasons: a
+ * brief is written once and closed, and fetched by the person who pressed it.
+ * `refused` is the Job standing and no brief of it under that name.
+ */
+export type BriefRead = { ok: true; brief: BriefContents } | { ok: false; outcome: Outcome };
 
 /**
  * What one frame came back as: the bytes, and what they are.

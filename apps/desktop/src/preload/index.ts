@@ -13,6 +13,7 @@ import type { Pattern } from "../shared/haptics";
 import type {
   CallRead,
   CheckOutputRead,
+  BriefRead,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -499,6 +500,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCall, jobId, callId),
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
+  readBrief: (jobId: string, name: string): Promise<BriefRead> =>
+    ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for

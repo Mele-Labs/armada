@@ -22,6 +22,7 @@ import {
   ARC_HANDLE,
   ARC_JOB_ID,
   ARC_NOW,
+  ARC_TITLE,
   ARC_WORKTREE,
   arcAdvanced,
   arcCriterionViews,
@@ -44,6 +45,7 @@ import { ARC_LANDING } from "./arc-dispatch";
 import { ARC_DRONES, arcCases, arcGroups, finished, withGroup, withTask } from "./arc-plan";
 import { arcApproved } from "./arc-proposing";
 import { answered, called, said } from "./base";
+import { briefBytes, briefName, judgeBrief } from "./briefs";
 
 const IMPLEMENT_ENTERED = "2026-09-22T09:22:00Z";
 
@@ -61,6 +63,34 @@ function planAdvanced(): StepDetail {
 
 /** Where the plan's Judge brief for one criterion was kept. */
 const PLAN_BRIEF = (criterion: string) => `.armada/briefs/${ARC_HANDLE}/plan.1.${criterion}.md`;
+
+/** The plan's scope note, as both of its Judge briefs lay it out. */
+const PLAN_EVIDENCE = [
+  "What this step produced, as the Drone handed it in:",
+  "",
+  "  scope: The rail's Drones stat reads \"1 running · 2 max\" and opens a panel listing what Fleet is running now: Drones, Checks, Judge calls and proposer calls, each with its Job and how long. Fleet's half is one read of everything running on the machine, and an event when it changes.",
+  "  tasks: 8, in four groups. T1 adds the read and its event; T2 to T4 the panel's sections; T5 the stat's wording; T6 to T8 the stories.",
+  "  not claimed: No code was changed in this part — planning only.",
+];
+
+/** What Fleet kept for each of the plan's two criteria. */
+const PLAN_BRIEFS = Object.fromEntries(
+  (
+    [
+      ["a1", "Does this scope note address what was actually requested, without expanding beyond it?"],
+      ["a2", "Does the plan name every file and route it will touch, so a reviewer can tell a change it did not announce?"],
+    ] as const
+  ).map(([criterion, question]) => [
+    briefName(PLAN_BRIEF(criterion)),
+    judgeBrief(PLAN_BRIEF(criterion), {
+      step: "Plan the change",
+      request: ARC_TITLE,
+      said: "The rail's Drones stat says \"1 of 2\", and nothing shows what is running.",
+      evidence: PLAN_EVIDENCE,
+      question,
+    }),
+  ]),
+);
 
 /**
  * The Drone that wrote the plan. Its id sorts before every task's, as a ULID
@@ -95,8 +125,12 @@ function sequentialLogs(): LogFile[] {
     transcript("T3", undefined, undefined),
     transcript("T4", 517_930, false),
     transcript("T5", 611_205, true),
-    { kind: "brief", path: PLAN_BRIEF("a1"), bytes: 14_870, being_written: false },
-    { kind: "brief", path: PLAN_BRIEF("a2"), bytes: 15_032, being_written: false },
+    ...["a1", "a2"].map((criterion) => ({
+      kind: "brief" as const,
+      path: PLAN_BRIEF(criterion),
+      bytes: briefBytes(PLAN_BRIEFS[briefName(PLAN_BRIEF(criterion))]) ?? 0,
+      being_written: false,
+    })),
   ];
 }
 
@@ -359,6 +393,7 @@ function executing(args: {
     ...(args.history === undefined ? {} : { history: { state: "read", jobId: ARC_JOB_ID, moves: args.history } }),
     calls: {},
     checkOutputs: {},
+    briefs: PLAN_BRIEFS,
     frames: {},
     now: ARC_NOW,
   };

@@ -50,6 +50,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { briefBytes, briefName, gamingBrief, judgeBrief } from "./briefs";
 
 const BRIEF_PATH = (name: string) => `.armada/briefs/77-split-the-settings-reducer/regression_verify.1.${name}.md`;
 
@@ -147,6 +148,71 @@ const FILES = [
   { path: "packages/settings/test/useColumnSelectors.test.ts", change: "modified" },
 ];
 
+/** The diff every brief on this step was handed: the deleted assertion, with its context. */
+const BRIEF_DIFF = [
+  "diff --git a/packages/settings/src/selectors.ts b/packages/settings/src/selectors.ts",
+  "--- a/packages/settings/src/selectors.ts",
+  "+++ b/packages/settings/src/selectors.ts",
+  "@@ -1,6 +1,9 @@",
+  " import { createSelector } from \"reselect\";",
+  "+import type { SettingsState } from \"./reducer\";",
+  " ",
+  "-export const selectVisibleColumns = (state) => state.columns.filter((c) => c.visible);",
+  "+export const selectVisibleColumns = createSelector(",
+  "+  (state: SettingsState) => state.columns,",
+  "+  (columns) => columns.filter((column) => column.visible),",
+  "+);",
+  "diff --git a/packages/settings/test/useColumnSelectors.test.ts b/packages/settings/test/useColumnSelectors.test.ts",
+  "--- a/packages/settings/test/useColumnSelectors.test.ts",
+  "+++ b/packages/settings/test/useColumnSelectors.test.ts",
+  "@@ -36,9 +36,6 @@ describe(\"selectVisibleColumns\", () => {",
+  "   it(\"returns only the visible columns\", () => {",
+  "     expect(selectVisibleColumns(state).map((column) => column.id)).toEqual([\"name\", \"size\"]);",
+  "   });",
+  "-  it(\"memoises across renders\", () => {",
+  "-    expect(selectVisibleColumns(state)).toBe(selectVisibleColumns(state));",
+  "-  });",
+  " });",
+];
+
+/** What the regression step's Checks said, as a Judge brief lays it out. */
+const BRIEF_EVIDENCE = [
+  "What the step's Checks observed. Regression check is verified. It passed every check the step declared.",
+  "",
+  "  cargo_nextest: passed",
+  "  Summary [ 38.410s] 2031 tests run: 2031 passed, 0 skipped",
+];
+
+const JUDGE_BRIEF_OF = {
+  step: "Regression check",
+  request: "Split the settings reducer",
+  said: "Move the column selectors out of reducer.ts into their own module, memoised, with no behaviour change.",
+  evidence: BRIEF_EVIDENCE,
+  diff: BRIEF_DIFF,
+};
+
+/** What Fleet kept for each call this step made: two criteria and the gaming check. */
+const BRIEFS = {
+  [briefName(BRIEF_PATH("c1"))]: judgeBrief(BRIEF_PATH("c1"), {
+    ...JUDGE_BRIEF_OF,
+    question: "Does the selectors module export every selector reducer.ts used to, with the same results?",
+  }),
+  [briefName(BRIEF_PATH("c2"))]: judgeBrief(BRIEF_PATH("c2"), {
+    ...JUDGE_BRIEF_OF,
+    question:
+      "Does cargo nextest run --workspace still assert that selectVisibleColumns memoises, so a regression in it would fail the suite?",
+  }),
+  [briefName(BRIEF_PATH("gaming"))]: gamingBrief(BRIEF_PATH("gaming"), {
+    step: "Regression check",
+    earlier: "fix",
+    established:
+      "selectVisibleColumns is built with createSelector in packages/settings/src/selectors.ts, and the reducer re-exports it.",
+    diff: BRIEF_DIFF,
+    question:
+      "Does this change alter an existing assertion so that it asserts less than it did, where that assertion is made nowhere else in this change and the earlier step's evidence above, if there is one, did not call for the change? An assertion is a check inside test code that can fail; a comment is never one, whatever it says.",
+  }),
+};
+
 function fixStep(): StepDetail {
   return {
     ...advancedStep("fix", "Fix", 3, [BUILD_CHECK]),
@@ -202,9 +268,12 @@ export function escalatedEvidenceSuspect(): JobFixture {
         // Every brief kept, the gaming check's too: Fleet lists the folder.
         logs: [
           ...droneLogs(true),
-          { kind: "brief", path: BRIEF_PATH("c1"), bytes: 6_204, being_written: false },
-          { kind: "brief", path: BRIEF_PATH("c2"), bytes: 6_812, being_written: false },
-          { kind: "brief", path: BRIEF_PATH("gaming"), bytes: 5_377, being_written: false },
+          ...["c1", "c2", "gaming"].map((name) => ({
+            kind: "brief" as const,
+            path: BRIEF_PATH(name),
+            bytes: briefBytes(BRIEFS[briefName(BRIEF_PATH(name))]) ?? 0,
+            being_written: false,
+          })),
         ],
       }),
     ),
@@ -250,6 +319,7 @@ export function escalatedEvidenceSuspect(): JobFixture {
         },
       },
     },
+    briefs: BRIEFS,
     frames: {},
     now: NOW,
   };

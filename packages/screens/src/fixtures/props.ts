@@ -8,6 +8,7 @@
 
 import type {
   CallRead,
+  BriefRead,
   CheckOutputRead,
   FrameRead,
   Followed,
@@ -24,6 +25,7 @@ const UNKNOWN_JOB_OPENED: Opened = { ok: false, why: "unknown_job" };
 const UNKNOWN_JOB_FOLLOWED: Followed = { ok: false, why: "unknown_job" };
 const NOT_ANSWERED_CALL: CallRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_OUTPUT: CheckOutputRead = { ok: false, outcome: NOT_CONNECTED };
+const NOT_ANSWERED_BRIEF: BriefRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_FRAME: FrameRead = { ok: false, outcome: NOT_CONNECTED };
 
 /** What `list_models` answers on every fixture, in the spelling Fleet uses. */
@@ -76,6 +78,7 @@ export function propsFor(fixture: JobFixture): JobDetailProps {
     // refusal: a story is a reading of one moment and no Fleet is behind it.
     onExplainCommand: async () => ({ ok: false, outcome: NOT_CONNECTED }),
     onReadCheckOutput: async (_jobId, kept) => fixture.checkOutputs[kept] ?? NOT_ANSWERED_OUTPUT,
+    onReadBrief: async (_jobId, name) => fixture.briefs?.[name] ?? NOT_ANSWERED_BRIEF,
     onReadFrame: async (_jobId, kept) => fixture.frames[kept] ?? NOT_ANSWERED_FRAME,
     // A recording's address, spelled as the app spells it. **It resolves to
     // nothing here**, for the reason every read above answers a refusal: a

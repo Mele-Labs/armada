@@ -16,6 +16,7 @@ import type {
   CaptureOpened,
   CallRead,
   CheckOutputRead,
+  BriefRead,
   ClearOutcome,
   CommandAnswer,
   HelmCallAnswer,
@@ -767,6 +768,8 @@ export type BridgeApi = {
    * Read-only, like the reads above it.
    */
   readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
+  /** One kept brief a Judge or a gaming check was asked, by its file name. `readCheckOutput`'s shape. */
+  readBrief: (jobId: string, name: string) => Promise<BriefRead>;
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask

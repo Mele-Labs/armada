@@ -101,6 +101,7 @@ import {
   explainCommand,
   readCall,
   readCheckOutput,
+  readBrief,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -748,6 +749,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenStudio={openStudioFrom}
                   onReadCall={readCall}
                   onReadCheckOutput={readCheckOutput}
+                  onReadBrief={readBrief}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}

@@ -599,6 +599,7 @@ export const CHANNELS = {
   readRemarks: "bridge:read-remarks",
   readCall: "bridge:read-call",
   readCheckOutput: "bridge:read-check-output",
+  readBrief: "bridge:read-brief",
   readFrame: "bridge:read-frame",
   readReports: "bridge:read-reports",
   readHeld: "bridge:read-held",

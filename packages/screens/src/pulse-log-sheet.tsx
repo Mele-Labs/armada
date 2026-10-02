@@ -5,7 +5,8 @@
 // rows for that Drone (`Turn.drone_id`, protocol 21.4), drawn by `DroneTurns`,
 // the Drones sheet's own pane, which follows the tail itself while `live`; the
 // Job's own log is the second socket's notes, drawn by `Log`. A Judge or gaming
-// brief has no reader on main, so its row offers the external `Open` alone.
+// brief is the one kind fetched, once, since it is written whole and closed
+// (`BriefPane`, protocol 21.11); its row keeps the external `Open` too.
 //
 // **Live is the reading's `being_written`**, not the socket's: the row and its
 // panel carry the one mark, and both stop when `lsof` says nobody holds the
@@ -18,6 +19,7 @@ import type { Journalled, Observed } from "@armada/protocol";
 
 import { Log } from "./Log";
 import { logOf, turnsOf } from "./mine";
+import { BriefPane, type ReadBrief } from "./pulse-brief";
 import { notesOf } from "./notes";
 import { droneTurnsOf } from "./tab-drones-read";
 
@@ -28,13 +30,15 @@ export type PulseLogSheetProps = {
   observed: Observed;
   journalled: Journalled;
   floor: boolean;
+  /** Read a kept brief, for a brief row's panel. */
+  onReadBrief: ReadBrief;
   onClose: () => void;
 };
 
 /** What a kind is called in the panel's head. The row's own words. */
-const TITLE: Record<string, string> = { job: "Job log", transcript: "Drone transcript" };
+const TITLE: Record<string, string> = { job: "Job log", transcript: "Drone transcript", brief: "Judge brief" };
 
-export function PulseLogSheet({ log, jobId, observed, journalled, floor, onClose }: PulseLogSheetProps) {
+export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadBrief, onClose }: PulseLogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   const notes = log?.kind === "job" ? notesOf(logOf(journalled, jobId)?.notes ?? []) : [];
   const live = log?.writing === true;
@@ -70,7 +74,9 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onClose
       bodyRef={body}
       onClose={onClose}
     >
-      {log.kind === "transcript" ? (
+      {log.kind === "brief" ? (
+        <BriefPane jobId={jobId} path={log.path} read={onReadBrief} />
+      ) : log.kind === "transcript" ? (
         <DroneTurns
           turns={droneTurnsOf(rows, (lines) => <DroneBrief lines={lines} flat />)}
           live={live}

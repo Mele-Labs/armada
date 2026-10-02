@@ -15,6 +15,7 @@
 
 import type {
   CallRead,
+  BriefRead,
   CheckOutputRead,
   Crewed,
   FrameRead,
@@ -64,6 +65,12 @@ export type JobFixture = {
    * fixture keeping the full path here would never be found.
    */
   checkOutputs: Record<string, CheckOutputRead>;
+  /**
+   * Answers to `onReadBrief`, keyed by the brief's file name — the last part of
+   * `brief_path`, which is all `get_brief` takes. Absent answers every brief as
+   * one Fleet no longer holds.
+   */
+  briefs?: Record<string, BriefRead>;
   /**
    * Answers to `onReadFrame`, keyed by `KeptFrame.kept` — the run's directory
    * and file name, joined, exactly as Fleet sent it on the step's `frames[]`.
