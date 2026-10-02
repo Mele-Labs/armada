@@ -22,6 +22,7 @@ import {
   ARC_HANDLE,
   ARC_JOB_ID,
   ARC_NOW,
+  ARC_TITLE,
   ARC_WORKTREE,
   arcAdvanced,
   arcCriterionViews,
@@ -44,6 +45,7 @@ import { ARC_LANDING } from "./arc-dispatch";
 import { ARC_DRONES, arcCases, arcGroups, finished, withGroup, withTask } from "./arc-plan";
 import { arcApproved } from "./arc-proposing";
 import { answered, called, said } from "./base";
+import { briefBytes, briefName, judgeBrief } from "./briefs";
 
 const IMPLEMENT_ENTERED = "2026-09-22T09:22:00Z";
 
@@ -61,6 +63,34 @@ function planAdvanced(): StepDetail {
 
 /** Where the plan's Judge brief for one criterion was kept. */
 const PLAN_BRIEF = (criterion: string) => `.armada/briefs/${ARC_HANDLE}/plan.1.${criterion}.md`;
+
+/** The plan's scope note, as both of its Judge briefs lay it out. */
+const PLAN_EVIDENCE = [
+  "What this step produced, as the Drone handed it in:",
+  "",
+  "  scope: The rail's Drones stat reads \"1 running · 2 max\" and opens a panel listing what Fleet is running now: Drones, Checks, Judge calls and proposer calls, each with its Job and how long. Fleet's half is one read of everything running on the machine, and an event when it changes.",
+  "  tasks: 8, in four groups. T1 adds the read and its event; T2 to T4 the panel's sections; T5 the stat's wording; T6 to T8 the stories.",
+  "  not claimed: No code was changed in this part — planning only.",
+];
+
+/** What Fleet kept for each of the plan's two criteria. */
+const PLAN_BRIEFS = Object.fromEntries(
+  (
+    [
+      ["a1", "Does this scope note address what was actually requested, without expanding beyond it?"],
+      ["a2", "Does the plan name every file and route it will touch, so a reviewer can tell a change it did not announce?"],
+    ] as const
+  ).map(([criterion, question]) => [
+    briefName(PLAN_BRIEF(criterion)),
+    judgeBrief(PLAN_BRIEF(criterion), {
+      step: "Plan the change",
+      request: ARC_TITLE,
+      said: "The rail's Drones stat says \"1 of 2\", and nothing shows what is running.",
+      evidence: PLAN_EVIDENCE,
+      question,
+    }),
+  ]),
+);
 
 /**
  * The Drone that wrote the plan. Its id sorts before every task's, as a ULID
@@ -95,8 +125,12 @@ function sequentialLogs(): LogFile[] {
     transcript("T3", undefined, undefined),
     transcript("T4", 517_930, false),
     transcript("T5", 611_205, true),
-    { kind: "brief", path: PLAN_BRIEF("a1"), bytes: 14_870, being_written: false },
-    { kind: "brief", path: PLAN_BRIEF("a2"), bytes: 15_032, being_written: false },
+    ...["a1", "a2"].map((criterion) => ({
+      kind: "brief" as const,
+      path: PLAN_BRIEF(criterion),
+      bytes: briefBytes(PLAN_BRIEFS[briefName(PLAN_BRIEF(criterion))]) ?? 0,
+      being_written: false,
+    })),
   ];
 }
 
@@ -358,6 +392,7 @@ function executing(args: {
     },
     ...(args.history === undefined ? {} : { history: { state: "read", jobId: ARC_JOB_ID, moves: args.history } }),
     checkOutputs: {},
+    briefs: PLAN_BRIEFS,
     frames: {},
     now: ARC_NOW,
   };
@@ -687,6 +722,74 @@ export function doneTouched(): ArcMoment {
       ],
       drones: arcDrones(groups),
       pulse: pulse("2026-09-22T11:05:00.000Z", [droneProcess(53_402, "02:55")]),
+    },
+  };
+}
+
+/**
+ * A third task beside T5 and T6 in group three, so one running group holds the
+ * three states a task can be in before the group's boundary: still working,
+ * handed in, and stopped short. The arc's own plan has two there.
+ */
+function withT9(groups: GroupView[]): GroupView[] {
+  return groups.map((group) => {
+    if (group.id !== "g3") return group;
+    const t6 = group.tasks.find((one) => one.id === "T6")!;
+    const t9 = {
+      ...t6,
+      id: "T9",
+      title: "Say so when a list has nothing in it",
+      scope: ["packages/screens/src/running-empty.tsx"],
+      expects: "With nothing running, each of the four lists says so",
+      note: "One line per list. No illustration.",
+      concurrent_with: ["T5", "T6"],
+      coord: { ...t6.coord, task: "T9" },
+    };
+    const tasks = [
+      ...group.tasks.map((one) => ({ ...one, concurrent_with: [...one.concurrent_with, "T9"] })),
+      t9,
+    ];
+    return { ...group, tasks, scope: [...new Set(tasks.flatMap((one) => one.scope))] };
+  });
+}
+
+/**
+ * **Not a moment of the arc**, and not in `ARC_MOMENTS`: one plan holding a
+ * task in each of the six states, for the marks Plan leads its rows with.
+ * Group three is mid-run with three tasks, one per state a running group can
+ * hold before its boundary; T8 was dropped by a person before group four began.
+ */
+export function everyTaskState(): ArcMoment {
+  let groups = withT9(executingSequential().draft.groups!);
+  groups = withTask(groups, "T6", {
+    state: "failed",
+    turns: 11,
+    drone_id: ARC_DRONES.T6,
+    failed_reason: "The agent stopped before the row opened anything.",
+  });
+  groups = withTask(groups, "T9", { state: "handed_in", turns: 9 });
+  groups = withTask(groups, "T8", { state: "dropped", reason: "The panel's own stories cover the four cases." });
+  return {
+    name: "everyTaskState",
+    says: "Plan — one task in every state: open, working, handed in, done, failed and dropped",
+    fixtures: [
+      executing({
+        says: "running — group three has a task working, one handed in and one stopped short",
+        groups,
+        step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:24:00Z"),
+        processes: [droneProcess(52_118, "06:40")],
+      }),
+    ],
+    opens: ARC_JOB_ID,
+    draft: {
+      groups,
+      cases: arcCases(),
+      criteria: arcCriterionViews(),
+      proposal: arcApproved(),
+      landing: ARC_LANDING,
+      record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
+      pulse: pulse("2026-09-22T10:24:00.000Z", [droneProcess(52_118, "06:40")]),
     },
   };
 }

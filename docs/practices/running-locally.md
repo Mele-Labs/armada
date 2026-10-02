@@ -376,7 +376,9 @@ export const backFromADrone = walk("arc/executing-sequential", [
 ]);
 ```
 
-A step **presses**, **looks**, or **types** into a field, at a target found the
+A step **presses**, **looks**, **hovers** — the pointer held on its target
+past the tooltip delay, so the picture shows what the hover opens — or
+**types** into a field, at a target found the
 way the mock tests find one: `tab`, `button`, `card`, `dialog`, `row`, `region`,
 `text`, or `role(kind, name)` for any other, and `inside(scope, target)` to look
 in one place only. A name is matched anywhere in the accessible name, in any
