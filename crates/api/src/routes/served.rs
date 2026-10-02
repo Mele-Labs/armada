@@ -735,6 +735,18 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/drop_task",
     },
+    // A person's two acts on a plan's groups, spike 022 slice 2: restart one
+    // failed task, and move a task or a group by `after`.
+    Route {
+        operation: "restart_task",
+        method: "POST",
+        path: "/jobs/:job_id/tasks/:task_id/restart",
+    },
+    Route {
+        operation: "move_plan",
+        method: "POST",
+        path: "/jobs/:job_id/plan/move",
+    },
     // The two acts that resume a step without redispatching. Two routes and
     // not one with a mode: which applies is decided by whether the Job holds a
     // Drone, and a caller that asked for the wrong one is told which is right

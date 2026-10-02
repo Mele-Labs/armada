@@ -54,6 +54,7 @@ import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded"
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
+import { heldByTheGamingCheck } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
@@ -61,6 +62,7 @@ import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./man
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { zoning } from "./studio-read-in";
+import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
@@ -399,6 +401,9 @@ function recordedBoard(): Scenario {
   };
 }
 
+/** The Job `held/gaming-check` opens on, as Fleet serves it with the Drone still there. */
+const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
+
 /**
  * Every scenario, by name. **The first is where the mock opens.**
  *
@@ -457,6 +462,7 @@ export const SCENARIOS: readonly Scenario[] = [
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
   zoning().scenario,
+  readingNothing().scenario,
   talking(),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a
@@ -495,6 +501,9 @@ export const SCENARIOS: readonly Scenario[] = [
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
+  // A Job the gaming check holds with its Drone still on the step: a weakened
+  // assertion and three refused commands, answered under the lead (#1672).
+  holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

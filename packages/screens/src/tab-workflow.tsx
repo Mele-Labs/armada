@@ -26,7 +26,7 @@ import {
   type RunTreeSkeletonProps,
 } from "@armada/components";
 import { useEffect, useState } from "react";
-import type { JobDetail as JobWhole, JobSummary, JudgeAnswer } from "@armada/protocol";
+import type { Diff, JobDetail as JobWhole, JobSummary, JudgeAnswer } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import type { ActingAct } from "./pending";
@@ -42,6 +42,9 @@ import { ordered } from "./facts";
 import { placeOf, stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 import { spentOf, workflowReadingOf } from "./workflow-inspector";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
+import { heldByAFlag } from "./gaming";
+import { GamingHeld } from "./gaming-held";
+import type { Opens } from "./phases";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 
 export type WorkflowTabProps = {
@@ -84,6 +87,17 @@ export type WorkflowTabProps = {
    * Overview's own block, drawn first in the step's panel (`judge-asked.tsx`).
    */
   onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
+  /**
+   * A step the gaming check holds, answered in its panel with Overview's own
+   * block and handlers (`gaming-held.tsx`): the patch its hunks come out of,
+   * how a flag's brief opens, Carry on and Send it back.
+   */
+  diff: Diff;
+  /** Ask for this Job's patch, or let it go with `null`. */
+  onReadDiff: (jobId: string | null) => void;
+  opens: Opens;
+  onOverrule: (jobId: string, reason: string) => void;
+  onSendBack: (jobId: string, note?: string) => void;
   onRedirect: (jobId: string, instruction: string) => void;
   onAct: (act: ConfirmableAct, jobId: string) => void;
   onActHeld: (act: HeldAct, jobId: string) => void;
@@ -127,6 +141,12 @@ export function WorkflowTab({
   acting,
   actingAct,
   onAnswerJudge,
+  diff,
+  onReadDiff,
+  opens,
+  onOverrule,
+  onSendBack,
+  onRedirect,
   onAct,
   onActHeld,
   onOpenPlan,
@@ -159,6 +179,16 @@ export function WorkflowTab({
     trail?.onHere(openedStep === undefined ? null : { id: openedStep.step_id, label: openedStep.label });
     // `trail` is rebuilt by the screen every render; what matters is the step.
   }, [openedStep?.step_id]);
+  // **The patch, while a held step's panel is open**, so the block draws the
+  // flagged lines as Overview's does. Overview reads it for as long as it is
+  // mounted and lets it go when it is not, and the citation alone is what the
+  // panel drew in its place.
+  const flagHeld = heldByAFlag(whole, openedStep);
+  useEffect(() => {
+    if (!flagHeld) return;
+    onReadDiff(job.id);
+    return () => onReadDiff(null);
+  }, [flagHeld, job.id]);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -255,9 +285,8 @@ export function WorkflowTab({
     reading === undefined ? null : (
       <WorkflowInspector
         {...reading}
-        {...(!judgeAskedOn(whole, openedStep)
-          ? {}
-          : {
+        {...(judgeAskedOn(whole, openedStep)
+          ? {
               asks: (
                 <JudgeAsked
                   jobId={job.id}
@@ -269,7 +298,28 @@ export function WorkflowTab({
                   onAnswerJudge={onAnswerJudge}
                 />
               ),
-            })}
+            }
+          : flagHeld
+            ? {
+                // Overview's own block for a step the gaming check holds,
+                // with the same handlers (owner, 2 Oct 2026, #1672).
+                asks: (
+                  <GamingHeld
+                    job={job}
+                    whole={whole}
+                    step={openedStep}
+                    diff={diff}
+                    opens={opens}
+                    stale={stale}
+                    acting={acting}
+                    actingAct={actingAct}
+                    onOverrule={onOverrule}
+                    onSendBack={onSendBack}
+                    onRedirect={onRedirect}
+                  />
+                ),
+              }
+            : {})}
         sheet={{ back: trail?.back }}
         // After a jump here, Close goes back, as Plan's, Drones' and Record's
         // do (owner, 30 Sep 2026); otherwise it closes the step.

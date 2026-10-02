@@ -6,6 +6,7 @@
 // A scratch walk, in `walks/scratch/`, is not here.
 
 import { expect, onTestFinished, test } from "vitest";
+import { isNotice } from "@armada/shell";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
@@ -17,10 +18,16 @@ unmountAfterEach();
  * What the window threw while the walk played. **Heard before the app hears
  * it**: Bridge catches an uncaught throw and draws it as a banner, so a press
  * that broke a handler would otherwise walk on to the next step and pass.
+ *
+ * **A notice Bridge drops is dropped here too.** Chromium's ResizeObserver
+ * loop notice is raised by any read-in landing on a Studio's board, and Bridge
+ * reports it to nobody: `isNotice` in `packages/shell/src/uncaught.ts`.
  */
 function thrown(): string[] {
   const heard: string[] = [];
-  const hear = (event: ErrorEvent) => heard.push(event.message);
+  const hear = (event: ErrorEvent) => {
+    if (!isNotice(event)) heard.push(event.message);
+  };
   window.addEventListener("error", hear, true);
   onTestFinished(() => window.removeEventListener("error", hear, true));
   return heard;

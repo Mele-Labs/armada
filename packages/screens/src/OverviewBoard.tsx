@@ -14,6 +14,7 @@
 
 import {
   Badge,
+  Button,
   DestinationCard,
   FigureList,
   GroupShape,
@@ -23,14 +24,18 @@ import {
   JobBriefSkeleton,
   Prose,
   SkeletonText,
+  Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
 import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { FromStudio } from "@armada/protocol";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
 import { JobLead, type JobLeadProps } from "./JobLead";
+import { studioName } from "./studio";
+import type { OpenStudioFrom } from "./work";
 
 /** The run, as the Workflow destination's own canvas draws it. */
 export type OverviewWorkflow = {
@@ -93,6 +98,13 @@ export type OverviewBoardProps = {
   pulseAbsent?: string;
   brief?: string;
   briefAbsent?: string;
+  /**
+   * The Studio this Job was dispatched from, and the press back to it — #1674.
+   * **Both or neither**: a Job off no Studio, or off a deleted one, draws
+   * nothing in the Brief's head.
+   */
+  fromStudio?: FromStudio;
+  onOpenStudio?: OpenStudioFrom;
   /** What froze and what somebody has changed since, in one line. */
   settings: string;
   /**
@@ -116,6 +128,8 @@ export function OverviewBoard({
   pulseAbsent,
   brief,
   briefAbsent,
+  fromStudio,
+  onOpenStudio,
   settings,
   reading = false,
   onOpenTab,
@@ -130,7 +144,25 @@ export function OverviewBoard({
             figures strip's place at the owner's word, 29 Sep 2026: *"maybe
             the brief should replace where the figures list is right now."*
             The one card with no destination behind it. */}
-        <DestinationCard label="Brief">
+        {/* **Where the work came from, named, at the head's trailing edge** —
+            the owner's call of 2 Oct 2026 on #1674. One press, the header
+            sentence's own: the Studio's canvas with this Job's node picked. */}
+        <DestinationCard
+          label="Brief"
+          trailing={
+            fromStudio === undefined || onOpenStudio === undefined ? undefined : (
+              <Tooltip label={`Open ${studioName(fromStudio)}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenStudio(fromStudio.studio_id, fromStudio.node_id)}
+                >
+                  {studioName(fromStudio)}
+                </Button>
+              </Tooltip>
+            )
+          }
+        >
           {/* The Proposer's words through `Prose`, so a brief written in
               markdown reads as its structure — the owner's ask of 1 Oct 2026.
               The sentences for an absent brief are Bridge's own and stay text. */}

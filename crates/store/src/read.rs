@@ -392,6 +392,9 @@ impl Store {
                  FROM job_step_checks AS c WHERE job_id = ?1
                    AND attempt = (SELECT max(attempt) FROM job_step_checks
                                   WHERE job_id = c.job_id AND step_id = c.step_id)
+                   AND ran_at = (SELECT max(ran_at) FROM job_step_checks
+                                 WHERE job_id = c.job_id AND step_id = c.step_id
+                                   AND attempt = c.attempt)
                  ORDER BY step_id, ordinal",
                 job_id,
                 "reading check results",

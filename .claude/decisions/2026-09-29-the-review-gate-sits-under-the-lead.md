@@ -66,6 +66,11 @@ Four capabilities went with the deleted arrangement and have no destination:
 | The route from a Job back to the Studio it came from | *Where things are* |
 | `Drop…` and `Add task` | `PlanWell`, the Plan region — the Plan destination is being rebuilt and will take them |
 
+**2 Oct 2026: the first row has an answer.** Under the lead, and in the
+Workflow step panel, the arrangement a Judge's refusal took (#1672). The card
+was `HeldFlag`, drawn by the step's band; `StepActs` drew the header acts
+beside it, not *Send it back* and *Carry on*.
+
 Guide 8, *What does the progress bar show?*, is in the catalogue with no piece
 on screen for the same reason.
 
