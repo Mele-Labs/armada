@@ -994,7 +994,7 @@ There is no name here because `armada.yml` declares none — `version`, `id`, `c
 
 Every Manifest Fleet serves, the one it was started in first: one Fleet serves many repositories and the rail's project picker switches between them. A repository added with no `armada.yml` is not here until one loads — `list_repositories` lists it.
 
-It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that passed it and served as `StepAttempt.resolved` since 21.9.
+It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that reached it and served as `StepAttempt.resolved` since 21.9, with `decided` since 21.10 for a run an earlier gate stopped.
 """
 
 [operations.list_repositories]

@@ -71,9 +71,10 @@ pub struct StepAttempt {
     /// where `decided` is false.
     ///
     /// **Absent is a run with nothing recorded**: one still going, one that
-    /// reached no gate, one from before 21.9, or a Fleet older than that. Never either policy's default, because nobody resolved
-    /// it, and `ManifestSummary`'s two words say what the repository says
-    /// today, which is a different fact.
+    /// reached no gate, one from before 21.9, or a Fleet older than that.
+    /// Never either policy's default, because nobody resolved it, and
+    /// `ManifestSummary`'s two words say what the repository says today,
+    /// which is a different fact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolved: Option<ResolvedPolicies>,
 }
