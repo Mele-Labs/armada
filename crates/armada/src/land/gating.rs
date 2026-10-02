@@ -12,6 +12,7 @@ use super::gate::{foundations_delta, not_installed, FoundationsComparison};
 use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
+use super::reach::{reached, Reach};
 use super::shell::spoken;
 use super::stop::Stopped;
 
@@ -94,7 +95,8 @@ pub fn foundations_red(env: &Env, moved: bool, lines: Vec<String>, log: &Path) -
 }
 
 /// Run every Check the candidate hits, once `verify-foundations` passed.
-/// `Ok` is green; nothing is pushed here.
+/// `Ok` is green, with each Check that ran narrowed and what to, said for the
+/// outcome; nothing is pushed here.
 #[allow(clippy::too_many_arguments)]
 pub fn checks(
     repo: &Path,
@@ -105,7 +107,7 @@ pub fn checks(
     built: &Built,
     logs: &Path,
     passed: Passed,
-) -> Result<(), Stopped> {
+) -> Result<String, Stopped> {
     let (where_, moved, regenerated) = (&built.worktree, built.moved, built.regenerated);
     let rerun = covers(&env.armada, where_, &built.hit)?;
     let Passed { crashed, log } = passed;
@@ -122,9 +124,22 @@ pub fn checks(
             state: CheckState::Waiting,
         })
         .collect();
+    let mut narrowed = Vec::new();
+    let mut reach = None;
     if !rerun.is_empty() {
         setup(&where_, env, logs)?;
         nothing_left(&where_, "preparing the gate")?;
+        // Logged because a whole run of a narrowable Check says nothing else.
+        let (said, paths) = match reached(where_, &built.hit) {
+            Reach::Paths(paths) => (
+                format!("narrowed over\n{}\n", paths.join("\n")),
+                Some(paths),
+            ),
+            Reach::Whole(why) => (format!("whole: {why}\n"), None),
+        };
+        let _ = std::fs::write(logs.join("reach.log"), said);
+        reach = paths;
+        nothing_left(&where_, "reading the workspace")?;
     }
     for (n, name) in rerun.iter().enumerate() {
         runs[n].state = CheckState::Running;
@@ -132,7 +147,11 @@ pub fn checks(
             state,
             group,
             OutcomeState::Gating,
-            format!("running {name} ({})", rerun.join(", ")),
+            format!(
+                "running {name} ({}){}",
+                rerun.join(", "),
+                said_narrowed(&narrowed, ", with ")
+            ),
             OutcomePatch {
                 logs: Some(log_paths.clone()),
                 checks: Some(runs.clone()),
@@ -141,7 +160,17 @@ pub fn checks(
         )?;
         let log = logs.join(format!("{name}.log"));
         log_paths.push(path_string(&log));
-        let ran = check(&env.armada, &where_, name, &log, env.check_limit)?;
+        let ran = check(
+            &env.armada,
+            &where_,
+            name,
+            reach.as_deref(),
+            &log,
+            env.check_limit,
+        )?;
+        if let Some(to) = &ran.narrowed {
+            narrowed.push(format!("{name} narrowed to {to}"));
+        }
         // One that could not run is not a pass either; the stop says why.
         runs[n].state = match (ran.passed, ran.timed_out) {
             (true, _) => CheckState::Passed,
@@ -272,6 +301,7 @@ pub fn checks(
         if let Some(theirs) = &theirs {
             parts.push(theirs.clone());
         }
+        parts.extend(narrowed.iter().cloned());
         return Err(Stopped::red(
             format!(
                 "red {}: {}. Nothing was pushed or merged.",
@@ -305,7 +335,7 @@ pub fn checks(
         group,
         OutcomeState::Gating,
         format!(
-            "{} passed{}",
+            "{} passed{}{}",
             if rerun.is_empty() {
                 "the gate".to_string()
             } else {
@@ -320,6 +350,7 @@ pub fn checks(
                     env.base
                 ),
             },
+            said_narrowed(&narrowed, ", "),
         ),
         OutcomePatch {
             logs: Some(log_paths),
@@ -327,7 +358,15 @@ pub fn checks(
             ..OutcomePatch::default()
         },
     )?;
-    Ok(())
+    Ok(said_narrowed(&narrowed, ". Gated with "))
+}
+
+/// Each Check that ran narrowed and what to, after `lead`; nothing where none did.
+fn said_narrowed(narrowed: &[String], lead: &str) -> String {
+    match narrowed.is_empty() {
+        true => String::new(),
+        false => format!("{lead}{}", narrowed.join(", ")),
+    }
 }
 
 fn against(env: &Env, moved: bool) -> String {

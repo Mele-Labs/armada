@@ -83,7 +83,7 @@ status_colour = false
 added_by_hand = true
 dispatches = false
 not_called = ["Region", "Frame", "Group"]
-notes = "Named by the owner, 28 Sep 2026: Region is a `Region` struct in `crates/verification/src/shown.rs` and a labelled block on a screen, Frame is a captured Note's picture, and Group is what grouping makes. `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. A read-in lands in one, decided with him on 2 Oct 2026: `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`. Holds anything but another Zone. Freehand ink in a Zone, and dispatching one, are held in `#1620`."
+notes = "Named by the owner, 28 Sep 2026: Region is a `Region` struct in `crates/verification/src/shown.rs` and a labelled block on a screen, Frame is a captured Note's picture, and Group is what grouping makes. `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. A read-in lands in one, decided with him on 2 Oct 2026: `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`. Holds anything but another Zone. Freehand ink in a Zone is `#1775`; dispatching one is the open question `zone-dispatch` in `docs/concepts/studio.md`."
 
 [nodes.finding]
 name = "Finding"

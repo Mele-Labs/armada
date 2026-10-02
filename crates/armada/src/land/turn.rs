@@ -227,9 +227,10 @@ fn land_group(
             }
             Err(stopped) => return end_all(state, group, stopped),
         };
-        if let Err(stopped) = checks(repo, state, env, &group, &base, &built, &logs, passed) {
-            return end_all(state, group, stopped);
-        }
+        let narrowed = match checks(repo, state, env, &group, &base, &built, &logs, passed) {
+            Ok(narrowed) => narrowed,
+            Err(stopped) => return end_all(state, group, stopped),
+        };
         let before = group.len();
         group.retain(|entry| {
             let kept = local_head(repo, &entry.branch).as_deref() == Some(entry.head.as_str());
@@ -272,7 +273,9 @@ fn land_group(
         match push(repo, env, &built.top, &base, &logs.join("merge.log")) {
             Ok(Pushed::Landed) => {
                 for (entry, merge) in group.iter().zip(&built.merges) {
-                    finish(state, entry, landed(repo, state, env, entry, &base, merge));
+                    let mut done = landed(repo, state, env, entry, &base, merge);
+                    done.detail.push_str(&narrowed);
+                    finish(state, entry, done);
                 }
                 return None;
             }
