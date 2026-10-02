@@ -37,8 +37,11 @@ pub struct Standing {
 /// **Not to quote what it read**, because a refusal's quotation marks are held
 /// to the brief (`crate::quoted`), and the files it opens are not in the brief:
 /// a refusal quoting CLAUDE.md would be discarded as quoting what is not there.
+///
+/// **No "turn" in it**, because the convergence look rides the same text and
+/// is held to never mention one: a turn count there would be judging the Drone.
 const READABLE: &str = "\
-You can read this repository's own checkout, read-only, for a few turns: its \
+You can read this repository's own checkout, read-only and briefly: its \
 CLAUDE.md, its docs and its skills, to learn what the repository requires of a \
 change. Look up what you need and no more. Work the repository requires of a \
 change is not scope expansion, whatever the request says. The checkout is the \
