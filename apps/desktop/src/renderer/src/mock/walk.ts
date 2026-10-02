@@ -28,6 +28,8 @@ export type Target = {
 export type Step =
   | { press: Target; say: string }
   | { look: Target; say: string }
+  /** Pointed at and held there while the step is shown, so what hovering reveals is in its picture. */
+  | { hover: Target; say: string }
   | { type: string; into: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
@@ -79,11 +81,13 @@ export function inside(scope: Target, target: Target): Target {
 
 /** Where a step points: what it presses, looks at, or types into. */
 export function targetOf(step: Step): Target {
+  if ("hover" in step) return step.hover;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
 /** What the step does, said plainly for a stop. */
 function verb(step: Step): string {
+  if ("hover" in step) return "hover over";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
@@ -172,6 +176,7 @@ export async function arrive(step: Step, patience = PATIENCE_MS): Promise<HTMLEl
     held = now.x === was.x && now.y === was.y && now.width === was.width ? held + 1 : 0;
     was = now;
   }
+  if ("hover" in step) await pointAt(found);
   return found;
 }
 
@@ -194,6 +199,27 @@ function press(element: HTMLElement): void {
   element.dispatchEvent(new PointerEvent("pointerup", pointer));
   element.dispatchEvent(new MouseEvent("mouseup", at));
   element.dispatchEvent(new MouseEvent("click", at));
+}
+
+/** A pointer arriving from outside the window, as React hears one: an over with nothing it came from. */
+function pointerOver(element: HTMLElement, arriving: boolean): void {
+  const box = element.getBoundingClientRect();
+  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, relatedTarget: null };
+  const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
+  element.dispatchEvent(new PointerEvent(arriving ? "pointerover" : "pointerout", pointer));
+  element.dispatchEvent(new MouseEvent(arriving ? "mouseover" : "mouseout", at));
+}
+
+/**
+ * The pointer put on the element and held there, **then the tooltip delay
+ * waited out**, so the step is shown with what the hover opens already open.
+ * The delay is read from its token, `--tooltip-delay`, as the tooltip reads it.
+ */
+async function pointAt(element: HTMLElement): Promise<void> {
+  pointerOver(element, true);
+  const delay = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--tooltip-delay"), 10);
+  await sleep((Number.isNaN(delay) ? 400 : delay) + 100);
+  await frame();
 }
 
 /** A field filled as typing fills it: React hears an input with the new value. */
@@ -233,9 +259,10 @@ function drag(element: HTMLElement, by: { x: number; y: number }): void {
   window.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
 }
 
-/** What the step does to its target when the walk moves past it. A look does nothing. */
+/** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
-  if ("press" in step) press(element);
+  if ("hover" in step) pointerOver(element, false);
+  else if ("press" in step) press(element);
   else if ("drag" in step) drag(element, step.by);
   else if ("type" in step) fill(element, step.type);
 }
