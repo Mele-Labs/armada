@@ -16,6 +16,8 @@
 # `armada` still predated the verb; that fallback is gone and so is the
 # second pass.
 
+import contextlib
+import fcntl
 import json
 import os
 import shutil
@@ -1528,6 +1530,80 @@ class Batch(LineFixture):
         self.assertIn("ui/block.ts", done.stdout)
         self.assertEqual(self.settle(green, "fix/beside-it").returncode, 0)
         self.assertIn("beside.txt", self.main_files())
+
+
+class Adaptive(LineFixture):
+    """The size a turn takes: halved after a red turn, doubled after a green,
+    between 1 and the ceiling `ARMADA_LAND_BATCH` sets."""
+
+    @contextlib.contextmanager
+    def turn_held(self):
+        """Hold the turn lock as a runner would, so everything queued inside
+        waits for the first turn after it."""
+        os.makedirs(self.state_file(), exist_ok=True)
+        fd = os.open(self.state_file("runner.lock"), os.O_CREAT | os.O_WRONLY)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
+
+    def gated_together(self, names):
+        return os.path.isdir(self.state_file("logs", key("\n".join(names))))
+
+    def red(self, name):
+        """A branch red on its own, alone in its turn."""
+        where = self.queue([(name, {"red.txt": "1\n", "checks/test.sh": "! [ -f red.txt ]\n"})])[0]
+        self.assertEqual(self.settle(where, name).returncode, 4)
+        return where
+
+    def greens(self, names):
+        """Branches queued while the turn is held, then taken in turns."""
+        with self.turn_held():
+            wts = self.queue([(name, {name.replace("/", "-") + ".txt": "1\n"}) for name in names])
+        for where, name in zip(wts, names):
+            done = self.settle(where, name)
+            self.assertEqual(done.returncode, 0, done.stdout)
+        return wts
+
+    def test_a_green_turn_takes_every_waiting_branch_up_to_the_ceiling(self):
+        del self.env["ARMADA_LAND_BATCH"]
+        names = [f"fix/six-{n}" for n in range(6)]
+        wts = self.greens(names)
+        self.assertTrue(self.gated_together(names), "all six in one turn")
+        self.assertEqual(len(self.candidate_runs()), 1)
+        self.assertIn("taking up to 8 — the ceiling", self.land(wts[0], "--status").stdout)
+
+    def test_a_red_turn_halves_the_next_size_and_a_green_doubles_it_back(self):
+        self.env["ARMADA_LAND_BATCH"] = "4"
+        where = self.red("fix/red")
+        self.assertIn("taking up to 2 — halved after a red at ", self.land(where, "--status", check=False).stdout)
+        names = [f"fix/after-{n}" for n in range(5)]
+        wts = self.greens(names)
+        self.assertTrue(self.gated_together(names[:2]), "two after the red")
+        self.assertTrue(self.gated_together(names[2:]), "back to four after the green")
+        self.assertIn("taking up to 4 — the ceiling, after a green at ", self.land(wts[0], "--status").stdout)
+
+    def test_the_size_stays_between_one_and_the_ceiling(self):
+        self.env["ARMADA_LAND_BATCH"] = "2"
+        self.red("fix/red-one")
+        where = self.red("fix/red-two")
+        self.assertIn("taking up to 1 — the floor, after a red at ", self.land(where, "--status", check=False).stdout)
+        names = ["fix/up-a", "fix/up-b", "fix/up-c", "fix/up-d", "fix/up-e"]
+        wts = self.greens(names)
+        self.assertTrue(self.gated_together(names[:1]), "one at the floor")
+        self.assertTrue(self.gated_together(names[1:3]), "doubled to the ceiling")
+        self.assertTrue(self.gated_together(names[3:]), "and no further")
+        self.assertIn("taking up to 2 — the ceiling, after a green at ", self.land(wts[0], "--status").stdout)
+
+    def test_the_size_survives_a_runner_restart(self):
+        self.env["ARMADA_LAND_BATCH"] = "4"
+        self.red("fix/red")
+        red_runner = self.outcome("fix/red")["runner"]
+        names = ["fix/next-a", "fix/next-b", "fix/next-c"]
+        self.greens(names)
+        self.assertNotEqual(self.outcome("fix/next-a")["runner"], red_runner, "a runner of its own")
+        self.assertTrue(self.gated_together(names[:2]), "the halved size, read from disk")
 
 
 if __name__ == "__main__":
