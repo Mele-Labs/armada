@@ -448,37 +448,34 @@ notes = "The phase strip's stages are controls: opening one says what that stage
 kind = "Action"
 tier = "Contextual"
 verb = "Add a note"
-icon = ""
-icon_absent = "undecided"
+icon = "sticky-note"
 shortcut = "N"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "The first of the three kinds a person puts on a Studio by hand (#1364), and the one the owner went looking for and did not find. `N` for a node, as the design drew it, shifted because plain `n` is Dispatch and its scope is `anywhere` — an unshifted `n` on a Studio would open the composer under a person reaching for a note. The shifted set is where a second act on a spoken-for letter goes; `X`, `B` and `T` are the precedent. Scoped `open studio`, which is a place and not a Job: none of these three acts on anything focused, they act on the board. No glyph: `plus` is reserved to the title row's Dispatch segment and `presentation` to the Studios surface, and a silhouette for *a note as opposed to a link* is a decision for packages/icons/icons.toml rather than one to take here."
+notes = "The first of the three kinds a person puts on a Studio by hand (#1364), and the one the owner went looking for and did not find. `N` for a node, as the design drew it, shifted because plain `n` is Dispatch and its scope is `anywhere` — an unshifted `n` on a Studio would open the composer under a person reaching for a note. The shifted set is where a second act on a spoken-for letter goes; `X`, `B` and `T` are the precedent. Scoped `open studio`, which is a place and not a Job: none of these three acts on anything focused, they act on the board. The glyph is the rail's, `packages/icons/icons.toml`'s `sticky-note`, group `Canvas rail`: the owner, 2 Oct 2026, *"Give them the rail's icons"*, so the palette and the rail draw one act one way."
 
 [actions.add_link]
 kind = "Action"
 tier = "Contextual"
 verb = "Add a link"
-icon = ""
-icon_absent = "undecided"
+icon = "link"
 shortcut = "V"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "A board, document, issue, page or session, kept as its address — `docs/concepts/studio.md`, Nodes. `V` as the design drew it, which reads as the paste key it sits beside, and shifted because `v` is Observe. A Link is not read in by adding it: reading one in is a scout's act (#1293) and this only puts the address on the board. No glyph — `link` belongs to the Queued reason group, where it means something upstream is unfinished, and reusing it here would give one silhouette two meanings."
+notes = "A board, document, issue, page or session, kept as its address — `docs/concepts/studio.md`, Nodes. `V` as the design drew it, which reads as the paste key it sits beside, and shifted because `v` is Observe. A Link is not read in by adding it: reading one in is a scout's act (#1293) and this only puts the address on the board. The glyph is the rail's `link`, on its `Canvas rail` usage: the owner, 2 Oct 2026, *"Give them the rail's icons"*. The row's first meaning is the Queued reason badge's, something upstream unfinished, and the registry permits the second because that one is a 12px badge and this a 16px control the badge is never drawn beside."
 
 [actions.add_sketch]
 kind = "Action"
 tier = "Contextual"
 verb = "Add a sketch"
-icon = ""
-icon_absent = "undecided"
+icon = "shapes"
 shortcut = "S"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` owns and #1345 builds. `S` for sketch, shifted because `s` is Restart step. Placing a Sketch opens the pad where it was put down, and the node draws the drawing left on it (1 Oct 2026); an image pasted on its own is a Picture. No glyph, for `add_note`'s reason."
+notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` holds. `S` for sketch, shifted because `s` is Restart step. Placing a Sketch opens the pad where it was put down, and the node draws the drawing left on it (1 Oct 2026); an image pasted on its own is a Picture. The glyph is the rail's `shapes`, for `add_note`'s reason."
 
 [actions.add_zone]
 kind = "Action"
