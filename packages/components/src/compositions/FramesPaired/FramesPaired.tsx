@@ -70,8 +70,7 @@ export function FramesPaired({ pairs, emptyNote }: FramesPairedProps) {
  *
  * **Folded and not dropped.** A screen that did not move is a fact worth
  * having — it is what says the change stayed where it was asked to — and a
- * reader who wants to check the claim can open it. That is `RunTree`'s rule for
- * a spent attempt, one surface over: the outcome stays, the working folds.
+ * reader who wants to check the claim can open it.
  */
 function Unmoved({ pair }: { pair: PairedFrame }) {
   const [open, setOpen] = useState(false);

@@ -58,41 +58,8 @@ export function commandOf(check: DeclaredCheck): string {
   return check.run === undefined ? nameOf(check) : `${nameOf(check)} · ${check.run}`;
 }
 
-/**
- * Which paths a Check covers, or nothing where it covers everything.
- *
- * **Absent means always, and it draws nothing.** Most Checks declare no `when`,
- * and a row saying "covers everything" on every one of them would bury the two
- * that say something. Fleet sends no key rather than an empty list, so there is
- * no empty case to disambiguate here.
- *
- * **This is the half that is only useful before the Check runs.** Once the gate
- * has skipped one, its `check_runs` row is `not run` and names the paths itself;
- * before, this is the only thing that tells a reader a Check they expect to see
- * will not be spent on this Job.
- */
-export function coversOf(check: DeclaredCheck): string | undefined {
-  return check.when === undefined ? undefined : `when ${check.when.join(", ")}`;
-}
-
-/**
- * Where a Check runs, where that is not everywhere, as a row says it. #849.
- *
- * **A Drone's run leaves both out**, so a green run of it is never the whole
- * bar; `gate` still runs at every gate, and `handoff` runs last on one step.
- */
-export function runsAtOf(check: DeclaredCheck): string | undefined {
-  if (check.runs_at === "gate") return NOT_IN_THE_DRONES_RUN;
-  if (check.runs_at === "handoff") return NOT_IN_THE_DRONES_RUN_UNTIL_HANDOFF;
-  return undefined;
-}
-
-export const NOT_IN_THE_DRONES_RUN = "Not in the Drone's run. It runs when the Drone submits.";
-export const NOT_IN_THE_DRONES_RUN_UNTIL_HANDOFF = "Not in the Drone's run. It runs last, before handoff.";
 export const RUNS_LAST_BEFORE_HANDOFF =
   "Runs last, before handoff, once every other Check here has passed.";
-/** A Check a later step runs once, before handoff, that this step never runs. */
-export const HELD_FOR_HANDOFF = "Not checked on this step. It runs once, before handoff.";
 
 /**
  * One declared `judge_checks[]` entry, in counts.

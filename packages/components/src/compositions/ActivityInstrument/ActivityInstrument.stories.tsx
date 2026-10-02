@@ -5,9 +5,6 @@ import { ActivityInstrument } from "./ActivityInstrument";
 
 /**
  * Tool calls per 30s window over the last twelve minutes, on a running Job.
- *
- * The descriptions below are written as `packages/screens/src/instruments.ts`
- * words them; the arithmetic is tested there, not here.
  */
 const meta: Meta<typeof ActivityInstrument> = {
   title: "Compositions/Activity instrument",

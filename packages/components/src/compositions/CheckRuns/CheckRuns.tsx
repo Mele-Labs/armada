@@ -65,7 +65,7 @@ export type CheckRun = {
    * `judge_check` — in mono, which told a reader the surface had leaked its
    * schema at them and offered a string that joins to nothing.
    *
-   * Same convention as `RunTree`'s `labelIsAnIdentifier`, in the other
+   * Same convention as `RunTreeSkeleton`'s `labelIsAnIdentifier`, in the other
    * direction: there the name is the default and the identifier is the
    * exception, and here it is the reverse, because most rows on this list are
    * commands.

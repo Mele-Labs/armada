@@ -3,7 +3,7 @@
 //
 // **`.test.ts`, not `.test.tsx`** — `vitest.config.ts` routes a file by what it
 // imports, and this one calls `createElement` rather than writing JSX, so it
-// stays on the node project alongside `chapters.test.ts` rather than paying for
+// stays on the node project with the package's other `.test.ts` rather than paying for
 // a browser to render markup nothing here looks at pixel by pixel.
 
 import { createElement } from "react";

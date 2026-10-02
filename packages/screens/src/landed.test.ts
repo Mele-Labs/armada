@@ -1,6 +1,7 @@
 // What the Land board reads off a Job that finished — the arithmetic, which is
 // where the old boards contradicted themselves.
 
+import { GitMerge } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { landed } from "./fixtures/build/arc-landed";
@@ -43,9 +44,9 @@ describe("a Job that has not finished draws no board", () => {
   });
 });
 
-describe("the headline counts what the Job was held to", () => {
-  it("counts the criteria a step returned a verdict for", () => {
-    expect(read().count).toBe("2 of 2 met");
+describe("the headline says what the Job was held to, and counts none of it", () => {
+  it("says everything was met where a step met every criterion", () => {
+    expect(read().says).toBe("Everything this Job was held to was met.");
   });
 
   /**
@@ -64,30 +65,14 @@ describe("the headline counts what the Job was held to", () => {
     expect(board.criteria[2]?.status).not.toBe("completed-success");
   });
 
-  // A Job that merged reading `0 of 2 met` is a screen claiming a refusal
-  // nobody made, so the figure counts what it says it counts.
-  it("counts verdicts rather than passes where any criterion is unanswered", () => {
+  // `No verdict was recorded for 1 of them` summed up what each row already
+  // said, and the owner asked what it meant (1 Oct 2026). The row says it.
+  it("says nothing over a criterion nobody answered", () => {
     const criteria = [
       ...MOMENT.draft.criteria!,
       { criterion_id: "a9", text: "Nobody judged this", verified_by: "check" as const, origin: { origin: "prompt" as const } },
     ];
-    expect(read({ draft: { ...MOMENT.draft, criteria } }).count).toBe(
-      "2 of 3 with a verdict recorded",
-    );
-    expect(read({ draft: { ...MOMENT.draft, criteria } }).says).toBe(
-      "No verdict was recorded for 1 of them.",
-    );
-  });
-
-  it("says a Job with one pull request completes when it lands", () => {
-    expect(read().completes).toBe("Completes when its pull request lands.");
-  });
-
-  it("says a Job with members completes when every one of them has", () => {
-    const landing = { ...MOMENT.draft.landing!, complete_when: "all_members_landed" as const };
-    expect(read({ draft: { ...MOMENT.draft, landing } }).completes).toBe(
-      "Completes when every member has landed.",
-    );
+    expect(read({ draft: { ...MOMENT.draft, criteria } }).says).toBeUndefined();
   });
 });
 
@@ -200,10 +185,12 @@ describe("the run", () => {
 });
 
 describe("the test set", () => {
-  it("draws the handoff run of every case, with who ran it", () => {
+  it("draws the handoff run of every case and the run a person made, in one table saying who ran each", () => {
+    expect(read().runs).toHaveLength(1);
     const set = read().runs[0]!;
-    expect(set.runs).toHaveLength(4);
-    expect(set.runs.every((one) => one.who === "Fleet")).toBe(true);
+    expect(set.runs).toHaveLength(5);
+    expect(set.runs.filter((one) => one.who === "Fleet")).toHaveLength(4);
+    expect(set.runs.at(-1)?.who).toBe("you");
   });
 
   it("reads a case with no spec as not covered, and says why it did not run", () => {
@@ -212,20 +199,11 @@ describe("the test set", () => {
     expect(row?.meta).toBe("no spec covers Board.tsx");
   });
 
-  it("says plainly that there is no before-run", () => {
-    expect(read().runs[0]!.note).toContain("no before-run");
-  });
-
-  it("draws the run a person made themselves apart, and names them", () => {
-    const set = read().runs[1]!;
-    expect(set.runs).toHaveLength(1);
-    expect(set.runs[0]?.who).toBe("you");
-  });
-
-  it("says nobody has run one where none was run by hand", () => {
-    const board = read({ draft: { ...MOMENT.draft, runs: [] } });
-    expect(board.runs[1]?.runs).toHaveLength(0);
-    expect(board.runs[1]?.absent).toContain("Nobody has run one");
+  // Two headings over two sentences saying nothing ran read as something
+  // still to run (owner, 1 Oct 2026), so a Job nothing was run against has
+  // no table at all.
+  it("draws no table where nothing ran", () => {
+    expect(read({ draft: { ...MOMENT.draft, runs: [] } }).runs).toEqual([]);
   });
 });
 
@@ -233,7 +211,8 @@ describe("what it produced and what it left", () => {
   it("names the pull request and the branch it merged into", () => {
     const delivered = read().sections[0]!;
     expect(delivered.parts[0]?.value).toBe("https://git.example/armada/pull/1604");
-    expect(delivered.parts[0]?.meta).toBe("merged into main");
+    expect(delivered.parts[0]?.badge).toEqual({ status: "completed-success", icon: GitMerge, label: "Merged" });
+    expect(delivered.parts[0]?.meta).toBe("into main");
   });
 
   it("names the branch, the worktree still on disk and the record", () => {
@@ -243,10 +222,28 @@ describe("what it produced and what it left", () => {
     expect(left.parts[2]?.value).toContain(".armada/logs/");
   });
 
-  it("says why there is no worktree where nothing has read one", () => {
-    const left = read({ holding: null }).sections[1]!;
-    expect(left.parts[1]?.value).toBeUndefined();
-    expect(left.parts[1]?.absent).toContain("worktree is unknown");
+  // Job 2 gave its checkout back, and the row said nobody had read what it
+  // held, on a read answering `held: none` (owner, 1 Oct 2026).
+  it("draws no worktree row where no worktree is held", () => {
+    expect(read({ holding: null }).sections[1]!.parts.map((one) => one.name)).toEqual(["Branch", "Record"]);
+  });
+
+  it("draws no record row where no Manifest was read, and no section where nothing is left", () => {
+    const board = read({
+      holding: null,
+      manifest: undefined,
+      job: { ...FIXTURE.job, branch: undefined },
+      whole: { ...inputOf().whole!, branch: undefined },
+    });
+    expect(board.sections.map((one) => one.name)).not.toContain("Left behind");
+  });
+
+  it("names the record where Fleet says it is, rather than by the Job's id", () => {
+    const holding = {
+      ...inputOf().holding!,
+      logs: [{ kind: "job" as const, path: ".armada/logs/3-show-what-s-running.jsonl" }],
+    };
+    expect(read({ holding }).sections[1]!.parts.at(-1)?.value).toMatch(/\/\.armada\/logs\/3-show-what-s-running\.jsonl$/);
   });
 });
 

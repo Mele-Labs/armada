@@ -10,6 +10,8 @@ import {
   Cpu,
   Eye,
   FileQuestionMark,
+  GitMerge,
+  GitPullRequestClosed,
   Link,
   Megaphone,
   OctagonAlert,
@@ -140,6 +142,18 @@ export const Killed: Story = {
 
 export const Superseded: Story = {
   args: { status: "superseded", icon: Archive, children: "Superseded" },
+};
+
+/**
+ * A pull request's state, the one badge that is not a Job's (owner, 1 Oct
+ * 2026), with the two glyphs minted for it.
+ */
+export const PullRequestMerged: Story = {
+  args: { status: "completed-success", icon: GitMerge, children: "Merged" },
+};
+
+export const PullRequestClosed: Story = {
+  args: { status: "not-started", icon: GitPullRequestClosed, children: "Closed without merging" },
 };
 
 /**

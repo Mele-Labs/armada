@@ -104,7 +104,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 ### Overview — one arrangement, until the Job is over
 
-**The run tree, the plan rail and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
+**The run tree, the plan rail, *Where things are* and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
 
 **The run is a tree on the left, the selected step fills the inspector, and the step's story reads in the order it happened.** Why: the screen had an arrangement per state, and below the header no region sat in the same place twice. Everything from The run down describes Overview.
 
