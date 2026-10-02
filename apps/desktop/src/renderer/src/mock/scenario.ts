@@ -42,7 +42,7 @@ import {
   gateChecksStreaming,
   proposing,
 } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS, dispatchTyping } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
@@ -463,6 +463,9 @@ export const SCENARIOS: readonly Scenario[] = [
   ...ARC_MOMENTS.map((one) => moment("arc", one)),
   // The arc's request dispatched, on a Fleet whose proposer fills its Job in a field at a time.
   fillingIn(moment("arc", dispatchTyping())),
+  // The arc's plan with a task in each of the six states, for Plan's marks. Not a moment the arc
+  // passes through, so not in `ARC_MOMENTS`.
+  moment("plan", everyTaskState()),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),
