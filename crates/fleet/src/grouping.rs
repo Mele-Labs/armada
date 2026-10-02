@@ -153,26 +153,11 @@ pub fn restartable(plan: &WorkPlan, runs: &GroupRuns, task: TaskId) -> Result<()
     let named = plan.task(task).ok_or(NotRestartable::NoSuchTask { task })?;
     match named.state() {
         TaskState::Failed => Ok(()),
-        TaskState::Done if judge_refused(runs, named.group()) => Ok(()),
+        // `gate_failure` over tasks still done is a Judge refusal and nothing
+        // else: a red last run writes the same trigger but fails every task.
+        TaskState::Done if runs.stopped_on_gate_failure(named.group()) => Ok(()),
         state => Err(NotRestartable::NotFailed { task, state }),
     }
-}
-
-/// Whether the group's last run, with none open since, is one the Judge
-/// refused after green Checks. **`gate_failure` over tasks still `done`** is
-/// that and nothing else: a red last run writes the same trigger but fails
-/// every task, and a suspect or undecided gate writes a trigger of its own.
-fn judge_refused(runs: &GroupRuns, group: GroupId) -> bool {
-    let refused = StepLevelTrigger::of(EscalationTrigger::GateFailure);
-    runs.open_attempt(group).is_none()
-        && runs
-            .attempts(group)
-            .last()
-            .and_then(|run| run.ended.as_ref())
-            .is_some_and(|ended| match ended.verdict {
-                StepVerdict::Failed(trigger) => Some(trigger) == refused,
-                _ => false,
-            })
 }
 
 /// Whether a person's move may be taken: never of a task, or a group holding
