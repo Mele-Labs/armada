@@ -336,9 +336,13 @@ where
     /// **A slot goes back to the pool, never away.** A Job that ended holding
     /// one because its release was refused is given the release again here,
     /// now that every test has passed; `adapters::reclaim` then leaves the
-    /// slot's directory to the pool and takes only the branch.
+    /// slot's directory to the pool and takes only the branch. A completed
+    /// Job's slot is not: it is held until a person clears the Job.
     async fn gave_back(&self, job: &JobId) -> Option<GaveBack> {
         let loaded = self.load(job).await.ok()?;
+        if self.held_until_cleared(&loaded) {
+            return None;
+        }
         self.released_slot(&loaded).await;
         let served = self.served_by(&loaded).ok()?;
         let spec = self.reclaimed_spec(&served, &loaded).ok()?;

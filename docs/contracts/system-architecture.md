@@ -489,7 +489,7 @@ setup, and Fleet sweeps worktrees for terminal Jobs past retention on
 startup, alongside the crash reconciliation already running there. An
 `interrupted` Job's worktree is never swept — see the decision in Armada
 Decisions. **A slot is never swept**: it goes back to the pool when its Job
-ends, by the pool's own rules.
+ends, or when a person clears a completed one, by the pool's own rules.
 
 **Manifests are not in `.armada/`.** An `armada.yml` lives at the
 workspace root, version-controlled with the project it configures. For a

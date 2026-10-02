@@ -85,6 +85,9 @@ pub enum SlotState {
         /// Why the holder's release was refused, where a Job ended and could
         /// not give the slot back.
         kept: Option<String>,
+        /// The holder is a Job that completed, which holds its slot until a
+        /// person clears it.
+        completed: bool,
     },
     /// Its holder is gone and it is clean with nothing unlanded: the next
     /// lease takes it.

@@ -1713,6 +1713,11 @@ owns that, on its own retention schedule and driven by disk rather than by a
 person clearing a Board — folding it in here would give one call two
 unrelated things to fail at, and a person deleting a finished Job's record
 should not also have to think about a directory.
+
+**It does give a pool slot the Job still holds back**, by the pool's rules,
+before the record goes: a lease held for a Job nobody can name again would
+never be given back. A completed Job holds its slot until this or
+`reclaim_worktree`.
 """
 
 [operations.reclaim_worktree]
@@ -1736,6 +1741,10 @@ in a Manifest and is a different act.
 
 **Refused on a Job that is not yet terminal**, for `forget_job`'s reason: there
 is no disk to reclaim while a Drone might still write to it.
+
+**A pool slot is given back rather than removed**, by the pool's rules. This
+is the act that gives back the slot a completed Job holds until a person
+clears it; one the pool refuses stays held, and the answer says why.
 
 **Runs with `UnmergedWork::Keep`**, matching `armada clean` without `--force`.
 A branch holding commits the base cannot reach survives, is named in the answer

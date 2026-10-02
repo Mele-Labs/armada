@@ -1,5 +1,6 @@
 //! A Job's worktree is the pool slot it leased: leased at dispatch, recorded
-//! on the Job, looked up after, and given back when the Job ends.
+//! on the Job, looked up after, and given back when the Job ends — or, for a
+//! completed Job, when a person clears it.
 //! `docs/concepts/fleet.md`, *Worktree slots*.
 //!
 //! **Looked up, and asked whether it is still the Job's.** A slot is reused,
@@ -11,7 +12,7 @@ use adapter_traits::{
     AgentHarness, Delivery, SlotKept, SlotPool, SlotStanding, Vcs, WorkProduct, WorktreeSpec,
     WorktreeSpecRefused,
 };
-use core_model::{Component, Envelope, FieldValue, Job, Level};
+use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -146,6 +147,33 @@ where
             .record_slot(&job)
             .map_err(Adrift::Writing)?;
         Ok(job)
+    }
+
+    /// At a terminal status. **A completed Job holds its slot until a person
+    /// clears it**, the owner's decision, so Show again and anything else
+    /// reading its tree still finds it; the slot is marked so `--status` says
+    /// so. Any other end gives it back now.
+    pub(crate) async fn slot_at_the_end(&self, job: &Job) {
+        if job.status() != JobStatus::CompletedSuccess {
+            self.released_slot(job).await;
+            return;
+        }
+        let (Some(slot), Ok(served)) = (job.worktree_slot(), self.served_by(job)) else {
+            return;
+        };
+        self.vcs()
+            .mark_slot_completed(&pool_of(&served), slot, job.id().as_str());
+    }
+
+    /// Whether this is a completed Job still holding its slot, which only a
+    /// person clearing it gives back — never the sweep.
+    pub(crate) fn held_until_cleared(&self, job: &Job) -> bool {
+        job.status() == JobStatus::CompletedSuccess
+            && self
+                .served_by(job)
+                .ok()
+                .and_then(|served| self.tree_spec(&served, job))
+                .is_some_and(|spec| spec.slot().is_some())
     }
 
     /// Give a Job's slot back now it has ended, by the pool's rules. Refused,
