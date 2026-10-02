@@ -214,11 +214,15 @@ where
         }
     }
 
+    /// **Changed in place, never from a copy**: a merge can move the same row
+    /// from another thread, and a copy taken before it would drop its count.
     fn now_serving(&self, plan: &Plan) {
-        let mut state = plan.now.borrow().clone();
-        state.phase = ServerPhase::Serving;
-        state.serving_since = Some(ipc::Instant::from(&self.now()));
-        plan.now.send_replace(state.clone());
+        let since = ipc::Instant::from(&self.now());
+        plan.now.send_modify(|state| {
+            state.phase = ServerPhase::Serving;
+            state.serving_since = Some(since);
+        });
+        let state = plan.now.borrow().clone();
         self.publish(Event::ServerServing(state));
     }
 
