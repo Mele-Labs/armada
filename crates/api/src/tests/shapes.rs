@@ -130,6 +130,7 @@ fn step_rail(
         judge_checks: Some(judge_checks),
         advance_gate: Some(ipc::AdvanceGate::from_wire(gate).expect("a gate the registry has")),
         delivers: Some(false),
+        drone_per_task: false,
         held_for_handoff: Vec::new(),
         pass: None,
         verdict_routing_target: None,
