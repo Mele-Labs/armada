@@ -16,6 +16,7 @@ import type {
   EvidenceSubmitted,
   JobDetail,
   JobExamined,
+  JobDrones,
   JobFilesChanged,
   JobRemarks,
   JobResources,
@@ -335,6 +336,15 @@ export type Watched = JobRead<{ detail: JobDetail }>;
  * which is the exact reading this panel exists to make loud.
  */
 export type Holds = JobRead<{ resources: JobResources }>;
+
+/**
+ * `GET /jobs/:job_id/drones` for the open Job — every Drone it has had.
+ *
+ * **The list is kept while a re-read is in flight**, for `Holds`' reason: it is
+ * re-read on every event naming the Job, and one timed-out read blanking it
+ * would draw a Job that never had a Drone.
+ */
+export type Crewed = JobRead<{ drones: JobDrones }>;
 
 /**
  * `POST /jobs/:job_id/examine`, and what it found.
