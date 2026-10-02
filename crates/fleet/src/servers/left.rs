@@ -13,15 +13,17 @@
 
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::process::{holder_of, Holder, StartedAt};
 
 const RECORD: &str = "held";
 
-/// How long startup waits for an ended group's leader to be gone, so the
-/// ports it held are free before the main checkout's span is probed.
-const GOING: Duration = Duration::from_secs(2);
+/// How many times startup asks whether an ended group's leader is gone, 20ms
+/// apart, so the ports it held are free before the main checkout's span is
+/// probed. **Asks, not a duration**: about 2s idle, and longer under load
+/// rather than run out by it.
+const GOING: u32 = 100;
 
 /// Write one server's record, whole or not at all.
 pub(crate) fn recorded(
@@ -89,8 +91,7 @@ pub(crate) fn reaped(records_root: &str) -> Reaped {
 
 /// Wait, bounded, for the ended leader to stop being the process recorded.
 fn gone(group: NonZeroU32, started: &StartedAt) {
-    let until = Instant::now() + GOING;
-    while Instant::now() < until {
+    for _ in 0..GOING {
         match holder_of(group.get()) {
             Ok(Holder::Held(now)) if &now == started => {
                 std::thread::sleep(Duration::from_millis(20))
