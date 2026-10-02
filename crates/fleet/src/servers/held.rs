@@ -174,7 +174,8 @@ impl Servers {
 
     /// `commits` landed in the checkout `holder` serves: every instance it
     /// holds is that much further behind what it serves, and each moved row is
-    /// handed back for publishing.
+    /// handed to `published` **under the row's write lock**, so its event and
+    /// the task's own go out in the order the row moved.
     ///
     /// **Added, never set.** Two merges in a minute are two calls, and a
     /// server started between them counts only the second — which is why the
@@ -183,9 +184,8 @@ impl Servers {
     ///
     /// **Nothing is restarted here.** `docs/concepts/fleet.md`, *Servers*:
     /// restarting under somebody mid-look is worse than telling them.
-    pub(crate) fn moved_on(&self, holder: &Holder, commits: u32) -> Vec<ServerState> {
+    pub(crate) fn moved_on(&self, holder: &Holder, commits: u32, published: impl Fn(&ServerState)) {
         let book = self.book();
-        let mut moved = Vec::new();
         for ((whose, _), live) in book.live.iter() {
             if whose != holder {
                 continue;
@@ -193,10 +193,9 @@ impl Servers {
             // In place, for `now_serving`'s reason: the task moves this row too.
             live.now.send_modify(|state| {
                 state.checkout.behind = Some(state.checkout.behind.unwrap_or(0) + commits);
+                published(state);
             });
-            moved.push(live.now.borrow().clone());
         }
-        moved
     }
 
     /// Every instance up, by id — what a sweep of old directories keeps.

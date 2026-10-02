@@ -222,14 +222,15 @@ where
 
     /// **Changed in place, never from a copy**: a merge can move the same row
     /// from another thread, and a copy taken before it would drop its count.
+    /// **Published under the same write lock**, as a merge's row is, so a
+    /// reader is never handed this row after a newer one.
     fn now_serving(&self, plan: &Plan) {
         let since = ipc::Instant::from(&self.now());
         plan.now.send_modify(|state| {
             state.phase = ServerPhase::Serving;
             state.serving_since = Some(since);
+            self.publish(Event::ServerServing(state.clone()));
         });
-        let state = plan.now.borrow().clone();
-        self.publish(Event::ServerServing(state));
     }
 
     /// Write a Job's server's end into the Job's own log. **Fields, never an

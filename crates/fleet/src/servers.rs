@@ -239,7 +239,12 @@ where
                 return Ok((up.borrow().clone(), false));
             }
         };
-        self.publish(Event::ServerStarting(state.clone()));
+        // The row as it stands, under its write lock and changing nothing: a
+        // merge may already have moved it, and published under the same lock.
+        now.send_if_modified(|now| {
+            self.publish(Event::ServerStarting(now.clone()));
+            false
+        });
         let plan = Plan {
             whose: match &place {
                 Place::Job(job) => format!("job {}", job.id().as_str()),
