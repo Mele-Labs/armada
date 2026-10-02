@@ -52,14 +52,18 @@ test("the rail offers Run beside the kinds, and its press opens the commands", a
   expect(startStudioRun.mock.calls[0]![2]).toEqual({ x: expect.any(Number), y: expect.any(Number) });
 });
 
-test("while the Studio is read-only, Run is drawn off and says why", async () => {
+test("while the Studio is read-only, all four are drawn off and say why", async () => {
   open(studying().scenario);
   await openTheStudio();
 
   await expect.element(run()).toBeDisabled();
   await expect.element(run()).toHaveAccessibleDescription("Continue this Studio to run something.");
-  // The kinds are not drawn at all; Run alone is, so the reason has a place to be said.
-  await expect.element(rail().getByRole("button", { name: "Add a Note" })).not.toBeInTheDocument();
+  // The owner, 2 Oct 2026: greyed and never hidden, so the rail is the same in both modes.
+  for (const name of ["Add a Note", "Add a Link", "Add a Sketch"]) {
+    const kind = rail().getByRole("button", { name, exact: true });
+    await expect.element(kind).toBeDisabled();
+    await expect.element(kind).toHaveAccessibleDescription("Continue this Studio to add to it.");
+  }
 });
 
 test("where the checkout declares nothing to run, Run is off and says so", async () => {

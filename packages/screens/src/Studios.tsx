@@ -122,6 +122,9 @@ const RAIL_LABEL = "What you can put on this Studio";
 /** Why Run is off, said in its tooltip — `docs/contracts/iconography.md`, *The canvas rail*. */
 const RUN_READ_ONLY = "Continue this Studio to run something.";
 const RUN_NOT_LIVE = "Fleet is not connected, so nothing can be run.";
+/** Why Note, Link and Sketch are off — the owner, 2 Oct 2026: all four greyed, never hidden. */
+const ADD_READ_ONLY = "Continue this Studio to add to it.";
+const ADD_NOT_LIVE = "Fleet is not connected, so nothing can be added.";
 const RUN_SHEET_READING = "Reading what this checkout declares.";
 const RUN_SHEET_FAILED = "What this checkout declares could not be read.";
 const RUN_NOTHING_DECLARED = "This checkout declares nothing a Studio can run.";
@@ -768,7 +771,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           }}
           rail={
             <AddRail
-              editable={editable}
+              addOff={addOff(open.editable, live)}
               armed={arming}
               onArm={arm}
               starts={starts}
@@ -876,6 +879,12 @@ function runOff(editable: boolean, live: boolean, sheet: CheckoutRunSheetRead): 
   return studioStarts(sheet).length === 0 ? RUN_NOTHING_DECLARED : undefined;
 }
 
+/** Why the kinds are off, or nothing where they are on. Read-only first, as Run's. */
+function addOff(editable: boolean, live: boolean): string | undefined {
+  if (!editable) return ADD_READ_ONLY;
+  return live ? undefined : ADD_NOT_LIVE;
+}
+
 /**
  * The rail's place group: one icon per kind a person puts on a Studio by hand,
  * and Run. **A kind's press arms it and puts nothing down**: the next press on
@@ -883,11 +892,11 @@ function runOff(editable: boolean, live: boolean, sheet: CheckoutRunSheetRead): 
  *
  * **Run opens the checkout's commands and its node lands where the person is
  * looking** — the owner, 2 Oct 2026. `useStudioPlacement` reads the viewport
- * React Flow holds, which the rail is inside. While read-only Run is drawn off
- * with its reason, where the kinds are not drawn at all.
+ * React Flow holds, which the rail is inside. **While read-only all four are
+ * drawn off with their reason**, so the rail is the same in both modes.
  */
 function AddRail({
-  editable,
+  addOff: off,
   armed,
   onArm,
   starts,
@@ -895,7 +904,7 @@ function AddRail({
   runOff: why,
   onStart,
 }: {
-  editable: boolean;
+  addOff: string | undefined;
   armed: StudioNodeByHandKind | null;
   onArm: (kind: StudioNodeByHandKind) => void;
   starts: readonly StudioStart[];
@@ -910,7 +919,8 @@ function AddRail({
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
     icon,
     pressed: armed === kind,
-    ...(shortcut === undefined ? {} : { shortcut }),
+    // Off, the key is dead too, so the tooltip offers no binding beside the reason.
+    ...(off === undefined ? (shortcut === undefined ? {} : { shortcut }) : { disabled: true, why: off }),
     onPress: () => onArm(kind),
   }));
   const run: GraphCanvasRailAct = {
@@ -927,5 +937,5 @@ function AddRail({
       },
     },
   };
-  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={[...(editable ? kinds : []), run]} />;
+  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={[...kinds, run]} />;
 }
