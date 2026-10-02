@@ -263,3 +263,36 @@ test("putting the layer away puts the done notes away with it, and looking wrote
   // Nothing about a note was written by looking: the files say what they said.
   expect((await held.list()).map((one) => one.status)).toEqual(["open", "done", "open"]);
 });
+
+// What the owner saw on 1 Oct 2026: one note saved twice at once, and the bar
+// reporting the second save's failure though the note was written. The draft
+// stays up until the save answers, so a second press of Save — or ⌘↩ held long
+// enough to repeat — saved it again.
+test("a note pressed to save twice while its save is out is saved once", async () => {
+  const saved: Annotation[] = [];
+  let answer = (): void => {};
+  const slow: Sink = {
+    ...sinkOf(),
+    save: (one) => {
+      saved.push(one);
+      return new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+    },
+  };
+  await annotating(slow);
+  document.querySelector<HTMLElement>(noted("target", 20))?.click();
+  const card = page.getByRole("dialog", { name: "New note" });
+  const text = card.getByRole("textbox", { name: "Note" });
+  await text.fill("Save me once");
+
+  const save = card.getByRole("button", { name: "Save note" });
+  await save.click();
+  await save.click();
+  (text.element() as HTMLElement).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }));
+  expect(saved.map((one) => one.text)).toEqual(["Save me once"]);
+
+  answer();
+  await expect.element(card).not.toBeInTheDocument();
+  expect(saved).toHaveLength(1);
+});

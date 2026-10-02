@@ -175,6 +175,13 @@ where
             .allowing(crate::briefing::Allowance::of(
                 self.dry_runs().allowed(),
                 working.as_ref().map_or(0, Working::dry_runs),
+            ))
+            // **Read here, through the reader the Judge's brief goes through**,
+            // so a Drone is told what its Judge will expect. A Job no served
+            // repository answers for gets none, and fails on `served_by` below.
+            .under(self.served_by(job).map_or_else(
+                |_| verification::Standing::unstated(),
+                |served| crate::judging::standing(served.manifest(), served.root()),
             ));
         let brief = match opening.turn(job, job.workflow(), step, moved.as_ref()) {
             Ok(brief) => brief,
