@@ -362,6 +362,8 @@ fn implement_completes_two_tasks_and_drops_one_with_a_reason() {
     let event = Event::JobPlanChanged(JobPlanChanged {
         job_id: planned.job.id().into(),
         tasks,
+        task: None,
+        state: None,
         actor: core_model::Actor::Drone.into(),
         at: planned.row().created_at,
     });
@@ -516,12 +518,12 @@ fn a_person_adds_a_fifth_task_and_the_working_drone_is_told() {
         assert!(wire.contains(expected), "{expected} missing from {wire}");
     }
 
-    let event = Event::JobPlanChanged(JobPlanChanged {
-        job_id: planned.job.id().into(),
-        tasks: after.counts().into(),
-        actor: core_model::Actor::Human.into(),
-        at: (&entry.at).into(),
-    });
+    let event = Event::JobPlanChanged(JobPlanChanged::recorded(
+        planned.job.id(),
+        &after,
+        core_model::Actor::Human,
+        &entry.at,
+    ));
     assert_eq!(event.kind(), "job.plan_changed");
     assert_eq!(received_event(&event), event);
 }

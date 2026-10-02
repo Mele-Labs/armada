@@ -95,6 +95,10 @@ export type TaskCounts = {
 export type JobPlanChanged = {
   job_id: string;
   tasks: TaskCounts;
+  /** The task this change moved, `T1` and on. Absent on a whole recording. Since 23.1. */
+  task?: string;
+  /** That task's state after the change, a `PlanTask.state` word. Present exactly where `task` is. Since 23.1. */
+  state?: string;
   actor: string;
   at: string;
 };

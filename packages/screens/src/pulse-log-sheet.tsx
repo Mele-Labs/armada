@@ -5,19 +5,28 @@
 // rows for that Drone (`Turn.drone_id`, protocol 21.4), drawn by `DroneTurns`,
 // the Drones sheet's own pane, which follows the tail itself while `live`; the
 // Job's own log is the second socket's notes, drawn by `Log`. A Judge or gaming
-// brief has no reader on main, so its row offers the external `Open` alone.
+// brief is the one kind fetched, once, since it is written whole and closed
+// (`BriefPane`, protocol 21.11); its row keeps the external `Open` too.
 //
 // **Live is the reading's `being_written`**, not the socket's: the row and its
 // panel carry the one mark, and both stop when `lsof` says nobody holds the
 // file any more.
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
-import { BeingWritten, DroneBrief, DroneTurns, Sheet, type PulseLogRow } from "@armada/components";
+import {
+  BeingWritten,
+  ConsoleWrapToggle,
+  DroneBrief,
+  DroneTurns,
+  Sheet,
+  type PulseLogRow,
+} from "@armada/components";
 import type { Journalled, Observed } from "@armada/protocol";
 
 import { Log } from "./Log";
 import { logOf, turnsOf } from "./mine";
+import { BriefPane, type ReadBrief } from "./pulse-brief";
 import { notesOf } from "./notes";
 import { droneTurnsOf } from "./tab-drones-read";
 
@@ -28,16 +37,22 @@ export type PulseLogSheetProps = {
   observed: Observed;
   journalled: Journalled;
   floor: boolean;
+  /** Read a kept brief, for a brief row's panel. */
+  onReadBrief: ReadBrief;
   onClose: () => void;
 };
 
 /** What a kind is called in the panel's head. The row's own words. */
-const TITLE: Record<string, string> = { job: "Job log", transcript: "Drone transcript" };
+const TITLE: Record<string, string> = { job: "Job log", transcript: "Drone transcript", brief: "Judge brief" };
 
-export function PulseLogSheet({ log, jobId, observed, journalled, floor, onClose }: PulseLogSheetProps) {
+export function PulseLogSheet({ log, jobId, observed, journalled, floor, onReadBrief, onClose }: PulseLogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   const notes = log?.kind === "job" ? notesOf(logOf(journalled, jobId)?.notes ?? []) : [];
   const live = log?.writing === true;
+  // The reader's wrap, for the file whose panel is open. A brief opens
+  // wrapped because it is prose; the toggle flips it, and another file
+  // opens at its own default again.
+  const [flipped, setFlipped] = useState<{ path: string; wrap: boolean } | null>(null);
   // The Job's log follows its tail while it is written; `DroneTurns` does this
   // for a transcript on its own.
   useLayoutEffect(() => {
@@ -47,6 +62,8 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onClose
   if (log === null || log.path === undefined) return null;
   const drone = droneOf(log.path);
   const rows = (turnsOf(observed, jobId)?.rows ?? []).filter((row) => row.drone_id === drone);
+  const path = log.path;
+  const wrap = flipped?.path === path ? flipped.wrap : log.kind === "brief";
   return (
     <Sheet
       open
@@ -65,12 +82,18 @@ export function PulseLogSheet({ log, jobId, observed, journalled, floor, onClose
           ) : null}
         </>
       }
+      // Only a brief is drawn as console lines here, so only it has lines to wrap.
+      {...(log.kind === "brief"
+        ? { controls: <ConsoleWrapToggle wrap={wrap} onToggle={() => setFlipped({ path, wrap: !wrap })} /> }
+        : {})}
       closeLabel="Close"
       closeBinding="Esc"
       bodyRef={body}
       onClose={onClose}
     >
-      {log.kind === "transcript" ? (
+      {log.kind === "brief" ? (
+        <BriefPane jobId={jobId} path={log.path} read={onReadBrief} wrap={wrap} />
+      ) : log.kind === "transcript" ? (
         <DroneTurns
           turns={droneTurnsOf(rows, (lines) => <DroneBrief lines={lines} flat />)}
           live={live}

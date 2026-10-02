@@ -16,7 +16,7 @@
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
-import type { CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
@@ -490,6 +490,10 @@ export class FleetConnection {
 
   async readCheckOutput(jobId: string, kept: string): Promise<CheckOutputRead> {
     return await this.jobReads.readCheckOutput(jobId, kept);
+  }
+
+  async readBrief(jobId: string, name: string): Promise<BriefRead> {
+    return await this.jobReads.readBrief(jobId, name);
   }
 
   /** `leftOut` and the Manifest reading for the repository New job's ask answered, on All — #959.

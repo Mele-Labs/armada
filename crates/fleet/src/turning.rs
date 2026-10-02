@@ -348,6 +348,9 @@ where
         // **Outside the block, because its one look is a Judge call.** It takes
         // the slot for what the look is shown and lets it go across the call.
         let wandering = self.watch_convergence(slot).await?;
+        // Before the gate and the reap: a task's Drone that handed in is ended
+        // here and the next task's put on, so neither reads it. `crate::tasking`.
+        self.next_task_drone(slot).await?;
         let settled = self.settle(slot).await?;
         worked.delivered = self.take_delivered(&job).await;
         worked.after = self.reap(&mut *slot.lock().await).await?;
