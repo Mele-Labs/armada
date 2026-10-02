@@ -11,7 +11,7 @@
 // A board built on this draws the real Fleet as a Job with one worktree, which
 // is exactly what it is.
 
-import type { JobProcess, JobResources } from "@armada/protocol";
+import type { JobProcess, JobResources, LogFile } from "@armada/protocol";
 
 /** One process, and which worktree it belongs to. */
 export type PulseProcess = {
@@ -47,11 +47,19 @@ export type PulseWorktree = {
 export type PulseLog = {
   /** An opaque string, on `LedgerRow.kind`'s argument. */
   kind: string;
+  /**
+   * Relative to `records_root`, as Fleet names it. **The log's identity**: a
+   * brief `get_job` names is this file where the two paths are equal.
+   */
+  path: string;
   /** The worktree or member it belongs to. `null` is the Job's own. */
   owner: string | null;
   /** What it weighs. **Absent is unmeasured, never zero.** */
   bytes?: number;
-  /** Whether something is writing to it right now. */
+  /**
+   * Whether something holds it open for writing right now. `false` where
+   * `lsof` said no and where it did not answer: neither saw a writer.
+   */
   writing: boolean;
 };
 
@@ -73,19 +81,14 @@ export type PulseView = {
 /**
  * Today's reading, as the new board draws it.
  *
- * `logs` is the one part with nothing under it: the wire says when the Job's
- * log was last written to (`wrote_last_at`) and neither what it weighs nor
- * whether anything is writing now. So one row is derived for the Job's own log,
- * with `writing: false` and no size — both of which are the honest answer
- * rather than a figure nothing measured.
+ * **`logs` is Fleet's list as it came**, in its order: the Job's own log, each
+ * Drone's transcript, each kept brief. No row has an owner, because Fleet
+ * names none until a Job has members (#1545); every row is the Job's own.
  */
 export function pulseViewOf(resources: JobResources): PulseView {
   const worktree = resources.worktree;
   const owner = worktree?.branch ?? null;
-  const logs: PulseLog[] =
-    resources.wrote_last_at === undefined
-      ? []
-      : [{ kind: "job", owner: null, writing: false }];
+  const logs = (resources.logs ?? []).map(pulseLogOf);
 
   return {
     job: resources.job_id,
@@ -94,6 +97,16 @@ export function pulseViewOf(resources: JobResources): PulseView {
     processes: resources.processes.map((process) => pulseProcessOf(process, owner)),
     worktrees: worktree === undefined ? [] : [worktree],
     logs,
+  };
+}
+
+function pulseLogOf(log: LogFile): PulseLog {
+  return {
+    kind: log.kind,
+    path: log.path,
+    owner: null,
+    ...(log.bytes === undefined ? {} : { bytes: log.bytes }),
+    writing: log.being_written === true,
   };
 }
 

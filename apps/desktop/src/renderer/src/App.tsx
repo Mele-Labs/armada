@@ -137,8 +137,7 @@ import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { statsOf, fleetPanelOf } from "./left-column";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
-import { Shell, SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
-import { useAtFloor, useNarrow } from "@armada/shell";
+import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -780,6 +779,7 @@ export function App({ draft }: AppProps = {}) {
                   followed={state.followed}
                   onFollowCheckOutput={followCheckOutput}
                   resources={state.resources}
+                  jobDrones={state.jobDrones}
                   history={state.history}
                   examination={state.examination}
                   // The one act here that changes nothing. It costs no model

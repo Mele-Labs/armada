@@ -4,6 +4,7 @@ import type { JobDetail, Recorded } from "@armada/protocol";
 import { describe, expect, it } from "vitest";
 
 import { executingSequential } from "../fixtures/build/arc";
+import { reviewHeldByPolicy } from "../fixtures/build/policy";
 import {
   countsOf,
   familyOf,
@@ -242,4 +243,76 @@ function arcDetail(): JobDetail {
   const read = moment.fixtures[0]!.watched;
   if (read.state !== "read") throw new Error("the arc's implement moment carries no detail");
   return read.detail;
+}
+
+// #1683. Regression check defers to the repository's review-gate policy and
+// held twice; only the second run carries what the policy resolved to.
+describe("what the repository said, on a run its gate asked", () => {
+  it("says it on the step move that closed the run, and nothing on the older run", () => {
+    const { detail, moves } = heldByPolicy();
+    const rows = ledgerOf({ detail, history: moves }).filter(
+      (row) => row.kind === "step" && row.what.includes("regression_verify, running to awaiting_human"),
+    );
+
+    expect(rows.map((row) => row.outcome)).toEqual(["The repository said a person answers", ""]);
+  });
+
+  // The owner, 2 Oct 2026: the rule must not read as what failed the run.
+  it("says a run that ended before the gate never reached the rule it names", () => {
+    const { detail, moves } = heldByPolicy();
+    const row = ledgerOf({ detail, history: moves }).find(
+      (one) => one.kind === "step" && one.what.includes("running to retrying"),
+    );
+
+    expect(row?.outcome).toBe(
+      "gate_failure: the repository said a person answers, but the run ended before that gate",
+    );
+  });
+
+  it("says it on the run's own row where no history was read", () => {
+    const { detail } = heldByPolicy();
+    const rows = ledgerOf({ detail }).filter(
+      (row) => row.kind === "drone_exited" && row.coord?.step === "regression_verify",
+    );
+
+    expect(rows.map((row) => row.outcome)).toEqual([
+      "Awaiting_human: the repository said a person answers",
+      "Retrying — gate_failure: the repository said a person answers, but the run ended before that gate",
+      "Awaiting_human",
+    ]);
+  });
+
+  it("says nothing where the step's own gate decided, whatever the run recorded", () => {
+    const { detail, moves } = heldByPolicy();
+    const ownGate = {
+      ...detail,
+      steps: detail.steps.map((step) => ({ ...step, advance_gate: "human_always" })),
+    };
+    const rows = ledgerOf({ detail: ownGate, history: moves });
+
+    expect(rows.some((row) => row.outcome.includes("the repository said"))).toBe(false);
+  });
+
+  it("reads the auto-merge policy on a step that defers to it", () => {
+    const { detail, moves } = heldByPolicy();
+    const merging = {
+      ...detail,
+      steps: detail.steps.map((step) =>
+        step.step_id === "regression_verify" ? { ...step, advance_gate: "manifest_rule:auto_merge" } : step,
+      ),
+    };
+    const rows = ledgerOf({ detail: merging, history: moves });
+
+    expect(rows.map((row) => row.outcome)).toContain(
+      "The repository said Fleet merges once the forge's checks pass",
+    );
+  });
+});
+
+function heldByPolicy(): { detail: JobDetail; moves: Recorded[] } {
+  const fixture = reviewHeldByPolicy();
+  if (fixture.watched.state !== "read" || fixture.history?.state !== "read") {
+    throw new Error("the policy fixture carries its detail and its history");
+  }
+  return { detail: fixture.watched.detail, moves: fixture.history.moves };
 }

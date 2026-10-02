@@ -438,3 +438,27 @@ fn helm_reads_the_checkout_runs_it_can_start() {
         assert!(brief.as_str().contains(named), "the brief names `{named}`");
     }
 }
+
+/// **Helm kills a Job's processes as it kills its Drone**, the owner's
+/// decision of 2 Oct 2026: both rows are offered to a Helm session alone, an
+/// acting Helm may call them and a read-only one may not, exactly as
+/// `kill_drone`.
+#[test]
+fn helm_kills_one_process_or_every_one_with_kill_drones_reach() {
+    for act in ["kill_drone", "kill_process", "kill_processes"] {
+        let row = HELM_ONLY
+            .iter()
+            .find(|row| row.operation == act)
+            .unwrap_or_else(|| panic!("`{act}` does not read `Helm only`"));
+        assert_eq!(row.kind, "command", "`{act}`");
+        assert!(may(Authority::Acting, row), "`{act}`");
+        assert!(!may(Authority::ReadOnly, row), "`{act}`");
+        assert!(
+            !REACHABLE
+                .iter()
+                .chain(DRAFTING)
+                .any(|row| row.operation == act),
+            "`{act}` reaches an agent that is not Helm"
+        );
+    }
+}

@@ -31,15 +31,19 @@ describe("the Drones of Job 2, as Fleet served them on its plan step", () => {
     const [only, ...more] = rows();
     expect(more).toEqual([]);
     const [drone, where, state, , ranFor] = only ?? [];
-    expect([drone, where, state]).toEqual(["This Job's Drone", "Plan the change", "Running"]);
+    expect([drone, where]).toEqual(["This Job's Drone", "Plan the change"]);
+    // A mark, named Running to a screen reader and on hover — never a word drawn.
+    expect(state).toContain("Running");
     // Timed from the step's live run, which is when Fleet spawned it.
     expect(ranFor).not.toBe("");
   });
 
+  // The list is Fleet's, `list_job_drones`, which names no task — so a task
+  // naming the Drone adds no row of its own.
   test("a task that names the same Drone does not list it twice", async () => {
     mount(onJob(featureOnItsPlan({ T1: "working" })));
     await page.getByRole("tab", { name: /^Drones/ }).last().click();
-    await expect.element(page.getByRole("button", { name: "Drone on T1" }).last()).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "This Job's Drone" }).last()).toBeVisible();
     expect(rows()).toHaveLength(1);
   });
 });

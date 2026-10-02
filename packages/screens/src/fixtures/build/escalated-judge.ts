@@ -30,6 +30,7 @@ import {
   diffRead,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   holdsRead,
   instructed,
@@ -198,6 +199,13 @@ export function escalatedEvidenceSuspect(): JobFixture {
           { pid: 41233, command: "node", cpu_percent: 0.1, memory_bytes: 402_653_184, running_for: "06:46", recorded: true },
         ],
         wrote_last_at: "2026-09-10T14:29:04.000Z",
+        // Every brief kept, the gaming check's too: Fleet lists the folder.
+        logs: [
+          ...droneLogs(true),
+          { kind: "brief", path: BRIEF_PATH("c1"), bytes: 6_204, being_written: false },
+          { kind: "brief", path: BRIEF_PATH("c2"), bytes: 6_812, being_written: false },
+          { kind: "brief", path: BRIEF_PATH("gaming"), bytes: 5_377, being_written: false },
+        ],
       }),
     ),
     recorded: foldedReads({

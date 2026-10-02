@@ -2,26 +2,35 @@
 //
 // **The owner's, 29 Sep 2026**: *"a drones tab on the job page … running
 // Drones, drones that are completed or have been killed, and I can peek into
-// the entire transcript for that drone."* One Drone per task is the redesign
-// (his decision of 22 Sep 2026, its own agent per task), and the list is read
-// from the draft until Fleet serves it. A Drone on a step that works no task —
-// a plan step's — is the Job's own, `assigned_drone`, and is listed too.
-// Finished and killed Drones are not: Fleet serves live ones only.
+// the entire transcript for that drone."* Every Drone Fleet lists for the Job
+// (`list_job_drones`), running, finished, failed or killed, each read out of
+// the Job's turns by its own id. One Drone per task is the redesign (his
+// decision of 22 Sep 2026), and the arc's draft lists those instead.
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { DropdownMenu, DroneBrief, DroneMessageBox, HoldButton, JobDrones, SkeletonText } from "@armada/components";
+import {
+  DRONE_ACTIVITY,
+  DropdownMenu,
+  DroneBrief,
+  DroneMessageBox,
+  HoldButton,
+  JobDrones,
+  SkeletonText,
+  StepActivityMark,
+} from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf } from "./duration";
-import { droneViewsOf, type DroneView } from "./draft/drone";
+import type { DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
 import {
   DRONE_SAYS,
+  droneLabelOf,
   dronesFiltersOf,
   dronesUnder,
   droneTurnsOf,
@@ -29,12 +38,11 @@ import {
   ranForOf,
   stepOf,
   TRANSCRIPT_EMPTY,
-  TRANSCRIPT_UNSERVED,
   type DronesFilter,
   type DronesOrder,
 } from "./tab-drones-read";
 import type { ActingAct } from "./pending";
-import { droneOfTask, jobDroneOf } from "./tab-plan-read";
+import { droneOfTask } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 import type { TrailProps } from "./trail";
 
@@ -47,8 +55,13 @@ export type DronesTabProps = {
    * the read is a wrong answer.
    */
   reading?: boolean;
-  /** Every Drone, where the draft holds them. Absent reads the plan's tasks. */
-  drones?: readonly DroneView[];
+  /** Every Drone the Job has had — `droneViewsOf`, or the draft's. */
+  drones: readonly DroneView[];
+  /**
+   * Why the Job's turns are not in hand, where they are not — what an opened
+   * Drone with no transcript says instead.
+   */
+  turnsNote?: string | undefined;
   /** The plan's groups, where the draft holds them. Absent reads the wire's. */
   groups?: readonly GroupView[];
   /** Now, injected, so a running Drone's run time moves with the header's. */
@@ -83,7 +96,8 @@ export function DronesTab({
   job,
   whole,
   reading = false,
-  drones: given,
+  drones,
+  turnsNote,
   groups: givenGroups,
   now,
   floor,
@@ -107,13 +121,12 @@ export function DronesTab({
     () => givenGroups ?? (whole === null ? [] : taskGroupsOf(whole)),
     [givenGroups, whole],
   );
-  const drones = useMemo(() => given ?? droneViewsOf(groups, whole ?? undefined), [given, groups, whole]);
   const tasks = useMemo(() => new Map(groups.flatMap((group) => group.tasks).map((task) => [task.id, task])), [groups]);
   const shown = useMemo(() => dronesUnder(drones, filter, order), [drones, filter, order]);
 
   const labelOf = (drone: DroneView): string => {
-    // A Drone on the step itself is the Job's own, and named as Plan names it.
-    if (drone.task === undefined) return jobDroneOf(whole)?.label ?? drone.id;
+    // A Drone on a step works no task — `droneLabelOf` names it.
+    if (drone.task === undefined) return droneLabelOf(drone, whole);
     const task = tasks.get(drone.task);
     return task === undefined
       ? `Drone on ${drone.task}`
@@ -219,14 +232,18 @@ export function DronesTab({
                 subtitle: (
                   <>
                     {whereLinksOf(open)}
-                    {[DRONE_SAYS[open.state].toLowerCase(), ...spentOf(open), ranFor(open)]
-                      .filter((one) => one !== undefined)
-                      .join(" · ")}
+                    {/* The state is the row's mark, never a word (owner, 2 Oct 2026). */}
+                    <StepActivityMark
+                      activity={DRONE_ACTIVITY[open.state]}
+                      label={DRONE_SAYS[open.state]}
+                      says={DRONE_SAYS[open.state]}
+                    />{" "}
+                    {[...spentOf(open), ranFor(open)].filter((one) => one !== undefined).join(" · ")}
                   </>
                 ),
-                turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />, open.thoughts),
+                turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),
                 live: open.state === "running",
-                emptyNote: open.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
+                emptyNote: open.transcript === undefined ? (turnsNote ?? TRANSCRIPT_EMPTY) : TRANSCRIPT_EMPTY,
                 // Mocked against this Drone, as the Plan task sheet is: Fleet
                 // redirects the Job, not one Drone (#1536). The kill is too:
                 // Fleet ends the Job's one Drone. The header's kill ends the
