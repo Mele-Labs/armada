@@ -11,6 +11,7 @@ import { recorded } from "@armada/screens/src/fixtures/recorded";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import {
+  heldByTheGamingCheck,
   reviewAtAQuestion,
   withRow,
 } from "./job-detail-fixtures";
@@ -147,8 +148,52 @@ test.fails("n opens the composer from a Job's detail", async () => {
 // panel following the running step, and holding where a person put it) have
 // nothing to follow or hold.
 
-// **The gaming check's card has no renderer.** `StepActs` drew it — the
-// refused-command count, *Send it back*, *Carry on* and the note — and it was
-// the step inspector's, so nothing renders it since 29 Sep 2026. Two claims
-// stood here, one per shape the act takes: redirecting the Drone still on the
-// step, and restarting the step where it has gone.
+// **The gaming check's card, under Overview's lead and in the Workflow step
+// panel** (owner, 2 Oct 2026, #1672). It had no renderer from the Overview
+// reframe of 29 Sep 2026 until then, and a held Job sat until it was killed.
+// One claim per shape Send it back takes, and one for where the block draws.
+
+test("held by the gaming check with the Drone still there: Send it back redirects with the flag and the note", async () => {
+  const api = await opened(heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]));
+  const overrule = vi.spyOn(api, "overrideVerdict");
+  const redirect = vi.spyOn(api, "redirectDrone");
+  const restart = vi.spyOn(api, "restartStep");
+  const sendBack = page.getByRole("button", { name: "Send it back" });
+  await expect.element(sendBack).toHaveAccessibleDescription(/Sends the flag back to the drone still on this step/);
+  await userEvent.type(page.getByRole("textbox", { name: "Note (optional)" }), "Put it back");
+  await sendBack.click();
+  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("which was judged to weaken the test coverage."));
+  expect(redirect).toHaveBeenCalledWith(JOB_ID, expect.stringContaining("The person's note: Put it back"));
+  expect(restart).not.toHaveBeenCalled();
+  await page.getByRole("button", { name: "Carry on" }).click();
+  await expect.poll(() => overrule.mock.calls.length).toBe(1);
+  expect(overrule).toHaveBeenCalledWith(JOB_ID, "");
+});
+
+test("held by the gaming check with the Drone gone: Send it back restarts the step", async () => {
+  const api = await opened(heldByTheGamingCheck(["override_verdict", "restart_step", "redispatch_job"]));
+  const redirect = vi.spyOn(api, "redirectDrone");
+  const restart = vi.spyOn(api, "restartStep");
+  const sendBack = page.getByRole("button", { name: "Send it back" });
+  await expect.element(sendBack).toHaveAccessibleDescription(/Restarts the step with a fresh drone/);
+  await sendBack.click();
+  await expect.poll(() => restart.mock.calls.length).toBe(1);
+  expect(restart).toHaveBeenCalledWith(JOB_ID, undefined);
+  expect(redirect).not.toHaveBeenCalled();
+});
+
+test("held by the gaming check: the lead names the refused commands, and the step panel draws the same block", async () => {
+  await opened(heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]));
+  await expect.element(page.getByText("3 commands were refused during Regression check")).toBeVisible();
+  await expect.element(page.getByText(/^An assertion was removed or loosened, which was judged to weaken .* ·/)).toBeVisible();
+  expect(page.getByText(/This Job stopped at/).query()).toBeNull();
+  await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+  await page.getByRole("button", { name: /^Regression check, / }).last().click();
+  const asks = page.getByRole("region", { name: "Question for you" }).last();
+  await expect.element(asks.getByRole("group", { name: "Answer the flag" })).toBeVisible();
+  // The flagged hunk, as Overview draws it, and not the citation alone: a
+  // line of context only the patch carries.
+  await expect.element(asks.getByText(/expect\(next\.version\)/)).toBeVisible();
+  await expect.element(asks.getByRole("button", { name: "Send it back" })).toBeVisible();
+  await expect.element(asks.getByRole("button", { name: "Carry on" })).toBeVisible();
+});

@@ -256,6 +256,9 @@
 /* Every import stays above the rule below and not after it: an `@import`
    that follows a rule is dropped by the browser. */
 
+/* The card a gaming flag holds a step with. #1079, back for #1672. */
+@import "./compositions/HeldFlag/HeldFlag.css";
+
 /* The title row — the picker, the search field, Dispatch, Helm's reopen
    control and the logo, in the traffic lights' own bar. #1087. */
 @import "./compositions/TitleBar/TitleBar.css";
