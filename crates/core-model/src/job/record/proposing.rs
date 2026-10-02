@@ -1,7 +1,7 @@
 //! A Job created at `proposing`, and the one move that gives it a workflow.
 //!
 //! A dispatched request is a Job from the press, with the request as its title
-//! and no workflow, steps or plan — `.claude/decisions/2026-09-30-a-dispatched-request-is-a-job.md`.
+//! and no workflow, steps or plan — the owner's decision of 30 Sep 2026.
 //!
 //! **The workflow is unfrozen rather than optional.** It has no steps and names
 //! at most what the proposer settled on; [`Job::frozen_workflow`] tells the two

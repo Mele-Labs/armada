@@ -2,7 +2,7 @@
 //! call leaves it. #1714, #1716.
 //!
 //! **Created before the call goes out**, at `proposing` with the request as
-//! its title — `.claude/decisions/2026-09-30-a-dispatched-request-is-a-job.md`.
+//! its title, as the owner decided on 30 Sep 2026.
 //! The call's ending then moves it: an answer freezes the head of the plan into
 //! it, a person's stop kills it, and every other ending escalates it as
 //! `no_workflow_fits` or `proposer_failed`, with the Job's log saying which.
