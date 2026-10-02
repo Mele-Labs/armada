@@ -91,9 +91,9 @@
   min-width: 0;
 }
 
-/* Where the group is: `GROUP_STATE`'s glyph and word. Plain sans: a group is
+/* Where the group is: `GROUP_STATE`'s glyph, a mark with no word. A group is
    not a Job, so it takes no pill. The hue is the registry's status token, set
-   by `PlanGroupStateWord`; `--fg-muted` stands where a state carries none. */
+   by `PlanGroupStateMark`; `--fg-muted` stands where a state carries none. */
 .armada-plan-board__state {
   flex: none;
   display: inline-flex;

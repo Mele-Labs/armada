@@ -65,6 +65,7 @@ import { zoning } from "./studio-read-in";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { job2AtReview } from "./job-2-at-review";
+import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -504,6 +505,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
+  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
+  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

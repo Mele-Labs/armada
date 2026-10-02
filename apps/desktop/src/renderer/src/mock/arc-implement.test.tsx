@@ -44,6 +44,10 @@ async function planList(moment: string) {
 const groupCard = (ordinal: number) =>
   page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
+/** A group's state, which its head draws as a mark naming it (owner, 2 Oct 2026). */
+const groupMark = (ordinal: number, named: string) =>
+  groupCard(ordinal).getByRole("img", { name: named, exact: true }).first();
+
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
 
@@ -68,12 +72,12 @@ describe("implement", () => {
     async () => {
       await planList("arc/executing-sequential");
 
-      await expect.element(groupCard(1)).toHaveTextContent("passed");
+      await expect.element(groupMark(1, "Passed")).toBeVisible();
       await expect.element(groupCard(1)).toHaveTextContent("4c1b9d2");
-      await expect.element(groupCard(2)).toHaveTextContent("passed");
+      await expect.element(groupMark(2, "Passed")).toBeVisible();
       await expect.element(groupCard(2)).toHaveTextContent("7a2f0c5");
-      await expect.element(groupCard(3)).toHaveTextContent("running");
-      await expect.element(groupCard(4)).toHaveTextContent("not started");
+      await expect.element(groupMark(3, "Running")).toBeVisible();
+      await expect.element(groupMark(4, "Not started")).toBeVisible();
     },
   );
 
@@ -113,7 +117,7 @@ describe("implement", () => {
     async () => {
       await planList("arc/executing-concurrent");
 
-      await expect.element(groupCard(3)).toHaveTextContent("joining");
+      await expect.element(groupMark(3, "Joining")).toBeVisible();
       await expect.element(groupCard(3).getByRole("img", { name: "2 tasks, at the same time" })).toBeVisible();
       // The Job's cap rode on that line until 28 Sep, and read as one number twice.
       await expect.element(groupCard(3)).not.toHaveTextContent("Drones at once");
@@ -151,7 +155,7 @@ describe("implement", () => {
     async () => {
       await planList("arc/group-failed");
 
-      await expect.element(groupCard(3)).toHaveTextContent("retrying");
+      await expect.element(groupMark(3, "Retrying")).toBeVisible();
       // Its own row says it; the head, open, does not say it again.
       await expect.element(boundaryOf(3).getByRole("button", { name: "screens_test, failed" })).toBeVisible();
       await expect.element(boundaryOf(3)).not.toHaveTextContent("screens_test failed");

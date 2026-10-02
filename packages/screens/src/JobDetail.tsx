@@ -427,9 +427,9 @@ function OneJob(props: JobDetailProps) {
             setOpensDrone(droneId);
             setTab("drones");
           }}
-          onOpenCheck={(name, stepAttempt) => {
+          onOpenCheck={(name, stepAttempt, group) => {
             trail.push("plan");
-            setOpensCheck({ name, stepAttempt });
+            setOpensCheck(group === undefined ? { name, stepAttempt } : { name, stepAttempt, group });
             setTab("record");
           }}
           trail={trail.of("plan")}

@@ -52,9 +52,10 @@ type Story = StoryObj<typeof PlanGroupSheet>;
 export const Failed: Story = {
   play: async ({ canvasElement, args }) => {
     const sheet = within(canvasElement).getByRole("dialog", { name: "Group 3" });
-    // The head's word; its tasks below say theirs too.
+    // The head's mark, named for the state and drawing no word (owner, 2 Oct 2026).
     const head = sheet.querySelector<HTMLElement>(".armada-sheet__head")!;
-    await expect(within(head).getByText("failed", { exact: true })).toBeVisible();
+    await expect(within(head).getByRole("img", { name: "Failed" })).toBeVisible();
+    await expect(within(head).queryByText("failed", { exact: true })).toBeNull();
     within(sheet).getByRole("button", { name: "Add task" }).click();
     await expect(args.add?.onAdd).toHaveBeenCalledWith("g3");
   },

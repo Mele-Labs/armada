@@ -84,7 +84,7 @@ export type RecordTabProps = {
  * names a Check that failed on whichever step it was found on, and a Job with
  * no plan has no step that works the groups to fall back to.
  */
-export type CheckAt = { name: string; stepAttempt: number; step?: string };
+export type CheckAt = { name: string; stepAttempt: number; step?: string; group?: string };
 
 /**
  * The Record row a Check's run is: `checked`, that name, on the step the caller
@@ -99,7 +99,9 @@ function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: Che
       one.kind === "checked" &&
       one.what === at.name &&
       one.coord?.step === step &&
-      one.coord?.step_attempt === at.stepAttempt,
+      one.coord?.step_attempt === at.stepAttempt &&
+      // Two groups gated on one run of a step each ran it; the group decides.
+      (at.group === undefined || one.coord?.group === at.group),
   );
   return row === undefined ? undefined : String(row.cursor);
 }
