@@ -16,10 +16,10 @@
 // **`verdictOf` is still not this file's.** It is the four-block, one-step
 // reading `verdictSlotAtGate` and `verdictSlotFinished` use, and duplicating
 // its plumbing here for a different shape would be the second copy that made
-// this split worth making. The four block labels are the only thing shared —
-// "What you asked for", "What the Drone says it did", "What proves it", "What
-// the Drone says it left alone" — because the sheet is one document with one
-// layout; what fills each block is this file's own read.
+// this split worth making. The card labels are the only thing shared — "What
+// you asked for", "What was done", "What proves it", "What was skipped" —
+// because the sheet is one document with one layout; what fills each card is
+// this file's own read.
 
 import type { ReactNode } from "react";
 import {
@@ -42,7 +42,7 @@ import type {
   StepDetail,
 } from "@armada/protocol";
 
-import { money, pullRequestNumber } from "./facts";
+import { money } from "./facts";
 import { absoluteOf, elapsedSince } from "./duration";
 import { checkRow, saidOf, iconOf } from "./checks";
 import { checksOf, didNotPass, mechanicalRunsOf, panelsOf } from "./gates";
@@ -53,6 +53,8 @@ import {
   leftAloneOf,
   neverAsksAPerson,
   neverDelivers,
+  checksLineOf,
+  pullRequestBlockOf,
   verdictSlotAtGate,
   verdictSlotFinished,
   type VerdictSlotAtGateArgs,
@@ -74,8 +76,7 @@ export function humanGateStepOf(steps: readonly StepDetail[]): StepDetail | unde
 }
 
 /**
- * The step "What the Drone says it did", "What the Drone says it left alone"
- * and the deliverable figure read — the delivering step, or the last one.
+ * The step "What was done", "What was skipped" and the deliverable figure read — the delivering step, or the last one.
  * **Never the open step**: a reader who has not navigated anywhere still gets
  * the Job's own summary.
  */
@@ -334,41 +335,6 @@ function figuresAcrossJobOf({
   return figures;
 }
 
-/**
- * The pull request block for a Job that is over — case 5 of `why-b.md`.
- * **One line, and it opens on the forge.** `pullRequestBlockOf`'s open-review
- * block reads `mergeable` and open reviews, which a settled pull request no
- * longer carries; this reads `landed` instead, and the number follows the
- * same link every other pull request fact on this screen already offers.
- */
-function settledPullRequestBlockOf(
-  address: string | undefined,
-  landed: Settled | undefined,
-  onFollow: () => void,
-): ReactNode | undefined {
-  if (address === undefined || landed === undefined) return undefined;
-  const said = LANDED[landed];
-  if (said === undefined) return undefined;
-  const number = pullRequestNumber(address) ?? "Pull request";
-  return (
-    <p className="text-xs text-fg-muted">
-      <a
-        href={address}
-        title={address}
-        className="mono armada-verdict__pr-link"
-        onClick={(event) => {
-          event.preventDefault();
-          onFollow();
-        }}
-      >
-        {number}
-      </a>
-      {" · "}
-      {said}
-    </p>
-  );
-}
-
 /** What "Done" stands beside, in the header. */
 const DONE = "Done";
 
@@ -437,6 +403,27 @@ export function verdictSlotAfterAnswer({
   const gate = humanGateStepOf(steps);
   const never = neverDelivers(steps);
   const criteria = whole?.acceptance_criteria ?? [];
+  // **A settled pull request is the same card as an open one**, with its badge.
+  const checks = checksLineOf(steps);
+  const card =
+    address === undefined || landed === undefined || LANDED[landed] === undefined
+      ? undefined
+      : pullRequestBlockOf(
+          address,
+          undefined,
+          now,
+          () => {
+            void openPullRequest(onOpenPullRequest, job.id).then((because) => {
+              if (because !== null) opensRecords.onSaid(because);
+            });
+          },
+          undefined,
+          {
+            landed,
+            ...(job.branch === undefined ? {} : { branch: job.branch }),
+            ...(checks === undefined ? {} : { checks }),
+          },
+        );
   return (
     <VerdictSheet
       header={headerOf(gate)}
@@ -447,18 +434,13 @@ export function verdictSlotAfterAnswer({
       {...(never === true && chosen !== undefined
         ? { deliverable: keptOf(chosen, opensRecords)[0]?.opening }
         : {})}
-      {...(address === undefined || landed === undefined
-        ? {}
-        : {
-            pullRequest: settledPullRequestBlockOf(address, landed, () => {
-              void openPullRequest(onOpenPullRequest, job.id).then((because) => {
-                if (because !== null) opensRecords.onSaid(because);
-              });
-            }),
-          })}
+      {...(card === undefined ? {} : { pullRequest: card })}
       provesIt={<CheckRuns rows={provesItAcrossJobOf(steps, criteria, notes, now)} />}
       leftAlone={leftAloneOf(claim)}
-      figures={figuresAcrossJobOf({ job, whole, chosen, gate, diff: recorded.diff, opens: opensRecords })}
+      figures={figuresAcrossJobOf({ job, whole, chosen, gate, diff: recorded.diff, opens: opensRecords }).filter(
+        // The card names the branch, so the figures do not name it twice.
+        (figure) => card === undefined || figure.label !== "Branch",
+      )}
       recordNote={yourAnswerOf(gate, landed)}
     />
   );

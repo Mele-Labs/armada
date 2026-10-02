@@ -277,11 +277,15 @@ where
             sweeping.pr_detail.remove(url);
             sweeping.commented.remove(url);
         }
-        self.store()
-            .lock()
-            .await
-            .record_landed(job, &landed)
+        // The settling read names the title too, and it is the last one: a
+        // pull request that merged before the rotation reached it open is
+        // named here or nowhere.
+        let mut store = self.store().lock().await;
+        store
+            .record_pull_request_read(job, read.title.as_deref(), None)
             .map_err(Adrift::Writing)?;
+        store.record_landed(job, &landed).map_err(Adrift::Writing)?;
+        drop(store);
         let repository = match (&landed, read.base.as_deref()) {
             // **Only a merge, and only where the forge named the branch.**
             // What merged is now what everything else builds on — `#337` — and
@@ -379,23 +383,27 @@ where
         // what the record said a moment before it — the reason `#663`'s
         // review panel names a rebase that just happened rather than the one
         // before it.
-        let currency = self
-            .store()
-            .lock()
-            .await
-            .kept_current_for(job_id)
-            .ok()
-            .and_then(|kept| {
-                let onto = kept.onto?;
-                Some(ipc::Currency {
-                    rebased_onto: onto,
-                    rebased_at: kept
-                        .at
-                        .as_ref()
-                        .map_or_else(|| (&self.now()).into(), Into::into),
-                    conflict_files: kept.conflict_files.unwrap_or_default(),
-                })
-            });
+        let mut store = self.store().lock().await;
+        // **Kept, where the reading below is only remembered**, so the title
+        // and the count outlive the merge and a restart. A write that fails
+        // costs one rotation: the next read writes the same two again.
+        let _ = store.record_pull_request_read(
+            job_id,
+            read.title.as_deref(),
+            reviewed.map(|reviewed| u32::try_from(reviewed.remarks.len()).unwrap_or(u32::MAX)),
+        );
+        let currency = store.kept_current_for(job_id).ok().and_then(|kept| {
+            let onto = kept.onto?;
+            Some(ipc::Currency {
+                rebased_onto: onto,
+                rebased_at: kept
+                    .at
+                    .as_ref()
+                    .map_or_else(|| (&self.now()).into(), Into::into),
+                conflict_files: kept.conflict_files.unwrap_or_default(),
+            })
+        });
+        drop(store);
         let detail = ipc::PullRequestDetail {
             number: read.number,
             title: read.title.clone(),

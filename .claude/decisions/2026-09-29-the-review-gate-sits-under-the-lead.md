@@ -47,6 +47,14 @@ second clause was empty while the folded record held three Checks and two
 criteria. It is true now: the lead counts every step's evidence, which is
 `the-lead-counts-the-whole-jobs-evidence`. The fold itself is unchanged.
 
+**2 Oct 2026: the fold is gone, the owner's own reversal.** Shown three
+arrangements of the record (#1680), he picked a card per section in the Settings
+board's columns, and on the fold line itself wrote: *"I dont think we need this
+to collapse anymore. We can probably just remove this panel."* So the record's
+cards sit straight under the lead, open, at every gate, and there is no
+**The Job's record** line to press. The cost named above is now paid: the board's
+own cards sit below the record and the decision, not beside the lead.
+
 ## What had no answer, and still has none
 
 Four capabilities went with the deleted arrangement and have no destination:
@@ -57,6 +65,11 @@ Four capabilities went with the deleted arrangement and have no destination:
 | Breakages — a Check failing on a test another Job is fixing, and the count waiting on the fix | `workOf`, in *Where things are* |
 | The route from a Job back to the Studio it came from | *Where things are* |
 | `Drop…` and `Add task` | `PlanWell`, the Plan region — the Plan destination is being rebuilt and will take them |
+
+**2 Oct 2026: the first row has an answer.** Under the lead, and in the
+Workflow step panel, the arrangement a Judge's refusal took (#1672). The card
+was `HeldFlag`, drawn by the step's band; `StepActs` drew the header acts
+beside it, not *Send it back* and *Carry on*.
 
 Guide 8, *What does the progress bar show?*, is in the catalogue with no piece
 on screen for the same reason.

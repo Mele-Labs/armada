@@ -863,6 +863,22 @@ pub struct JobDelivery {
     /// attempt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unpushed: Option<String>,
+    /// The pull request's title, **kept after it settles**. Since protocol 23.5.
+    ///
+    /// Written when Fleet opens the pull request and again on every read of
+    /// it, so a title a person edited on the forge replaces the one Armada
+    /// opened it with. Absent is no read has named it: a pull request opened
+    /// by an Armada before 23.5 that has not been read since.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_title: Option<String>,
+    /// How many comments the pull request carries, as Fleet's rotation last
+    /// counted them while it was open, **kept after it settles**. Since 23.5.
+    ///
+    /// Conversation comments and reviews that say something; a comment on a
+    /// line of the diff is not counted. **Absent is unknown, never zero**: a
+    /// pull request that settled before the rotation reached it open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_comments: Option<u32>,
 }
 
 /// What Fleet's rotation last read live off an open pull request.

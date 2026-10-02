@@ -78,6 +78,7 @@ async fn ruled(gates: &[Gate<'_>], work: &FakeWorkProduct, dry_run: Option<&Kept
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::Unseen,
         &[],
         work,

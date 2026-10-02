@@ -60,6 +60,32 @@ export const Working: Story = {
 };
 
 /**
+ * **The header is the task's mark alone, named on hover**, and the task's
+ * Drones are listed as the Drones tab lists them: a mark, the Drone, what it
+ * spent. A press opens that Drone there. Protocol 23.1's `JobDrone.task`.
+ */
+export const ItsDrones: Story = {
+  args: {
+    ...LONG,
+    state: "done",
+    drones: [
+      { id: "01A", label: "Drone on T1", state: "failed", stateSays: "Failed", spent: "4 turns · ~$0.20", onOpen: fn() },
+      { id: "01B", label: "Drone on T1", state: "done", stateSays: "Done", spent: "12 turns · ~$0.90", onOpen: fn() },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const sheet = within(canvasElement);
+    // The state is a mark and never the word: no badge spells it.
+    await expect(canvasElement.querySelector(".armada-badge")).toBeNull();
+    const listed = within(sheet.getByRole("list", { name: "Drones on this task" }));
+    await expect(listed.getAllByRole("listitem")).toHaveLength(2);
+    await expect(listed.getByText("12 turns · ~$0.90")).toBeVisible();
+    await userEvent.click(listed.getAllByRole("button", { name: "Drone on T1" })[1]!);
+    await expect(args.drones?.[1]?.onOpen).toHaveBeenCalled();
+  },
+};
+
+/**
  * **The two ends of the evidence read side by side, and nothing reconciles
  * them.** The plan named one artifact and the work proved it with another;
  * that is the useful answer, not a wrong one.
@@ -432,7 +458,7 @@ export const LabelsAndValues: Story = {
 
 /**
  * The id is left of the title, at the head's leading edge; the state is the
- * badge under it.
+ * task's mark under it, named on hover and never spelled.
  *
  * **A break test on position**, which a text assertion cannot see: both are
  * in the head either way.
@@ -445,6 +471,7 @@ export const TheIdLeads: Story = {
     const title = sheet.getByRole("heading", { name: LONG.title });
     await expect(id.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await expect(id.getBoundingClientRect().left).toBeLessThan(title.getBoundingClientRect().left);
-    await expect(sheet.getByText("Done")).toBeVisible();
+    await expect(sheet.getByRole("img", { name: "Done" })).toBeVisible();
+    await expect(canvasElement.querySelector(".armada-badge")).toBeNull();
   },
 };

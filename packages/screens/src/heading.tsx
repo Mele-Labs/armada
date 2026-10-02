@@ -25,6 +25,7 @@ import { openPullRequest, type OpenPullRequest } from "./opening";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
 import { titleOf } from "./title";
+import type { OpenStudioFrom } from "./work";
 
 /** What the header is built from. The Job's, never a step's. */
 export type Heading = {
@@ -62,6 +63,8 @@ export type Heading = {
   onOpenPullRequest: OpenPullRequest;
   /** Land on another Job. The `Redispatched from` fact is the header's one. */
   onOpenJob?: ((jobId: string) => void) | undefined;
+  /** Land on the Studio this Job came off. The origin's sentence is the press, #1674. */
+  onOpenStudio?: OpenStudioFrom | undefined;
   onCopied: (value: string) => void;
   /** Say a sentence to the person. Only ever a failure — see `opening.ts`. */
   onSaid: (sentence: string) => void;
@@ -96,6 +99,7 @@ export function headingOf({
   onRaisingTurns,
   onOpenPullRequest,
   onOpenJob,
+  onOpenStudio,
   onCopied,
   onSaid,
 }: Heading): JobDetailHeading | null {
@@ -125,7 +129,7 @@ export function headingOf({
     jobId: numberOf(job.handle),
     jobIdWhole: job.handle,
     jobIdLabel: "Job",
-    fields: factsOf(job, whole, now),
+    fields: factsOf(job, whole, now, onOpenStudio),
     // The acts that end or replace the Job. **Pilot's slot is this one**, left
     // of the kill group — #250, and it lands without this line changing.
     //
