@@ -717,27 +717,6 @@ pub trait Delivery {
     /// reclaimed long before anybody merges its work.
     fn merge(&self, in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged>;
 
-    /// Merge a pull request Armada opened, pinned to the commit it was gated
-    /// on. `#1315`.
-    ///
-    /// **Everything [`merge`](Delivery::merge) is, plus one more word on the
-    /// forge's own line.** `armada land`'s turn pushes a gate's merge commit
-    /// to the branch and only then calls this — `--match-head-commit
-    /// expected_head` is what keeps a second push landing in the gap between
-    /// the read and the write from being merged as though it were gated too.
-    ///
-    /// **A second method, not a parameter on [`merge`].** The plain merge has
-    /// a caller — a person's press in Bridge — who read no gate and pinned no
-    /// commit; giving it an optional pin would let a future caller pass
-    /// `None` by habit and merge unpinned by omission rather than by
-    /// decision.
-    fn merge_pinned(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-        expected_head: &str,
-    ) -> Result<Merged, NotMerged>;
-
     /// Land a Job's branch by making the `--no-ff` merge commit here and
     /// pushing the base, never forced — `merge_by: push`, and the same code
     /// `armada land` lands through.
