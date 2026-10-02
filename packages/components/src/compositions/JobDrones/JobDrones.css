@@ -51,6 +51,7 @@
 
 .armada-drones__where,
 .armada-drones__state,
+.armada-drones__model,
 .armada-drones__spent,
 .armada-drones__ran {
   white-space: nowrap;

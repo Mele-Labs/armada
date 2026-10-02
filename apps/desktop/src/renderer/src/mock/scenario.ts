@@ -66,6 +66,7 @@ import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { job2AtReview } from "./job-2-at-review";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
+import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -507,6 +508,8 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
   holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
   holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
+  // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
+  holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

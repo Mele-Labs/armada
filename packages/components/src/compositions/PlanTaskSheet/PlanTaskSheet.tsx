@@ -13,6 +13,7 @@ export type { PlanTaskDrop };
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Textarea } from "../../primitives/Textarea/Textarea";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DRONE_ACTIVITY, type JobDroneState } from "../JobDrones/JobDrones";
 import { StepActivityMark } from "../StepActivityMark/StepActivityMark";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -171,6 +172,8 @@ export type PlanTaskDroneRow = {
   stateSays: string;
   /** Turns, and cost once it stopped. Absent draws nothing. */
   spent?: string;
+  /** The model it ran on, `JobDrone.model`. Absent draws nothing. */
+  model?: string;
   /** Open it in the Drones destination. Absent, the label is text. */
   onOpen?: () => void;
 };
@@ -382,6 +385,11 @@ export function PlanTaskSheet({
                       {one.label}
                     </button>
                   )}
+                  {one.model === undefined ? null : (
+                    <Tooltip asChild label="Model">
+                      <span className="armada-task-sheet__drone-spent">{one.model}</span>
+                    </Tooltip>
+                  )}
                   {one.spent === undefined ? null : (
                     <span className="armada-task-sheet__drone-spent">{one.spent}</span>
                   )}
@@ -402,10 +410,10 @@ export function PlanTaskSheet({
             </ul>
           </TaskField>
         )}
-        {tier === undefined || model === undefined ? null : (
-          <TaskField label="Model">
-            {tier} · {model}
-          </TaskField>
+        {/* Whichever the plan says: a task with no tier is Armada picking,
+            and one a person picked a model for may have none. */}
+        {tier === undefined && model === undefined ? null : (
+          <TaskField label="Model">{[tier, model].filter((one) => one !== undefined).join(" · ")}</TaskField>
         )}
         {beside.length === 0 ? null : (
           <TaskField label="Runs beside">
