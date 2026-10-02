@@ -216,7 +216,9 @@
     anchor-scope: --armada-dropdown-trigger;
   }
 
-  .armada-dropdown-menu__trigger {
+  /* The icon-only trigger is a `Button`, which takes no class of its own. */
+  .armada-dropdown-menu__trigger,
+  .armada-dropdown-menu > .armada-button {
     anchor-name: --armada-dropdown-trigger;
   }
 
