@@ -1,14 +1,8 @@
 //! The new Job's backend milestone, spike 022: **a Job's plan is worked by a
 //! Drone per task, group by group, and I can see and act on each task, each
-//! group and each Drone.** Added to slice by slice; every slice not named
-//! below is unasserted, and is its issue's row in the spike's milestone table.
-//!
-//! It asserts slice 0b's Fleet half, **how many events of each kind Fleet
-//! published each minute, and for which Job** (why: `api::stream`), slice
-//! 1a's, **a Judge's refusal and a Check's failure signed by them**, and slice
-//! 1b's, **a plan worked one task at a time, each by a Drone of its own, and
-//! the plan saying which task is being worked, which are done, and what showed
-//! each one done**.
+//! group and each Drone.** Added slice by slice; a slice not named is its
+//! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
+//! tally (`api::stream`), 1a's signers, and 1b's plan worked a Drone per task.
 //!
 //! | Not proved here | Why not |
 //! |---|---|
