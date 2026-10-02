@@ -51,7 +51,8 @@ needs them, and what broke.
 
 This is an instrument panel, not a marketing page. No hero sections, no
 decorative iconography, no illustration. Density and legibility win over
-impact.
+impact. The one illustration is the owner's: an empty merge line
+(`iconography.md`, Where the answer is no icon).
 
 **An instrument panel still has depth.** It sits open all day, and on a quiet
 day nothing on it carries status colour, so a flat grey screen reads as a dead

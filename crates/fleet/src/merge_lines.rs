@@ -9,13 +9,20 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use adapters::land_state::line::{self, Line, Located};
-use adapters::land_state::outcome::{together, Outcome, OutcomeState};
+use adapters::land_state::outcome::{
+    together, CheckRun, CheckState, Outcome, OutcomeState, PullRequestSettled,
+};
 use api::{Broadcaster, Queries};
-use ipc::{Event, LandState, MergeLine, MergeLineEntry, MergeLinePullRequest, MergeLines};
+use ipc::{
+    Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry,
+    MergeLinePullRequest, MergeLines, Settled,
+};
 use tokio::task::JoinHandle;
+
+use crate::clock::SystemClock;
 
 /// How often the lines are read. **Per repository with a line: one listing of
 /// the queue, one of the outcomes and a few small files**, and the `git` calls
@@ -27,9 +34,9 @@ pub const EVERY: Duration = Duration::from_secs(2);
 /// answer for, remembered so it is not asked again every read.
 type Found = HashMap<String, Option<Located>>;
 
-/// Every root's line, read now, and a sentence for each line that would not
-/// read. A root with no line, or one that will not read, is left out.
-pub fn read(roots: &[String], found: &mut Found) -> (MergeLines, Vec<String>) {
+/// Every root's line, read as of `now`, and a sentence for each line that would
+/// not read. A root with no line, or one that will not read, is left out.
+pub fn read(roots: &[String], found: &mut Found, now: SystemTime) -> (MergeLines, Vec<String>) {
     let mut lines = Vec::new();
     let mut unread = Vec::new();
     for root in roots {
@@ -37,7 +44,7 @@ pub fn read(roots: &[String], found: &mut Found) -> (MergeLines, Vec<String>) {
             .entry(root.clone())
             .or_insert_with(|| line::locate(Path::new(root)));
         let Some(at) = at.as_ref() else { continue };
-        match line::read(at) {
+        match line::read(at, now) {
             Ok(Some(read)) => lines.push(merge_line(root, at, read)),
             Ok(None) => {}
             Err(why) => unread.push(format!("the merge line in {root} could not be read: {why}")),
@@ -59,7 +66,8 @@ async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
 pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     let roots = roots(daemon).await;
     // What would not read is said by the reading loop, once, rather than per request.
-    tokio::task::spawn_blocking(move || read(&roots, &mut Found::new()).0)
+    let now = SystemClock::new().instant();
+    tokio::task::spawn_blocking(move || read(&roots, &mut Found::new(), now).0)
         .await
         .unwrap_or_default()
 }
@@ -91,8 +99,9 @@ where
         loop {
             ticker.tick().await;
             let roots = roots(daemon.as_ref()).await;
+            let at = SystemClock::new().instant();
             let Ok(((now, said), kept)) = tokio::task::spawn_blocking(move || {
-                let now = read(&roots, &mut found);
+                let now = read(&roots, &mut found, at);
                 (now, found)
             })
             .await
@@ -117,7 +126,7 @@ where
 ///
 /// **The redaction is here**: a queue entry's head, tree, worktree and nonce,
 /// and an outcome's logs, cleanup commands, runner pid and base readings stay on
-/// disk. What crosses is what `--status` prints and the panel draws.
+/// disk. A Check crosses by name and state alone. What crosses is what `--status` prints and the panel draws.
 pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
     let order: Vec<&str> = read
         .waiting
@@ -159,28 +168,36 @@ pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
                 outcome.as_ref(),
             );
             row.place = Some(u32::try_from(n + 1).unwrap_or(u32::MAX));
-            row.doing = (live && !doing.is_empty()).then(|| doing.to_string());
+            // While a Check runs, `checks` says so; the runner's `running <name> (...)` is not repeated.
+            let checking = row
+                .checks
+                .iter()
+                .any(|check| check.state == LandCheckState::Running);
+            row.doing = (live && !checking && !doing.is_empty()).then(|| doing.to_string());
             row.batch = batch;
             row
         })
         .collect();
-    let off = read
-        .off
-        .iter()
-        .map(|outcome| {
-            ended(
-                at,
-                &outcome.branch,
-                outcome.state,
-                outcome.pr,
-                Some(outcome),
-            )
-        })
-        .collect();
+    let left = |outcomes: &[Outcome]| -> Vec<MergeLineEntry> {
+        outcomes
+            .iter()
+            .map(|outcome| {
+                ended(
+                    at,
+                    &outcome.branch,
+                    outcome.state,
+                    outcome.pr,
+                    Some(outcome),
+                )
+            })
+            .collect()
+    };
     MergeLine {
         root: root.to_string(),
         line,
-        off,
+        off: left(&read.off),
+        landed: left(&read.landed),
+        sent_back: left(&read.sent_back),
     }
 }
 
@@ -204,8 +221,17 @@ fn ended(
         branch: branch.to_string(),
         place: None,
         pull_request: pr.and_then(|number| {
-            at.pull_request(number)
-                .map(|url| MergeLinePullRequest { number, url })
+            at.pull_request(number).map(|url| MergeLinePullRequest {
+                number,
+                url,
+                settled: outcome
+                    .filter(|_| state == OutcomeState::Landed)
+                    .and_then(|held| held.pr_settled)
+                    .map(|ended| match ended {
+                        PullRequestSettled::Merged => Settled::Merged,
+                        PullRequestSettled::ClosedUnmerged => Settled::ClosedUnmerged,
+                    }),
+            })
         }),
         state: land_state(state),
         doing: None,
@@ -218,6 +244,28 @@ fn ended(
             matches!(state, OutcomeState::Red | OutcomeState::Stopped),
         ),
         conflicts: facts(|held| &held.conflicts, state == OutcomeState::Conflict),
+        checks: outcome
+            .filter(|_| {
+                matches!(
+                    state,
+                    OutcomeState::Gating | OutcomeState::Red | OutcomeState::Stopped
+                )
+            })
+            .map(|held| held.checks.iter().map(check_of).collect())
+            .unwrap_or_default(),
+    }
+}
+
+fn check_of(run: &CheckRun) -> MergeLineCheck {
+    MergeLineCheck {
+        name: run.name.clone(),
+        state: match run.state {
+            CheckState::Waiting => LandCheckState::Waiting,
+            CheckState::Running => LandCheckState::Running,
+            CheckState::Passed => LandCheckState::Passed,
+            CheckState::Failed => LandCheckState::Failed,
+            CheckState::TimedOut => LandCheckState::TimedOut,
+        },
     }
 }
 

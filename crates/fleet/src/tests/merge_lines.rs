@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use adapters::land_state::dir::StateDir;
-use adapters::land_state::outcome::{merge_outcome, OutcomePatch, OutcomeState, Place};
+use adapters::land_state::outcome::{
+    merge_outcome, CheckRun, CheckState, OutcomePatch, OutcomeState, Place, PullRequestSettled,
+};
 use adapters::land_state::queue::{write_queue_entry, QueueEntry};
 use axum::http::StatusCode;
 use testkit::{FakeHarness, FakeWorkProduct};
@@ -61,6 +63,18 @@ fn say(
     state.outcome_path(branch)
 }
 
+fn runs(states: &[(&str, CheckState)]) -> Option<Vec<CheckRun>> {
+    Some(
+        states
+            .iter()
+            .map(|(name, state)| CheckRun {
+                name: (*name).to_string(),
+                state: *state,
+            })
+            .collect(),
+    )
+}
+
 /// Written `age` seconds ago, so which outcomes are newest is the test's to say.
 fn aged(path: &Path, age: u64) {
     let file = File::options().write(true).open(path).expect("the outcome");
@@ -88,7 +102,7 @@ fn a_line(root: &Path) -> StateDir {
         (
             "worktree-agent-a",
             300,
-            "reading verify-foundations against main",
+            "running screens_test (build, screens_test, desktop_test)",
             "docs/wire-lock-signed, fleet/gate-policy-every-run",
         ),
         (
@@ -99,12 +113,25 @@ fn a_line(root: &Path) -> StateDir {
         ),
     ] {
         queue(&state, branch, place, None);
+        // One member is in its Checks: they cross, and the runner's words for them do not.
+        let checks = (branch == "worktree-agent-a")
+            .then(|| {
+                runs(&[
+                    ("build", CheckState::Passed),
+                    ("screens_test", CheckState::Running),
+                    ("desktop_test", CheckState::Waiting),
+                ])
+            })
+            .flatten();
         say(
             &state,
             branch,
             OutcomeState::Gating,
             &together(doing, others),
-            OutcomePatch::default(),
+            OutcomePatch {
+                checks,
+                ..OutcomePatch::default()
+            },
         );
     }
     queue(&state, "fleet/push-the-base", 500, None);
@@ -113,7 +140,11 @@ fn a_line(root: &Path) -> StateDir {
         "fleet/push-the-base",
         OutcomeState::Merging,
         "pushing the merge onto main",
-        OutcomePatch::default(),
+        // Kept on disk from the gate, and not served past it.
+        OutcomePatch {
+            checks: runs(&[("build", CheckState::Passed)]),
+            ..OutcomePatch::default()
+        },
     );
     queue(&state, "fleet/read-in-cluster-membership", 600, Some(1770));
     say(
@@ -131,6 +162,8 @@ fn a_line(root: &Path) -> StateDir {
         "landed",
         OutcomePatch {
             merge_commit: Some(LANDED.into()),
+            pr: Some(1769),
+            pr_settled: Some(PullRequestSettled::Merged),
             ..OutcomePatch::default()
         },
     );
@@ -154,6 +187,11 @@ fn a_line(root: &Path) -> StateDir {
         OutcomePatch {
             pr: Some(1768),
             failed: Some(vec!["desktop_test".into(), "screens_test".into()]),
+            checks: runs(&[
+                ("build", CheckState::Passed),
+                ("desktop_test", CheckState::Failed),
+                ("screens_test", CheckState::TimedOut),
+            ]),
             ..OutcomePatch::default()
         },
     );
@@ -169,7 +207,7 @@ fn a_line(root: &Path) -> StateDir {
         },
     );
     aged(&conflict, 10);
-    // Older than the three, so past the bound; and a turn a killed runner left, never drawn.
+    // Older than the three, so past `off` but still landed; and a turn a killed runner left, never drawn.
     let older = say(
         &state,
         "fleet/an-older-landing",
@@ -178,6 +216,18 @@ fn a_line(root: &Path) -> StateDir {
         OutcomePatch::default(),
     );
     aged(&older, 3_600);
+    // Sent back four days ago, past `SENT_BACK_FOR`: not drawn.
+    let stale = say(
+        &state,
+        "fleet/a-red-days-ago",
+        OutcomeState::Red,
+        "red",
+        OutcomePatch {
+            failed: Some(vec!["rust_test".into()]),
+            ..OutcomePatch::default()
+        },
+    );
+    aged(&stale, 4 * 24 * 3_600);
     say(
         &state,
         "fleet/a-runner-killed-mid-turn",
@@ -205,7 +255,7 @@ fn shared() -> ipc::MergeLines {
 }
 
 #[tokio::test]
-async fn fleet_serves_the_line_on_disk_in_place_order_with_the_three_newest_off_it() {
+async fn fleet_serves_the_line_on_disk_in_place_order_with_what_landed_and_what_was_sent_back() {
     let home = TempDir::new();
     let state = a_line(home.path());
     let fleet = Arc::new(Fleet::assembled(fitted_with(
@@ -304,5 +354,29 @@ async fn a_line_that_moves_on_disk_is_published_whole() {
             ("fleet/pulse-log-rows".to_string(), ipc::LandState::Red),
         ],
         "the newest first, and the landing pushed past the three"
+    );
+    let sent_back: Vec<&str> = moved.lines[0]
+        .sent_back
+        .iter()
+        .map(|one| one.branch.as_str())
+        .collect();
+    assert_eq!(
+        sent_back,
+        [
+            "fleet/a-stop",
+            "bridge/overview-strip-width",
+            "fleet/pulse-log-rows"
+        ],
+        "a stop is sent back, newest first, and nothing landed is"
+    );
+    let landed: Vec<&str> = moved.lines[0]
+        .landed
+        .iter()
+        .map(|one| one.branch.as_str())
+        .collect();
+    assert_eq!(
+        landed,
+        ["bridge/land-board-reads-plainly", "fleet/an-older-landing"],
+        "the stop pushes no landing out"
     );
 }
