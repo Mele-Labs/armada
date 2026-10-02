@@ -1,0 +1,106 @@
+/* Held flag — the card a gaming flag holds a step with. #1079.
+
+   No hue of its own. It sits in the stopped band, which already carries the
+   step's, and a flag is not a verdict: --step-failed here would draw a refused
+   criterion. Weight and order carry it instead — the lines, what the gaming
+   check asked, then the note and the two answers. */
+.armada-held-flag {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-held-flag__finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Two flags on one step are two findings, and the rule says there are two. */
+.armada-held-flag__finding + .armada-held-flag__finding {
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* The registry's headline. A sentence, so sans, and the one line on the card
+   at full contrast and weight. */
+.armada-held-flag__headline {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}
+
+.armada-held-flag__cited {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  min-width: 0;
+}
+
+/* A path. Mono, and it wraps rather than clipping: a location cut short is a
+   location nobody can use. */
+.armada-held-flag__at {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  overflow-wrap: anywhere;
+}
+
+.armada-held-flag__asked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Who asked, named in the sentence it starts rather than set over it as a
+   label: `It asked` named nobody (owner, 2 Oct 2026). */
+.armada-held-flag__asker {
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+/* The question, as plain text. No rule down its side: a quotation drawn as a
+   quote read as somebody else's words set apart (owner, 2 Oct 2026). */
+.armada-held-flag__question {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* The note, and the two answers under it. */
+.armada-held-flag__decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  min-width: 0;
+}
+
+/* Side by side, wrapping at the window floor rather than taking a width. */
+.armada-held-flag__press {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-held-flag__withheld {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}

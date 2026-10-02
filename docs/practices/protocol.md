@@ -640,11 +640,14 @@ reached a gate yet**, not an empty review — a Job still running, or one that
 finished with no `human_always` step at all, carries nothing here, and so does
 every Job read from a Fleet older than 10.11.
 
-`VerdictSheet` draws `why` and `risks` into the existing "What you asked for"
-and "What proves it" blocks. The Drone's own claims stay their own block,
-labelled "What the Drone says it did" and "What the Drone says it left
-alone" — the pull request leaves them out on purpose, and the label is what
-keeps a Drone's self-report from reading as Fleet's own account.
+`VerdictSheet` draws `risks` as its own card, "What was not checked", less the
+paragraph Fleet opens it with. `why` it no longer draws: Overview's Brief card
+already carries the request, and the record repeated it whole (#1680). The
+Drone's own claims stay their own cards, "What was done" and "What was skipped"
+— the owner's names of 2 Oct 2026, because several Drones now share one Job.
+The pull request leaves them out on purpose; the old labels, "What the Drone
+says it did", were what marked them as a self-report, and the new ones no
+longer say whose account it is.
 
 ## Protocol 10.12: keeping a pull request current, and resolving its conflicts
 
