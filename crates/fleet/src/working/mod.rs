@@ -29,6 +29,7 @@ mod dry_run;
 mod saying;
 mod scope;
 mod silence;
+mod task;
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -288,6 +289,13 @@ pub(crate) struct Working {
     /// What the step's latest dry run shows a person, held so its results stay
     /// on Job detail once it is over. Dropped, the view comes down. #1062.
     dry_run_shown: Option<crate::underway::Announcing>,
+    /// The task this Drone was put on, and whether it has handed it in. `None`
+    /// on a Drone working its whole step. [`task`](mod@task) has the rest.
+    task: Option<task::OnTask>,
+    /// What the Drones before this one on the same step declared. A task's
+    /// Drone declares for its own task, and the step's gate measures every
+    /// task's work, so a declaration widens this rather than replacing it.
+    inherited: Option<DeclaredPaths>,
 }
 
 /// A Drone that has been ended, and everything the slot that held it was
@@ -389,6 +397,8 @@ impl Working {
             fixes: 0,
             dry_run_kept: None,
             dry_run_shown: None,
+            task: None,
+            inherited: None,
         }
     }
 
@@ -458,6 +468,8 @@ impl Working {
             fixes: 0,
             dry_run_kept: None,
             dry_run_shown: None,
+            task: None,
+            inherited: None,
         }
     }
 

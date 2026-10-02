@@ -90,6 +90,14 @@ exactly as before. Decided 1 Oct 2026: told only the Judge, a Drone plans
 without the rules and is refused, or carries them while the Judge was not
 sure they belonged. Wording in section 5, *What every change here carries*.
 
+**Told its task, and that handing it in ends it**, on a step declaring
+`drone_per_task`: THE PLAN, then which one task is this Drone's, that the
+tasks before it are on the branch and the ones after it are other agents',
+and that its `submit_evidence` is the task's hand-in and the end of its work
+on the Job. It is told no plan tool, because it is given none: Fleet marks the
+task. Spike 022, slice 1b, where `task_brief` moved from slice 3. Wording in
+section 5, *A task's Drone*.
+
 **Never told:** secrets, other Jobs' context or evidence, anything from a
 Manifest outside its own Job's set, the operator's own MCP servers.
 
@@ -1444,6 +1452,49 @@ heading is the line a Drone reads.
 sentence the Judge is given, that work doing what the file requires is not
 scope expansion. A file that is named and cannot be read is said in one
 sentence under the same heading, as the Judge's brief says it.
+
+### A task's Drone — added 2 Oct 2026
+
+On a step declaring `drone_per_task`, THE PLAN block carries the plan as
+every later step's does, and then names the task this Drone was put on.
+`fleet::crossing::ThePlan::for_task` renders it. It carries none of the
+`update_task` sentence a step following the plan is given, because the
+Drone is offered no plan tool.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ THE PLAN ──────────────────────────────────────
+│ Approach: Stop the reader at the end, then cover it
+│
+│ Tasks:
+│   T1 [handed_in] Stop the reader at the end
+│       shown: read::stops passes
+│   T2 [working] Cover the last row
+│   T3 [open] Note the bound in the module
+│
+│ YOUR TASK
+│
+│ This part's tasks are worked one at a time, each by
+│ an agent of its own, and yours is T2: Cover the last
+│ row. Its line in the plan above says what it touches
+│ and what should show it is done. Do T2 and nothing
+│ past it: the tasks handed in or done before it are
+│ already on the branch you are in, and the open ones
+│ after it are each another agent's.
+│
+│ When T2 is done, submit it with the evidence
+│ submission tool. What you claim, and what shows it,
+│ are about T2 alone. That submission is your hand-in,
+│ and it ends your work on this Job. The plan's states
+│ are kept from it, so you mark nothing yourself.
+└──────────────────────────────────────────────
+```
+
+**"Ends your work on this Job"** is the one thing a task's Drone does that a
+step's does not, and the rail's *Submit when this part is done, then wait*
+still holds beside it: a hand-in that is not the last is followed by Fleet
+ending the Drone, and the last one's Drone waits for the outcome as any does.
 
 ---
 
