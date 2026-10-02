@@ -473,8 +473,8 @@ export function useCommands(sending: Sending) {
    *
    * **Not through `acted`**, which names an act the header's controls wait on
    * and has no word for a process. The answer still goes where every command's
-   * does, so a failure is drawn with its code and something to copy — which is
-   * the whole of what a kill Fleet does not serve yet (#1647) has to say.
+   * does, so a failure is drawn with its code and something to copy — a pid
+   * Fleet no longer finds in the Job's tree among them (#1647).
    */
   async function killProcess(jobId: string, pid?: number): Promise<void> {
     const answer =

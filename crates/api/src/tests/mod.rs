@@ -22,6 +22,7 @@ mod limits;
 mod mcp;
 mod observing;
 mod preferences;
+mod processes;
 mod reference;
 mod served;
 mod shapes;

@@ -31,14 +31,14 @@ use std::sync::{Arc, PoisonError};
 use std::time::{Duration, UNIX_EPOCH};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Job, JobStatus, Timestamp};
+use core_model::{Job, JobId, JobStatus, Timestamp};
 use tokio::process::Command;
 
 use crate::adrift::Adrift;
 use crate::clock::rfc3339_utc;
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
-use crate::process::{holder_of, Holder};
+use crate::process::{holder_of, Holder, StartedAt};
 use crate::transcript::log_of;
 
 /// A Job's log files, and which of them a writer holds.
@@ -159,19 +159,42 @@ where
     /// tree is built here from parent ids, so the number of processes Armada
     /// spawns has no bearing on the number of children Fleet does.
     async fn below(&self, root: u32) -> Vec<ipc::JobProcess> {
-        let said = Command::new("ps")
-            .args(["-A", "-o", "pid=,ppid=,pcpu=,rss=,etime=,comm="])
-            .kill_on_drop(true)
-            .output();
-        match tokio::time::timeout(LOOK, said).await {
-            Ok(Ok(out)) if out.status.success() => {
-                descended(&String::from_utf8_lossy(&out.stdout), root)
-            }
-            // A process table that will not read is an empty list beside a
-            // `held` that says the pid is alive, which is the one shape a
-            // surface must draw as a question rather than as an answer.
-            _ => Vec::new(),
-        }
+        // A process table that will not read is an empty list beside a `held`
+        // that says the pid is alive, which is the one shape a surface must
+        // draw as a question rather than as an answer.
+        table()
+            .await
+            .map(|said| descended(&said, root))
+            .unwrap_or_default()
+    }
+
+    /// The Job's process tree, read now for an act on it rather than for a
+    /// screen: [`job_resources`](Fleet::job_resources)'s reading, with
+    /// everything but `held: running` answered as no tree at all.
+    ///
+    /// **An act needs the proof a screen can do without.** A gone, replaced or
+    /// unreadable Drone has no tree a pid can be found in, so every pid is
+    /// refused against it — which is the point: what a kill may reach is what
+    /// this finds, never what the renderer named.
+    pub(crate) async fn tree_now(&self, job: &JobId) -> Result<Option<Tree>, Adrift> {
+        let recorded = self
+            .store()
+            .lock()
+            .await
+            .drone_process(job)
+            .map_err(Adrift::Reading)?;
+        let Some(recorded) = recorded else {
+            return Ok(None);
+        };
+        let started = match holder_of(recorded.pid) {
+            Ok(Holder::Held(started)) if started.as_str() == recorded.started_at => started,
+            _ => return Ok(None),
+        };
+        Ok(table().await.map(|said| Tree {
+            root: recorded.pid,
+            started,
+            said,
+        }))
     }
 
     /// The Job's checkout and what it has taken, or nothing where there is no
@@ -188,6 +211,53 @@ where
             path: worktree.path().to_string(),
             branch: worktree.branch().to_string(),
         })
+    }
+}
+
+/// One `ps` over the whole table, or nothing where it did not answer inside
+/// [`LOOK`].
+async fn table() -> Option<String> {
+    let said = Command::new("ps")
+        .args(["-A", "-o", "pid=,ppid=,pcpu=,rss=,etime=,comm="])
+        .kill_on_drop(true)
+        .output();
+    match tokio::time::timeout(LOOK, said).await {
+        Ok(Ok(out)) if out.status.success() => {
+            Some(String::from_utf8_lossy(&out.stdout).into_owned())
+        }
+        _ => None,
+    }
+}
+
+/// A Job's process tree at one instant: the recorded Drone, proved to be the
+/// process that was recorded, and the one table everything under it is cut
+/// from.
+pub(crate) struct Tree {
+    /// The Drone Fleet recorded at the spawn.
+    pub(crate) root: u32,
+    /// When the process at `root` started, which matched the record.
+    started: StartedAt,
+    said: String,
+}
+
+impl Tree {
+    /// `pid` and everything under it, parents before children — or nothing,
+    /// where `pid` is not in this Job's tree.
+    pub(crate) fn under(&self, pid: u32) -> Vec<u32> {
+        let held = descended(&self.said, self.root);
+        if !held.iter().any(|one| one.pid == pid) {
+            return Vec::new();
+        }
+        descended(&self.said, pid)
+            .iter()
+            .map(|one| one.pid)
+            .collect()
+    }
+
+    /// Whether the process at `root` is still the Drone this tree was read
+    /// under: alive, and started when it did.
+    pub(crate) fn root_remains(&self) -> bool {
+        matches!(holder_of(self.root), Ok(Holder::Held(now)) if now == self.started)
     }
 }
 

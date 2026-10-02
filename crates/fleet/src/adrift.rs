@@ -386,6 +386,10 @@ pub enum Adrift {
     /// have kept, and the record would say a person injected context into a
     /// session that did not exist.
     NoDroneToRedirect { job: JobId },
+    /// A kill named a pid that is not in the Job's process tree as Fleet read
+    /// it at the act: it exited since the screen was drawn, its number went to
+    /// something else, or it was never the Job's. `#1647`.
+    NotTheJobsProcess { job: JobId, pid: u32 },
     /// An answer that does not apply: nothing outstanding, the wrong question,
     /// a label never offered, or a pipe that would not take it. **One variant
     /// carrying a sentence rather than four** — the recourse is identical in all

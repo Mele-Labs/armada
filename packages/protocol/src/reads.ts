@@ -238,6 +238,16 @@ export type Turn = {
    * row the wire did not stamp with `drone`, which is what every such row is.
    */
   by: Voice;
+  /**
+   * The Drone whose transcript the row is in — the `drone_id`
+   * `list_job_drones` names — so a Job with several Drones has rows that can
+   * be told apart. **Whose session, not who spoke**: `by` is who spoke.
+   *
+   * Fleet stamps it from the transcript's file name on every row `observe_job`
+   * sends, older rows included. **Absent is a Fleet before protocol 21.4**,
+   * which sent none, and a row no Drone's transcript holds.
+   */
+  drone_id?: string;
   saw: Saw;
 };
 

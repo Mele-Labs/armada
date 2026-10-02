@@ -133,12 +133,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     redispatchJob: async () => OK,
     killDrone: async () => OK,
     killJob: async (jobId) => (move(jobId, { status: "killed" }), OK),
-    // Not served by Fleet yet (#1647), so answered as Fleet's router answers a
-    // route it has none for — a bare 404 — through the parser main's `ask` uses.
-    killProcess: async (jobId, pid) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/processes/${pid}/kill`) }),
-    killProcesses: async (jobId) => refusedWith(404, "", { method: "POST", path: path(jobId, "/processes/kill") }),
-    // A failed task's acts, #250, #1656 and #1657 — answered as the kills are.
+    // Accepted, as Fleet answers a pid in the Job's tree (#1647). The mock
+    // takes no second reading, so the row stays where Fleet's would drop.
+    killProcess: async () => OK,
+    killProcesses: async () => OK,
+    // A failed task's acts, #250, #1656 and #1657 — not served by Fleet yet, so
+    // answered as Fleet's router answers a route it has none for: a bare 404,
+    // through the parser main's `ask` uses.
     pilotTask: async (jobId, taskId) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/pilot`) }),
     restartTask: async (jobId, taskId) =>

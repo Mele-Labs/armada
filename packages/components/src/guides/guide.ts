@@ -46,7 +46,7 @@ export const GUIDE_GROUPS: readonly GuideGroup[] = [
  * borrows a game's motion*. An id names one drawing; two guides may name the
  * same id, and it is scaled rather than redrawn.
  */
-export type GuideFigureId = "members-landing" | "group-order" | "step-bar" | "workflow-steps";
+export type GuideFigureId = "members-landing" | "group-order" | "workflow-steps";
 
 /**
  * One guide: a number, a title, the piece it explains, the steps it reads as,

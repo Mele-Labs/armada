@@ -45,15 +45,6 @@ export const GroupOrder: Story = {
 };
 
 /**
- * **Two real `StepBar`s, filling.** The wrapper opens from the start of each
- * bar to its end; the bar's own segments are untouched, so what fills is the
- * component the run draws.
- */
-export const StepBars: Story = {
-  args: { figure: "step-bar" },
-};
-
-/**
  * **The real member list**, rail and all, each card arriving in its turn. This
  * is the figure that binds hardest: it is `JobMembers` itself, so a change to
  * that list changes this guide.

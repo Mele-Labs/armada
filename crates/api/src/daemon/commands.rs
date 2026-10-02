@@ -133,6 +133,25 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `kill_process` — ends one process the Job holds, and everything under
+    /// it. Fleet reads the Job's process tree at the act and refuses a pid
+    /// that is not in it, so the pid names a process and never grants one.
+    /// The Drone's own pid is [`Commands::kill_drone`], step and all; any other
+    /// is not the Drone dying, and the Job comes back as it was.
+    fn kill_process(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        pid: u32,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `kill_processes` — ends every process the Job holds:
+    /// [`Commands::kill_drone`], and every descendant that left the Drone's
+    /// process group, which its group signal does not reach.
+    fn kill_processes(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `examine_job` — go and look at this Job now, and say what was found.
     ///
     /// **The rung below intervene.** Every other act here changes the Job, so a

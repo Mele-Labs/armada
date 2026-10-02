@@ -105,6 +105,7 @@ fn a_transcript_row_reads_back_as_what_was_written() {
         ts: crate::Instant::carried("2026-08-26T09:00:00.000Z"),
         step: Some(crate::StepId::carried("implement")),
         by: crate::Voice::Drone,
+        drone_id: None,
         saw: crate::Saw::Called {
             tool: "Bash".to_string(),
             call: "toolu_1".to_string(),
@@ -152,6 +153,7 @@ fn a_withheld_row_has_no_constructor_and_no_decoder() {
         ts: crate::Instant::carried("2026-08-26T09:00:00.000Z"),
         step: Some(crate::StepId::carried("implement")),
         by: crate::Voice::Drone,
+        drone_id: None,
         saw: crate::Saw::QuotaMoved {
             window: "five_hour".to_string(),
             status: "warning".to_string(),
@@ -170,6 +172,7 @@ fn a_turn_message_carries_a_row_under_its_own_tag() {
         ts: crate::Instant::carried("2026-08-26T09:00:00.000Z"),
         step: Some(crate::StepId::carried("implement")),
         by: crate::Voice::Drone,
+        drone_id: None,
         saw: crate::Saw::Said {
             text: "reading the file".to_string(),
         },

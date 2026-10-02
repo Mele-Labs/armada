@@ -8,8 +8,10 @@
 //! | Act | Asked by | Goes | Survives |
 //! |---|---|---|---|
 //! | [`kill_drone`](Fleet::kill_drone) | a person | the process, and the step it was on | the Job, its worktree, every step that advanced |
-//! | [`drone_at_rest`](Fleet::drone_at_rest) | Fleet | the same two | the same three |
-//! | [`ended_unanswered`](Fleet::ended_unanswered) | Fleet | the same two | the same three |
+//! | [`kill_process`](Fleet::kill_process) | a person | one process of the Job and what it started | the Drone, its step, the Job — unless the process was the Drone |
+//! | [`kill_processes`](Fleet::kill_processes) | a person | every process of the Job, and the step | what `kill_drone` leaves |
+//! | [`drone_at_rest`](Fleet::drone_at_rest) | Fleet | what `kill_drone` takes | what it leaves |
+//! | [`ended_unanswered`](Fleet::ended_unanswered) | Fleet | the same | the same |
 //! | [`kill_job`](Fleet::kill_job) | a person | the Job, at `killed` | the record, and the worktree until `armada clean` |
 //! | [`forget_job`](Fleet::forget_job) | a person | the record | nothing this owns; the worktree is `armada clean`'s |
 //!
@@ -26,16 +28,26 @@
 //! [`stopped_by_hand`](Fleet::stopped_by_hand) is here because `kill_drone` is
 //! its only caller and the two are one act as an operator means it.
 
+use std::num::NonZeroU32;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
 use core_model::{
     Actor, EscalationTrigger, Job, JobId, StepLevelTrigger, StepState, StepTarget, Target,
 };
+use ipc::{WireError, WireValue};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::drone::{aftermath, Aftermath, Ending};
+use crate::group::end_the_process;
 use crate::permitting::{Refusing, Waiting};
+use crate::resources::Tree;
 use crate::working::{StoodDown, Working};
+
+/// A kill named a pid the Job's tree did not hold when Fleet read it at the
+/// act. Declared beside the act, the contract's form for a code.
+const NOT_THE_JOBS_PROCESS: &str = "fleet.not_the_jobs_process";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -95,6 +107,103 @@ where
             }
         }
         self.load(job_id).await
+    }
+
+    /// End one process the Job holds, and every process under it. `#1647`.
+    ///
+    /// **The pid is a name, never a grant.** The Job's tree is read again here,
+    /// at the act, and a pid not in it is refused with
+    /// [`Adrift::NotTheJobsProcess`] and nothing is signalled. That one reading
+    /// is also what catches a pid that exited after the screen was drawn and
+    /// came back as somebody else's process.
+    ///
+    /// **A child is not the Drone, and nothing here reads it as one.** Killing
+    /// a runaway `cargo` under the Drone ends that process and what it started,
+    /// leaves the Drone, its step and the Job exactly as they were, and writes
+    /// nothing to the record. The Drone sees a tool call fail and carries on;
+    /// Fleet watches the Drone's own process and never its children, so there
+    /// is no ending for anything to classify. What it started goes too, leaves
+    /// first, because a build killed at its root leaves its compilers to the
+    /// init process — out of the Job's tree, so out of Pulse and out of reach
+    /// of every later kill.
+    ///
+    /// **The Drone's own pid is [`kill_drone`](Fleet::kill_drone)**, step and
+    /// all, so the step never goes on thinking its Drone is alive. Its
+    /// descendants go with it, as [`kill_processes`](Fleet::kill_processes)
+    /// says, since every process of the Job is under that one.
+    pub async fn kill_process(&self, job_id: &JobId, pid: u32) -> Result<Job, Adrift> {
+        let tree = self.tree_now(job_id).await?;
+        match tree.as_ref().map(|tree| (tree, tree.under(pid))) {
+            Some((tree, under)) if !under.is_empty() => self.ended(job_id, tree, &under).await,
+            _ => Err(Adrift::NotTheJobsProcess {
+                job: job_id.clone(),
+                pid,
+            }),
+        }
+    }
+
+    /// End every process the Job holds. `#1647`.
+    ///
+    /// **[`kill_drone`](Fleet::kill_drone), and then what it misses.** The
+    /// Drone is in the tree, so its step stops by hand exactly as there. What
+    /// this adds is every descendant that left the Drone's process group — a
+    /// tool that started its own, as a shell with job control does — which the
+    /// group signal never reaches and which would otherwise outlive the Drone,
+    /// reparented and invisible. Those go first, leaves before parents, so
+    /// nothing is orphaned while the Drone is still ending.
+    ///
+    /// **Not [`kill_job`](Fleet::kill_job)**: the Job survives, with its
+    /// worktree held, and a restart lands on the stopped step. Where the tree
+    /// will not read, or the Drone is gone, this is `kill_drone` alone.
+    pub async fn kill_processes(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        match self.tree_now(job_id).await? {
+            Some(tree) => self.ended(job_id, &tree, &tree.under(tree.root)).await,
+            None => self.kill_drone(job_id).await,
+        }
+    }
+
+    /// Signal each of `under`, children before parents, and where the Drone is
+    /// among them end it through [`kill_drone`](Fleet::kill_drone).
+    async fn ended(&self, job_id: &JobId, tree: &Tree, under: &[u32]) -> Result<Job, Adrift> {
+        let fleet = std::process::id();
+        for pid in under.iter().rev() {
+            if *pid != tree.root && *pid != fleet {
+                if let Some(pid) = NonZeroU32::new(*pid) {
+                    end_the_process(pid);
+                }
+            }
+        }
+        if !under.contains(&tree.root) {
+            return self.load(job_id).await;
+        }
+        let job = self.kill_drone(job_id).await?;
+        // A Drone this Fleet does not hold in a slot — one the record names
+        // and adoption never took back — is out of `kill_drone`'s reach. It is
+        // still the Job's, and still what was asked for.
+        if tree.root_remains() {
+            if let Some(root) = NonZeroU32::new(tree.root) {
+                end_the_process(root);
+            }
+        }
+        Ok(job)
+    }
+
+    /// Which refusal a process kill is: a pid outside the tree is its own,
+    /// and everything else is [`Fleet::refusal`]'s.
+    ///
+    /// **A 409, not a 404 or a 422.** The usual way here is a row that was
+    /// true when it was drawn — the process exited, or a build moved on — and
+    /// the answer to that is the one every status conflict gets: read again,
+    /// and decide again. The pid comes back on its own field.
+    pub(crate) fn killing_refusal(&self, why: Adrift) -> Refusal {
+        match &why {
+            Adrift::NotTheJobsProcess { job, pid } => Refusal::IllegalMove(
+                WireError::raised(NOT_THE_JOBS_PROCESS, why.to_string(), self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("pid", WireValue::Int(i64::from(*pid))),
+            ),
+            _ => self.refusal(why),
+        }
     }
 
     /// End the Job at `killed`. Terminal, and carrying no verdict.

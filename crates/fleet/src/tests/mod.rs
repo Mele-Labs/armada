@@ -91,6 +91,7 @@ mod http;
 mod journal;
 mod judging;
 mod keeping;
+mod killing_processes;
 mod kit;
 mod landing;
 mod landing_committed;

@@ -105,8 +105,8 @@ approximations.
 - [`instructions/claude-desktop.md`](instructions/claude-desktop.md) — the
   desktop app's project instructions.
 - [`instructions/every-change.md`](instructions/every-change.md) — what every
-  change here carries, written for `armada.yml`'s `standing_rules` to name, so
-  that Fleet reads it into every Judge brief byte for byte.
+  change here carries, which `armada.yml`'s `standing_rules` names and Fleet
+  reads into every Judge brief byte for byte.
 
 ## Concepts
 

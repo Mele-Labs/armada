@@ -13,7 +13,7 @@ import type { ProtocolVersion } from "./version";
 /** One message on a Job's Observe socket. `crates/ipc/src/turn.rs`. */
 export type TurnMessage =
   | ({ message: "opened" } & Opening)
-  | ({ message: "row"; ts: string; step?: string; by?: Voice } & Saw)
+  | ({ message: "row"; ts: string; step?: string; by?: Voice; drone_id?: string } & Saw)
   | ({ message: "missed" } & Missed)
   | ({ message: "closed" } & Closed);
 
@@ -238,6 +238,18 @@ export type Saw =
    * reaping. `crates/fleet/src/silence.rs` holds that road.
    */
   | { event: "background_work"; outstanding: number }
+  /**
+   * The model is thinking, and how much it has thought so far: the harness's
+   * estimate, **cumulative within one model call**. A call that thought for a
+   * while is a rising run of these and the next call starts again from nought,
+   * so what a run thought in all is the sum of each call's last figure — the
+   * per-row deltas, summed.
+   *
+   * **How much, never what.** The reasoning text is not on this wire
+   * (`docs/scope.md`). Before protocol 21.4 this arrived as `unrecognised`
+   * with the kind `system/thinking_tokens` and no figure.
+   */
+  | { event: "thinking"; estimated_tokens: number }
   | { event: "unrecognised"; kind: string }
   | { event: "unreadable"; line: string; why: string };
 

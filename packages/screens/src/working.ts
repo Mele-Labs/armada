@@ -24,7 +24,7 @@ import type { ChangedFile, CheckRun, Turn } from "@armada/protocol";
 
 import { instant } from "./duration";
 import { didNotPass } from "./gates";
-import { isEcho } from "./story";
+import { isEcho, THINKING_TOKENS } from "./story";
 
 /** What one act is. The wire's own kinds, less the two that fold into others. */
 export type WorkingKind =
@@ -127,9 +127,15 @@ export function workingOf(turns: readonly Turn[], stepId: string | undefined): W
   for (const turn of mine) {
     const act = actOf(turn, answered);
     if (act !== undefined) acts.push(act);
-    if (turn.saw.event === "unrecognised") {
-      unread.set(turn.saw.kind, (unread.get(turn.saw.kind) ?? 0) + 1);
-    }
+    // A `thinking` row is counted under the kind it arrived as before Fleet
+    // named it (protocol 21.4), so this count reads as it did.
+    const kind =
+      turn.saw.event === "unrecognised"
+        ? turn.saw.kind
+        : turn.saw.event === "thinking"
+          ? THINKING_TOKENS
+          : undefined;
+    if (kind !== undefined) unread.set(kind, (unread.get(kind) ?? 0) + 1);
   }
 
   return {

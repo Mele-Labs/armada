@@ -363,6 +363,12 @@ impl fmt::Display for Adrift {
                  the worktree it left behind",
                 job.as_str()
             ),
+            Adrift::NotTheJobsProcess { job, pid } => write!(
+                out,
+                "pid {pid} is not in {}'s process tree as Fleet read it just now, so nothing was \
+                 signalled — it has exited, or the number now names another process",
+                job.as_str()
+            ),
             // `questioning::NotAnswered`'s sentence, whole: a second wording
             // here would be a second authority for one refusal.
             Adrift::NotAnswerable { because, .. } => out.write_str(because),
@@ -721,6 +727,7 @@ impl Adrift {
             | Adrift::NotResumable { job, .. }
             | Adrift::NoStepStopped { job }
             | Adrift::NoDroneToRedirect { job }
+            | Adrift::NotTheJobsProcess { job, .. }
             | Adrift::NotAnswerable { job, .. }
             | Adrift::NotUnderReview { job, .. }
             | Adrift::NoDroneToTell { job }
@@ -849,6 +856,8 @@ impl Error for Adrift {
             | Adrift::NotResumable { .. }
             | Adrift::NoStepStopped { .. }
             | Adrift::NoDroneToRedirect { .. }
+            // A kill naming a pid the tree no longer holds: what was read.
+            | Adrift::NotTheJobsProcess { .. }
             // And an answer that does not apply, which is the same shape.
             | Adrift::NotAnswerable { .. }
             // The two review refusals join them: a Job that is not at a gate

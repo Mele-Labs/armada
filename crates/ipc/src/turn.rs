@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::checks::CheckRun;
 use crate::event::{ChangedFile, Missed};
-use crate::ids::{Instant, JobId, StepId};
+use crate::ids::{DroneId, Instant, JobId, StepId};
 use crate::version::ProtocolVersion;
 
 /// One line of `.armada/transcripts/<handle>/<drone-id>.jsonl`.
@@ -61,6 +61,20 @@ pub struct TranscriptRow {
     /// on the wire has to guess.
     #[serde(default)]
     pub by: Voice,
+    /// Whose transcript the row is in: the Drone `list_job_drones` names by
+    /// the same id. **Whose session, not who spoke** — an `instructed` row
+    /// Fleet wrote into a Drone's session carries that Drone, and
+    /// [`by`](TranscriptRow::by) says who spoke.
+    ///
+    /// **Stamped by whoever reads the file, never written into it.** The file
+    /// is `<drone-id>.jsonl`, so its name is the one authority and a copy on
+    /// every line would be a second; an older file reads back as stamped as a
+    /// new one. `observe_job` and `get_drone` carry it on every row they send.
+    ///
+    /// **`None` is a row no Drone's transcript holds** — a Helm thread's — and
+    /// a row as the file holds it, before a reader stamped it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone_id: Option<DroneId>,
     #[serde(flatten)]
     pub saw: Saw,
 }
@@ -81,6 +95,13 @@ impl TranscriptRow {
         if let Saw::Called { whole, .. } = &mut self.saw {
             *whole = None;
         }
+        self
+    }
+
+    /// The row stamped with the Drone whose transcript it is in. See
+    /// [`drone_id`](TranscriptRow::drone_id).
+    pub fn in_the_transcript_of(mut self, drone: &DroneId) -> TranscriptRow {
+        self.drone_id = Some(drone.clone());
         self
     }
 }
@@ -367,6 +388,18 @@ pub enum Saw {
     BackgroundWork {
         outstanding: usize,
     },
+    /// The model is thinking, and how much it has thought so far — the
+    /// harness's estimate, **cumulative within one model call**, so a call
+    /// that thought for a while is a rising run of these and the next call
+    /// starts again from nought. What a run thought in all is the sum of each
+    /// call's last figure, and that is the reader's to add.
+    ///
+    /// **How much, never what.** The reasoning text is not carried anywhere on
+    /// this wire — `docs/scope.md`. It was `unrecognised` with the kind
+    /// `system/thinking_tokens` before protocol 21.4, with the figure dropped.
+    Thinking {
+        estimated_tokens: u64,
+    },
     Unrecognised {
         kind: String,
     },
@@ -469,6 +502,7 @@ impl TryFrom<TranscriptRow> for Shown {
             | Saw::Checked { .. }
             | Saw::Produced { .. }
             | Saw::BackgroundWork { .. }
+            | Saw::Thinking { .. }
             | Saw::Unrecognised { .. }
             | Saw::Unreadable { .. } => Ok(Shown(row.for_a_viewer())),
         }

@@ -1995,6 +1995,44 @@ one's are the row the Job's spend is summed from.
 
 There is no task on a row. Fleet runs one Drone per step and nothing joins a Drone to a plan task.
 
+## Protocol 21.4: a row names its Drone, and says how much it thought
+
+Two additions to a transcript row, on `observe_job` and on `get_drone`'s turns (#1662, #1664).
+
+**`drone_id`, beside `step` and `by`**: the Drone whose transcript the row is in, the id
+`list_job_drones` names. A Job with several Drones streams one interleaved history, and nothing
+told their rows apart. A field rather than a socket per Drone, because the socket's point is one
+order on one clock, and a viewer of one Drone filters. Fleet stamps it from the file's name,
+`<drone-id>.jsonl`, so nothing is written per line and an older file stamps as fully as a new one.
+Absent is a Fleet before 21.4, and a Helm thread's rows, which no Drone's transcript holds.
+
+**`thinking`, a new `Saw` kind**, carrying `estimated_tokens`: the harness's estimate, cumulative
+within one model call. It arrived before as `unrecognised` with the kind `system/thinking_tokens`
+and the figure dropped. How much, never what: the reasoning text stays off the wire.
+
+**Minor, by the 7.8 precedent, where `background_work` was named out of `unrecognised` the same
+way.** Every Bridge reader of `Saw.event` has a fallback arm and nothing checks the union for
+exhaustiveness, so an older Bridge reads the kind it has no case for rather than failing. That
+Bridge does draw it wrong in one place: `story.ts`'s fallback is the unreadable row, so a
+`thinking` row reads there as *a line the reader could not parse*, under the Fleet-ahead banner.
+This Bridge reads `thinking` in the log and the working view exactly as it read the unrecognised
+row before. Drawing the estimate on the Drones tab is still to do.
+
+## Protocol 21.5: kill one process of a Job, or every one
+
+Two routes, both answering the Job's `JobSummary`: `POST /jobs/:job_id/processes/:pid/kill`
+(`kill_process`) and `POST /jobs/:job_id/processes/kill` (`kill_processes`). Additive: new routes,
+no new DTO. Bridge sent both before Fleet served them, and `pending.ts` no longer lists them.
+
+**The pid is a name, not a grant** (#1647). Fleet reads the Job's process tree again at the act and
+refuses a pid outside it with `fleet.not_the_jobs_process`, a 409 carrying `pid`. A row that went
+stale between the reading and the press meets the same refusal, and the answer is to read again.
+
+**A child is not the Drone.** Killing one ends it and what it started and moves nothing on the
+record; killing the Drone's own pid is `kill_drone`, and so is killing every process, plus the
+descendants that left the Drone's process group. The operations' notes in
+`crates/ipc/operations.toml` carry the whole rule.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

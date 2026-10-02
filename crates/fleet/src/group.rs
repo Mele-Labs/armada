@@ -91,6 +91,29 @@ pub(crate) fn end_the_group(group: NonZeroU32) {
     }
 }
 
+/// `SIGKILL` to one process, not its group: a person ending one row of a Job's
+/// Pulse (`#1647`), where the group is the Drone's and must not go with it.
+///
+/// **The caller proves the pid is the Job's**, by finding it in a process tree
+/// read immediately before, under a recorded Drone whose start time matched. A
+/// tree is read in one `ps`, so that proof is as wide as the act takes, not as
+/// wide as the screen was old. `ESRCH` is a process that left first, and is
+/// answered as nothing, for [`end_the_group`]'s reason.
+#[allow(unsafe_code)]
+pub(crate) fn end_the_process(pid: NonZeroU32) {
+    // Above `i32::MAX` names nothing; a cast would make it a negative number,
+    // which `kill` reads as a group.
+    let Ok(pid) = libc::pid_t::try_from(pid.get()) else {
+        return;
+    };
+    // SAFETY: `kill` is a plain system call over two integers. The pid is
+    // positive, so it names one process and never a group, and non-zero, so it
+    // never names the caller's own group.
+    unsafe {
+        libc::kill(pid, libc::SIGKILL);
+    }
+}
+
 /// `SIGINT` to a whole process group: **asking a scout to stop, not ending
 /// it.** Spike 017 measured the agent CLI ending its turn on an interrupt and
 /// reporting its cost, where `SIGTERM` left no report at all. The caller holds
