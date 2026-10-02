@@ -190,10 +190,11 @@ impl Servers {
             if whose != holder {
                 continue;
             }
-            let mut state = live.now.borrow().clone();
-            state.checkout.behind = Some(state.checkout.behind.unwrap_or(0) + commits);
-            live.now.send_replace(state.clone());
-            moved.push(state);
+            // In place, for `now_serving`'s reason: the task moves this row too.
+            live.now.send_modify(|state| {
+                state.checkout.behind = Some(state.checkout.behind.unwrap_or(0) + commits);
+            });
+            moved.push(live.now.borrow().clone());
         }
         moved
     }

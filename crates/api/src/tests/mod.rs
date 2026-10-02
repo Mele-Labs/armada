@@ -17,6 +17,7 @@ mod door;
 mod door_scope;
 mod fake;
 mod following;
+mod helm_kills;
 mod journal;
 mod limits;
 mod mcp;

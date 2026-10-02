@@ -1,4 +1,5 @@
-//! What a gate's two policies resolved to, kept on the run that passed it.
+//! What a gate's two policies resolved to, kept on every run that reached one
+//! (V89 says whether the rule decided: a stopped run's did not; 2 Oct 2026).
 //!
 //! `auto_merge` and `review_gate` are both `Live`, and `fleet::policy` folds
 //! them fresh at every gate. Until this table the answer lasted one decision,
@@ -18,7 +19,7 @@ use core_model::{AutoMerge, JobId, ResolvedPolicies, ReviewGate, StepId, Timesta
 use crate::attempt::{attempt_now, coordinate, Attempted};
 use crate::error::{fault, LoadJobError, WriteError};
 use crate::open::Store;
-use crate::row::{enum_value, string};
+use crate::row::{column, enum_value, string};
 
 /// Version 87 — the policies each gate resolved to, per run.
 ///
@@ -37,9 +38,23 @@ CREATE TABLE job_step_policies (
 ) STRICT;
 "#;
 
+/// Version 89 — whether the run reached the advance gate, where the rule
+/// decides. Rows are now written on a run an earlier gate stopped too, and
+/// they say `0`.
+///
+/// **Every row written before this reads `1`, and that is a fact rather than a
+/// default.** V87's table was written only by a ruling that read the advance gate,
+/// held or advanced, so every row already in the table is one the rule
+/// decided. The column default is what says so for them, and every write since
+/// names the value.
+pub(crate) const V89: &str = r#"
+ALTER TABLE job_step_policies
+    ADD COLUMN decided INTEGER NOT NULL DEFAULT 1 CHECK (decided IN (0, 1));
+"#;
+
 impl Store {
     /// Keep what both policies resolved to on the run of `step_id` in
-    /// progress. A second gate on the same run, which a re-run of its Checks
+    /// progress, and whether the rule decided. A second gate on the same run, which a re-run of its Checks
     /// is, replaces the first: the later answer is the one the run ended on.
     pub fn record_resolved_policies(
         &mut self,
@@ -56,8 +71,8 @@ impl Store {
         let attempt = attempt_now(&tx, job_id, step_id).map_err(WriteError::Database)?;
         tx.execute(
             "INSERT OR REPLACE INTO job_step_policies
-                 (job_id, step_id, attempt, auto_merge, review_gate, resolved_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                 (job_id, step_id, attempt, auto_merge, review_gate, resolved_at, decided)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             rusqlite::params![
                 job_id.as_str(),
                 step_id.as_str(),
@@ -65,6 +80,7 @@ impl Store {
                 resolved.auto_merge.as_written(),
                 resolved.review_gate.as_written(),
                 at.as_str(),
+                resolved.decided,
             ],
         )
         .map_err(failed("writing what a gate's policies resolved to"))?;
@@ -73,13 +89,13 @@ impl Store {
     }
 
     /// What each run of each step resolved its policies to, oldest run first.
-    /// A run with no row passed no gate, or passed one before this was kept.
+    /// A run with no row reached no gate, or reached one before this was kept.
     pub fn resolved_policies_every_attempt(
         &self,
         job_id: &JobId,
     ) -> Result<Vec<Attempted<ResolvedPolicies>>, LoadJobError> {
         self.collect(
-            "SELECT step_id, attempt, resolved_at, auto_merge, review_gate
+            "SELECT step_id, attempt, resolved_at, auto_merge, review_gate, decided
              FROM job_step_policies WHERE job_id = ?1 ORDER BY step_id, attempt",
             job_id,
             "reading resolved policies",
@@ -87,6 +103,9 @@ impl Store {
                 let (step_id, attempt, at) = coordinate(row, "job_step_policies", "resolved_at")?;
                 let auto_merge = string(row, "auto_merge")?;
                 let review_gate = string(row, "review_gate")?;
+                let decided: bool = row
+                    .get("decided")
+                    .map_err(column("job_step_policies", "decided"))?;
                 Ok(Attempted {
                     step_id,
                     attempt,
@@ -104,6 +123,7 @@ impl Store {
                             "review_gate",
                             &review_gate,
                         )?,
+                        decided,
                     },
                 })
             },

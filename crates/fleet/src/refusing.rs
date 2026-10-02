@@ -656,6 +656,9 @@ where
                     NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
                     NotMerged::BaseMoved { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
                     NotMerged::GateFailed { .. } => Refusal::IllegalMove(raised(MERGE_GATE_FAILED)),
+                    // Never reaches here: `crate::pushing_onto_base` runs the
+                    // Checks it asks for, and spends its rounds as a moved base.
+                    NotMerged::Unchecked { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
                     NotMerged::NoTool { .. } => Refusal::Fault(raised(MERGE_NO_TOOL)),
                     NotMerged::Refused { .. } => Refusal::Fault(raised(MERGE_REFUSED)),
                 }
