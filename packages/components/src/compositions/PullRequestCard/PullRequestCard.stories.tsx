@@ -21,7 +21,7 @@ type Story = StoryObj<typeof PullRequestCard>;
 
 const JOB_2 = {
   number: "#1750",
-  address: "https://github.com/NickMele/armada/pull/1750",
+  address: "https://forge.invalid/armada/armada/pull/1750",
   branch: "armada/2-retire-guides-8-and-20-add-validation-that",
   checks: "21/21 Checks passed",
 };

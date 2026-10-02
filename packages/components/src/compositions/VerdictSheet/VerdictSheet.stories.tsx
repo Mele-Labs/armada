@@ -306,8 +306,8 @@ export const FinishedAfterYouAnswered: Story = {
       "8,000-character bound (set-level, not per-comment).",
     pullRequest: (
       <PullRequestCard
-        number="#630"
-        address="https://forge.invalid/armada/armada/pull/630"
+        number="#1630"
+        address="https://forge.invalid/armada/armada/pull/1630"
         state={{ status: "completed-success", icon: GitMerge, label: "Merged" }}
       />
     ),
