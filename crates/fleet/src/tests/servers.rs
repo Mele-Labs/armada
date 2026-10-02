@@ -94,6 +94,11 @@ pub(super) fn fittings_holding(
 const SPAN: u16 = 20;
 const BAND_FLOOR: u16 = 20_000;
 
+/// Ports other fleet tests take by number: `tests::daemon`'s default range,
+/// and `ports`', `listener`'s, `repositories`' and `workspace_ports`' own. A
+/// span here is probed and bound by both sides with neither's lock.
+const NAMED_BY_OTHER_TESTS: std::ops::RangeInclusive<u16> = 41_000..=44_999;
+
 /// A range no other test is claiming from. **Each test is a process of its
 /// own with a store of its own**, so two claiming from one range could be
 /// handed one span, and the second server would find its port taken — which
@@ -138,6 +143,10 @@ fn a_span_held_below_the_floor() -> (u16, Vec<std::net::TcpListener>) {
     let first = u16::try_from(std::process::id() % u32::from(slots)).unwrap_or(0);
     for step in 0..slots {
         let base = BAND_FLOOR + ((first + step) % slots) * SPAN;
+        if NAMED_BY_OTHER_TESTS.contains(&base) || NAMED_BY_OTHER_TESTS.contains(&(base + SPAN - 1))
+        {
+            continue;
+        }
         let Some(lock) = a_slot_locked(base) else {
             continue;
         };
