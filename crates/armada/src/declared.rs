@@ -27,7 +27,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use checks_runner::{resolve_width, Attempt, CheckSlots, CheckWidth, HELD_ENV};
+use checks_runner::{resolve_width, Attempt, CheckSlots, CheckWidth, AHEAD_ENV, HELD_ENV};
 use config::Manifest;
 use verification::{Exit, NeverRan};
 
@@ -215,10 +215,15 @@ pub fn machine_slots() -> Option<CheckSlots> {
         return None;
     }
     let runtime_file = fleet::runtime::machine_path().ok()?;
-    Some(CheckSlots::at(
+    let slots = CheckSlots::at(
         runtime_file.parent()?.join("check-slots"),
         crate::serve::provisional_checks_at_once().get(),
-    ))
+    );
+    // The merge line sets it on its own Checks, and nothing else does.
+    match std::env::var_os(AHEAD_ENV) {
+        Some(_) => Some(slots.ahead()),
+        None => Some(slots),
+    }
 }
 
 /// [`machine_slots`], for Fleet: tried once at start, and a filesystem that

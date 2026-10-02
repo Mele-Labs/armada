@@ -129,6 +129,9 @@ pub fn run_limited(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0)
+        // Each run here is one of the line's Checks, and asks ahead of every
+        // other for a Check slot: a turn holds every branch behind it.
+        .env(checks_runner::AHEAD_ENV, "1")
         .spawn()
         .map_err(spawn_failed)?;
     if let (Some(input), Some(mut pipe)) = (stdin, child.stdin.take()) {

@@ -57,6 +57,39 @@ async fn a_second_holder_over_one_slot_waits_until_the_first_lets_go() {
     drop(held);
 }
 
+/// **The merge line's ask goes first.** While it waits, a freed slot is not
+/// for an ordinary ask, however much sooner that ask looks.
+#[tokio::test]
+async fn a_waiting_ask_ahead_keeps_an_ordinary_ask_out_of_a_freed_slot() {
+    let dir = Dir::new("ahead-first");
+    let slots = CheckSlots::at(&dir.0, 2);
+    let one = slots.try_take(1).expect("writable").expect("free");
+    let two = slots.try_take(1).expect("writable").expect("free");
+
+    let ahead = slots.clone().ahead();
+    let first = tokio::spawn(async move { ahead.take(1, |_| {}).await });
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(!first.is_finished(), "took a slot while both were held");
+
+    drop(one);
+    assert!(
+        slots.try_take(1).expect("writable").is_err(),
+        "an ordinary ask took the slot the line was waiting for"
+    );
+    let held = tokio::time::timeout(Duration::from_secs(5), first)
+        .await
+        .expect("the ask ahead took the freed slot")
+        .expect("the task ran")
+        .expect("writable");
+
+    drop(two);
+    assert!(
+        slots.try_take(1).expect("writable").is_ok(),
+        "nothing waits ahead now, so an ordinary ask takes a free slot"
+    );
+    drop(held);
+}
+
 #[test]
 fn a_holder_that_dies_frees_its_slot() {
     let dir = Dir::new("holder-dies");
@@ -85,7 +118,8 @@ fn a_holder_that_dies_frees_its_slot() {
         Some(InUse {
             in_use: 1,
             of: 1,
-            wants: 1
+            wants: 1,
+            behind_the_line: false,
         }),
         "the other process holds the one slot"
     );
@@ -156,7 +190,8 @@ async fn the_wait_says_how_many_are_in_use() {
         Some(InUse {
             in_use: 4,
             of: 4,
-            wants: 1
+            wants: 1,
+            behind_the_line: false,
         })
     );
 }
