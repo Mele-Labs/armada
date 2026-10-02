@@ -13,8 +13,12 @@
 //! command line is read the same way: an unknown flag beside a missing name is
 //! two lines, so one correction fixes both.
 
+mod worktree;
+
 use std::fmt;
 use std::path::PathBuf;
+
+pub use worktree::WorktreeAct;
 
 /// What the caller asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,6 +40,8 @@ pub enum Verb {
     Mcp,
     /// The merge line — `docs/capabilities/merge-line.md`.
     Land(LandAct),
+    /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
+    Worktree(WorktreeAct),
     /// What the verbs are.
     Help,
 }
@@ -84,6 +90,10 @@ const VERBS: &[(&str, &str)] = &[
         "relay this repository's agent door on stdin and stdout — an agent's client runs it",
     ),
     (LAND, "join, ready, or poll the merge line to `main`"),
+    (
+        WORKTREE,
+        "lease a warm worktree, give it back, or list who holds each",
+    ),
 ];
 
 /// The verb an agent's MCP configuration names.
@@ -98,6 +108,9 @@ pub const COVERS: &str = "covers";
 
 /// The merge line. `scripts/land` is now a thin shim over this verb.
 pub const LAND: &str = "land";
+
+/// The worktree pool.
+pub const WORKTREE: &str = "worktree";
 
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
@@ -174,6 +187,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             })
         }
         LAND => read_land(rest, &mut faults),
+        WORKTREE => worktree::read(rest, &mut faults),
         _ => {
             faults.push(Fault::NoSuchVerb {
                 given: verb.clone(),
@@ -334,6 +348,12 @@ pub enum Fault {
     LandActionUnknown {
         given: String,
     },
+    /// `worktree`'s forms are `lease`, `release` and `--status`.
+    WorktreeActUnknown {
+        given: String,
+    },
+    /// `worktree lease` with no branch after it.
+    NoBranch,
 }
 
 impl fmt::Display for Misread {
@@ -397,6 +417,15 @@ impl fmt::Display for Fault {
                 "`armada {LAND} {given}` is not a form this verb takes — they are `{LAND}`, \
                  `{LAND} preflight`, `{LAND} --status [branch]`, `{LAND} --withdraw [branch]`"
             ),
+            Fault::WorktreeActUnknown { given } => write!(
+                out,
+                "`armada {WORKTREE} {given}` is not a form this verb takes — they are \
+                 `{WORKTREE} lease <branch>`, `{WORKTREE} release [<path>]`, `{WORKTREE} --status`"
+            ),
+            Fault::NoBranch => write!(
+                out,
+                "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
+            ),
         }
     }
 }
@@ -426,6 +455,10 @@ impl fmt::Display for Usage {
                     out,
                     "  armada {LAND} --withdraw [<branch>]  out of the line, this branch by default"
                 )?;
+                continue;
+            }
+            if *verb == WORKTREE {
+                worktree::usage(out)?;
                 continue;
             }
             let shape = match *verb {

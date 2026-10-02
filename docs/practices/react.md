@@ -128,7 +128,6 @@ one per story.
 | A keyboard contract written by hand | `Dialog`'s Enter, `Tabs`'s arrows |
 | A rule about what does not happen | `Sheet`'s scrim takes no press |
 | Controlled state that must stay inert | `PhaseStrip`'s `pinnedStage` |
-| A callback falling through to another | `ActivityLogSheet`'s `Show me` |
 | Unmounted versus hidden | `JobRecord`'s closed sections |
 | A roving cursor, and its clamp | `ActiveJobsList` |
 

@@ -17,6 +17,7 @@ import {
   diffRead,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   freshStep,
   handedBack,
@@ -175,6 +176,7 @@ export function escalatedGateFailure(): JobFixture {
           },
         ],
         wrote_last_at: "2026-09-10T14:29:04.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads({

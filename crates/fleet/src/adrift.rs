@@ -636,6 +636,15 @@ pub enum Adrift {
     ///
     /// [`NoSuchCheckOutput`]: Adrift::NoSuchCheckOutput
     NoSuchFrame { named: String },
+    /// A request named a brief this Job's briefs directory does not hold.
+    ///
+    /// **The Job is there and the brief is not** — [`NoSuchCheckOutput`]'s
+    /// distinction for the file a Judge or a gaming check was asked. It is
+    /// also the answer to a name that would leave the directory, because the
+    /// directory is the only thing that resolves this name to a file.
+    ///
+    /// [`NoSuchCheckOutput`]: Adrift::NoSuchCheckOutput
+    NoSuchBrief { named: String },
     /// A reading was asked for on a call this Job is neither waiting on nor
     /// refused.
     ///

@@ -161,6 +161,58 @@ impl Asked {
     }
 }
 
+/// One brief this Job kept, read back for `get_brief`: its tail, through the
+/// window `check_output::kept_output` reads a Check's output through.
+///
+/// **The Job's briefs directory is the allowlist.** `name` is one path
+/// component — [`one_component`], the predicate the writing half uses — and
+/// the file it names must still resolve inside that directory once links are
+/// followed, so neither `..` nor a link planted in the directory reaches a
+/// file Fleet did not keep for this Job. `None` for any of those, for a
+/// directory, and for a file that is not there; the caller cannot tell them
+/// apart, and does not need to.
+///
+/// **The tail, as a Check's is**, because a brief ends on what it asks: the
+/// diff comes before the question and the answer format, and a cut brief that
+/// kept its start would have lost the question.
+pub(crate) fn read_back(
+    records_root: &str,
+    handle: &str,
+    name: &str,
+) -> Option<ipc::BriefContents> {
+    use std::io::{BufRead, BufReader};
+
+    if !one_component(name) {
+        return None;
+    }
+    let dir = briefs_dir(records_root, handle).canonicalize().ok()?;
+    let at = dir.join(name).canonicalize().ok()?;
+    if at.parent() != Some(dir.as_path()) {
+        return None;
+    }
+    let file = std::fs::File::open(&at).ok()?;
+    let held = file.metadata().ok()?;
+    if !held.is_file() {
+        return None;
+    }
+
+    // A line that will not decode ends the reading, `kept_output`'s rule: a
+    // skipped line would renumber everything after it.
+    let (window, first, total) = crate::check_output::windowed(
+        BufReader::new(file).lines().map_while(Result::ok),
+        crate::check_output::A_READING,
+        crate::check_output::MOST,
+    );
+    Some(ipc::BriefContents {
+        path: format!(".armada/briefs/{handle}/{name}"),
+        lines: window.into(),
+        from_line: first,
+        total_lines: total,
+        bytes: held.len(),
+        whole: first == 1,
+    })
+}
+
 /// The file name for one criterion of one run of one step.
 ///
 /// **The path is the row's key and nothing else** — `job_step_judgments` is

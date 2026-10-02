@@ -13,10 +13,11 @@ import type { ReactNode } from "react";
 
 import type { BranchesAnswer } from "@armada/screens/src/draft/branches";
 import type { LandingRule } from "@armada/screens/src/draft/landing";
+import type { MergeLineView } from "@armada/screens/src/draft/merge-line";
 import type { ProposalView } from "@armada/screens/src/draft/proposal";
 import type { SketchAttachment } from "@armada/screens/src/draft/sketch";
 
-/** What a moment holds for the surface that dispatches. Every field optional. */
+/** What a moment holds for the surface that dispatches, and for Overview's merge line. Every field optional. */
 export type Drafted = {
   /** What is already in the request field. Absent opens it empty. */
   prompt?: string;
@@ -38,6 +39,8 @@ export type Drafted = {
    * which is every dispatch somebody starts in the app.
    */
   sketch?: SketchAttachment;
+  /** The repository's merge line. **Absent draws no panel**, which is the app on a real Fleet. */
+  mergeLine?: MergeLineView;
 };
 
 /** Nothing drafted, which is the app on a real Fleet. */

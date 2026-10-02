@@ -10,7 +10,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { PROTOCOL_VERSION } from "@armada/protocol";
-import type { CommandInFlight, JobSummary, JudgeQuestion, QuestionInFlight } from "@armada/protocol";
+import type {
+  CommandInFlight,
+  JobSummary,
+  JudgeQuestion,
+  ProposalSettled,
+  QuestionInFlight,
+} from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../shared/bridge";
 import { applyArrival, type ArrivalHost } from "./arrivals";
 import type { RehearsalConnection } from "./rehearsal";
@@ -207,5 +213,91 @@ describe("a Judge refusal, carried by no event, on the status move that opens or
     );
     expect(state().questions).toEqual([]);
     expect(refresh).toHaveBeenCalledWith(FLEET.port, JOB_ID);
+  });
+});
+
+// #1714/#1716: a dispatched request is a Job at `proposing`, and `proposal.moved` names it.
+// The owner's decision of 30 Sep 2026 — a proposal fills in as it is written.
+describe("a proposal filling in, on the Job its message names", () => {
+  const REQUEST = "Say on the Cleared tab whether the branch was kept";
+  const proposingJob = (): JobSummary => {
+    const { current_step_id: _none, ...row } = job({ status: "proposing", title: REQUEST, workflow_id: "" });
+    return row;
+  };
+
+  /** `proposal.moved` as Fleet publishes it, mid-answer. */
+  function moved(settled: ProposalSettled | undefined, over: Record<string, unknown> = {}): string {
+    return JSON.stringify({
+      message: "event",
+      cursor: 3,
+      event: {
+        kind: "proposal.moved",
+        proposal_id: "01PROPOSAL",
+        job_id: JOB_ID,
+        client_ref: "someone-else",
+        proposing: {
+          proposal_id: "01PROPOSAL",
+          client_ref: "someone-else",
+          model: "sonnet",
+          since: "2026-09-13T10:00:00Z",
+          budget_ms: 600_000,
+          reached: "answering",
+          answered_characters: 120,
+          ...(settled === undefined ? {} : { settled }),
+        },
+        actor: "human",
+        at: "2026-09-13T10:00:05Z",
+        ...over,
+      },
+    });
+  }
+
+  it("puts the workflow on the row first, and leaves the request as its title", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    applyArrival(host, moved({ workflow_id: "bug" }), FLEET);
+    expect(state().jobs[0]?.workflow_id).toBe("bug");
+    expect(state().jobs[0]?.title).toBe(REQUEST);
+  });
+
+  it("takes the title next, on a row somebody else dispatched as well as this window's own", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    applyArrival(host, moved({ workflow_id: "bug", title: "Name the branch a clear kept" }), FLEET);
+    expect(state().jobs[0]?.title).toBe("Name the branch a clear kept");
+    expect(state().proposing, "somebody else's call is not this window's wait").toBeNull();
+  });
+
+  it("fills the open Job's page too, and the request moves into its brief", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    host.publish({
+      watched: {
+        state: "read",
+        jobId: JOB_ID,
+        detail: { job: proposingJob(), created_at: "2026-09-13T09:00:00Z", steps: [], acceptance_criteria: [], dependencies: [] },
+      },
+    });
+    applyArrival(
+      host,
+      moved({ workflow_id: "bug", title: "Name the branch a clear kept", done_when: ["The row names the branch"] }),
+      FLEET,
+    );
+    const watched = state().watched;
+    if (watched.state !== "read") throw new Error("the open Job was dropped");
+    expect(watched.detail.job.title).toBe("Name the branch a clear kept");
+    expect(watched.detail.facts).toBe(REQUEST);
+    expect(watched.detail.acceptance_criteria.map((one) => one.text)).toEqual(["The row names the branch"]);
+  });
+
+  it("still publishes this window's own wait beside the fold", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    const mine = { ...host, proposalRef: () => "someone-else" };
+    applyArrival(mine, moved({ workflow_id: "bug" }), FLEET);
+    expect(state().proposing?.settled).toEqual({ workflow_id: "bug" });
+    expect(state().jobs[0]?.workflow_id).toBe("bug");
+  });
+
+  it("moves nothing on a message that names no Job, which is a Fleet older than 21.6", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    applyArrival(host, moved({ workflow_id: "bug" }, { job_id: undefined }), FLEET);
+    expect(state().jobs[0]?.workflow_id).toBe("");
   });
 });

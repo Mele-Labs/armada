@@ -164,6 +164,37 @@ fn covers_parses_and_refuses_a_path_given_as_an_argument() {
 /// `--withdraw` names a branch the way `--status` does: the one checked out
 /// unless another is given.
 #[test]
+fn worktree_leases_releases_and_lists() {
+    use crate::cli::WorktreeAct;
+    assert_eq!(
+        asked("worktree lease fix-the-gate"),
+        Ok(Verb::Worktree(WorktreeAct::Lease {
+            branch: "fix-the-gate".to_string()
+        }))
+    );
+    assert_eq!(
+        asked("worktree release"),
+        Ok(Verb::Worktree(WorktreeAct::Release { path: None }))
+    );
+    assert_eq!(
+        asked("worktree release /repo/.armada/slots/slot-2"),
+        Ok(Verb::Worktree(WorktreeAct::Release {
+            path: Some("/repo/.armada/slots/slot-2".into())
+        }))
+    );
+    assert_eq!(
+        asked("worktree --status"),
+        Ok(Verb::Worktree(WorktreeAct::Status))
+    );
+}
+
+#[test]
+fn a_lease_with_no_branch_says_one_is_needed() {
+    assert!(said("worktree lease").contains("needs the branch"));
+    assert!(said("worktree borrow x").contains("`worktree lease <branch>`"));
+}
+
+#[test]
 fn withdraw_takes_this_branch_or_the_one_named() {
     use crate::cli::LandAct;
     assert_eq!(
