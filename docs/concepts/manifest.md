@@ -655,7 +655,13 @@ merge_by: push
 
 **`forge` is the default, so a repository that says nothing lands exactly as it did before the key existed.** It is the only value that keeps a protected base and the forge's required checks in the path, and a repository that has those has them for a reason this file cannot see. `push` is for a repository where the forge adds a round trip and guards nothing, which is why `armada land` stopped merging through it: [Merge line](../capabilities/merge-line.md), *The merge*.
 
-**Under `push`, only a branch that already holds the base lands.** The merge commit carries the branch's own tree, which is the tree its gate ran on. A base that has moved past the branch, or moves before the push, refuses the merge as `fleet.merge_base_moved` and leaves the Job at its gate. `armada land` answers the same refusal by gating again; Fleet has no merge line of its own yet, so nothing re-gates the branch for it.
+**Under `push`, only a branch that already holds the base lands.** The merge commit carries the branch's own tree, which is the tree its gate ran on. **A base that has moved past the branch, or moves before the push, is brought in and gated again**, the way `armada land` answers it: Fleet merges the base the remote holds into the branch, in the Job's own worktree and never by rebasing, runs the Job's Checks over the merge, and pushes again. Decided 1 Oct 2026.
+
+- **The Checks are every Manifest Check the Job's workflow declares, from every step.** The step a Job holds at before merging is a hand-off that declares none in every shipped workflow, so its own list would gate nothing; what the merge changes is the tree the earlier steps' Checks read. Each Check's `when` is asked of what either side changed, as the merge line asks it.
+- **A red is the branch's, even where the base fails the same way.** Fleet has no reading of the base's own Checks to compare against, so nothing is excused.
+- **A conflict refuses as `fleet.merge_conflicted` and a red as `fleet.merge_gate_failed`, and either puts the branch back.** A branch left holding the base would be landed unread by the next press, because it would then hold the base.
+- **The base moving again goes round, up to the five rounds `armada land` allows**, and then refuses as `fleet.merge_base_moved` naming them.
+- **While it runs, every other act at the gate is refused**, because each would change the worktree the Checks are reading. The Job stays at `awaiting_review` throughout, with each round a line in its log and the Checks shown running on the step it holds at.
 
 **Live, and not folded.** It is read at the merge, so a saved change answers the next one. A Job lands in one repository, so that repository's word is the answer and there is nothing for several gating Manifests to resolve.
 

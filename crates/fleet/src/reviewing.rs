@@ -525,6 +525,9 @@ where
                 status: job.status(),
             });
         }
+        // A merge bringing the branch up to a moved base is running its Checks
+        // in the worktree, and every act here would change what they read.
+        self.not_while_checks_run_again(job)?;
         job.current_step_id()
             .cloned()
             .ok_or_else(|| Adrift::NoSuchStep {

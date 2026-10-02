@@ -2,8 +2,46 @@
 // without a browser. `docs/concepts/plan.md`; the wire is `work-plan.ts`.
 
 import type { JobDetail } from "@armada/protocol";
-import type { PlanRegionRead, PlanTaskRow } from "./InsideAJob";
 import type { TaskMarkState } from "@armada/components";
+
+/** One task, as the Plan region draws it. `docs/concepts/plan.md`. */
+export type PlanTaskRow = {
+  id: string;
+  title: string;
+  state: TaskMarkState;
+  /** Present on a dropped task, and on nothing else. */
+  reason?: string;
+  /** One line for what the other fields cannot hold. Absent where none. */
+  note?: string;
+  /** The paths the planner said this task touches. Absent where none. */
+  scope?: readonly string[];
+  /** What the planner said should prove it, and what the work said did. */
+  expects?: string;
+  shown?: string;
+};
+
+/**
+ * The Job's plan, as `PlanWell` draws it. Absent draws nothing — a Job whose
+ * workflow has no plan step, or one that has not reached it yet.
+ */
+export type PlanRegionData = {
+  approach: string;
+  /** Every task, dropped included, in plan order. */
+  tasks: readonly PlanTaskRow[];
+};
+
+/**
+ * The Plan region's read of a Job: a plan recorded, or the step that will
+ * record one where none exists yet. `docs/concepts/plan.md`; `#1007`.
+ *
+ * **Absent draws no region at all** — a workflow that declares no step
+ * recording a plan. `recorded: false` is the state between that and a full
+ * `PlanRegionData`: the step is declared, and its own label is what the
+ * placeholder names.
+ */
+export type PlanRegionRead =
+  | ({ recorded: true } & PlanRegionData)
+  | { recorded: false; stepLabel: string };
 
 /** The four states a task's own wire string may be. Anything else is `open`. */
 const STATES: readonly TaskMarkState[] = ["open", "working", "done", "dropped"];

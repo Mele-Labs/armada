@@ -67,10 +67,10 @@ pub struct StepAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
     /// What both Manifest policies resolved to when this run passed its gate.
-    /// Since 21.8, #1683.
+    /// Since 21.9, #1683.
     ///
     /// **Absent is a run with nothing recorded**: one still going, one a gate
-    /// stopped before it read the policies, one from before 21.8, or a Fleet
+    /// stopped before it read the policies, one from before 21.9, or a Fleet
     /// older than that. Never either policy's default, because nobody resolved
     /// it, and `ManifestSummary`'s two words say what the repository says
     /// today, which is a different fact.

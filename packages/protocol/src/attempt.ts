@@ -38,8 +38,8 @@ export type StepAttempt = {
   ended_at?: string;
   /**
    * What both Manifest policies resolved to when this run passed its gate.
-   * Since 21.8. Absent is a run with nothing recorded: one still going, one a
-   * gate stopped before it read the policies, one from before 21.8, or an
+   * Since 21.9. Absent is a run with nothing recorded: one still going, one a
+   * gate stopped before it read the policies, one from before 21.9, or an
    * older Fleet. Never read it as either policy's default.
    */
   resolved?: ResolvedPolicies;

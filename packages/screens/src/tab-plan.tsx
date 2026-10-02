@@ -19,7 +19,7 @@ import { JudgeRefusal, SkeletonText } from "@armada/components";
 import { useEffect } from "react";
 
 import { TAB_LABEL } from "./detail-tabs";
-import { Eyebrow } from "./InsideAJob";
+import { Eyebrow } from "./regions";
 import { PlanLead } from "./plan-lead";
 import { usePlanReview, type PlanReviewProps } from "./plan-review";
 import { criteriaOf, revisionsOf } from "./tab-plan-read";

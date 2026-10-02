@@ -23,16 +23,16 @@
 //! It is **not** faithful about the filesystem: nothing is created, so a test
 //! that wants to read a file out of a worktree wants the real one.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::error::Error;
 use std::fmt;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    Base, BaseCheckout, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change, CommitTime, Committed,
-    Delivery, KeptCurrent, Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened,
-    Pushed, PushedOntoBase, Remark, RepositoryStanding, Review, Standing, UnderReview, Vcs,
-    WhatBecameOfIt, Worktree, WorktreeSpec,
+    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
+    CommitTime, Committed, Delivery, KeptCurrent, Landing, Mergeable, Merged, NotCloned,
+    NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark, RepositoryStanding, Review,
+    Standing, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
@@ -126,6 +126,12 @@ pub struct FakeVcs {
     /// holding this fake exists, so it is scripted through `&self` and a
     /// consuming builder could not express the case at all.
     merging: Mutex<Merging>,
+    /// Answers `merge_by_push` gives before `merging` does, first first — a
+    /// base that moves once and then holds still is two answers.
+    pushes_in_turn: Mutex<VecDeque<Merging>>,
+    /// What merging a moved base into a branch refuses with, or `None` where it
+    /// merges clean.
+    merging_the_base_in: Mutex<Option<NotMerged>>,
     /// What commit each ref is at. **Scripted**, for
     /// [`commits`](FakeVcs::commits)' reason: there is no repository here to
     /// have a history, and a fake that invented one id per name would make
@@ -205,18 +211,16 @@ pub enum Delivered {
     /// repository Fleet did not make**, so a test that could not see it could
     /// not tell a press that merged from one that only moved a Job.
     Merged { pull_request: String },
-    /// The forge was asked to merge a pull request pinned to a gated commit —
-    /// `Delivery::merge_pinned`, `armada land`'s own write.
-    MergedPinned {
-        pull_request: String,
-        expected_head: String,
-    },
     /// The work was landed by a merge commit pushed onto the base —
     /// `Delivery::merge_by_push`, a Manifest's `merge_by: push`.
     MergedByPush {
         handle: String,
         pull_request: Option<u64>,
     },
+    /// The base the remote holds was merged into the branch, to be gated again.
+    MergedTheBaseIn { branch: String },
+    /// The branch was put back from that merge, its gate having gone red.
+    PutBack { branch: String },
 }
 
 /// What the fake's version control looks like from the delivery side.
@@ -459,6 +463,17 @@ impl FakeVcs {
     /// tell which road a Manifest sent the work down.
     pub fn times_pushed_onto_the_base(&self) -> usize {
         self.counted(|it| matches!(it, Delivered::MergedByPush { .. }))
+    }
+
+    /// Say what each push onto the base answers, in turn, before
+    /// [`merging`](FakeVcs::merging) answers the rest.
+    pub fn pushing_in_turn(&self, answers: Vec<Merging>) {
+        *self.pushes_in_turn.lock().expect("not poisoned") = answers.into();
+    }
+
+    /// Say that merging a moved base into a branch refuses with `why`.
+    pub fn merging_the_base_in_refuses(&self, why: NotMerged) {
+        *self.merging_the_base_in.lock().expect("not poisoned") = Some(why);
     }
 
     /// Say what keeping the branch current will come to.
@@ -791,28 +806,6 @@ impl Delivery for FakeVcs {
         }
     }
 
-    fn merge_pinned(
-        &self,
-        _in_repo: &str,
-        pull_request: &str,
-        expected_head: &str,
-    ) -> Result<Merged, NotMerged> {
-        // Scripted the same way as `merge`, through the one `merging` field:
-        // this fake has no forge state to compare a pinned commit against.
-        self.delivered
-            .lock()
-            .expect("not poisoned")
-            .push(Delivered::MergedPinned {
-                pull_request: pull_request.to_string(),
-                expected_head: expected_head.to_string(),
-            });
-        match self.merging.lock().expect("not poisoned").clone() {
-            Merging::Takes => Ok(Merged::Taken),
-            Merging::AlreadyMerged => Ok(Merged::AlreadyMerged),
-            Merging::Refuses(why) => Err(why),
-        }
-    }
-
     fn merge_by_push(
         &self,
         _in_repo: &str,
@@ -820,7 +813,8 @@ impl Delivery for FakeVcs {
         declared: Option<&str>,
         pull_request: Option<u64>,
     ) -> Result<PushedOntoBase, NotMerged> {
-        // Scripted through `merging`, for `merge_pinned`'s reason.
+        // Scripted the same way as `merge`, through the one `merging` field:
+        // this fake has no remote base to merge onto.
         self.delivered
             .lock()
             .expect("not poisoned")
@@ -833,12 +827,57 @@ impl Delivery for FakeVcs {
             (None, Some(base)) => base.name().to_string(),
             (None, None) => String::from("main"),
         };
-        let merged = match self.merging.lock().expect("not poisoned").clone() {
+        let next = self
+            .pushes_in_turn
+            .lock()
+            .expect("not poisoned")
+            .pop_front();
+        let answer = next.unwrap_or_else(|| self.merging.lock().expect("not poisoned").clone());
+        let merged = match answer {
             Merging::Takes => Merged::Taken,
             Merging::AlreadyMerged => Merged::AlreadyMerged,
             Merging::Refuses(why) => return Err(why),
         };
         Ok(PushedOntoBase { base, merged })
+    }
+
+    fn merge_the_moved_base_in(
+        &self,
+        _in_repo: &str,
+        worktree: &Worktree,
+        _declared: Option<&str>,
+    ) -> Result<BaseMergedIn, NotMerged> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::MergedTheBaseIn {
+                branch: worktree.branch().to_string(),
+            });
+        if let Some(why) = self
+            .merging_the_base_in
+            .lock()
+            .expect("not poisoned")
+            .clone()
+        {
+            return Err(why);
+        }
+        Ok(BaseMergedIn {
+            base: String::from("main"),
+            onto: String::from("5b4ec82700000000000000000000000000000000"),
+            head: String::from("e1f2a3b400000000000000000000000000000000"),
+            was: String::from("a1b2c3d400000000000000000000000000000000"),
+            touched: vec![String::from("src/log.rs")],
+        })
+    }
+
+    fn put_back(&self, worktree: &Worktree, _merged: &BaseMergedIn) -> Result<(), NotDelivered> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::PutBack {
+                branch: worktree.branch().to_string(),
+            });
+        Ok(())
     }
 
     fn base_tip(&self, _in_repo: &str, base: &str) -> Option<String> {

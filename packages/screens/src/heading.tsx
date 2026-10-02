@@ -24,6 +24,7 @@ import type { ActAnswer, ActingAct } from "./pending";
 import { openPullRequest, type OpenPullRequest } from "./opening";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
+import { titleOf } from "./title";
 
 /** What the header is built from. The Job's, never a step's. */
 export type Heading = {
@@ -107,7 +108,7 @@ export function headingOf({
     // lowercase because most of its readings are mid-sentence; here it is the
     // first word in the badge, and the badge is the header.
     statusLabel: leading(reading.verb),
-    headline: job.title,
+    headline: titleOf(job),
     // **The number, with the whole handle one click away.** The handle is the
     // Job's number and a slug of its title — a branch name and a worktree
     // directory — and drawn whole it read as a value that had come out wrong:
@@ -213,7 +214,7 @@ export function Unrenderable({ job }: { job: JobSummary }) {
   ];
   return (
     <p className="text-fg-muted">
-      {`${job.title} — `}
+      {`${titleOf(job)} — `}
       <span className="mono">{job.status}</span>
       {`. The registry carries no ${missing.join(" and no ")} for it, so this Job has no detail to draw.`}
     </p>

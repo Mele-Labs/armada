@@ -54,9 +54,9 @@ fn an_edit_answer_with_nothing_declared_carries_no_declared_key() {
     assert_eq!(read, edited);
 }
 
-/// **What a gate resolved, on the run that passed it** (21.8, #1683). Built the
+/// **What a gate resolved, on the run that passed it** (21.9, #1683). Built the
 /// way Fleet builds it, from `core_model`'s value, so the words are the ones
-/// `armada.yml` writes. A run from a Fleet older than 21.8 sends no key and
+/// `armada.yml` writes. A run from a Fleet older than 21.9 sends no key and
 /// reads absent, never as either policy's default.
 #[test]
 fn a_run_s_resolved_policies_round_trip_and_an_older_run_reads_absent() {

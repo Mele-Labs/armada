@@ -219,15 +219,6 @@ impl Delivery for GitVcs {
         crate::landing::merge(in_repo, pull_request)
     }
 
-    fn merge_pinned(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-        expected_head: &str,
-    ) -> Result<Merged, NotMerged> {
-        crate::landing::merge_pinned(in_repo, pull_request, expected_head)
-    }
-
     fn merge_by_push(
         &self,
         in_repo: &str,
@@ -236,6 +227,23 @@ impl Delivery for GitVcs {
         pull_request: Option<u64>,
     ) -> Result<PushedOntoBase, NotMerged> {
         crate::landing::merge_by_push(in_repo, handle, declared, pull_request)
+    }
+
+    fn merge_the_moved_base_in(
+        &self,
+        in_repo: &str,
+        worktree: &Worktree,
+        declared: Option<&str>,
+    ) -> Result<adapter_traits::BaseMergedIn, NotMerged> {
+        crate::merging_the_base_in::merge_the_moved_base_in(in_repo, worktree, declared)
+    }
+
+    fn put_back(
+        &self,
+        worktree: &Worktree,
+        merged: &adapter_traits::BaseMergedIn,
+    ) -> Result<(), NotDelivered> {
+        crate::merging_the_base_in::put_back(worktree, merged)
     }
 
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding {

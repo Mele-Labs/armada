@@ -2060,7 +2060,17 @@ forge would have merged. No shape moves.
 
 **Minor because a refusal code added is additive**, for 14.14's reason.
 
-## Protocol 21.8: a step's run says what its gate resolved the policies to
+## Protocol 21.8: a merge refused because its Checks went red on the moved base
+
+`merge_pull_request` gains one refusal, `fleet.merge_gate_failed`, a 409 carrying `refused:
+gate_failed`. Under `merge_by: push`, Fleet now answers a moved base by merging it into the Job's
+branch and running the Job's Checks again before pushing, and this is that run going red. A
+conflict on the way is the `fleet.merge_conflicted` that already existed, and `fleet.merge_base_moved`
+now means the base kept moving through every round. No shape moves.
+
+**Minor because a refusal code added is additive**, for 14.14's reason.
+
+## Protocol 21.9: a step's run says what its gate resolved the policies to
 
 One optional field on `StepAttempt`, `resolved`, holding `auto_merge` and `review_gate` as
 `armada.yml` writes them. It is set on a run whose ruling read the advance gate (advanced,
@@ -2079,7 +2089,7 @@ neither can be there without the other.
 
 **Absent means nothing was recorded, never a default.** Four causes give the same reading: a run
 still going, a run stopped before the gate (a Check failed, the Judge refused, a gaming flag
-stood), a run from before 21.8, or an older Fleet. None of them is a resolution, so Bridge draws
+stood), a run from before 21.9, or an older Fleet. None of them is a resolution, so Bridge draws
 no policy rather than `never` or `human_always`. It is `#[serde(default, skip_serializing_if)]
 Option` on Fleet's side and `?:` on Bridge's.
 
