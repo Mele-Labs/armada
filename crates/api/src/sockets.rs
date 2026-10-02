@@ -100,6 +100,34 @@ pub(crate) async fn observe_check_output<D: Queries>(
     }
 }
 
+/// Which merge line Check's log a viewer asked for: the line's own words.
+#[derive(serde::Deserialize)]
+pub(crate) struct LandCheck {
+    root: String,
+    branch: String,
+    check: String,
+}
+
+/// One merge line Check's log, running or ended.
+///
+/// **Its own socket**, for the reasons at the top of this module. The daemon
+/// resolves the three names before the upgrade, so a Check with no log to read
+/// is a refusal read at the moment it was asked.
+pub(crate) async fn observe_land_check<D: Queries>(
+    State(served): State<Served<D>>,
+    axum::extract::Query(asked): axum::extract::Query<LandCheck>,
+    upgrade: WebSocketUpgrade,
+) -> Response {
+    match served
+        .daemon()
+        .observe_land_check(asked.root, asked.branch, asked.check)
+        .await
+    {
+        Ok(land) => upgrade.on_upgrade(move |socket| crate::following::relay_land(socket, land)),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The event stream. **Global, and a client subscribes to nothing** — one
 /// socket carries every Job, because Bridge holds exactly one connection.
 ///

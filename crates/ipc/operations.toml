@@ -1042,6 +1042,23 @@ A repository nobody has run `armada land` in is left out rather than listed empt
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
 
+[operations.observe_land_check]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One Check's log on a served repository's merge line, by the root, the branch and the Check: what it holds, then what the runner writes next"
+notes = """
+**`observe_check_output`'s shape for a Check no Job owns.** The runner appends each Check of a turn to `logs/<entry>/<turn>/<check>.log` under `armada-land/` as it runs, and this reads that file the way `observe_check_output` reads a Job's: what is there, then what is appended, a quarter-second behind, then `closed` with why. The first message is `LandOutputMessage::Opened`, naming the line rather than a Job; the lines and the end are `OutputLines` and `OutputClosed`. Since 23.7.
+
+**An ended Check is served on the same socket.** It opens, sends what the file holds and closes `finished`, so one reader draws a Check that is running and one that has ended. A Check is still writing while its branch is `gating`, it reads `running` in the outcome, and the outcome still names the turn it was found in.
+
+**The three names are the whole request, and no path is taken.** `root` must be a root this Fleet serves; the branch's outcome names its turn, as the directory its `logs` sit in, and the Checks that turn has started. `check` must be one path component and one of those, not `waiting`. The turn must resolve to exactly `logs/<entry>/<turn>` under this line's own `armada-land/` once links are followed, and a link where the log goes is refused, and read as unreadable if one is planted after. Anything else is one 422, `fleet.unacceptable_proposal`, before the socket opens: Fleet opens nothing it did not find this way.
+
+`get_merge_lines` still keeps the outcome's `logs` off the wire, and so does this: the opening carries the three names and no path.
+
+`agent_access` is `No` for `get_merge_lines`' reason.
+"""
+
 [operations.add_repository]
 kind = "command"
 transport = "HTTP"
@@ -1328,6 +1345,21 @@ The body is `when_blocked`: `refuse_and_hold`, `ask_me` or `allow_all`. A new Jo
 **`allow_all` runs every command without asking, except two**: one `armada.yml` declares destructive and one the harness cannot grant — a push. Those still stop for a person, so no setting on this route lets a Job push or run a destructive command unseen. It arrived at 11.0 and was a major bump, because Bridge matches on this set to choose which control to draw.
 
 `agent_access` is `Helm only`, `answer_command`'s reason: whether a Drone is held waiting on the owner is still the owner's decision, and Helm carries it out only where that owner has just made it, in conversation.
+"""
+
+[operations.set_tiers]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose which model each tier of one Job's tasks runs on, replacing the map whole"
+notes = """
+`POST /jobs/:job_id/set_tiers`, spike 022 slice 3. A live setting on one Job, `set_model`'s kind, and the answer is the Job's summary. The body is `SetTiers`: `tiers`, a `TierModels` of `difficult?`, `medium?` and `easy?`. **A tier left out is Armada picking** (spike 022, answer 8), never `null`: a task at that tier runs as its step, or the Job, would, and its `JobDrone.model` says which. `JobDetail.tiers` reads the map back, absent where it names no tier.
+
+**Read at each task Drone's spawn**, in the order spike 022 chose: a person's pick on the task (`edit_task`), then this map for the task's tier, then the step's model, then the Job's. A Drone already running keeps its model. A Drone on no task never reads it.
+
+Refused with a 409, and nothing kept, where any model in the map is one `list_models` does not offer, as `set_model` refuses one.
+
+`agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
 [operations.set_model]
@@ -2030,6 +2062,21 @@ notes = """
 **Refused by name.** A 409 `fleet.task_in_flight` on a task, or a group holding one, that is working or handed in, since its group's run is still going; a 422 `fleet.no_such_group` on a group the plan does not hold, and `fleet.no_such_task` on a task, or an `after` outside the group it moves into.
 
 **A move putting a task before one it needs is taken** (`#1685`'s own rule): the plan's scope-intersection warning is what says so, not a refusal here.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""
+
+[operations.edit_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Edit this task: a person changes one task's title, note, scope, expects or model, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/tasks/:task_id/edit`, spike 022 slice 3 (`#1657`). The body is `EditTask` as Bridge sent it before the route existed: `title?`, `note?`, `scope?`, `expects?`, `model?`, **only the fields a person changed**. A field left out is unchanged; `note` or `expects` sent empty, and `scope` sent as `[]`, clear it. `model` is a person's pick, which beats the Job's tier map for this task (`.claude/decisions/2026-09-30-a-person-can-pick-a-tasks-model.md`); a task carries no tier a person edits. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published naming the task, with `actor` `human`.
+
+**Only an open or a failed task**, so it works before the plan's gate and after a failure alike, and asks no step where the Job is. A 409 `fleet.task_in_flight` on a task working or handed in, its Drone's; a 409 `fleet.task_already_settled` on one done or dropped. A 409 on a model `list_models` does not offer, as `set_model` refuses one. A 422 on a body that changes nothing or blanks the title, and `fleet.no_such_task` on a task the plan does not hold.
+
+**The edit does not rewrite the plan.** It is a change appended after the recording, so the history reads the plan as approved and the task as edited after, and `WorkPlan.recorded_by` stays whoever recorded it. The next Drone put on the task reads the edit in its brief; a running one keeps the brief it started with.
 
 `agent_access` is `Helm only`, `add_task`'s reason.
 """

@@ -41,6 +41,7 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
+import type { LandCheckAt } from "@armada/protocol";
 import type { BridgeState, Summons } from "./bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "./capture-window";
 import type { Pattern } from "./haptics";
@@ -509,6 +510,13 @@ export type BridgeApi = {
    * Fleet resolves it against the Checks it is running before opening anything.
    */
   followCheckOutput: (jobId: string | null, kept: string | null) => Promise<void>;
+  /**
+   * Read one merge line Check's log, running or ended, or `null` to stop.
+   *
+   * **Read-only, `followCheckOutput`'s terms**, by the line's three names and never a path:
+   * Fleet finds the file from the branch's outcome and opens nothing else.
+   */
+  followLandCheck: (at: LandCheckAt | null) => Promise<void>;
   /**
    * Read one Job's transition history, or `null` to stop.
    *

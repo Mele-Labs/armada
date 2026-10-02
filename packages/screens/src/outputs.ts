@@ -272,6 +272,18 @@ export function liveNoteFor(reading: FollowedLog, kept: string): string {
   return CLOSED_LIVE;
 }
 
+/**
+ * What a followed log with no lines says, **only where something went wrong**: Fleet did not
+ * answer, could not read the file, or the connection went. `undefined` otherwise, for the log
+ * panel, where a log still opening or one with nothing in it yet is an empty slot and stays empty.
+ */
+export function followFailedNote(failed: boolean, ended: string | undefined): string | undefined {
+  if (failed) return NOT_ANSWERED_LIVE;
+  if (ended === "unreadable") return UNREADABLE_LIVE;
+  if (ended === "broke") return CLOSED_LIVE;
+  return undefined;
+}
+
 /** The socket is opening. */
 const OPENING_LIVE = "Opening this Check's log…";
 

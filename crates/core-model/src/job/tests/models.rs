@@ -114,3 +114,81 @@ fn a_step_this_workflow_does_not_declare_answers_with_the_jobs() {
         job.model().as_str()
     );
 }
+
+/// A plan of three tasks: one the planner called difficult, one it left to
+/// Armada, and one a person then picked a model for.
+fn tiered_plan() -> crate::WorkPlan {
+    use crate::{
+        Approach, PlanAuthor, PlanChange, PlanEntry, TaskEdit, TaskId, TaskTier, WorkPlan,
+    };
+    let when = at("2026-10-02T10:00:00.000Z");
+    let recorded = PlanEntry {
+        change: PlanChange::Recorded {
+            approach: Approach::new("Bound the reader").expect("an approach"),
+            tasks: vec![
+                crate::NewTask::new("hard", "", &[], "")
+                    .expect("a title")
+                    .at_tier(Some(TaskTier::Difficult)),
+                crate::NewTask::new("left to Armada", "", &[], "").expect("a title"),
+                crate::NewTask::new("picked", "", &[], "")
+                    .expect("a title")
+                    .at_tier(Some(TaskTier::Difficult)),
+            ],
+        },
+        by: PlanAuthor::Person,
+        at: when.clone(),
+    };
+    let picked = PlanEntry {
+        change: PlanChange::Edited {
+            task: TaskId::read("T3").expect("a task id"),
+            edit: TaskEdit::new(
+                None,
+                None,
+                None,
+                None,
+                Some(ModelName::new("a-persons-pick").expect("a model name")),
+            )
+            .expect("an edit"),
+        },
+        by: PlanAuthor::Person,
+        at: when,
+    };
+    WorkPlan::fold(&[recorded, picked])
+        .expect("the history replays")
+        .expect("a plan")
+}
+
+/// **A person's pick, then the map for the tier, then `model_spawned_at`**
+/// (spike 022, *which model a Drone runs*). A tier the map leaves out is
+/// Armada picking, which is the step's model and then the Job's (answer 8).
+#[test]
+fn a_tasks_model_is_the_persons_pick_then_the_map_then_the_step_and_the_job() {
+    use crate::{TaskId, TaskTier, TierModels};
+    let job = job_whose_fix_step_names_a_model();
+    let plan = tiered_plan();
+    let task = |id: &str| plan.task(TaskId::read(id).expect("a task id"));
+    let tiers = TierModels::default().with(
+        TaskTier::Difficult,
+        ModelName::new("strong").expect("a name"),
+    );
+    let fix = StepId::new("fix");
+    let ran = |id: &str| {
+        job.model_spawned_for(&fix, None, task(id), &tiers)
+            .as_str()
+            .to_string()
+    };
+    assert_eq!(ran("T1"), "strong", "the map, for the task's tier");
+    assert_eq!(ran("T2"), "the-steps-own-model", "no tier: the step's own");
+    assert_eq!(ran("T3"), "a-persons-pick", "a person's pick beats the map");
+    assert_eq!(
+        job.model_spawned_for(&fix, None, task("T1"), &TierModels::default())
+            .as_str(),
+        "the-steps-own-model",
+        "a tier the map leaves out falls through"
+    );
+    assert_eq!(
+        job.model_spawned_for(&fix, None, None, &tiers),
+        job.model_spawned_at(&fix, None),
+        "a Drone on no task runs as before"
+    );
+}

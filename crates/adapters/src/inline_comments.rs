@@ -39,28 +39,25 @@ const REDUCTION: &str = "\
 
 /// Ask the forge for every inline comment on one pull request.
 ///
-/// **Empty on any failure**, [`adapter_traits::Delivery::inline_remarks`]'s
+/// **`None` on any failure**, [`adapter_traits::Delivery::inline_remarks`]'s
 /// rule: no tool, not signed in, a pull request whose address does not carry a
-/// number, a forge that would not answer — none of them is told apart from
-/// "nothing more to add" here, because the caller already has the comments
-/// `crate::under_review::read` found and this is strictly additional to them.
-pub(crate) fn read(in_repo: &str, pull_request: &str) -> Vec<Remark> {
-    let Some(number) = number_of(pull_request) else {
-        return Vec::new();
-    };
+/// number, a forge that would not answer. None of them is told apart from the
+/// others, and none of them is an empty list, because the sweep counts an
+/// empty list as no line comments and keeps its last count on a silence.
+pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<Vec<Remark>> {
+    let number = number_of(pull_request)?;
     let path = format!("repos/{{owner}}/{{repo}}/pulls/{number}/comments");
-    let Ok(run) = run_in(
+    let run = run_in(
         in_repo,
         FORGE,
         &["api", "--paginate", &path, "--jq", REDUCTION],
-    ) else {
-        return Vec::new();
-    };
+    )
+    .ok()?;
     if !run.status.success() {
-        return Vec::new();
+        return None;
     }
     let text = String::from_utf8_lossy(&run.stdout).into_owned();
-    folded(&text)
+    Some(folded(&text))
 }
 
 /// The lines `read` printed, folded into `Remark`s. Split out so a test can

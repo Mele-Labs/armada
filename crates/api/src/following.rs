@@ -19,8 +19,10 @@ use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
-    JobId, OutputClosed, OutputEnded, OutputLines, OutputMessage, OutputOpened, PROTOCOL_VERSION,
+    JobId, LandOutputMessage, LandOutputOpened, OutputClosed, OutputEnded, OutputLines,
+    OutputMessage, OutputOpened, PROTOCOL_VERSION,
 };
+use serde::Serialize;
 
 use crate::journal::FOLLOW;
 
@@ -76,48 +78,119 @@ pub struct LiveOutput {
     pub follow: Arc<dyn Follow>,
 }
 
-/// Serve one viewer: what the log holds, then what is appended, then why it
-/// stopped.
+/// One merge line Check's log, resolved: whose it is, and the reader for it.
+///
+/// **[`LiveOutput`]'s shape for a Check no Job owns**, answered before the
+/// socket opens for the same reason. A finished Check's log is served too, on
+/// the same socket: it opens, sends what the file holds and ends `finished`,
+/// so one reader draws a Check that is running and one that has ended.
+#[derive(Clone)]
+pub struct LandOutput {
+    /// The repository's root, as `list_repositories` names it.
+    pub root: String,
+    pub branch: String,
+    /// The Check whose log this is.
+    pub name: String,
+    pub follow: Arc<dyn Follow>,
+}
+
+/// Serve one viewer of a Job's running Check.
+pub(crate) async fn relay(socket: WebSocket, job_id: JobId, live: LiveOutput) {
+    let LiveOutput {
+        name,
+        attempt,
+        path,
+        follow,
+    } = live;
+    let opened = move |skipped| {
+        OutputMessage::Opened(OutputOpened {
+            protocol_version: PROTOCOL_VERSION,
+            job_id,
+            name,
+            attempt,
+            path,
+            skipped,
+        })
+    };
+    tail(
+        socket,
+        follow,
+        opened,
+        OutputMessage::Lines,
+        OutputMessage::Closed,
+    )
+    .await;
+}
+
+/// Serve one viewer of a merge line Check's log.
+pub(crate) async fn relay_land(socket: WebSocket, land: LandOutput) {
+    let LandOutput {
+        root,
+        branch,
+        name,
+        follow,
+    } = land;
+    let opened = move |skipped| {
+        LandOutputMessage::Opened(LandOutputOpened {
+            protocol_version: PROTOCOL_VERSION,
+            root,
+            branch,
+            name,
+            skipped,
+        })
+    };
+    tail(
+        socket,
+        follow,
+        opened,
+        LandOutputMessage::Lines,
+        LandOutputMessage::Closed,
+    )
+    .await;
+}
+
+/// What the log holds, then what is appended, then why it stopped, each as
+/// the socket's own message.
 ///
 /// **Whether the Check is still writing is asked before each pass rather than
 /// after**, so the pass that follows a `false` reads to the end — a Check that
 /// finished between two passes still has its last line sent.
-pub(crate) async fn relay(mut socket: WebSocket, job_id: JobId, live: LiveOutput) {
-    let mut writing = still(&live.follow).await;
-    let first = pass(&live.follow, 0, !writing).await;
-    let opened = OutputOpened {
-        protocol_version: PROTOCOL_VERSION,
-        job_id,
-        name: live.name.clone(),
-        attempt: live.attempt,
-        path: live.path.clone(),
-        skipped: first.skipped,
-    };
-    if !send(&mut socket, &OutputMessage::Opened(opened)).await {
+async fn tail<M: Serialize>(
+    mut socket: WebSocket,
+    follow: Arc<dyn Follow>,
+    opened: impl FnOnce(u64) -> M,
+    lines: fn(OutputLines) -> M,
+    closed: fn(OutputClosed) -> M,
+) {
+    let mut writing = still(&follow).await;
+    let first = pass(&follow, 0, !writing).await;
+    if !send(&mut socket, &opened(first.skipped)).await {
         return;
     }
     let mut from = first.from;
     let mut reading = first;
     loop {
         if reading.unreadable {
-            closed(&mut socket, OutputEnded::Unreadable).await;
+            let because = OutputEnded::Unreadable;
+            send(&mut socket, &closed(OutputClosed { because })).await;
             return;
         }
         if !reading.lines.is_empty() {
-            let lines = OutputLines {
+            let read = OutputLines {
                 lines: reading.lines,
             };
-            if !send(&mut socket, &OutputMessage::Lines(lines)).await {
+            if !send(&mut socket, &lines(read)).await {
                 return;
             }
         }
         if !writing {
-            closed(&mut socket, OutputEnded::Finished).await;
+            let because = OutputEnded::Finished;
+            send(&mut socket, &closed(OutputClosed { because })).await;
             return;
         }
         tokio::time::sleep(FOLLOW).await;
-        writing = still(&live.follow).await;
-        reading = pass(&live.follow, from, !writing).await;
+        writing = still(&follow).await;
+        reading = pass(&follow, from, !writing).await;
         from = reading.from;
     }
 }
@@ -146,11 +219,7 @@ async fn pass(follow: &Arc<dyn Follow>, from: u64, to_the_end: bool) -> Followed
     }
 }
 
-async fn closed(socket: &mut WebSocket, because: OutputEnded) {
-    send(socket, &OutputMessage::Closed(OutputClosed { because })).await;
-}
-
-async fn send(socket: &mut WebSocket, message: &OutputMessage) -> bool {
+async fn send<M: Serialize>(socket: &mut WebSocket, message: &M) -> bool {
     let Ok(text) = ipc::encode(message) else {
         return false;
     };

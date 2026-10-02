@@ -19,7 +19,7 @@ use crate::tests::tools::submitted_by_the_one;
 use crate::work_plan::{permitted, plan_grants, NotPlanned};
 
 /// Plan, then an `implement` that works a Drone per task, then a handoff.
-fn a_drone_per_task() -> config::ResolvedWorkflow {
+pub(crate) fn a_drone_per_task() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture-per-task.yml"),
         "version: 1\nworkflow_id: fixture-per-task\nname: fixture\nstructure: linear\n\
