@@ -22,6 +22,7 @@ type Story = StoryObj<typeof Sheet>;
  */
 export const Right: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     side: "right",
     title: "Kit allowlist",
@@ -64,6 +65,7 @@ export const Right: Story = {
 
 export const Left: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     side: "left",
     title: "Kit allowlist",
@@ -80,6 +82,7 @@ export const Left: Story = {
  */
 export const Floating: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     floating: true,
     title: "screens_test",
@@ -100,6 +103,7 @@ export const Floating: Story = {
  */
 export const Leading: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     title: "Helm",
     leading: (
@@ -122,6 +126,7 @@ export const Leading: Story = {
  */
 export const Back: Story = {
   args: {
+    kind: "story-sheet",
     open: true,
     floating: true,
     size: "wide",

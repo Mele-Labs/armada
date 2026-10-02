@@ -39,8 +39,7 @@ export function HelmSheet({
   return (
     <div className="armada-shell__helm-sheet">
       <Sheet
-        width={width}
-        {...(onResize === undefined ? {} : { onResize })}
+        {...(onResize === undefined ? { kind: "helm" } : { width, onResize })}
         open={open}
         title={title}
         leading={

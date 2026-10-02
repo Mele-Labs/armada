@@ -73,7 +73,32 @@ export type SheetBack = {
   onBack: () => void;
 };
 
-export type SheetProps = {
+/**
+ * Whose width the sheet draws. **Every sheet resizes** by Helm's handle on its
+ * inner edge (owner, 2 Oct 2026), so every sheet names one or the other.
+ */
+type SheetWidth =
+  | {
+      /**
+       * Which kind of sheet this is — `plan-task`, `drone`, `job-diff`. Each
+       * kind remembers its own width across opens and a restart
+       * (`sheet-width.ts`); one never dragged draws its `size`.
+       */
+      kind: string;
+      width?: never;
+      onResize?: never;
+    }
+  | {
+      kind?: never;
+      /**
+       * A width another surface owns: Helm folded into a sheet shares the
+       * dock's, so a drag of either sets both. Clamped here as a kind's is.
+       */
+      width: number | undefined;
+      onResize: (width: number) => void;
+    };
+
+export type SheetProps = SheetWidth & {
   open: boolean;
   /** Sentence case. Panel headings may open with a Wh- word; sentences may not. */
   title: string;
@@ -131,21 +156,6 @@ export type SheetProps = {
    * once. Read only with `floating`; at `floor` it lies over that sheet.
    */
   beside?: string;
-  /**
-   * Which kind of sheet this is — `plan-task`, `drone`, `job-diff` — and so
-   * which width it opens at. **Every sheet resizes** by Helm's handle on its
-   * inner edge, and each kind remembers its own width across opens and a
-   * restart (owner, 2 Oct 2026; `sheet-width.ts`). Absent, a drag holds only
-   * while the sheet is mounted. Nothing dragged draws the `size`.
-   */
-  kind?: string;
-  /**
-   * A width another surface owns, in place of `kind`'s: Helm folded into a
-   * sheet shares the dock's (owner, 2 Oct 2026), so a drag of either sets
-   * both. Read only with `onResize`; clamped here as a remembered width is.
-   */
-  width?: number | undefined;
-  onResize?: (width: number) => void;
   /**
    * Another layer lies over this one and takes `Esc` first. Both bind on
    * `window` in the capture phase, where the first one opened runs first, so
@@ -212,11 +222,11 @@ export function Sheet({
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const remembered = useSheetWidth(kind);
-  const [held, setHeld] = useState<number | undefined>(undefined);
-  const owned = onResize !== undefined;
-  const wanted = owned ? width : kind === undefined ? held : remembered;
-  const resize = (next: number): void =>
-    owned ? onResize(next) : kind === undefined ? setHeld(next) : rememberSheetWidth(kind, next);
+  const wanted = onResize === undefined ? remembered : width;
+  const resize = (next: number): void => {
+    if (onResize !== undefined) onResize(next);
+    else if (kind !== undefined) rememberSheetWidth(kind, next);
+  };
   const neighbour = useSheetWidth(beside);
 
   // At the floor the sheet is flush to both edges, and there is nothing to
