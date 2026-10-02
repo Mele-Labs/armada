@@ -140,9 +140,7 @@ blocked; a slot wait says so on stderr. Confirmed 1 Oct 2026: six runs of
 `armada check test` beside desktop_test logged 0 bytes, and they were read
 as blocked. That cost two probes, a question to the owner and a read of the
 slot code before the test binaries' build times showed they had been running
-all along. **And `test`'s one-test form matches the whole path**:
-`armada check test tests::servers::<name>`, not `<name>`, which runs nothing
-after a full build.
+all along.
 
 ### 5. Commit
 

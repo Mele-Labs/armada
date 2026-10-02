@@ -327,7 +327,7 @@ checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(={})
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
 ```
 
 Decided 13 Sep 2026 for #999, after several running Jobs each fixed the same flaky test inside their own change. A Drone that says a test is broken on main is asking a question: Fleet runs just that test there, drafts the fix only where it fails there too, and claims the test for that fix so a second report drafts nothing.
@@ -336,9 +336,9 @@ Rules that follow:
 
 - **Absent means a report cannot be confirmed.** A Check with no `one_test` gives Fleet no way to run one test, so a Drone naming a test under it is refused and nothing is drafted.
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
-- **The name is the Drone's.** It gets the guard a narrowed value gets: a name that cannot be one argument runs nothing.
+- **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
-- **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass.
+- **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
 
 ### Proving what merged

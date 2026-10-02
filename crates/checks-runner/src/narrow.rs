@@ -120,15 +120,58 @@ fn quoted(value: &str) -> String {
     }
 }
 
-/// The command that runs one test by name, or `None` where the name cannot be
-/// one argument. The name is a Drone's, so it gets the guard a narrowed value
-/// gets and no other. #999.
+/// The command that runs one test by name, or `None` where the name is blank.
+///
+/// **`{}` takes the name escaped for a regex**, because every runner a
+/// `one_test` is written for reads one: `vitest -t`, and nextest's `test(/…/)`.
+/// The name is a Drone's or a person's, so it always stays one argument,
+/// whatever quotes it holds. #999.
 pub fn one_test(run: &str, test: &str) -> Option<String> {
     let test = test.trim();
-    if test.is_empty() || !spellable(test) {
+    if test.is_empty() {
         return None;
     }
-    Some(run.replace("{}", &quoted(test)))
+    Some(run.replace("{}", &one_argument(&regex_escaped(test))))
+}
+
+/// Every character a JavaScript or Rust regex reads as syntax, backslashed.
+/// `/` too, which ends nextest's `/…/`. Each escape here is legal in both.
+fn regex_escaped(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        if "\\^$.|?*+()[]{}/".contains(c) {
+            escaped.push('\\');
+        }
+        escaped.push(c);
+    }
+    escaped
+}
+
+/// Any text as one argument to [`split`](crate::split), which has no escapes
+/// but joins adjacent quoted pieces: a run holding `'` goes in `"…"`, and one
+/// holding `"` in `'…'`.
+fn one_argument(text: &str) -> String {
+    if !text.contains(['\'', '"']) {
+        return quoted(text);
+    }
+    let mut spelled = String::new();
+    let mut piece = String::new();
+    let mut wrap = '"';
+    for c in text.chars() {
+        let need = match c {
+            '\'' => '"',
+            '"' => '\'',
+            _ => wrap,
+        };
+        if need != wrap && !piece.is_empty() {
+            spelled.push_str(&format!("{wrap}{piece}{wrap}"));
+            piece.clear();
+        }
+        wrap = need;
+        piece.push(c);
+    }
+    spelled.push_str(&format!("{wrap}{piece}{wrap}"));
+    spelled
 }
 
 /// The command a runner's `run_changed` shape makes for these files.
