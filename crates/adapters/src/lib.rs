@@ -57,6 +57,8 @@ mod issue_lookup;
 mod judge;
 mod keeping_current;
 mod landing;
+/// The pool of warm worktrees a repository leases out, shared by agents.
+pub mod leasing;
 mod mcp;
 mod merging_in;
 mod merging_the_base_in;

@@ -10,6 +10,7 @@ mod ports;
 mod seed;
 mod servers;
 mod standing;
+mod worktrees;
 
 use crate::error::Fault;
 use crate::manifest::Manifest;

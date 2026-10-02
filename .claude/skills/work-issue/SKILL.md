@@ -38,12 +38,18 @@ not the agent's to arrange.
 one line.** The judgement about how big a change is comes after you have read the
 code, and by then the tree is already dirty.
 
-Use `EnterWorktree` where it is available. Worktrees live under
-`.claude/worktrees/`, named for the issue. `.armada/worktrees/` is Fleet's and is
-never touched by hand — a Drone is working in there.
+**Lease a slot: `armada worktree lease <branch>`**, and work at the path it
+prints. A slot keeps the last lease's `target/`, so the first build is
+incremental, and the pool is the machine's cap — a lease waits while every slot
+is held. It fetches and cuts the branch from the base itself.
+`agent-worktrees` has the rest. `.armada/worktrees/` is Fleet's and is never
+touched by hand — a Drone is working in there.
 
-**Then fetch, and fast-forward onto what `main` is now.** `EnterWorktree` cuts
-from the local `origin/main` ref, which is only as fresh as the last fetch.
+**Only where `armada` does not know the verb** — the installed binary predates
+it, and `scripts/restart` is the fix — fall back to `EnterWorktree`, under
+`.claude/worktrees/`, named for the issue. **Then fetch, and fast-forward onto
+what `main` is now.** `EnterWorktree` cuts from the local `origin/main` ref,
+which is only as fresh as the last fetch.
 Confirmed 14 Sep 2026: the #1001 worktree came up at a commit from before #999
 merged, missing the code the step was built on. `git fetch origin main && git
 merge --ff-only origin/main` before reading anything.
@@ -253,6 +259,16 @@ the work inline rather than dispatching a third.
 **The merge is the moment.** A branch that is in `main` has a worktree holding
 nothing `main` does not, and nothing reclaims it on its own — `armada clean`
 gives back a *Job's* worktrees, not an *agent's*.
+
+A leased slot is released, never removed — it refuses while anything in it is
+uncommitted or unlanded, so it checks for you:
+
+```
+armada worktree release <path>
+git branch -D <branch>
+```
+
+A tree cut by `EnterWorktree` or `isolation: "worktree"` is removed instead:
 
 ```
 git worktree remove --force <path>

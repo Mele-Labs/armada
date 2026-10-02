@@ -99,7 +99,8 @@ succeeded.** The failed one is what the next plan is most needed for.
 **Assess before planning the next wave.** Read the diff, not the report. Take the
 corrections — a child that has just read the code is usually right and you are
 working from memory. The merge bar in `orchestrate-milestone` is the whole bar,
-every time, and the worktree goes back at the merge.
+every time, and the worktree goes back at the merge — a leased slot by
+`armada worktree release <path>`, which `agent-worktrees` covers.
 
 Then write the next wave into the same file, under the last one, saying what the
 wave that just ran made untrue. That file is the record of the run.

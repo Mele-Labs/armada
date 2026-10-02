@@ -589,6 +589,44 @@ arrive on the `observe_job` WebSocket, so a Rust client would carry a WebSocket
 dependency into the binary every crate links into, to reach a fact that is
 already a file read away.
 
+## Leasing a worktree
+
+```sh
+armada worktree lease <branch>      # a warm slot on a new branch; prints its path
+armada worktree release [<path>]    # give it back; the slot you stand in by default
+armada worktree --status            # every slot, who holds it, and for how long
+```
+
+**What it does:** takes one of the repository's permanent worktrees under
+`.armada/slots/`, puts it on `<branch>` cut fresh from the base, and leaves its
+`target/` from the last lease, so the first build is incremental rather than
+cold. The path is the only line on stdout, so `path=$(armada worktree lease
+fix-the-gate)` works. [Fleet](../concepts/fleet.md), *Worktree slots*, has the
+design.
+
+**When you run it:** instead of cutting a worktree, before the first edit —
+`.claude/skills/agent-worktrees/SKILL.md` says how a dispatcher uses it. Release
+once the branch has landed.
+
+**What it needs:** an `armada.yml` at the repository's root, `git` on `PATH`, and
+an `armada` on `PATH` that knows the verb — `scripts/restart` installs it. A
+network is used to fetch the base and not required: offline, the lease says so
+and cuts from what was last fetched.
+
+**What its output means:**
+
+| Said | Meaning |
+|---|---|
+| `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
+| `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with nothing unlanded |
+| `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path |
+| `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
+| A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
+
+**The lease is held for the process that ran your shell** — the agent session,
+or the terminal. Run it directly, not through a wrapper script, or the holder
+recorded is the wrapper, which ends at once.
+
 ## Landing a branch
 
 ```sh

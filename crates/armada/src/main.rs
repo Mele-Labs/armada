@@ -1,8 +1,9 @@
-//! `armada` — one binary, six verbs.
+//! `armada` — one binary, and its verbs.
 //!
 //! `serve` is the daemon; `check` and `run` execute one thing the repository's
 //! Manifest declares; `covers` names the Checks a change hits; `clean` gives its worktrees, branches and Jobs back;
-//! `mcp` relays an agent's session to the door Fleet serves. Each verb's own
+//! `mcp` relays an agent's session to the door Fleet serves; `worktree` leases
+//! from the pool of warm worktrees. Each verb's own
 //! module holds what it does and why.
 //!
 //! # What exits non-zero
@@ -23,10 +24,10 @@ use std::process::ExitCode;
 
 use adapters::UnmergedWork;
 use armada::clean::Scope;
-use armada::cli::{self, LandAct, Usage, Verb};
+use armada::cli::{self, LandAct, Usage, Verb, WorktreeAct};
 use armada::declared::Registry;
 use armada::serve::PROVISIONAL_CHECK_BUDGET;
-use armada::{clean, declared, land, say, serve};
+use armada::{clean, declared, land, leasing, say, serve};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -63,7 +64,20 @@ async fn main() -> ExitCode {
         // to be starved. `armada::mcp` holds the argument.
         Verb::Mcp => armada::mcp::speak(),
         Verb::Land(act) => land_verb(act),
+        Verb::Worktree(act) => worktree_verb(act),
     }
+}
+
+fn worktree_verb(act: WorktreeAct) -> ExitCode {
+    let Ok(cwd) = std::env::current_dir() else {
+        eprintln!("the working directory could not be read");
+        return ExitCode::FAILURE;
+    };
+    ExitCode::from(match act {
+        WorktreeAct::Lease { branch } => leasing::lease(&cwd, &branch),
+        WorktreeAct::Release { path } => leasing::release(&cwd, path),
+        WorktreeAct::Status => leasing::status(&cwd),
+    })
 }
 
 /// `armada land`'s four visible forms, plus the hidden `--runner` the
