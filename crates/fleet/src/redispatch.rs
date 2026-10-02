@@ -7,9 +7,9 @@
 //! reopened. The `escalated -> running` edge is a redirect's — context
 //! injected mid-step — not this.
 //!
-//! The disk agrees. `create_worktree` refuses an existing branch, so a Job
-//! moved back to `running` under its own id could only run by deleting the
-//! branch `armada/<job_id>` its failure is recorded on. **A stopped Job's
+//! The disk agrees. A lease refuses a branch holding commits nothing else
+//! has, so a Job moved back to `running` under its own id could only run by
+//! deleting the branch `armada/<handle>` its failure is recorded on. **A stopped Job's
 //! worktree and branch are evidence**, so the id has to change.
 //!
 //! An escalated original is killed; a `completed_failed` or `killed` one is

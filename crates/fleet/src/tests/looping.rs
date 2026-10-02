@@ -15,7 +15,6 @@
 //! round and is filed apart from the pass before it, and what the cap does when
 //! it is spent.
 
-use adapter_traits::WorktreeSpec;
 use api::Queries;
 use core_model::{Approach, EvidenceType, JobStatus, NewTask, PlanChange, StepId, StepState};
 use testkit::FakeWorkProduct;
@@ -466,9 +465,9 @@ fn document() -> Call<'static> {
 
 /// The draft's whole gate is `artifact_exists`, and it reads the file's size —
 /// so the worktree has to hold one with something in it.
-fn wrote_the_plan(home: &TempDir, handle: &str) {
-    let spec = WorktreeSpec::for_job(&home.path().to_string_lossy(), handle).expect("a legal spec");
-    let at = std::path::Path::new(&spec.worktree_path()).join(".armada/artifacts");
+/// Before the Job's dispatch, so into the slot that dispatch will lease.
+fn wrote_the_plan(home: &TempDir) {
+    let at = crate::tests::daemon::first_slot(home).join(".armada/artifacts");
     std::fs::create_dir_all(&at).expect("a place for the artifact");
     std::fs::write(at.join("draft.md"), "# Plan\n\nMigrate, then backfill.\n")
         .expect("the plan is written");
@@ -519,7 +518,7 @@ async fn the_shipped_design_plan_goes_round_twice_and_then_stops() {
         .await
         .expect("a Job at the approval gate");
     worktree_directory(&home, &job);
-    wrote_the_plan(&home, &job.handle());
+    wrote_the_plan(&home);
     let job_id = job.id().clone();
     dispatched(&fleet, &job_id).await.expect("it dispatches");
 

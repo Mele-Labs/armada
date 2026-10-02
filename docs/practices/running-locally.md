@@ -628,6 +628,8 @@ and cuts from what was last fetched.
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path |
 | `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
 | A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
+| `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
+| `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path |
 
 **The lease is held for the process that ran your shell** — the agent session,
 or the terminal. Run it directly, not through a wrapper script, or the holder

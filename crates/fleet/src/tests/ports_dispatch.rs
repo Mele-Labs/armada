@@ -9,7 +9,6 @@
 
 use std::path::Path;
 
-use adapter_traits::WorktreeSpec;
 use config::Manifest;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -47,8 +46,8 @@ fn a_fleet_declaring_storybook(
 }
 
 /// What `bootstrap` wrote, as the two numbers it read.
-fn port_txt(home: &TempDir, handle: &str) -> (String, String) {
-    let spec = WorktreeSpec::for_job(&home.path().to_string_lossy(), handle).expect("a legal spec");
+fn port_txt(home: &TempDir, job: &core_model::Job) -> (String, String) {
+    let spec = crate::tests::daemon::spec_held(home, job).expect("a legal spec");
     let written = std::fs::read_to_string(Path::new(&spec.worktree_path()).join("port.txt"))
         .expect("bootstrap wrote port.txt");
     let mut words = written.split_whitespace();
@@ -79,7 +78,7 @@ async fn a_setup_command_sees_the_resolved_port_and_the_env_var_together() {
 
     let dispatched = dispatched(&fleet, job.id()).await.expect("dispatch runs");
 
-    let (resolved, from_env) = port_txt(&home, &dispatched.handle());
+    let (resolved, from_env) = port_txt(&home, &dispatched);
     assert_eq!(
         resolved, from_env,
         "${{port.storybook}} and $ARMADA_PORT_STORYBOOK name the same claim"
@@ -122,8 +121,8 @@ async fn two_jobs_declaring_the_same_port_get_different_numbers() {
         .await
         .expect("dispatch runs");
 
-    let (first_port, _) = port_txt(&home, &first.handle());
-    let (second_port, _) = port_txt(&home, &second.handle());
+    let (first_port, _) = port_txt(&home, &first);
+    let (second_port, _) = port_txt(&home, &second);
     assert_ne!(
         first_port, second_port,
         "the two Jobs do not hold the same span"

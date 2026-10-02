@@ -313,6 +313,19 @@ impl Store {
         // before version 40.
         let created = created.turn_capped(maybe_wide(row, "turn_cap")?);
 
+        // Read back for `branch`'s reason. Null on every Job cut before the
+        // pool, and on every row written before version 92.
+        let created = match maybe_wide(row, "worktree_slot")? {
+            Some(slot) => {
+                created.in_slot(u32::try_from(slot).map_err(|_| RowError::MalformedColumn {
+                    table: "jobs",
+                    column: "worktree_slot",
+                    detail: format!("{slot} names no slot"),
+                })?)
+            }
+            None => created,
+        };
+
         // Read back for `branch`'s reason: no event describes giving a
         // worktree back, so this column is its own authority. Null on every
         // Job whose disk still stands, and on every row written before

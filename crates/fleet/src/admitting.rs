@@ -22,7 +22,8 @@
 //! shared with `serving`'s `queued_reason`, so a Board cannot say a Job is
 //! blocked while Fleet is starting it. **Disk is a fifth, of the same kind**:
 //! [`Fleet::admit_next`] asks it per Job, of that Job's own repository's
-//! volume rather than the machine's — `#987`.
+//! volume rather than the machine's — `#987`. **A free worktree slot is a
+//! sixth**, asked of the Job's own repository's pool — `crate::leasing`.
 //!
 //! [`Fleet::next_queued`]: crate::Fleet
 
@@ -40,6 +41,7 @@ use crate::adrift::Adrift;
 use crate::converging::elapsed;
 use crate::coupling::{coupling, Coupling};
 use crate::daemon::Fleet;
+use crate::dispatch::Dispatched;
 use crate::headroom::{Bytes, Reading, Short};
 use crate::slots::Slots;
 use crate::sub_dispatch::{children_standing, waiting_on_children};
@@ -216,8 +218,8 @@ where
     pub(crate) async fn admit_next(&self) -> Result<Vec<JobId>, Adrift> {
         let mut slots = self.slots().lock().await;
         let mut admitted = Vec::new();
-        // Jobs this pass found short of their own repository's volume, so
-        // `next_queued` does not hand the same one back — `#987`.
+        // Jobs this pass found short of their own repository's volume or
+        // pool, so `next_queued` does not hand the same one back — `#987`.
         let mut short_on_volume: Vec<JobId> = Vec::new();
         loop {
             if !self.room_for(&mut slots).await.granted() {
@@ -236,8 +238,9 @@ where
             if self.superseded_by_a_sibling(&job).await? {
                 continue;
             }
-            // Its own volume, not the machine's — skip it, not the pass.
-            if self.volume_is_short(&job).await {
+            // Its own volume, not the machine's — skip it, not the pass. Its
+            // own pool, the same way: every slot held waits for one to free.
+            if self.volume_is_short(&job).await || self.slot_is_short(&job) {
                 short_on_volume.push(job_id);
                 continue;
             }
@@ -247,16 +250,24 @@ where
             // cannot hand back the Job being started. Nothing else can be
             // holding this lock — the roster is held, and the Job had none.
             let mut working = slot.lock().await;
-            if let Err(cause) = self.dispatch(job, &mut working).await {
-                drop(working);
+            let dispatched = self.dispatch(job, &mut working).await;
+            drop(working);
+            match dispatched {
+                Ok(Dispatched::Started) => admitted.push(job_id),
+                // The pool filled between the predicate and the lease. Nothing
+                // moved; the Job waits like any other short of a slot.
+                Ok(Dispatched::NoSlot) => {
+                    slots.closed(&job_id);
+                    short_on_volume.push(job_id);
+                }
                 // Nothing started, so nothing is being worked, so the bound is
                 // not spent. Left in place it would be a Job with no Drone
                 // holding a place in the roster for ever.
-                slots.closed(&job_id);
-                return Err(cause);
+                Err(cause) => {
+                    slots.closed(&job_id);
+                    return Err(cause);
+                }
             }
-            drop(working);
-            admitted.push(job_id);
         }
         Ok(admitted)
     }
