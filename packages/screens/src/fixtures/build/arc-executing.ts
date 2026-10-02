@@ -725,3 +725,71 @@ export function doneTouched(): ArcMoment {
     },
   };
 }
+
+/**
+ * A third task beside T5 and T6 in group three, so one running group holds the
+ * three states a task can be in before the group's boundary: still working,
+ * handed in, and stopped short. The arc's own plan has two there.
+ */
+function withT9(groups: GroupView[]): GroupView[] {
+  return groups.map((group) => {
+    if (group.id !== "g3") return group;
+    const t6 = group.tasks.find((one) => one.id === "T6")!;
+    const t9 = {
+      ...t6,
+      id: "T9",
+      title: "Say so when a list has nothing in it",
+      scope: ["packages/screens/src/running-empty.tsx"],
+      expects: "With nothing running, each of the four lists says so",
+      note: "One line per list. No illustration.",
+      concurrent_with: ["T5", "T6"],
+      coord: { ...t6.coord, task: "T9" },
+    };
+    const tasks = [
+      ...group.tasks.map((one) => ({ ...one, concurrent_with: [...one.concurrent_with, "T9"] })),
+      t9,
+    ];
+    return { ...group, tasks, scope: [...new Set(tasks.flatMap((one) => one.scope))] };
+  });
+}
+
+/**
+ * **Not a moment of the arc**, and not in `ARC_MOMENTS`: one plan holding a
+ * task in each of the six states, for the marks Plan leads its rows with.
+ * Group three is mid-run with three tasks, one per state a running group can
+ * hold before its boundary; T8 was dropped by a person before group four began.
+ */
+export function everyTaskState(): ArcMoment {
+  let groups = withT9(executingSequential().draft.groups!);
+  groups = withTask(groups, "T6", {
+    state: "failed",
+    turns: 11,
+    drone_id: ARC_DRONES.T6,
+    failed_reason: "The agent stopped before the row opened anything.",
+  });
+  groups = withTask(groups, "T9", { state: "handed_in", turns: 9 });
+  groups = withTask(groups, "T8", { state: "dropped", reason: "The panel's own stories cover the four cases." });
+  return {
+    name: "everyTaskState",
+    says: "Plan — one task in every state: open, working, handed in, done, failed and dropped",
+    fixtures: [
+      executing({
+        says: "running — group three has a task working, one handed in and one stopped short",
+        groups,
+        step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:24:00Z"),
+        processes: [droneProcess(52_118, "06:40")],
+      }),
+    ],
+    opens: ARC_JOB_ID,
+    draft: {
+      groups,
+      cases: arcCases(),
+      criteria: arcCriterionViews(),
+      proposal: arcApproved(),
+      landing: ARC_LANDING,
+      record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
+      pulse: pulse("2026-09-22T10:24:00.000Z", [droneProcess(52_118, "06:40")]),
+    },
+  };
+}

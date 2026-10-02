@@ -57,7 +57,7 @@ runner (holds the turn lock) ----------------------+
   verify-foundations: new FAIL / missing: lines vs main's own run
         | new lines, every path each names touched by one member -> those members red; regate the rest
         | new lines, otherwise -> red, no Check runs (several members: split)
-  covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each
+  covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each --changed
         | red, one member -> outcome red, nothing pushed
         | red, several    -> split the batch in half, first half first, and take each
   git push origin <top>:main  -- not a fast-forward -> gate again (bounded rounds)
@@ -93,6 +93,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 - **Every finished entry leaves the line**, whatever the outcome, as soon as its own outcome is known, not when the rest of its batch finishes.
 - **A conflict and a red keep their place.** Resubmitted, the entry reuses the place the outcome recorded: the wait was already served.
 - **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, `CHECK_LIMIT` in `crates/armada/src/land/env.rs`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
+- **A turn's Checks run one at a time, and each asks ahead of every other ask for a Check slot.** Decided 2 Oct 2026, when running them at once was dropped: the machine was already at a load of 20 to 32 on 18 cores, so a parallel turn would raise the peak for little. Asking ahead stops a turn queueing behind agents' own `armada check` runs instead. [Manifest](../concepts/manifest.md), *How many Checks run at once*.
 - **State lives under the common git directory**, in `armada-land/`, so every worktree of one clone shares one line.
 - **Each gate's logs get a directory of their own**, `armada-land/logs/<entry>/<turn>/`, where `<entry>` is the branch's key (or the batch's) and `<turn>` is when the gate started, in UTC. `main`'s reruns of a Check log into the same directory as the turn that asked. The outcome names the files of its own turn. Until 1 Oct 2026 the directory was the entry's alone and each turn emptied it first, so a rerun that landed erased the red before it: about fifteen `desktop_test` files timed out on `main` that morning and the logs that would have said why were gone.
 - **A turn's logs are kept for two weeks**, `KEPT_FOR` in `crates/armada/src/land/logs.rs`, and pruned when the runner takes a turn. Age rather than a count per entry, because each batch is an entry of its own and is seldom gated twice, so a per-entry count bounds nothing. Measured 1 Oct 2026: 79 MB over 247 entries, about 0.3 MB a turn.
@@ -106,7 +107,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
-**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read. A change to the documents alone now hits no Check at all.
+**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 
@@ -134,6 +135,31 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 | A run that names no rule still runs the Checks | Nothing was gated, and they say what they can |
 | One report carries the gate's crash and the Checks together | An agent reads everything wrong once, not twice |
 | A `main` that cannot run it stops every turn, saying so | The branch behind it is not the one to fix |
+
+## What a narrowed Check runs
+
+**A Check that declares `narrow` with `under` runs over what the turn reaches, not the whole workspace.** In this repository that is `test` and `build`. Measured 2 Oct 2026: `test` was 4 to 5.4 of a turn's 13 to 22 minutes, almost all of it compiling crates the turn never touched.
+
+```
+the turn's paths (every member's, + what landed on main)
+  -> any Cargo.toml, Cargo.lock, build.rs, rust-toolchain, .cargo/ ?        -- yes -> whole
+  -> no Cargo.toml at the root, or `cargo tree` fails ?                     -- yes -> whole
+  -> a file under a member that is not .rs ?                                -- yes -> whole
+  -> + the directory of every member depending on one touched (cargo tree -i, normal, build and dev edges)
+  -> armada check <name> --changed, those paths on stdin
+       each path the Check's `when` covers must derive a value under `under` -- no  -> whole
+       values in `except` dropped; none left                               -- nothing to run, passes
+       otherwise                                                           -- narrow.run + each value
+```
+
+- **The land line holds the one Cargo fact, and the Manifest the rest.** `crates/armada/src/land/reach.rs` asks `cargo tree` what depends on what; `armada check --changed` spells the result through the Check's own `narrow`, read by `checks_runner::narrowed_at_the_gate`.
+- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` (`format`'s) never narrows at all, since a file list leaves out what the command reads beside it, such as `rustfmt.toml`.
+- **A file that is not Rust source runs it whole**, because the dependency graph says nothing about who reads it: `ipc`'s tests read `testkit`'s fixtures without depending on `testkit`.
+- **`xtask` is in every narrowed `test`**, written into the Manifest's `narrow.run`: its tests read the whole tree, so no change under `crates/` is outside their reach.
+- **It is said.** The status line and the outcome carry `test narrowed to -p …`, and the turn's `reach.log` holds the paths or the reason it ran whole.
+- **`main`'s rerun of a red Check is whole and cached by commit, as before.** It answers whether `main` itself is red, and a whole red is the stronger answer.
+
+**This is the one gate that narrows.** [Configuration](../contracts/configuration.md), *How much of the tree a Check reads*, keeps Fleet's step gate whole. The line narrows on the owner's word of 2 Oct 2026, and only where the rules above can vouch for what the whole run would have measured.
 
 ## What a turn prepares, and in which order
 
