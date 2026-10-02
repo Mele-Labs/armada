@@ -2312,7 +2312,8 @@ stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
 
 **Restart this task also answers a done task in a group the Judge refused** (2 Oct 2026), with
 no change to the wire: Bridge reads the group's last run, `verdict.trigger` `gate_failure` over
-tasks still `done`, as Fleet does.
+tasks still `done`, with the step that run was filed under `stopped`, as Fleet does. **A group the
+Judge only questioned is refused**: its step holds at `awaiting_human` until a person answers.
 
 | Route | Body | Answers | Refused |
 |---|---|---|---|
