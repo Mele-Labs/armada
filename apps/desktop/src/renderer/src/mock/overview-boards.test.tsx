@@ -420,7 +420,7 @@ describe("the lead and what it is about are one panel", () => {
     expect(elapsed.top).toBeLessThan(headline.bottom);
   });
 
-  test("job/reviewAtDelivery: the review gate is inside the lead, and its record stays folded", async () => {
+  test("job/reviewAtDelivery: the review gate is inside the lead, and its record is open", async () => {
     await drawn("job/reviewAtDelivery", ".armada-verdict");
 
     const lead = document.querySelector(".armada-lead");
@@ -432,11 +432,9 @@ describe("the lead and what it is about are one panel", () => {
     // face is the part of it a person sees without pressing anything.
     const merge = await page.getByRole("button", { name: "Merge and take the work" }).element();
     expect(lead?.contains(merge)).toBe(true);
-    // Folded, per `the-review-gate-sits-under-the-lead`: unfolding it to make
-    // the merge tidier is not this change's to do.
-    expect(
-      document.querySelector(".armada-verdict__fold")?.getAttribute("aria-expanded"),
-    ).toBe("false");
+    // Open since the owner took the fold away, 2 Oct 2026 (#1680).
+    const proves = await page.getByRole("region", { name: "What proves it" }).element();
+    expect(lead?.contains(proves)).toBe(true);
   });
 });
 

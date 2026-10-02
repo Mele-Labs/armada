@@ -543,6 +543,27 @@ transcript back.
 └────────────────────────────────────────────────
 ```
 
+**A group's round is the third, and Fleet's alone** (spike 022, slice 2). On
+a step declaring `drone_per_task`, a group whose Checks are red with a retry
+left goes round on its own, and the group's last task's Drone is the one that
+goes. It is told the red Checks first, by the outcome turn every hand-back
+sends, and then this, `PlanChanged::round`, so it knows the round covers every
+task of the group rather than its own. Same `Occasion`.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ THE GROUP GOES ROUND ─────────────────────────
+│ The Checks above ran at the end of group G1,
+│ which is these tasks: T1 Stop the reader at the
+│ end; T2 Cover the last row. Fix what they found
+│ across all of them, not only your own, then
+│ call submit_evidence once for the group. Every
+│ one of them stays handed in while you do. Do
+│ not start a task of a later group.
+└────────────────────────────────────────────────
+```
+
 ## The peer turn
 
 Fires when another unfinished Job in the same repository first claims a path

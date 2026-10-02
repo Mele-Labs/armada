@@ -12,11 +12,9 @@ export const markdownInTheReview = walk("job/review", [
   { look: text("the reviewer's to explain"), say: "Why a finding needs you: bold, not its asterisks" },
   { press: button("Dismissed"), say: "The dismissed findings" },
   { look: text("which owns the tests"), say: "Why it was dismissed: bold, not its asterisks" },
-  { press: button("The Job's record"), say: "The Job's record, under the review" },
-  { look: text("is an integration test"), say: "The brief, from Fleet's review: bold, not its asterisks" },
-  { look: text("2034 of 2034 tests pass"), say: "What the Drone says it did: bold, then a list of code" },
-  { look: text("runs after this gate"), say: "What nothing checked: a list, with code spans" },
-  { look: text("against a filled store"), say: "What the Drone left alone: code and bold" },
+  { look: text("2034 of 2034 tests pass"), say: "The Job's record, open under the review. What was done: bold, then a list of code" },
+  { look: text("runs after this gate"), say: "What was not checked: a list, with code spans" },
+  { look: text("against a filled store"), say: "What was skipped: code and bold" },
 ]);
 
 export const markdownInAPlanRefusal = walk("arc/plan-revision-refused", [

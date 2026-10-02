@@ -38,6 +38,9 @@ pub struct AtStep<'a> {
     attempt: Attempt,
     spent: Spent,
     looks: Looks,
+    /// Whether a group follows this one on the step, so its `runs_at:
+    /// handoff` Checks wait for the last group. Spike 022, slice 2.
+    handoff_held: bool,
 }
 
 /// Whether a pass puts the work to the Judge.
@@ -58,6 +61,7 @@ impl<'a> AtStep<'a> {
             attempt: Attempt::FIRST,
             spent: Spent::FIRST,
             looks: Looks::Asked,
+            handoff_held: false,
         })
     }
 
@@ -75,6 +79,7 @@ impl<'a> AtStep<'a> {
             attempt: Attempt::FIRST,
             spent: Spent::FIRST,
             looks: Looks::Asked,
+            handoff_held: false,
         })
     }
 
@@ -100,6 +105,20 @@ impl<'a> AtStep<'a> {
             looks: Looks::NotThisPass,
             ..self
         }
+    }
+
+    /// The same position, at a group with another after it: a Check declared
+    /// `runs_at: handoff` is held back for the last group.
+    pub fn holding_handoff(self, held: bool) -> AtStep<'a> {
+        AtStep {
+            handoff_held: held,
+            ..self
+        }
+    }
+
+    /// Whether this gate holds back its `runs_at: handoff` Checks.
+    pub fn holds_handoff(&self) -> bool {
+        self.handoff_held
     }
 
     /// Whether this pass asks the Judge its criteria and the drift look. The
@@ -145,6 +164,7 @@ impl<'a> AtStep<'a> {
             attempt: Attempt::FIRST,
             spent: Spent::FIRST,
             looks: Looks::Asked,
+            handoff_held: false,
         })
     }
 

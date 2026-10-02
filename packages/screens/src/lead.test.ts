@@ -52,6 +52,22 @@ function withOutcome(one: JobFixture, stepId: string, outcome: string): JobFixtu
   };
 }
 
+/** The same Job with nothing flagged, so no flag holds its stopped step. */
+function withoutFlags(one: JobFixture): JobFixture {
+  if (one.watched.state !== "read") throw new Error(`${one.name} serves no detail`);
+  const detail = one.watched.detail;
+  const steps = detail.steps.map((step) => ({ ...step, flagged: [] }));
+  return { ...one, watched: { ...one.watched, detail: { ...detail, steps } } };
+}
+
+/** The same Job with `count` calls refused, as `stuck.refusals` counts them. */
+function withRefusals(one: JobFixture, count: number): JobFixture {
+  if (one.watched.state !== "read") throw new Error(`${one.name} serves no detail`);
+  const detail = one.watched.detail;
+  if (detail.stuck === undefined) throw new Error(`${one.name} is not stuck`);
+  return { ...one, watched: { ...one.watched, detail: { ...detail, stuck: { ...detail.stuck, refusals: count } } } };
+}
+
 /** The Job an arc moment is about — the one whose id the moment opens. */
 function arcJobAt(moment: string): JobFixture {
   const found = arcMoment(moment);
@@ -103,8 +119,25 @@ describe("the headline names the thing and stops", () => {
   });
 
   it("a Judge refusal counts the criteria and quotes the first", () => {
-    const lead = leadFor(named("escalated · evidence_suspect"));
+    const lead = leadFor(withoutFlags(named("escalated · evidence_suspect")));
     expect(lead.said).toBe("A Judge refused 1 of 2 criteria");
+  });
+
+  // **What the Drone did, not where the Job stopped** (owner, 2 Oct 2026,
+  // #1672). It said *This Job stopped at Regression check* until then.
+  const WEAKENED = "An assertion was removed or loosened, which was judged to weaken the test coverage";
+  const HOLDS_UP = "Check the consumers still compile and 1 more do not start until you answer";
+  it("a step the gaming check holds names what the flag caught", () => {
+    const lead = leadFor(named("escalated · evidence_suspect"));
+    expect(lead.said).toBe(WEAKENED);
+    expect(lead.because).toBe(HOLDS_UP);
+    expect(lead.tone).toBe("awaiting-review");
+  });
+
+  it("a step the gaming check holds leads with the commands the Drone was refused", () => {
+    const lead = leadFor(withRefusals(named("escalated · evidence_suspect"), 3));
+    expect(lead.said).toBe("3 commands were refused during Regression check");
+    expect(lead.because).toBe(`${WEAKENED} · ${HOLDS_UP}`);
   });
 
   it("a Job Fleet stopped says why, in the registry's own verb and nothing more", () => {

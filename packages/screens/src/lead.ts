@@ -18,6 +18,7 @@ import { didNotPass, didPass, panelsOf } from "./gates";
 
 import { elapsedSince, span } from "./duration";
 import { onlyCurrentAttempt } from "./facts";
+import { flagSaid, flagsOf, heldByAFlag } from "./gaming";
 
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
@@ -257,6 +258,28 @@ function refusals(step: StepDetail | undefined, criteria: readonly Criterion[]) 
 }
 
 /**
+ * What the Drone did, on a Job the gaming check holds: the commands it was
+ * refused on the held step, and what each standing flag caught.
+ *
+ * **What the Drone did, not where the Job stopped** (owner, 2 Oct 2026).
+ * Until then this reached the escalated branch and said *This Job stopped at
+ * Regression check*, which was true and said nothing about a weakened test.
+ * The refused count is `stuck.refusals`, which counts the calls `refused` left
+ * out, and never less than the rows that arrived.
+ */
+function gamingHold(whole: JobWhole | null) {
+  const step = whole?.steps.find((one) => one.step_id === whole.stuck?.step_id);
+  if (whole === null || step === undefined || !heldByAFlag(whole, step)) return undefined;
+  const caught = [...new Set(flagsOf(step).held.map(flagSaid))].join(" · ");
+  const count = Math.max(whole.stuck?.refusals ?? 0, whole.stuck?.refused.length ?? 0);
+  const refused =
+    count === 0
+      ? undefined
+      : `${count} ${count === 1 ? "command was" : "commands were"} refused during ${step.label}`;
+  return { step, caught, refused };
+}
+
+/**
  * Why Fleet stopped the Job, in the registry's own verb. **Generated from the
  * Rust registry**, so a trigger Fleet learns to raise reads correctly without
  * this file being touched.
@@ -376,6 +399,18 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       tone: "awaiting-review",
       elapsed: span(command.asked_at, now) ?? undefined,
       act: "Decide it",
+    };
+  }
+  // **A step the gaming check holds**, named by what the Drone did. Ahead of a
+  // Judge's refusal, because the flag is what `stuck` says stopped it, and
+  // answered under the lead by `gaming-held.tsx`'s block.
+  const held = over ? undefined : gamingHold(whole);
+  if (held !== undefined) {
+    return {
+      said: held.refused ?? held.caught,
+      because: because(held.refused === undefined ? "" : held.caught, holdsUp(whole, held.step)),
+      tone: "awaiting-review",
+      act: "Answer it",
     };
   }
   const refused = over ? undefined : refusals(step, whole?.acceptance_criteria ?? []);

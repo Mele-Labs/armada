@@ -100,6 +100,10 @@ const ENUMS: &[EnumSource] = &[
         path: "crates/core-model/src/job/work_plan.rs",
     },
     EnumSource {
+        name: "GroupState",
+        path: "crates/core-model/src/job/plan_group.rs",
+    },
+    EnumSource {
         name: "DronePresence",
         path: "crates/core-model/src/job/drone.rs",
     },
@@ -246,6 +250,13 @@ const PAIRINGS: &[Pairing] = &[
         registry: "enum-verbs.toml",
         prefix: "verbs.task_state.",
         enum_name: "TaskState",
+    },
+    // Where one group of a plan is, since Fleet runs groups (spike 022, slice
+    // 2). No registry file of its own, `task_state`'s reason.
+    Pairing {
+        registry: "enum-verbs.toml",
+        prefix: "verbs.group_state.",
+        enum_name: "GroupState",
     },
     // Whether a Drone arrived on a step or left it. No registry file of its own
     // either — `assigned_drone` is a pointer with no states, so the verbs are

@@ -376,6 +376,8 @@ pub fn history(job_id: JobId, at: JobStatus) -> JobHistory {
     JobHistory {
         job_id,
         moves: vec![Recorded {
+            group: None,
+            group_attempt: None,
             seq: 1,
             status: status("awaiting_approval"),
             moved: Movement::Status(StatusMoved {
