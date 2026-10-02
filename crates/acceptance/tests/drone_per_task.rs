@@ -10,6 +10,7 @@
 //! |---|---|
 //! | The worktree cut from `from_ref`, the pull request opened against `target` and as a draft | Hermetic: nothing here leases or delivers. `crates/fleet/src/tests/approving.rs` drives the fake VCS |
 //! | The issue rotation's second cursor reaching each issue-linked Job in turn | A `tokio` turn; `crates/fleet/src/tests/approving.rs` drives the clock |
+//! | Which forge call reads when an issue was last edited | The forge is `adapters`' to name; `crates/adapters/src/tests/issue_lookup.rs` |
 //! | Fleet spawning, ending and respawning the Drones themselves | Hermetic: nothing here spawns. `crates/fleet/src/tests/drone_per_task.rs` drives a fake harness through every task |
 //! | Bridge redrawing the pane whole after a `missed` | Nothing here renders; `apps/desktop/src/main/observe.test.ts` |
 //! | A Fleet built before 1a refuses the store | Hermetic; `crates/store/src/tests/signers.rs` |
@@ -31,7 +32,6 @@ use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesCha
 use ipc::{JobPlanChanged, JobStateChanged, JobSummary, RepositoryList};
 use testkit::{FakeJudge, FakeWorkProduct};
 
-use adapter_traits::LinkLookup;
 use bench::arc::landing_by_the_repository;
 use bench::arc::{feature_with_a_drone_per_task, per_task_with_two_retries, step_signers};
 use bench::board::received_detail;
@@ -904,7 +904,7 @@ fn approval(json: &str) -> ipc::ApproveDispatch {
 fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it_moved() {
     let issue = core_model::IssueSource::read(
         "armada#1162".to_string(),
-        "https://github.com/NickMele/armada/issues/1162".to_string(),
+        "https://forge.example/NickMele/armada/issues/1162".to_string(),
         at(1),
     );
     let mut planned = Planned::from_an_issue("bound the reader", landing_by_the_repository());
@@ -1052,7 +1052,7 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
         back[0].origin,
         Some(ipc::CriterionOrigin::Issue {
             reference: "armada#1162".to_string(),
-            url: "https://github.com/NickMele/armada/issues/1162".to_string(),
+            url: "https://forge.example/NickMele/armada/issues/1162".to_string(),
         })
     );
     assert_eq!(
@@ -1064,17 +1064,6 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
     assert_eq!(
         back[1].origin_moved_at, None,
         "a person's line moved with nobody"
-    );
-    let rendered = adapters::IssueLookup
-        .edited(&adapter_traits::IssueAddress::at(
-            &issue.reference,
-            &issue.url,
-        ))
-        .expect("the one issue shape it knows");
-    assert!(
-        rendered.args().iter().any(|arg| arg.contains("updatedAt")),
-        "the rotation asks when the issue was last edited: {:?}",
-        rendered.args()
     );
 
     // ------------------------------------------- and after the press, frozen

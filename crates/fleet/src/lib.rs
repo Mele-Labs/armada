@@ -30,6 +30,9 @@ pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
 mod amending;
+/// What Fleet does with a proposal a person left: keeps, releases, lands and
+/// serves it. Spike 022, slice 4.
+mod approved;
 /// What a person changes on a proposal, and the Job it leaves at the press.
 /// Spike 022, slice 4.
 pub mod approving;

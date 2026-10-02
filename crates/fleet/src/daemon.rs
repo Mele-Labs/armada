@@ -186,7 +186,7 @@ pub struct Fleet<H, V, W> {
     issue_sweeping: Mutex<crate::issue_noticing::IssueSweep>,
     /// Which branch each Job's worktree was cut from, where a person chose one
     /// at approval — what its work is measured against. `crate::approving`.
-    cut_from: crate::approving::CutFrom,
+    cut_from: crate::approved::CutFrom,
     /// What each Job is owed about other Jobs writing where it writes, and when
     /// its Drone was last told. Never written down, for `sweeping`'s reason —
     /// `crate::peers`.

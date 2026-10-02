@@ -273,7 +273,7 @@ where
     /// where the two are held together.
     ///
     /// **A worktree a person cut from another branch is measured from that
-    /// branch** (spike 022, slice 4), which `crate::approving::CutFrom` holds
+    /// branch** (spike 022, slice 4), which `crate::approved::CutFrom` holds
     /// by the worktree's own branch: measured from the base, its work would
     /// claim every commit between the two.
     pub(crate) fn based(

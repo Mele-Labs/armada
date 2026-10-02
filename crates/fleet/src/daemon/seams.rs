@@ -566,7 +566,7 @@ where
     pub(crate) fn issue_sweeping(&self) -> &Mutex<crate::issue_noticing::IssueSweep> {
         &self.issue_sweeping
     }
-    pub(crate) fn cut_from(&self) -> &crate::approving::CutFrom {
+    pub(crate) fn cut_from(&self) -> &crate::approved::CutFrom {
         &self.cut_from
     }
     pub(crate) fn peering(&self) -> &Mutex<crate::peers::Peering> {
