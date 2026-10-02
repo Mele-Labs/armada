@@ -24,7 +24,7 @@ use std::process::ExitCode;
 use adapters::UnmergedWork;
 use armada::clean::Scope;
 use armada::cli::{self, LandAct, Usage, Verb};
-use armada::declared::Registry;
+use armada::declared::{Asked, Registry};
 use armada::serve::PROVISIONAL_CHECK_BUDGET;
 use armada::{clean, declared, land, say, serve};
 
@@ -50,11 +50,27 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Verb::Check { name, test } => {
-            declared_by_the_manifest(Registry::Checks, &name, test.as_deref(), "check").await
+        Verb::Check {
+            name,
+            test,
+            changed,
+        } => {
+            let paths = match changed {
+                true => match changed_on_stdin() {
+                    Ok(paths) => Some(paths),
+                    Err(code) => return code,
+                },
+                false => None,
+            };
+            let asked = match (&test, &paths) {
+                (Some(test), _) => Asked::OneTest(test),
+                (None, Some(paths)) => Asked::Changed(paths),
+                (None, None) => Asked::Whole,
+            };
+            declared_by_the_manifest(Registry::Checks, &name, asked, "check").await
         }
         Verb::Run { name } => {
-            declared_by_the_manifest(Registry::Commands, &name, None, "run").await
+            declared_by_the_manifest(Registry::Commands, &name, Asked::Whole, "run").await
         }
         Verb::Covers => checks_this_change_hits(),
         Verb::Clean { everything, force } => clean_this_repository(everything, force),
@@ -163,7 +179,7 @@ fn short(sha: &str) -> &str {
 async fn declared_by_the_manifest(
     registry: Registry,
     name: &str,
-    test: Option<&str>,
+    asked: Asked<'_>,
     verb: &str,
 ) -> ExitCode {
     let root = match std::env::current_dir() {
@@ -178,7 +194,7 @@ async fn declared_by_the_manifest(
         &root,
         registry,
         name,
-        test,
+        asked,
         PROVISIONAL_CHECK_BUDGET,
         slots.as_ref(),
     )
@@ -205,17 +221,10 @@ fn checks_this_change_hits() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let mut read = String::new();
-    if let Err(why) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut read) {
-        eprintln!("the changed paths could not be read from stdin: {why}");
-        return ExitCode::FAILURE;
-    }
-    let changed: Vec<String> = read
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(str::to_string)
-        .collect();
+    let changed = match changed_on_stdin() {
+        Ok(changed) => changed,
+        Err(code) => return code,
+    };
     match declared::covering(&root, &changed) {
         Ok(names) => {
             for name in names {
@@ -228,6 +237,21 @@ fn checks_this_change_hits() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// The changed paths, one per line on stdin, for `covers` and `check --changed`.
+fn changed_on_stdin() -> Result<Vec<String>, ExitCode> {
+    let mut read = String::new();
+    if let Err(why) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut read) {
+        eprintln!("the changed paths could not be read from stdin: {why}");
+        return Err(ExitCode::FAILURE);
+    }
+    Ok(read
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect())
 }
 
 fn clean_this_repository(everything: bool, force: bool) -> ExitCode {

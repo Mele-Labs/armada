@@ -18,6 +18,8 @@ use std::time::Duration;
 
 use super::shell::{run, run_limited};
 use super::stop::Stopped;
+use crate::cli::CHANGED;
+use crate::say::NARROWED_TO;
 
 /// `$ARMADA_LAND_ARMADA covers`, fed the changed paths on stdin — the Checks
 /// they hit, in the Manifest's own order.
@@ -55,18 +57,33 @@ pub fn run_command(armada: &str, cwd: &Path, name: &str, log: &Path) -> Result<(
 
 /// `$ARMADA_LAND_ARMADA check <name>` — one Check the combination hits,
 /// logged whole so a red turn's caller can point at it, and killed past
-/// `limit`.
+/// `limit`. With `changed`, `check <name> --changed` over those paths, which
+/// narrows it where its `narrow` can.
 pub fn check(
     armada: &str,
     cwd: &Path,
     name: &str,
+    changed: Option<&[String]>,
     log: &Path,
     limit: Duration,
 ) -> Result<CheckRan, Stopped> {
-    let limited = run_limited(&[armada, "check", name], cwd, log, limit)?;
+    let limited = match changed {
+        Some(paths) => {
+            let mut stdin = paths.join("\n");
+            stdin.push('\n');
+            let argv = [armada, "check", name, CHANGED];
+            run_limited(&argv, cwd, Some(&stdin), log, limit)?
+        }
+        None => run_limited(&[armada, "check", name], cwd, None, log, limit)?,
+    };
+    let output = limited.ran.stdout();
     Ok(CheckRan {
         passed: limited.ran.success() && !limited.timed_out,
         timed_out: limited.timed_out,
+        narrowed: output
+            .lines()
+            .find_map(|line| line.strip_prefix(NARROWED_TO))
+            .map(|to| to.trim().to_string()),
         output: limited.ran.combined(),
     })
 }
@@ -74,5 +91,8 @@ pub fn check(
 pub struct CheckRan {
     pub passed: bool,
     pub timed_out: bool,
+    /// What `--changed` narrowed it to, as `armada check` said it. `None` is
+    /// a whole run.
+    pub narrowed: Option<String>,
     pub output: String,
 }

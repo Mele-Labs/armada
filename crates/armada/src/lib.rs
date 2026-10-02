@@ -42,6 +42,7 @@ pub mod land;
 pub mod locating;
 pub mod loopback;
 pub mod mcp;
+pub mod reaching;
 pub mod say;
 pub mod serve;
 pub mod setup;

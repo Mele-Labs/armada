@@ -57,7 +57,7 @@ runner (holds the turn lock) ----------------------+
   verify-foundations: new FAIL / missing: lines vs main's own run
         | new lines, every path each names touched by one member -> those members red; regate the rest
         | new lines, otherwise -> red, no Check runs (several members: split)
-  covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each
+  covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each --changed
         | red, one member -> outcome red, nothing pushed
         | red, several    -> split the batch in half, first half first, and take each
   git push origin <top>:main  -- not a fast-forward -> gate again (bounded rounds)
@@ -134,6 +134,31 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 | A run that names no rule still runs the Checks | Nothing was gated, and they say what they can |
 | One report carries the gate's crash and the Checks together | An agent reads everything wrong once, not twice |
 | A `main` that cannot run it stops every turn, saying so | The branch behind it is not the one to fix |
+
+## What a narrowed Check runs
+
+**A Check that declares `narrow` with `under` runs over what the turn reaches, not the whole workspace.** In this repository that is `test` and `build`. Measured 2 Oct 2026: `test` was 4 to 5.4 of a turn's 13 to 22 minutes, almost all of it compiling crates the turn never touched.
+
+```
+the turn's paths (every member's, + what landed on main)
+  -> any Cargo.toml, Cargo.lock, build.rs, rust-toolchain, .cargo/ ?        -- yes -> whole
+  -> no Cargo.toml at the root, or `cargo tree` fails ?                     -- yes -> whole
+  -> a file under a member that is not .rs ?                                -- yes -> whole
+  -> + the directory of every member depending on one touched (cargo tree -i, normal, build and dev edges)
+  -> armada check <name> --changed, those paths on stdin
+       each path the Check's `when` covers must derive a value under `under` -- no  -> whole
+       values in `except` dropped; none left                               -- nothing to run, passes
+       otherwise                                                           -- narrow.run + each value
+```
+
+- **The land line holds the one Cargo fact, and the Manifest the rest.** `crates/armada/src/land/reach.rs` asks `cargo tree` what depends on what; `armada check --changed` spells the result through the Check's own `narrow`, read by `checks_runner::narrowed_at_the_gate`.
+- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` (`format`'s) never narrows at all, since a file list leaves out what the command reads beside it, such as `rustfmt.toml`.
+- **A file that is not Rust source runs it whole**, because the dependency graph says nothing about who reads it: `ipc`'s tests read `testkit`'s fixtures without depending on `testkit`.
+- **`xtask` is in every narrowed `test`**, written into the Manifest's `narrow.run`: its tests read the whole tree, so no change under `crates/` is outside their reach.
+- **It is said.** The status line and the outcome carry `test narrowed to -p …`, and the turn's `reach.log` holds the paths or the reason it ran whole.
+- **`main`'s rerun of a red Check is whole and cached by commit, as before.** It answers whether `main` itself is red, and a whole red is the stronger answer.
+
+**This is the one gate that narrows.** [Configuration](../contracts/configuration.md), *How much of the tree a Check reads*, keeps Fleet's step gate whole. The line narrows on the owner's word of 2 Oct 2026, and only where the rules above can vouch for what the whole run would have measured.
 
 ## What a turn prepares, and in which order
 

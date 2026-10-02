@@ -481,3 +481,6 @@ mod failing;
 
 /// The machine's Check slots, across processes. `src/tests/slots.rs`.
 mod slots;
+
+/// What a narrowing comes to on the merge line. `src/tests/at_the_gate.rs`.
+mod at_the_gate;

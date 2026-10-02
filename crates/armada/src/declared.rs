@@ -65,22 +65,27 @@ impl Registry {
     }
 }
 
+pub use crate::reaching::{Asked, Reached};
+
 /// One declared thing, resolved and run in `root`.
 ///
 /// Returns what the command did. There is no error return for a command that
 /// failed — a failure is an [`Exit`], and the caller turns it into a status.
 ///
-/// `test` runs one test through the Check's `one_test` instead of the whole
-/// Check. `slots` is the machine's: a Check takes its `places` of them for its
+/// `slots` is the machine's: a Check takes its `places` of them for its
 /// prerequisites and its run, and a Command takes none.
 pub async fn execute(
     root: &Path,
     registry: Registry,
     name: &str,
-    test: Option<&str>,
+    asked: Asked<'_>,
     budget: Duration,
     slots: Option<&CheckSlots>,
 ) -> Result<Ran, NotDeclared> {
+    let test = match asked {
+        Asked::OneTest(test) => Some(test),
+        _ => None,
+    };
     let manifest = Manifest::load(&root.join(MANIFEST)).map_err(|why| NotDeclared::NoManifest {
         path: root.join(MANIFEST),
         why: Box::new(why),
@@ -109,6 +114,13 @@ pub async fn execute(
                 test: test.to_string(),
                 path: manifest.path().to_path_buf(),
             })?,
+    };
+    let (command, narrowed) = match (asked, manifest.check(name)) {
+        (Asked::Changed(changed), Some(check)) => match crate::reaching::reached(check, changed) {
+            (_, Reached::Nothing) => return Ok(crate::reaching::ran_nothing(name)),
+            (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
+        },
+        _ => (command, None),
     };
     // **`${width}` resolves here too, and to the same number a gate reaches.**
     // A Check a person runs is the Check a Drone is measured by, per this
@@ -177,6 +189,7 @@ pub async fn execute(
             destructive,
             required,
             attempt: blocked,
+            narrowed,
         });
     }
 
@@ -188,6 +201,7 @@ pub async fn execute(
         destructive,
         required,
         attempt,
+        narrowed,
     })
 }
 
@@ -293,6 +307,8 @@ pub struct Ran {
     /// declares none.
     pub required: Vec<String>,
     pub attempt: Attempt,
+    /// What a changed set came to. `None` where none was asked.
+    pub narrowed: Option<Reached>,
 }
 
 impl Ran {

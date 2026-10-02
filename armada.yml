@@ -112,8 +112,15 @@ checks:
     # so the exclusion is restated as `except`, and it is the same exclusion
     # for the same reason: a narrowed run that pulled `acceptance` back in
     # would blur the line `test` and `acceptance` keep between them.
+    #
+    # `-p xtask` in every narrowed run, because its tests read the whole tree —
+    # error codes and status edges declared under `crates/` among them — so no
+    # change under `crates` is outside its reach: 341 tests, about 6s of test
+    # time, measured 2 Oct 2026. The merge line narrows through this too, over
+    # the crates a turn touches and every crate depending on one:
+    # `docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
     narrow:
-      run: cargo nextest run --test-threads ${width}
+      run: cargo nextest run --test-threads ${width} -p xtask
       each: "-p {}"
       under: crates
       except:

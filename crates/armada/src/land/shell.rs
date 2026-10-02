@@ -102,12 +102,13 @@ pub struct Limited {
 /// still holding the pipe would otherwise hold the turn.
 const DRAINED_WITHIN: Duration = Duration::from_secs(5);
 
-/// [`run`] with no stdin, killed past `limit` along with every process group
-/// its descendants lead: `armada check` puts a Check's command in a group of
-/// its own, which killing the child's group alone would miss.
+/// [`run`], killed past `limit` along with every process group its
+/// descendants lead: `armada check` puts a Check's command in a group of its
+/// own, which killing the child's group alone would miss.
 pub fn run_limited(
     argv: &[&str],
     cwd: &Path,
+    stdin: Option<&str>,
     log: &Path,
     limit: Duration,
 ) -> Result<Limited, Stopped> {
@@ -121,12 +122,18 @@ pub fn run_limited(
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .current_dir(cwd)
-        .stdin(Stdio::null())
+        .stdin(match stdin {
+            Some(_) => Stdio::piped(),
+            None => Stdio::null(),
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0)
         .spawn()
         .map_err(spawn_failed)?;
+    if let (Some(input), Some(mut pipe)) = (stdin, child.stdin.take()) {
+        let _ = pipe.write_all(input.as_bytes());
+    }
     let stdout = drained(child.stdout.take());
     let stderr = drained(child.stderr.take());
     let started = Instant::now();
@@ -302,6 +309,7 @@ mod tests {
         let limited = run_limited(
             &["sh", "-c", &script],
             dir.path(),
+            None,
             &log,
             Duration::from_secs(2),
         )
@@ -331,6 +339,7 @@ mod tests {
         let limited = run_limited(
             &["sh", "-c", "echo out; echo err >&2; exit 3"],
             dir.path(),
+            None,
             &dir.path().join("quick.log"),
             Duration::from_secs(30),
         )

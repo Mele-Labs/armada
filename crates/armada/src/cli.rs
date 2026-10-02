@@ -23,8 +23,13 @@ pub enum Verb {
     /// `repository` is added at start; none given serves what Fleet remembers.
     Serve { repository: Option<PathBuf> },
     /// One Check the Manifest declares, by name — or one test in it, through
-    /// the Check's `one_test`.
-    Check { name: String, test: Option<String> },
+    /// the Check's `one_test`, or what the paths on stdin reach, with
+    /// `changed`.
+    Check {
+        name: String,
+        test: Option<String>,
+        changed: bool,
+    },
     /// One Command the Manifest declares, by name.
     Run { name: String },
     /// The Checks a change hits, from the paths read on stdin.
@@ -68,7 +73,8 @@ const VERBS: &[(&str, &str)] = &[
     ),
     (
         "check",
-        "run one Check the Manifest declares, by name; a second name runs one test in it",
+        "run one Check the Manifest declares, by name; a second name runs one test in it, \
+         and --changed what the paths on stdin reach",
     ),
     ("run", "run one Command the Manifest declares, by name"),
     (
@@ -99,6 +105,10 @@ pub const COVERS: &str = "covers";
 /// The merge line. `scripts/land` is now a thin shim over this verb.
 pub const LAND: &str = "land";
 
+/// `check`'s flag for a run over what the changed paths on stdin reach. The
+/// merge line names it.
+pub const CHANGED: &str = "--changed";
+
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
     let args: Vec<String> = args.into_iter().collect();
@@ -122,15 +132,24 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             })
         }
         "check" | "run" => {
-            let positional = positionals(rest, &[], &mut faults);
+            let flags: &[&str] = match verb.as_str() {
+                "check" => &[CHANGED],
+                _ => &[],
+            };
+            let positional = positionals(rest, flags, &mut faults);
+            let changed = verb == "check" && rest.iter().any(|arg| arg == CHANGED);
             match verb.as_str() {
                 "check" => at_most_one(verb, positional.get(1..).unwrap_or(&[]), &mut faults),
                 _ => at_most_one(verb, &positional, &mut faults),
+            }
+            if let (true, Some(test)) = (changed, positional.get(1)) {
+                faults.push(Fault::ChangedRunsTheWholeCheck { test: test.clone() });
             }
             match positional.first() {
                 Some(name) if verb == "check" => Some(Verb::Check {
                     name: name.clone(),
                     test: positional.get(1).cloned(),
+                    changed,
                 }),
                 Some(name) => Some(Verb::Run { name: name.clone() }),
                 None => {
@@ -334,6 +353,10 @@ pub enum Fault {
     LandActionUnknown {
         given: String,
     },
+    /// `check --changed` beside one test's name.
+    ChangedRunsTheWholeCheck {
+        test: String,
+    },
 }
 
 impl fmt::Display for Misread {
@@ -396,6 +419,11 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {LAND} {given}` is not a form this verb takes — they are `{LAND}`, \
                  `{LAND} preflight`, `{LAND} --status [branch]`, `{LAND} --withdraw [branch]`"
+            ),
+            Fault::ChangedRunsTheWholeCheck { test } => write!(
+                out,
+                "`{CHANGED}` narrows the whole Check to what a change reaches, so `{test}` \
+                 has nowhere to go — name one test, or pass `{CHANGED}`"
             ),
         }
     }
