@@ -59,8 +59,9 @@ test("L opens the activity log in a sheet", async () => {
 // screen renders it since the Overview reframe of 29 Sep 2026 — the claim
 // that the rail kept animating while a sheet was up went with it.
 
-// `f` — `open_diff`, scope `detail`. The Produced chapter's own control went
-// with the chapters; the key and the sheet did not.
+// `f` — `open_diff`, scope `detail`, bound on the Overview tab like `L` above.
+// The control that opened the patch went with the chapters on 29 Sep 2026; the
+// key and the sheet did not.
 test("f opens the Job's patch in a sheet", async () => {
   await opened(running());
   await userEvent.keyboard("f");

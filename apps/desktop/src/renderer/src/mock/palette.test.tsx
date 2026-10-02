@@ -38,3 +38,21 @@ test("with a Job open, its acts are back", async () => {
   const list = await palette();
   await expect.element(list.getByRole("option", { name: /^Kill/ }).first()).toBeInTheDocument();
 });
+
+// **A greyed row sends a person somewhere that exists.** Both reasons named a
+// chapter of the step's story, and the Overview reframe of 29 Sep 2026 retired
+// the chapters. `L` and `f` are what reach the log and the patch now, and only
+// on an open Job's Overview, where `tab-overview.tsx` binds `useDetailKeys`.
+test.each([
+  ["log", /^Open the log/, "a job's Overview, with L"],
+  ["diff", /^Open the diff/, "a job's Overview, with f"],
+])("searching %s, the greyed row says where the act is", async (query, row, reason) => {
+  const fixture = running();
+  mount(onJob(fixture));
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
+  const list = await palette();
+  await userEvent.fill(list.getByRole("combobox"), query);
+  const option = list.getByRole("option", { name: row });
+  await expect.element(option).toHaveAttribute("aria-disabled", "true");
+  await expect.element(option).toHaveTextContent(reason);
+});

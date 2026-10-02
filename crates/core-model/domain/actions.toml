@@ -404,7 +404,7 @@ shortcut = "L"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "The step's activity log, opened to the layer that can hold it — 1676 entries on a real Job, which is not a longer version of anything the panel holds. `L` and not `Enter`, changed 2026-09-08. The old binding argued that every mnemonic letter was spent and that `Enter` already belonged to whatever holds focus; both were true of the lowercase set and neither is true of the shifted one, where `X` has held shifted-`x` since kill & redispatch landed. What `Enter` cost was that job detail grew a second chapter with a reading behind it — a Check's output — and one `Enter` cannot open both: which of them answered depended on which chapter `[` `]` happened to land on, a binding nobody can learn, drawn as `Enter` twice in one story. Shifted rather than plain, because lowercase `l` is `disclose` — the expand half of `h`/`l` — and a mistyped motion key must not open a layer. `open_focused` keeps `Enter` on the list, where nothing else holds focus. No glyph — `list` and `file-text` are not registered, and inventing one belongs in the icon registry rather than here."
+notes = "The step's activity log, opened to the layer that can hold it — 1676 entries on a real Job, which is not a longer version of anything the panel holds. `L` and not `Enter`, changed 2026-09-08. The old binding argued that every mnemonic letter was spent and that `Enter` already belonged to whatever holds focus; both were true of the lowercase set and neither is true of the shifted one, where `X` has held shifted-`x` since kill & redispatch landed. What `Enter` cost was that job detail grew a second chapter (chapters were retired with the Overview reframe of 29 Sep 2026) with a reading behind it — a Check's output — and one `Enter` cannot open both: which of them answered depended on which chapter `[` `]` happened to land on, a binding nobody can learn, drawn as `Enter` twice in one story. Shifted rather than plain, because lowercase `l` is `disclose` — the expand half of `h`/`l` — and a mistyped motion key must not open a layer. `open_focused` keeps `Enter` on the list, where nothing else holds focus. No glyph — `list` and `file-text` are not registered, and inventing one belongs in the icon registry rather than here."
 
 [actions.open_output]
 kind = "Action"
@@ -416,7 +416,7 @@ shortcut = "o"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "A Check's own stdout, opened to the layer that can hold it — 2,180 lines on a real suite, which is the third reading on this screen with no end, after the activity log and the patch. Added 2026-09-08 with the Checks chapter: a chapter that opens a sheet gets a letter, which `open_diff` established with `f`, and this one had none. `o` rather than a spare letter because it is the mnemonic and it is free here — `open` holds `o` on the list, where this act does not exist, so the two never contend for one press. No glyph — the `shield-*` family is a Check's result rather than its output, and minting one belongs in the icon registry rather than here."
+notes = "A Check's own stdout, opened to the layer that can hold it — 2,180 lines on a real suite, which is the third reading on this screen with no end, after the activity log and the patch. Added 2026-09-08 with the Checks chapter, retired with the Overview reframe of 29 Sep 2026: a chapter that opens a sheet gets a letter, which `open_diff` established with `f`, and this one had none. `o` rather than a spare letter because it is the mnemonic and it is free here — `open` holds `o` on the list, where this act does not exist, so the two never contend for one press. No glyph — the `shield-*` family is a Check's result rather than its output, and minting one belongs in the icon registry rather than here."
 
 [actions.open_diff]
 kind = "Action"
@@ -427,7 +427,7 @@ shortcut = "f"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "The focused Produced chip, opened to what the step actually wrote. `f` for the file, since `d` is Redirect and `o` is Open, which on a list means a Job — this opens a file inside one and the two must not read as the same key doing different things. The glyph was registered for this row."
+notes = "The Job's patch, opened on the sheet that can hold it. The focused Produced chip opened it until the Overview reframe of 29 Sep 2026 retired the chapters; the key is the route that survived. `f` for the file, since `d` is Redirect and `o` is Open, which on a list means a Job — this opens a file inside one and the two must not read as the same key doing different things. The glyph was registered for this row."
 
 [actions.raise_cost_cap]
 kind = "Action"
