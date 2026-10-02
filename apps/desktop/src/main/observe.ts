@@ -29,6 +29,7 @@ export class ObserveSocket {
   private readonly publish: (observed: Observed) => void;
   private socket: WebSocket | null = null;
   private jobId: string | null = null;
+  private port: number | null = null;
   private turns: Turns = NO_TURNS;
   /** Monotonic per connection. A row's own identity, since none carries one. */
   private seq = 0;
@@ -55,7 +56,11 @@ export class ObserveSocket {
       return;
     }
     this.publish({ state: "opening", jobId });
+    this.connect(port, jobId);
+  }
 
+  private connect(port: number, jobId: string): void {
+    this.port = port;
     const path = `/jobs/${encodeURIComponent(jobId)}/observe`;
     const socket = new WebSocket(`ws://${HOST}:${port}${path}`);
     this.socket = socket;
@@ -123,6 +128,15 @@ export class ObserveSocket {
     const next = turnsArrived(this.turns, pending, this.seq);
     this.seq = next.seq;
     this.turns = next.turns;
+    if (next.behind && this.port !== null) {
+      // #1759. Rows were dropped before this Bridge read them, so the pane has
+      // a gap. Reopened rather than counted: the backfill redraws it whole, and
+      // what is held stays drawn until its `opened` replaces it.
+      this.close();
+      this.seq = 0;
+      this.connect(this.port, jobId);
+      return;
+    }
     if (next.ended === undefined) {
       this.publish({ state: "watching", jobId, turns: this.turns });
       return;
