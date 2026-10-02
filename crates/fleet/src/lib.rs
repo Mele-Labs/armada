@@ -103,6 +103,7 @@ mod framing;
 mod freezing;
 mod gate;
 mod group;
+mod grouping;
 pub mod headroom;
 pub mod helm;
 /// What Fleet is holding disk for, and the five tests that decide whether it
@@ -162,6 +163,7 @@ mod pending_evidence;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
+mod plan_acts;
 pub mod policy;
 pub mod ports;
 mod precedent;

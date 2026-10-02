@@ -65,6 +65,9 @@ pub(crate) struct Stop {
     /// Whether the batch's first failed command stops the rest. **Only
     /// [`Stop::when_dropped_or_one_fails`] sets it**, and no gate builds one.
     at_first_failure: bool,
+    /// Whether `runs_at: handoff` Checks are held back whatever the rest say:
+    /// a group's gate with another group after it. Spike 022, slice 2.
+    handoff_held: bool,
 }
 
 /// Holding this keeps a batch going. Dropped, every command in it is stopped.
@@ -78,6 +81,15 @@ impl Stop {
         Stop {
             watched: None,
             at_first_failure: false,
+            handoff_held: false,
+        }
+    }
+
+    /// The same stop, holding back handoff's Checks where `held`.
+    pub(crate) fn holding_handoff(self, held: bool) -> Stop {
+        Stop {
+            handoff_held: held,
+            ..self
         }
     }
 
@@ -87,6 +99,7 @@ impl Stop {
         let stop = Stop {
             watched: Some(watched),
             at_first_failure: false,
+            handoff_held: false,
         };
         (Going { _going: going }, stop)
     }
@@ -615,7 +628,10 @@ pub(crate) async fn ran(
         // Everything else has answered: start what waits for handoff, or hold it back.
         if queued.is_empty() && running.is_empty() {
             if let Some(held) = later.take() {
-                match halting.is_some() && passed_so_far(checks, &planned, &done, &deferred) {
+                match halting.is_some()
+                    && !stop.handoff_held
+                    && passed_so_far(checks, &planned, &done, &deferred)
+                {
                     true => queued = held,
                     false => {
                         for (at, _) in held {

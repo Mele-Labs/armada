@@ -32,10 +32,10 @@ use crate::commands::{
     add_task, answer_command, answer_judge, answer_question, approve_dispatch, approve_review,
     ask_person_to_approve, delete_branch, dismiss_finding, drop_task, examine_job,
     file_finding_issue, file_report, forget_job, kill_drone, kill_job, merge_pull_request,
-    override_verdict, propose_from_request, propose_job, queue_after_finding, raise_cost_cap,
-    raise_turn_cap, reclaim_worktree, redirect_drone, redispatch_job, reject_job, request_changes,
-    rerun_checks, rerun_gate, restart_step, set_when_blocked, set_when_refused, show_again,
-    stop_proposal, take_up_remarks,
+    move_plan, override_verdict, propose_from_request, propose_job, queue_after_finding,
+    raise_cost_cap, raise_turn_cap, reclaim_worktree, redirect_drone, redispatch_job, reject_job,
+    request_changes, rerun_checks, rerun_gate, restart_step, restart_task, set_when_blocked,
+    set_when_refused, show_again, stop_proposal, take_up_remarks,
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
@@ -283,6 +283,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/redispatch", post(redispatch_job::<D>))
         .route("/jobs/:job_id/add_task", post(add_task::<D>))
         .route("/jobs/:job_id/drop_task", post(drop_task::<D>))
+        .route(
+            "/jobs/:job_id/tasks/:task_id/restart",
+            post(restart_task::<D>),
+        )
+        .route("/jobs/:job_id/plan/move", post(move_plan::<D>))
         .route("/jobs/:job_id/redirect", post(redirect_drone::<D>))
         .route("/jobs/:job_id/restart_step", post(restart_step::<D>))
         .route("/jobs/:job_id/answer_question", post(answer_question::<D>))

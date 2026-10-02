@@ -220,7 +220,7 @@ test("⌥↓ on a task row sends the move to Fleet, which says it is not built, 
   (row.element() as HTMLElement).focus();
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
   await expect.poll(() => movePlan.mock.calls.length).toBe(1);
-  expect(movePlan).toHaveBeenCalledWith(ARC_JOB_ID, { group: "g2", task: "T3", to: 1 });
+  expect(movePlan).toHaveBeenCalledWith(ARC_JOB_ID, { group: "g2", task: "T3", after: "T4" });
   await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
   const second = page.getByRole("list", { name: "Group 2 tasks" }).element();
   expect([...second.children].map((one) => one.getAttribute("aria-label")?.split(" ")[0])).toEqual(["T3", "T4"]);
