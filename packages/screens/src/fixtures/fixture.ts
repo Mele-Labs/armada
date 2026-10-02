@@ -24,6 +24,7 @@ import type {
   Journalled,
   ManifestSummary,
   Observed,
+  Turn,
   Watched,
   WorkflowSummary,
 } from "@armada/protocol";
@@ -70,4 +71,11 @@ export type JobFixture = {
   frames: Record<string, FrameRead>;
   /** The clock the fixture was taken at, so an elapsed reads the same every time. */
   now: number;
+  /**
+   * Rows the observe socket carries after it opens, one at a time, where the
+   * moment has a Drone writing — so a walk can watch a transcript's tail grow.
+   * The mock appends them to `observed` on its own clock. Absent is a socket
+   * that only ever holds what it opened with.
+   */
+  arriving?: Turn[];
 };

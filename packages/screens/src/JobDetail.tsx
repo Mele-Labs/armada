@@ -24,6 +24,7 @@ import { span } from "./duration";
 import {
   LOOK_FAILED,
   nothingToAsk,
+  dronePlacesOf,
   pulseFiguresOf,
   pulseReadingOf,
   whyNoReading,
@@ -508,6 +509,9 @@ function OneJob(props: JobDetailProps) {
           holds={{ ...pulseOf(props, whole, job.id, caps), figuresReading: unread !== undefined }}
           jobId={job.id}
           onNeedPulse={props.onNeedPulse}
+          observed={props.observed}
+          journalled={props.journalled}
+          floor={floor}
         />
       )}
     </div>
@@ -555,6 +559,15 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
 }
 
 /**
+ * Where each of the Job's Drones worked, for the transcript rows: the history
+ * the Job opened with, and the plan's tasks where the draft carries them.
+ */
+function placesOf(props: JobDetailProps, jobId: string) {
+  const history = props.history?.state === "read" && props.history.jobId === jobId ? props.history.moves : undefined;
+  return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks));
+}
+
+/**
  * The Pulse board: the machine reading, the figures over it, and the look.
  *
  * **`pulseViewOf` is the one derivation.** The board is built on the draft
@@ -573,7 +586,7 @@ function pulseOf(
   const examined = looked?.state === "found" ? looked.examined : null;
   const nothing = nothingToAsk(props.resources);
   return {
-    reading: view === null ? null : pulseReadingOf(view, examined, whole, props.now),
+    reading: view === null ? null : pulseReadingOf(view, examined, whole, props.now, placesOf(props, jobId)),
     figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),
