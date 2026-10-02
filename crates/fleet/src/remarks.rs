@@ -85,11 +85,9 @@ where
     /// opposite answers, and a person shown the second as the first would
     /// conclude their review had vanished.
     ///
-    /// **The comments left on individual lines of the diff are fetched here,
-    /// and only here.** `Delivery::under_review` is the sweep's own one-call
-    /// budget, and the two callers of this method — a person opening a Job's
-    /// comments and a press taking some of them up — are the two places the
-    /// second query `inline_remarks` costs is affordable. A forge that would
+    /// **The comments left on individual lines of the diff are fetched here
+    /// whole.** The sweep asks the same query only to count them for the
+    /// card's comment count. A forge that would
     /// not answer that second question loses nothing already found: the
     /// comments `under_review` read are handed back with none of their code,
     /// rather than the whole read failing over a query that is strictly
@@ -110,7 +108,11 @@ where
             });
         }
         let mut remarks = read.remarks;
-        remarks.extend(self.vcs().inline_remarks(served.root(), &pull_request));
+        remarks.extend(
+            self.vcs()
+                .inline_remarks(served.root(), &pull_request)
+                .unwrap_or_default(),
+        );
         let taken_up = self
             .store()
             .lock()

@@ -198,8 +198,8 @@ impl WhatTheForgeRan {
 /// only the conversation and the review bodies, for the reason above — inline
 /// comments are a second query per review, and the sweep's budget is one call.
 /// Where an inline comment is wanted, `Delivery::inline_remarks` is the second
-/// query, asked only where a person opens the comments or presses on them —
-/// never from the rotation.
+/// query: asked where a person opens the comments or presses on them, and by
+/// the rotation only to count them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Remark {
     /// What the forge calls this one comment.

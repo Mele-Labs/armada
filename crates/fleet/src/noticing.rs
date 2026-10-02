@@ -232,9 +232,10 @@ where
                 // anything**, on the turn the rotation had already reached this
                 // Job — never a loop of its own. `crate::under_review`.
                 let reviewed = self.read_what_is_under_review(&asking.job_id, url).await;
+                let comments = self.comments_counted(&asking.job_id, url, reviewed.as_ref());
                 // **Cached on the same turn that read it**, so `get_job` never
                 // asks the forge itself — see [`Sweep::pr_detail`].
-                self.remembered(&asking.job_id, url, &read, reviewed.as_ref())
+                self.remembered(&asking.job_id, url, &read, reviewed.as_ref(), comments)
                     .await;
                 return Ok(None);
             }
@@ -362,6 +363,26 @@ where
         Ok(waiting.into_iter().nth(at))
     }
 
+    /// How many comments the pull request's card shows: the conversation and
+    /// the reviews that say something, which `reviewed` already read, plus the
+    /// comments left on lines of the diff, which cost one more forge call.
+    ///
+    /// **`None` unless both answered**, so the last count is kept. Counting
+    /// only the half that answered would show a number smaller than the
+    /// forge's, and smaller than the one shown a turn before.
+    fn comments_counted(
+        &self,
+        job_id: &JobId,
+        url: &str,
+        reviewed: Option<&UnderReview>,
+    ) -> Option<u32> {
+        let reviewed = reviewed?;
+        let served = self.served_by_id(job_id).ok()?;
+        let on_lines = self.vcs().inline_remarks(served.root(), url)?;
+        let counted = reviewed.remarks.len().saturating_add(on_lines.len());
+        Some(u32::try_from(counted).unwrap_or(u32::MAX))
+    }
+
     /// Remember what this turn read live off one open pull request, so
     /// `get_job` can answer from memory rather than asking the forge itself.
     ///
@@ -377,6 +398,7 @@ where
         url: &str,
         read: &WhatBecameOfIt,
         reviewed: Option<&UnderReview>,
+        comments: Option<u32>,
     ) {
         // **Read after `kept_current`, on the same turn.** Whatever this
         // call's own attempt just wrote is what a person is shown next, not
@@ -387,11 +409,7 @@ where
         // **Kept, where the reading below is only remembered**, so the title
         // and the count outlive the merge and a restart. A write that fails
         // costs one rotation: the next read writes the same two again.
-        let _ = store.record_pull_request_read(
-            job_id,
-            read.title.as_deref(),
-            reviewed.map(|reviewed| u32::try_from(reviewed.remarks.len()).unwrap_or(u32::MAX)),
-        );
+        let _ = store.record_pull_request_read(job_id, read.title.as_deref(), comments);
         let currency = store.kept_current_for(job_id).ok().and_then(|kept| {
             let onto = kept.onto?;
             Some(ipc::Currency {
