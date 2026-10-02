@@ -33,7 +33,6 @@ export * from "./primitives/Tooltip/Tooltip";
 
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/ActiveJobsList/ActiveJobsList";
-export * from "./compositions/ActivityLogSheet/ActivityLogSheet";
 export * from "./compositions/BoardEmptyState/BoardEmptyState";
 export * from "./compositions/ChangedFiles/ChangedFiles";
 export * from "./compositions/CriterionVerdicts/CriterionVerdicts";
@@ -288,7 +287,6 @@ export * from "./compositions/RunPage/RunPage";
 export * from "./compositions/RunDiffSheet/RunDiffSheet";
 // A step's work with runs of one tool folded to a line. The rows inside a group
 // are the caller's own log, drawn unfolded everywhere else.
-export * from "./compositions/WorkGroups/WorkGroups";
 // A step as one timeline: the phases in the order they happened, repeated for
 // each attempt, with the earlier ones folded. Replaces the strip and the story.
 export * from "./compositions/ManifestFile/ManifestFile";
@@ -306,8 +304,8 @@ export * from "./compositions/ProposalSheet/ProposalSheet";
 export * from "./compositions/ValuePopover/ValuePopover";
 // Overview's summary strip — every panel's count above the fold.
 export * from "./compositions/OverviewSummaryStrip/OverviewSummaryStrip";
-// The message box fixed under an activity log — sending a redirect without
-// leaving the log to reach the step header's button. #1154.
+// The message box that sends a redirect from where a person is reading,
+// without reaching for the step header's button. #1154.
 export * from "./compositions/DroneMessageBox/DroneMessageBox";
 // A step's work as the Drone told it, under the plan task it served. #1185.
 // The graph surface React Flow draws — a Studio's board and a Job's workflow
@@ -393,3 +391,5 @@ export * from "./compositions/DestinationCard/DestinationCard";
 // The wait a Job at `proposing` is in: how far the model call has got, what it
 // has left of Fleet's budget, and the one act on it. #1159.
 export * from "./compositions/ProposerWait/ProposerWait";
+// The branches waiting to land on main through `armada land`, and the ones that just left.
+export * from "./compositions/MergeLine/MergeLine";

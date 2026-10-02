@@ -51,8 +51,8 @@ use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
-    explain_command, get_call, get_capacity, get_check_output, get_diff, get_evidence, get_frame,
-    get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
+    explain_command, get_brief, get_call, get_capacity, get_check_output, get_diff, get_evidence,
+    get_frame, get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
     get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifests, list_models,
     list_reports, list_workflows, list_worktrees, search_files,
 };
@@ -201,6 +201,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(get_check_output::<D>),
         )
         .route("/jobs/:job_id/frames/:run/:name", get(get_frame::<D>))
+        .route("/jobs/:job_id/briefs/:name", get(get_brief::<D>))
         .route("/jobs/:job_id/approve_review", post(approve_review::<D>))
         .route("/jobs/:job_id/merge", post(merge_pull_request::<D>))
         .route(

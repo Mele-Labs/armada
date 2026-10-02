@@ -548,3 +548,14 @@ export const STEP_STOP = {
   ask: "Stop this step",
   said: "Stops the drones working this step once held until it fills. Letting go sooner stops nothing. The job stays open.",
 } as const;
+
+/**
+ * The same held stop, on one task's panel in Plan, naming the task. Mocked
+ * until Fleet ends one task's Drone (#1666): the act underneath is still
+ * `kill_drone`, and the job stays open either way.
+ */
+export const TASK_STOP = {
+  label: "Hold to stop this task",
+  ask: "Stop this task",
+  said: "Stops this task's drone once held until it fills. Letting go sooner stops nothing. The job stays open.",
+} as const;

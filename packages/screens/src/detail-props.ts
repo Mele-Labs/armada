@@ -31,6 +31,7 @@ import type {
   FileReport,
   FollowedLog,
   History,
+  Crewed,
   Holds,
   JobSummary,
   Journalled,
@@ -353,6 +354,12 @@ export type JobDetailProps = {
    * the question somebody opening a Job they suspect has wedged came with.
    */
   resources: Holds;
+  /**
+   * Every Drone the Job has had, `list_job_drones` — what the Drones tab lists
+   * and each step's Drones are read from. Optional: absent lists the Job's own
+   * Drone alone, as an unread list does.
+   */
+  jobDrones?: Crewed;
   /**
    * The Job's history, for the one line of Pulse that says what a person last
    * did. Optional: without it, Pulse draws the latest of the Drone and Fleet.

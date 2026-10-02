@@ -427,7 +427,7 @@ where
                 output,
                 judged,
                 cleared,
-                resolved,
+                policies,
             } => {
                 let delivery = self
                     .store()
@@ -442,7 +442,7 @@ where
                         judged,
                         cleared,
                         held: HeldBecause::TheBranchDidNotGoOut,
-                        resolved,
+                        policies,
                     },
                     None => Ruling::Finished {
                         tell,
@@ -450,7 +450,7 @@ where
                         output,
                         judged,
                         cleared,
-                        resolved,
+                        policies,
                     },
                 })
             }

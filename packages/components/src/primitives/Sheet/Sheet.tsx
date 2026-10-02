@@ -110,7 +110,8 @@ export type SheetProps = {
   bleed?: boolean;
   /**
    * The body's own scroll container, for a caller that has to read or drive
-   * its scroll position — the Activity log sheet's own following. #1155.
+   * its scroll position. The activity log sheet followed its tail through
+   * it (#1155), and nothing reads it since that sheet went on 2 Oct 2026.
    */
   bodyRef?: Ref<HTMLDivElement>;
   /**

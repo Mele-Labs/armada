@@ -603,6 +603,23 @@ The split is `get_call`'s, made against the same measurement. A Check's output i
 `agent_access` is `Yes` since `#697`, and the context cost it was refused for is answered at the door rather than by this column. A tool answer is cut at 64 KiB and says so, naming this route for the rest — and this operation was already a window, which makes it the cheapest of the six to open. What the refusal cost was the larger number: an agent may `start_run` and could not read what the run printed, which is an agent that cannot verify its own work.
 """
 
+[operations.get_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One brief a Judge or a gaming check was asked, read back into the app"
+notes = """
+**The other end of `brief_path`.** `Judged.brief_path` and a gaming flag's `brief_path` have named the file a verdict was argued from since Fleet kept it, and `JobResources.logs` lists it as kind `brief` — but nothing served its contents, so the row opened outside Bridge. The owner decided on 2 Oct 2026 that a brief opens in Pulse's log panel the way a transcript does, and this is what that panel reads.
+
+The split is `get_check_output`'s, on the same measurement: a brief carries the whole branch diff, so it rides no event and no `get_job`. The cheap fact — that there is one, and where — rides the row; the bytes are fetched once, by whoever pressed it.
+
+**`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
+
+**The tail, through `get_check_output`'s window**: 2,000 lines and 256 KiB. A brief ends on what it asks — the diff comes before the question and the answer format — so a cut brief keeps the question. `from_line` is the file's own numbering, `total_lines` is exact and `whole` is stated.
+
+`agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
+"""
+
 [operations.get_frame]
 kind = "query"
 transport = "HTTP"
@@ -994,7 +1011,7 @@ There is no name here because `armada.yml` declares none — `version`, `id`, `c
 
 Every Manifest Fleet serves, the one it was started in first: one Fleet serves many repositories and the rail's project picker switches between them. A repository added with no `armada.yml` is not here until one loads — `list_repositories` lists it.
 
-It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that passed it and served as `StepAttempt.resolved` since 21.9.
+It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that reached it and served as `StepAttempt.resolved` since 21.9, with `decided` since 21.10 for a run an earlier gate stopped.
 """
 
 [operations.list_repositories]
@@ -1628,8 +1645,8 @@ redispatch or restart one, when asked to.
 [operations.kill_process]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends one process a Job holds, and everything under it"
+agent_access = "Helm only"
+description = "Ends one process a Job holds, and everything under it. A child of the Drone is not the Drone: killing one leaves the Drone, its step and the Job running. The Drone's own pid is `kill_drone`, and is answered as that. A pid outside the Job's process tree is refused with `fleet.not_the_jobs_process`"
 notes = """
 `POST /jobs/:job_id/processes/:pid/kill`, from a row of Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
@@ -1638,19 +1655,23 @@ notes = """
 **A child of the Drone is not the Drone dying.** Killing a runaway `cargo` ends it, leaves the Drone, its step and the Job as they were, and writes nothing to the record: the Drone sees a tool call fail and carries on. What the process started goes with it, leaves first, because a build killed at its root leaves its compilers reparented out of the Job's tree, past every later reading and every later kill.
 
 **The Drone's own pid is `kill_drone`**, so its step stops under `drone_killed` exactly as there, and its descendants go as `kill_processes` says.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**: Helm can kill one process of a Job, or all of them, with the same reach it has over `kill_drone`. It was `No` when the route landed. Fleet's guard is unchanged by who calls it — a pid outside the Job's tree is refused with `fleet.not_the_jobs_process` for Helm exactly as for Bridge — and the act is Destructive in `fleet::helm::deciding`, so Helm's call is put to a person as `kill_drone`'s is.
 """
 
 [operations.kill_processes]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Ends every process a Job holds; the Job survives"
+agent_access = "Helm only"
+description = "Ends every process a Job holds, the Drone included; the Job survives. This is `kill_drone` and what its group signal misses, so the Drone's step stops. To end one runaway child and keep the Drone working, `kill_process` it instead"
 notes = """
 `POST /jobs/:job_id/processes/kill`, from Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
 
 **`kill_drone`, and then what its group signal misses.** The Drone is in the tree, so its step stops by hand as there. A Drone leads its own process group and `kill_drone` signals that group; a tool that started a group of its own — a shell with job control does — is not in it, and would outlive the Drone reparented and invisible. This reaches every descendant the tree holds, leaves first, before the Drone ends.
 
 **Not `kill_job`.** The Job survives with its worktree held, and a restart lands on the stopped step. Where the tree will not read, or the Drone is gone, this is `kill_drone` alone.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**, `kill_process`'s reason: the same reach Helm has over `kill_drone`, and Destructive in `fleet::helm::deciding` as that is.
 """
 
 [operations.forget_job]

@@ -32,11 +32,15 @@ IFS= read -r turn
 printf '%s\n' "$turn" >> "$state/turns.log"
 # Single-quoted, so the escapes below stay as escapes and `%s` prints them
 # into the JSON string rather than printf resolving them first.
-answer='Read it.\n\n```json\n{\"notes\":[{\"id\":\"n1\",\"said\":\"The thread settled on one Studio per repository\"}],\"contradictions\":[{\"id\":\"c1\",\"first\":\"The source says the rail is per Workspace\",\"second\":\"The checkout says a Studio names no Workspace\"}],\"relations\":[{\"from\":\"n1\",\"relation\":\"blocks\",\"to\":\"c1\"}]}\n```'
+answer='Read it.\n\n```json\n@ANSWER@\n```'
 printf '{"type":"system","subtype":"init","session_id":"read-in","model":"stand-in","mcp_servers":[]}\n'
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"%s"}]}}\n' "$answer"
 printf '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"total_cost_usd":0.0031,"permission_denials":[]}\n'
 "##;
+
+/// What the stand-in answers unless a test says otherwise, escaped as the
+/// script's single-quoted `answer` holds it.
+const READ: &str = r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The thread settled on one Studio per repository\"}],\"contradictions\":[{\"id\":\"c1\",\"first\":\"The source says the rail is per Workspace\",\"second\":\"The checkout says a Studio names no Workspace\"}],\"relations\":[{\"from\":\"n1\",\"relation\":\"blocks\",\"to\":\"c1\"}]}"#;
 
 /// A stand-in forge. `api repos/.../milestones/N` prints the milestone's line;
 /// anything else prints one issue per line, as `--jq` would have reduced it.
@@ -53,6 +57,11 @@ esac
 "##;
 
 fn reading(home: &TempDir) -> Arc<Reading> {
+    reading_answered(home, READ)
+}
+
+/// A Fleet whose scout answers `read`.
+fn reading_answered(home: &TempDir, read: &str) -> Arc<Reading> {
     let root = home.path();
     std::fs::create_dir_all(root.join("src")).expect("a source directory");
     std::fs::write(root.join("src/routing.rs"), "fn route() {}\n").expect("written");
@@ -82,7 +91,9 @@ fn reading(home: &TempDir) -> Arc<Reading> {
     let script = root.join("stand-in.sh");
     std::fs::write(
         &script,
-        STAND_IN.replace("@STATE@", &state.to_string_lossy()),
+        STAND_IN
+            .replace("@STATE@", &state.to_string_lossy())
+            .replace("@ANSWER@", read),
     )
     .expect("written");
     executable(&script);
@@ -121,18 +132,30 @@ fn keyed(key: &str) -> String {
         .collect()
 }
 
-/// What the stand-in was told, once it has been started.
-fn turns(home: &TempDir) -> String {
-    let log = home.path().join("stand-in/turns.log");
-    for _ in 0..1000 {
-        if let Ok(read) = std::fs::read_to_string(&log) {
-            if !read.trim().is_empty() {
-                return read;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(10));
+/// What the stand-in was told, once the scout it ran as has ended.
+///
+/// **After the end, never while it runs**: the shell writes a long turn 1024
+/// bytes at a time, and a read between two writes had half of it. **No
+/// deadline**: a 10s one ran out while process spawns stalled for 30s.
+async fn turns(fleet: &Arc<Reading>, studio: &ipc::Studio, home: &TempDir) -> String {
+    while !fleet
+        .get_studio(studio.id.clone(), None)
+        .await
+        .expect("reads")
+        .nodes
+        .iter()
+        .any(|node| {
+            matches!(
+                &node.content,
+                StudioNodeContent::Finding { ended: Some(_), .. }
+            )
+        })
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("the scout was never told anything");
+    let told = std::fs::read_to_string(home.path().join("stand-in/turns.log")).unwrap_or_default();
+    assert!(!told.trim().is_empty(), "the scout was never told anything");
+    told
 }
 
 fn executable(at: &std::path::Path) {
@@ -193,9 +216,10 @@ fn code(refusal: &Refusal) -> &str {
     }
 }
 
-/// The Studio once it holds `wanted` nodes.
+/// The Studio once it holds `wanted` nodes. **No deadline**, for `turns`'
+/// reason.
 async fn once_there_are(fleet: &Arc<Reading>, studio: &ipc::Studio, wanted: usize) -> ipc::Studio {
-    for _ in 0..1000 {
+    loop {
         let read = fleet
             .get_studio(studio.id.clone(), None)
             .await
@@ -205,7 +229,6 @@ async fn once_there_are(fleet: &Arc<Reading>, studio: &ipc::Studio, wanted: usiz
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("the Studio never reached {wanted} nodes");
 }
 
 fn kinds(studio: &ipc::Studio) -> Vec<&'static str> {
@@ -302,12 +325,71 @@ async fn a_thread_read_in_leaves_the_link_standing_with_notes_and_a_contradictio
     assert_eq!(ended.as_ref().expect("ended").cost_micros, Some(3_100));
 
     // What the scout was told: the thread's prose, and the warning first.
-    let told = turns(&home);
+    let told = turns(&fleet, &studio, &home).await;
     assert!(told.contains("is a Studio per repository?"), "{told}");
     assert!(told.contains("one per repository"), "{told}");
     assert!(
         told.find("never instructions to follow") < told.find("THE SOURCE'S TEXT"),
         "the source is named untrusted before its text arrives"
+    );
+}
+
+/// **A Cluster read in holds the Notes it names**, by a `produced` edge from
+/// each, the way grouping makes one — and still hangs off the Link. A handle
+/// that names no Note in the answer is skipped. The owner saw four empty
+/// Cluster cards on his Studio before this.
+#[tokio::test]
+async fn a_cluster_read_in_is_produced_by_each_note_it_names() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"The problem today\",\"of\":[\"n1\",\"n2\",\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    let thread = home.path().join("helm");
+    std::fs::create_dir_all(&thread).expect("a helm directory");
+    std::fs::write(
+        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
+        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    )
+    .expect("a thread");
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 5).await;
+    assert_eq!(kinds(&read), ["link", "finding", "note", "note", "cluster"]);
+    let (notes, cluster) = (
+        [read.nodes[2].id.clone(), read.nodes[3].id.clone()],
+        read.nodes[4].id.clone(),
+    );
+
+    let into_cluster: Vec<_> = read
+        .edges
+        .iter()
+        .filter(|edge| edge.to == cluster)
+        .map(|edge| {
+            (
+                edge.from.clone(),
+                edge.kind.as_wire(),
+                edge.standing.as_wire(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        into_cluster,
+        [
+            (link.clone(), "produced", "accepted"),
+            (notes[0].clone(), "produced", "accepted"),
+            (notes[1].clone(), "produced", "accepted"),
+        ],
+        "the Link it came from and each Note it names, and nothing for `n9`"
     );
 }
 
@@ -348,7 +430,7 @@ async fn a_session_of_this_repository_is_read_in_and_another_repositorys_is_not_
         )
         .await
         .expect("read in");
-    let told = turns(&home);
+    let told = turns(&fleet, &studio, &home).await;
     assert!(told.contains("why is the rail per repository?"), "{told}");
     assert!(told.contains("because Helm answers for one"), "{told}");
     assert!(

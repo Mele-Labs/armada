@@ -105,6 +105,12 @@ takes neither. Confirmed 30 Sep 2026: sessions running suites bare beside a
 Fleet took the load to 19 on 18 cores, and a different test timed out each run.
 `docs/concepts/manifest.md`, *How many Checks run at once*.
 
+**A heavy command the table runs bare, prefix with `taskpolicy -c utility`**,
+for example `taskpolicy -c utility cargo build --workspace --all-targets`.
+`armada check` already lowers its Checks beneath the merge line and Bridge, and
+`nice -n 10` was measured to change nothing on this machine.
+`docs/concepts/manifest.md`, *At what priority a Check runs*.
+
 **One heavy run at a time, across every session on the machine.** Never start a
 build or a test suite while another is running, your own background runs
 included.

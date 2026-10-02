@@ -6,8 +6,7 @@
   min-width: 0;
   /* Space above, so the box reads as the thing you do next rather than the
      last line of the log — the owner's note of 17 Sep 2026. It sits on the
-     composition rather than on either caller, because both mounts (the
-     chapter and the Activity log sheet) asked for the same gap. */
+     composition rather than on a caller, so every mount gets the same gap. */
   margin-block-start: var(--space-4);
 }
 
