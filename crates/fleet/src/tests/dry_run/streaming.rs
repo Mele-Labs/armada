@@ -4,9 +4,9 @@
 //! Real commands with real sleeps, for `later`'s reason: every claim here is
 //! about which process ends when.
 
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use config::ResolvedWorkflow;
 use core_model::{DroneId, JobId};
@@ -94,40 +94,49 @@ async fn told_until_over(
     checks_in(&said)
 }
 
-/// **The first definition of done.** The build fails in a fraction of a second
-/// and the Drone hears it then, not when the four-second Check would have
-/// ended; that Check is stopped, and nothing it never finished is kept as a
-/// pass for the gate to reuse (#1014).
+/// **The first definition of done.** The build fails and the Drone hears it
+/// then: `slow` never ends on its own, so a run that is over did not wait for
+/// it. It is stopped, and nothing it never finished is kept as a pass for the
+/// gate to reuse (#1014).
+///
+/// **Ordered by the processes, not the clock.** Two places, so `build` starts
+/// only once `quick` is told passed; `build` fails only once `slow` holds the
+/// FIFO open; and an open with no reader left is `ENXIO`, so the end proves
+/// nothing of `slow` survived the stop.
 #[tokio::test]
 async fn a_build_that_fails_reaches_the_drone_at_once_and_stops_the_slower_checks() {
     let home = TempDir::new();
-    let marker = home.path().join("slow-finished");
+    let held = home.path().join("slow-holds");
+    let made = std::process::Command::new("/usr/bin/mkfifo")
+        .arg(&held)
+        .status()
+        .expect("mkfifo runs");
+    assert!(made.success(), "the FIFO is made");
     let slow = script(
         &home,
         "slow",
-        &format!("/bin/sleep 4\n/usr/bin/touch {}", marker.display()),
+        &format!("exec 3<>\"{}\"\nread line <&3", held.display()),
     );
-    let build = script(&home, "build", "/bin/sleep 0.3\nexit 1");
+    // Opening a FIFO to write waits for a reader, so this fails only once `slow` is running.
+    let build = script(
+        &home,
+        "build",
+        &format!("/usr/bin/true > \"{}\" || exit 0\nexit 1", held.display()),
+    );
     let gates = [
         check("slow", &slow),
         check("quick", "/usr/bin/true"),
         check("build", &build),
     ];
-    let fleet = Arc::new(a_fleet_at_once(&home, checked_by(&gates), 3));
+    let fleet = Arc::new(a_fleet_at_once(&home, checked_by(&gates), 2));
     started(&fleet, &home).await;
     let (job, drone) = the_one_drone(&fleet).await.expect("a Drone at work");
 
-    let asked = Instant::now();
     let underway = fleet
         .run_checks(&job, ipc::mcp::ChecksAsk::everything(false))
         .await
         .expect("the run starts");
     let told = told_until_over(&fleet, &home, &job, &drone, 1).await;
-    assert!(
-        asked.elapsed() < Duration::from_secs(3),
-        "the failure waited for the slow Check: {:?}",
-        asked.elapsed()
-    );
     let last = told.last().expect("a last turn");
     for part in [
         "`build` did not pass",
@@ -156,9 +165,13 @@ async fn a_build_that_fails_reaches_the_drone_at_once_and_stops_the_slower_check
         "a pass before the failure is still a pass"
     );
 
-    tokio::time::sleep(Duration::from_secs(5)).await;
-    assert!(
-        !marker.exists(),
+    let still_read = std::fs::OpenOptions::new()
+        .write(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(&held);
+    assert_eq!(
+        still_read.err().and_then(|error| error.raw_os_error()),
+        Some(libc::ENXIO),
         "the slow Check ran on after the build failed"
     );
 }
