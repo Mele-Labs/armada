@@ -198,17 +198,6 @@ export function escalatedGateFailure(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_nextest_3: {
-        ok: true,
-        call: {
-          tool: "Bash",
-          call: "call_nextest_3",
-          arguments: "cargo nextest run --workspace",
-          whole: true,
-        },
-      },
-    },
     checkOutputs: {
       "regression_verify.3.cargo_nextest.log": {
         ok: true,

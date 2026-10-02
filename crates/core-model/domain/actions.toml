@@ -168,10 +168,10 @@ tier = "Contextual"
 verb = "Move focus"
 icon = ""
 shortcut = "j / k / ↓ / ↑"
-scope = "list and detail"
+scope = "list"
 destructive = false
 confirms = false
-notes = "The two navigation keys the destructive-key rule is measured against. A list is a listbox and already roves on the arrows; j and k are here because nothing else claims them. The scope covers detail because the run tree and the activity log are listboxes too — moving between steps and moving between rows are one act, and a second pair of keys for it would be the ⌘F deletion made again. #265 builds the detail half."
+notes = "The two navigation keys the destructive-key rule is measured against. A list is a listbox and already roves on the arrows; j and k are here because nothing else claims them. The scope covered detail too, because the run tree and the activity log were listboxes — moving between steps and moving between rows are one act. **Retired:** the run tree went with Overview's reframe of 29 Sep 2026 and the activity log with #1761, so nothing on detail roves and the owner had the detail half removed (2 Oct 2026). The Board's list keeps it."
 
 [actions.open_focused]
 kind = "Motion"
@@ -371,17 +371,6 @@ destructive = false
 confirms = false
 notes = "The glyph is the registry's own assignment for Redispatch — a single arrow, distinct from the two chasing arrows that mean churning. The long verb is deliberate: a redispatch makes a new Job with a new id, and the short form read as a retry of the Job in front of you. `Kill & Redispatch` is a different act and is not this row."
 
-[actions.disclose]
-kind = "Action"
-tier = "Contextual"
-verb = "Expand and collapse"
-icon = "chevron-right"
-shortcut = "h / l / ← / →"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "One act, not two. A step's facts and a log entry's payload both open in place beneath the focused row, and giving each its own key would put two bindings on one gesture. The keys mirror `move_focus` on the other axis — a tree discloses sideways and roves vertically — and the glyph is the icon registry's own word for it, taken under the reservation's tree reading rather than its record reading: the run tree is a tree, and a Job row still does not grow a caret, which is why the scope is detail and not the list."
-
 [actions.move_in_plan]
 kind = "Action"
 tier = "Contextual"
@@ -392,7 +381,7 @@ shortcut = "⌥↑ ⌥↓"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus`, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
+notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus` wherever a list roves, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
 
 [actions.open_output]
 kind = "Action"

@@ -1339,7 +1339,7 @@ what makes triage fast: move down the queue and act without reaching for
 a modifier.
 
 ```
-j / k / ↓ / ↑  move focus
+j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 r              review             (list only)
@@ -1356,7 +1356,6 @@ a              approve             (dispatch card only)
 v              observe             (detail only)
 u              submit for verification  (piloted job only)
 e              redispatch as a new job
-h / l / ← / →  expand and collapse  (detail only)
 ⌥↑ ⌥↓          move up / down       (detail only)
 f              open the diff        (detail only)
 o              open the output      (detail only)
@@ -1390,7 +1389,10 @@ opening a log entry's payload, so both are one binding on the other
 axis. #265 builds the screen they belong to. **The run tree and the
 chapters were retired with Overview's reframe of 29 Sep 2026**, and `[` `]`,
 which moved between chapters, went with them: a key that lands on nothing
-is not in the map.
+is not in the map. **The rest of this was retired on 2 Oct 2026**, when the
+activity log went (#1761): with no run tree and no log on detail, `j`/`k`
+roved nothing there and `h`/`l` opened nothing, so the owner had both
+removed. `j`/`k` are the list's alone, and expand-and-collapse has no key.
 
 **`not built` means the binding is registered and nothing answers it.**
 The map was settled by drawing, so it holds acts nobody has written, and

@@ -99,7 +99,6 @@ import {
   undoRun,
   undoCheckoutRun,
   explainCommand,
-  readCall,
   readCheckOutput,
   followCheckOutput,
   readFrame,
@@ -748,7 +747,6 @@ export function App({ draft }: AppProps = {}) {
                   // node does — the same state, so Escape still returns here.
                   onOpenJob={setOpenJob}
                   onOpenStudio={openStudioFrom}
-                  onReadCall={readCall}
                   onReadCheckOutput={readCheckOutput}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}

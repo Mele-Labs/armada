@@ -7,7 +7,6 @@
 // what the socket believes.
 
 import type {
-  CallRead,
   CheckOutputRead,
   FrameRead,
   Holdings,
@@ -17,7 +16,7 @@ import type {
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
-import type { CallArguments, CheckOutput } from "@armada/protocol";
+import type { CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
 import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
@@ -373,41 +372,12 @@ export async function serversOf(port: number): Promise<ServerList | null> {
 }
 
 /**
- * One recorded tool call's arguments.
- *
- * **A read that answers rather than one that is held.** `reader.ts` exists for
- * the reads a Job moving invalidates, and its whole job is dropping an answer
- * whose id moved while it was in flight. A recorded argument cannot move and is
- * asked for by one reader about one row, so there is no id to check it against
- * and nothing to keep — which is why this sits here beside `capacityOf` rather
- * than becoming a fifth `JobReader`.
- *
- * The refusal is carried through whole. On this route it is either the Job
- * being gone, which the panel is already saying, or the call not being in its
- * transcripts, which is the row's own business — so the caller decides what to
- * say and nothing here turns one into a screen.
- */
-export async function callArgumentsOf(
-  port: number,
-  jobId: string,
-  callId: string,
-): Promise<CallRead> {
-  const answer = await ask(
-    port,
-    "GET",
-    `/jobs/${encodeURIComponent(jobId)}/calls/${encodeURIComponent(callId)}`,
-  );
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, call: answer.body as CallArguments };
-}
-
-/**
  * One Check's own output, read into the app.
  *
- * **`callArgumentsOf`'s shape one record over, and for its reasons.** A
- * recorded output cannot move, it is asked for by one reader about one Check,
- * and it is a test runner's whole log — so it is answered to the caller rather
- * than held by `reader.ts` and republished on every event.
+ * **A read that answers rather than one that is held.** `reader.ts` is for the
+ * reads a Job moving invalidates. A recorded output cannot move, it is asked
+ * for by one reader about one Check, and it is a test runner's whole log — so
+ * it sits here beside `capacityOf` rather than becoming another `JobReader`.
  *
  * `kept` is the row's own file name, the last component of `CheckRun`'s
  * `output_path`. **Nothing here composes a path**: `artifacts.ts` owns that

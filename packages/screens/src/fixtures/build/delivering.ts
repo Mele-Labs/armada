@@ -202,7 +202,6 @@ export function reviewAtDelivery(): JobFixture {
       ),
       remarks: remarksRead(PULL_REQUEST, REMARKS),
     }),
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: NOW,
@@ -316,7 +315,6 @@ export function reviewAfterAnOverrule(): JobFixture {
     // no comments on it, and leaving the read out draws *Reading what people
     // wrote* over a fetch nothing is doing.
     recorded: foldedReads({ diff: diffRead(FILES), remarks: remarksRead(PULL_REQUEST, []) }),
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: NOW,
