@@ -5,16 +5,11 @@ import {
   GROUP_STATE,
   JOB_STATUS,
   STEP_STATE,
+  TASK_STATE,
 } from "@armada/components/src/generated/vocabulary";
 import { describe, expect, it } from "vitest";
 
-import {
-  CASE_RUN_OUTCOME_WORDS,
-  CLASSIFYING_WORD,
-  CRITERION_NO_VERDICT_WORD,
-  DRAFT_VOCABULARIES,
-  TASK_STATE_WORDS,
-} from "./words";
+import { CASE_RUN_OUTCOME_WORDS, CRITERION_NO_VERDICT_WORD, DRAFT_VOCABULARIES } from "./words";
 
 /** The tokens `packages/tokens/src/status.css` defines, by the stem it names. */
 const STATUS_TOKENS = [
@@ -69,9 +64,10 @@ describe("what the registry already answers is not restated here", () => {
     }
   });
 
-  it("spells classifying, which the registry knows only as another word", () => {
+  it("has no classifying, which is the registry's proposing", () => {
     expect(JOB_STATUS["classifying"]).toBeUndefined();
-    expect(CLASSIFYING_WORD.verb).toBe("classifying");
+    expect(JOB_STATUS["proposing"]?.verb).toBeTruthy();
+    for (const { vocabulary } of DRAFT_VOCABULARIES) expect(vocabulary).not.toBe("job_status");
   });
 });
 
@@ -110,8 +106,13 @@ describe("the values that have no registry row at all", () => {
     }
   });
 
-  it("gives failed a word, which is the one task state the wire cannot send", () => {
-    expect(TASK_STATE_WORDS.failed.verb).toBe("failed");
+  // Promoted at 22.0 with `handed_in` and `failed` on the wire, so every task
+  // state is a mark from the registry.
+  it("has promoted task state out, glyphs and all", () => {
+    expect(DRAFT_VOCABULARIES.map((one) => one.vocabulary)).not.toContain("task_state");
+    for (const state of ["open", "working", "handed_in", "done", "failed", "dropped"]) {
+      expect(TASK_STATE[state]?.icon, state).toBeTruthy();
+    }
   });
 
   it("calls a case that did not run not covered, never passing", () => {
@@ -131,12 +132,10 @@ describe("the values that have no registry row at all", () => {
 describe("the list #1545 reads", () => {
   it("names every map in this module, so none is promoted by being forgotten", () => {
     expect(DRAFT_VOCABULARIES.map((entry) => entry.vocabulary)).toEqual([
-      "task_state",
-      // `group_state` was here until 29 Sep 2026, when it was promoted so it
-      // could carry a glyph. Its absence is what this claim is for.
+      // `group_state` went on 29 Sep 2026, and `task_state` and `job_status`'s
+      // classifying at 22.0. Their absence is what this claim is for.
       "case_run_outcome",
       "case_state",
-      "job_status",
       "criterion_reading",
     ]);
   });

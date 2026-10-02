@@ -244,6 +244,7 @@ const FILES_SHOWN = 12;
 const STATE_SAID: Record<TaskMarkState, string> = {
   open: "Open",
   working: "Working",
+  handed_in: "Handed in",
   done: "Done",
   failed: "Failed",
   dropped: "Dropped",
@@ -257,6 +258,7 @@ const STATE_SAID: Record<TaskMarkState, string> = {
 const STATE_STATUS: Record<TaskMarkState, string> = {
   open: "not-started",
   working: "running",
+  handed_in: "running",
   done: "completed-success",
   failed: "completed-failed",
   dropped: "killed",

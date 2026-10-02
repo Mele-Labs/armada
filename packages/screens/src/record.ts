@@ -213,7 +213,9 @@ export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (said.startsWith("passed") || said.startsWith("met") || said.startsWith("advanced")) {
     return "passed";
   }
-  if (row.kind === "task_working" || row.kind === "drone_spawned") return "running";
+  if (row.kind === "task_working" || row.kind === "task_handed_in" || row.kind === "drone_spawned") {
+    return "running";
+  }
   if (row.kind === "flagged" || row.kind === "touched_after_done") return "waiting";
   return undefined;
 }
@@ -271,6 +273,7 @@ const STATUS_SAYS: Readonly<Record<string, string>> = {
   plan_revised: "Revised",
   task_open: "Open",
   task_working: "Started",
+  task_handed_in: "Handed in",
   task_dropped: "Dropped",
   touched_after_done: "Changed after done",
   cases_rerun: "Run again",

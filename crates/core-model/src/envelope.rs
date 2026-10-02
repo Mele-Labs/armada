@@ -152,7 +152,7 @@ impl Component {
     }
 }
 
-/// Who caused the line. Four ways, and the separation is baked in now because
+/// Who caused the line. Six ways, and the separation is baked in now because
 /// adding it later is a schema migration over recorded history.
 ///
 /// Verification source is orthogonal to this and is null for a human.
@@ -170,13 +170,26 @@ pub enum Actor {
     Fleet,
     Drone,
     Helm,
+    /// Signs the rows a Judge's own answer wrote: a refusal's stop and
+    /// escalation. Store V90, spike 022 slice 1a.
+    Judge,
+    /// Signs the rows a Check's own answer wrote: a failure's stop and hold.
+    /// Fleet still signs a move decided on more than one answer.
+    Check,
 }
 
 impl Actor {
     /// Every variant. **`domain/` has no row for this one** — the actor
     /// vocabulary is the log envelope's, not the registry's, so the order is
     /// the enum's own and there is no key to be verbatim against.
-    pub const ALL: &'static [Actor] = &[Actor::Human, Actor::Fleet, Actor::Drone, Actor::Helm];
+    pub const ALL: &'static [Actor] = &[
+        Actor::Human,
+        Actor::Fleet,
+        Actor::Drone,
+        Actor::Helm,
+        Actor::Judge,
+        Actor::Check,
+    ];
 
     /// The wire value. `job_events.actor` and `scope_revisions[].approved_by`
     /// are both stored from here, so the two spellings cannot diverge.
@@ -186,10 +199,12 @@ impl Actor {
             Actor::Fleet => "fleet",
             Actor::Drone => "drone",
             Actor::Helm => "helm",
+            Actor::Judge => "judge",
+            Actor::Check => "check",
         }
     }
 
-    /// Read a stored value back. `None` where it is not one of the four,
+    /// Read a stored value back. `None` where it is not one of the six,
     /// which is a row written by something that did not share this enum.
     pub fn from_wire(value: &str) -> Option<Actor> {
         Actor::ALL.iter().copied().find(|a| a.as_wire() == value)

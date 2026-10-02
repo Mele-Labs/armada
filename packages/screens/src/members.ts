@@ -20,6 +20,7 @@ import type {
   TaskBarSegment,
 } from "@armada/components";
 
+import { taskBarSegmentsOf } from "./board";
 import type { JobLeadProps } from "./JobLead";
 import type { JobMembersView, MemberView } from "./draft/members";
 import type { LandingRule } from "./draft/landing";
@@ -318,11 +319,7 @@ function pullRequestLabel(address: string | undefined): string | undefined {
 function tasksOf(member: MemberView): readonly TaskBarSegment[] | undefined {
   const counts = member.tasks;
   if (counts === undefined) return undefined;
-  const bar: TaskBarSegment[] = [
-    ...Array.from({ length: counts.done }, (): TaskBarSegment => "done"),
-    ...Array.from({ length: counts.working }, (): TaskBarSegment => "working"),
-    ...Array.from({ length: counts.open }, (): TaskBarSegment => "open"),
-  ];
+  const bar = taskBarSegmentsOf(counts);
   return bar.length === 0 ? undefined : bar;
 }
 

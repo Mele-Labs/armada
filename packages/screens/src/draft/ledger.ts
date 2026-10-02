@@ -131,6 +131,7 @@ const FAMILY_OF: Readonly<Record<string, LedgerFamily>> = {
   plan_revised: "tasks",
   task_open: "tasks",
   task_working: "tasks",
+  task_handed_in: "tasks",
   task_done: "tasks",
   task_failed: "tasks",
   task_dropped: "tasks",
@@ -285,16 +286,19 @@ function outcomeOf(move: Recorded): string {
   }
 }
 
-// The wire's `Actor` is `human`, `fleet` or `drone`. `judge` and `check` are
-// the draft's own — a Judge call and a Check run are what the new Record draws
-// most of, and today they arrive as Fleet acting. So neither can be derived,
-// and a row that would be one of them reads as `fleet` rather than as a guess.
+// The wire's `Actor` gained `judge` and `check` at 22.0: a Judge's refusal and
+// a failed Check sign the rows their answer wrote. `helm` and anything this
+// Bridge has never heard of read as `fleet` rather than as a guess.
 function actorOf(actor: string): LedgerActor {
   switch (actor) {
     case "drone":
       return "drone";
     case "human":
       return "person";
+    case "judge":
+      return "judge";
+    case "check":
+      return "check";
     default:
       return "fleet";
   }
@@ -637,6 +641,7 @@ function taskRowsOf(
 /** What was done to a task, by the state it moved to. */
 const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
   working: "started",
+  handed_in: "handed in",
   done: "marked done",
   failed: "marked failed",
   dropped: "dropped",
@@ -645,6 +650,7 @@ const TASK_ACTION: Record<Exclude<TaskView["state"], "open">, string> = {
 /** The short reason a task's row gives: what it showed, or why it stopped. */
 function reasonOf(task: TaskView): string {
   switch (task.state) {
+    case "handed_in":
     case "done":
       return task.shown ?? "";
     case "failed":

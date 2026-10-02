@@ -3,27 +3,30 @@
 //! group and each Drone.** Added to slice by slice; every slice not named
 //! below is unasserted, and is its issue's row in the spike's milestone table.
 //!
-//! What it asserts today is slice 0b's Fleet half: **I can read how many events
-//! of each kind Fleet published each minute, and for which Job.** Why the tally
-//! is read off the broadcaster's own window is `api::stream`.
+//! It asserts slice 0b's Fleet half, **how many events of each kind Fleet
+//! published each minute, and for which Job** (why: `api::stream`), and slice
+//! 1a's, **a Judge's refusal and a Check's failure signed by them**.
 //!
 //! | Not proved here | Why not |
 //! |---|---|
 //! | A Drone per task rather than per step | #1762 (slice 1b). Until then the rate is a step's |
 //! | Bridge redrawing the pane whole after a `missed` | Nothing here renders; `apps/desktop/src/main/observe.test.ts` |
-//! | Fleet writing the line once a minute | A `tokio` interval in `crates/armada/src/serve.rs`; it writes the tally asserted here |
+//! | A Fleet built before 1a refuses the store | Hermetic; `crates/store/src/tests/signers.rs` |
+//! | Fleet writing the line once a minute | A `tokio` interval in `crates/armada/src/serve.rs` |
 
 // The bench is shared with every other milestone's test and none uses all of it.
 #[allow(dead_code)]
 mod bench;
 
-use core_model::{Actor, StepId, Target};
+use core_model::{Actor, JobEvent, JobStatus, StepId, Target};
+use fleet::Ruling;
 use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesChanged};
 use ipc::{JobStateChanged, JobSummary, RepositoryList};
-use testkit::FakeWorkProduct;
+use testkit::{FakeJudge, FakeWorkProduct};
 
+use bench::arc::step_signers;
 use bench::focus::{drone, now};
-use bench::{Bench, Run};
+use bench::{a_fix_diff, a_root_cause_note, bug_workflow_with_the_fix_judged, Bench, Run};
 
 /// The row a `drone.*` event carries, as Fleet builds it with nothing to add.
 fn summary(run: &Run) -> JobSummary {
@@ -161,5 +164,96 @@ fn every_minute_says_how_many_events_of_each_kind_fleet_published_and_for_which_
     assert!(
         next.is_empty(),
         "a minute nothing crossed counts nothing: {next}"
+    );
+}
+
+/// The actor on a Job's move, after a round trip through the wire.
+fn served(event: &JobEvent) -> ipc::Actor {
+    let wire = ipc::JobStateChanged::from(event);
+    let text = ipc::encode(&wire).expect("a Job's move encodes");
+    let back: ipc::JobStateChanged =
+        ipc::decode("a Job's move", text.as_bytes()).expect("and decodes");
+    back.actor
+}
+
+/// A Judge refuses the fix, and both rows the refusal writes are the Judge's.
+#[tokio::test]
+async fn a_judges_refusal_is_signed_by_the_judge() {
+    let bench = Bench::judged_by(
+        FakeWorkProduct::changed(&["crates/store/src/read.rs"]),
+        bug_workflow_with_the_fix_judged(),
+        FakeJudge::refusing(
+            "a fix addressing the cause the note named",
+            "a change to an unrelated bound",
+            "the reported symptom still occurs",
+        ),
+    );
+    let mut run = bench.created("fix the cursor that reads one row past the end");
+    bench.approved_and_dispatched(&mut run);
+    let ruling = bench.gate(&run, &bench.step(0), &a_root_cause_note()).await;
+    bench.settled(&mut run, &bench.step(0), &ruling);
+
+    let ruling = bench.gate(&run, &bench.step(1), &a_fix_diff()).await;
+    assert!(
+        matches!(ruling, Ruling::Refused { .. }),
+        "the Judge refuses the fix, and got {ruling:?}"
+    );
+    bench.settled(&mut run, &bench.step(1), &ruling);
+
+    assert_eq!(run.job.status(), JobStatus::Escalated);
+    assert_eq!(
+        step_signers(&bench).last(),
+        Some(&Actor::Judge),
+        "the step the Judge stopped says the Judge stopped it"
+    );
+    assert_eq!(
+        bench.actors(),
+        vec![Actor::Human, Actor::Fleet, Actor::Judge],
+        "approval is a person's, dispatch Fleet's, and the escalation the Judge's"
+    );
+    let moves = bench.moves.borrow();
+    let escalated = moves.last().expect("the refusal moved the Job");
+    assert_eq!(
+        served(escalated),
+        ipc::Actor::from(Actor::Judge),
+        "and Bridge is told the Judge signed it, not Fleet"
+    );
+}
+
+/// A Check fails with no retry left, and both rows the failure writes are the
+/// Check's.
+#[tokio::test]
+async fn a_failed_check_is_signed_by_the_check() {
+    // Nothing changed, so `diff_nonempty` fails.
+    let bench = Bench::with(FakeWorkProduct::untouched());
+    let mut run = bench.created("change nothing");
+    bench.approved_and_dispatched(&mut run);
+    let ruling = bench.gate(&run, &bench.step(0), &a_root_cause_note()).await;
+    bench.settled(&mut run, &bench.step(0), &ruling);
+
+    let ruling = bench.gate(&run, &bench.step(1), &a_fix_diff()).await;
+    assert!(
+        matches!(ruling, Ruling::Failed { .. }),
+        "an empty diff is a failed Check, and got {ruling:?}"
+    );
+    bench.settled(&mut run, &bench.step(1), &ruling);
+
+    assert_eq!(run.job.status(), JobStatus::AwaitingRepair);
+    assert_eq!(
+        step_signers(&bench).last(),
+        Some(&Actor::Check),
+        "the step the Check stopped says the Check stopped it"
+    );
+    assert_eq!(
+        bench.actors(),
+        vec![Actor::Human, Actor::Fleet, Actor::Check],
+        "approval is a person's, dispatch Fleet's, and the hold the Check's"
+    );
+    let moves = bench.moves.borrow();
+    let held = moves.last().expect("the failure moved the Job");
+    assert_eq!(
+        served(held),
+        ipc::Actor::from(Actor::Check),
+        "and Bridge is told the Check signed it, not Fleet"
     );
 }
