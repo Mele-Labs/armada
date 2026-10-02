@@ -8,6 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, manifesting } from "./manifest-fleet";
 import type { Manifesting } from "./manifest-fleet";
+import { pressable } from "./scrolled";
 import { mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -124,4 +125,24 @@ test("Kit names the home each half came from", async () => {
   await expect.element(page.getByText("An agent CLI")).toBeVisible();
   await expect.element(page.getByText("What Armada holds")).toBeVisible();
   await expect.element(page.getByText(/edited where it lives/)).toBeVisible();
+});
+
+/**
+ * **A person reaches the bottom of Kit by the wheel.** The shell's mount is
+ * bounded and never scrolls, so a screen that names no scroller of its own
+ * clips — and a press in a test has Playwright scroll that clipped box for it,
+ * which is how Kit's last row went out of reach at an 856px window while every
+ * test above stayed green.
+ */
+test("at a short window, the wheel brings Kit's last control on screen", async () => {
+  await page.viewport(1440, 856);
+  await kit({ kitServers: KIT_SERVERS });
+  const own = page.getByRole("region", { name: "What Armada holds" });
+  await expect.element(own.getByRole("combobox", { name: "Here: nexus" })).toBeInTheDocument();
+  const controls = own.element().querySelectorAll("button, select, input");
+  const last = controls[controls.length - 1]!;
+  expect(pressable(last)).toBe(false);
+
+  await userEvent.wheel(page.getByText("What you already have"), { delta: { y: 400 }, times: 10 });
+  await expect.poll(() => pressable(last)).toBe(true);
 });
