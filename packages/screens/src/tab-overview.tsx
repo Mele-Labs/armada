@@ -84,6 +84,7 @@ import { jobMembersOf } from "./draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
 import { stillReading, whyNoBrief } from "./work";
+import { whyUnreachable } from "./while-reading";
 
 
 
@@ -666,7 +667,9 @@ export function OverviewTab(props: OverviewTabProps) {
       stale,
       acting,
       deciding: props.deciding,
+      actingAct,
       onApproveReview: props.onApproveReview,
+      onAnswerJudge,
       ...(props.onApproveWave === undefined ? {} : { onApproveWave: props.onApproveWave }),
       board: props.board ?? [],
       onRedirect,
@@ -894,7 +897,13 @@ export function OverviewTab(props: OverviewTabProps) {
             },
           })}
       {...(tasks.length === 0
-        ? { planAbsent: plan?.recorded === false ? `${plan.stepLabel} has not recorded one yet.` : undefined }
+        ? {
+            // **A refused read says so**, as Brief and Workflow do: "No plan
+            // has been recorded" there would answer a question nobody read.
+            planAbsent:
+              whyUnreachable(watched, job.id) ??
+              (plan?.recorded === false ? `${plan.stepLabel} has not recorded one yet.` : undefined),
+          }
         : {
             plan: {
               working: tasks

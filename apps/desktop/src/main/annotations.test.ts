@@ -87,6 +87,24 @@ describe("the files", () => {
     expect(await listAnnotations(dir)).toEqual([]);
   });
 
+  // What the owner saw on 1 Oct 2026: two saves of one note at once shared one
+  // `.partial`, the first rename moved it, and the second failed with ENOENT.
+  it("takes two saves of one note at once, and leaves one whole note and no partial", async () => {
+    await mkdir(dir, { recursive: true });
+    await Promise.all([saveAnnotation(dir, note({ text: "first" })), saveAnnotation(dir, note({ text: "second" }))]);
+    expect(await readdir(dir)).toEqual([`${note().id}.json`]);
+    const saved: unknown = JSON.parse(await readFile(join(dir, `${note().id}.json`), "utf8"));
+    expect(isAnnotation(saved)).toBe(true);
+    expect(["first", "second"]).toContain((saved as Annotation).text);
+  });
+
+  it("never reads a write a crash left half done as a note", async () => {
+    await saveAnnotation(dir, note());
+    await writeFile(join(dir, `${note({ id: "b" }).id}.json.0f3a.partial`), serializeAnnotation(note({ id: "b" })));
+    await writeFile(join(dir, `${note().id}.json.partial`), "{");
+    expect((await listAnnotations(dir)).map((n) => n.id)).toEqual([note().id]);
+  });
+
   it("writes nothing for a value that is not a note", async () => {
     await expect(saveAnnotation(dir, { id: "x" })).rejects.toThrow();
     await expect(removeAnnotation(dir, "../../etc")).rejects.toThrow();

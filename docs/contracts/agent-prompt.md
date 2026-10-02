@@ -80,6 +80,16 @@ classifier are model calls. The scanner is the open case. See
 documentation, Voice, **Way I work**, **Expectations**, the workflow step
 and its criteria, the Evidence Scope policy, `acceptance_criteria[]`.
 
+**Told what the repository requires of every change**, where `armada.yml`'s
+`standing_rules` names a file: the same file, from the same read and under
+the same `standing-rules-cap` bound, that its Judge is told — the Judge
+paragraph below. It is its own headed block after the baseline and before
+the job brief, the Manifest's place in section 3's order, worded as what is
+asked of this work. A Manifest without the key gives every Drone brief
+exactly as before. Decided 1 Oct 2026: told only the Judge, a Drone plans
+without the rules and is refused, or carries them while the Judge was not
+sure they belonged. Wording in section 5, *What every change here carries*.
+
 **Never told:** secrets, other Jobs' context or evidence, anything from a
 Manifest outside its own Job's set, the operator's own MCP servers.
 
@@ -148,9 +158,10 @@ criterion's question.
 `standing_rules` names a file. Fleet reads it from the repository's own
 checkout, never the Job's worktree, so a Drone cannot rewrite it, and
 `verification::Standing` carries it into every Judge brief: each criterion,
-drift, gaming and its second reading, convergence and widening. It sits after
+drift, gaming and its second reading, convergence and widening. The Drone
+doing the work is told the same text — the Drone paragraph above. It sits after
 the original task text, labelled as a standard rather than the work, and is
-cut at the `judge-brief-standing-rules-cap` setting with the cut said in the
+cut at the `standing-rules-cap` setting with the cut said in the
 brief. It is read from the repository and says nothing about how the step
 went, so rule 2 is unchanged. A Manifest without the key gives every brief
 exactly as before. Added after a Judge refused a plan for fixing the prose
@@ -1405,6 +1416,34 @@ Drone's instinct on seeing a diff is to improve it.
 Everything above the step block is structurally identical between the two
 samples. Only the step text and the injected material differ, which is the
 layering doing its job.
+
+### What every change here carries — added 1 Oct 2026
+
+Where `armada.yml` names `standing_rules`, every sample above gains one
+block after the baseline and the note about a Drone's own files, and before
+the job brief, quoting the file as the
+Judge's brief quotes it. `verification::Standing::to_do` renders it, and its
+heading is the line a Drone reads.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ WHAT THIS REPOSITORY REQUIRES OF EVERY CHANGE ──
+│ What this repository requires of every change you
+│ make, in its own words. It applies to this work
+│ whatever the brief below asks, and the work is
+│ checked against it, so doing what it requires is
+│ part of the job rather than beyond it:
+│
+│   [the file, indented, cut on a whole line at
+│    standing-rules-cap with the cut said]
+└──────────────────────────────────────────────
+```
+
+**"Part of the job rather than beyond it"** is the Drone's side of the
+sentence the Judge is given, that work doing what the file requires is not
+scope expansion. A file that is named and cannot be read is said in one
+sentence under the same heading, as the Judge's brief says it.
 
 ---
 
