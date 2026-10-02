@@ -93,6 +93,9 @@ pub enum CreateWorktreeError {
     /// A base checkout would not delete. It is left where it is, and the sweep
     /// that asked will ask again.
     BaseNotRemoved { path: String, cause: std::io::Error },
+    /// The repository's pool would not lease a slot, for a reason other than
+    /// every slot being held.
+    SlotNotLeased { repo: String, why: String },
 }
 
 impl CreateWorktreeError {
@@ -174,6 +177,9 @@ impl fmt::Display for CreateWorktreeError {
             CreateWorktreeError::BaseNotRemoved { path, cause } => {
                 write!(f, "the base checkout at {path} was not removed: {cause}")
             }
+            CreateWorktreeError::SlotNotLeased { repo, why } => {
+                write!(f, "{repo}'s worktree pool leased no slot: {why}")
+            }
         }
     }
 }
@@ -190,6 +196,7 @@ impl Error for CreateWorktreeError {
             | CreateWorktreeError::BranchExists { .. }
             | CreateWorktreeError::WorktreeAlreadyLive { .. }
             | CreateWorktreeError::RefNotFound { .. }
+            | CreateWorktreeError::SlotNotLeased { .. }
             | CreateWorktreeError::PathOccupied { .. } => None,
         }
     }

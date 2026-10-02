@@ -404,10 +404,10 @@ where
     /// most repositories, and every fixture that plants no `ports:` of its
     /// own.
     ///
-    /// Called once, at worktree cut — `crate::dispatch`'s own `create_worktree`
-    /// call is the only one in the workspace, which is what makes "claim once
-    /// per worktree" a property of the call site rather than of a record this
-    /// method has to keep.
+    /// Called once, when a new Job leases its slot — `crate::dispatch`'s lease
+    /// is the only one in Fleet, which is what makes "claim once per worktree"
+    /// a property of the call site rather than of a record this method has to
+    /// keep.
     ///
     /// **Escalates before returning, the same shape `crate::preparing::prepared`
     /// takes**: nothing was spawned, so `not_configurable` reads correctly —

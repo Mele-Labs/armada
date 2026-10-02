@@ -93,6 +93,24 @@ pub(crate) fn a_worktree_for(home: &TempDir, job_id: &str) {
     );
 }
 
+/// The worktree a dispatch leases the first Job, made a real checkout on the
+/// Job's branch, since the fixture's version control is a fake that makes a
+/// plain directory.
+pub(crate) fn a_slot_for(home: &TempDir, handle: &str) {
+    let branch = format!("armada/{handle}");
+    git(
+        home.path(),
+        &[
+            "worktree",
+            "add",
+            "--quiet",
+            "-b",
+            &branch,
+            ".armada/slots/slot-1",
+        ],
+    );
+}
+
 /// A terminal Job, killed before anything spawned — which is legal from
 /// `awaiting_approval` and needs no Drone.
 pub(crate) async fn a_finished_job(
