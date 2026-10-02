@@ -238,16 +238,25 @@ export function markOf(state: TaskView["state"]): TaskMarkState {
 /**
  * Which Checks failed at a group's boundary, by name.
  *
- * Read off the step's own `check_runs`, because that is where a Check result
- * lives on today's wire. **Only a group that is carrying the failure takes
- * it** — the step's runs are one list for every group in it, so attributing
- * them by run alone would paint a passed group with another's red.
+ * Read off the step's own `check_runs`, **the group's own latest run where
+ * Fleet records the group** (#1652). A Fleet before 23.4 named none, and there
+ * **only a group that is carrying the failure takes it** — the step's runs are
+ * one list for every group in it, so attributing them by run alone would paint
+ * a passed group with another's red.
  */
 export function failedChecksOf(whole: JobDetail | null, group: GroupView): string[] {
-  const carrying = group.state === "failed" || group.state === "retrying";
-  if (whole === null || !carrying) return [];
+  if (whole === null) return [];
   const step = whole.steps.find((one) => one.step_id === whole.job.current_step_id);
   const runs = step?.check_runs ?? [];
+  const own = runs.filter((run) => run.group === group.id);
+  if (own.length > 0) {
+    const latest = Math.max(...own.map((run) => run.group_attempt ?? 0));
+    return own
+      .filter((run) => (run.group_attempt ?? 0) === latest && run.outcome === "failed")
+      .map((run) => run.name);
+  }
+  const carrying = group.state === "failed" || group.state === "retrying";
+  if (!carrying || runs.some((run) => run.group !== undefined)) return [];
   const latest = Math.max(0, ...runs.map((run) => run.attempt));
   return runs
     .filter((run) => run.attempt === latest && run.outcome === "failed")

@@ -62,6 +62,7 @@ import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { zoning } from "./studio-read-in";
 import { job2Landed } from "./job-2-landed";
+import { featureRunInGroups } from "./job-groups-fixture";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -492,6 +493,7 @@ export const SCENARIOS: readonly Scenario[] = [
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
+  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

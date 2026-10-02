@@ -139,7 +139,7 @@ export type PlanReviewProps = {
   /**
    * A group or a task dragged somewhere new, sent straight to Fleet (owner,
    * 30 Sep 2026: *edits to the plan should just be made directly through
-   * fleet*). **Absent, nothing is draggable.** Ahead of its route, #1685.
+   * fleet*). **Absent, nothing is draggable.** #1685, served since 23.4.
    */
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /** What an add or a drop that was taken says, once. */
@@ -163,7 +163,7 @@ export type PlanReviewProps = {
    * Open a boundary Check's own row in the Record, by its name and the step
    * attempt that ran it. **The screen's.** Absent, no Check is a button.
    */
-  onOpenCheck?: (name: string, stepAttempt: number) => void;
+  onOpenCheck?: (name: string, stepAttempt: number, group?: string) => void;
   /**
    * The way back, where a press in another destination's panel landed here,
    * and where this one's open panel is reported — `trail.ts`.

@@ -86,15 +86,29 @@ export function verdictSaid(group: GroupView, failed: readonly string[]): string
 // fact and stays.
 
 /**
- * The run a Check's row in the Record is, where the boundary has run: the
- * latest by that name on the step the groups are worked at, **and only where
- * it came to what the boundary reads**. A step's `check_runs` is one list for
- * every group in it, so a group still waiting would otherwise open an earlier
- * group's run, and a group that passed would open a later group's red.
+ * The run a Check's row in the Record is, where the boundary has run.
+ *
+ * **The group's own latest run, where Fleet records the group** (#1652): a
+ * passed group opens its own, whatever a later group's run of that Check said.
+ * A Fleet before 23.4 named no group, and there it is the latest by that name
+ * on the step, **only where it came to what the boundary reads** — a group
+ * still waiting would otherwise open an earlier group's run, and a group that
+ * passed a later group's red.
  */
-function runOf(step: StepDetail | undefined, name: string, reads: GroupBoundaryCheck["reads"]) {
+function runOf(
+  step: StepDetail | undefined,
+  name: string,
+  reads: GroupBoundaryCheck["reads"],
+  group: GroupView,
+) {
   if (reads !== "passed" && reads !== "failed") return undefined;
   const runs = (step?.check_runs ?? []).filter((one) => one.name === name);
+  const own = runs.filter((one) => one.group === group.id);
+  if (own.length > 0) {
+    const latest = Math.max(...own.map((one) => one.group_attempt ?? 0));
+    return own.find((one) => (one.group_attempt ?? 0) === latest);
+  }
+  if (runs.some((one) => one.group !== undefined)) return undefined;
   const latest = Math.max(0, ...runs.map((one) => one.attempt));
   const run = runs.find((one) => one.attempt === latest);
   return run?.outcome === reads ? run : undefined;
@@ -113,10 +127,10 @@ function checkOf(
   name: string,
   failed: readonly string[],
   step: StepDetail | undefined,
-  onOpenCheck: ((name: string, stepAttempt: number) => void) | undefined,
+  onOpenCheck: ((name: string, stepAttempt: number, group?: string) => void) | undefined,
 ): GroupBoundaryCheck {
   const reads = checkReads(group, name, failed);
-  const run = runOf(step, name, reads);
+  const run = runOf(step, name, reads, group);
   const told = reads === "failed" ? run : undefined;
   return {
     name,
@@ -125,7 +139,7 @@ function checkOf(
     ...(told?.produced === undefined ? {} : { result: sentenceCase(told.produced) }),
     ...(run === undefined || onOpenCheck === undefined
       ? {}
-      : { onOpen: () => onOpenCheck(name, run.attempt) }),
+      : { onOpen: () => onOpenCheck(name, run.attempt, run.group) }),
   };
 }
 
@@ -186,7 +200,7 @@ export function boundaryOf(
   cases: readonly CaseView[],
   whole: JobWhole | null,
   step: StepDetail | undefined,
-  onOpenCheck?: (name: string, stepAttempt: number) => void,
+  onOpenCheck?: (name: string, stepAttempt: number, group?: string) => void,
 ): GroupBoundaryProps {
   const failed = failedChecksOf(whole, group);
   const checks = group.checks_selected.map((name) => checkOf(group, name, failed, step, onOpenCheck));
@@ -232,7 +246,7 @@ export function groupCardOf(
   whole: JobWhole | null,
   step?: StepDetail,
   overlaps: readonly { says: string; paths: readonly string[] }[] = [],
-  onOpenCheck?: (name: string, stepAttempt: number) => void,
+  onOpenCheck?: (name: string, stepAttempt: number, group?: string) => void,
 ): PlanBoardGroup {
   return {
     id: group.id,
@@ -263,7 +277,7 @@ export function planBoardOf(
   openTaskId?: string,
   revisable = false,
   step?: StepDetail,
-  onOpenCheck?: (name: string, stepAttempt: number) => void,
+  onOpenCheck?: (name: string, stepAttempt: number, group?: string) => void,
 ): PlanBoardProps | undefined {
   const groups = groupsOf(whole, draft);
   if (groups.length === 0) return undefined;

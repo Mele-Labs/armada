@@ -169,8 +169,9 @@ export type PlanTaskDrone = Omit<DronePeekProps, "message">;
 /**
  * A failed task's own acts — the owner's decision of 29 Sep 2026, *a failed
  * task offers four acts*: these two, Edit this task, and the message box.
- * **Each is on screen ahead of its Fleet route** (#250, #1656), so a press
- * answers `Not implemented` naming the issue until the route ships.
+ * **Pilot is on screen ahead of its Fleet route** (#250), so a press answers
+ * `Not implemented` naming the issue until the route ships. Restart is served
+ * since 23.4 (#1656).
  */
 export type PlanTaskActs = {
   onPilot: () => void;

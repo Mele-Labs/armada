@@ -113,6 +113,7 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
   if (task.expects !== undefined) view.expects = task.expects;
   if (task.shown !== undefined) view.shown = task.shown;
   if (task.reason !== undefined) view.reason = task.reason;
+  if (task.failed_reason !== undefined) view.failed_reason = task.failed_reason;
   if (task.state === "working" && detail.job.assigned_drone !== undefined) {
     view.drone_id = detail.job.assigned_drone;
   }

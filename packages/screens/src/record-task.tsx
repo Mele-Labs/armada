@@ -39,7 +39,7 @@ export function TaskRead({
   groups: readonly GroupView[];
   cases: readonly CaseView[];
   detail: JobWhole;
-  onOpenCheck: (name: string, stepAttempt: number) => void;
+  onOpenCheck: (name: string, stepAttempt: number, group?: string) => void;
 }) {
   const owed = task.cases
     .map((id) => cases.find((one) => one.id === id))

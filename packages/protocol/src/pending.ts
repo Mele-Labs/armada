@@ -25,11 +25,7 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
-  // Served since 23.2. Deleted with the mock answering both, which a person
-  // walks first: the Bridge half of #1763.
-  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
-  { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
   { method: "POST", path: "/jobs/{job_id}/edit", act: "edit_job", issue: 1699 },
 ];

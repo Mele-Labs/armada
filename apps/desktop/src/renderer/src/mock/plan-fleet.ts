@@ -1,12 +1,13 @@
-// What a mock Fleet does with a person's own add or drop of a task — `#897`.
+// What a mock Fleet does with a person's own acts on a plan: add and drop
+// (`#897`), and since 23.4 restart (`#1656`) and move (`#1685`).
 //
 // **Both halves of what a board draws move together**: the Job's `work_plan`,
 // which is what Fleet answers with, and the moment's draft groups, which is
-// what an arc board draws while groups are not on the wire (`groupsOf` in
-// `tab-plan-read.ts` takes the draft's first). One of them alone would leave
-// the screen unchanged on one kind of scenario or the other.
+// what an arc board draws (`groupsOf` in `tab-plan-read.ts` takes the draft's
+// first). One of them alone would leave the screen unchanged on one kind of
+// scenario or the other.
 
-import type { AddTask, DropTask, PlanTask, WorkPlan } from "@armada/protocol";
+import type { AddTask, DropTask, MovePlan, PlanTask, WorkPlan } from "@armada/protocol";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { TaskView } from "@armada/screens/src/draft/task";
 
@@ -69,6 +70,100 @@ export function groupsAdding(groups: readonly GroupView[], id: string, add: AddT
       tasks: [...group.tasks.slice(0, at + 1), task, ...group.tasks.slice(at + 1)],
       scope: [...new Set([...group.scope, ...add.scope])],
     };
+  });
+}
+
+/**
+ * Restart this task (#1656): the failed task reopened with its Drone on it,
+ * which is where a real Fleet has it a turn later. `undefined` where the task
+ * has not failed, as Fleet refuses one — in the plan, or in the draft groups an
+ * arc moment draws instead (`failedInDraft`).
+ */
+export function planRestarting(plan: WorkPlan, taskId: string, failedInDraft = false): WorkPlan | undefined {
+  if (!failedInDraft && plan.tasks.find((task) => task.id === taskId)?.state !== "failed") return undefined;
+  return {
+    ...plan,
+    tasks: plan.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const { failed_reason: _failed, ...rest } = task;
+      return { ...rest, state: "working" };
+    }),
+  };
+}
+
+/** The groups with the restarted task working, as `planRestarting` has it. */
+export function groupsRestarting(groups: readonly GroupView[], taskId: string): GroupView[] {
+  return groups.map((group) => ({
+    ...group,
+    tasks: group.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const { failed_reason: _failed, ...rest } = task;
+      return { ...rest, state: "working" };
+    }),
+  }));
+}
+
+/**
+ * A move (#1685), by `after` as Fleet takes one: a task into `move.group` after
+ * the task named or first in it, or a group after the group named or first.
+ */
+export function planMoving(plan: WorkPlan, move: MovePlan): WorkPlan {
+  if (move.task === undefined) {
+    const groups = [...(plan.groups ?? [])];
+    const from = groups.findIndex((group) => group.id === move.group);
+    if (from < 0) return plan;
+    const [moved] = groups.splice(from, 1);
+    const at = move.after === undefined ? 0 : groups.findIndex((group) => group.id === move.after) + 1;
+    groups.splice(at, 0, moved!);
+    const order = groups.flatMap((group) => group.tasks);
+    return {
+      ...plan,
+      groups,
+      tasks: [...plan.tasks].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)),
+    };
+  }
+  const task = plan.tasks.find((one) => one.id === move.task);
+  if (task === undefined) return plan;
+  const rest = plan.tasks.filter((one) => one.id !== move.task);
+  const placed = { ...task, group: move.group };
+  const at =
+    move.after === undefined
+      ? Math.max(0, rest.findIndex((one) => one.group === move.group))
+      : rest.findIndex((one) => one.id === move.after) + 1;
+  const tasks = [...rest.slice(0, at), placed, ...rest.slice(at)];
+  return {
+    ...plan,
+    tasks,
+    ...(plan.groups === undefined
+      ? {}
+      : {
+          groups: plan.groups.map((group) => ({
+            ...group,
+            tasks: tasks.filter((one) => one.group === group.id).map((one) => one.id),
+          })),
+        }),
+  };
+}
+
+/** The groups with one move applied, by `after`. **Ordinals stay the plan's.** */
+export function groupsMoving(groups: readonly GroupView[], move: MovePlan): GroupView[] {
+  if (move.task === undefined) {
+    const from = groups.findIndex((group) => group.id === move.group);
+    if (from < 0) return [...groups];
+    const rest = groups.filter((group) => group.id !== move.group);
+    const at = move.after === undefined ? 0 : rest.findIndex((group) => group.id === move.after) + 1;
+    rest.splice(at, 0, groups[from]!);
+    return rest;
+  }
+  const task = groups.flatMap((group) => group.tasks).find((one) => one.id === move.task);
+  if (task === undefined) return [...groups];
+  return groups.map((group) => {
+    const tasks = group.tasks.filter((one) => one.id !== move.task);
+    if (group.id === move.group) {
+      const at = move.after === undefined ? 0 : tasks.findIndex((one) => one.id === move.after) + 1;
+      tasks.splice(at, 0, { ...task, group: group.id });
+    }
+    return { ...group, tasks };
   });
 }
 

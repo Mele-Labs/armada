@@ -41,7 +41,7 @@ type RowReadProps = {
   cases: readonly CaseView[];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
-  onOpenCheck: (name: string, stepAttempt: number) => void;
+  onOpenCheck: (name: string, stepAttempt: number, group?: string) => void;
   onOpenTask: (taskId: string) => void;
   /** A task's Record row, where it has one — which task lines are pressable. */
   taskRowOf: (taskId: string) => string | undefined;

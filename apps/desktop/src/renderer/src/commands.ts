@@ -494,7 +494,7 @@ export function useCommands(sending: Sending) {
    * **Not through
    * `acted`**, `killProcess`'s reason: it names a task, not a header act. The
    * answer goes where every command's does, so `Not implemented` is drawn with
-   * the issue that builds the route — #250, #1656, #1657.
+   * the issue that builds a route not served yet — #250, #1657.
    */
   async function taskAct(act: TaskAct, jobId: string, taskId: string, edit?: EditTask): Promise<Outcome> {
     const answer =
@@ -509,9 +509,8 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * A group or a task dropped somewhere new on the plan. `taskAct`'s reason:
-   * the answer is drawn where every command's is, so `Not implemented` names
-   * #1685 until Fleet serves the route.
+   * A group or a task dropped somewhere new on the plan, served since 23.4
+   * (#1685). `taskAct`'s reason: the answer is drawn where every command's is.
    */
   async function movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
     const answer = await window.armada.movePlan(jobId, move);
