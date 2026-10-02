@@ -67,6 +67,14 @@ refuses at once, naming the pid of the one already running, rather than
 racing it to stop and rebuild Fleet. If you see that refusal, wait for the
 first to finish rather than retrying it.
 
+**A Fleet that is alive but not answering.** `fleet.json names a live pid but
+the API on port 40000 did not answer` is usually Fleet busy, not dead. Poll
+its `/health` for a few minutes and run the restart again once it answers;
+never kill it. Confirmed 2 Oct 2026: Fleet was deleting a superseded base
+checkout (#1424), answered again within minutes, and the second restart went
+through. Sampling it first to see why took four calls and told us nothing a
+wait wouldn't have.
+
 **A restart that died holding the lock.** This refuses too, naming the pid
 that died and the lock file to remove. It is never broken automatically —
 tell the owner rather than removing it yourself, since a lock only outlives
