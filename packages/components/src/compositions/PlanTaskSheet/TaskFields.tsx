@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * One label and its value, in the task inspector.
@@ -20,13 +20,9 @@ export function TaskField({
   label: string;
   children: ReactNode;
 }) {
-  // Named by its own label, so a field is a region a reader can be pointed at.
-  const named = useId();
   return (
-    <section className="armada-task-sheet__field" aria-labelledby={named}>
-      <h3 className="armada-task-sheet__label" id={named}>
-        {label}
-      </h3>
+    <section className="armada-task-sheet__field">
+      <h3 className="armada-task-sheet__label">{label}</h3>
       <div className="armada-task-sheet__value">{children}</div>
     </section>
   );

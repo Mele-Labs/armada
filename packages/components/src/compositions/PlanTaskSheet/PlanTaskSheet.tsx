@@ -379,7 +379,7 @@ export function PlanTaskSheet({
           <TaskField label="Last edit">
             {/* A row of the Files list, so it reads as one and opens the
                 same diff where the Job's patch changed it. */}
-            <ul className="armada-task-sheet__files">
+            <ul className="armada-task-sheet__files" aria-label="Last edit">
               <li>
                 <FilePath path={lastEdit.path} patched={patched} open={file?.path} onFile={onFile} />
                 {lastEdit.says === undefined ? null : <span>{lastEdit.says}</span>}

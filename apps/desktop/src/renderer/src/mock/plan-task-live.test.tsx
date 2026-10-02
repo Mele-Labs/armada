@@ -30,14 +30,12 @@ describe("a task with a Drone of its own", () => {
   test("its panel opens on what it is doing, its brief, its log and its last edit", async () => {
     mount("arc/executing-sequential");
     const panel = await panelOf(T5.id, T5.title);
-    await expect.element(panel.getByRole("region", { name: "Now" })).toHaveTextContent("14 turns so far");
-    await expect
-      .element(panel.getByRole("region", { name: "Brief" }))
-      .toHaveTextContent("Keep the four lists in this order");
+    await expect.element(panel.getByText("14 turns so far", { exact: false })).toBeVisible();
+    await expect.element(panel.getByText("Keep the four lists in this order", { exact: false })).toBeVisible();
     // The live log is the Drone's own tail, which the sheet already drew.
     await expect.element(panel.getByRole("group", { name: "Drone on T5" })).toHaveTextContent("Running.tsx");
     await expect
-      .element(panel.getByRole("region", { name: "Last edit" }))
+      .element(panel.getByRole("list", { name: "Last edit" }))
       .toHaveTextContent("packages/screens/src/Running.tsx");
   });
 
@@ -56,9 +54,7 @@ describe("a task with a Drone of its own", () => {
   test("a finished task says what its agent spent, and offers no stop", async () => {
     mount("arc/executing-concurrent");
     const panel = await panelOf(T5.id, T5.title);
-    await expect
-      .element(panel.getByRole("region", { name: "Now" }))
-      .toHaveTextContent("Its agent stopped after 27 turns · ~$1.90.");
+    await expect.element(panel.getByText("Its agent stopped after 27 turns · ~$1.90.")).toBeVisible();
     expect(panel.getByRole("button", { name: "Stop this task" }).query()).toBeNull();
   });
 });
@@ -67,9 +63,10 @@ describe("a Job shaped the way Fleet serves it", () => {
   test("a working task's panel opens with none of the three", async () => {
     mount(onJob(featureOnItsPlan({ T1: "working" })));
     const panel = await panelOf("T1", "Remove guides 8 and 20 from the catalogue and retire their numbers");
-    await expect.element(panel.getByRole("region", { name: "Files" })).toBeVisible();
-    expect(panel.getByRole("region", { name: "Now" }).query()).toBeNull();
-    expect(panel.getByRole("region", { name: "Last edit" }).query()).toBeNull();
+    await expect.element(panel.getByText("Files", { exact: true })).toBeVisible();
+    expect(panel.getByText("Now", { exact: true }).query()).toBeNull();
+    expect(panel.getByText("Its agent", { exact: false }).query()).toBeNull();
+    expect(panel.getByText("Last edit", { exact: true }).query()).toBeNull();
     expect(panel.getByRole("button", { name: "Stop this task" }).query()).toBeNull();
     expect(panel.getByRole("button", { name: "Hold to stop this task" }).query()).toBeNull();
   });
