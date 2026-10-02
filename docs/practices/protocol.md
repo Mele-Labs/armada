@@ -2234,7 +2234,10 @@ task*.
 
 **On the unmeasured risk above: worse, by a counted amount.** A task adds three
 `job.plan_changed` and a `drone.spawned` and `drone.exited` pair, against one pair per step
-before. The rate a dev Fleet measured is on #1759, and `[broadcast-capacity]` stays open.
+before. Measured on a dev Fleet on 2 Oct 2026, with a scripted agent handing in two seconds after
+each spawn: five events per task, and 43 in the minute that held a five-task Job's whole run,
+against a `BACKLOG` of 256. A real task takes minutes, so the rate per Job-minute is five over
+how long a task takes. #1759 has the line; `[broadcast-capacity]` stays open.
 
 **Store V92** keeps which Drone was put on which task, and what each handed in, so `JobDrone.task`
 and the step's one submission survive a Fleet restarting mid-step.
