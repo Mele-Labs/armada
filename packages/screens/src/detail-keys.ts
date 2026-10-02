@@ -66,8 +66,6 @@ export type DetailPress =
   | { act: "disclose"; open: boolean }
   /** `f` — open the Job's patch, on the layer that can hold it. */
   | { act: "diff" }
-  /** `L` — open the step's activity log, on the layer that can hold it. */
-  | { act: "log" }
   /** `o` — open a Check's output, on the layer that can hold it. */
   | { act: "output" }
   /** `b` — say this job failed in error. */
@@ -116,10 +114,6 @@ export function detailPressOf(event: KeyboardEvent): DetailPress | null {
       return { act: "disclose", open: false };
     case "f":
       return { act: "diff" };
-    // Shifted, because plain `l` is the expand half of `h`/`l` above and a
-    // mistyped motion key must not open a layer.
-    case "L":
-      return { act: "log" };
     case "o":
       return { act: "output" };
     case "b":
@@ -168,29 +162,17 @@ export type DetailShape = {
    */
   onOpenSheet?: () => void;
   /**
-   * Open the step's activity log on the trailing layer — `L`.
+   * Open a Check's output on the trailing layer — `o`.
    *
-   * **It has a key of its own now.** It answered `Enter` on whichever chapter
-   * `[` `]` had landed on, which held while the log was the only chapter with
-   * a reading behind it and stopped the moment a Check's output became the
-   * second: one `Enter` cannot open both, and the story drew the same binding
-   * twice with no way to tell which would answer.
-   *
-   * **Required, and it was optional.** `L` reads it, finds nothing and returns
-   * false, and a press that answers nothing looks exactly like a key that is
-   * not bound — which is what shipped: this file carried the binding, the
-   * registry carried the key, `act` dispatched it, and `JobDetail` never passed
-   * the handler, so four rounds of feedback were spent on a shortcut that was
-   * wired everywhere except at the one call site. Optional made that a silence
-   * instead of a compile error. It is required now, and the screen that has
-   * nothing to open passes a function that does nothing rather than omitting
-   * the field — because that is a decision somebody wrote down.
+   * **Required, not optional.** A press that finds no handler answers nothing,
+   * which looks exactly like a key that is not bound — and that shipped once,
+   * for the log's `L`, wired everywhere except at the one call site. Required
+   * makes that a compile error, and a screen with nothing to open passes a
+   * function that does nothing.
    */
-  onOpenLog: () => void;
-  /** Open a Check's output on the trailing layer — `o`. Required, for `onOpenLog`'s reason. */
   onOpenOutput: () => void;
   /**
-   * Open the run sheet, nothing selected — `r`, Journey 9. `onOpenLog`'s
+   * Open the run sheet, nothing selected — `r`, Journey 9. `onOpenOutput`'s
    * shape and its reason: a sheet this file does not build, on a layer the
    * screen owns.
    */
@@ -313,8 +295,6 @@ function act(press: DetailPress, shape: DetailShape, on: Moves): boolean {
       return disclose(press.open, on);
     case "diff":
       return diff(shape);
-    case "log":
-      return sheet(shape.onOpenLog);
     case "output":
       return sheet(shape.onOpenOutput);
     case "report":
@@ -334,7 +314,7 @@ function act(press: DetailPress, shape: DetailShape, on: Moves): boolean {
 /**
  * Open one of the trailing sheets, where the screen gave a way to.
  *
- * **One spelling for two keys.** `L` and `o` differ only in which reading they
+ * **One spelling for two keys.** `o` and `r` differ only in which reading they
  * open, and two near-identical functions is two places for the swallow rule to
  * drift apart.
  */

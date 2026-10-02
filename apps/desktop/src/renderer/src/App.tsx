@@ -777,6 +777,7 @@ export function App({ draft }: AppProps = {}) {
                   followed={state.followed}
                   onFollowCheckOutput={followCheckOutput}
                   resources={state.resources}
+                  jobDrones={state.jobDrones}
                   history={state.history}
                   examination={state.examination}
                   // The one act here that changes nothing. It costs no model

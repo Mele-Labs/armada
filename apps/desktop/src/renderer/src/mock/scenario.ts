@@ -18,6 +18,7 @@ import {
   escalatedEvidenceSuspect,
   reviewAtDelivery,
   reviewAfterAnOverrule,
+  reviewHeldByPolicy,
   queued,
   awaitingApproval,
   awaitingRepair,
@@ -41,11 +42,12 @@ import {
   gateChecksStreaming,
   proposing,
 } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_MOMENTS, dispatchTyping } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
@@ -58,6 +60,7 @@ import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./man
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { job2Landed } from "./job-2-landed";
+import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -153,6 +156,7 @@ function asRow(fixture: JobFixture, at: number, slug: string, title: string): Jo
     journalled: moved(fixture.journalled),
     resources: moved(fixture.resources),
     history: fixture.history === undefined ? undefined : moved(fixture.history),
+    jobDrones: fixture.jobDrones === undefined ? undefined : moved(fixture.jobDrones),
     recorded: {
       footprint: moved(fixture.recorded.footprint),
       handed: moved(fixture.recorded.handed),
@@ -177,6 +181,7 @@ export const BUILDERS = {
   escalatedEvidenceSuspect,
   reviewAtDelivery,
   reviewAfterAnOverrule,
+  reviewHeldByPolicy,
   queued,
   awaitingApproval,
   awaitingRepair,
@@ -227,6 +232,7 @@ const EVERY_STATE_TITLES: Record<Builder, string> = {
   escalatedEvidenceSuspect: "Prune the evidence bundle before it is written",
   reviewAtDelivery: "Carry the branch name into the pull request body",
   reviewAfterAnOverrule: "Name the attempt a step's log file belongs to",
+  reviewHeldByPolicy: "Say on the Record why a step held for review",
   queued: "Move the worktree prune off the startup path",
   awaitingApproval: "Widen the allowlist to cover read-only git commands",
   awaitingRepair: "Coalesce the journal writes into one flush",
@@ -438,6 +444,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a
   // scenario here without a second edit.
   ...ARC_MOMENTS.map((one) => moment("arc", one)),
+  // The arc's request dispatched, on a Fleet whose proposer fills its Job in a field at a time.
+  fillingIn(moment("arc", dispatchTyping())),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),
@@ -462,6 +470,9 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // A running Job and every Drone it has had, as `list_job_drones` serves them:
+  // one killed, two finished with their cost, and the one running now.
+  holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

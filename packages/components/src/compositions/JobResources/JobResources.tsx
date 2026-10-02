@@ -30,7 +30,7 @@ import {
   Worktrees,
   worktreesTotal,
 } from "./JobResources.lists";
-import type { PulseProcessRow, PulseReading } from "./JobResources.lists";
+import type { PulseLogRow, PulseProcessRow, PulseReading } from "./JobResources.lists";
 
 export * from "./JobResources.lists";
 
@@ -97,6 +97,13 @@ export type JobResourcesProps = {
    */
   onOpen?: (what: Artifact) => void;
   /**
+   * Read a log in a panel, by pressing its row. **Absent draws no row as
+   * pressable**, so a surface with no panel to open does not offer one.
+   */
+  onViewLog?: (log: PulseLogRow) => void;
+  /** The path of the log whose panel is open, so its row says it is expanded. */
+  viewingLog?: string;
+  /**
    * Kill one process, once its row's kill has been held. **The host confirms**
    * — this only says which process was asked for. Absent draws no kill on any
    * row.
@@ -128,6 +135,8 @@ export function JobResources({
   nothingToAsk,
   onExamine,
   onOpen,
+  onViewLog,
+  viewingLog,
   onKillProcess,
   onKillAll,
 }: JobResourcesProps) {
@@ -224,7 +233,13 @@ export function JobResources({
             label="Job logs"
             trailing={<LogMember logs={reading.logs} member={member} onMember={setMember} />}
           >
-            <Logs logs={reading.logs} member={member} {...(onOpen === undefined ? {} : { onOpen })} />
+            <Logs
+              logs={reading.logs}
+              member={member}
+              {...(onOpen === undefined ? {} : { onOpen })}
+              {...(onViewLog === undefined ? {} : { onView: onViewLog })}
+              {...(viewingLog === undefined ? {} : { viewing: viewingLog })}
+            />
           </DestinationCard>
         </>
       )}

@@ -1,4 +1,5 @@
-//! What a gate's policies resolved to, kept on the run that passed it. #1683.
+//! What a gate's policies resolved to, kept on every run that reached a gate.
+//! #1683, widened by the owner on 2 Oct 2026 to a run an earlier gate stopped.
 //!
 //! **The file is real and re-read**, `tests::freezing`'s way, because the claim
 //! is about a policy that moves under a running Fleet: the earlier run keeps
@@ -27,12 +28,18 @@ const HEAD: &str = "version: 1\nid: 01FIXTUREMANIFEST\n";
 /// A Fleet gating `implement` on `manifest_rule:review_gate`, over an
 /// `armada.yml` on disk, and the handle that re-reads it.
 fn over(home: &TempDir, says: &str) -> (Fixture, PathBuf, Reloads) {
+    over_a(home, says, FakeWorkProduct::changed(&["src/log.rs"]))
+}
+
+/// [`over`], with the worktree the gate reads. `untouched` fails
+/// `diff_nonempty`, which is how a run's Checks go red here.
+fn over_a(home: &TempDir, says: &str, work: FakeWorkProduct) -> (Fixture, PathBuf, Reloads) {
     let dir = home.path().join("manifest");
     std::fs::create_dir_all(&dir).expect("a directory for the file");
     let file = dir.join("armada.yml");
     std::fs::write(&file, format!("{HEAD}{says}")).expect("the file");
     let (manifest, reloads) = Manifest::reloadable(&file).expect("the file loads");
-    let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let mut fittings = fittings(home, work);
     fittings.starting().manifest = manifest;
     fittings.starting().workflows = one(two_steps_gated_on_a_manifest_rule(
         "implement",
@@ -43,8 +50,8 @@ fn over(home: &TempDir, says: &str) -> (Fixture, PathBuf, Reloads) {
 }
 
 /// `implement`'s runs as `get_job` serves them: each run's ordinal and what
-/// its gate resolved to, as the two words cross.
-async fn served(fleet: &Fixture, job: &JobId) -> Vec<(u32, Option<(String, String)>)> {
+/// its gate resolved to, as the two words and `decided` cross.
+async fn served(fleet: &Fixture, job: &JobId) -> Vec<(u32, Option<(String, String, bool)>)> {
     let detail = api::Queries::get_job(fleet, ipc::JobId::from(job))
         .await
         .expect("a Job that exists");
@@ -60,14 +67,20 @@ async fn served(fleet: &Fixture, job: &JobId) -> Vec<(u32, Option<(String, Strin
                 run.attempt,
                 run.resolved
                     .as_ref()
-                    .map(|was| (was.auto_merge.clone(), was.review_gate.clone())),
+                    .map(|was| (was.auto_merge.clone(), was.review_gate.clone(), was.decided)),
             )
         })
         .collect()
 }
 
-fn words(auto_merge: &str, review_gate: &str) -> Option<(String, String)> {
-    Some((auto_merge.to_string(), review_gate.to_string()))
+/// What a run that reached the advance gate serves: the rule decided.
+fn words(auto_merge: &str, review_gate: &str) -> Option<(String, String, bool)> {
+    Some((auto_merge.to_string(), review_gate.to_string(), true))
+}
+
+/// What a run an earlier gate stopped serves: the same two words, undecided.
+fn undecided(auto_merge: &str, review_gate: &str) -> Option<(String, String, bool)> {
+    Some((auto_merge.to_string(), review_gate.to_string(), false))
 }
 
 /// **The earlier run keeps what it was gated under, and the next run reads the
@@ -143,5 +156,40 @@ async fn each_run_keeps_what_its_gate_resolved_to_after_the_manifest_moves() {
             (2, words("always", "auto_if_judge_passes")),
         ],
         "the first run still reads what it resolved to, and the second the new words"
+    );
+}
+
+/// **A run whose Checks went red keeps what the rules said, and says the rule
+/// never decided.** The owner's decision of 2 Oct 2026: "Isn't it helpful to
+/// record them so we know what ran?" The step is gated on
+/// `manifest_rule:review_gate`, and `diff_nonempty` fails before that gate is
+/// read, so the policies are the Manifest's words with `decided: false`.
+#[tokio::test]
+async fn a_run_whose_checks_went_red_keeps_the_policies_undecided() {
+    let home = TempDir::new();
+    let (fleet, _file, _reloads) = over_a(
+        &home,
+        "review_gate: human_always\nauto_merge: never\n",
+        FakeWorkProduct::untouched(),
+    );
+    let job = fleet
+        .propose(a_proposal("change nothing"))
+        .await
+        .expect("a Job at the approval gate");
+    worktree_directory(&home, &job);
+    dispatched(&fleet, job.id()).await.expect("it dispatches");
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("the Drone reports its diff");
+    let turned = fleet.turn().await.expect("the gate runs");
+    assert!(
+        matches!(turned.ruled(), Some(Ruling::Failed { .. })),
+        "an empty diff fails its Check: {:?}",
+        turned.ruled()
+    );
+    assert_eq!(
+        served(&fleet, job.id()).await,
+        vec![(1, undecided("never", "human_always"))],
+        "the stopped run says what the rules were, and that they decided nothing"
     );
 }

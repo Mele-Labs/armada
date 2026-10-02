@@ -43,34 +43,30 @@ async function opened(
 
 const dialog = (name: string) => page.getByRole("dialog", { name });
 
-// **Opened by its key, not by a chapter's control.** `Open the log` was the
-// story chapter's own eyebrow act, and the Overview reframe of 29 Sep 2026
-// took the chapters with the column they were in. `L` is `actions.toml`'s
-// `open_log`, scope `detail`, and it is the route that survived — the sheet
-// it opens is unchanged, which is what these claims are about.
-test("L opens the activity log in a sheet", async () => {
-  await opened(running());
-  await userEvent.keyboard("L");
-  await expect.element(dialog("Activity log")).toBeVisible();
-});
-
 // **Nothing on a Job draws a step mark any more**, so the pulse behind an
 // open sheet has no subject. `WorkflowRail` drew the run tree's marks and no
 // screen renders it since the Overview reframe of 29 Sep 2026 — the claim
 // that the rail kept animating while a sheet was up went with it.
 
-// `f` — `open_diff`, scope `detail`. The Produced chapter's own control went
-// with the chapters; the key and the sheet did not.
+// `f` — `open_diff`, scope `detail`, bound on the Overview tab. The control
+// that opened the patch went with the chapters on 29 Sep 2026; the key and the
+// sheet did not.
 test("f opens the Job's patch in a sheet", async () => {
   await opened(running());
   await userEvent.keyboard("f");
   await expect.element(page.getByRole("dialog")).toBeVisible();
 });
 
-test("the log opens on a Job a failed Check stopped", async () => {
-  await opened(escalatedGateFailure());
+// **`L` opened the activity log, and the owner removed it on 2 Oct 2026**:
+// nothing on a Job is a single log. `f` after it is what makes the silence a
+// claim — the keys are live, and `L` was answered by nothing.
+test("L opens nothing, now the log is gone", async () => {
+  await opened(running());
   await userEvent.keyboard("L");
-  await expect.element(dialog("Activity log")).toBeVisible();
+  await userEvent.keyboard("f");
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  expect(dialog("Activity log").query()).toBeNull();
+  expect(page.getByRole("dialog").all()).toHaveLength(1);
 });
 
 // `o` — the failed Check's output, from the open step. In the editor rather
@@ -156,13 +152,13 @@ test("r opens the run sheet on this repository's own Setup, Checks and Commands"
   await expect.element(dialog("Run").getByText("bridge_test")).toBeVisible();
 });
 
-test("the run sheet replaces the log: one sheet at a time", async () => {
+test("the run sheet replaces the diff: one sheet at a time", async () => {
   await opened(running());
-  await userEvent.keyboard("L");
-  await expect.element(dialog("Activity log")).toBeVisible();
+  await userEvent.keyboard("f");
+  await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("r");
   await expect.element(dialog("Run")).toBeVisible();
-  expect(dialog("Activity log").query()).toBeNull();
+  expect(page.getByRole("dialog").all()).toHaveLength(1);
 });
 
 // **`Run it here` was the refused Check's row act**, and the Checks chapter
