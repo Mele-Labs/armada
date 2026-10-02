@@ -4,7 +4,8 @@
 use std::path::Path;
 
 use adapter_traits::{
-    CommitTime, Delivery, Landable, Merged, NotMerged, Vcs, Worktree, WorktreeSpec,
+    CommitTime, Delivery, Landable, Merged, NotMerged, SlotLeased, SlotPool, Vcs, Worktree,
+    WorktreeSpec,
 };
 
 use crate::tests::repo::TempRepo;
@@ -21,6 +22,31 @@ fn delivered(repo: &TempRepo) -> std::path::PathBuf {
     repo.git(&["push", "--set-upstream", "origin", "main"]);
     let spec = WorktreeSpec::for_job(&repo.root_str(), JOB).expect("a legal spec");
     let worktree = GitVcs::new().create_worktree(&spec).expect("a worktree");
+    std::fs::write(format!("{}/work.txt", worktree.path()), "the job's work").expect("the file");
+    GitVcs::new()
+        .commit_all(
+            &worktree,
+            "the job's work",
+            CommitTime::seconds_since_epoch(1_787_734_800),
+        )
+        .expect("a commit");
+    GitVcs::new().push(&worktree).expect("the branch is pushed");
+    bare
+}
+
+/// The same, worked in the pool slot a Job leases rather than at the derived
+/// path, so the branch stays checked out in the slot.
+fn delivered_in_a_slot(repo: &TempRepo) -> std::path::PathBuf {
+    let bare = repo.with_a_bare_remote();
+    repo.git(&["config", "user.name", "armada"]);
+    repo.git(&["config", "user.email", "armada@example.invalid"]);
+    repo.git(&["push", "--set-upstream", "origin", "main"]);
+    let spec = WorktreeSpec::for_job(&repo.root_str(), JOB).expect("a legal spec");
+    let pool = SlotPool::of(&repo.root_str(), 1, "main", Vec::new());
+    let worktree = match GitVcs::new().lease_slot(&pool, &spec, "01JOB") {
+        Ok(SlotLeased::Took { worktree, .. }) => worktree,
+        other => panic!("no slot: {other:?}"),
+    };
     std::fs::write(format!("{}/work.txt", worktree.path()), "the job's work").expect("the file");
     GitVcs::new()
         .commit_all(
@@ -145,6 +171,29 @@ fn a_base_the_branch_does_not_hold_is_refused_and_nothing_is_pushed() {
 fn the_jobs_worktree(repo: &TempRepo) -> Worktree {
     let spec = WorktreeSpec::for_job(&repo.root_str(), JOB).expect("a legal spec");
     Worktree::at(spec.worktree_path(), spec.branch())
+}
+
+/// **A Job in a pool slot lands the same way**: the branch is the Job's own
+/// wherever it is checked out.
+#[test]
+fn a_slotted_jobs_branch_lands_onto_the_base() {
+    let repo = TempRepo::with_a_commit();
+    let bare = delivered_in_a_slot(&repo);
+    let head = repo.git(&["rev-parse", &format!("armada/{JOB}")]);
+
+    let pushed = GitVcs::new()
+        .merge_by_push(
+            &repo.root_str(),
+            JOB,
+            None,
+            Some(7),
+            Landable::Checked(&gated(&repo)),
+        )
+        .expect("it lands");
+
+    assert_eq!(pushed.merged, Merged::Taken);
+    let parents = in_bare(&bare, &["rev-list", "--parents", "-n", "1", "main"]);
+    assert!(parents.ends_with(&head), "{parents}");
 }
 
 /// The base on the remote moves on in a file the Job did not touch.

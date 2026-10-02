@@ -167,3 +167,35 @@ fn a_slot_nobody_made_is_gone() {
         SlotStanding::Gone
     );
 }
+
+/// A completed Job's slot says so, for `--status`, and stays held until the
+/// Job's release; the release clears it with the rest of the record.
+#[test]
+fn a_completed_job_s_slot_says_so_until_it_is_released() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, _) = leased(&repo, &pool, "1-a-job", "01JOB");
+
+    GitVcs.mark_slot_completed(&pool, slot, "01OTHER");
+    GitVcs.mark_slot_completed(&pool, slot, "01JOB");
+
+    let status = || Pool::at(repo.root(), 1, "main", Vec::new()).status();
+    match &status()[0].state {
+        SlotState::Held {
+            holder, completed, ..
+        } => {
+            assert_eq!(holder, &Holder::job("01JOB"));
+            assert!(completed, "the holder's mark, and only the holder's");
+        }
+        other => panic!("a completed Job's slot read as {other:?}"),
+    }
+    assert_eq!(
+        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        SlotStanding::Held
+    );
+
+    GitVcs
+        .release_slot(&pool, slot, "01JOB")
+        .expect("clean, with nothing on it");
+    assert_eq!(status()[0].state, SlotState::Free);
+}
