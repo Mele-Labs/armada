@@ -37,9 +37,8 @@ import type {
 
 import { PlanGate } from "./plan-lead";
 import type { ActingAct } from "./pending";
-import { useTaskWidth } from "./task-width";
 import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
-import { movedGroups, planBoardOf } from "./plan-board";
+import { movedGroups, moveSent, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
@@ -264,7 +263,6 @@ export function usePlanReview({
   // What has been typed at the open task's Drone and not sent. This region's
   // own state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
-  const [taskWidth, resizeTask] = useTaskWidth();
   // The file open beside the task. It belongs to the task: another task, or
   // none, closes it.
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -354,7 +352,7 @@ export function usePlanReview({
       : {
           onMove: (next: PlanMove) => {
             setMoving(next);
-            void onMovePlan(job.id, next).finally(() => setMoving(null));
+            void onMovePlan(job.id, moveSent(read?.groups ?? [], next)).finally(() => setMoving(null));
           },
           disabled: moving !== null,
         };
@@ -622,8 +620,6 @@ export function usePlanReview({
           {...(drop === undefined ? {} : { drop })}
           open
           floor={floor}
-          {...(taskWidth === undefined ? {} : { width: taskWidth })}
-          onResize={resizeTask}
           {...(proposeTask === undefined ? {} : { propose: proposeTask })}
           {...(redirect === undefined ? {} : { redirect })}
           {...(peek === undefined ? {} : { drone: peek })}
@@ -665,8 +661,6 @@ export function usePlanReview({
             ? {}
             : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
           floor={floor}
-          {...(taskWidth === undefined ? {} : { width: taskWidth })}
-          onResize={resizeTask}
           under={adding !== null}
           onClose={() => setOpenGroup(null)}
         />

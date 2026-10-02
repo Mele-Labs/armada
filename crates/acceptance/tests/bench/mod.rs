@@ -436,6 +436,12 @@ impl Bench {
     pub async fn gate(&self, run: &Run, step: &StepId, submitted: &Submission) -> Ruling {
         let at = AtStep::named(self.workflow.frozen(), step, &run.worktree)
             .expect("a step of the workflow");
+        self.gate_at(run, at, submitted).await
+    }
+
+    /// [`Bench::gate`], at a position the caller has already placed on a run.
+    pub async fn gate_at(&self, run: &Run, at: AtStep<'_>, submitted: &Submission) -> Ruling {
+        let step = at.step().id();
         let recorded = self.recorded.borrow().clone();
         // The worktree as the step found it. A Run's worktree starts empty and
         // the bench drives one step at a time, so an empty footprint is what

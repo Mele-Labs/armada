@@ -16,6 +16,7 @@ const REMEMBERED = [
   "armada.bridge.left-width",
   "armada.bridge.panels-open",
   "armada.bridge.plan-view",
+  "armada.bridge.sheet-width",
   "armada.bridge.workflow-view",
 ];
 

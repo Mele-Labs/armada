@@ -91,6 +91,7 @@ async fn claimed(fleet: &Fixture, working: &JobId) -> JobId {
                     failure: String::from("exited 1"),
                 },
                 reported_by: fix.clone(),
+                files: Vec::new(),
             },
             &now,
         )
@@ -276,6 +277,7 @@ fn a_turn_about_a_fix_leaves_the_shared_file_sentences_out() {
         handle: "3-fix-the-parser-on-main".to_string(),
         test: TEST.to_string(),
         stands: FixStands::Fixing,
+        files: Vec::new(),
     }])
     .text()
     .to_string();
@@ -319,6 +321,7 @@ async fn a_completed_fix_keeps_its_claim_until_its_pull_request_settles() {
                     failure: String::from("exited 1"),
                 },
                 reported_by: fix.id().clone(),
+                files: Vec::new(),
             },
             &now,
         )

@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { GUIDE_GROUP_BOUNDARY } from "../../guides";
 import { GroupBoundary, type GroupBoundaryCheck } from "./GroupBoundary";
 
 const meta: Meta<typeof GroupBoundary> = {
   title: "Compositions/Group boundary",
   component: GroupBoundary,
+  // A plan group's strip carries guide 5; the merge line's carries none.
+  args: { guide: GUIDE_GROUP_BOUNDARY },
   decorators: [
     (Story) => (
       <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-step-panel-min)" }}>

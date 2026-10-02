@@ -39,6 +39,7 @@ use crate::crossing::{Cleared, Crossed, Produced};
 use crate::daemon::Fleet;
 use crate::drone::{aftermath, Aftermath, Ending, Left};
 use crate::gate::{apply, Ruling};
+use crate::grouping::GroupEnd;
 use crate::leasing::pool_of;
 use crate::session::{LiveSession, Occasion};
 use crate::terms::Declaring;
@@ -237,8 +238,14 @@ where
         // did. See [`paid_so_far`](Fleet::paid_so_far).
         self.paid_so_far(working).await?;
         // Before the step moves, for the spend's reason: a client re-reads the
-        // Job on the move. A task is done when its step's Checks pass.
-        self.tasks_done(job_id, step, ruling).await?;
+        // Job on the move. A task is done when its group's Checks pass, and a
+        // green group with one after it keeps the step. `crate::grouping`.
+        let grouped = self.group_ruled(ruling, job_id, step).await?;
+        if let Some((at, GroupEnd::Passed)) = grouped {
+            if self.group_passed(at, job_id, working).await? {
+                return Ok(());
+            }
+        }
         // A failed Check printing a test another Job is fixing points this Job
         // at that fix. #1001.
         let printed: Vec<_> = ruling
@@ -370,7 +377,8 @@ where
                     .await?;
                 self.asked_the_judge_question(&job, step, ruling).await?;
                 self.applied(&job, ruling).await?;
-                Ok(())
+                self.group_moved_on(grouped, ruling, job_id, step, working)
+                    .await
             }
             // The gate failed and there is budget left. **Nothing about the
             // Job moves** — it is still `running`, the Drone still holds its
@@ -403,7 +411,9 @@ where
                     )
                     .await?;
                 self.move_step(&job, step, StepTarget::Running).await?;
-                self.tell(job_id, tell, None, working).await
+                self.tell(job_id, tell, None, working).await?;
+                self.group_moved_on(grouped, ruling, job_id, step, working)
+                    .await
             }
             // Four stops, one shape: the work stops here, the Drone is not
             // told, and `apply` decides which status and which trigger.
@@ -451,6 +461,8 @@ where
                     None => job,
                 };
                 self.applied(&job, ruling).await?;
+                self.group_moved_on(grouped, ruling, job_id, step, working)
+                    .await?;
                 // Terminated without a turn, and the worktree is kept — on the
                 // one ruling here that leaves a person to answer at their own
                 // pace. A spent budget frees the slot in this turn, as a human
@@ -769,9 +781,9 @@ where
             // person answers it.
             self.stopped_servers_of(moved.job.id()).await;
             self.released_ports(&moved.job).await;
-            // The same moment, for the Job's pool slot: given back by the
-            // pool's rules, or kept and said so. `crate::leasing`.
-            self.released_slot(&moved.job).await;
+            // The same moment, for the Job's pool slot: held by a completed
+            // Job until a person clears it, else given back. `crate::leasing`.
+            self.slot_at_the_end(&moved.job).await;
             // A fix that ended gives back the test it claimed, so a test broken
             // again can be claimed again (#999) — or holds it until its pull
             // request settles, telling the Jobs pointed at it either way (#1001).

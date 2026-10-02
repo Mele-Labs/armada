@@ -156,14 +156,6 @@ export type PlanTaskSheetProps = {
   onFile?: (path: string | null) => void;
   /** The window is at `--window-floor`. */
   floor?: boolean;
-  /**
-   * The panel's width, where a person has dragged it — `Sheet`'s own pair
-   * (owner, 30 Sep 2026: "I should be able to resize it with the resize
-   * handle we have"). Absent draws `--w-dock`; no `onResize` draws no handle.
-   * The file diff beside it follows whatever width this is.
-   */
-  width?: number;
-  onResize?: (width: number) => void;
   onClose?: () => void;
   /** The way back, where a press elsewhere opened this panel. `Sheet`'s slot. */
   back?: SheetBack | undefined;
@@ -292,8 +284,6 @@ export function PlanTaskSheet({
   file,
   onFile,
   floor = false,
-  width,
-  onResize,
   onClose,
   back,
 }: PlanTaskSheetProps) {
@@ -304,7 +294,8 @@ export function PlanTaskSheet({
     <Sheet
       open={open}
       floating
-      {...(onResize === undefined ? {} : { width, onResize })}
+      kind="plan-task"
+      size="dock"
       floor={floor}
       title={title}
       // **The mark alone, named on hover** (owner, 2 Oct 2026): the row's own
@@ -487,8 +478,8 @@ export function PlanTaskSheet({
       <Sheet
         open
         floating
-        beside
-        {...(onResize === undefined ? {} : { besideWidth: width })}
+        beside="plan-task"
+        kind="plan-task-file"
         floor={floor}
         title={file.path}
         closeLabel="Close"

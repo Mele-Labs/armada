@@ -1016,4 +1016,23 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         drop: DropTask,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
+
+    /// `restart_task` — a fresh Drone on one failed task, with an optional
+    /// note it reads first, and the Job it leaves running. `#1656`. Refused
+    /// on a task that has not failed — `crates/ipc/operations.toml`.
+    fn restart_task(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        task: String,
+        restart: ipc::RestartTask,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `move_plan` — a person moves a task or a group by `after`, and the plan
+    /// it leaves comes back. `#1685`. Refused on a task, or a group holding
+    /// one, still in its group's run.
+    fn move_plan(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        move_plan: ipc::MovePlan,
+    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

@@ -71,6 +71,7 @@ export function ViewSheet({
   }
   return (
     <Sheet
+      kind="view"
       open={open}
       contained
       size="wide"

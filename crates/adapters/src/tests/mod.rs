@@ -20,6 +20,7 @@ mod existing_setup;
 mod filing;
 mod git_guard_gaps;
 mod harness;
+mod held_off;
 mod issue_lookup;
 mod judge;
 mod keeping_current;
