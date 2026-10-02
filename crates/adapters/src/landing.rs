@@ -26,7 +26,7 @@
 use std::path::Path;
 
 use adapter_traits::{
-    Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
+    Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
     WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
@@ -163,6 +163,7 @@ pub(crate) fn merge_by_push(
     handle: &str,
     declared: Option<&str>,
     pull_request: Option<u64>,
+    landable: Landable<'_>,
 ) -> Result<PushedOntoBase, NotMerged> {
     let refused = |said: String| NotMerged::Refused { said };
     let branch = WorktreeSpec::for_job(in_repo, handle)
@@ -196,6 +197,20 @@ pub(crate) fn merge_by_push(
         NotOntoBase::Git(said) => NotMerged::Refused { said },
     };
     let merge = onto_base::merge_commit(root, &gated, &candidate, &message).map_err(moved)?;
+    // After the merge commit, which refuses a branch short of the base first:
+    // bringing it up answers both, and gates it once.
+    let tree = rev_parse(in_repo, &format!("{candidate}^{{tree}}"))
+        .ok_or_else(|| refused(format!("the branch {branch} has no tree")))?;
+    let read = match landable {
+        Landable::Checked(checked) => checked == tree,
+        Landable::Unchecked => false,
+        Landable::NothingToCheck => true,
+    };
+    if !read {
+        return Err(NotMerged::Unchecked {
+            said: format!("{branch} is at {candidate}, whose tree no run of its Checks passed on"),
+        });
+    }
     match onto_base::push(root, REMOTE, &base, &merge, &gated, |_, _| {}).map_err(moved)? {
         Onto::Landed => Ok(PushedOntoBase {
             base,

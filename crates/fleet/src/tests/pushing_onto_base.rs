@@ -208,7 +208,11 @@ async fn kept_current_by_the_sweep(fleet: &Fixture) {
         },
     });
     fleet.turn().await.expect("the sweep runs");
-    assert_eq!(fleet.vcs().times_kept_current(), 1, "the sweep merged it in");
+    assert_eq!(
+        fleet.vcs().times_kept_current(),
+        1,
+        "the sweep merged it in"
+    );
 }
 
 /// **The hole the sweep left:** its merge made a head no Check read, and the
@@ -258,6 +262,14 @@ async fn a_branch_the_sweep_kept_current_lands_once_its_checks_pass() {
         0,
         "the branch held the base already"
     );
+    assert_eq!(
+        counted(&fleet, |it| matches!(
+            it,
+            Delivered::ReadTheUncheckedHead { .. }
+        )),
+        1,
+        "its head was read for the Checks"
+    );
 }
 
 /// **A head the Checks passed on is not checked twice.** The marker would turn
@@ -277,6 +289,13 @@ async fn a_head_the_checks_passed_on_lands_without_running_them_again() {
 
     assert_eq!(job.status(), JobStatus::CompletedSuccess);
     assert_eq!(fleet.vcs().times_pushed_onto_the_base(), 1);
+    assert_eq!(
+        counted(&fleet, |it| matches!(
+            it,
+            Delivered::ReadTheUncheckedHead { .. }
+        )),
+        0
+    );
 }
 
 /// **`forge` is as it was**: the sweep's merge goes to the forge, whose own

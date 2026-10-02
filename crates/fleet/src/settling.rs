@@ -318,6 +318,7 @@ where
         // never written down is a verdict with no trace.
         self.recorded_checks(&job_id, &job.handle(), &step, attempt, &ruling)
             .await?;
+        self.kept_what_the_gate_checked(&job, &ruling).await;
         // After `recorded_checks`, which is what puts this attempt's own
         // Checks where the read inside can find them beside the one before.
         let repeats = self.spotted_repeats(&job_id, &step, &ruling).await;
