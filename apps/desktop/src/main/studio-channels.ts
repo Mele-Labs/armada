@@ -108,11 +108,14 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
     return (await connection()?.studios.addNode(studioId, { kind: "picture", staged }, at)) ?? unsent;
   });
   handleSketches({ ipc, studios: () => connection()?.studios, whole, unsent });
-  ipc.handle(CHANNELS.moveStudioNode, async (_event, studioId: unknown, nodeId: unknown, position: unknown) => {
-    const at = whole(position);
-    if (!text(studioId) || !text(nodeId) || at === null) return undefined;
-    return (await connection()?.studios.moveNode(studioId, nodeId, at)) ?? unsent;
-  });
+  ipc.handle(
+    CHANNELS.moveStudioNode,
+    async (_event, studioId: unknown, nodeId: unknown, position: unknown, within: unknown) => {
+      const at = whole(position);
+      if (!text(studioId) || !text(nodeId) || at === null || !(within === null || text(within))) return undefined;
+      return (await connection()?.studios.moveNode(studioId, nodeId, at, within)) ?? unsent;
+    },
+  );
   // Everything picked, deleted as one write — #1411. **Every name is checked
   // here before any of them crosses**, so a list carrying one thing that is not
   // a node reaches no route at all rather than half a delete.

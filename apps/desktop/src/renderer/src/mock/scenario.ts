@@ -60,6 +60,7 @@ import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
+import { zoning } from "./studio-read-in";
 import { job2Landed } from "./job-2-landed";
 import { fillingIn } from "./proposer-fleet";
 
@@ -454,6 +455,7 @@ export const SCENARIOS: readonly Scenario[] = [
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
+  zoning().scenario,
   talking(),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a

@@ -879,3 +879,101 @@ async fn each_rung_refuses_the_kinds_it_is_not_for() {
         .expect_err("a Link to a board names nothing on the forge to dispatch against");
     assert_eq!(code(&refused), "fleet.studio_not_a_draft");
 }
+
+/// **A Cluster is drawn round its Notes**, inside the Zone they share, and a
+/// Note is in one Cluster at a time — the owner, 2 Oct 2026, `#1620`. A Zone
+/// is put on the board by hand, and moving one carries what it holds.
+#[tokio::test]
+async fn a_cluster_frames_its_notes_inside_their_zone_and_a_note_is_in_one() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    let zone = added(&fleet, &studio, StudioNodeContent::Zone).await;
+    let (first, second) = two_notes(&fleet, &studio).await;
+    for (note, y) in [(&first, 60), (&second, 260)] {
+        fleet
+            .move_studio_node(
+                studio.id.clone(),
+                ipc::MoveStudioNode {
+                    node_id: note.clone(),
+                    within: Some(zone.clone()),
+                    position: at(40, y),
+                },
+                None,
+            )
+            .await
+            .expect("put in the Zone");
+    }
+
+    let clustered = fleet
+        .group_studio_nodes(
+            studio.id.clone(),
+            GroupStudioNodes {
+                content: StudioNodeContent::Cluster {
+                    title: "Counts go stale".to_string(),
+                },
+                from: vec![first.clone(), second.clone()],
+                position: at(5000, 5000),
+            },
+            None,
+        )
+        .await
+        .expect("clustered");
+    let [cluster] = of_kind(&clustered, StudioNodeKind::Cluster)[..] else {
+        panic!("one Cluster");
+    };
+    assert_eq!(cluster.within.as_ref(), Some(&zone), "inside the Zone");
+    assert_eq!(
+        cluster.position,
+        at(16, 12),
+        "round its Notes, not where it was asked"
+    );
+    for note in [&first, &second] {
+        let held = clustered.nodes.iter().find(|n| &n.id == note).unwrap();
+        assert_eq!(held.within.as_ref(), Some(&cluster.id));
+    }
+
+    let third = added(
+        &fleet,
+        &studio,
+        StudioNodeContent::Note {
+            said: "A third".to_string(),
+            capture: None,
+        },
+    )
+    .await;
+    let refused = fleet
+        .group_studio_nodes(
+            studio.id.clone(),
+            GroupStudioNodes {
+                content: StudioNodeContent::Cluster {
+                    title: "Again".to_string(),
+                },
+                from: vec![first.clone(), third],
+                position: at(0, 0),
+            },
+            None,
+        )
+        .await
+        .expect_err("already in a Cluster");
+    assert_eq!(code(&refused), "fleet.studio_note_in_a_cluster");
+
+    let moved = fleet
+        .move_studio_node(
+            studio.id.clone(),
+            ipc::MoveStudioNode {
+                node_id: zone.clone(),
+                within: None,
+                position: at(900, 900),
+            },
+            None,
+        )
+        .await
+        .expect("the Zone moved");
+    let held = moved.nodes.iter().find(|n| n.id == first).unwrap();
+    assert_eq!(
+        (held.within.as_ref(), held.position),
+        (Some(&cluster.id), at(24, 48)),
+        "it came with the Zone, untouched"
+    );
+}

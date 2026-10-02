@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronLeft, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, X } from "lucide-react";
+import { ChevronLeft, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, VectorSquare, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -538,6 +538,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "S",
+    scope: "open studio",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "add_zone",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Add a zone",
+    icon: VectorSquare,
+    iconAbsent: null,
+    shortcut: "Z",
     scope: "open studio",
     destructive: false,
     confirms: false,

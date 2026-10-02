@@ -479,3 +479,14 @@ scope = "open studio"
 destructive = false
 confirms = false
 notes = "The third kind, and the one the design did not draw: it drew `R` for a run, which `start_studio_run` owns and #1345 builds. `S` for sketch, shifted because `s` is Restart step. Placing a Sketch opens the pad where it was put down, and the node draws the drawing left on it (1 Oct 2026); an image pasted on its own is a Picture. No glyph, for `add_note`'s reason."
+
+[actions.add_zone]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a zone"
+icon = "vector-square"
+shortcut = "Z"
+scope = "open studio"
+destructive = false
+confirms = false
+notes = "A Zone rings off part of a Studio so what is in it moves together (#1620). The word is the owner's, 28 Sep 2026: `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. Placing one puts an empty Zone where the board was pressed, with no field: a Zone holds no words, and a node dropped on it goes in. `Z` for zone, shifted because a single letter on an open Studio is a node's and `z` is free only by accident. The glyph is `packages/icons/icons.toml`'s `vector-square`, group `Canvas rail`."

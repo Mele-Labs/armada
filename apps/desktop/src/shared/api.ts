@@ -846,8 +846,12 @@ export type BridgeApi = {
    */
   addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
-  /** Save where a person put a node down. Position only: nothing else about a node is written. */
-  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition) => Promise<Outcome>;
+  /**
+   * Save where a person put a node down: the frame it landed in, `null` for the
+   * board, and its spot from that frame's corner. Nothing else about a node is
+   * written. `within` since protocol 23.0, #1620.
+   */
+  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition, within: string | null) => Promise<Outcome>;
   /**
    * Delete everything picked, and every edge on it, as one write — #1411. A
    * person's act, and only from the Studios surface.

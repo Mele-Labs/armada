@@ -387,10 +387,26 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         }
         return { ok: true, bytes: await aFrame(), type: "image/png" };
       },
-      moveStudioNode: async (studioId, nodeId, position) => {
+      // Into the frame named, or onto the board — #1620. A Note never leaves
+      // its Cluster, and a Zone holds no Zone, as Fleet refuses both.
+      moveStudioNode: async (studioId, nodeId, position, within) => {
+        const held = store.get(studioId)?.nodes ?? [];
+        const moving = held.find((node) => node.id === nodeId);
+        const was = held.find((node) => node.id === moving?.within);
+        const into = held.find((node) => node.id === within);
+        if (was?.kind === "cluster" && within !== was.id) {
+          return refusedAs("fleet.studio_note_stays_in_its_cluster", `\`${nodeId}\` is in a Cluster, and stays in it`);
+        }
+        if (into !== undefined && !(into.kind === "zone" ? moving?.kind !== "zone" : into.kind === "cluster")) {
+          return refusedAs("fleet.studio_frame_cannot_hold", `\`${into.id}\` is a ${into.kind} and holds no ${moving?.kind}`);
+        }
         const answer = write(studioId, (studio) => ({
           ...studio,
-          nodes: studio.nodes.map((node) => (node.id === nodeId ? { ...node, position } : node)),
+          nodes: studio.nodes.map((node) => {
+            if (node.id !== nodeId) return node;
+            const { within: _, ...placed } = node;
+            return within === null ? { ...placed, position } : { ...placed, within, position };
+          }),
         }));
         return answer.ok ? OK : answer.outcome;
       },
@@ -406,7 +422,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         const going = new Set(nodeIds);
         const answer = write(studioId, (studio) => ({
           ...studio,
-          nodes: studio.nodes.filter((node) => !going.has(node.id)),
+          nodes: liftedOutOf(studio.nodes, going).filter((node) => !going.has(node.id)),
           edges: studio.edges.filter((edge) => !going.has(edge.from) && !going.has(edge.to)),
         }));
         return answer.ok ? OK : answer.outcome;
@@ -431,6 +447,18 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         return { ok: true };
       },
       promoteOnStudio: async (studioId, promotion) => {
+        // One Cluster at a time — the owner, 2 Oct 2026. Fleet's refusal, in its words.
+        const held = store.get(studioId)?.nodes ?? [];
+        const clustered =
+          promotion.act === "group" && promotion.kind === "cluster"
+            ? promotion.from.find((id) => {
+                const note = held.find((node) => node.id === id);
+                return held.some((frame) => frame.id === note?.within && frame.kind === "cluster");
+              })
+            : undefined;
+        if (clustered !== undefined) {
+          return refusedAs("fleet.studio_note_in_a_cluster", `\`${clustered}\` is already in a Cluster`);
+        }
         const answer = write(studioId, (studio) => promoted(studio, promotion));
         // **A dispatch puts a row on the Board as well as a node on the
         // Studio** — #1379. A Job node holds a reference and no status, so a
@@ -693,8 +721,16 @@ const A_MILESTONES_ISSUES: Extract<StudioNodeContent, { kind: "issue" }>[] = [
  * the Issue nodes it made that the answer no longer wants, and leaves standing
  * any that something hangs off, which is the rule Fleet holds.
  */
-function epicReadIn(studio: Studio, nodeId: string, down: (n: number) => { x: number; y: number }, take: EpicTake): Studio {
+function epicReadIn(studio: Studio, nodeId: string, position: { x: number; y: number }, take: EpicTake): Studio {
   const wanted = A_MILESTONES_ISSUES.filter((issue) => take === "everything" || issue.state === "open");
+  // Its issues in one Zone, made on its first read and filled after — #1620.
+  const held = studio.nodes.find(
+    (node) => node.kind === "zone" && studio.edges.some((edge) => edge.kind === "produced" && edge.from === nodeId && edge.to === node.id),
+  );
+  const zoned = held === undefined ? made(studio, { kind: "zone" }, [nodeId], position) : studio;
+  const zone = held?.id ?? zoned.nodes[zoned.nodes.length - 1]!.id;
+  const down = (n: number) => ({ x: INSET, y: HEAD + n * 180 });
+  studio = zoned;
   const addressOf = (node: StudioNode) => ("address" in node ? node.address : "");
   const mine = studio.nodes.filter(
     (node) => node.kind === "issue" && studio.edges.some((edge) => edge.kind === "produced" && edge.from === nodeId && edge.to === node.id),
@@ -708,7 +744,7 @@ function epicReadIn(studio: Studio, nodeId: string, down: (n: number) => { x: nu
     nodes: studio.nodes.filter((node) => !gone.includes(node.id)),
     edges: studio.edges.filter((edge) => !gone.includes(edge.from) && !gone.includes(edge.to)),
   };
-  const filled = missing.reduce((so_far, issue, n) => made(so_far, issue, [nodeId], down(standing.length + n)), narrowed);
+  const filled = missing.reduce((so_far, issue, n) => made(so_far, issue, [nodeId], down(standing.length + n), zone), narrowed);
   const read = {
     issues: standing.length + missing.length,
     total: A_MILESTONES_ISSUES.length,
@@ -722,10 +758,76 @@ function epicReadIn(studio: Studio, nodeId: string, down: (n: number) => { x: nu
   };
 }
 
+/** Fleet's `framing::INSET` and `HEAD`: room inside a frame's edge, and above what it holds for its head. */
+const INSET = 24;
+const HEAD = 48;
+
+/** Where a node sits on the board itself, through every frame it is inside. */
+function onTheBoard(nodes: readonly StudioNode[], id: string | undefined): { x: number; y: number } {
+  const node = nodes.find((one) => one.id === id);
+  if (node === undefined) return { x: 0, y: 0 };
+  const corner = node.within === undefined ? { x: 0, y: 0 } : onTheBoard(nodes, node.within);
+  return { x: node.position.x + corner.x, y: node.position.y + corner.y };
+}
+
+/** What the frames going held, lifted onto whatever held each, where they were on the board — Fleet's rule. */
+function liftedOutOf(nodes: readonly StudioNode[], going: ReadonlySet<string>): StudioNode[] {
+  return nodes.map((node) => {
+    let within = node.within;
+    while (within !== undefined && going.has(within)) within = nodes.find((one) => one.id === within)?.within;
+    if (within === node.within) return node;
+    const at = onTheBoard(nodes, node.id);
+    const corner = within === undefined ? { x: 0, y: 0 } : onTheBoard(nodes, within);
+    const { within: _, ...placed } = node;
+    const position = { x: at.x - corner.x, y: at.y - corner.y };
+    return within === undefined ? { ...placed, position } : { ...placed, within, position };
+  });
+}
+
+/**
+ * A Cluster drawn round the Notes it is made of, as Fleet's `framing::around`
+ * places it: inside the frame they share, or on the board, with each Note
+ * where it was on the board.
+ */
+function framedRound(studio: Studio, cluster: StudioNode, from: readonly string[]): Studio {
+  const members = studio.nodes.filter((node) => from.includes(node.id));
+  const first = members[0]?.within;
+  const within = members.every((node) => node.within === first) ? first : undefined;
+  const at = (node: StudioNode) => (within === undefined ? onTheBoard(studio.nodes, node.id) : node.position);
+  const corner = {
+    x: Math.min(...members.map((node) => at(node).x)) - INSET,
+    y: Math.min(...members.map((node) => at(node).y)) - HEAD,
+  };
+  const { within: _, ...bare } = cluster;
+  const placed: StudioNode = within === undefined ? { ...bare, position: corner } : { ...bare, within, position: corner };
+  return {
+    ...studio,
+    nodes: studio.nodes.map((node) => {
+      if (node.id === cluster.id) return placed;
+      if (!from.includes(node.id)) return node;
+      const spot = at(node);
+      return { ...node, within: cluster.id, position: { x: spot.x - corner.x, y: spot.y - corner.y } };
+    }),
+  };
+}
+
 /** A node the way Fleet writes one, with a `produced` edge from each node that made it. */
-function made(studio: Studio, content: StudioNodeContent, from: readonly string[], position: { x: number; y: number }): Studio {
+function made(
+  studio: Studio,
+  content: StudioNodeContent,
+  from: readonly string[],
+  position: { x: number; y: number },
+  within?: string,
+): Studio {
   const now = tick();
-  const node = { ...content, id: mint("node-"), position, created_at: now, added_by: "person" } as StudioNode;
+  const node = {
+    ...content,
+    id: mint("node-"),
+    ...(within === undefined ? {} : { within }),
+    position,
+    created_at: now,
+    added_by: "person",
+  } as StudioNode;
   const edges = from.map(
     (source): StudioEdge => ({ id: mint("edge-"), from: source, to: node.id, kind: "produced", standing: "accepted", created_at: now }),
   );
@@ -748,7 +850,10 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
     case "group": {
       const content: StudioNodeContent =
         promotion.kind === "cluster" ? { kind: "cluster", title: promotion.title } : { kind: "outline", body: promotion.body };
-      return made(studio, content, promotion.from, promotion.position);
+      const grouped = made(studio, content, promotion.from, promotion.position);
+      // A Cluster is drawn round its Notes, wherever the request said — #1620.
+      if (promotion.kind !== "cluster") return grouped;
+      return framedRound(grouped, grouped.nodes[grouped.nodes.length - 1]!, promotion.from);
     }
     case "defer": {
       const with_it = made(studio, { kind: "deferral", what: promotion.what }, [promotion.raised_on], promotion.position);
@@ -801,8 +906,12 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
 function readIn(studio: Studio, nodeId: string, position: { x: number; y: number }, take: EpicTake): Studio {
   const link = studio.nodes.find((node) => node.id === nodeId);
   if (link === undefined || !("address" in link)) return studio;
-  const down = (n: number) => ({ x: position.x, y: position.y + n * 180 });
-  if (link.kind === "epic") return epicReadIn(studio, nodeId, down, take);
+  if (link.kind === "epic") return epicReadIn(studio, nodeId, position, take);
+  // **Everything it brings back lands in one Zone**, the Finding first and
+  // each Cluster round its Notes — the owner, 2 Oct 2026, as Fleet lays it out.
+  const zoned = made(studio, { kind: "zone" }, [nodeId], position);
+  const zone = zoned.nodes[zoned.nodes.length - 1]!.id;
+  const down = (n: number) => ({ x: INSET, y: HEAD + n * 180 });
   const finding: StudioNodeContent = {
     kind: "finding",
     asked: `Read in ${link.address}`,
@@ -814,9 +923,11 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
     ended: { outcome: "answered", cost_micros: 3_100 },
   };
   // Ended, so no state: `frozen` went on 1 Oct 2026.
-  const marked = made(studio, finding, [nodeId], down(0));
-  const noted = made(marked, { kind: "note", said: "The issue wants Links read in as a second, refusable step" }, [nodeId], { x: position.x + 340, y: position.y });
-  const twice = made(noted, { kind: "note", said: "It names the forge, web pages, sessions and Helm threads as the first sources" }, [nodeId], { x: position.x + 340, y: position.y + 180 });
+  const marked = made(zoned, finding, [nodeId], down(0), zone);
+  const clustered = made(marked, { kind: "cluster", title: "What to read in first" }, [nodeId], { x: INSET + 340, y: HEAD }, zone);
+  const cluster = clustered.nodes[clustered.nodes.length - 1]!.id;
+  const noted = made(clustered, { kind: "note", said: "The issue wants Links read in as a second, refusable step" }, [nodeId], down(0), cluster);
+  const twice = made(noted, { kind: "note", said: "It names the forge, web pages, sessions and Helm threads as the first sources" }, [nodeId], down(1), cluster);
   const contradicted = made(
     twice,
     {
@@ -825,14 +936,19 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
       second: "docs/concepts/kit.md already gives them one",
     },
     [nodeId],
-    { x: position.x + 340, y: position.y + 360 },
+    { x: INSET + 680, y: HEAD },
+    zone,
   );
+  const first = noted.nodes[noted.nodes.length - 1]!;
   const note = twice.nodes[twice.nodes.length - 1]!;
   const contradiction = contradicted.nodes[contradicted.nodes.length - 1]!;
+  const member = (from: string): StudioEdge => ({ id: mint("edge-"), from, to: cluster, kind: "produced", standing: "accepted", created_at: tick() });
   return {
     ...contradicted,
     edges: [
       ...contradicted.edges,
+      member(first.id),
+      member(note.id),
       { id: mint("edge-"), from: note.id, to: contradiction.id, kind: "blocks", standing: "proposed", created_at: tick(), added_by: "helm" },
     ],
   };

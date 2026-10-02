@@ -99,6 +99,11 @@ pub(crate) fn recognised(content: StudioNodeContent) -> StudioNodeContent {
 
 /// A stored Studio row that does not read back. A 500.
 const STUDIO_UNREADABLE: &str = "fleet.studio_unreadable";
+/// A node put in a frame that does not hold its kind, or a Note put in a
+/// Cluster it is not one of the Notes of. A 422.
+const CANNOT_HOLD: &str = "fleet.studio_frame_cannot_hold";
+/// A Note moved out of the Cluster it is in. A 409.
+const STAYS_IN_ITS_CLUSTER: &str = "fleet.studio_note_stays_in_its_cluster";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -124,6 +129,12 @@ where
             StudioError::EdgeExists { .. } => Refusal::IllegalMove(raised(EDGE_EXISTS)),
             StudioError::NotProposed { .. } => Refusal::IllegalMove(raised(EDGE_NOT_PROPOSED)),
             StudioError::Unreadable { .. } => Refusal::Fault(raised(STUDIO_UNREADABLE)),
+            StudioError::CannotHold { .. } | StudioError::NotItsCluster { .. } => {
+                Refusal::Unacceptable(raised(CANNOT_HOLD))
+            }
+            StudioError::StaysInItsCluster { .. } => {
+                Refusal::IllegalMove(raised(STAYS_IN_ITS_CLUSTER))
+            }
         }
     }
 
@@ -631,9 +642,10 @@ where
     ) -> Result<ipc::Studio, Refusal> {
         let at = self.now();
         let node = moving.node_id.to_domain();
+        let frame = moving.within.as_ref().map(ipc::StudioNodeId::to_domain);
         let to = moving.position.to_domain();
         self.written(&studio_id, within, |store, id| {
-            store.move_studio_node(id, &node, to, &at)
+            store.move_studio_node(id, &node, frame.as_ref(), to, &at)
         })
         .await
     }

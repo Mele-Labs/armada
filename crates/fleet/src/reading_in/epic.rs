@@ -43,6 +43,7 @@ pub(crate) fn what_it_took(
 ) -> WhatTheEpicTook {
     let corner = already_read(epic).and_then(|read| read.laid_out_from);
     let mine: Vec<&StudioNode> = made_by_the_read_in(graph, epic.id());
+    let zone = zone_of(graph, epic.id()).map(StudioNode::id);
     let from = corner.or_else(|| corner_of(&mine)).unwrap_or(at);
     let taken = read.taking(take);
 
@@ -54,7 +55,7 @@ pub(crate) fn what_it_took(
         let wanted = taken.issues.iter().any(|issue| issue.address == address);
         if wanted {
             standing.push(node);
-        } else if touched(graph, node, corner) {
+        } else if touched(graph, node, corner) || moved_out(node, zone) {
             kept += 1;
             standing.push(node);
         } else {
@@ -101,6 +102,38 @@ pub(crate) fn what_it_took(
         made,
         taken_back,
     }
+}
+
+/// The Zone this Epic's read-in laid its issues out in, where it made one —
+/// `#1620`. **Its block is measured from the Zone's corner**, so dragging the
+/// Zone moves the block without touching any issue in it.
+pub(crate) fn zone_of<'a>(graph: &'a StudioGraph, epic: &StudioNodeId) -> Option<&'a StudioNode> {
+    graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind() == StudioNodeKind::Zone)
+        .find(|zone| {
+            graph
+                .edges
+                .iter()
+                .any(|edge| produced_it(edge, epic, zone.id()))
+        })
+}
+
+/// Whether this Epic has laid out a block of issues before. **One read before
+/// Zones were built keeps its block on the board**, so a widening fills that
+/// block rather than starting a second one in a Zone.
+pub(crate) fn laid_out_before(graph: &StudioGraph, epic: &StudioNode) -> bool {
+    already_read(epic)
+        .and_then(|read| read.laid_out_from)
+        .is_some()
+        || !made_by_the_read_in(graph, epic.id()).is_empty()
+}
+
+/// A node somebody took out of the Epic's Zone: a person's act, as a move off
+/// the block is.
+fn moved_out(node: &StudioNode, zone: Option<&StudioNodeId>) -> bool {
+    zone.is_some_and(|zone| node.within() != Some(zone))
 }
 
 /// What the Epic already says about itself, where it has been read in.

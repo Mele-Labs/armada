@@ -99,6 +99,7 @@ pub mod fixing;
 mod following;
 mod following_up;
 pub mod footprint;
+mod framing;
 mod freezing;
 mod gate;
 mod group;

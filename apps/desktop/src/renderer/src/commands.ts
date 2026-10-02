@@ -88,8 +88,12 @@ export const addStudioSketch = (studioId: string, drawing: SketchToKeep, positio
   window.armada.addStudioSketch(studioId, drawing, position);
 export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
   window.armada.saveStudioSketch(studioId, nodeId, drawing);
-export const moveStudioNode = (studioId: string, nodeId: string, position: { x: number; y: number }) =>
-  window.armada.moveStudioNode(studioId, nodeId, position);
+export const moveStudioNode = (
+  studioId: string,
+  nodeId: string,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.moveStudioNode(studioId, nodeId, position, within);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>
   window.armada.removeStudioNodes(studioId, nodeIds);
 export const decideStudioEdge = (studioId: string, edgeId: string, accepted: boolean) =>

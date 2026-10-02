@@ -11,7 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2, Zap } from "lucide-react";
+import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2, VectorSquare, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   ACTION,
@@ -108,6 +108,7 @@ const ADD_BY_HAND: readonly { kind: StudioNodeByHandKind; icon: LucideIcon; shor
   { kind: "note", icon: StickyNote, ...bindingOf("add_note") },
   { kind: "link", icon: LinkGlyph, ...bindingOf("add_link") },
   { kind: "sketch", icon: Shapes, ...bindingOf("add_sketch") },
+  { kind: "zone", icon: VectorSquare, ...bindingOf("add_zone") },
 ];
 
 /** One act's binding, or nothing where the registry gives it none. */
@@ -122,7 +123,7 @@ const RAIL_LABEL = "What you can put on this Studio";
 /** Why Run is off, said in its tooltip — `docs/contracts/iconography.md`, *The canvas rail*. */
 const RUN_READ_ONLY = "Continue this Studio to run something.";
 const RUN_NOT_LIVE = "Fleet is not connected, so nothing can be run.";
-/** Why Note, Link and Sketch are off — the owner, 2 Oct 2026: all four greyed, never hidden. */
+/** Why Note, Link, Sketch and Zone are off — the owner, 2 Oct 2026: every act greyed, never hidden. */
 const ADD_READ_ONLY = "Continue this Studio to add to it.";
 const ADD_NOT_LIVE = "Fleet is not connected, so nothing can be added.";
 const RUN_SHEET_READING = "Reading what this checkout declares.";
@@ -188,7 +189,8 @@ export type StudiosProps = {
    * owns**, so leaving the Studio does not take them off its pad.
    */
   onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
-  onMoveNode: (nodeId: string, position: { x: number; y: number }) => Promise<Outcome>;
+  /** Where a person put a node down: its spot from the corner of the frame it landed in, `null` the board. */
+  onMoveNode: (nodeId: string, position: { x: number; y: number }, within: string | null) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
    * node or eighteen, and **all of them or none**: Fleet takes the whole
@@ -555,6 +557,14 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       sketch.placed({ x: Math.round(at.x), y: Math.round(at.y) });
       return;
     }
+    // A Zone holds no words, so it lands where it was put down, empty, with
+    // no field — and a node dropped on it goes in. #1620.
+    if (arming === "zone") {
+      setDraft(null);
+      setArming(null);
+      void props.onAddNode({ kind: "zone" }, { x: Math.round(at.x), y: Math.round(at.y) }).then(answered);
+      return;
+    }
     drafted += 1;
     written.current = null;
     setAddRefused(null);
@@ -755,10 +765,12 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
           // from the edge it was about.
           onDecide={decide}
           deciding={deciding}
-          onNodeMoved={(nodeId, position) => {
+          onNodeMoved={(nodeId, position, within) => {
             // The whiteboard refuses a move while read-only already. This is the second lock.
             if (!editable) return;
-            void props.onMoveNode(nodeId, { x: Math.round(position.x), y: Math.round(position.y) }).then(answered);
+            void props
+              .onMoveNode(nodeId, { x: Math.round(position.x), y: Math.round(position.y) }, within)
+              .then(answered);
           }}
           onSelectionChange={(ids) => {
             // **The same list keeps its identity.** React Flow re-subscribes whenever this handler
@@ -892,7 +904,7 @@ function addOff(editable: boolean, live: boolean): string | undefined {
  *
  * **Run opens the checkout's commands and its node lands where the person is
  * looking** — the owner, 2 Oct 2026. `useStudioPlacement` reads the viewport
- * React Flow holds, which the rail is inside. **While read-only all four are
+ * React Flow holds, which the rail is inside. **While read-only every act is
  * drawn off with their reason**, so the rail is the same in both modes.
  */
 function AddRail({

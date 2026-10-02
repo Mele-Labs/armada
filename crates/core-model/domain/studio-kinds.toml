@@ -67,12 +67,23 @@ notes = "Observation is the one flagged inference Helm may add to an answer."
 
 [nodes.cluster]
 name = "Cluster"
-holds = "Notes a person accepted as one thing"
+holds = "Notes a person accepted as one thing, drawn as a titled frame around them"
 states = []
 status_colour = false
 added_by_hand = false
 dispatches = false
 not_called = []
+notes = "Decided with the owner, 2 Oct 2026: a Cluster is a frame around its Notes, the way a Zone is, and may sit inside a Zone. Moving it moves its Notes. **A Note is in one Cluster at a time**, which is the cost he took: a Note drawn in two frames would have to be drawn twice. Its Notes are still the ones with a `produced` edge into it; the frame is where they sit."
+
+[nodes.zone]
+name = "Zone"
+holds = "Other nodes, ringed off so they move together. Everything a read-in brings back lands in one"
+states = []
+status_colour = false
+added_by_hand = true
+dispatches = false
+not_called = ["Region", "Frame", "Group"]
+notes = "Named by the owner, 28 Sep 2026: Region is a `Region` struct in `crates/verification/src/shown.rs` and a labelled block on a screen, Frame is a captured Note's picture, and Group is what grouping makes. `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. A read-in lands in one, decided with him on 2 Oct 2026: `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`. Holds anything but another Zone. Freehand ink in a Zone, and dispatching one, are held in `#1620`."
 
 [nodes.finding]
 name = "Finding"
@@ -335,9 +346,9 @@ acts = "A person, or Helm on their ask. Started from a node or from nothing, and
 [[promotions]]
 rung = "Read in"
 from = ["link", "issue", "pull_request", "epic"]
-to = ["note", "cluster", "contradiction", "issue"]
+to = ["zone", "note", "cluster", "contradiction", "issue"]
 who = ["scout_on_ask", "fleet"]
-acts = "A scout, on a person's ask. An Epic is Fleet's own read with no scout: a list echoed back by a model is cost spent on a transcription. An Epic reads in as one Issue per issue and makes no Issue draft"
+acts = "A scout, on a person's ask. An Epic is Fleet's own read with no scout: a list echoed back by a model is cost spent on a transcription. An Epic reads in as one Issue per issue and makes no Issue draft. Everything a read-in brings back lands in one Zone the read-in makes"
 
 [[promotions]]
 rung = "Capture"

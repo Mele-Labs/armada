@@ -672,6 +672,14 @@
   reserved = "Adding one node to a canvas: the sketch pad's box, and the Studio rail's own kinds where a kind has no glyph of its own. Never composing a Job, which is `plus`, and never a generic add anywhere off a canvas."
   notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). `plus` alone was refused by its own reservation, which is the title row's Dispatch segment and nothing else: a bare cross means *open the composer*, and a canvas rail carrying it would say a box and a Job are the same act. Enclosing the cross is what makes the claim specific — the square is the thing being added, which is literally what a box on the sketch pad is. Against the rail it joins it collides with nothing: `pencil` is a held instrument on a diagonal, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with one corner peeled, `shapes` three overlapping figures. The objection to expect is `sticky-note`, also a square: they differ inside rather than on the outline, which rule 3 normally refuses — admitted because the rail draws at 16px where a peeled corner survives, and because the two never appear in the same rail. Refused: `plus-circle`, since `circle-*` is reserved to Judge criterion verdicts outright; `square-dashed`, which reads as a placeholder or a selection region rather than an act."
 
+[icons.vector-square]
+  means = "A square outline with a small square on each corner — a region ringed off, held by its corners"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Placing a Zone on a Studio's whiteboard only. Never a selection, never a crop, and never a Cluster, which is `group` on the node bar."
+  notes = "Added 2026-10-02 with the Zone (#1620). A Zone is a ringed-off region of the board that holds other nodes and moves with them, and a square held at its four corners is how every drawing tool draws a frame a person can drag — the literal depiction, which P1 asks of a glyph that is not a proper noun. Against the rail it joins: `sticky-note` peels a corner, `square-plus` carries a cross inside, `shapes` is three figures, `link` a chain; this is an empty outline whose difference is on the outline itself, at the corners, which rule 3 asks for. Against `group` on the node bar: that is a dashed frame round two figures, the act of making a Cluster, and the two never sit in one bar. Refused: `square-dashed`, a dashed outline that differs from `group` only inside it; `frame`, which reads as a crop and was refused for the Sketch for that reason; `scan`, whose four corner brackets are `maximize`'s silhouette turned inward; `layout-dashboard`, which says a screen's panes."
+
 [icons.stamp]
   means = "A plunger over a base line"
   group = "Job state"

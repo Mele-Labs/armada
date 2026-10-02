@@ -29,12 +29,25 @@ use ipc::{
 use crate::daemon::Fleet;
 use crate::studios::{author, EDGE_TO_ITSELF, NODE_BLANK, NO_SUCH_NODE};
 
+/// Whether a node sits in a Cluster's frame.
+fn in_a_cluster(graph: &StudioGraph, node: &StudioNode) -> bool {
+    node.within().is_some_and(|frame| {
+        graph
+            .nodes
+            .iter()
+            .any(|one| one.id() == frame && one.kind() == StudioNodeKind::Cluster)
+    })
+}
+
 /// A group of a kind that is not a Cluster or an Outline. A 422.
 const NOT_A_GROUP: &str = "fleet.studio_group_not_a_group";
 /// A Cluster of something that is not a Note. A 422.
 const CLUSTER_IS_OF_NOTES: &str = "fleet.studio_cluster_is_of_notes";
 /// A group of nothing, or of one node named twice. A 422.
 const GROUP_IS_OF_SEVERAL: &str = "fleet.studio_group_is_of_several";
+/// A Cluster of a Note already in one. A 409: a Note is in one Cluster at a
+/// time, decided with the owner on 2 Oct 2026.
+const NOTE_IN_A_CLUSTER: &str = "fleet.studio_note_in_a_cluster";
 /// A write-up of a kind no rung writes up. A 422.
 const NOT_WRITABLE_UP: &str = "fleet.studio_not_writable_up";
 /// An edit or a dispatch of a node that is not an Issue draft. A 422.
@@ -229,6 +242,7 @@ where
         };
         // A Cluster is Notes a person accepted as one thing. An Outline is a
         // reading of whatever feeds it, so it takes any kind.
+        let mut members: Vec<&StudioNode> = Vec::new();
         for id in &from {
             let member = self.node_on(&graph, id)?;
             if kind == StudioNodeKind::Cluster && member.kind() != StudioNodeKind::Note {
@@ -241,10 +255,31 @@ where
                     ),
                 ));
             }
+            // **One Cluster at a time** — the cost the owner took on 2 Oct
+            // 2026 for a Cluster drawn as a frame round its Notes.
+            if kind == StudioNodeKind::Cluster && in_a_cluster(&graph, member) {
+                return Err(Refusal::IllegalMove(ipc::WireError::raised(
+                    NOTE_IN_A_CLUSTER,
+                    format!("`{}` is already in a Cluster", id.as_str()),
+                    self.run_id(),
+                )));
+            }
+            members.push(member);
         }
+        let made_it: Vec<_> = from.iter().zip(edges).collect();
+        if kind != StudioNodeKind::Cluster {
+            return self
+                .written(&studio_id, within, |store, id| {
+                    store.add_studio_node_produced_by(id, &node, &made_it, &at)
+                })
+                .await;
+        }
+        // **Drawn round its Notes**, wherever the request said to put it: a
+        // frame goes where what it holds already is.
+        let framed = crate::framing::around(&graph, &members);
+        let node = node.placed(framed.within, framed.corner);
         self.written(&studio_id, within, |store, id| {
-            let made_it: Vec<_> = from.iter().zip(edges).collect();
-            store.add_studio_node_produced_by(id, &node, &made_it, &at)
+            store.add_studio_frame(id, &node, &made_it, &framed.holding, &at)
         })
         .await
     }

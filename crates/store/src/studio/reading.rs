@@ -28,7 +28,8 @@ impl Store {
         let mut asking = self
             .conn
             .prepare(
-                "SELECT id, kind, state, content, x, y, created_at, added_by FROM studio_nodes \
+                "SELECT id, kind, state, content, x, y, created_at, added_by, within \
+                 FROM studio_nodes \
                  WHERE studio_id = ?1 ORDER BY created_at, id",
             )
             .map_err(database("reading a Studio's nodes"))?;
@@ -45,12 +46,13 @@ impl Store {
                     },
                     row.get::<_, String>(6)?,
                     row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
                 ))
             })
             .map_err(database("reading a Studio's nodes"))?;
         let mut nodes = Vec::new();
         for row in rows {
-            let (id, kind, state, stored, position, created_at, added_by) =
+            let (id, kind, state, stored, position, created_at, added_by, within) =
                 row.map_err(database("reading one node"))?;
             let unreadable = |why| StudioError::Unreadable {
                 table: "studio_nodes",
@@ -77,7 +79,11 @@ impl Store {
                 Timestamp::from_rfc3339(created_at),
                 added_by,
             )
-            .map_err(|why| unreadable(Unreadable::StateDoesNotFit(why)))?;
+            .map_err(|why| unreadable(Unreadable::StateDoesNotFit(why)))?
+            .placed(
+                within.map(|frame| StudioNodeId::carried(Ulid::carried(frame))),
+                position,
+            );
             nodes.push(node);
         }
         Ok(nodes)

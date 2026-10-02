@@ -28,7 +28,9 @@ export type Target = {
 export type Step =
   | { press: Target; say: string }
   | { look: Target; say: string }
-  | { type: string; into: Target; say: string };
+  | { type: string; into: Target; say: string }
+  /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
+  | { drag: Target; by: { x: number; y: number }; say: string };
 
 export type Walk = { scenario: string; steps: readonly Step[] };
 
@@ -77,12 +79,12 @@ export function inside(scope: Target, target: Target): Target {
 
 /** Where a step points: what it presses, looks at, or types into. */
 export function targetOf(step: Step): Target {
-  return "press" in step ? step.press : "look" in step ? step.look : step.into;
+  return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
 /** What the step does, said plainly for a stop. */
 function verb(step: Step): string {
-  return "press" in step ? "press" : "look" in step ? "look at" : "type into";
+  return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
 const squeezed = (words: string) => words.replace(/\s+/g, " ").trim();
@@ -205,9 +207,36 @@ function fill(element: HTMLElement, words: string): void {
   element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+/**
+ * A drag as a mouse makes one: down on the element's middle, a few moves on
+ * the window, and up where it ends. **On the window and not the element**,
+ * which is where a canvas listens once a drag has started — React Flow's drag
+ * follows the pointer off the node it picked up.
+ */
+function drag(element: HTMLElement, by: { x: number; y: number }): void {
+  const box = element.getBoundingClientRect();
+  const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const at = (x: number, y: number, buttons: number) => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: x,
+    clientY: y,
+    button: 0,
+    buttons,
+  });
+  element.dispatchEvent(new MouseEvent("mousedown", at(from.x, from.y, 1)));
+  for (const part of [0.25, 0.5, 0.75, 1]) {
+    window.dispatchEvent(new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)));
+  }
+  window.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
+}
+
 /** What the step does to its target when the walk moves past it. A look does nothing. */
 export function act(step: Step, element: HTMLElement): void {
   if ("press" in step) press(element);
+  else if ("drag" in step) drag(element, step.by);
   else if ("type" in step) fill(element, step.type);
 }
 

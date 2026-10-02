@@ -1366,6 +1366,7 @@ r              open the run sheet   (detail only)
 N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)
+Z              add a zone           (open studio only)
 ```
 
 **This is the map, not a pattern.** It was settled by drawing the Job

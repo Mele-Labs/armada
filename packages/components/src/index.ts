@@ -321,6 +321,7 @@ export * from "./compositions/StudioAddNode/StudioAddNode";
 export * from "./compositions/StudioName/StudioName";
 export * from "./compositions/StudioPicked/StudioPicked";
 export * from "./compositions/StudioNode/StudioNode";
+export * from "./compositions/StudioFrame/StudioFrame";
 export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
 // A Job's run as the workflow it froze — the canvas, the stacked alternative,
 // the card both draw, and the panel a step or group opens into. #1539.
