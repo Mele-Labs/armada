@@ -227,7 +227,10 @@ describe("what the board refuses to draw", () => {
   test("a boundary with no case says nothing about cases at all", () => {
     const three = groupAt(executingSequential(), 3).boundary;
     expect(three.tests).toBeUndefined();
-    expect(JSON.stringify(three)).not.toContain("Fleet");
+    // What the boundary says, apart from guide 5, which is a card the `?` opens and says Fleet.
+    const { guide, ...says } = three;
+    expect(guide?.number).toBe(5);
+    expect(JSON.stringify(says)).not.toContain("Fleet");
   });
 
   test("a boundary nothing has reached says nothing about a verdict", () => {

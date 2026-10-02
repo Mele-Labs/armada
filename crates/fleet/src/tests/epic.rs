@@ -22,7 +22,6 @@
 //! not a weakening: what the check proves is that Fleet opens the declared path,
 //! and a test in which nothing is ever written proves it by never running it.
 
-use adapter_traits::WorktreeSpec;
 use core_model::{
     Approach, EvidenceType, JobId, JobStatus, NewTask, Origin, PlanChange, StepId, StepState,
 };
@@ -103,10 +102,15 @@ fn rolling_up() -> StepId {
 }
 
 /// A file at a path inside a Job's worktree, with something in it — which is
-/// the whole of what `artifact_exists` reads.
-fn wrote(home: &TempDir, handle: &str, at: &str, text: &str) {
-    let spec = WorktreeSpec::for_job(&home.path().to_string_lossy(), handle).expect("a legal spec");
-    let path = std::path::Path::new(&spec.worktree_path()).join(at);
+/// the whole of what `artifact_exists` reads. Before the Job's first dispatch,
+/// the slot that dispatch will lease.
+fn wrote(home: &TempDir, job: &core_model::Job, at: &str, text: &str) {
+    let spec = crate::tests::daemon::spec_held(home, job).expect("a legal spec");
+    let tree = match spec.slot() {
+        Some(_) => std::path::PathBuf::from(spec.worktree_path()),
+        None => crate::tests::daemon::first_slot(home),
+    };
+    let path = tree.join(at);
     std::fs::create_dir_all(path.parent().expect("a parent")).expect("a place for the artifact");
     std::fs::write(&path, text).expect("the artifact is written");
 }
@@ -154,11 +158,10 @@ async fn planning_a_wave(home: &TempDir) -> (Fixture, JobId) {
         .await
         .expect("a Job at the approval gate");
     let id = job.id().clone();
-    let handle = job.handle();
     worktree_directory(home, &job);
     wrote(
         home,
-        &handle,
+        &job,
         ".armada/artifacts/plan.md",
         "# Wave 1\n\nOne piece.\n",
     );
@@ -202,7 +205,7 @@ async fn approved_the_plan(fleet: &Fixture, job: &JobId, home: &TempDir) {
         .expect("the turn puts a Drone on the dispatching step");
     wrote(
         home,
-        &fleet.load(job).await.expect("the Job").handle(),
+        &fleet.load(job).await.expect("the Job"),
         ".armada/artifacts/dispatched.md",
         "# Dispatched\n\nOne Job.\n",
     );
@@ -347,7 +350,7 @@ async fn a_roll_up_that_asks_for_another_wave_re_enters_the_plan() {
 
     wrote(
         &home,
-        &fleet.load(&job).await.expect("the Job").handle(),
+        &fleet.load(&job).await.expect("the Job"),
         ".armada/artifacts/roll-up.md",
         "# Wave 1\n\nOne Job, and it landed.\n",
     );

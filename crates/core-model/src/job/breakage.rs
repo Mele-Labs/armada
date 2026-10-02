@@ -6,8 +6,9 @@
 //! forgetting the fix removes it.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
-use crate::job::ids::{JobId, ManifestId};
+use crate::job::ids::{JobId, ManifestId, RepoPath};
 
 /// What broke: the Check a failing test ran under, the test's name as the
 /// Drone copied it from the output, and what running it on main came to.
@@ -28,6 +29,10 @@ pub struct BreakageClaim {
     pub repository: ManifestId,
     pub breakage: Breakage,
     pub reported_by: JobId,
+    /// The test's files, as the reporting Drone named them and Fleet found
+    /// them in main's checkout. **Empty on a claim from before #1673**, and on
+    /// one Fleet spotted itself: those hold off only what the fix declares.
+    pub files: Vec<RepoPath>,
 }
 
 /// A Job whose Check failed on a claimed test, pointed at the Job fixing it.
@@ -42,4 +47,20 @@ pub struct FixWaiter {
     pub repository: ManifestId,
     pub check: String,
     pub test: String,
+}
+
+/// Files a fix that has landed still holds off a Job, until the Job's own copy
+/// has taken the fix. #1673.
+///
+/// **Written when the fix lands and given back at the Job's next catch-up**,
+/// because a Job pointed at a fix is not caught up when the fix merges: Fleet
+/// merges the base into a Job's branch only as a Drone is put on it. Until
+/// then the Job's copy holds the test as it was broken, so these stay out of
+/// its write scope.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LandedHold {
+    pub held: JobId,
+    pub fix: JobId,
+    pub test: String,
+    pub paths: Vec<RepoPath>,
 }

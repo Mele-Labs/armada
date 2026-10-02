@@ -475,7 +475,7 @@ export const EscapeOverASheet: Story = {
     const [sheet, setSheet] = useState(true);
     return (
       <Closable>
-        <Sheet open={sheet} title="Activity log" onClose={() => setSheet(false)}>
+        <Sheet kind="story-log" open={sheet} title="Activity log" onClose={() => setSheet(false)}>
           1676 entries.
         </Sheet>
       </Closable>

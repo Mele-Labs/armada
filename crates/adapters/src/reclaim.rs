@@ -91,6 +91,11 @@ pub enum WorktreeGone {
         path: String,
         why: String,
     },
+    /// A pool slot. **Never removed here**: the pool reuses it, and a release
+    /// is what gives it back. Only the branch half was asked.
+    Pooled {
+        path: String,
+    },
 }
 
 /// What became of the branch.
@@ -310,7 +315,12 @@ pub fn reclaim(
         why: cause.message().to_string(),
     })?;
 
-    let worktree = remove_the_worktree(&repo, spec);
+    let worktree = match spec.slot() {
+        Some(_) => WorktreeGone::Pooled {
+            path: spec.worktree_path(),
+        },
+        None => remove_the_worktree(&repo, spec),
+    };
     // Only after the record is gone. A branch still checked out by a
     // registration git knows about cannot be deleted, and the message git gives
     // for that names the branch rather than the record.

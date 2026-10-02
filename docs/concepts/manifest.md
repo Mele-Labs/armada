@@ -720,6 +720,7 @@ The gate names a tier the step never declared, so advancing would advance on the
 | Absent | Every brief, a Judge's or a Drone's, is exactly what it was before the key existed |
 | The path | One file inside the checkout, refused at the key otherwise — a deliverable's rules |
 | Read from | The repository's own checkout, never the Job's worktree, so a Drone cannot rewrite what its Judge is told. A Drone's brief reads it when the Drone is put on, a Judge's when the work is judged |
+| Beside the Judge's own reading | A Judge can also read the same checkout for itself, since 2 Oct 2026, so a repository naming no file is not one its Judge is blind to. The file is still the repository saying it outright: quoted in every brief, where a reading Judge would have to think to look |
 | Over the bound | Cut on a whole line at the `standing-rules-cap` setting, the same for both readers, and the brief says it was cut |
 | Not there | The brief says the file could not be read |
 

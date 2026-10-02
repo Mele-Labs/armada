@@ -13,11 +13,13 @@
 //! waits for a person; the Drone's own step is still decided by its Checks.
 
 mod claims;
+mod holding_off;
 mod refusal;
 mod repeated;
 mod running;
 mod waiting;
 
+pub use holding_off::HeldOff;
 pub use refusal::NotFixed;
 pub(crate) use repeated::Repeat;
 pub(crate) use waiting::{failures_said, FixStands};
@@ -27,7 +29,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, Breakage, BreakageClaim, Job, JobId, ManifestId, ResolvedCheck, StepId, Ulid,
+    Actor, Breakage, BreakageClaim, Job, JobId, ManifestId, RepoPath, ResolvedCheck, StepId, Ulid,
 };
 use ipc::mcp::DraftFix;
 use tokio::task::JoinHandle;
@@ -98,15 +100,22 @@ pub struct Drafted(pub JobId);
 pub struct FixReported(String);
 
 impl FixReported {
-    fn of(test: &str, came_to: &Result<Drafted, NotFixed>) -> FixReported {
+    fn of(test: &str, files: &[String], came_to: &Result<Drafted, NotFixed>) -> FixReported {
         const HEADING: &str = "THE TEST YOU SAID IS BROKEN ON MAIN";
         FixReported(match came_to {
             Ok(Drafted(fix)) => format!(
                 "{HEADING}\n\n`{test}` fails on main too, so the failure is not your change. \
-                 A fix is drafted as Job {} and waits for a person's approval. Carry on with \
-                 your part: your own checks still fail on that test until the fix lands, so \
-                 say so in your evidence.",
-                fix.as_str()
+                 A fix is drafted as Job {} and waits for a person's approval. Until it lands \
+                 and reaches your copy, {} are that fix's and outside what this Job may change: \
+                 a declaration naming one is refused. Carry on with the rest of your part: your \
+                 own checks still fail on that test until the fix lands, so say so in your \
+                 evidence.",
+                fix.as_str(),
+                files
+                    .iter()
+                    .map(|path| format!("`{path}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             Err(why) => format!("{HEADING}\n\n{why}."),
         })
@@ -149,6 +158,7 @@ where
     ) -> Result<FixAnswer, NotFixed> {
         let test = fix.test.trim().to_string();
         let request = self.what_fix_is_asked(caller, &fix, &test).await?;
+        on_main(&request.root, &fix.files)?;
         let claimed = self
             .store()
             .lock()
@@ -159,8 +169,11 @@ where
         if let Some(claim) = claimed {
             // Pointed at the fix, and hears when it lands. #1001. The receipt is
             // what tells it now, so nothing is queued.
+            // Told the files it is held off by a queued turn, since the receipt
+            // names only the fix. #1673.
             if claim.fix != *caller && claim.reported_by != *caller {
-                self.point_at(caller, &claim, false).await;
+                let held = !self.held_by(&claim).await.is_empty();
+                self.point_at(caller, &claim, held).await;
             }
             return Ok(FixAnswer::AlreadyClaimed(claim.fix));
         }
@@ -359,8 +372,12 @@ where
         };
         self.fixing_on_main().lock().await.remove(&request.root);
         let came_to = came_to?;
-        self.told_fix(caller, request, &FixReported::of(test, &came_to))
-            .await;
+        self.told_fix(
+            caller,
+            request,
+            &FixReported::of(test, &fix.files, &came_to),
+        )
+        .await;
         Some(came_to)
     }
 
@@ -423,6 +440,7 @@ where
                 failure: fix.failure.clone(),
             },
             reported_by: caller.clone(),
+            files: fix.files.iter().map(RepoPath::new).collect(),
         };
         let _ = self
             .store()
@@ -430,6 +448,27 @@ where
             .await
             .claim_breakage(&claim, &self.now());
         Ok(Drafted(drafted.id().clone()))
+    }
+}
+
+/// Every file a Drone named is a file in main's checkout, by a path that stays
+/// inside it. Fleet spotting a fix itself names none. #1673.
+fn on_main(root: &str, files: &[String]) -> Result<(), NotFixed> {
+    let missing: Vec<String> = files
+        .iter()
+        .filter(|file| {
+            let path = std::path::Path::new(file.as_str());
+            let inside = path.is_relative()
+                && path
+                    .components()
+                    .all(|part| matches!(part, std::path::Component::Normal(_)));
+            !(inside && std::path::Path::new(root).join(path).is_file())
+        })
+        .cloned()
+        .collect();
+    match missing.is_empty() {
+        true => Ok(()),
+        false => Err(NotFixed::NotOnMain { files: missing }),
     }
 }
 

@@ -41,6 +41,10 @@ pub enum NotFixed {
     NotDrafted {
         why: String,
     },
+    /// A file the Drone named is not a file in main's checkout. #1673.
+    NotOnMain {
+        files: Vec<String>,
+    },
 }
 
 impl fmt::Display for NotFixed {
@@ -114,6 +118,17 @@ impl fmt::Display for NotFixed {
                  again if it was copied wrong"
             ),
             NotFixed::NotDrafted { why } => write!(out, "the fix Job could not be drafted: {why}"),
+            NotFixed::NotOnMain { files } => write!(
+                out,
+                "{} is not a file in main's checkout, so nothing was run and nothing is \
+                 drafted. Name the files the test lives in by their paths from the \
+                 repository root, as they are on main",
+                files
+                    .iter()
+                    .map(|file| format!("`{file}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }

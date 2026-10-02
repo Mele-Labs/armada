@@ -20,7 +20,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::{Landable, Remark, UncheckedHead, UnderReview, Worktree};
+use crate::{Landable, Remark, UncheckedHead, UnderReview, Worktree, WorktreeSpec};
 
 /// The branch a Job's work merges into, and where the name came from.
 ///
@@ -826,18 +826,19 @@ pub trait Delivery {
     ///
     /// **Works whether or not a Job's own worktree is still there.** A finished
     /// Job's worktree is very often reclaimed before its pull request is
-    /// merged, so this derives one from `handle` — the same worktree if it is
-    /// still on disk, or a scratch checkout onto the same branch, attached and
-    /// detached inside this one call, where it is not.
+    /// merged, so this works in `spec`'s worktree where it is on disk, and
+    /// otherwise in a scratch checkout onto the same branch, attached and
+    /// detached inside this one call.
     ///
     /// **Called only for [`Rendering::FromASupersededBase`]**, and at most once
     /// per base — see `fleet::currency`, which holds that guard durably rather
     /// than in memory, because losing it on a restart is `#663`'s own finding.
     ///
-    /// `in_repo` is the repository every worktree was cut from, `handle` is the
-    /// Job's own — which is what a worktree and a branch are both derived from
-    /// — and `base` is the branch the forge named as what this merges into.
-    fn kept_current(&self, in_repo: &str, handle: &str, base: &str) -> KeptCurrent;
+    /// `spec` is the Job's worktree as Fleet looks it up: the pool slot it
+    /// still holds, where its branch is checked out, or the derived path a
+    /// scratch checkout is attached at. `base` is the branch the forge named
+    /// as what this merges into.
+    fn kept_current(&self, spec: &WorktreeSpec, base: &str) -> KeptCurrent;
 
     /// The local commit a base branch is on, read without a worktree.
     ///

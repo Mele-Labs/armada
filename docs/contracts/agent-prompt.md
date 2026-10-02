@@ -175,6 +175,19 @@ went, so rule 2 is unchanged. A Manifest without the key gives every brief
 exactly as before. Added after a Judge refused a plan for fixing the prose
 its change made wrong, calling it scope expansion.
 
+**Told it may read the repository.** Since 2 Oct 2026 every Judge call can
+read the repository's own checkout, read-only, for `judge-read-turns` turns,
+and its brief says so: that it may read CLAUDE.md, the docs and the skills to
+learn what the repository requires of a change, that work the repository
+requires is not scope expansion, and that it names a file it read rather than
+quoting it, since a refusal's quotations are held to the brief. The same five
+looks and the second reading. **`standing_rules` is the repository's explicit
+statement and the reading is the rest of it**: the named file is quoted in
+every brief whether or not the Judge would have found it, and a repository
+naming none still gets a Judge that can look. The checkout is where
+`standing_rules` is read from, never the Job's worktree, and Fleet's own
+`.armada/` is refused, so the reading reaches no transcript and rule 2 holds.
+
 **Never told:** the Drone transcript or self-report, per constitutional
 rule 2. The other panel members' verdicts under `panel_size` > 1, per
 rule 5.
@@ -544,6 +557,13 @@ fix lands or ends without landing. A fix item says the test is another Job's to
 fix and that this Job's checks still fail on it until the fix lands; the
 sentences about shared files are left out of a turn that carries only fixes.
 
+**A fix that holds files off this Job names them** (#1673): while it is
+fixing, that they are outside what this Job may change; when it lands, that
+they stay so until the next part starts; and in that part's opening brief,
+once the catch-up has brought the fix in, that it is already in this copy and
+the files are this Job's again. A fix that ends without landing frees them in
+the same line.
+
 **Queued, then spaced.** News waits until the Drone has gone `fleet::peers::SPACING`
 without a peer turn, and one turn names at most `fleet::peers::AT_MOST` items. Where no
 Drone is live, it rides the next opening brief as a block, and the landing
@@ -643,10 +663,13 @@ the run and nothing else. Its own `Occasion`, `Fix`.
 ┌─ THE TEST YOU SAID IS BROKEN ON MAIN ──────────
 │ `<test>` fails on main too, so the failure is
 │ not your change. A fix is drafted as Job <id>
-│ and waits for a person's approval. Carry on with
-│ your part: your own checks still fail on that
-│ test until the fix lands, so say so in your
-│ evidence.
+│ and waits for a person's approval. Until it
+│ lands and reaches your copy, `<file>` are that
+│ fix's and outside what this Job may change: a
+│ declaration naming one is refused. Carry on with
+│ the rest of your part: your own checks still
+│ fail on that test until the fix lands, so say so
+│ in your evidence.
 │
 │ (or, where it passes on main or could not run
 │ there, the sentence saying why nothing was
@@ -1495,6 +1518,36 @@ Drone is offered no plan tool.
 step's does not, and the rail's *Submit when this part is done, then wait*
 still holds beside it: a hand-in that is not the last is followed by Fleet
 ending the Drone, and the last one's Drone waits for the outcome as any does.
+
+### Files another Job is fixing — added 2 Oct 2026
+
+Where a test this Job's checks failed on is claimed by another Job's fix
+(#1673), every sample above gains one block after the peer block and before
+the step, for every Drone the Job puts on. `fleet::fixing::HeldOff::text`
+renders it, naming every file and never counting them away.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ FILES ANOTHER JOB IS FIXING ───────────────────
+│ A test this Job's checks failed on is another
+│ Job's to fix, and these files are that fix's.
+│ Until it lands and reaches your copy they are
+│ outside what this Job may change: a declaration
+│ naming one is refused, and so is an edit to one.
+│ Do the rest of your part around them, and say in
+│ your evidence that the test still fails until
+│ the fix lands.
+│
+│ - "fix the parser on main" (7-fix-the-parser)
+│   is fixing `parser::takes_it`: `src/parse.rs`.
+└──────────────────────────────────────────────
+```
+
+**"Reaches your copy"**, not "lands": a fix that has merged is still absent
+from this Job's branch until the next part's catch-up, and the block keeps the
+line, as *landed its fix, and your branch could not take it yet*, where that
+catch-up could not replay.
 
 ---
 

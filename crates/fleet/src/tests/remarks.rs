@@ -10,9 +10,7 @@
 
 use std::time::Duration;
 
-use adapter_traits::{
-    Landing, Remark, Rendering, UnderReview, WhatPeopleSaid, WhatTheForgeRan, WorktreeSpec,
-};
+use adapter_traits::{Landing, Remark, Rendering, UnderReview, WhatPeopleSaid, WhatTheForgeRan};
 use core_model::JobStatus;
 use testkit::{Delivered, FakeVcs, FakeWorkProduct};
 
@@ -120,8 +118,7 @@ fn sized_comment(id: &str, by: &str, len: usize) -> Remark {
 /// Job's worktree.
 async fn comments_file(fleet: &Fixture, home: &TempDir, job_id: &core_model::JobId) -> String {
     let job = fleet.load(job_id).await.unwrap();
-    let spec =
-        WorktreeSpec::for_job(&home.path().to_string_lossy(), &job.handle()).expect("a legal spec");
+    let spec = crate::tests::daemon::spec_held(&home, &job).expect("a legal spec");
     std::fs::read_to_string(
         std::path::Path::new(&spec.worktree_path()).join(".armada/comments/review.md"),
     )

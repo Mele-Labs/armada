@@ -316,8 +316,8 @@ impl Base {
 /// shared one is two levels above it. A path that is not that shape belongs to
 /// an ordinary checkout, which is its own shared directory.
 ///
-/// Derived rather than stored, for the reason the worktree path itself is: a
-/// second copy of a location can disagree with the first.
+/// Derived rather than stored: a second copy of a location can disagree with
+/// the first.
 fn shared_git_dir(repo: &Repository) -> PathBuf {
     let git_dir = repo.path();
     let under_worktrees = git_dir

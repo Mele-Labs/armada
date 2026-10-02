@@ -18,7 +18,6 @@
 
 use std::sync::Arc;
 
-use adapter_traits::WorktreeSpec;
 use core_model::JobId;
 use ipc::mcp::DeclareScope;
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Gate, Scoped, Sketch};
@@ -128,14 +127,14 @@ async fn two_approved_jobs_are_worked_at_once_each_in_its_own_worktree() {
     assert_eq!(working.len(), 2, "both Jobs are being worked: {working:?}");
     assert!(working.contains(&first) && working.contains(&second));
 
-    let root = home.path().to_string_lossy().to_string();
-    let one = WorktreeSpec::for_job(&root, first.as_str()).expect("a legal spec");
-    let two = WorktreeSpec::for_job(&root, second.as_str()).expect("a legal spec");
-    assert_ne!(
-        one.worktree_path(),
-        two.worktree_path(),
-        "a worktree is per Job, so two Jobs is two directories"
-    );
+    let one = fleet.load(&first).await.expect("the first").worktree_slot();
+    let two = fleet
+        .load(&second)
+        .await
+        .expect("the second")
+        .worktree_slot();
+    assert!(one.is_some() && two.is_some(), "each leased a slot");
+    assert_ne!(one, two, "a worktree is per Job, so two Jobs is two slots");
 
     // And a Drone each, which is the other half of "at once": one slot holding
     // two Jobs in turn would answer the roster the same way and hold one pid.

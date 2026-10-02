@@ -23,6 +23,26 @@ where
         &self,
         job: &Job,
     ) -> Result<Vec<ipc::ClaimedBreakage>, Adrift> {
+        let (mut drawn, claims) = self.claims_drawn(job).await?;
+        // After the store is let go, since what the fix declared is read
+        // through it. #1673.
+        for (row, claim) in drawn.iter_mut().zip(&claims) {
+            row.held_off = self
+                .held_by(claim)
+                .await
+                .iter()
+                .map(|path| path.as_str().to_string())
+                .collect();
+        }
+        Ok(drawn)
+    }
+
+    /// The rows, under one hold of the store, and the claims they were drawn
+    /// from.
+    async fn claims_drawn(
+        &self,
+        job: &Job,
+    ) -> Result<(Vec<ipc::ClaimedBreakage>, Vec<core_model::BreakageClaim>), Adrift> {
         let store = self.store().lock().await;
         let mut claims = store
             .breakages_claimed_by(job.id())
@@ -54,7 +74,7 @@ where
                 .map(|found| found.title().as_str().to_string())
         };
         let mut drawn = Vec::with_capacity(claims.len());
-        for claim in claims {
+        for claim in claims.clone() {
             let waiting = store
                 .waiting_on_fix(&claim.fix)
                 .map_err(Adrift::Reading)?
@@ -76,8 +96,9 @@ where
                 test: claim.breakage.test,
                 failure: claim.breakage.failure,
                 waiting,
+                held_off: Vec::new(),
             });
         }
-        Ok(drawn)
+        Ok((drawn, claims))
     }
 }
