@@ -91,12 +91,17 @@ export const EveryKind: Story = {
       await expect(canvas.getAllByRole("group", { name: / produced / })).toHaveLength(11);
     });
 
-    await step("a proposed relation is answered on its own label, which names who proposed it", async () => {
-      const proposal = canvas.getByRole("group", { name: /^Helm proposes: Sketch\s+same as / });
+    await step("a proposed relation is a dot on its line, which opens to be answered and names who proposed it", async () => {
+      // **Shut until asked for** — the owner, 2 Oct 2026: the card sat on the Note under its line.
+      const named = /^Helm proposes: Sketch\s+same as /;
+      await expect(canvas.queryByRole("group", { name: named })).toBeNull();
+      // Focus opens it as hover does, so the keyboard reaches Accept by tabbing onto the dot.
+      canvas.getByRole("button", { name: named }).focus();
+      const proposal = await canvas.findByRole("group", { name: named });
       await userEvent.click(within(proposal).getByRole("button", { name: /^Accept: / }));
       await expect(args.onDecide).toHaveBeenCalledWith("r2", true);
       // Where the record names nobody, the label says the bare fact.
-      await expect(canvas.getAllByRole("group", { name: /^Proposed: / })).toHaveLength(2);
+      await expect(canvas.getAllByRole("button", { name: /^Proposed: / })).toHaveLength(2);
     });
 
     const note = canvas.getByRole("group", { name: /^Note: The legend under the step bar/ });
@@ -172,7 +177,9 @@ export const ReadOnly: Story = {
     });
 
     await step("a proposed relation says how to answer it, and offers no answer", async () => {
-      await expect(canvas.getAllByText("Continue to accept or reject.")).toHaveLength(3);
+      canvas.getAllByRole("button", { name: /^Proposed: / })[0]!.focus();
+      const proposal = await canvas.findByRole("group", { name: /^Proposed: / });
+      await expect(within(proposal).getByText("Continue to accept or reject.")).toBeVisible();
       await expect(canvas.queryByRole("button", { name: /^Accept: / })).toBeNull();
     });
   },

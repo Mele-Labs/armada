@@ -119,6 +119,31 @@ test("a Zone is put down from the rail, and a Note dropped on it goes in", async
   await expect.poll(() => kept(fleet, "read-in-loose").within).toBe(added.id);
 });
 
+/** Whether two boxes share any area. */
+const overlap = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+test("a proposed relation is a dot on its line that covers no card, and opens to be answered", async () => {
+  const fleet = await openEditable();
+  const named = /^Helm proposes: Note Done when, on a failed task/;
+  const dot = page.getByRole("button", { name: named });
+  await expect.element(dot).toBeVisible();
+
+  // The owner, 2 Oct 2026: the card sat on "Watch for a `scope` change" and hid its text. Shut, the
+  // proposal draws nothing over the board but its dot, and the dot sits on no card.
+  expect(page.getByRole("group", { name: named }).query()).toBeNull();
+  const drawn = [...document.querySelectorAll(".armada-studio-edge__proposal-at")].map((one) => one.getBoundingClientRect());
+  const cards = page.getByRole("group", { name: /^(Note|Finding|Contradiction|Issue): / }).elements();
+  for (const card of cards) {
+    for (const label of drawn) expect(overlap(label, card.getBoundingClientRect()), card.getAttribute("aria-label")!).toBe(false);
+  }
+
+  await dot.hover();
+  const proposal = page.getByRole("group", { name: named });
+  await expect.element(proposal.getByText("blocks", { exact: true })).toBeVisible();
+  await proposal.getByRole("button", { name: /^Reject: / }).click();
+  await expect.poll(() => fleet.studios()[0]!.edges.some((edge) => edge.id === "read-in-blocks" && edge.standing === "proposed")).toBe(false);
+});
+
 /**
  * A press on a frame's own ground — inside it, over none of the cards it holds — the way a pointer
  * makes one. **Read off what the board draws there**, so the press lands on the frame and not on a

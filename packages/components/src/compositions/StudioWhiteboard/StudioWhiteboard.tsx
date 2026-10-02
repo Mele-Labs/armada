@@ -42,10 +42,10 @@ import {
  * **No relation carries colour; one standing does.** Produced is a bare line;
  * Same as, Blocks and Answers carry their label and nothing more, so a hue
  * never says which kind an edge is. A relation nobody has answered is dashed,
- * and its label is a small card: who proposed it, in `awaiting_review`'s
- * amber, the relation, and Accept and Reject under it. **The answer is given
- * where the relation lands** — the owner, 29 Sep 2026: a queue in the corner
- * was disconnected from the edge it was about. Nothing here draws or deletes a
+ * with a dot on it in `awaiting_review`'s amber that opens a small card on
+ * hover or focus: who proposed it, the relation, and Accept and Reject under
+ * it. **The answer is given where the relation lands** — the owner, 29 Sep
+ * 2026: a queue in the corner was disconnected from the edge it was about. Nothing here draws or deletes a
  * relation on its own; accepting one is the caller's `onDecide`.
  */
 
@@ -307,11 +307,20 @@ function DraftNodeView({
 }
 
 /**
- * A proposed relation's label: who proposed it, the relation, and the answer.
- * **Its buttons are named by the whole sentence**, `Accept: Note A same as
- * Note B`, since a board can hold several proposals and a bare Accept names
- * none of them. `nodrag nopan` are React Flow's own: a press here is a press,
- * not the start of a pan.
+ * A proposed relation's label: a dot on its line, and the card it opens — who
+ * proposed it, the relation, and the answer. **Its buttons are named by the
+ * whole sentence**, `Accept: Note A same as Note B`, since a board can hold
+ * several proposals and a bare Accept names none of them. `nodrag nopan` are
+ * React Flow's own: a press here is a press, not the start of a pan.
+ *
+ * **A dot until it is asked for** — the owner, 2 Oct 2026: *"The label stops
+ * covering the cards it runs between."* The card sat at the line's middle and
+ * hid the text of the Note under it. Moving it along the line was the other
+ * offer, and it fails on the board he drew it on: a line out of one column of
+ * a Zone crosses the next one's cards, and the gaps between columns are
+ * narrower than the card. **It opens on hover and on focus**, so the keyboard
+ * reaches Accept by tabbing onto the dot, and stays open while the pointer or
+ * the focus is anywhere inside it.
  */
 function ProposalCard({
   id,
@@ -325,13 +334,13 @@ function ProposalCard({
   at: CSSProperties;
 }) {
   const { proposer, said, readOnly, deciding, onDecide } = proposal;
+  const named = `${proposer}: ${said}`;
   return (
-    <Card
-      className="armada-studio-edge__proposal nodrag nopan"
-      style={at}
-      role="group"
-      aria-label={`${proposer}: ${said}`}
-    >
+    <span className="armada-studio-edge__proposal-at nodrag nopan" style={at}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={named}>
+        <span className="armada-studio-edge__mark" aria-hidden />
+      </Button>
+    <Card className="armada-studio-edge__proposal" role="group" aria-label={named}>
       <span className="armada-studio-edge__proposer">{proposer}</span>
       <span className="armada-studio-edge__relation">{label}</span>
       {readOnly ? (
@@ -359,6 +368,7 @@ function ProposalCard({
         </span>
       )}
     </Card>
+    </span>
   );
 }
 

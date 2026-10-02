@@ -9,3 +9,5 @@ A proposed relation was drawn twice: dashed on the board with "proposed, waiting
 **Cost he took:** a proposal whose edge is panned off screen is invisible until you pan to it, and nothing else points you there. No list, count or finder compensates.
 
 **Where it landed:** note g0zl, on `studios/proposal-on-the-board`, #1670.
+
+**Then, 2 Oct 2026**, on a read-in's Zone where the card hid the Note under its line: *"The label stops covering the cards it runs between: it moves along its line, or shrinks to a dot that opens on hover."* **Built as the dot**, which opens on focus too, so the keyboard reaches Accept. Moving along the line was not built: on that Zone the line crosses a column of cards, and the gaps between columns are narrower than the card, so there is no stretch of it for the card to move to. **Cost:** who proposed a relation is no longer read at a glance; the amber dot says only that one waits.

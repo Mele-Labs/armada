@@ -21,34 +21,58 @@
   pointer-events: none;
 }
 
-/* A relation somebody proposed and nobody has answered, answered where it is
-   drawn: who proposed it, the relation, and Accept and Reject. A glass card
-   like the nodes it joins, and tighter than one, since it sits on the line
-   between two of them. It takes the pointer the plain label refuses.
+/* A relation somebody proposed and nobody has answered: a dot on its line,
+   and the card it opens on hover or focus — who proposed it, the relation,
+   and Accept and Reject. The dot is all that stands on the line, so the card
+   no longer covers the Notes the line runs between (the owner, 2 Oct 2026).
 
    **Over the nodes it joins, never under them.** React Flow draws its edge
    labels in a layer before the nodes', and two nodes close together left the
    card behind both with its buttons unreachable (measured, 29 Sep 2026). A
    picked node is lifted to 1000 (`SELECTED_NODE_Z` in `@xyflow/system`), and
-   picking one end of a proposal is how a person reads it, so the card is one
-   over that. It is not a layer of the app's: it stacks inside the board.
-
-   **Written heavier than `glass.css`'s hover**, which drops a card to `1`
-   while the pointer is on it, and so put the card back under a picked node
-   the moment a person reached for Accept. */
-.armada-studio-whiteboard .armada-card.armada-studio-edge__proposal {
+   picking one end of a proposal is how a person reads it, so the label is one
+   over that. It is not a layer of the app's: it stacks inside the board. The
+   placing transform makes the label its own stacking context, so the lift is
+   on it rather than on the card inside. */
+.armada-studio-edge__proposal-at {
+  position: absolute;
   z-index: 1001;
+  pointer-events: all;
 }
 
+/* The dot's own hit area: the mark and a step of room round it, rather than a
+   whole control's square laid over the card the line crosses. */
+.armada-studio-edge__proposal-at > .armada-button {
+  width: auto;
+  height: auto;
+  padding: var(--space-1);
+}
+
+.armada-studio-edge__mark {
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--status-awaiting-review);
+}
+
+/* Hung from its dot, touching it, so the pointer moving down onto Accept never
+   leaves what it is hovering — and the dot stays in sight, saying which line
+   the card is about. */
 .armada-studio-edge__proposal {
   position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   white-space: nowrap;
-  pointer-events: all;
+}
+
+.armada-studio-edge__proposal-at:not(:hover, :focus-within) > .armada-studio-edge__proposal {
+  display: none;
 }
 
 /* Who proposed it, as the card's eyebrow. The hue is `awaiting_review`'s —
