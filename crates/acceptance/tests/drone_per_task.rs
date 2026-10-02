@@ -2,7 +2,8 @@
 //! Drone per task, group by group, and I can see and act on each task, each
 //! group and each Drone.** Added slice by slice; a slice not named is its
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
-//! tally (`api::stream`), 1a's signers, and 1b's plan worked a Drone per task.
+//! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task, and
+//! 2's red group going round on its own before its tasks fail.
 //!
 //! | Not proved here | Why not |
 //! |---|---|
@@ -10,19 +11,21 @@
 //! | Bridge redrawing the pane whole after a `missed` | Nothing here renders; `apps/desktop/src/main/observe.test.ts` |
 //! | A Fleet built before 1a refuses the store | Hermetic; `crates/store/src/tests/signers.rs` |
 //! | Fleet writing the line once a minute | A `tokio` interval in `crates/armada/src/serve.rs` |
+//! | A group's round, failed tasks and restart through the routes | `crates/fleet/src/tests/groups.rs` drives the fake harness and the store |
 
 // The bench is shared with every other milestone's test and none uses all of it.
 #[allow(dead_code)]
 mod bench;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
-use fleet::tasking::{self, HandIn};
+use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, Spent, StepTarget};
+use fleet::tasking::{self, GroupEnd, HandIn, NotRestartable};
 use fleet::{briefing, Crossed, Ruling, ThePlan};
 use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesChanged};
 use ipc::{JobPlanChanged, JobStateChanged, JobSummary, RepositoryList};
 use testkit::{FakeJudge, FakeWorkProduct};
 
-use bench::arc::{feature_with_a_drone_per_task, step_signers};
+use bench::arc::{feature_with_a_drone_per_task, per_task_with_two_retries, step_signers};
 use bench::board::received_detail;
 use bench::focus::{drone, now};
 use bench::plan::{called, received_event, Planned};
@@ -325,12 +328,14 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
 
     let mut plan = planned.kept(called("record_plan", THREE_TASKS), "plan", 1);
     let mut hand_ins: Vec<HandIn> = Vec::new();
+    // Nothing has gated a group yet, and the plan recorded none: one group.
+    let runs = GroupRuns::default();
     for (n, (id, claimed, shown)) in HANDED_IN.iter().enumerate() {
         // ------------------------------------------------ the spawn, in order
-        let next = tasking::next_task(&plan).expect("a task is still open");
+        let next = tasking::next_task(&plan, &runs).expect("a task is still open");
         assert_eq!(next.id(), task(id), "the next spawn takes plan order");
         assert!(
-            tasking::together(&plan, &hand_ins).is_none(),
+            tasking::together(&plan, &runs, &hand_ins).is_none(),
             "the step's gate waits while a task is open or working"
         );
 
@@ -401,10 +406,10 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
 
     // ---------------------------------------------- the step's one submission
     assert!(
-        tasking::next_task(&plan).is_none(),
+        tasking::next_task(&plan, &runs).is_none(),
         "no task is left to spawn a Drone for"
     );
-    let together = tasking::together(&plan, &hand_ins).expect("the step's gate fires");
+    let together = tasking::together(&plan, &runs, &hand_ins).expect("the step's gate fires");
     for (id, claimed, shown) in HANDED_IN {
         assert!(
             together.claimed.contains(&format!("{id}: {claimed}")),
@@ -453,5 +458,226 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
         back.task.as_deref(),
         Some("T2"),
         "a Drone's row names the task it was put on"
+    );
+}
+
+/// Two groups: T1 and T2 run first and their Checks gate them together, then T3.
+const TWO_GROUPS: &str = r#"{"approach":"Bound the reader and cover it, then say so",
+    "tasks":[{"title":"Stop the reader at the end","note":"","scope":["crates/store/src/read.rs"],"expects":"","group":1},
+             {"title":"Cover the last row","note":"","scope":[],"expects":"","group":1},
+             {"title":"Note the bound in the module","note":"","scope":[],"expects":"","group":2}]}"#;
+
+fn group(id: &str) -> GroupId {
+    GroupId::read(id).expect("a group id")
+}
+
+/// Slice 2: **when a group's Checks go red, it goes round again on its own,
+/// with no press of mine, as many times as the step's retries allow; only when
+/// the last round is still red do its tasks read failed, with the group and the
+/// run named on the Record, and only then can I restart one task or move it.**
+/// `implement` allows two retries, and nothing ever changes, so `diff_nonempty`
+/// stays red on every run.
+#[tokio::test]
+async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retries_run_out() {
+    let bench = Bench::judged_by(
+        FakeWorkProduct::untouched(),
+        per_task_with_two_retries(),
+        FakeJudge::that_fails("a Judge no step here asks"),
+    );
+    let mut run = bench.created("bound the reader");
+    bench.approved_and_dispatched(&mut run);
+    let (plan_step, implement) = (bench.step(0), bench.step(1));
+    bench.step_moved(&mut run, &plan_step, StepTarget::Advanced);
+    bench.step_moved(&mut run, &implement, StepTarget::Running);
+
+    // ------------------------------------------- the planner records groups
+    let mut planned = Planned::created_with("bound the reader", run.job.workflow().clone());
+    let mut plan = planned.kept(called("record_plan", TWO_GROUPS), "plan", 1);
+    let (g1, g2) = (group("G1"), group("G2"));
+    assert_eq!(plan.groups(), [g1, g2], "Fleet mints each group's id");
+    let in_g1: Vec<TaskId> = plan.tasks_in(g1).map(|t| t.id()).collect();
+    assert_eq!(in_g1, [task("T1"), task("T2")]);
+
+    // ------------------------------- G1's tasks, each by a Drone of its own
+    let mut moves: Vec<GroupMove> = Vec::new();
+    let mut hand_ins: Vec<HandIn> = Vec::new();
+    for id in ["T1", "T2"] {
+        let runs = GroupRuns::fold(&moves);
+        let next = tasking::next_task(&plan, &runs).expect("G1 has a task open");
+        assert_eq!(next.id(), task(id));
+        if runs.open_attempt(g1).is_none() {
+            // Fleet stamps the group's start at its first task's spawn.
+            moves.push(runs.opening(g1, &implement, Attempt::FIRST, now(&bench)));
+        }
+        plan = planned.marked(tasking::started(task(id)), "implement", 1);
+        plan = planned.marked(tasking::handed_in(task(id), "the diff"), "implement", 1);
+        hand_ins.push(HandIn {
+            task: task(id),
+            claimed: format!("{id} is done."),
+            shown_by: "the diff".to_string(),
+            not_claimed: String::new(),
+        });
+    }
+    let runs = GroupRuns::fold(&moves);
+    assert!(
+        tasking::next_task(&plan, &runs).is_none(),
+        "T3 waits: its group runs after G1's gate"
+    );
+    let together = tasking::together(&plan, &runs, &hand_ins).expect("G1's gate fires");
+    assert!(!together.claimed.contains("T3"), "{}", together.claimed);
+
+    // ------------------------------ red, red, and red with nothing left
+    let submitted = a_fix_diff();
+    for n in 1..=3u32 {
+        let runs = GroupRuns::fold(&moves);
+        assert_eq!(runs.spent(g1).number(), n, "G1 is on its run {n}");
+        let ruling = bench
+            .gate_on_group(
+                &run,
+                &implement,
+                &submitted,
+                Attempt::stored(n).expect("one-based"),
+                runs.spent(g1),
+            )
+            .await;
+        let end = tasking::group_end(&ruling);
+        if n < 3 {
+            assert_eq!(end, GroupEnd::Round, "run {n} is red with a retry left: {ruling:?}");
+            // Fleet records the red run and opens the next, with no press.
+            moves.push(
+                runs.closing(g1, tasking::verdict_of(&ruling), None, now(&bench))
+                    .expect("G1's run is open"),
+            );
+            let runs = GroupRuns::fold(&moves);
+            bench.went_round(&mut run, &implement, &ruling);
+            moves.push(runs.opening(
+                g1,
+                &implement,
+                Attempt::stored(n + 1).expect("one-based"),
+                now(&bench),
+            ));
+            assert_eq!(
+                run.job.status(),
+                JobStatus::Running,
+                "the group does not stop for a person after run {n}"
+            );
+            for id in ["T1", "T2"] {
+                assert_eq!(
+                    plan.task(task(id)).map(|t| t.state()),
+                    Some(TaskState::HandedIn),
+                    "{id} stays handed in while G1 goes round"
+                );
+                assert_eq!(
+                    tasking::restartable(&plan, task(id)),
+                    Err(NotRestartable::NotFailed {
+                        task: task(id),
+                        state: TaskState::HandedIn
+                    }),
+                    "Restart this task does not answer before the retries run out"
+                );
+            }
+            continue;
+        }
+        assert_eq!(end, GroupEnd::Failed, "the last run is red: {ruling:?}");
+        moves.push(
+            runs.closing(g1, tasking::verdict_of(&ruling), None, now(&bench))
+                .expect("G1's run is open"),
+        );
+        bench.settled(&mut run, &implement, &ruling);
+        let reason = tasking::why_it_failed(g1, &GroupRuns::fold(&moves), &ruling);
+        for change in tasking::failed(&plan, g1, &reason) {
+            plan = planned.marked(change, "implement", 3);
+        }
+    }
+
+    // ----------------------------------------------- its tasks read failed
+    assert_eq!(run.job.status(), JobStatus::AwaitingRepair);
+    assert_eq!(
+        step_signers(&bench).last(),
+        Some(&Actor::Check),
+        "the Check signed the stop"
+    );
+    let detail = received_detail(&planned.detail_with(&GroupRuns::fold(&moves)));
+    let served = detail.work_plan.expect("the plan crossed");
+    for id in ["T1", "T2"] {
+        let failed = served
+            .tasks
+            .iter()
+            .find(|t| t.id == id)
+            .expect("the task crossed");
+        assert_eq!(failed.state.as_wire(), "failed", "{id} reads failed");
+        assert_eq!(failed.group.as_deref(), Some("G1"));
+        let why = failed.failed_reason.as_deref().unwrap_or_default();
+        assert!(
+            why.contains("G1") && why.contains("run 3"),
+            "{id}'s reason names the group and the run: {why:?}"
+        );
+    }
+    let t3 = served.tasks.iter().find(|t| t.id == "T3").expect("T3");
+    assert_eq!(
+        (t3.state.as_wire(), t3.group.as_deref()),
+        ("open", Some("G2"))
+    );
+
+    // ------------------------------------ the group and its runs on the Record
+    let g1_served = served.groups.iter().find(|g| g.id == "G1").expect("G1");
+    assert_eq!(g1_served.tasks, ["T1", "T2"]);
+    assert_eq!(g1_served.state, ipc::GroupState::Failed);
+    let runs_served: Vec<(u32, u32, &str)> = g1_served
+        .attempts
+        .iter()
+        .map(|a| {
+            (
+                a.attempt,
+                a.step_attempt,
+                a.verdict.as_ref().map_or("", |v| v.named.as_str()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        runs_served,
+        [(1, 1, "failed"), (2, 2, "failed"), (3, 3, "failed")],
+        "each run of G1 is on the record, with the step's run it was filed under"
+    );
+    assert!(g1_served.started_at.is_some() && g1_served.ended_at.is_some());
+    let g2_served = served.groups.iter().find(|g| g.id == "G2").expect("G2");
+    assert_eq!(g2_served.state, ipc::GroupState::Pending);
+    let check = core_model::StepCheck {
+        name: "diff_nonempty".to_string(),
+        outcome: core_model::CheckOutcome::Failed,
+        expected: None,
+        produced: None,
+        output_path: None,
+        reused_from_dry_run: None,
+    };
+    let run_served = ipc::CheckRun::of(3, &check).at_group(g1, 3);
+    let body = ipc::encode(&run_served).expect("a Check run encodes");
+    let back: ipc::CheckRun = ipc::decode("a Check run", body.as_bytes()).expect("and decodes");
+    assert_eq!(
+        (back.group.as_deref(), back.group_attempt),
+        (Some("G1"), Some(3)),
+        "the Check run says which group's run it held back"
+    );
+
+    // ------------------------------------- only now: restart, or move
+    assert_eq!(tasking::restartable(&plan, task("T2")), Ok(()));
+    assert_eq!(
+        tasking::restartable(&plan, task("T3")),
+        Err(NotRestartable::NotFailed {
+            task: task("T3"),
+            state: TaskState::Open
+        }),
+        "a task that never ran is not restarted"
+    );
+    plan = planned.moved(PlanChange::MovedTask {
+        task: task("T2"),
+        group: g2,
+        after: Some(task("T3")),
+    });
+    let order: Vec<(TaskId, GroupId)> = plan.tasks().iter().map(|t| (t.id(), t.group())).collect();
+    assert_eq!(
+        order,
+        [(task("T1"), g1), (task("T3"), g2), (task("T2"), g2)],
+        "a failed task moves to after the task named"
     );
 }
