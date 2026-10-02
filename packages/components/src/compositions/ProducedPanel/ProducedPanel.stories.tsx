@@ -108,39 +108,39 @@ export const Finished: Story = {
 
 /**
  * The groups a landed Job ran (#1542), inside the same panel: what each came
- * to, its tasks, what it wrote and the commit it left.
- *
- * **`not timed` is in the column and not a dash.** The record times a step, and
- * a group sits between a step and a task, so there is no instant to subtract —
- * which is a fact about what Fleet keeps rather than a group that took no time.
+ * to, what it wrote and the commit it left, short, with the whole of it on
+ * hover. **Nothing timed a group, so there is no column for it**, and no line
+ * under the list saying so.
  */
 export const Groups: Story = {
   args: {
     summary: "4 groups · 8 tasks · 9 files",
     children: (
       <ProducedGroups
-        emptyNote="This Job recorded no plan, so it ran as one piece."
-        note="Nothing times a group: the record times a step, so no group here carries a span of its own."
         groups={[
-          { name: "Group one", verb: "passed", status: "completed-success", tasks: "2 of 2 done", files: "3 files", checks: "4 Checks", commit: "4c1b9d2" },
-          { name: "Group two", verb: "passed", status: "completed-success", tasks: "2 of 2 done", files: "3 files", checks: "7 Checks", commit: "7a2f0c5" },
-          { name: "Group three", verb: "passed", status: "completed-success", tasks: "2 of 2 done", files: "2 files", checks: "7 Checks, twice", commit: "b81c3e4" },
-          { name: "Group four", verb: "landed", status: "completed-success", tasks: "2 of 2 done", files: "3 files", checks: "7 Checks", commit: "e0d47a1" },
+          { name: "Group one", verb: "passed", status: "completed-success", files: "3 files", checks: "4 Checks", commit: "4c1b9d2e8f0a6b3c5d7e9f1a2b4c6d8e0f1a3b5c" },
+          { name: "Group two", verb: "passed", status: "completed-success", files: "3 files", checks: "7 Checks", commit: "7a2f0c5b1d3e5f7a9b0c2d4e6f8a0b1c3d5e7f9a" },
+          { name: "Group three", verb: "passed", status: "completed-success", files: "2 files", checks: "7 Checks, twice", commit: "b81c3e4d6f8a0b2c4d6e8f0a1b3c5d7e9f0a2b4c" },
+          { name: "Group four", verb: "landed", status: "completed-success", files: "3 files", checks: "7 Checks", commit: "e0d47a1c3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b" },
         ]}
       />
     ),
   },
+  // The count is drawn only where the groups are not: folded, and never open.
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByText("4 groups · 8 tasks · 9 files")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { expanded: true }));
+    await expect(canvas.getByText("4 groups · 8 tasks · 9 files")).toBeVisible();
+  },
 };
 
-/** A Job whose plan nothing recorded. The list says so rather than drawing nothing. */
+/** A Job whose plan nothing recorded. The slot stays empty, with no sentence in it. */
 export const NoGroups: Story = {
   args: {
-    summary: "no plan",
-    children: (
-      <ProducedGroups
-        groups={[]}
-        emptyNote="This Job recorded no plan, so it ran as one piece."
-      />
-    ),
+    children: <ProducedGroups groups={[]} />,
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("note")).toBeNull();
+    await expect(canvas.queryByRole("list")).toBeNull();
   },
 };

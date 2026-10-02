@@ -19,7 +19,7 @@ import type {
 } from "@armada/protocol";
 import { artifactPath, recordsOf, repoOf } from "@armada/protocol";
 
-import { costOf, groupOf, summaryOf, GROUPS_NOTE, type LandedCost, type LandedGroup } from "./landed-cost";
+import { costOf, groupOf, summaryOf, type LandedCost, type LandedGroup } from "./landed-cost";
 import { clock, span } from "./duration";
 import type { JobDraft } from "./draft/held";
 import {
@@ -114,7 +114,11 @@ export type LandedRead = {
   runs: LandedRuns[];
   groups: LandedGroup[];
   groupsSummary: string;
-  groupsNote: string;
+  /**
+   * Never set. The sentence it carried explained what no group carries, and
+   * the owner cut it (1 Oct 2026). Goes with `LandBoard`'s `note=` line.
+   */
+  groupsNote?: string;
   groupsAbsent: string;
   followUp: string;
 };
@@ -159,7 +163,6 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
     runs: runSetsOf(cases, runs),
     groups: groups.map(groupOf),
     groupsSummary: summaryOf(groups),
-    groupsNote: GROUPS_NOTE,
     groupsAbsent: "This Job recorded no plan, so it ran as one piece.",
     followUp: "Dispatch a follow-up",
   };
