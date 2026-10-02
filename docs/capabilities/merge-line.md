@@ -290,6 +290,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 | `detail`, live states only, before ` — together with `, and not while a Check runs | `doing` | The runner's words |
 | The names after ` — together with ` | `batch`, the member first in place order | One bracketed group |
 | `pr` and `origin` on the forge | `pull_request` `{number, url}` | `#1770`, opening the address |
+| `pr_settled`, `landed` only: `merged` when the forge read the push as the merge, `closed_unmerged` when the runner closed it or found it closed | `pull_request.settled`, the Job's own `Settled` | The Job's own pull request badge beside the number, *Merged* or *Closed without merging*; nothing where it is not known |
 | `merge_commit`, `landed` only | `merge_commit`, whole | Its first ten characters |
 | `failed`, `red` and `stopped` only | `failed` | The failed Checks |
 | `conflicts`, `conflict` only | `conflicts` | The files |

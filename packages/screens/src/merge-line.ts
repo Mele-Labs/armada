@@ -9,6 +9,8 @@ import type { MergeLineCheck, MergeLineEntry, MergeLineState } from "@armada/com
 import type { MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
+import { settledBadgeOf } from "./facts";
+
 /** One repository's line, as a panel takes it. */
 export type MergeLineView = {
   /** The repository's root: which panel this is. */
@@ -66,11 +68,20 @@ function stateOf(row: MergeLineRow): MergeLineState {
   return row.state as MergeLineState;
 }
 
+/**
+ * A row's pull request, with the Job's own badge for how it ended (`settledBadgeOf`), so the merge
+ * line and a Job's detail read a settled pull request alike. Nothing known draws the number alone.
+ */
+function pullRequestOf(pr: NonNullable<MergeLineRow["pull_request"]>): NonNullable<MergeLineEntry["pr"]> {
+  const settled = settledBadgeOf(pr.settled);
+  return { number: pr.number, url: pr.url, ...(settled === undefined ? {} : { settled }) };
+}
+
 function entryOf(row: MergeLineRow): MergeLineEntry {
   return {
     branch: row.branch,
     place: row.place,
-    pr: row.pull_request,
+    pr: row.pull_request === undefined ? undefined : pullRequestOf(row.pull_request),
     state: stateOf(row),
     doing: row.doing,
     batch: row.batch,

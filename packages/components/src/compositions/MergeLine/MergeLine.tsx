@@ -1,7 +1,8 @@
 import { Fragment } from "react";
-import { ChevronRight, ChevronUp } from "lucide-react";
+import { ChevronRight, ChevronUp, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
+import { Badge } from "../../primitives/Badge/Badge";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
@@ -35,7 +36,12 @@ export type MergeLineEntry = {
   /** 1-based place in line. Absent once the branch has left the line. */
   place?: number;
   /** The open pull request, where the branch has one. */
-  pr?: { number: number; url: string };
+  pr?: {
+    number: number;
+    url: string;
+    /** How it ended, as the Job's own pull request badge reads it. Absent is nothing known. */
+    settled?: { status: string; icon: LucideIcon; label: string };
+  };
   state: MergeLineState;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
   doing?: string;
@@ -235,6 +241,11 @@ function Entry({
               #{entry.pr.number}
             </a>
           </Tooltip>
+        )}
+        {entry.pr?.settled === undefined ? null : (
+          <Badge status={entry.pr.settled.status} icon={entry.pr.settled.icon}>
+            {entry.pr.settled.label}
+          </Badge>
         )}
       </span>
       <span className="armada-merge-line__detail">

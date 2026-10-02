@@ -27,9 +27,13 @@ export const theMergeLine = walk("merge-line", [
     say: "Its Checks as they run, one segment each",
   },
   { look: inside(ARMADA, text("merging main (c527f60e09)")), say: "Merging main in: words only where no Check runs" },
-  { look: inside(ARMADA, role("link", "#1770")), say: "Its pull request" },
+  { look: inside(ARMADA, role("link", "#1770")), say: "A pull request still in line: its number alone" },
   { look: inside(ARMADA, role("list", "Recently landed")), say: "Recently landed: the newest three" },
   { look: inside(ARMADA, text("007088d7ea")), say: "Each with its merge commit" },
+  {
+    look: inside(inside(ARMADA, role("listitem", "studio/read-in-lands-in-a-zone")), text("Merged")),
+    say: "Its pull request wears the Job's own badge: merged",
+  },
   { look: inside(ARMADA, role("list", "Sent back")), say: "Sent back: Checks failed, conflict or stopped" },
   {
     look: inside(inside(ARMADA, role("listitem", "fleet/pulse-log-rows")), region("Checks")),
@@ -41,6 +45,7 @@ export const theMergeLine = walk("merge-line", [
   },
   { look: NOTES, say: "A second repository, its own panel" },
   { look: inside(NOTES, role("list", "Recently landed")), say: "Nobody in line, and Recently landed still shows" },
+  { look: inside(NOTES, text("Closed without merging")), say: "A pull request the line closed itself, naming the merge" },
   { look: inside(SCRATCH, role("img", "Empty")), say: "Nothing ever landed here: a picture and no words" },
   { press: inside(ARMADA, button("Collapse Merge line, armada")), say: "Each panel folds on its own" },
   { press: inside(ARMADA, button("Expand Merge line, armada")), say: "And opens again" },

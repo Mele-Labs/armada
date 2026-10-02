@@ -5,6 +5,7 @@
 // reading of the wire.
 
 import type { MergeLines } from "@armada/protocol";
+import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
 import served from "./fixtures/build/merge-lines.served.json";
@@ -58,7 +59,16 @@ describe("the merge line Fleet serves", () => {
         },
       ],
       landed: [
-        { branch: "bridge/land-board-reads-plainly", state: "landed", merge: "29064cc27a" },
+        {
+          branch: "bridge/land-board-reads-plainly",
+          pr: {
+            number: 1769,
+            url: `${PULL}1769`,
+            settled: { status: "completed-success", icon: GitMerge, label: "Merged" },
+          },
+          state: "landed",
+          merge: "29064cc27a",
+        },
         { branch: "fleet/an-older-landing", state: "landed" },
       ],
       sentBack: [
@@ -88,6 +98,23 @@ describe("the merge line Fleet serves", () => {
       ["fleet/push-the-base", "merging"],
       ["fleet/read-in-cluster-membership", "waiting"],
     ]);
+  });
+
+  test("a landed pull request wears the Job's own badge for how it ended, and one in line its number alone", () => {
+    const [one] = views(SERVED, "/repo");
+    expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({ number: 1770, url: `${PULL}1770` });
+    const closed: MergeLines = {
+      lines: [
+        {
+          root: "/repo",
+          line: [],
+          off: [],
+          landed: [{ branch: "a", state: "landed", pull_request: { number: 2, url: "u", settled: "closed_unmerged" } }],
+          sent_back: [],
+        },
+      ],
+    };
+    expect(views(closed, null)[0]?.landed[0]?.pr?.settled?.label).toBe("Closed without merging");
   });
 
   test("a picked repository draws its own line, unnamed, and one without a line draws none", () => {

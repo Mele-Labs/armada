@@ -14,7 +14,7 @@ use std::time::{Duration, SystemTime};
 
 use adapters::land_state::dir::StateDir;
 use adapters::land_state::outcome::{
-    merge_outcome, CheckRun, CheckState, OutcomePatch, OutcomeState, Place,
+    merge_outcome, CheckRun, CheckState, OutcomePatch, OutcomeState, Place, PullRequestSettled,
 };
 use adapters::land_state::queue::{write_queue_entry, QueueEntry};
 use axum::http::StatusCode;
@@ -162,6 +162,8 @@ fn a_line(root: &Path) -> StateDir {
         "landed",
         OutcomePatch {
             merge_commit: Some(LANDED.into()),
+            pr: Some(1769),
+            pr_settled: Some(PullRequestSettled::Merged),
             ..OutcomePatch::default()
         },
     );

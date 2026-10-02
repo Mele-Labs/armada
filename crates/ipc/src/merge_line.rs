@@ -96,6 +96,10 @@ pub enum LandCheckState {
 pub struct MergeLinePullRequest {
     pub number: u64,
     pub url: String,
+    /// `landed` only: how it ended, the Job's own `Settled`. Absent is
+    /// nothing known, which is every pull request still in line. Since 23.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled: Option<crate::Settled>,
 }
 
 /// Where one branch is on the line: `land_state` in `enum-verbs.toml`.

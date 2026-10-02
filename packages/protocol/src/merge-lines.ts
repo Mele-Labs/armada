@@ -27,7 +27,8 @@ export type MergeLineRow = {
   branch: string;
   /** 1-based. Absent once off the line. */
   place?: number;
-  pull_request?: { number: number; url: string };
+  /** `settled`, landed only: how it ended, the Job's own `merged` or `closed_unmerged`. Since 23.2. */
+  pull_request?: { number: number; url: string; settled?: string };
   /** `land_state` in the generated vocabulary. */
   state: string;
   /** The runner's own words, while gating or merging. */

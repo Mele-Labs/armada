@@ -12,11 +12,13 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use adapters::land_state::line::{self, Line, Located};
-use adapters::land_state::outcome::{together, CheckRun, CheckState, Outcome, OutcomeState};
+use adapters::land_state::outcome::{
+    together, CheckRun, CheckState, Outcome, OutcomeState, PullRequestSettled,
+};
 use api::{Broadcaster, Queries};
 use ipc::{
     Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry,
-    MergeLinePullRequest, MergeLines,
+    MergeLinePullRequest, MergeLines, Settled,
 };
 use tokio::task::JoinHandle;
 
@@ -219,8 +221,17 @@ fn ended(
         branch: branch.to_string(),
         place: None,
         pull_request: pr.and_then(|number| {
-            at.pull_request(number)
-                .map(|url| MergeLinePullRequest { number, url })
+            at.pull_request(number).map(|url| MergeLinePullRequest {
+                number,
+                url,
+                settled: outcome
+                    .filter(|_| state == OutcomeState::Landed)
+                    .and_then(|held| held.pr_settled)
+                    .map(|ended| match ended {
+                        PullRequestSettled::Merged => Settled::Merged,
+                        PullRequestSettled::ClosedUnmerged => Settled::ClosedUnmerged,
+                    }),
+            })
         }),
         state: land_state(state),
         doing: None,

@@ -2263,6 +2263,12 @@ runner writes the same list into the outcome file (`Outcome::checks`, through `O
 each Check starts and ends. Served for `gating`, `red` and `stopped` only, and while a Check
 runs `doing` is left off: the list says it. Absent where empty, so additive like the rest.
 
+**`MergeLinePullRequest` gains `settled`**, the Job's own `Settled`: `merged` where the forge
+read the push as the merge, `closed_unmerged` where the runner closed it naming the merge or found
+it closed. The runner records it as `Outcome::pr_settled` when the branch lands, from `gh pr view`'s
+state; Fleet serves it for `landed` only. Absent is nothing known: a pull request still in line,
+one left open because the remote held more than landed, or a forge that would not answer.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

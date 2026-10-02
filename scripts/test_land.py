@@ -479,6 +479,7 @@ class Line(LineFixture):
         self.assertIn("#1", message, "the pull request is named where there is one")
         self.assertIn("Landed-from: fix/alone", message)
         self.assertEqual(load(self.prs)["1"]["state"], "MERGED", "the forge read the push as the merge")
+        self.assertEqual(self.outcome("fix/alone").get("pr_settled"), "merged", "and the outcome says so")
         self.assertEqual(self.git(self.repo, "ls-remote", "origin", "refs/heads/fix/alone"), "", "the remote branch is deleted")
         self.assertIn("git worktree remove", done.stdout)
         self.assertTrue(os.path.isdir(where), "the agent's worktree is never removed")
@@ -525,6 +526,7 @@ class Line(LineFixture):
         pr = load(self.prs)["1"]
         self.assertEqual(pr["state"], "CLOSED")
         self.assertIn(merge, pr["comment"])
+        self.assertEqual(self.outcome("fix/not-detected").get("pr_settled"), "closed_unmerged")
 
     def test_a_remote_branch_holding_more_than_landed_is_kept(self):
         where = self.branch("fix/more-on-remote", {"x.txt": "1\n"})
@@ -539,6 +541,7 @@ class Line(LineFixture):
         self.assertNotEqual(self.git(self.repo, "ls-remote", "origin", "refs/heads/fix/more-on-remote"), "",
                             "a commit that did not land is not deleted with the branch")
         self.assertEqual(load(self.prs)["1"]["state"], "OPEN", "nor is its pull request closed")
+        self.assertNotIn("pr_settled", self.outcome("fix/more-on-remote"), "an open pull request is no news")
         self.assertIn("did not land", done.stdout)
 
     def test_a_conflict_stops_and_keeps_its_place(self):

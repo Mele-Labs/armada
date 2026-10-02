@@ -80,6 +80,16 @@ pub enum CheckState {
     TimedOut,
 }
 
+/// How the branch's pull request ended once the branch landed: the forge read
+/// the push as its merge, or the runner closed it naming the merge. Absent is
+/// nothing known: no pull request, one left open, or a forge that would not say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestSettled {
+    Merged,
+    ClosedUnmerged,
+}
+
 /// One Check a turn runs, by its name in `armada.yml`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckRun {
@@ -111,6 +121,9 @@ pub struct Outcome {
     pub runner: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr: Option<u64>,
+    /// `landed` only: how [`Outcome::pr`] ended.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr_settled: Option<PullRequestSettled>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<Place>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -147,6 +160,7 @@ impl Outcome {
             updated: String::new(),
             runner: 0,
             pr: None,
+            pr_settled: None,
             place: None,
             logs: Vec::new(),
             failed: Vec::new(),
@@ -169,6 +183,7 @@ impl Outcome {
 #[derive(Clone, Debug, Default)]
 pub struct OutcomePatch {
     pub pr: Option<u64>,
+    pub pr_settled: Option<PullRequestSettled>,
     pub place: Option<Place>,
     pub logs: Option<Vec<String>>,
     pub failed: Option<Vec<String>>,
@@ -206,6 +221,7 @@ pub fn merge_outcome(
         .unwrap_or_else(|| Outcome::blank(branch));
 
     merged.pr = patch.pr.or(merged.pr);
+    merged.pr_settled = patch.pr_settled.or(merged.pr_settled);
     merged.place = patch.place.or(merged.place);
     merged.logs = patch.logs.unwrap_or(merged.logs);
     merged.failed = patch.failed.unwrap_or(merged.failed);

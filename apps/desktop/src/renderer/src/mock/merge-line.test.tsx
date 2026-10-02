@@ -5,6 +5,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
+import { scenarioNamed, type Scenario } from "./scenario";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -44,3 +45,33 @@ test("the rail surface draws the same panels", async () => {
   await expect.element(panel("Merge line, notes").getByRole("list", { name: "Recently landed" })).toBeVisible();
   await expect.element(panel("Merge line, scratch").getByRole("img", { name: "Empty" })).toBeVisible();
 });
+
+test("a landed pull request wears the Job's own badge for how it ended, and its number still opens it", async () => {
+  const opened: string[] = [];
+  const watching: Scenario = {
+    ...scenarioNamed("merge-line")!,
+    behaves: () => ({
+      openLink: async (address) => {
+        opened.push(address);
+        return { ok: true };
+      },
+    }),
+  };
+  mount(watching);
+  await onScreen();
+
+  const armada = panel("Merge line, armada");
+  const landed = armada.getByRole("listitem", { name: "studio/read-in-lands-in-a-zone, landed" });
+  await expect.element(landed.getByText("Merged", { exact: true })).toBeVisible();
+  await landed.getByRole("link", { name: "#1772" }).click();
+  expect(opened).toEqual(["https://git.example/armada/pull/1772"]);
+
+  // Nothing is known of a pull request still in line: its number, and no badge.
+  const waiting = armada.getByRole("listitem", { name: /^fleet\/read-in-cluster-membership,/ });
+  await expect.element(waiting.getByRole("link", { name: "#1770" })).toBeVisible();
+  expect(waiting.getByText("Merged", { exact: true }).query()).toBeNull();
+
+  const notes = panel("Merge line, notes");
+  await expect.element(notes.getByText("Closed without merging", { exact: true })).toBeVisible();
+});
+

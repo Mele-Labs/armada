@@ -72,13 +72,13 @@ export function mergeLines(): MergeLines {
         landed: [
           {
             branch: "studio/read-in-lands-in-a-zone",
-            pull_request: { number: 1772, url: `${PULL}1772` },
+            pull_request: { number: 1772, url: `${PULL}1772`, settled: "merged" },
             state: "landed",
             merge_commit: "007088d7ea0a2e909d3ebb072671e978f79ff9a0",
           },
           {
             branch: "bridge/remove-log-leftovers",
-            pull_request: { number: 1773, url: `${PULL}1773` },
+            pull_request: { number: 1773, url: `${PULL}1773`, settled: "merged" },
             state: "landed",
             merge_commit: "3fa640ad4832c11648974d5580862d5154a27a93",
           },
@@ -126,7 +126,13 @@ export function emptiedLine(root: string): MergeLine {
     line: [],
     off: [],
     landed: [
-      { branch: "notes/weekly-review", state: "landed", merge_commit: "a41c9e07d2b85f3e61c0aa9d2f7b4e8c19d03f5a" },
+      {
+        branch: "notes/weekly-review",
+        // The forge never read the push as the merge, so the line closed it naming the merge.
+        pull_request: { number: 12, url: "https://git.example/notes/pull/12", settled: "closed_unmerged" },
+        state: "landed",
+        merge_commit: "a41c9e07d2b85f3e61c0aa9d2f7b4e8c19d03f5a",
+      },
       { branch: "notes/reading-list", state: "landed", merge_commit: "6be2f0c4d18a93e57f0b2c6d4a8e1f3b97c5d20e" },
     ],
     sent_back: [],

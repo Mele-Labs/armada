@@ -61,6 +61,11 @@
         },
         {
           "branch": "bridge/land-board-reads-plainly",
+          "pull_request": {
+            "number": 1769,
+            "url": "https://git.example/armada-dev/armada/pull/1769",
+            "settled": "merged"
+          },
           "state": "landed",
           "merge_commit": "29064cc27aaf70cbbb924eee1d2212693540c9ad"
         }
@@ -68,6 +73,11 @@
       "landed": [
         {
           "branch": "bridge/land-board-reads-plainly",
+          "pull_request": {
+            "number": 1769,
+            "url": "https://git.example/armada-dev/armada/pull/1769",
+            "settled": "merged"
+          },
           "state": "landed",
           "merge_commit": "29064cc27aaf70cbbb924eee1d2212693540c9ad"
         },

@@ -81,6 +81,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
             updated: SystemClock::new().now().as_str().to_string(),
             runner: std::process::id(),
             pr: stamp.pr,
+            pr_settled: None,
             place: Some(place),
             logs: Vec::new(),
             failed: Vec::new(),
