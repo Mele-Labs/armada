@@ -178,6 +178,7 @@ mod showing;
 mod showing_again;
 mod silence;
 mod snapshotting;
+mod standing_rules;
 mod starting;
 mod starting_empty;
 mod stuck;

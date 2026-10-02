@@ -647,14 +647,16 @@ The gate names a tier the step never declared, so advancing would advance on the
 
 ## What every change here carries
 
-**`standing_rules: <path>` names a file in the repository, and every Judge brief carries it** as what this repository requires of every change, labelled as a standard rather than the work and placed after the request. Without it, a Judge asked whether work stays inside the request reads a repository's own rules as scope expansion: one refused a plan for fixing the prose its change made wrong, in a repository whose gate refuses a change that leaves prose wrong.
+**`standing_rules: <path>` names a file in the repository, and two readers get it: every Judge brief, and every Drone's opening brief.** A Judge reads it as what this repository requires of every change, labelled as a standard rather than the work and placed after the request. Without it, a Judge asked whether work stays inside the request reads a repository's own rules as scope expansion: one refused a plan for fixing the prose its change made wrong, in a repository whose gate refuses a change that leaves prose wrong.
+
+**The Drone reads the same text first**, under its own heading, `WHAT THIS REPOSITORY REQUIRES OF EVERY CHANGE`, after the baseline and before the job brief, worded as what is asked of the work. Told only the Judge, a Drone plans without the rules and is refused, or carries them while the Judge was not sure they belonged. Both come from one read and one bound, so neither is told more of the file than the other.
 
 | | |
 | --- | --- |
-| Absent | Every brief is exactly what it was before the key existed |
+| Absent | Every brief, a Judge's or a Drone's, is exactly what it was before the key existed |
 | The path | One file inside the checkout, refused at the key otherwise — a deliverable's rules |
-| Read from | The repository's own checkout, never the Job's worktree, so a Drone cannot rewrite what its Judge is told |
-| Over the bound | Cut on a whole line at the `judge-brief-standing-rules-cap` setting, and the brief says it was cut |
+| Read from | The repository's own checkout, never the Job's worktree, so a Drone cannot rewrite what its Judge is told. A Drone's brief reads it when the Drone is put on, a Judge's when the work is judged |
+| Over the bound | Cut on a whole line at the `standing-rules-cap` setting, the same for both readers, and the brief says it was cut |
 | Not there | The brief says the file could not be read |
 
 **The repository writes it, and Fleet never guesses.** A file found by convention would put whatever sat at that path in front of every Judge.

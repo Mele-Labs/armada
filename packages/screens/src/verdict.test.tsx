@@ -515,6 +515,7 @@ describe("the judge question at the gate", () => {
             acting: args.acting,
             deciding: args.deciding ?? false,
             onApproveReview: () => {},
+            onAnswerJudge: () => {},
             onRedirect: () => {},
           },
         })}

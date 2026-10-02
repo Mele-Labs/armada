@@ -4,7 +4,7 @@
 // **The list is the note.** Request changes sends one note, so the list and the
 // typed words go out together and the Drone is never told in two places.
 
-import type { DecisionChange } from "@armada/components";
+import { proseText, type DecisionChange } from "@armada/components";
 import type { JobConfidence } from "@armada/protocol";
 
 /** The review's small fixes, listed first. */
@@ -12,7 +12,7 @@ export function smallFixesOf(confidence: JobConfidence): DecisionChange[] {
   return confidence.small_fixes.map((fix, at) => ({
     id: `small-fix-${at}`,
     from: "Small fix",
-    text: `${fix.finding.replaceAll("`", "")}: ${fix.why}`,
+    text: `${proseText(fix.finding)}: ${fix.why}`,
   }));
 }
 

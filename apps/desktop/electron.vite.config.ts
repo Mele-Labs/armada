@@ -114,8 +114,22 @@ export default defineConfig({
   // other's script.
   renderer: {
     root: 'src/renderer',
-    plugins: [react(), tailwindcss()],
+    // **CSS that does not parse fails the build.** Tailwind's optimize pass
+    // runs Lightning CSS with `errorRecovery` on, which turns a parse error
+    // into a warning and drops the rule. On 1 Oct 2026 a `**/packages` in a
+    // `PlanBoard.css` comment closed it early, `.armada-plan-board__scope`
+    // vanished from the built app, and the build exited 0. So that pass is
+    // off, and Vite minifies with Lightning CSS and `errorRecovery` off: the
+    // same comment throws, with a frame of the bundled CSS — the selector and
+    // the line, not the source file, since every sheet is `@import`ed into one
+    // first. A warning that keeps its rule (an unknown at-rule) still only
+    // logs. electron-vite leaves the renderer unminified, so this is also the
+    // first pass that minifies it. Measured against the build before: the
+    // same rules and selectors, less Safari 16.4 prefixes Chromium never reads.
+    plugins: [react(), tailwindcss({ optimize: false })],
+    css: { lightningcss: { errorRecovery: false } },
     build: {
+      cssMinify: 'lightningcss',
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
