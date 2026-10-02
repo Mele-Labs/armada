@@ -255,6 +255,12 @@ pub struct JobDetail {
     /// no choice. `set_review_model` moves it, like `set_model` moves `model_override`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_model_override: Option<String>,
+    /// Which model each tier of this Job's tasks runs on. **Since 23.6.** Left
+    /// out where the map names no tier, which is Armada picking for every
+    /// tier. `set_tiers` moves it. Filled after [`JobDetail::of`], like
+    /// `model_override`.
+    #[serde(default, skip_serializing_if = "crate::TierModels::is_empty")]
+    pub tiers: crate::TierModels,
     /// The label of the step that writes Armada's review. **Since 13.33**, #903. Absent on a
     /// workflow with no review step, where there is no review model to choose.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -738,6 +744,7 @@ impl JobDetail {
             repository_allowed_commands: Vec::new(),
             model_override: None,
             review_model_override: None,
+            tiers: crate::TierModels::default(),
             review_step: None,
             review,
             confidence: None,
@@ -863,6 +870,22 @@ pub struct JobDelivery {
     /// attempt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unpushed: Option<String>,
+    /// The pull request's title, **kept after it settles**. Since protocol 23.5.
+    ///
+    /// Written when Fleet opens the pull request and again on every read of
+    /// it, so a title a person edited on the forge replaces the one Armada
+    /// opened it with. Absent is no read has named it: a pull request opened
+    /// by an Armada before 23.6 that has not been read since.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_title: Option<String>,
+    /// How many comments the pull request carries, as Fleet's rotation last
+    /// counted them while it was open, **kept after it settles**. Since 23.6.
+    ///
+    /// Conversation comments and reviews that say something; a comment on a
+    /// line of the diff is not counted. **Absent is unknown, never zero**: a
+    /// pull request that settled before the rotation reached it open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_comments: Option<u32>,
 }
 
 /// What Fleet's rotation last read live off an open pull request.

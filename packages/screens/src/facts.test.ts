@@ -255,9 +255,9 @@ describe("who dispatched it", () => {
   });
 });
 
-// #1362. The Studio that is still there is named under *Where things are*,
-// where a value you reach lives. What the header carries is the other half:
-// that the Studio is gone, which nothing else on the screen could say.
+// #1362. The Studio that is still there is reached by pressing the origin's
+// sentence, #1674. What the header adds is the other half: that the Studio is
+// gone, which nothing else on the screen could say.
 describe("a Studio that has been deleted", () => {
   const now = Date.now();
   const offAStudio = job({ origin: "studio_dispatched" });
@@ -267,7 +267,7 @@ describe("a Studio that has been deleted", () => {
     expect(gone().at(-1)).toEqual({ label: "That Studio has been deleted" });
   });
 
-  it("says nothing while the Studio is still there — the row under Where things are has it", () => {
+  it("says nothing extra while the Studio is still there", () => {
     const whole = {
       ...detail(undefined),
       from_studio: { studio_id: "01STUDIO", node_id: "01JOBNODE" },
@@ -281,6 +281,24 @@ describe("a Studio that has been deleted", () => {
     expect(factsOf(offAStudio, null, now).at(-1)).toEqual({
       value: "From a Studio, by you",
     });
+  });
+
+  it("makes the sentence the press back to that Studio, named on its tooltip", () => {
+    const pressed: [string, string][] = [];
+    const whole = {
+      ...detail(undefined),
+      from_studio: { studio_id: "01STUDIO", name: "The Board's legend", node_id: "01JOBNODE" },
+    };
+    const fact = factsOf(offAStudio, whole, now, (studio, node) => pressed.push([studio, node])).at(-1);
+    expect(fact?.value).toBe("From a Studio, by you");
+    expect(fact?.opens?.label).toBe("Open The Board's legend");
+    fact?.opens?.onOpen();
+    expect(pressed).toEqual([["01STUDIO", "01JOBNODE"]]);
+  });
+
+  it("offers no press on a Studio that has been deleted", () => {
+    const facts = factsOf(offAStudio, detail(undefined), now, () => undefined);
+    expect(facts.some((fact) => fact.opens !== undefined)).toBe(false);
   });
 
   it("says nothing on a job that never came off a Studio", () => {

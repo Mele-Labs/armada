@@ -25,23 +25,12 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
+  // Served since 23.6, with `EditTask` moved to `work-plan.ts`. Deleted with
+  // the mock answering it, which a person walks first: the Bridge half of #1764.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
   { method: "POST", path: "/jobs/{job_id}/edit", act: "edit_job", issue: 1699 },
 ];
-
-/**
- * What Edit this task sends to `edit_task` (#1657). **Only the fields a person
- * changed.** Fleet has not agreed a body for the route yet, so this is what
- * Bridge sends and the debug info carries, not a wire type.
- */
-export type EditTask = {
-  title?: string;
-  note?: string;
-  scope?: string[];
-  expects?: string;
-  model?: string;
-};
 
 /**
  * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan

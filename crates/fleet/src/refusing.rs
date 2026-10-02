@@ -432,6 +432,27 @@ where
             } => Refusal::Unacceptable(
                 WireError::raised(NO_PLAN, said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
+            // An edit to a task that is not open or failed (#1657): a 409 in
+            // the words the other acts on a task already use, the state saying
+            // which — one in its Drone's hands is in flight, one done or
+            // dropped is settled.
+            Adrift::PlanRefused {
+                job,
+                why: core_model::PlanRefused::NotEditable { named, state },
+            } => {
+                let code = match state {
+                    core_model::TaskState::Working | core_model::TaskState::HandedIn => {
+                        TASK_IN_FLIGHT
+                    }
+                    _ => TASK_ALREADY_SETTLED,
+                };
+                Refusal::IllegalMove(
+                    WireError::raised(code, said, self.run_id())
+                        .about_job(ipc::JobId::from(job))
+                        .with_field("task", WireValue::Str(named.to_string()))
+                        .with_field("state", WireValue::Str(state.as_wire().to_string())),
+                )
+            }
             Adrift::PlanRefused {
                 job,
                 why: core_model::PlanRefused::NoSuchGroup { named },

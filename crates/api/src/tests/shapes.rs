@@ -337,6 +337,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         repository_allowed_commands: Vec::new(),
         model_override: None,
         review_model_override: None,
+        tiers: ipc::TierModels::default(),
         review_step: None,
         // Absent again: a waiting note is a column on `jobs`, and this
         // daemon's Jobs are wire summaries rather than records.
@@ -815,6 +816,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 drone_id: DroneId::carried("01DRONEKILLED"),
                 step_id: StepId::carried("implement"),
                 task: None,
+                model: Some("a-strong-model".to_string()),
                 state: DroneState::Killed,
                 since: Instant::carried("2026-09-11T08:00:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:20:00Z")),
@@ -825,6 +827,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 drone_id: DroneId::carried("01DRONEDONE"),
                 step_id: StepId::carried("implement"),
                 task: None,
+                model: Some("a-strong-model".to_string()),
                 state: DroneState::Done,
                 since: Instant::carried("2026-09-11T08:21:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:55:00Z")),
@@ -835,6 +838,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 drone_id: DroneId::carried(THE_DRONE),
                 step_id: StepId::carried("review"),
                 task: None,
+                model: None,
                 state: DroneState::Running,
                 since: Instant::carried("2026-09-11T09:00:00Z"),
                 ended_at: None,

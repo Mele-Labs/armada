@@ -74,7 +74,7 @@ overwritten.
 | The step that records the plan | Record it whole, while its step runs. A retry, or a loop's return to that step, replaces the plan |
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
 | A step declaring `drone_per_task: true` | Nothing, by its Drones. Fleet marks each task from its Drone, as below, and the step's Drones are given no plan tool even beside `follows_plan` |
-| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, by the one it comes after (`move_plan`, #1685), never a task still working or handed in. Restart a failed task (`restart_task`, #1656) |
+| A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, by the one it comes after (`move_plan`, #1685), never a task still working or handed in. Restart a failed task (`restart_task`, #1656). Edit an open or failed task's title, note, scope, expects or model (`edit_task`, #1657) |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind
@@ -117,13 +117,19 @@ them is still on the branch, so the plan does not reset with the step.
 | Its Checks and Judge pass | Its tasks are `done`. Where a group with work follows, it commits once and the next group's first task gets its Drone; the step moves only after the last group |
 | A Check is red and the step's `retry_limit` allows another run | The group goes round on its own: the same Drone is told the red Checks and then every task of the group, and the tasks stay `handed_in` |
 | A Check is red on the last run allowed | Every task in the group turns `failed`, with a reason naming the group and the run, and the step stops for a person |
-| The Judge refuses | The group stops for a person, as a step does (answer 3). The Checks passed, so its tasks read `done` |
+| The Judge refuses | The group stops for a person, as a step does (answer 3). The Checks passed, so its tasks read `done`, and Restart this task answers each of them: the idle Drone ends and a new one works that task alone, opening with the refusal |
 
 **The budget is the group's own runs**, not the step's: a later group starts with all of its retries. A person's restart does not reset it, as `restart_step` does not reset a step's, so a restarted group that is red again fails at once.
 
 **Every group runs every gate Check over the whole copy.** Selecting tests by file and a test's last group wait on #1274. A Check declared `runs_at: handoff` is held back at every group but the last, so the step before handoff runs every Manifest Check once, after its last group.
 
 **A Check run and a Record row name their group.** A gate Check's run carries the group and its run, and so does the step move a red run or a stop made, so a passed group's Checks stay its own beside a later group's.
+
+## A model per task
+
+**Spike 022, slice 3.** The planner gives each task a tier, `difficult`, `medium` or `easy`, or none, and the Job carries a map from tier to model (`set_tiers`). Each task's Drone is spawned on, in order: a person's pick on the task, then the map for the task's tier, then the step's own model, then the Job's. **A tier the map leaves out is Armada picking** (answer 8), which is the last two. Every spawn keeps the model it ran (store V97), and `list_job_drones` names it.
+
+**A person's edit is a change after the recording, never a new one.** Edit this task reaches an open or a failed task, so it works while the plan waits on a person and after a group fails; the plan still reads as the planner's, and the history shows the edit after it. The next Drone put on the task reads the edit in its brief.
 
 ## Tasks that may run at once are declared, never inferred
 

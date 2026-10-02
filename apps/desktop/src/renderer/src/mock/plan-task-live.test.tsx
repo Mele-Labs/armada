@@ -30,7 +30,9 @@ describe("a task with a Drone of its own", () => {
   test("its panel opens on what it is doing, its brief, its log and its last edit", async () => {
     mount("arc/executing-sequential");
     const panel = await panelOf(T5.id, T5.title);
-    await expect.element(panel.getByText("14 turns", { exact: true })).toBeVisible();
+    // "Now" says it, and so does its row in the task's Drones (2 Oct 2026).
+    await expect.element(panel.getByText("14 turns", { exact: true }).first()).toBeVisible();
+    await expect.element(panel.getByRole("list", { name: "Drones on this task" })).toHaveTextContent("14 turns");
     await expect.element(panel.getByText("Keep the four lists in this order", { exact: false })).toBeVisible();
     // The live log is the Drone's own tail, which the sheet already drew.
     await expect.element(panel.getByRole("group", { name: "Drone on T5" })).toHaveTextContent("Running.tsx");

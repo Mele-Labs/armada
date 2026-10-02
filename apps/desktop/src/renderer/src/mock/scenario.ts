@@ -54,6 +54,7 @@ import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded"
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
+import { heldByTheGamingCheck } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
@@ -64,6 +65,7 @@ import { zoning } from "./studio-read-in";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
+import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -400,6 +402,9 @@ function recordedBoard(): Scenario {
   };
 }
 
+/** The Job `held/gaming-check` opens on, as Fleet serves it with the Drone still there. */
+const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
+
 /**
  * Every scenario, by name. **The first is where the mock opens.**
  *
@@ -492,11 +497,16 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // The same Job just before it landed, at its review gate: the record the gate draws (#1680).
+  holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id }),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
   holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
   holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
+  // A Job the gaming check holds with its Drone still on the step: a weakened
+  // assertion and three refused commands, answered under the lead (#1672).
+  holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

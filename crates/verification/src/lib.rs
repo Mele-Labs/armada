@@ -62,7 +62,7 @@ pub use gate::{decide, Accepted, NotWhatTheStepAsked, Verdict};
 pub use judge::{field, Brief, Refusals, Unreadable};
 pub use mechanical::{
     how, never_ran, Artifact, CheckFailed, ChecksOutstanding, Exit, NeverRan, Observed, Ran,
-    EVIDENCE_SCOPE, OUT_OF_BOUNDS,
+    EVIDENCE_SCOPE, HELD_OFF, OUT_OF_BOUNDS,
 };
 pub use outcome::{OutcomeTurn, TheBaseMoved, Verified};
 pub use product::{

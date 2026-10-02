@@ -39,6 +39,7 @@ pub mod runner;
 mod runner_loop;
 mod say;
 mod shell;
+mod size;
 pub mod stamp;
 mod status;
 mod stop;

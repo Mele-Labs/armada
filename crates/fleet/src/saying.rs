@@ -678,8 +678,9 @@ impl fmt::Display for Adrift {
             ),
             Adrift::TaskNotFailed { job, named, state } => write!(
                 out,
-                "{}'s task {named} is {}, and only a failed task restarts on its own. A \
-                 task working or handed in is still in its group's run",
+                "{}'s task {named} is {}, and only a failed task, or a done one in a group \
+                 the Judge refused, restarts on its own. A task working or handed in is \
+                 still in its group's run",
                 job.as_str(),
                 state.as_wire()
             ),

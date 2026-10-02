@@ -316,6 +316,30 @@ export const ItReplacedAJobNothingCanOpen: Story = {
 };
 
 /**
+ * A job dispatched off a Studio, whose sentence is the way back to it. #1674.
+ *
+ * **`opens`, a bound press.** A Studio opens on one of its nodes, so the
+ * destination is the host's own navigation rather than an id this component
+ * hands back. The words are the registry's and have no slot for the Studio, so
+ * the tooltip names where the press lands.
+ */
+export const ItCameOffAStudio: Story = {
+  args: {
+    ...ARunningJob.args,
+    fields: [
+      { label: "Ran", value: "4m 10s", mono: true },
+      { value: "From a Studio, by you", opens: { label: "Open The Board's legend", onOpen: fn() } },
+    ],
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const said = canvas.getByRole("button", { name: "From a Studio, by you" });
+    await expect(said).toHaveAccessibleDescription("Open The Board's legend");
+    await userEvent.click(said);
+    await expect(args.fields[1]?.opens?.onOpen).toHaveBeenCalledOnce();
+  },
+};
+
+/**
  * A stopped job, with the one recovery. **The label says what happens** — a
  * redispatch mints a replacement and kills this job, so "retry" or "run again"
  * would name an act Fleet does not perform.

@@ -71,6 +71,8 @@ mod manifest_snapshot;
 mod migrations;
 /// The model a person chose for a Job's later steps.
 mod model_override;
+/// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
+mod model_per_task;
 /// The note a boundary is holding, and the column it waits in.
 mod note;
 mod numbering;
@@ -90,6 +92,8 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// A pull request's title and comment count, kept past the merge.
+mod pull_request_kept;
 mod read;
 /// Giving a Job's resources back without giving up its record.
 mod rechecking;
@@ -159,6 +163,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::Preferences;
 pub use process::DroneProcess;
 pub use proving::Proved;
+pub use pull_request_kept::KeptPullRequest;
 pub use read::{Loaded, RowIdentity, StatusRepair, UnreadableRow};
 pub use report::Report;
 pub use resolving::{NamedJob, ResolveJobError};

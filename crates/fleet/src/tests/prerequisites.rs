@@ -102,6 +102,7 @@ async fn ruled_with_ports(
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &work,
