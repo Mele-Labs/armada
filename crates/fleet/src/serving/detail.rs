@@ -326,7 +326,11 @@ where
             .await
             .map_err(|why| self.refusal(why))?;
         detail.job.tasks = plan.as_ref().map(|plan| plan.counts().into());
-        detail.work_plan = plan.as_ref().map(ipc::WorkPlan::from);
+        let runs = self
+            .group_runs_of(job.id())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.work_plan = plan.as_ref().map(|plan| ipc::WorkPlan::of(plan, &runs));
         let reviewed = self
             .store()
             .lock()

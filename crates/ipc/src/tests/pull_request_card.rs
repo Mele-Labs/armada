@@ -1,5 +1,5 @@
 //! A merged Job's pull request still carries its title and comment count
-//! (23.4). Absent is unknown, so neither is ever written as `null` or `0`.
+//! (23.5). Absent is unknown, so neither is ever written as `null` or `0`.
 
 use crate::{decode, encode, JobDelivery, Settled};
 
@@ -31,9 +31,9 @@ fn a_merged_jobs_title_and_comment_count_cross_byte_for_byte() {
     assert_eq!(encode(&read).expect("it encodes again"), written);
 }
 
-/// A count nobody read is no key, and a 23.3 Fleet's answer still reads.
+/// A count nobody read is no key, and a 23.4 Fleet's answer still reads.
 #[test]
-fn an_unread_count_carries_no_key_and_a_23_3_answer_still_reads() {
+fn an_unread_count_carries_no_key_and_a_23_4_answer_still_reads() {
     let unread = JobDelivery {
         pull_request_comments: None,
         ..fleets_answer_for_a_merged_job()
@@ -44,7 +44,7 @@ fn an_unread_count_carries_no_key_and_a_23_3_answer_still_reads() {
         "{written}"
     );
     let older: JobDelivery = decode(
-        "a 23.3 delivery",
+        "a 23.4 delivery",
         br#"{"pull_request":"https://forge.invalid/armada/pull/1750","landed":"merged"}"#,
     )
     .expect("it reads");

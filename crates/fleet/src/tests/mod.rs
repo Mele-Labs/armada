@@ -77,6 +77,7 @@ mod frozen;
 mod gaming;
 mod gate;
 mod group;
+mod groups;
 mod handoff_checks;
 mod headings;
 mod headroom;

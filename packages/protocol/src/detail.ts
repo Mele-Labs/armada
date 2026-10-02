@@ -646,11 +646,11 @@ export type JobDelivery = {
    * open, still shows what it carried before this attempt.
    */
   unpushed?: string;
-  /** The pull request's title, kept after it settles. Since 23.4. */
+  /** The pull request's title, kept after it settles. Since 23.5. */
   pull_request_title?: string;
   /**
    * Its comments as last counted while open, kept after it settles; line
-   * comments not counted. Since 23.4. **Absent is unknown, never 0.**
+   * comments not counted. Since 23.5. **Absent is unknown, never 0.**
    */
   pull_request_comments?: number;
 };

@@ -49,6 +49,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// Where a verdict's own question was kept, and the column that points at it.
@@ -149,6 +150,7 @@ pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, 
 pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
+pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use migrations::KNOWN_SCHEMA_VERSION;

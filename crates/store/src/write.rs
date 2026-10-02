@@ -429,6 +429,21 @@ impl Store {
         checks: &[StepCheck],
         at: &Timestamp,
     ) -> Result<(), WriteError> {
+        self.record_group_checks(job_id, step_id, None, checks, at)
+    }
+
+    /// [`record_step_checks`](Store::record_step_checks), at one run of one
+    /// group: its rows replace that group's on this run of the step, and no
+    /// other group's. Spike 022, slice 2.
+    pub fn record_group_checks(
+        &mut self,
+        job_id: &JobId,
+        step_id: &StepId,
+        group: Option<(core_model::GroupId, u32)>,
+        checks: &[StepCheck],
+        at: &Timestamp,
+    ) -> Result<(), WriteError> {
+        let (grp, group_run) = group.map_or((0, 0), |(group, run)| (group.number(), run));
         let tx = self
             .conn
             .transaction()
@@ -437,8 +452,9 @@ impl Store {
         let attempt = attempt_now(&tx, job_id, step_id).map_err(WriteError::Database)?;
 
         tx.execute(
-            "DELETE FROM job_step_checks WHERE job_id = ?1 AND step_id = ?2 AND attempt = ?3",
-            (job_id.as_str(), step_id.as_str(), attempt.number()),
+            "DELETE FROM job_step_checks WHERE job_id = ?1 AND step_id = ?2 AND attempt = ?3 \
+             AND grp = ?4",
+            (job_id.as_str(), step_id.as_str(), attempt.number(), grp),
         )
         .map_err(fault("clearing this run's previous rows"))
         .map_err(WriteError::Database)?;
@@ -447,8 +463,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO job_step_checks (
                      job_id, step_id, attempt, ordinal, name, outcome, expected, produced,
-                     ran_at, output_path, reused_from_dry_run
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                     ran_at, output_path, reused_from_dry_run, grp, group_run
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 rusqlite::params![
                     job_id.as_str(),
                     step_id.as_str(),
@@ -461,6 +477,8 @@ impl Store {
                     at.as_str(),
                     check.output_path.as_deref(),
                     check.reused_from_dry_run.as_ref().map(Timestamp::as_str),
+                    grp,
+                    group_run,
                 ],
             )
             .map_err(fault("writing a check result"))

@@ -11,12 +11,12 @@ use core_model::JobId;
 use crate::error::{fault, WriteError};
 use crate::open::Store;
 
-/// Version 95 — the pull request's title and how many comments it carries.
+/// Version 96 — the pull request's title and how many comments it carries.
 ///
 /// **Null, and no backfill.** A null title is a pull request no read has named
 /// since this column arrived; a null count is one the sweep never read open.
 /// Neither is zero, and nothing here guesses one.
-pub(crate) const V95: &str = r#"
+pub(crate) const V96: &str = r#"
 ALTER TABLE jobs ADD COLUMN delivery_pr_title TEXT;
 ALTER TABLE jobs ADD COLUMN delivery_pr_comments INTEGER;
 "#;
