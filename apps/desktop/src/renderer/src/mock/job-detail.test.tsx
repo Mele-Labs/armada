@@ -121,7 +121,7 @@ test("a Check failed on a test another Job is fixing: the row names the fix", as
 test("this Job is the fix, and two Jobs wait on it: a count, never the list", async () => {
   await opened(withBreakages((jobId) => [brokenOnMain(jobId, "01M1REPORTER0000000000000000")]));
   await expect.poll(text).toMatch(/2 Jobs wait on it/);
-  expect(text()).not.toContain("Split the settings reducer");
+  expect(text()).not.toContain("Round the cost estimate to a cent");
   expect(text()).not.toContain("Memoise the manifest list");
 });
 

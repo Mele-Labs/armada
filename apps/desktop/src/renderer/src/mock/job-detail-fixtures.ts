@@ -66,7 +66,7 @@ export function brokenOnMain(fix: string, reportedBy: string): ClaimedBreakage {
     reported_by: reportedBy,
     reported_by_title: "Trim the brief to the files the step touched",
     waiting: [
-      { job_id: "01M1WAITINGONE00000000000000", title: "Split the settings reducer" },
+      { job_id: "01M1WAITINGONE00000000000000", title: "Round the cost estimate to a cent" },
       { job_id: "01M1WAITINGTWO00000000000000", title: "Memoise the manifest list" },
     ],
     held_off: ["packages/settings/src/selectors.ts"],
