@@ -10,11 +10,10 @@ import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { BoardSection } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
-import { MergeLine } from "@armada/components";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { useDrafted } from "./drafted";
+import { MergeLinePanel } from "./merge-line";
 import { usePanelOpen } from "./panel-open";
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
@@ -83,10 +82,6 @@ export function Overview({
   // is not, and every completed or cleared Job would otherwise have gone with
   // it — it is the one reading that surface had and this did not.
   const [doneOpen, setDoneOpen] = usePanelOpen("done", false);
-  // **Only the mock hands one over.** Fleet does not serve the line yet, so a real Bridge draws no
-  // panel rather than an empty one.
-  const { mergeLine } = useDrafted();
-  const [mergeLineOpen, setMergeLineOpen] = usePanelOpen("merge-line");
   const setters: Record<BoardSection, (open: boolean) => void> = {
     "needs-you": setNeedsYouOpen,
     running: setRunningOpen,
@@ -151,15 +146,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
-        {mergeLine === undefined ? null : (
-          <MergeLine
-            line={mergeLine.line}
-            off={mergeLine.off}
-            open={mergeLineOpen}
-            onOpenChange={setMergeLineOpen}
-            onOpenPullRequest={onOpenLink}
-          />
-        )}
+        <MergeLinePanel onOpenLink={onOpenLink} />
       </div>
     </Boundary>
   );

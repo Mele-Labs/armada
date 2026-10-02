@@ -1228,11 +1228,11 @@ notes = "The gate or a Check found the combination broken, and nothing was pushe
 
 [verbs.land_state.conflict]
 verb = "conflict"
-icon = "split"
+icon = "unplug"
 status_token = "--status-escalated"
 vocabulary = "Land state"
 in_code = ""
-notes = "Main does not merge into the branch cleanly, and the branch keeps its place until somebody merges main in. `split`, one line becoming two, is the merge that would not join; its usage in `packages/icons/icons.toml` records this. The escalated hue because somebody has to act before it moves. Red needs that too, and the two are told apart by kind: red is a measured failure, a conflict is work owed."
+notes = "Main does not merge into the branch cleanly, and the branch keeps its place until somebody merges main in. `unplug`, two halves with a gap where they should join, is the merge that would not close; its Proposed usage in `packages/icons/icons.toml` records this and the other candidate, `wrench`. The owner refused `split` on the walk of 2 Oct 2026. The escalated hue because somebody has to act before it moves. Red needs that too, and the two are told apart by kind: red is a measured failure, a conflict is work owed."
 
 [verbs.land_state.stopped]
 verb = "stopped"

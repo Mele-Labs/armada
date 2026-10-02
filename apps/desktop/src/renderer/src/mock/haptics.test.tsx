@@ -37,7 +37,7 @@ async function confirming() {
 test("an accepted act taps once, in alignment", async () => {
   const api = await opened(reviewAtDelivery());
   const tap = vi.spyOn(api, "tap");
-  await page.getByRole("button", { name: /^Merge/ }).first().click();
+  await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   await (await confirming()).getByRole("button", { name: /^Merge/ }).click();
   await expect.poll(() => tap.mock.calls.length).toBe(1);
   expect(tap).toHaveBeenCalledWith("alignment");
@@ -48,7 +48,7 @@ test("a refused act plays the level change, from the same place", async () => {
     mergePullRequest: async () => NOT_CONNECTED,
   }));
   const tap = vi.spyOn(api, "tap");
-  await page.getByRole("button", { name: /^Merge/ }).first().click();
+  await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   await (await confirming()).getByRole("button", { name: /^Merge/ }).click();
   await expect.poll(() => tap.mock.calls.length).toBe(1);
   expect(tap).toHaveBeenCalledWith("level_change");

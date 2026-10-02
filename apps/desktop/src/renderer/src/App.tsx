@@ -130,6 +130,7 @@ import {
   watchOverview,
 } from "./commands";
 import { useDrafted } from "./drafted";
+import { MergeLineSurface } from "./merge-line";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
@@ -217,6 +218,7 @@ export function App({ draft }: AppProps = {}) {
   // last row, so it carries no digit. Every guide, numbered and grouped,
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
+  const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -499,6 +501,7 @@ export function App({ draft }: AppProps = {}) {
     setSettingsShowing(surfaceId === SURFACE.settings);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
+    setLining(surfaceId === SURFACE.mergeLine);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -691,7 +694,7 @@ export function App({ draft }: AppProps = {}) {
                       ? SURFACE.guides
                       : studying
                         ? SURFACE.studios
-                        : SURFACE.overview
+                        : lining ? SURFACE.mergeLine : SURFACE.overview
           }
           onSurface={goTo}
         >
@@ -894,7 +897,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : clearing ? (
+            ) : lining ? (<MergeLineSurface {...guarded} onOpenLink={openProseLink} />) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and

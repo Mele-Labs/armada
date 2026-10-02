@@ -9,8 +9,11 @@
 // none is carried.
 //
 // **What left the line is made up from real branches.** `bridge/land-board-reads-plainly`
-// did land, at `29064cc27a`; the red and the conflict are invented, on Checks
-// and files this repository has.
+// did land, at `29064cc27a`; the red and the two conflicts are invented, on
+// Checks and files this repository has. Two conflicts, so the owner can set the
+// two candidate glyphs side by side.
+
+import { Wrench } from "lucide-react";
 
 import type { MergeLineView } from "../../draft/merge-line";
 
@@ -66,10 +69,17 @@ export function mergeLine(): MergeLineView {
         state: "red",
         failed: ["desktop_test", "screens_test"],
       },
+      // Two conflicts, one per candidate glyph: `unplug`, the registry's, and `wrench`.
       {
         branch: "bridge/overview-strip-width",
         state: "conflict",
         conflicts: ["apps/desktop/src/renderer/src/App.tsx", "packages/screens/src/OverviewLists.tsx"],
+      },
+      {
+        branch: "fleet/land-status-json",
+        state: "conflict",
+        conflicts: ["crates/armada/src/land/status.rs"],
+        candidate: Wrench,
       },
     ],
   };
