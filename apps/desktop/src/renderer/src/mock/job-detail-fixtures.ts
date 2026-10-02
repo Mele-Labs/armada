@@ -153,6 +153,10 @@ export function heldByTheGamingCheck(recourse: string[]): JobFixture {
   );
   return {
     ...fixture,
+    // Fleet rules `evidence_suspect` only where the Judge refused nothing
+    // (`Ruling::Suspect`), so every criterion here is met — the name the base
+    // carries says otherwise.
+    name: "escalated · evidence_suspect — every Check passed, the Judge met both criteria, and a flag stood",
     watched: watchedRead({
       ...whole,
       steps,
