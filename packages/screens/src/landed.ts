@@ -18,6 +18,7 @@ import type {
   StepDetail,
 } from "@armada/protocol";
 import { artifactPath, recordsOf, repoOf } from "@armada/protocol";
+import type { LucideIcon } from "lucide-react";
 
 import { costOf, groupOf, summaryOf, type LandedCost, type LandedGroup } from "./landed-cost";
 import { clock, span } from "./duration";
@@ -32,10 +33,10 @@ import {
   CRITERION_NO_VERDICT_WORD,
   type CaseRunView,
   type CaseView,
-  type CompleteWhen,
   type CriterionView,
   type LandingRule,
 } from "./draft";
+import { settledBadgeOf } from "./facts";
 import { LANDED } from "./Row";
 
 /** The one Job status this board is drawn for: work that finished. */
@@ -63,6 +64,8 @@ export type LandedPart = {
   absent?: string;
   /** Whether a press opens it. Only the pull request has anywhere to go. */
   opens?: "pull_request";
+  /** The state it settled in, as a badge: the pull request's `Merged`. */
+  badge?: { status: string; icon: LucideIcon; label: string };
 };
 
 export type LandedSection = {
@@ -84,10 +87,7 @@ export type LandedRun = {
 
 export type LandedRuns = {
   name: string;
-  meta?: string;
   runs: LandedRun[];
-  absent?: string;
-  note?: string;
 };
 
 /** One step of the run, with what it came to. */
@@ -104,23 +104,15 @@ export type { LandedCost, LandedGroup };
 /** What a landed Job shows, in the order it is read. */
 export type LandedRead = {
   verb: string;
-  count: string;
-  says: string;
+  /** Only where every criterion was answered: a sentence over none of them is no sentence. */
+  says?: string;
   criteria: { text: string; verdict: string; status: string }[];
-  completes: string;
   sections: LandedSection[];
   steps: { name: string; meta: string; steps: LandedStep[]; absent: string };
   cost: LandedCost;
   runs: LandedRuns[];
   groups: LandedGroup[];
   groupsSummary: string;
-  /**
-   * Never set. The sentence it carried explained what no group carries, and
-   * the owner cut it (1 Oct 2026). Goes with `LandBoard`'s `note=` line.
-   */
-  groupsNote?: string;
-  groupsAbsent: string;
-  followUp: string;
 };
 
 export type LandedInput = {
@@ -145,14 +137,16 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
   const cases = draft.cases ?? caseViewsOf(whole);
   const runs = draft.runs ?? runsOfCases(cases);
   const criteria = answered(draft.criteria ?? criterionViewsOf(whole), whole);
+  const says = saysOf(criteria);
 
   return {
     verb: verbOf(whole),
-    count: countOf(criteria),
-    says: saysOf(criteria),
+    ...(says === undefined ? {} : { says }),
     criteria,
-    completes: COMPLETES[rule.complete_when],
-    sections: [producedOf(whole, rule), leftBehindOf(job, whole, manifest, holding)],
+    // A section left with no row is not drawn: a heading over nothing.
+    sections: [producedOf(whole, rule), leftBehindOf(job, whole, manifest, holding)].filter(
+      (one) => one.parts.length > 0,
+    ),
     steps: {
       name: "The run",
       meta: whole.job.workflow_id,
@@ -163,8 +157,6 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
     runs: runSetsOf(cases, runs),
     groups: groups.map(groupOf),
     groupsSummary: summaryOf(groups),
-    groupsAbsent: "This Job recorded no plan, so it ran as one piece.",
-    followUp: "Dispatch a follow-up",
   };
 }
 
@@ -177,14 +169,6 @@ function verbOf(whole: JobWhole): string {
   }
   return delivery?.pull_request === undefined ? "Finished" : "Delivered";
 }
-
-/** What completing this Job means. The two the boards say, and two more. */
-const COMPLETES: Record<CompleteWhen, string> = {
-  pr_merged: "Completes when its pull request lands.",
-  all_members_landed: "Completes when every member has landed.",
-  pr_opened: "Completes when its pull request is opened.",
-  delivered: "Completes when its delivering step has delivered.",
-};
 
 /** The verdicts a criterion can read, and the hue each takes. */
 const MET = { verdict: CRITERION_VERDICT_JUDGE.met?.verb ?? "met", status: "completed-success" };
@@ -226,34 +210,26 @@ function lastVerdictOf(whole: JobWhole, criterionId: string | undefined): string
 }
 
 /**
- * The headline's figure. **It counts what it says it counts**: where every
- * criterion carries a verdict the figure is what was met, and where any does
- * not it is how many were answered at all — a Job that merged reading
- * `0 of 2 met` is a screen claiming a refusal nobody made.
+ * The sentence under the verb, **only where a verdict stands behind it**
+ * (owner, 1 Oct 2026). No count: `0 of 1 with a verdict recorded` was a count
+ * drawn beside the one row it counted, and read as something missed. And
+ * nothing about a verdict nobody recorded: each criterion's row already says
+ * `no verdict recorded`, and a sentence summing those up was asked about.
  */
-function countOf(criteria: LandedRead["criteria"]): string {
-  const ruled = criteria.filter((one) => one.status !== NO_VERDICT.status).length;
-  if (ruled < criteria.length) return `${ruled} of ${criteria.length} with a verdict recorded`;
-  const met = criteria.filter((one) => one.status === MET.status).length;
-  return `${met} of ${criteria.length} met`;
-}
-
-function saysOf(criteria: LandedRead["criteria"]): string {
+function saysOf(criteria: LandedRead["criteria"]): string | undefined {
   const missing = criteria.filter((one) => one.status === NO_VERDICT.status).length;
   const refused = criteria.filter((one) => one.status === REFUSED.status).length;
-  if (criteria.length === 0) return "Nothing was written down for this Job to be held to.";
-  if (missing === 0 && refused === 0) return "Everything this Job was held to was met.";
   if (refused > 0) return refused === 1 ? "One was refused." : `${refused} were refused.`;
-  return missing === criteria.length
-    ? "No verdict was recorded for any of them."
-    : `No verdict was recorded for ${missing} of them.`;
+  if (criteria.length > 0 && missing === 0) return "Everything this Job was held to was met.";
+  return undefined;
 }
 
 /** What reached the repository: the pull request, and the commit under it. */
 function producedOf(whole: JobWhole, rule: LandingRule): LandedSection {
   const delivery = whole.delivery;
   const target = rule.target;
-  const settled = delivery?.landed === undefined ? undefined : LANDED[delivery.landed];
+  // The header's own badge for the same state, so the two cannot disagree.
+  const settled = settledBadgeOf(delivery?.landed);
   const parts: LandedPart[] = [
     {
       name: "Pull request",
@@ -261,11 +237,8 @@ function producedOf(whole: JobWhole, rule: LandingRule): LandedSection {
       ...(delivery?.pull_request === undefined
         ? { absent: "No pull request was opened for this Job." }
         : { value: delivery.pull_request, opens: "pull_request" as const }),
-      ...(settled === undefined
-        ? target === null
-          ? {}
-          : { meta: `into ${target}` }
-        : { meta: target === null ? settled : `${settled} into ${target}` }),
+      ...(settled === undefined ? {} : { badge: settled }),
+      ...(target === null ? {} : { meta: `into ${target}` }),
     },
     {
       name: "Commit",
@@ -294,32 +267,40 @@ function leftBehindOf(
   // The record is under the Manifest's own records root, so an unread Manifest
   // is a row with nothing to name rather than a path rooted at `/`.
   const records = recordsOf(manifest);
+  // **The log's path is Fleet's, where Fleet has said it.** `artifactPath`
+  // names the log by the Job's id, and a real Fleet keeps it under the
+  // handle: Job 2's record read `logs/01M3WJ4C….jsonl` where Fleet's own
+  // read named `logs/2-retire-guides-….jsonl` (1 Oct 2026).
+  const log = holding?.logs?.find((one) => one.kind === "job")?.path;
+  const record =
+    records === null
+      ? undefined
+      : log !== undefined
+        ? `${records}/${log}`
+        : repo === null
+          ? undefined
+          : artifactPath("log", repo, records, job.id, job.assigned_drone);
+  // **Only a row with a value** (owner, 1 Oct 2026). Job 2 gave its checkout
+  // back, and the Worktree row said nobody had read what it held, on a read
+  // that had answered `held: none`; Record said no Manifest had been read. A
+  // sentence about what Bridge does not have is not a fact about the Job.
+  //
   // `folder` means workspace in the registry and a worktree has no row of its
   // own — `work.tsx` names the same gap on the same row rather than inventing
   // a glyph. `file` is the log row's, which is what a Job's record is.
   const parts: LandedPart[] = [
-    {
-      name: "Branch",
-      mark: "branch",
-      ...(branch === undefined ? { absent: "This Job has no worktree, so it has no branch." } : { value: branch }),
-    },
-    {
-      name: "Worktree",
-      mark: "worktree",
-      ...(worktree === undefined
-        ? { absent: "Nothing has read what this Job holds, so its worktree is unknown." }
-        : {
+    ...(branch === undefined ? [] : [{ name: "Branch", mark: "branch" as const, value: branch }]),
+    ...(worktree === undefined
+      ? []
+      : [
+          {
+            name: "Worktree",
+            mark: "worktree" as const,
             value: worktree.path,
             ...(worktree.bytes === undefined ? {} : { meta: `${sized(worktree.bytes)} on disk` }),
-          }),
-    },
-    {
-      name: "Record",
-      mark: "log",
-      ...(records === null || repo === null
-        ? { absent: "No Manifest was read for this Job, so its record has no home to name." }
-        : { value: artifactPath("log", repo, records, job.id, job.assigned_drone) }),
-    },
+          },
+        ]),
+    ...(record === undefined ? [] : [{ name: "Record", mark: "log" as const, value: record }]),
   ];
   // No note. *Reclaiming the worktree takes the checkout back and leaves the
   // branch and the record* stood here and is true of a Job that never ran, so
@@ -367,26 +348,18 @@ function whoRan(run: CaseRunView): string {
   return said;
 }
 
-/** The two sets: what Fleet ran at handoff, and what a person ran themselves. */
+/**
+ * The tests that ran against this Job, Fleet's and a person's in one table,
+ * each saying who ran it, **or nothing at all where none did** (owner, 1 Oct
+ * 2026). Two headings over two sentences saying nothing had run read as
+ * something still to run, and as a press the board never offered.
+ */
 function runSetsOf(cases: readonly CaseView[], runs: readonly CaseRunView[]): LandedRuns[] {
   const byId = new Map(cases.map((one) => [one.id, one]));
-  const handoff = runs.filter((run) => run.purpose === "handoff");
-  const byHand = runs.filter((run) => run.actor === "person" || run.actor === "contributor");
-  return [
-    {
-      name: "The test set, run again at handoff",
-      meta: `${cases.length} cases · before the pull request was offered`,
-      runs: handoff.map((run) => rowOf(run, byId)),
-      absent: "This Job's set was not run again before it was offered.",
-      note: "There is no before-run: the baseline capture is off, so each of these stands alone.",
-    },
-    {
-      name: "Run by hand",
-      runs: byHand.map((run) => rowOf(run, byId)),
-      absent: "Nobody has run one of these themselves, before or since it landed.",
-      note: "A run from another contributor's machine needs a store between Armada instances.",
-    },
-  ];
+  const ran = runs.filter(
+    (run) => run.purpose === "handoff" || run.actor === "person" || run.actor === "contributor",
+  );
+  return ran.length === 0 ? [] : [{ name: "Test runs", runs: ran.map((run) => rowOf(run, byId)) }];
 }
 
 /** One run's row. A case with no spec reads `not covered`, never as passing. */

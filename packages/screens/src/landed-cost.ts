@@ -25,7 +25,7 @@ export type LandedGroup = {
 };
 
 /** What a Job cost, as the board's own readings. */
-export type LandedCost = { name: string; figures: Figure[]; note: string };
+export type LandedCost = { name: string; figures: Figure[] };
 
 /** What it cost: the run, the spend and the turns, the agents and the Checks. */
 export function costOf(whole: JobWhole, groups: readonly GroupView[]): LandedCost {
@@ -66,11 +66,9 @@ export function costOf(whole: JobWhole, groups: readonly GroupView[]): LandedCos
   }
   return {
     name: "What it cost",
+    // No note under the figures (owner, 1 Oct 2026): where spend and turns
+    // were added up from is an explanation, not a reading.
     figures,
-    note:
-      spend === undefined
-        ? "Spend and turns are added up from each task's own agent, which is where cost arrives."
-        : "Spend and turns are the Job's own totals, which every Drone of it reported into.",
   };
 }
 
