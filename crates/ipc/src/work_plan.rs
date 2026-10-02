@@ -132,6 +132,26 @@ impl JobPlanChanged {
         }
     }
 
+    /// A kept change: an update names its task, an add the task it made, and a
+    /// whole recording neither.
+    pub fn changed(
+        job: &core_model::JobId,
+        change: &core_model::PlanChange,
+        plan: &core_model::WorkPlan,
+        actor: core_model::Actor,
+        at: &core_model::Timestamp,
+    ) -> JobPlanChanged {
+        let moved = match change {
+            core_model::PlanChange::Recorded { .. } => None,
+            core_model::PlanChange::Updated { task, .. } => Some(*task),
+            core_model::PlanChange::Added { .. } => plan.tasks().iter().map(|t| t.id()).max(),
+        };
+        match moved {
+            Some(task) => JobPlanChanged::task_moved(job, plan, task, actor, at),
+            None => JobPlanChanged::recorded(job, plan, actor, at),
+        }
+    }
+
     /// One task moved, and `plan` is what the change left: the state is read
     /// off it rather than passed, so the two cannot disagree.
     pub fn task_moved(

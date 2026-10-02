@@ -256,26 +256,6 @@ pub(crate) fn plan_not_kept(job: &JobId, why: PlanNotKept) -> Adrift {
     }
 }
 
-/// `job.plan_changed` for a kept change: an update names its task, an add the
-/// task it made, and a whole recording neither.
-fn plan_changed(
-    job: &JobId,
-    change: &PlanChange,
-    plan: &WorkPlan,
-    actor: Actor,
-    at: &Timestamp,
-) -> ipc::JobPlanChanged {
-    let moved = match change {
-        PlanChange::Recorded { .. } => None,
-        PlanChange::Updated { task, .. } => Some(*task),
-        PlanChange::Added { .. } => plan.tasks().iter().map(PlanTask::id).max(),
-    };
-    match moved {
-        Some(task) => ipc::JobPlanChanged::task_moved(job, plan, task, actor, at),
-        None => ipc::JobPlanChanged::recorded(job, plan, actor, at),
-    }
-}
-
 /// The word a kept change is answered with. An added task answers with its id,
 /// which is the one thing the Drone needs to name it later.
 pub(crate) fn receipt_word(change: &PlanChange, plan: &WorkPlan) -> String {
@@ -355,13 +335,8 @@ where
                 other => NotPlanned::NotKept(other.to_string()),
             })?;
         drop(working);
-        self.publish(ipc::Event::JobPlanChanged(plan_changed(
-            &job,
-            change,
-            &plan,
-            Actor::Drone,
-            &at,
-        )));
+        let changed = ipc::JobPlanChanged::changed(&job, change, &plan, Actor::Drone, &at);
+        self.publish(ipc::Event::JobPlanChanged(changed));
         Ok(plan)
     }
 
@@ -496,13 +471,8 @@ where
     /// Publish `job.plan_changed`, actor `Human` — a person's act, never
     /// Fleet's own.
     fn told_plan_changed(&self, job: &JobId, change: &PlanChange, plan: &WorkPlan, at: &Timestamp) {
-        self.publish(ipc::Event::JobPlanChanged(plan_changed(
-            job,
-            change,
-            plan,
-            Actor::Human,
-            at,
-        )));
+        let changed = ipc::JobPlanChanged::changed(job, change, plan, Actor::Human, at);
+        self.publish(ipc::Event::JobPlanChanged(changed));
     }
 
     /// Tell a working Drone what a person's add or drop changed. **Only where
