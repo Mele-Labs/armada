@@ -7,7 +7,7 @@ use std::sync::Arc;
 use api::{Commands, Queries, Refusal};
 use core_model::{
     Approach, EvidenceType, GroupId, JobId, JobStatus, NewTask, PlanChange, StepId, TaskId,
-    TaskState,
+    TaskState, WhenRefused,
 };
 use testkit::{FakeJudge, FakeWorkProduct};
 use verification::{Claimed, NotClaimed, ShownBy};
@@ -427,34 +427,7 @@ async fn a_move_places_by_after_and_waits_for_a_task_in_its_run() {
 async fn restart_answers_a_task_in_a_group_the_judge_refused() {
     use TaskState::{Done, Open, Working};
     let home = TempDir::new();
-    let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/read.rs"]));
-    fittings.starting().workflows = one(groups_judged());
-    fittings.judge = Arc::new(FakeJudge::refusing(
-        "the reader stops at the last row",
-        "the reader stops one row short",
-        "the last row is never read",
-    ));
-    let five = planned(&[
-        ("Stop the reader at the end", 1),
-        ("Cover the last row", 1),
-        ("Cover an empty file", 1),
-        ("Cover one row", 1),
-        ("Note the bound", 1),
-    ]);
-    let (fleet, job) = at_implement_on(Arc::new(Fleet::assembled(fittings)), &home, &five).await;
-    for n in 1..=4 {
-        submitted_by_the_one(&fleet, hand_in("A task is done."))
-            .await
-            .expect("a task's hand-in");
-        fleet
-            .turn()
-            .await
-            .unwrap_or_else(|_| panic!("T{}'s Drone", n + 1));
-    }
-    submitted_by_the_one(&fleet, hand_in("T5 is done."))
-        .await
-        .expect("T5's hand-in");
-    let said = ruled(&fleet.turn().await.expect("G1's gate"));
+    let (fleet, job, said) = five_judged(&home, WhenRefused::PerCriterion).await;
     assert!(
         said.starts_with("Some(Refused"),
         "the Judge refuses: {said}"
@@ -502,4 +475,65 @@ async fn restart_answers_a_task_in_a_group_the_judge_refused() {
     .await
     .expect_err("G1's run is open again, so T4 is its group's");
     assert_eq!(code(&refused), "fleet.task_not_failed");
+}
+
+/// A question is not a refusal: the Judge asked a person about G1, so its
+/// tasks read done and the step waits for his answer, and Restart this task
+/// refuses T5 until he gives one (owner, 2 Oct 2026).
+#[tokio::test]
+async fn restart_refuses_a_task_in_a_group_the_judge_only_questioned() {
+    let home = TempDir::new();
+    let (fleet, job, said) = five_judged(&home, WhenRefused::AlwaysAsk).await;
+    assert!(
+        said.starts_with("Some(Questioned"),
+        "the Judge asks: {said}"
+    );
+    assert_eq!(states(&fleet, &job).await, [TaskState::Done; 5]);
+    let refused = Commands::restart_task(
+        Arc::clone(&fleet),
+        ipc::JobId::from(&job),
+        "T5".to_string(),
+        ipc::RestartTask::default(),
+    )
+    .await
+    .expect_err("a question waits for a person's answer");
+    assert_eq!(code(&refused), "fleet.task_not_failed");
+    assert_eq!(states(&fleet, &job).await, [TaskState::Done; 5]);
+}
+
+/// Five tasks in one group, each handed in by its own Drone, green Checks and
+/// a Judge that refuses, then G1's gate, saying what it ruled.
+async fn five_judged(home: &TempDir, when: WhenRefused) -> (Arc<Fixture>, JobId, String) {
+    let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/read.rs"]));
+    fittings.starting().workflows = one(groups_judged());
+    fittings.judge = Arc::new(FakeJudge::refusing(
+        "the reader stops at the last row",
+        "the reader stops one row short",
+        "the last row is never read",
+    ));
+    let five = planned(&[
+        ("Stop the reader at the end", 1),
+        ("Cover the last row", 1),
+        ("Cover an empty file", 1),
+        ("Cover one row", 1),
+        ("Note the bound", 1),
+    ]);
+    let (fleet, job) = at_implement_on(Arc::new(Fleet::assembled(fittings)), home, &five).await;
+    Fixture::set_when_refused(&fleet, &job, when)
+        .await
+        .expect("a Job may say how a refusal is answered");
+    for n in 1..=4 {
+        submitted_by_the_one(&fleet, hand_in("A task is done."))
+            .await
+            .expect("a task's hand-in");
+        fleet
+            .turn()
+            .await
+            .unwrap_or_else(|_| panic!("T{}'s Drone", n + 1));
+    }
+    submitted_by_the_one(&fleet, hand_in("T5 is done."))
+        .await
+        .expect("T5's hand-in");
+    let said = ruled(&fleet.turn().await.expect("G1's gate"));
+    (fleet, job, said)
 }
