@@ -19,7 +19,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 
 import { StudioFrame, studioFrameLabel, type StudioFrameKind } from "../StudioFrame/StudioFrame";
-import { frameSizes, landing, onTheBoard, parentsFirst } from "./frames";
+import { frameSizes, landing, onTheBoard, parentsFirst, pressedIn, type Landing } from "./frames";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import {
@@ -76,9 +76,19 @@ export type StudioWhiteboardDraft = {
   /** The field. Focused once the board has drawn the card. */
   field: ReactNode;
   pending?: boolean;
-  /** Dragged somewhere else, so what is sent lands where it was dropped. */
-  onMoved?: (position: { x: number; y: number }) => void;
+  /**
+   * Dragged somewhere else, so what is sent lands where it was dropped:
+   * `position` on the board, where the draft is drawn, and `landed` the Zone
+   * it was dropped in and its spot there, as a node's own drop is read.
+   */
+  onMoved?: (position: { x: number; y: number }, landed: StudioWhiteboardLanding) => void;
 };
+
+/**
+ * Where something put down lands: the Zone it is in, `null` for the board, and
+ * its spot from that frame's corner — or on the board, where it is in none.
+ */
+export type StudioWhiteboardLanding = Landing;
 
 export type StudioEdgeRelation = "same_as" | "blocks" | "answers";
 
@@ -132,10 +142,19 @@ export type StudioWhiteboardProps = {
   deciding?: string | null;
   /** The node a press on the canvas put down, with its field in it. Absent is none. */
   draft?: StudioWhiteboardDraft | null;
-  /** A press on empty board, where a kind armed on the rail goes. `GraphCanvas`'s rule. */
-  onPanePress?: (at: { x: number; y: number }) => void;
-  /** A kind is armed, and the board draws a crosshair. */
-  placing?: boolean;
+  /**
+   * A press where a kind armed on the rail goes: on empty board, or inside a
+   * Zone. `at` is the point on the board, and `landed` the Zone the press puts
+   * it in, as a drop would — the owner, 2 Oct 2026. `GraphCanvas`'s rule: a
+   * drag is no press.
+   */
+  onPanePress?: (at: { x: number; y: number }, landed: StudioWhiteboardLanding) => void;
+  /**
+   * The kind armed, and the board draws a crosshair. **The kind and not a
+   * flag**, because which frame a press lands in is the kind's: a Zone pressed
+   * inside a Zone lands on the board.
+   */
+  placing?: StudioNodeKind | null;
   /**
    * ⌘V while the board has focus and no field does — the owner's note of
    * 1 Oct 2026. `at` is under the pointer where it is over the board, and the
@@ -450,6 +469,12 @@ function toDraftNode({ id, kind, position, field, pending = false }: StudioWhite
     draggable: true,
     selectable: false,
     focusable: false,
+    // **Over what a frame holds.** React Flow draws a frame's cards above any
+    // node outside it, so a draft put down in a Zone sat under the Notes there
+    // with its field unreachable. A picked node is lifted to 1000
+    // (`SELECTED_NODE_Z` in `@xyflow/system`), and the card being written is
+    // the one a person is looking at.
+    zIndex: 1000,
   };
 }
 
@@ -579,7 +604,7 @@ function Board({
   deciding = null,
   draft = null,
   onPanePress,
-  placing = false,
+  placing = null,
   onPaste,
   children,
   rail,
@@ -595,7 +620,13 @@ function Board({
   const [kept, setKept] = useState<BoardNode[]>(() =>
     given.map((entry) => ({ ...toBoardNode(entry), selected: pick !== null && entry.id === pick })),
   );
-  const nodes = useMemo(() => merged(given, draft, kept), [given, draft, kept]);
+  // **A frame is not picked by the press that places in it**: with a kind
+  // armed, that press is the kind's, and a Zone picked under the new card
+  // would hang its bar over it.
+  const nodes = useMemo(() => {
+    const drawn = merged(given, draft, kept);
+    return placing === null ? drawn : drawn.map((node) => (node.type === "frame" ? { ...node, selectable: false } : node));
+  }, [given, draft, kept, placing]);
   const showing = useRef(nodes);
   showing.current = nodes;
 
@@ -609,7 +640,7 @@ function Board({
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
           if (change.id === draft?.id) {
-            draft.onMoved?.(change.position);
+            draft.onMoved?.(change.position, landing(showing.current.map(asFraming), change.id, change.position));
             continue;
           }
           const where = landing(showing.current.map(asFraming), change.id, change.position);
@@ -663,6 +694,14 @@ function Board({
     }));
   }, [given, givenEdges, nodes, readOnly, deciding, onDecide]);
 
+  // Where a press puts the armed kind: the Zone under it, or the board.
+  const pressed = (at: { x: number; y: number }) =>
+    onPanePress?.(at, placing === null ? { within: null, position: at } : pressedIn(nodes.map(asFraming), placing, at));
+  const onNodePress = (nodeId: string, at: { x: number; y: number }) => {
+    // A press on a card picks it, as it always has. Only a frame's own ground places.
+    if (nodes.find((node) => node.id === nodeId)?.type === "frame") pressed(at);
+  };
+
   return (
     <GraphCanvas<BoardNode, BoardEdge>
       surface="armada-studio-whiteboard"
@@ -676,8 +715,8 @@ function Board({
       nodesDraggable={!readOnly}
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
-      {...(onPanePress === undefined ? {} : { onPanePress })}
-      placing={placing}
+      {...(onPanePress === undefined ? {} : { onPanePress: pressed, onNodePress })}
+      placing={placing !== null}
       aside={children}
     >
       {nodeBar}

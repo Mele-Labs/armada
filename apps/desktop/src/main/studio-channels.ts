@@ -94,11 +94,15 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
   // A node by hand — #1364. **The kind is checked here, not only typed**: the
   // preload is the boundary, and a renderer that sent `finding` would otherwise
   // reach a route Fleet refuses rather than one Bridge never offered.
-  ipc.handle(CHANNELS.addStudioNode, async (_event, studioId: unknown, node: unknown, position: unknown) => {
-    const at = whole(position);
-    if (!text(studioId) || at === null || !byHand(node)) return undefined;
-    return (await connection()?.studios.addNode(studioId, node, at)) ?? unsent;
-  });
+  // `within` is the Zone a press inside one put it in, `null` the board.
+  ipc.handle(
+    CHANNELS.addStudioNode,
+    async (_event, studioId: unknown, node: unknown, position: unknown, within: unknown) => {
+      const at = whole(position);
+      if (!text(studioId) || at === null || !byHand(node) || !(within === null || text(within))) return undefined;
+      return (await connection()?.studios.addNode(studioId, node, at, within)) ?? unsent;
+    },
+  );
   // A pasted picture — 1 Oct 2026. Bytes in; main stages them (`staging.ts`).
   ipc.handle(CHANNELS.addStudioPicture, async (_event, studioId: unknown, bytes: unknown, position: unknown) => {
     const at = whole(position);

@@ -84,6 +84,12 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    * while a kind is armed still pans.
    */
   onPanePress?: (at: { x: number; y: number }) => void;
+  /**
+   * A press on a node, at that point in the graph's own coordinates — a Studio
+   * puts an armed kind down inside the Zone that was pressed. A drag is no
+   * press, as `onPanePress` says.
+   */
+  onNodePress?: (nodeId: string, at: { x: number; y: number }) => void;
   /** A kind is armed: the canvas draws a crosshair, which says the next press puts it down. */
   placing?: boolean;
   /**
@@ -213,6 +219,7 @@ function Surface<N extends Node, E extends Edge>({
   fitViewOptions,
   minZoom,
   onPanePress,
+  onNodePress,
   placing = false,
   aside,
   children,
@@ -259,6 +266,11 @@ function Surface<N extends Node, E extends Edge>({
       onPanePress?.(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
     [flow, onPanePress],
   );
+  const onNodeClick = useCallback(
+    (event: { clientX: number; clientY: number }, node: N) =>
+      onNodePress?.(node.id, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
+    [flow, onNodePress],
+  );
   const onPicked = useCallback(
     ({ nodes: picked }: { nodes: N[] }) => onSelectionChange?.(picked.map((node) => node.id)),
     [onSelectionChange],
@@ -286,6 +298,7 @@ function Surface<N extends Node, E extends Edge>({
       onNodesChange={onNodesChange ?? keepSizes}
       onSelectionChange={onPicked}
       {...(onPanePress === undefined ? {} : { onPaneClick })}
+      {...(onNodePress === undefined ? {} : { onNodeClick })}
       nodesConnectable={false}
       nodesDraggable={nodesDraggable}
       multiSelectionKeyCode={multiSelectionKeyCode}

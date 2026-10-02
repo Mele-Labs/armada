@@ -45,6 +45,8 @@ const SAVING = "Keeping the sketch on this Studio.";
 type Open = {
   nodeId: string | null;
   position: StudioPosition;
+  /** The Zone a new one was placed in, its `position` from that Zone's corner. */
+  within: string | null;
   drawing: Drawing;
   kept: ReadonlySet<string>;
   opened: string;
@@ -55,15 +57,15 @@ export type StudioSketchProps = {
   editable: boolean;
   /** A kept picture's `blob:`, once the board has read it, or `undefined` before. */
   srcOf: (nodeId: string, pictureId: string) => string | undefined;
-  /** Put a new Sketch on the Studio, where it was placed. */
-  onAdd: (drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  /** Put a new Sketch on the Studio, where it was placed: in a Zone, or on the board where `within` is `null`. */
+  onAdd: (drawing: SketchToKeep, position: StudioPosition, within: string | null) => Promise<Outcome>;
   /** Keep a Sketch's drawing as it was left. */
   onSave: (nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
 };
 
 export type StudioSketch = {
-  /** Open the pad blank, for a Sketch placed at `position`. */
-  placed: (position: StudioPosition) => void;
+  /** Open the pad blank, for a Sketch placed at `position` — from the corner of the Zone `within`, where it names one. */
+  placed: (position: StudioPosition, within?: string | null) => void;
   /** Open the pad on a Sketch already on the Studio. */
   opened: (node: Extract<StudioNode, { kind: "sketch" }>) => void;
   /** The layer, or `null` with no pad open. */
@@ -103,9 +105,9 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
     }
     setSaving(true);
     setRefused(null);
-    const { nodeId, position, drawing, kept } = open;
+    const { nodeId, position, within, drawing, kept } = open;
     void toKeep(drawing, kept, bytesOf)
-      .then((keeping) => (nodeId === null ? onAdd(keeping, position) : onSave(nodeId, keeping)))
+      .then((keeping) => (nodeId === null ? onAdd(keeping, position, within) : onSave(nodeId, keeping)))
       .then((outcome) => {
         setSaving(false);
         if (outcome.ok) setOpen(null);
@@ -174,11 +176,11 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
     );
 
   return {
-    placed: (position) =>
-      start({ nodeId: null, position, drawing: NOTHING_DRAWN, kept: new Set(), opened: drawnAs(NOTHING_DRAWN) }),
+    placed: (position, within = null) =>
+      start({ nodeId: null, position, within, drawing: NOTHING_DRAWN, kept: new Set(), opened: drawnAs(NOTHING_DRAWN) }),
     opened: (node) => {
       const drawing = padOf(node.drawing);
-      start({ nodeId: node.id, position: node.position, drawing, kept: keptOf(node.drawing), opened: drawnAs(drawing) });
+      start({ nodeId: node.id, position: node.position, within: null, drawing, kept: keptOf(node.drawing), opened: drawnAs(drawing) });
     },
     sheet,
   };

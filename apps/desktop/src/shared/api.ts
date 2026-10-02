@@ -816,6 +816,8 @@ export type BridgeApi = {
   renameStudio: (studioId: string, name: string) => Promise<Outcome>;
   /**
    * Put a Note, a Link, a Sketch or a File on a Studio, where the person is looking — #1364.
+   * `within` is the Zone a press inside one put it in, with `position` from
+   * that Zone's corner as `moveStudioNode`'s is; `null` is the board.
    *
    * **Four kinds, and the type is what says so.** Every other kind is made by
    * the act that earns it, and Fleet refuses one from Bridge by name; a
@@ -826,6 +828,7 @@ export type BridgeApi = {
     studioId: string,
     node: StudioNodeByHand,
     position: StudioPosition,
+    within: string | null,
   ) => Promise<Outcome>;
   /**
    * Where a file pasted onto a Studio is on disk, or `""` for one that is not —
@@ -844,7 +847,12 @@ export type BridgeApi = {
    * was left — 1 Oct 2026. **Bytes in for a new picture, never a path**, a
    * pasted Picture's rule: main stages them and names each staged file to Fleet.
    */
-  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  addStudioSketch: (
+    studioId: string,
+    drawing: SketchToKeep,
+    position: StudioPosition,
+    within: string | null,
+  ) => Promise<Outcome>;
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
   /**
    * Save where a person put a node down: the frame it landed in, `null` for the

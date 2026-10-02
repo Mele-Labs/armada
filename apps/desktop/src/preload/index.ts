@@ -534,13 +534,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.renameStudio, studioId, name),
   // Four kinds and no more: the type is as narrow as the act, so the surface
   // this bridge gains is a note, a link, a sketch or a file rather than any node.
-  addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position),
+  addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position, within),
   pathOfFile: (file: File): string => webUtils.getPathForFile(file),
   addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.addStudioPicture, studioId, bytes, position),
-  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position),
+  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position, within),
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveStudioSketch, studioId, nodeId, drawing),
   // `within` is the frame it was put down in, and `null` the board — #1620.
