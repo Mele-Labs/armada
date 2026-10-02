@@ -203,7 +203,7 @@ approximations.
 - [`spikes/022-the-wire-lock-for-the-new-job.md`](spikes/022-the-wire-lock-for-the-new-job.md)
   — the wire the new Job is built against: each draft type's DTO, bump and
   source of truth, the owner's answers to the questions it raised, and the
-  backend milestone in slices. Awaiting his read and sign-off.
+  backend milestone in slices. Signed off by the owner, 2 Oct 2026.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

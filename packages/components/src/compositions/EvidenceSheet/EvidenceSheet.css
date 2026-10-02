@@ -2,8 +2,7 @@
    are `Sheet`; what lives here is the strip band, the body and the one control
    that leaves the screen.
 
-   MISSING TOKENS on the line below — the same two `ActivityLogSheet` reports,
-   for the same band on the same layer.
+   MISSING TOKENS on the line below.
    --armada-hairline: no border-width token exists in packages/tokens.
    --armada-band-ground: a band on an overlay is one surface step under it, and
      no token carries "sunken, against --bg-overlay". Reported. */

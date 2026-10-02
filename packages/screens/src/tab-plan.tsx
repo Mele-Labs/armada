@@ -175,6 +175,7 @@ export function PlanTab({
   const { step, groups, gate, region, layers } = usePlanReview({
     job,
     whole,
+    onActHeld,
     ...(draft === undefined ? {} : { draft }),
     floor,
     ...review,

@@ -66,21 +66,22 @@ pub struct StepAttempt {
     /// most one of those per step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
-    /// What both Manifest policies resolved to when this run passed its gate.
-    /// Since 21.9, #1683.
+    /// What both Manifest policies resolved to at the gate this run reached.
+    /// Since 21.9, #1683, and on a run an earlier gate stopped since 21.10,
+    /// where `decided` is false.
     ///
-    /// **Absent is a run with nothing recorded**: one still going, one a gate
-    /// stopped before it read the policies, one from before 21.9, or a Fleet
-    /// older than that. Never either policy's default, because nobody resolved
-    /// it, and `ManifestSummary`'s two words say what the repository says
-    /// today, which is a different fact.
+    /// **Absent is a run with nothing recorded**: one still going, one that
+    /// reached no gate, one from before 21.9, or a Fleet older than that.
+    /// Never either policy's default, because nobody resolved it, and
+    /// `ManifestSummary`'s two words say what the repository says today,
+    /// which is a different fact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolved: Option<ResolvedPolicies>,
 }
 
-/// What a gate resolved `auto_merge` and `review_gate` to, on the run it
-/// passed. Both or neither, which is why it is one optional value rather than
-/// two optional words.
+/// What a gate resolved `auto_merge` and `review_gate` to, on the run that
+/// reached it. Both or neither, which is why it is one optional value rather
+/// than two optional words.
 ///
 /// **Spelled as `armada.yml` writes them**, `ManifestSummary`'s spelling for
 /// the same two words: `never`, `checks-pass` or `always`, and `human_always`
@@ -90,6 +91,18 @@ pub struct StepAttempt {
 pub struct ResolvedPolicies {
     pub auto_merge: String,
     pub review_gate: String,
+    /// Whether the run reached the advance gate, where the rule decides: held
+    /// or advanced. `false` is a run its Checks, its Judge or its gaming check
+    /// stopped first, and the two words say what the rules were. Since 21.10.
+    ///
+    /// **A 21.9 Fleet sends no key, and that reads `true`**, which is what it
+    /// meant: 21.9 recorded only runs that reached the advance gate.
+    #[serde(default = "a_21_9_run_was_decided")]
+    pub decided: bool,
+}
+
+fn a_21_9_run_was_decided() -> bool {
+    true
 }
 
 impl From<core_model::ResolvedPolicies> for ResolvedPolicies {
@@ -97,6 +110,7 @@ impl From<core_model::ResolvedPolicies> for ResolvedPolicies {
         ResolvedPolicies {
             auto_merge: resolved.auto_merge.as_written().to_string(),
             review_gate: resolved.review_gate.as_written().to_string(),
+            decided: resolved.decided,
         }
     }
 }

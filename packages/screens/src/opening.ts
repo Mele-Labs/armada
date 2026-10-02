@@ -22,6 +22,7 @@ const CALLED = {
   check: "That check's output",
   brief: "The brief the judge answered",
   deliverable: "The document the judge read",
+  transcript: "That drone's transcript",
 } as const;
 
 /** The row's subject, for a sentence about it. */

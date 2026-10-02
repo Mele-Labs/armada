@@ -16,7 +16,8 @@
 
 import { connectedTo } from "@armada/protocol";
 import { connects, PROTOCOL_VERSION, skew } from "@armada/protocol";
-import type { Connection, JobSummary, ServerState, StreamMessage } from "@armada/protocol";
+import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
+import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
@@ -106,6 +107,18 @@ export async function readPreferences(
 ): Promise<void> {
   const read = await preferencesOf(port);
   if (read !== null) publish({ preferences: read });
+}
+
+/** What a `proposal.moved` has settled, on the row it names and on its detail where that Job is open. */
+function settledOnto(state: BridgeState, moved: ProposalMoved): Partial<BridgeState> {
+  const watched = state.watched;
+  const open = watched.state === "read" && watched.jobId === moved.job_id ? watched : undefined;
+  const filling = movedOnto(state.jobs, open?.detail, moved);
+  if (filling === null) return {};
+  return {
+    jobs: filling.jobs,
+    ...(open === undefined || filling.detail === undefined ? {} : { watched: { ...open, detail: filling.detail } }),
+  };
 }
 
 export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeStateFleet): void {
@@ -334,15 +347,19 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Absent `proposing` is the call coming back, however it came back, and
     // clears the state. The Jobs it produced arrive as `job.created` and are
     // folded there; nothing here puts a row on the board.
+    //
+    // **What it has settled is folded onto the Job it names, whoever sent
+    // it** (21.6): that row is on every window's Board, so it fills in as the
+    // proposer writes rather than all at once at the answer.
+    const filling = settledOnto(host.current(), event);
     if (event.client_ref !== undefined && event.client_ref === host.proposalRef()) {
       const proposing = event.proposing ?? null;
       if (proposing === null) host.setProposalRef(null);
-      host.publish({ connection, proposing });
+      host.publish({ connection, proposing, ...filling });
       return;
     }
-    // Somebody else's, or one this window did not start. The connection is
-    // still current, which is what the publish says and all it says.
-    host.publish({ connection });
+    // Somebody else's, or one this window did not start.
+    host.publish({ connection, ...filling });
     return;
   }
   if (event.kind === "job.landed") {

@@ -130,3 +130,49 @@ describe("the records a stopped Job names", () => {
     expect(openPath).not.toHaveBeenCalled();
   });
 });
+
+describe("the transcripts a Job's reading lists", () => {
+  const TRANSCRIPT = ".armada/transcripts/12-the-job/01M2D5HKQP001DRONE0000T5.jsonl";
+  const LOGGED_BRIEF = ".armada/briefs/12-the-job/implement.1.c1.md";
+
+  /** `holding()`, with main also holding `jobId`'s reading, which lists these. */
+  function reading(jobId: string): BridgeState {
+    return {
+      ...holding(),
+      resources: {
+        state: "read",
+        jobId,
+        resources: {
+          job_id: jobId,
+          read_at: "2026-09-09T11:10:00Z",
+          held: "running",
+          processes: [],
+          logs: [
+            { kind: "transcript", path: TRANSCRIPT, bytes: 611_205, being_written: true },
+            { kind: "brief", path: LOGGED_BRIEF, bytes: 14_870, being_written: false },
+          ],
+        },
+      },
+    };
+  }
+
+  it("lets a transcript the reading lists through to the filesystem", async () => {
+    await expect(
+      openArtifact(reading(JOB_ID), JOB_ID, { kept: TRANSCRIPT, what: "transcript" }),
+    ).resolves.toEqual({ ok: false, why: "not_there", path: `${RECORDS_ROOT}/${TRANSCRIPT}` });
+  });
+
+  it("refuses a transcript listed for another Job", async () => {
+    await expect(
+      openArtifact(reading("01M22TYSAE0099OTHERJOB0000"), JOB_ID, { kept: TRANSCRIPT, what: "transcript" }),
+    ).resolves.toMatchObject({ ok: false, why: "not_named" });
+  });
+
+  it("refuses a brief the reading lists and the Job does not name", async () => {
+    // Transcripts only: a brief is reachable by `get_job`, whatever else lists it.
+    await expect(
+      openArtifact(reading(JOB_ID), JOB_ID, { kept: LOGGED_BRIEF, what: "brief" }),
+    ).resolves.toMatchObject({ ok: false, why: "not_named" });
+    expect(openPath).not.toHaveBeenCalled();
+  });
+});
