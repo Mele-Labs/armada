@@ -341,7 +341,7 @@ where
             Ruling::Questioned { .. } => {
                 let job = self.load(job_id).await?;
                 let job = self
-                    .move_step(&job, step, StepTarget::HeldForReview)
+                    .move_step_by(&job, step, StepTarget::HeldForReview, ruling.signed_by())
                     .await?;
                 self.asked_the_judge_question(&job, step, ruling).await?;
                 self.applied(&job, ruling).await?;
@@ -370,7 +370,12 @@ where
             Ruling::HandedBack { tell, retrying, .. } => {
                 let job = self.load(job_id).await?;
                 let job = self
-                    .move_step(&job, step, StepTarget::Retrying(*retrying))
+                    .move_step_by(
+                        &job,
+                        step,
+                        StepTarget::Retrying(*retrying),
+                        ruling.signed_by(),
+                    )
                     .await?;
                 self.move_step(&job, step, StepTarget::Running).await?;
                 self.tell(job_id, tell, None, working).await
@@ -414,7 +419,10 @@ where
                 // `no_step_running`, so this order is now the machine's rather
                 // than only this file's.
                 let job = match stopping(ruling) {
-                    Some(why) => self.move_step(&job, step, StepTarget::Stopped(why)).await?,
+                    Some(why) => {
+                        self.move_step_by(&job, step, StepTarget::Stopped(why), ruling.signed_by())
+                            .await?
+                    }
                     None => job,
                 };
                 self.applied(&job, ruling).await?;
@@ -825,9 +833,9 @@ where
 
     /// The same move, said by somebody other than Fleet.
     ///
-    /// **Only what a person did needs it.** Every step move Fleet derives — a
-    /// gate ruling, a dispatch, a reap — is Fleet's, and
-    /// [`move_step`](Fleet::move_step) is the spelling. An override is a person
+    /// **A person's act, or a ruling's own signer.** A dispatch and a reap are
+    /// Fleet's, and [`move_step`](Fleet::move_step) is the spelling; a row a
+    /// ruling writes is signed by [`Ruling::signed_by`]. An override is a person
     /// advancing a step the gate refused, and the actor is the whole content of
     /// that row: the log cannot reconstruct afterwards who disagreed with the
     /// Judge, and a `stopped -> advanced` recorded against Fleet would say

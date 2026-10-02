@@ -23,15 +23,7 @@
 // a fault into something quotable.
 
 import type { ProposalWatch } from "@armada/components";
-import type {
-  Criterion,
-  JobDetail,
-  JobSummary,
-  Outcome,
-  ProposalInFlight,
-  ProposalSettled,
-  Proposed,
-} from "@armada/protocol";
+import type { Outcome, ProposalInFlight, ProposalSettled, Proposed } from "@armada/protocol";
 
 export type { Proposed };
 
@@ -90,68 +82,7 @@ export function answeredAs(answer: Proposed): Answered {
   return { outcome: answer.outcome, told: null };
 }
 
-/**
- * The Job a proposal has settled some of, and its detail.
- *
- * **One function, because a field settles in one place.** What the proposer has
- * decided is the Job becoming more complete — the owner's decision of 30 Sep
- * 2026 that a dispatched request *is* a Job is what makes that true — so a
- * settled field is folded onto the row and the detail rather than drawn from a
- * channel of its own beside them. Every reader on the Board and on the Job's
- * page then draws it with no arm for a proposal at all.
- *
- * **Fleet does not call this yet, and that is `in_code = "Not yet"`.**
- * `job-statuses.toml` says no Fleet creates a Job at dispatch, so there is no
- * row on the far side for `proposal.moved` to be folded onto — the mock is what
- * mints the row and what applies this. When Fleet's half lands,
- * `apps/desktop/src/main/arrivals.ts` calls this on the Job the message names
- * and nothing here changes.
- */
-export function filled(
-  job: JobSummary,
-  detail: JobDetail,
-  settled: ProposalSettled | undefined,
-): { job: JobSummary; detail: JobDetail } {
-  if (settled === undefined) return { job, detail };
-  const title = settled.title;
-  // **The request is not thrown away when the title replaces it.** Until a
-  // title lands the row's title *is* the request as it was typed — which is
-  // what `whyNoBrief` says on the page — so the moment the title changes under
-  // somebody, the words they wrote move into the brief, which is where Fleet
-  // puts them when the call answers anyway. Nothing a person typed stops being
-  // on screen because the proposer got further.
-  const facts = title === undefined ? detail.facts : (detail.facts ?? job.title);
-  const moved: JobSummary = {
-    ...job,
-    ...(settled.workflow_id === undefined ? {} : { workflow_id: settled.workflow_id }),
-    ...(title === undefined ? {} : { title }),
-    ...(settled.settings?.urgency === undefined ? {} : { urgency: settled.settings.urgency }),
-    ...(settled.settings?.model === undefined ? {} : { model: settled.settings.model }),
-  };
-  return {
-    job: moved,
-    detail: {
-      ...detail,
-      job: moved,
-      ...(facts === undefined ? {} : { facts }),
-      acceptance_criteria: criteriaOf(settled.done_when) ?? detail.acceptance_criteria,
-    },
-  };
-}
-
-/**
- * The lines the proposer has written, as criteria. `undefined` where it has
- * written none, so a fold never replaces criteria with an empty list.
- *
- * **The Judge is the source, and Fleet writes the same value** — these are
- * prose, and prose is what the Judge reads. The id is the position, because the
- * record has not minted one yet and a Judge citation names a criterion by where
- * it sits.
- */
-function criteriaOf(doneWhen: readonly string[] | undefined): Criterion[] | undefined {
-  if (doneWhen === undefined || doneWhen.length === 0) return undefined;
-  return doneWhen.map((text, at) => ({ criterion_id: String(at + 1), text, source: "judge" }));
-}
+export { filled, movedOnto } from "./filling";
 
 /**
  * How long a proposal may run before the reading asks whether to keep waiting.

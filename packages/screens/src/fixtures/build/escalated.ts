@@ -17,6 +17,7 @@ import {
   diffRead,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   freshStep,
   handedBack,
@@ -175,6 +176,7 @@ export function escalatedGateFailure(): JobFixture {
           },
         ],
         wrote_last_at: "2026-09-10T14:29:04.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads({
@@ -196,17 +198,6 @@ export function escalatedGateFailure(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_nextest_3: {
-        ok: true,
-        call: {
-          tool: "Bash",
-          call: "call_nextest_3",
-          arguments: "cargo nextest run --workspace",
-          whole: true,
-        },
-      },
-    },
     checkOutputs: {
       "regression_verify.3.cargo_nextest.log": {
         ok: true,

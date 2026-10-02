@@ -31,7 +31,7 @@ goes together should look together and move together.
 
 | Gap | Built as |
 |---|---|
-| How containment is kept | A `within` column on `studio_nodes`, store V90; a contained node's `x` and `y` are from its frame's corner, so moving a Zone is one write |
+| How containment is kept | A `within` column on `studio_nodes`, store V91; a contained node's `x` and `y` are from its frame's corner, so moving a Zone is one write |
 | The Finding | Inside its Zone, as its first item |
 | A Zone's size | Never kept. Bridge sizes each frame round what it holds, every render |
 | The one line | **What is drawn, not what is kept.** The Issue still produces every node the read-in made, and the Zone too; Bridge draws a `Produced` edge into a node inside a frame its source also produced as that frame, and a Note's edge into the Cluster round it as the frame |
@@ -40,5 +40,10 @@ goes together should look together and move together.
 | An Epic | Its issues land in a Zone too; one whose block was laid out before this keeps it on the board |
 | Moving in and out | A node dropped on a Zone goes in, and dragged off one comes out; a Note never leaves its Cluster |
 | Deleting a frame | What it held stays where it was on the board |
+
+**Then, asked whether read-ins made before this should be wrapped into Zones:**
+*"Leave them."* No migration. **Cost he took:** *"your current Studio stays
+messy until you do"* — an old read-in stays loose cards until he rings it off
+himself.
 
 **Where it landed:** `studio/read-in-lands-in-a-zone`, #1620.

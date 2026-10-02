@@ -16,11 +16,12 @@
 
 import { connectedTo } from "@armada/protocol";
 import { connects, PROTOCOL_VERSION, skew } from "@armada/protocol";
-import type { Connection, JobSummary, ServerState, StreamMessage } from "@armada/protocol";
+import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
+import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
-import { ask, capacityOf, limitsOf, preferencesOf } from "./request";
+import { ask, capacityOf, limitsOf, mergeLinesOf, preferencesOf } from "./request";
 import type { ReviewMaterial } from "./review";
 import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
@@ -108,6 +109,18 @@ export async function readPreferences(
   if (read !== null) publish({ preferences: read });
 }
 
+/** What a `proposal.moved` has settled, on the row it names and on its detail where that Job is open. */
+function settledOnto(state: BridgeState, moved: ProposalMoved): Partial<BridgeState> {
+  const watched = state.watched;
+  const open = watched.state === "read" && watched.jobId === moved.job_id ? watched : undefined;
+  const filling = movedOnto(state.jobs, open?.detail, moved);
+  if (filling === null) return {};
+  return {
+    jobs: filling.jobs,
+    ...(open === undefined || filling.detail === undefined ? {} : { watched: { ...open, detail: filling.detail } }),
+  };
+}
+
 export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeStateFleet): void {
   let message: StreamMessage;
   try {
@@ -162,6 +175,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And every server Fleet holds, once per connection — `server.*` on
     // `/events` carries each row whole from here on.
     void host.rehearsal.readServers(fleet.port);
+    // And each repository's merge line, once per connection — `merge_lines.changed` carries it whole.
+    void mergeLinesOf(fleet.port).then((mergeLines) => host.publish({ mergeLines }));
     // And every question waiting on a person, from every repository: events carry only what is
     // asked next, so what was already waiting is read off the Jobs that can hold one.
     void host.questions.readAll(fleet.port);
@@ -334,15 +349,19 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Absent `proposing` is the call coming back, however it came back, and
     // clears the state. The Jobs it produced arrive as `job.created` and are
     // folded there; nothing here puts a row on the board.
+    //
+    // **What it has settled is folded onto the Job it names, whoever sent
+    // it** (21.6): that row is on every window's Board, so it fills in as the
+    // proposer writes rather than all at once at the answer.
+    const filling = settledOnto(host.current(), event);
     if (event.client_ref !== undefined && event.client_ref === host.proposalRef()) {
       const proposing = event.proposing ?? null;
       if (proposing === null) host.setProposalRef(null);
-      host.publish({ connection, proposing });
+      host.publish({ connection, proposing, ...filling });
       return;
     }
-    // Somebody else's, or one this window did not start. The connection is
-    // still current, which is what the publish says and all it says.
-    host.publish({ connection });
+    // Somebody else's, or one this window did not start.
+    host.publish({ connection, ...filling });
     return;
   }
   if (event.kind === "job.landed") {
@@ -408,6 +427,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Carried whole, so an add made in another window or at the CLI lands without a round trip.
     host.publish({ connection });
     return void host.repositories.listed(event, fleet.port);
+  }
+  if (event.kind === "merge_lines.changed") {
+    // Above the tail, `manifest.reread`'s reason. Replaced whole, never folded.
+    const { kind: _kind, ...mergeLines } = event;
+    host.publish({ connection, mergeLines });
+    return;
   }
   if (event.kind === "studio.changed") {
     // Above the tail, `manifest.reread`'s reason: there is no Job to find. The Studio travels whole,

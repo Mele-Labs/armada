@@ -337,7 +337,7 @@ description = "Move a node to where a person left it, in the frame it was put do
 notes = """
 Where it sits only. A Studio is laid out by hand, so no agent is offered a move; a node Helm adds is placed by the request that adds it.
 
-**`within` names the frame it was put down in, and absent is the board** (since 22.0, #1620); `position` is measured from that frame's corner. A Zone holds any kind but a Zone and a Cluster only the Notes with a `produced` edge into it; anything else is `fleet.studio_frame_cannot_hold`. A Note in a Cluster stays in it, and moving it anywhere else is `fleet.studio_note_stays_in_its_cluster`.
+**`within` names the frame it was put down in, and absent is the board** (since 23.0, #1620); `position` is measured from that frame's corner. A Zone holds any kind but a Zone and a Cluster only the Notes with a `produced` edge into it; anything else is `fleet.studio_frame_cannot_hold`. A Note in a Cluster stays in it, and moving it anywhere else is `fleet.studio_note_stays_in_its_cluster`.
 """
 
 [operations.remove_studio_nodes]
@@ -381,7 +381,7 @@ The first rung of `docs/concepts/studio.md`'s *Promotion* that joins nodes rathe
 
 `agent_access` is `Bridge only`: a Cluster is Notes a person accepted as one thing, and accepting is a person's act whatever Helm's authority setting says.
 
-**A Cluster is drawn round its Notes** (since 22.0, #1620): it lands inside the frame they all share, or on the board, at their corner, and each Note goes inside it where it was; `position` places an Outline only. A Note already in a Cluster is refused as `fleet.studio_note_in_a_cluster` — one Cluster at a time, decided with the owner on 2 Oct 2026.
+**A Cluster is drawn round its Notes** (since 23.0, #1620): it lands inside the frame they all share, or on the board, at their corner, and each Note goes inside it where it was; `position` places an Outline only. A Note already in a Cluster is refused as `fleet.studio_note_in_a_cluster` — one Cluster at a time, decided with the owner on 2 Oct 2026.
 
 Only a Cluster or an Outline decodes here; any other kind is refused as `fleet.studio_group_not_a_group`, because every other kind has a rung of its own that makes it. A Cluster of anything but Notes is refused as `fleet.studio_cluster_is_of_notes`. A node named twice, or none at all, is `fleet.studio_group_is_of_several`. A blank field is `fleet.studio_node_blank`, as `add_studio_node` has it.
 """
@@ -605,6 +605,23 @@ The split is `get_call`'s, made against the same measurement. A Check's output i
 **A window, and it says it is one.** The tail is served, for the reason `checks_runner` captures the tail: a test runner prints its failures last. `from_line` is the file's own numbering, `total_lines` is exact because the file is counted as it is read, and `whole` is stated rather than left to be inferred.
 
 `agent_access` is `Yes` since `#697`, and the context cost it was refused for is answered at the door rather than by this column. A tool answer is cut at 64 KiB and says so, naming this route for the rest — and this operation was already a window, which makes it the cheapest of the six to open. What the refusal cost was the larger number: an agent may `start_run` and could not read what the run printed, which is an agent that cannot verify its own work.
+"""
+
+[operations.get_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One brief a Judge or a gaming check was asked, read back into the app"
+notes = """
+**The other end of `brief_path`.** `Judged.brief_path` and a gaming flag's `brief_path` have named the file a verdict was argued from since Fleet kept it, and `JobResources.logs` lists it as kind `brief` — but nothing served its contents, so the row opened outside Bridge. The owner decided on 2 Oct 2026 that a brief opens in Pulse's log panel the way a transcript does, and this is what that panel reads.
+
+The split is `get_check_output`'s, on the same measurement: a brief carries the whole branch diff, so it rides no event and no `get_job`. The cheap fact — that there is one, and where — rides the row; the bytes are fetched once, by whoever pressed it.
+
+**`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
+
+**The tail, through `get_check_output`'s window**: 2,000 lines and 256 KiB. A brief ends on what it asks — the diff comes before the question and the answer format — so a cut brief keeps the question. `from_line` is the file's own numbering, `total_lines` is exact and `whole` is stated.
+
+`agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
 """
 
 [operations.get_frame]
@@ -1010,6 +1027,19 @@ notes = """
 Beside `list_manifests` rather than instead of it: Setup starts from a folder nobody wrote an `armada.yml` for, and that repository has a root and records before it has a Manifest. The root is what `?repository=` names on Scan and its proposals.
 
 `agent_access` is `No` for `get_repository_scan`'s reason: a root is the owner's checkout on disk.
+"""
+
+[operations.get_merge_lines]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, and the newest three that left it"
+notes = """
+A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
+
+A repository nobody has run `armada land` in is left out rather than listed empty. `off` is bounded at three, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026.
+
+`agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
 
 [operations.add_repository]
@@ -2944,6 +2974,19 @@ Published when a repository is added by folder, when a clone lands and is added,
 Names no Job, no Drone and no step. No actor and no `at`: the add that caused it answered its own caller, and every other Bridge only needs the list.
 
 A resync does not carry it. A client that reconnects asks `list_repositories` again, as it did before this existed.
+"""
+
+[operations."merge_lines.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A merge line moved on disk, and this is every line now"
+notes = """
+Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
+
+Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """
 
 [operations."studio.changed"]

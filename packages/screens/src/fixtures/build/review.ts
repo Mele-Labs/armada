@@ -20,6 +20,7 @@ import {
   diffRead,
   droneEnded,
   evidenceRead,
+  droneLogs,
   foldedReads,
   freshStep,
   holdsRead,
@@ -240,7 +241,7 @@ export function review(): JobFixture {
       note("2026-09-10T14:29:40Z", "Regression check's gate passed. Waiting on a person to advance it."),
     ]),
     resources: holdsRead(
-      resources("none", { processes: [], wrote_last_at: "2026-09-10T14:29:40.000Z" }),
+      resources("none", { processes: [], wrote_last_at: "2026-09-10T14:29:40.000Z", logs: droneLogs(false) }),
     ),
     recorded: foldedReads({
       evidence: evidenceRead([
@@ -294,17 +295,6 @@ export function review(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_nextest_1: {
-        ok: true,
-        call: {
-          tool: "Bash",
-          call: "call_nextest_1",
-          arguments: "cargo nextest run --workspace",
-          whole: true,
-        },
-      },
-    },
     checkOutputs: {
       "regression_verify.1.cargo_nextest.log": {
         ok: true,

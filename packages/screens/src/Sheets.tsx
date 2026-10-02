@@ -1,10 +1,10 @@
-// The two readings the panel cannot hold, on the layer that can — #286, and
+// The readings the panel cannot hold, on the layer that can — #286, and
 // Journey 4's frames 4i-4m.
 //
-// The activity log holds 1676 entries on a real Job and the diff is the Job's
-// whole patch. Neither is a longer version of something a chapter can hold: an
-// expander pushes every chapter under it off the screen, and a patch in a 602px
-// column is a decision taken on a line that wrapped.
+// The diff is the Job's whole patch, and a patch in a 602px column is a
+// decision taken on a line that wrapped. The activity log was the other reading
+// here until 2 Oct 2026, when the owner removed it: nothing on a Job is a single
+// log, so a sheet that claimed to be one went with the `L` that opened it.
 //
 // **One sheet at a time, and `Esc` returns to the panel** rather than to the
 // previous sheet. Which one is open is `JobDetail`'s state; what closes one is
@@ -16,7 +16,6 @@
 // ground behind does not close a sheet.
 
 import {
-  ActivityLogSheet,
   ConsoleOutput,
   EvidenceSheet,
   JobDiffSheet,
@@ -25,27 +24,18 @@ import {
   type PlanTaskSheetProps,
   RunSheet,
   railOfPatch,
-  type ActivityFilter,
   type JobDiffFile,
   type JobHoldsSheetProps,
   type RunSheetProps,
 } from "@armada/components";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo } from "react";
 import { usePulseWatch } from "./tab-pulse";
 
-import type {
-  Diff,
-  Observed,
-  Turn,
-} from "@armada/protocol";
+import type { Diff } from "@armada/protocol";
 import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 import type { PlanTaskRow } from "./plan";
-import type { Calls } from "./calls";
 import { checkSheetOf } from "./checks";
 import { DecidedDiff } from "./Decide";
-import { DroneMessageControl } from "./DroneMessage";
-import { clock } from "./duration";
-import { WorkGrouped } from "./grouped";
 import {
   liveNoteFor,
   liveRegionOf,
@@ -56,15 +46,13 @@ import {
   type Following,
   type Outputs,
 } from "./outputs";
-import { recourseOf } from "./recovery";
 import { drawn, WORKTREE_GIVEN_BACK } from "./review";
-import { NOTHING_YET_ON_THIS_STEP, whyNotWatching, type LogRow } from "./story";
 
 /**
  * Which sheet is open, or none. Two cannot be.
  *
- * **`holds` is the third, and it is here for a different reason than the other
- * two.** They left the panel because a reading has no end; this left the run
+ * **`holds` is here for a different reason than the diff.** The diff left the
+ * panel because a reading has no end; this left the run
  * column because it was the largest thing on it and the run is what a person
  * opens a Job to read. Same layer, same two exits, same one-at-a-time rule.
  *
@@ -79,20 +67,7 @@ import { NOTHING_YET_ON_THIS_STEP, whyNotWatching, type LogRow } from "./story";
  *
  * **`check` is the sixth**: one Check's output, from its row, closing onto the Checks chapter.
  */
-export type OpenSheet = "log" | "diff" | "holds" | "run" | "check" | "task" | null;
-
-/**
- * Where the log's reading was held, and how much it had then.
- *
- * **Held once the reader scrolls away from the tail, not for the whole time
- * the sheet is open.** #1155. At the bottom the sheet follows, the way a chat
- * does; a stream that scrolls itself out from under someone who scrolled up
- * to read one of 1676 entries is the failure the hold exists to prevent, so it
- * takes over exactly there rather than from the moment the sheet opens. `rows`
- * is the count at the moment it was held, and the difference is what *Jump to
- * now* carries — scrolling back down does the same thing the button does.
- */
-export type HeldAt = { at: string; rows: number };
+export type OpenSheet = "diff" | "holds" | "run" | "check" | "task" | null;
 
 export type DetailSheetProps = {
   which: OpenSheet;
@@ -100,30 +75,7 @@ export type DetailSheetProps = {
   whole: JobWhole | null;
   /** The step the panel is showing, restated here: the tree is under the layer. */
   step: StepDetail;
-  /** The step's rows, in the order they arrived. */
-  rows: LogRow[];
-  /**
-   * Which run of the step the rows are, where they are one run's.
-   *
-   * **The header has to say so**, because a log opened from attempt 1 and one
-   * opened from the step are the same layer with different contents, and
-   * nothing else on it distinguishes a short run from a quiet step.
-   */
-  ofAttempt?: number;
-  /**
-   * The same turns those rows were folded from, which carry the tool and the
-   * timing the rows no longer do. **The sheet is where the folding earns its
-   * keep**: one real step put 1763 rows behind this layer.
-   */
-  turns: readonly Turn[];
-  observed: Observed;
   diff: Diff;
-  calls: Calls;
-  /** What one log takes, by name, so the sheet's rows are not the preview's. */
-  log: { region: string; openId: string | null; onOpen: (rowId: string | null) => void };
-  held: HeldAt | null;
-  /** Now, for `holdOf` — the clock a scroll-away hold is stamped with. #1155. */
-  now: number;
   /**
    * Which Check the output sheet is open on — `which === "check"`'s own
    * reading. `checkSheetOf(step, checkId)` is what turns this into live or
@@ -143,17 +95,6 @@ export type DetailSheetProps = {
    * what lets go of the socket now that the chapter no longer does.
    */
   following: Following;
-  /**
-   * Hold the reading where it is, or `null` to follow the tail again.
-   *
-   * **Null is what *Jump to now* means.** It used to hold again at the current
-   * instant, which updates the timestamp and resets the count and leaves the
-   * reading held — so the one control on the strip appeared to do nothing, and
-   * the strip it belongs to stayed up saying the tail was not being followed.
-   */
-  onHold: (held: HeldAt | null) => void;
-  /** Sends a redirect, from the log sheet's own message box. #1154. */
-  onRedirect: (jobId: string, instruction: string) => void;
   /**
    * The full machine reading, exactly as the panel used to draw it — every
    * state and every argument, `Refresh` included. Built by the caller, because
@@ -201,91 +142,23 @@ export function DetailSheet({
   job,
   whole,
   step,
-  rows,
-  ofAttempt,
-  turns,
-  observed,
   diff,
-  calls,
-  log,
-  held,
-  now,
   checkId,
   taskId,
   planTasks = [],
   taskTouched,
   outputs,
   following,
-  onHold,
-  onRedirect,
   holds,
   onNeedPulse,
   run,
   floor,
   onClose,
 }: DetailSheetProps) {
-  // Above the early returns, `filter`'s reason: a hook cannot be conditional.
+  // Above the early returns, because a hook cannot be conditional.
   // `null` for every other sheet, which is what stops the reading being polled
   // for a board that is not drawn.
   usePulseWatch(which === "holds" ? job.id : null, onNeedPulse);
-  // **Which actor's lines to show.** Held here rather than by the panel: it is
-  // a reading of one sheet and it should start over the next time the sheet is
-  // opened, which is what a state on the component that mounts with the sheet
-  // gives. Above the early returns because a hook cannot be conditional; the
-  // other sheets carry it and never read it.
-  const [filter, setFilter] = useState<ActivityFilter>("all");
-  // The four tabs were drawn from the component's own default and handed no
-  // handler, so every one of them was a control that did nothing when pressed.
-  // `LogActor` and `ActivityFilter` are the same three names plus `all`, so
-  // selecting is the comparison and no mapping stands between them.
-  const shown = useMemo(() => shownBy(rows, filter), [filter, rows]);
-
-  if (which === "log") {
-    return (
-      <ActivityLogSheet
-        open
-        floor={floor}
-        step={ofAttempt === undefined ? step.label : `${step.label} · attempt ${ofAttempt}`}
-        jobId={job.handle}
-        total={rows.length}
-        // **A closed run's log is not live**, and the hold strip has nothing to
-        // jump to: both of those describe a tail, and this run has no tail.
-        live={ofAttempt === undefined && observed.state === "watching"}
-        // When the stream stopped. Nothing on the wire carries a Job's end, so
-        // this is the open step's own `updated_at` — the instant the panel's
-        // own `Took` is measured to, rather than a second reading of it.
-        endedAt={clock(step.updated_at)}
-        filter={filter}
-        onFilter={setFilter}
-        heldAt={held?.at}
-        arrived={held === null ? 0 : Math.max(rows.length - held.rows, 0)}
-        onJumpToNow={() => onHold(null)}
-        // The scroll itself decides, not a row landing: at the bottom resumes
-        // following exactly as *Jump to now* does; scrolled away holds exactly
-        // where the reader put it, stamped now for the strip and the count. #1155.
-        onFollowingChange={(following) => onHold(following ? null : holdOf(now, rows.length))}
-        escalation={escalationOf(job, whole, step, onClose)}
-        // Fixed under the stream in `Sheet`'s own footer slot, so it holds its
-        // place while the body above it scrolls — #1154, and the reason #1155
-        // has to land after it: "the tail" is the last row above this box, not
-        // the row this box would otherwise sit on top of.
-        footer={<DroneMessageControl job={job} whole={whole} onRedirect={onRedirect} />}
-        onClose={onClose}
-      >
-        {/* The sheet is the whole log, so a socket that stopped says so here
-            for the reason the chapter's preview does: an empty sheet reading as
-            a step that has not started is the panel's defect one layer out. */}
-        <WorkGrouped
-          rows={shown}
-          turns={turns}
-          stepId={step.step_id}
-          emptyNote={whyNotWatching(observed) ?? NOTHING_YET_ON_THIS_STEP}
-          calls={calls}
-          log={log}
-        />
-      </ActivityLogSheet>
-    );
-  }
   if (which === "diff") {
     return <DiffSheet job={job} whole={whole} diff={diff} floor={floor} onClose={onClose} />;
   }
@@ -334,11 +207,11 @@ export function DetailSheet({
 /**
  * The patch, the rail beside it and the count over both, from one reading.
  *
- * **Its own component so the split is not paid for by the log.** The parse is
- * held across renders, and the panel above ticks `now` every second: a
+ * **Its own component so the split is not paid for by the other sheets.** The
+ * parse is held across renders, and the panel above ticks `now` every second: a
  * 2,000-line patch re-split on every tick is the freeze the v1 failure log
  * recorded nine times. A hook in `DetailSheet` would have to run before its
- * early return and would run on every log render too.
+ * early return and would run on every other sheet's render too.
  */
 function DiffSheet({
   job,
@@ -493,64 +366,30 @@ export function gaveBackTheWorktree(diff: Diff, jobId: string, whole: JobWhole |
 }
 
 /**
- * The lines one filter selects.
- *
- * **Its own function so the tabs can be checked without mounting a sheet.**
- * They were drawn from the component's own default and handed no handler at
- * all, so all four were controls that did nothing when pressed and nothing
- * said so — which is the shape of defect a rendered assertion catches late and
- * a function's return catches immediately.
- *
- * `LogActor` and `ActivityFilter` are the same three names plus `all`, so the
- * selection is the comparison and nothing maps between them.
- */
-export function shownBy(rows: LogRow[], filter: ActivityFilter): LogRow[] {
-  return filter === "all" ? rows : rows.filter((row) => row.actor === filter);
-}
-
-/** The reading, held where it is now. One spelling, used opening and jumping. */
-export function holdOf(now: number, rows: number): HeldAt {
-  return { at: clock(new Date(now).toISOString()), rows };
-}
-
-/**
- * Which sheet is up, and what it is reading — one value.
- *
- * **Three pieces that only ever change together.** The log's attempt and where
- * its reading was held mean nothing without the log up, and held as three
- * pieces of state a sheet could close and leave either behind for the next
- * sheet to inherit.
+ * Which sheet is up, and what it is reading — one value, so a sheet that closes
+ * cannot leave its reading behind for the next sheet to inherit.
  */
 export type SheetReading =
   | { which: null }
-  | { which: "log"; attempt?: number; held: HeldAt | null }
   | { which: "check"; checkId: string }
   | { which: "task"; taskId: string }
-  | { which: Exclude<OpenSheet, "log" | "check" | "task" | null> };
+  | { which: Exclude<OpenSheet, "check" | "task" | null> };
 
-/** What can happen to it: a sheet goes up, comes down, or the log is held or let go. */
+/** What can happen to it: a sheet goes up or comes down. */
 export type SheetMove =
-  | { move: "open"; which: "log"; attempt?: number; held?: HeldAt }
   | { move: "open"; which: "check"; checkId: string }
   | { move: "open"; which: "task"; taskId: string }
-  | { move: "open"; which: Exclude<OpenSheet, "log" | "check" | "task" | null> }
-  | { move: "close" }
-  | { move: "hold"; held: HeldAt | null };
+  | { move: "open"; which: Exclude<OpenSheet, "check" | "task" | null> }
+  | { move: "close" };
 
 export const NO_SHEET: SheetReading = { which: null };
 
-/** The next reading. A second sheet replaces the first; holding means nothing off the log. */
-export function sheetMoved(was: SheetReading, move: SheetMove): SheetReading {
+/** The next reading. A second sheet replaces the first. */
+export function sheetMoved(_was: SheetReading, move: SheetMove): SheetReading {
   if (move.move === "close") return NO_SHEET;
-  if (move.move === "hold") return was.which === "log" ? { ...was, held: move.held } : was;
   if (move.which === "check") return { which: "check", checkId: move.checkId };
   if (move.which === "task") return { which: "task", taskId: move.taskId };
-  if (move.which !== "log") return { which: move.which };
-  return {
-    which: "log",
-    ...(move.attempt === undefined ? {} : { attempt: move.attempt }),
-    held: move.held ?? null,
-  };
+  return { which: move.which };
 }
 
 /**
@@ -593,22 +432,3 @@ function railOf(diff: Diff, jobId: string): JobDiffFile[] | null {
 const WHICH_STEP_WROTE_IT =
   "Fleet commits once at the end, so the patch is the Job's. Nothing served says which step " +
   "wrote each file.";
-
-/**
- * What the Job did while the sheet was open, where it did something.
- *
- * **The sheet says the Job moved and no more.** The failed step and its hued
- * cross are on the rail behind the layer, which is where that reading lives.
- * The act does not grow either: *Show me* closes the sheet, which is what `Esc`
- * already does, so it is a labelled second face of one act rather than a second
- * binding — and Pilot keeps the accent in the Job header, behind the layer.
- */
-function escalationOf(
-  job: JobSummary,
-  whole: JobWhole | null,
-  step: StepDetail,
-  onShowMe: () => void,
-): { at: string; because: ReactNode; onShowMe: () => void } | undefined {
-  if (job.status !== "escalated") return undefined;
-  return { at: clock(step.updated_at), because: recourseOf(job, whole).stands, onShowMe };
-}

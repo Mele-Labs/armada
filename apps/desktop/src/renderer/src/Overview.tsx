@@ -13,6 +13,7 @@ import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import { MergeLinePanel } from "./merge-line";
 import { usePanelOpen } from "./panel-open";
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
@@ -33,6 +34,7 @@ export function Overview({
   onCursor,
   land,
   onLanded,
+  onOpenLink,
 }: {
   state: BridgeState;
   now: number;
@@ -63,6 +65,8 @@ export function Overview({
   land?: { section: StripSection; at: number } | null;
   /** Taken, so the token is not acted on twice. */
   onLanded?: () => void;
+  /** Hands an address to whatever opens addresses on this machine: the merge line's pull requests. */
+  onOpenLink: (address: string) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -142,6 +146,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} />
       </div>
     </Boundary>
   );

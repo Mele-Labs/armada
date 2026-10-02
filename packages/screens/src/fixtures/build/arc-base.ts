@@ -44,6 +44,7 @@ import type {
   TaskView,
   WaveView,
 } from "../../draft";
+import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
@@ -117,6 +118,8 @@ export type ArcDraft = {
   members?: JobMembersView;
   /** The wave this Job dispatched, and which of its Jobs waits on which. */
   wave?: WaveView;
+  /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
+  mergeLine?: MergeLineView;
 };
 
 /**
@@ -463,10 +466,14 @@ export function arcManifests(): ManifestSummary[] {
   return [manifest()];
 }
 
-/** What the Job holds on the machine, with a process per Drone that is up. */
+/**
+ * What the Job holds on the machine, with a process per Drone that is up.
+ * `logs` absent is a moment that lists no file, as the wire leaves it out.
+ */
 export function arcResources(
   held: Held,
   processes: JobResources["processes"] = [],
+  logs?: JobResources["logs"],
 ): JobResources {
   return {
     job_id: ARC_JOB_ID,
@@ -474,6 +481,7 @@ export function arcResources(
     held,
     processes,
     worktree: { path: ARC_WORKTREE, branch: ARC_BRANCH, bytes: 1_020_054_016, measured_at: "2026-09-22T11:17:40.000Z" },
+    ...(logs === undefined ? {} : { logs }),
   };
 }
 

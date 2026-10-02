@@ -57,6 +57,7 @@ export function RowFields({ row, detail }: { row: LedgerRow; detail: JobWhole })
 const FIELD_OF: Readonly<Record<string, string>> = {
   task_done: "What it showed",
   task_working: "What it showed",
+  task_handed_in: "What it showed",
   task_failed: "Why",
   task_dropped: "Why",
   flagged: "Cited",

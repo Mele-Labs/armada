@@ -51,8 +51,8 @@ use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
-    explain_command, get_call, get_capacity, get_check_output, get_diff, get_evidence, get_frame,
-    get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
+    explain_command, get_brief, get_call, get_capacity, get_check_output, get_diff, get_evidence,
+    get_frame, get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
     get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifests, list_models,
     list_reports, list_workflows, list_worktrees, search_files,
 };
@@ -62,7 +62,7 @@ use crate::rehearsing::{
     start_checkout_run, start_checkout_verify, start_run, stop_checkout_run, stop_run,
     undo_checkout_run, undo_run,
 };
-use crate::repositories::{add_repository, clone_repository, list_repositories};
+use crate::repositories::{add_repository, clone_repository, get_merge_lines, list_repositories};
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
@@ -117,6 +117,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories", get(list_repositories::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/merge_lines", get(get_merge_lines::<D>))
         .route("/models", get(list_models::<D>))
         .route("/capacity", get(get_capacity::<D>))
         .route("/limits", get(get_limits::<D>))
@@ -201,6 +202,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(get_check_output::<D>),
         )
         .route("/jobs/:job_id/frames/:run/:name", get(get_frame::<D>))
+        .route("/jobs/:job_id/briefs/:name", get(get_brief::<D>))
         .route("/jobs/:job_id/approve_review", post(approve_review::<D>))
         .route("/jobs/:job_id/merge", post(merge_pull_request::<D>))
         .route(

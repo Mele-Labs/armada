@@ -53,6 +53,7 @@ mod review_record;
 mod revision;
 mod roundtrip;
 mod showing;
+mod signers;
 mod spend;
 mod studio;
 mod studio_authors;

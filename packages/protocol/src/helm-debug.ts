@@ -79,7 +79,7 @@ export type HelmDebugPolled = {
 };
 
 /**
- * What a reading of one session came back as. **`CallRead`'s shape, and for
+ * What a reading of one session came back as. **`CheckOutputRead`'s shape, and for
  * its reasons**: it is asked for once, by the person who opened the record,
  * and it is theirs — putting it in `BridgeState` would make one reader's
  * gesture part of what every surface re-renders on.

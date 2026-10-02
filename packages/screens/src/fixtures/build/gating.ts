@@ -17,6 +17,7 @@ import {
   checked,
   consumersStep,
   detail,
+  droneLogs,
   foldedReads,
   handedBack,
   holdsRead,
@@ -130,15 +131,10 @@ export function retryingCheckFailure(): JobFixture {
           { pid: 41233, command: "node", cpu_percent: 6.4, memory_bytes: 411_041_792, running_for: "03:12", recorded: true },
         ],
         wrote_last_at: "2026-09-10T14:25:10.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads(),
-    calls: {
-      call_nextest_2: {
-        ok: true,
-        call: { tool: "Bash", call: "call_nextest_2", arguments: "cargo nextest run --workspace", whole: true },
-      },
-    },
     checkOutputs: {
       "regression_verify.1.cargo_nextest.log": {
         ok: true,
@@ -281,15 +277,10 @@ export function gateChecksStreaming(): JobFixture {
           { pid: 41233, command: "node", cpu_percent: 4.8, memory_bytes: 398_112_768, running_for: "00:22", recorded: true },
         ],
         wrote_last_at: "2026-09-10T14:22:52.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads(),
-    calls: {
-      call_nextest_1: {
-        ok: true,
-        call: { tool: "Bash", call: "call_nextest_1", arguments: "cargo nextest run --workspace", whole: true },
-      },
-    },
     checkOutputs: {},
     frames: {},
     now: NOW,
@@ -331,19 +322,10 @@ export function runningAtGate(): JobFixture {
           { pid: 41233, command: "node", cpu_percent: 5.6, memory_bytes: 405_112_832, running_for: "01:22", recorded: true },
         ],
         wrote_last_at: "2026-09-10T14:23:40.000Z",
+        logs: droneLogs(true),
       }),
     ),
     recorded: foldedReads(),
-    calls: {
-      call_nextest_1: {
-        ok: true,
-        call: { tool: "Bash", call: "call_nextest_1", arguments: "cargo nextest run --workspace", whole: true },
-      },
-      call_build_1: {
-        ok: true,
-        call: { tool: "Bash", call: "call_build_1", arguments: "cargo build --workspace --locked", whole: true },
-      },
-    },
     checkOutputs: {
       "regression_verify.1.cargo_nextest.log": {
         ok: true,

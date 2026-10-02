@@ -21,7 +21,6 @@ export function reading(): JobFixture {
     journalled: NO_JOURNALLED,
     resources: { state: "reading", jobId: JOB_ID },
     recorded: foldedReads(),
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: NOW,

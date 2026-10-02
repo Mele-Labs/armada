@@ -775,14 +775,6 @@ void app.whenReady().then(() => {
     remarksPoll.watch(jobId);
     return connection?.readRemarks(jobId);
   });
-  // The rest of one cut row, fetched by the person who opened it. Its own
-  // channel and not part of `observeJob`: the socket is bounded on purpose, and
-  // an argument big enough to need this is the payload that would evict the
-  // rows somebody is reading. It answers rather than publishing, so nothing on
-  // the board re-renders because one reader opened a row.
-  ipcMain.handle(CHANNELS.readCall, (_event, jobId: string, callId: string) =>
-    connection?.readCall(jobId, callId),
-  );
   ipcMain.handle(CHANNELS.readFrame, (_event, jobId: string, kept: string) =>
     connection?.readFrame(jobId, kept),
   );

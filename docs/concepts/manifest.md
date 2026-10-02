@@ -56,6 +56,20 @@ Still open: whether the root *owns* the lockfile as opposed to merely being able
 
 **`setup.seed` names the build directories a new worktree starts from, and the Commands that fill them.** Fleet runs `warm` in the base checkout when the base moves and marks the seed only once every command has succeeded; it clones `paths` into each new worktree, copy-on-write, before `setup.requires` runs. A Job cut while the seed is warming, or on a volume that cannot clone, starts cold and says why — a seed is never copied in full, and never shared. A repository that declares no seed gets none.
 
+### How many worktrees a repository leases
+
+**`setup.worktrees` is the size of the repository's pool of warm worktrees**, which `armada worktree lease` hands out — [Fleet](fleet.md), *Worktree slots*.
+
+```yaml
+setup:
+  worktrees: 4
+```
+
+- **Absent means eight.**
+- **Zero, a negative number and anything that is not a whole number are refused at load.**
+- **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
+- **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
+
 ### Cross-Workspace Jobs
 
 **A Job that writes in several Workspaces is still one Job.** It has one worktree on one branch, and every Drone it spawns works that one. One worktree per Workspace would mean either several Drones at once or one Drone straddling branches, and neither can produce a single commit.
@@ -317,6 +331,29 @@ Rules that follow:
 - **All or none, and no queue.** A Check wanting three takes three or holds nothing while it waits, so two wide Checks never deadlock on halves; a narrow Check can pass a wide one that waits.
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
+
+### At what priority a Check runs
+
+**Agent work runs beneath the merge line and the person using the machine.** A Check started by `armada check` or by Fleet — a Drone's own run and its gate — is clamped to utility QoS, and everything it starts inherits the clamp. The merge line's Checks and a run a person starts from Bridge keep normal priority. The total work is the same; what lands and what the owner is using go first.
+
+Decided 2 Oct 2026, with the machine at load 20 to 32 on 18 cores and most of it agents' own builds.
+
+Rules that follow:
+
+- **`ARMADA_CHECK_PRIORITY=normal` turns it off.** Any other value, or none, lowers. Set it in the environment of `armada check`, or of Fleet for its Checks.
+- **The merge line sets it on every Check it runs**, explicitly rather than by inheritance, so `scripts/land` is never lowered by whoever called it.
+- **A Command run on its own is never lowered.** `armada run <name>` keeps normal priority; the same Command run as a Check's prerequisite takes that Check's.
+- **`ps -o pri,ni,pid,command` shows it** as priority 20 where normal work is 31. `ni` stays 0, because it is not `nice`.
+- **Utility, not `nice` and not background**, measured on the owner's M5 Pro with 24 busy loops saturating it, a four-worker job at normal priority timed beside each:
+
+| The saturating load ran at | Normal job under load | The same job at that priority, idle machine |
+|---|---|---|
+| normal | 3.3–5.1s | 1.2s |
+| `nice -n 10` | 3.5–5.6s | 1.2s |
+| `taskpolicy -c utility` | 1.1–2.0s | 1.1–1.2s |
+| `taskpolicy -b` | 1.2–2.0s | 2.1–2.3s |
+
+`nice` left the process at priority 31 and changed nothing. Background QoS gave way as well as utility but nearly doubled a Check's time on a machine with room, because it holds work to the slower cores.
 
 ### Running one test by name
 

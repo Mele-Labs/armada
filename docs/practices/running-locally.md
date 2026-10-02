@@ -278,6 +278,7 @@ this page on `?scenario=`, which is the reload that puts the window on it.
 | `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes Helm makes on one |
 | `helm-talking` | Helm pointed at a repository, with an answer given about the Job on the Board and a second ask that never came back — the dock's thread, its composer, *Start fresh* and the record's split button, all reachable without building the state in a test |
 | `arc/<moment>` | One moment of the Feature Job the new boards were drawn against, for each moment `ARC_MOMENTS` lists — from an empty prompt to a merge |
+| `proposing-fills-in` | The arc's request in the composer, over a Fleet whose proposer answers: Dispatch mints the Job and `proposal.moved` fills it in a field at a time, as Fleet sends it. `mock/proposer-fleet.ts` |
 | `members/<order>` | Several Jobs landing in order under one parent, the last of them stacked on the one before it or merged into it |
 | `epic/wave` | A wave of Jobs dispatched under one plan, some merged and some still out |
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
@@ -311,7 +312,7 @@ fails typecheck there until the fake answers it.
 | Call | Answer |
 |---|---|
 | A per-Job read — `watchJob`, `readHistory`, `readDiff` and the rest | The fixture's read, published as main would publish it |
-| A read that returns a value — `readCall`, `readFrame`, `readCheckOutput` | The fixture's answer, where it has one |
+| A read that returns a value — `readFrame`, `readCheckOutput` | The fixture's answer, where it has one |
 | Any read the scenario holds nothing for | A failure whose sentence says it is not in this mock scenario |
 | An act | Succeeds. Where it changes one field on a Job — approve, kill, reject, a model, a clear — that field moves |
 | A Studio read or write | The scenario's own Studios, kept by the fake and written to as Fleet would |
@@ -435,6 +436,11 @@ Check prints nothing while it runs, which reads as a hang and is not one.
 **A Check waits for one of the machine's Check slots**, shared with every other
 session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
 use`. `../concepts/manifest.md`, *How many Checks run at once*.
+
+**A Check runs at agent priority**, beneath the merge line's and Bridge's, so
+on a loaded machine it takes longer than the same Check run by `scripts/land`.
+`ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
+`../concepts/manifest.md`, *At what priority a Check runs*.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough
@@ -588,6 +594,44 @@ and not read them. And the refusal join is on no HTTP route at all: refusals
 arrive on the `observe_job` WebSocket, so a Rust client would carry a WebSocket
 dependency into the binary every crate links into, to reach a fact that is
 already a file read away.
+
+## Leasing a worktree
+
+```sh
+armada worktree lease <branch>      # a warm slot on a new branch; prints its path
+armada worktree release [<path>]    # give it back; the slot you stand in by default
+armada worktree --status            # every slot, who holds it, and for how long
+```
+
+**What it does:** takes one of the repository's permanent worktrees under
+`.armada/slots/`, puts it on `<branch>` cut fresh from the base, and leaves its
+`target/` from the last lease, so the first build is incremental rather than
+cold. The path is the only line on stdout, so `path=$(armada worktree lease
+fix-the-gate)` works. [Fleet](../concepts/fleet.md), *Worktree slots*, has the
+design.
+
+**When you run it:** instead of cutting a worktree, before the first edit —
+`.claude/skills/agent-worktrees/SKILL.md` says how a dispatcher uses it. Release
+once the branch has landed.
+
+**What it needs:** an `armada.yml` at the repository's root, `git` on `PATH`, and
+an `armada` on `PATH` that knows the verb — `scripts/restart` installs it. A
+network is used to fetch the base and not required: offline, the lease says so
+and cuts from what was last fetched.
+
+**What its output means:**
+
+| Said | Meaning |
+|---|---|
+| `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
+| `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with nothing unlanded |
+| `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path |
+| `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
+| A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
+
+**The lease is held for the process that ran your shell** — the agent session,
+or the terminal. Run it directly, not through a wrapper script, or the holder
+recorded is the wrapper, which ends at once.
 
 ## Landing a branch
 

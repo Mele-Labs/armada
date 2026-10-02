@@ -29,7 +29,7 @@
 // **The size is the wire's and never the string's.** `detail_length` is what
 // the argument had before anything was cut; `detail.length` is what survived
 // the cut, so a row measuring itself reports 200 of 200 on an argument of
-// fourteen thousand characters and calls the fetch pointless. Where the wire
+// fourteen thousand characters and hides that most of it was cut. Where the wire
 // carries no size the row says nothing about size at all — an old transcript
 // cannot recover one, and a number nobody measured is worse than no number.
 
@@ -100,15 +100,6 @@ export type LogRow = {
   /** What the row opens to. Empty is a row that carried nothing to open. */
   payload: LogLine[];
   /**
-   * The call whose argument the wire cut, where it cut one. Present makes the
-   * open row offer the rest — `Log` fetches it and drops it into this payload.
-   *
-   * **Keyed off `truncated` and never off a size.** A row with no
-   * `detail_length` is a transcript written before Fleet stamped one: it says
-   * nothing about how much there is, and there is still more of it to fetch.
-   */
-  call?: CutCall;
-  /**
    * A call's parts, where the row is one, so a surface can hue the tool's name
    * and its `+2 −2` rather than drawing one flat string. #1196.
    *
@@ -175,16 +166,6 @@ export function editOf(
     ...(deleted === undefined ? {} : { deleted: Number(deleted) }),
   };
 }
-
-/** A cut argument: which call, how much of it the row has, and how much there is. */
-export type CutCall = {
-  /** The call id, which is what `readCall` asks for. */
-  id: string;
-  /** Characters the row is showing — the cut string's own length. */
-  shown: number;
-  /** Characters the argument had. Absent on a pre-existing transcript. */
-  length?: number;
-};
 
 /**
  * Whether a row is the echo PR 350 made visible, and never drawn.
@@ -437,11 +418,6 @@ function rowOf(row: Turn): LogRow {
                 { text: saw.detail },
                 ...(size === undefined ? [] : [{ text: size, named: "meta" as const }]),
               ],
-        // Offered wherever the wire cut the argument, size or no size. A row
-        // that arrived whole has nothing behind it and gets no control.
-        ...(saw.truncated
-          ? { call: { id: saw.call, shown: saw.detail.length, length: saw.detail_length } }
-          : {}),
       };
     }
     case "answered":

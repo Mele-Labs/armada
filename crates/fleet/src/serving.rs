@@ -580,6 +580,22 @@ where
         .ok_or_else(|| self.refusal(Adrift::NoSuchCheckOutput { named: kept }))
     }
 
+    /// One brief a Judge or a gaming check was asked, read back.
+    ///
+    /// The Job is loaded first, so an id naming nothing is a 404 before any
+    /// file is opened. **The Job's briefs directory is the allowlist**:
+    /// `asked::read_back` refuses a name that would leave it, and that and a
+    /// name it does not hold are one answer, [`Adrift::NoSuchBrief`].
+    async fn get_brief(&self, job_id: JobId, name: String) -> Result<ipc::BriefContents, Refusal> {
+        let job = self
+            .load(&job_id.to_domain())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
+        crate::asked::read_back(served.records_root(), &job.handle(), &name)
+            .ok_or_else(|| self.refusal(Adrift::NoSuchBrief { named: name }))
+    }
+
     /// One running Check's log, as it is written.
     ///
     /// **The live set is the allowlist**, which is `get_check_output`'s rule
@@ -791,6 +807,11 @@ where
     /// Every repository served, Manifest or none — `crate::repositories`.
     async fn list_repositories(&self) -> Result<ipc::RepositoryList, Refusal> {
         Ok(self.repository_list())
+    }
+
+    /// Each served repository's merge line — [`crate::merge_lines`].
+    async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
+        Ok(crate::merge_lines::answer(self).await)
     }
 
     /// What a Job may be spawned as, resolved once by the composition root.

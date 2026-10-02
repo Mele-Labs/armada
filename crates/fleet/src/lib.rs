@@ -130,6 +130,8 @@ pub mod manifest_proposal;
 /// The one act that writes into a repository Fleet did not make: a person
 /// presses, and Fleet merges the pull request their Job opened.
 mod mending;
+/// The merge line `armada land` keeps in each served repository, read and published.
+pub mod merge_lines;
 mod merging;
 pub mod mint;
 /// What each Job is called on disk, answerable without a lock. **Every path

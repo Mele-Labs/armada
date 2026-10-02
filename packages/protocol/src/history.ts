@@ -42,7 +42,10 @@ export type Recorded = {
    */
   status: string;
   moved: Movement;
-  /** Who caused it: `human`, `fleet` or `drone`. */
+  /**
+   * Who caused it: `human`, `fleet`, `drone` or `helm`, and since 22.0 `judge`
+   * or `check` on the rows their own answer wrote.
+   */
   actor: string;
   at: string;
 };

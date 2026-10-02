@@ -528,7 +528,8 @@ that broke.
 stated rather than silent. The transcript's file queue drops a row it cannot
 take and writes a `missed` row into the file among the rows it was lost
 between. The per-Job broadcast channel is drop-oldest, and a viewer that has
-fallen behind gets a `missed` message with the count. Neither can slow Fleet's
+fallen behind gets a `missed` message with the count, and Bridge answers it by
+reopening the socket, so the backfill redraws the pane whole (#1759). Neither can slow Fleet's
 line loop: the file queue is `try_send` and the channel's send is synchronous
 and never blocks, so **watching a Job cannot change its outcome**. What a slow
 viewer slows is its own socket task.
@@ -2118,7 +2119,77 @@ at the gate the run stopped at; `decided: false` says the rule never answered fo
 reached the advance gate, which is also why V89's column defaults to `1` for every row V87 wrote.
 Absent `resolved` still means nothing was recorded, never a default.
 
-## Protocol 22.0: a node sits inside a Zone or a Cluster
+## Protocol 21.11: a kept brief is read back
+
+One route and one DTO: `GET /jobs/:job_id/briefs/:name` (`get_brief`) answers `BriefContents`,
+which is `path`, `lines`, `from_line`, `total_lines`, `bytes` and `whole`. Additive. It is what Pulse's log
+panel reads when a person presses a brief row, so a Judge's or a gaming check's brief opens inside
+Bridge the way a transcript does (the owner's decision, 2 Oct 2026).
+
+**`:name` is the last part of a `brief_path`**, the same file `JobResources.logs` lists as kind
+`brief`. Fleet resolves it inside that Job's briefs directory. A name that would leave it (`..`, a
+separator, another Job's brief, a link out) gets the 422 a name it never kept gets. A missing Job
+is a 404.
+
+**The window is `get_check_output`'s**: the tail, 2,000 lines and 256 KiB. A brief ends on what
+it asks, after the diff, so a cut brief keeps its question. `whole` is stated, never inferred.
+
+## Protocol 22.0: a task in between, a task that failed, and the Record's two new signers
+
+Spike 022, the wire lock for the new Job, signed off by the owner on 2 Oct 2026, slice 1a (#1760).
+
+**Major, three times over, and bundled so the milestone takes one.** A major is the lifeboat for
+a Fleet caught mid-Job, so the spike's *protocol changes, bundled* section puts every breaking
+change of the milestone here rather than one per slice.
+
+| Change | Why it breaks |
+|---|---|
+| `TaskState` gains `handed_in` | A strict set Bridge matches on: an older Bridge draws a handed-in task as `open` |
+| `TaskState` gains `failed` | The same set, the same reason |
+| `Actor` gains `judge` and `check` | A strict set stored on every recorded row; an older peer reads neither |
+| `TaskCounts` gains optional `handed_in` and `failed` | Additive on its own, absent at zero; it rides the major |
+
+**`handed_in` is the owner's answer 1**: a task's agent has handed its work in and the step's Checks
+have not answered, so done arrives at green. **Nothing writes it or `failed` at 22.0**: slice 1b
+writes the first at a task Drone's hand-in, slice 2 the second when a group's Checks go red, and
+`update_task` refuses both, because both are Fleet's to mark.
+
+**`judge` and `check` sign the rows their own answer wrote.** A refusal's step stop and escalation
+are signed `judge`, as are a Judge asking a person and a gaming flag; a failed Check's stop and
+hold, and a hand-back's `retrying`, are signed `check`. Fleet signs every move it decided on more
+than one answer: an advance, a policy hold, a gate that could not decide. `fleet::Ruling::signed_by`
+is the one place that says which. `human` stays `human`; spike 020's rename to `person` is not
+needed, because Bridge says *you*.
+
+**The figure.** Done over every count but `dropped`: a handed-in task and a failed one join the
+total and neither joins `done`.
+
+**Store V90 moves `KNOWN_SCHEMA_VERSION`**, so a Fleet built before this refuses the store at open
+rather than failing to fold a Job signed `judge`. It also rebuilds the plan's `state` check to admit
+the two new states. Minor resets to 0, and a Bridge and a Fleet must both be rebuilt from the same
+commit.
+
+## Protocol 22.1: the merge line, read off disk
+
+One route, one event kind and four DTOs: `GET /merge_lines` (`get_merge_lines`) answers
+`MergeLines`, and `merge_lines.changed` carries the same body whole. Each `MergeLine` is one served
+repository's `root`, its `line` in place order and the newest three `off` it, as `MergeLineEntry`
+rows with `state` a `LandState`. Additive. `docs/capabilities/merge-line.md`, *In Bridge*, has
+the field-by-field table.
+
+**A fleet-wide fact that persists, so a route and an event**, `manifest.reread`'s rule. What is
+new is the writer: `armada land` is another process, so nothing tells Fleet a line moved. Fleet
+reads every served repository's `armada-land/` every two seconds and publishes only when the answer
+changed. Bridge reads the route once per connection and keeps no timer.
+
+**`LandState` is a strict enum, not an open set.** Bridge branches on it: the two live states
+pulse and each end state draws its own facts. A new state is a major move.
+
+**On the unmeasured risk above: neutral.** It adds no queue. It publishes at most once a read and
+only on a change, so a quiet line costs the shared backlog nothing. A busy turn costs a handful of
+events a minute.
+
+## Protocol 23.0: a node sits inside a Zone or a Cluster
 
 Decided with the owner on 2 Oct 2026: everything a read-in brings back lands inside one Zone, and a
 Cluster is a frame round its Notes. `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`,
@@ -2140,7 +2211,7 @@ Bridge**, empty. **`group_studio_nodes` draws a Cluster round its Notes** and se
 **A read-in's nodes arrive with `within` set**: its Zone, then its Finding inside it, and each
 Cluster's Notes inside the Cluster. The source still produces every one of them, the Zone among
 them, so `edges` is what it was plus one. Which of those edges Bridge draws is Bridge's
-(`docs/concepts/studio.md`, *Edges*). Store V90 adds the column, and every node before it sits on
+(`docs/concepts/studio.md`, *Edges*). Store V91 adds the column, and every node before it sits on
 the board. Minor resets to 0.
 
 ## Open questions

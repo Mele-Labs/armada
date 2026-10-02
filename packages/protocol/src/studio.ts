@@ -52,13 +52,13 @@ export type StudioNodeContent =
   | { kind: "note"; said: string; capture?: StudioCapture }
   /**
    * Notes a person accepted as one thing, drawn as a frame round them: the
-   * nodes whose `within` names it. A Note is in one at a time. Since 22.0.
+   * nodes whose `within` names it. A Note is in one at a time. Since 23.0.
    */
   | { kind: "cluster"; title: string }
   /**
    * Other nodes, ringed off so they move together: the nodes whose `within`
    * names it. Nothing of its own. Everything a read-in brings back lands in
-   * one. Since 22.0, #1620.
+   * one. Since 23.0, #1620.
    */
   | { kind: "zone" }
   /** What a scout was asked, and from its start what it read. Since 14.7. */
@@ -178,10 +178,10 @@ export type StudioNode = StudioNodeContent & {
   state?: string;
   /**
    * The frame it sits in: a Zone, or a Note's Cluster. **Absent is the
-   * board.** Since 22.0.
+   * board.** Since 23.0.
    */
   within?: string;
-  /** From the corner of the frame it is `within`, or the board's origin. Since 22.0. */
+  /** From the corner of the frame it is `within`, or the board's origin. Since 23.0. */
   position: StudioPosition;
   created_at: string;
   /** `person` or `helm`. Absent only on a node added before it was kept. Since 14.7. */
@@ -348,7 +348,7 @@ export type StudioNodeByHand =
   | { kind: "sketch"; drawing: SketchDrawn }
   /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 19.3. */
   | { kind: "file"; path: string }
-  /** A Zone, empty, to put nodes in. Since 22.0, #1620. */
+  /** A Zone, empty, to put nodes in. Since 23.0, #1620. */
   | { kind: "zone" }
   /**
    * An image, as the PNG staged on disk. **Only Bridge's main builds this**,
@@ -427,7 +427,7 @@ export type CaptureStudioNote = {
 
 /**
  * `POST /studios/:studio_id/move_node`. Where it sits only: `within` is the
- * frame it is put down in, and absent is the board. Since 22.0.
+ * frame it is put down in, and absent is the board. Since 23.0.
  */
 export type MoveStudioNode = { node_id: string; within?: string; position: StudioPosition };
 

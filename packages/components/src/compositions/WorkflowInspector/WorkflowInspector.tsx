@@ -81,9 +81,9 @@ export type WorkflowInspectorRunning = {
   id: string;
   /** `Drone on T5`. */
   label: string;
-  /** Where it has got to, on the step machine's marks: running, advanced, stopped. */
+  /** Where it is, as the Drones tab marks it: running, advanced, failed, killed. */
   activity: StepActivity;
-  /** The same, in words, for somebody who cannot see the mark. */
+  /** The same, in words: the mark's tooltip and its name to a screen reader. */
   said: string;
   /** Its task, how long and what it has spent: `T5 · 12m · 14 turns`. */
   says: string;
@@ -203,7 +203,7 @@ function PlanCard({ plan }: { plan: WorkflowInspectorPlan }) {
 function DroneRow({ row }: { row: WorkflowInspectorRunning }) {
   return (
     <>
-      <StepActivityMark activity={row.activity} label={row.said} />
+      <StepActivityMark activity={row.activity} label={row.said} says={row.said} />
       <span className="armada-wf-inspector__drone-name">{row.label}</span>
       <span className="armada-wf-inspector__drone-says">{row.says}</span>
     </>

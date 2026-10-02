@@ -315,7 +315,7 @@ DROP TABLE studio_nodes_parked;
 DROP TABLE studio_edges_parked;
 "#;
 
-/// Version 90 — a Zone is a node kind, and a node may sit inside a frame: a
+/// Version 91 — a Zone is a node kind, and a node may sit inside a frame: a
 /// Zone, or a Note's Cluster. `#1620`, decided with the owner on 2 Oct 2026.
 ///
 /// **[`V79`]'s rebuild, with `zone` in the `CHECK` and one new column**, for
@@ -325,7 +325,7 @@ DROP TABLE studio_edges_parked;
 /// by the key rather than cascaded: [`Store::remove_studio_nodes`] lifts what
 /// a frame holds onto whatever held the frame before it deletes one. Every row
 /// before this sits on the board, so no row moves.
-pub(crate) const V90: &str = r#"
+pub(crate) const V91: &str = r#"
 CREATE TABLE studio_nodes_parked AS SELECT * FROM studio_nodes;
 CREATE TABLE studio_edges_parked AS SELECT * FROM studio_edges;
 

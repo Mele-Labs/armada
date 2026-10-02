@@ -24,6 +24,7 @@ import type { WorkflowView } from "./workflow-view";
 
 import type {
   CommandAnswer,
+  CommandExplainedRead,
   EditJob,
   EditTask,
   MovePlan,
@@ -31,6 +32,7 @@ import type {
   FileReport,
   FollowedLog,
   History,
+  Crewed,
   Holds,
   JobSummary,
   Journalled,
@@ -50,7 +52,6 @@ import type {
 import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
-import type { ExplainCommand, ReadCall } from "./calls";
 import type { FrameSrc, ReadFrame } from "./frames";
 import type { FoldedReads } from "./mine";
 import type { OpenArtifact, OpenPullRequest } from "./opening";
@@ -151,8 +152,14 @@ export type JobDetailProps = {
     note?: string,
     rule?: string,
   ) => void;
-  /** Ask what one command does. It decides nothing; absent draws no control. */
-  onExplainCommand?: ExplainCommand;
+  /**
+   * Ask what one command does. It decides nothing; absent draws no control.
+   *
+   * **An argument, not a global**: the screen decides when to ask and what the
+   * answer means, and the host makes the call, because a screen that reached
+   * for the preload could not be rendered outside the app.
+   */
+  onExplainCommand?: (jobId: string, callId: string) => Promise<CommandExplainedRead>;
   /** Answer the question a judge refusal opened. One press is the whole answer. */
   onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
   /** How this job meets the next such command. Live; nothing restarts. */
@@ -248,11 +255,10 @@ export type JobDetailProps = {
    * no press rather than a dead one.
    */
   onOpenStudio?: OpenStudioFrom;
-  onReadCall: ReadCall;
   /**
-   * Read one Check's own output. **`onReadCall`'s shape one record over**, and
-   * its own prop for the same reason: it is a round trip to the process that
-   * has the file, and the screen does the reading rather than the fetching.
+   * Read one Check's own output. Its own prop because it is a round trip to the
+   * process that has the file, and the screen does the reading rather than the
+   * fetching.
    */
   onReadCheckOutput: ReadCheckOutput;
   /**
@@ -353,6 +359,12 @@ export type JobDetailProps = {
    * the question somebody opening a Job they suspect has wedged came with.
    */
   resources: Holds;
+  /**
+   * Every Drone the Job has had, `list_job_drones` — what the Drones tab lists
+   * and each step's Drones are read from. Optional: absent lists the Job's own
+   * Drone alone, as an unread list does.
+   */
+  jobDrones?: Crewed;
   /**
    * The Job's history, for the one line of Pulse that says what a person last
    * did. Optional: without it, Pulse draws the latest of the Drone and Fleet.
