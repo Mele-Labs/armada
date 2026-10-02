@@ -30,7 +30,7 @@ import type { JobDetail as JobWhole, JobSummary, JudgeAnswer } from "@armada/pro
 import type { ConfirmableAct, HeldAct } from "./Acts";
 import type { ActingAct } from "./pending";
 import { TAB_LABEL } from "./detail-tabs";
-import { droneViewsOf, type DroneView } from "./draft/drone";
+import type { DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
 import { DRONE_SAYS } from "./tab-drones-read";
@@ -72,6 +72,8 @@ export type WorkflowTabProps = {
    * carries the reasoning.
    */
   groups?: readonly GroupView[];
+  /** Every Drone the Job has had, as the Drones tab lists them. */
+  drones: readonly DroneView[];
   /** Every control is refused while what is shown is not live. */
   stale: boolean;
   /** A press is out and Fleet has not answered. */
@@ -120,6 +122,7 @@ export function WorkflowTab({
   view,
   onView,
   groups: given,
+  drones,
   stale,
   acting,
   actingAct,
@@ -214,7 +217,7 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({ whole, groups, selected: open, onOpen: openStep });
+  const run = workflowRunOf({ whole, groups, drones, selected: open, onOpen: openStep });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was
@@ -230,11 +233,11 @@ export function WorkflowTab({
 
   // Every Drone that worked the step that is open, running or not (owner, 29
   // Sep 2026), running first, then in task order. A press opens one in the
-  // Drones tab, with a way back here. **From the plan's tasks**, as the Drones
-  // tab reads them where the draft holds none.
+  // Drones tab, with a way back here. **The Drones tab's own list**, so the two
+  // never disagree about who worked a step.
   const now = Date.now();
   const openStepId = whole.steps.find((step) => stepNodeId(step.step_id) === open)?.step_id;
-  const here = droneViewsOf(groups, whole)
+  const here = drones
     .filter((one) => one.step === openStepId)
     .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
   const ranFor = (one: DroneView): string | undefined =>

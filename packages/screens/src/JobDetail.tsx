@@ -11,12 +11,12 @@
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
 import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
 import { countsOf, FIRST_TAB, JobTabs, type DetailTab } from "./detail-tabs";
 import { headingOf, Unrenderable } from "./heading";
-import { detailOf } from "./mine";
+import { detailOf, turnsOf } from "./mine";
 import { renderFor } from "./render";
 import { replacedCallout } from "./replaced";
 import { holdingOf, lookOf } from "./mine";
@@ -38,6 +38,8 @@ import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
 import { proposalEditsOf } from "./tab-proposal-read";
 import { DronesTab } from "./tab-drones";
+import { droneViewsOf } from "./draft/drone";
+import { whyNotWatching } from "./story";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { RecordTab, type CheckAt } from "./tab-record";
@@ -187,6 +189,15 @@ function OneJob(props: JobDetailProps) {
     job,
     props.workflows.find((held) => held.id === job.workflow_id),
     null,
+  );
+
+  // Every Drone the Job has had, each with its own rows — one list for the
+  // Drones tab and Workflow's steps, so the two never disagree.
+  const listed = props.jobDrones?.state === "read" && props.jobDrones.jobId === job.id ? props.jobDrones.drones : undefined;
+  const turns = turnsOf(props.observed, job.id)?.rows;
+  const drones = useMemo(
+    () => props.draft?.drones ?? droneViewsOf(listed, whole ?? undefined, turns),
+    [props.draft?.drones, listed, whole, turns],
   );
 
   // Stable across a tick of `now`, which is what keeps the wave's canvas from
@@ -351,6 +362,7 @@ function OneJob(props: JobDetailProps) {
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
           onAnswerJudge={props.onAnswerJudge}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
+          drones={drones}
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
@@ -466,7 +478,8 @@ function OneJob(props: JobDetailProps) {
           job={job}
           whole={whole}
           reading={unread !== undefined}
-          {...(props.draft?.drones === undefined ? {} : { drones: props.draft.drones })}
+          drones={drones}
+          turnsNote={whyNotWatching(props.observed)}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           now={props.now}
           floor={floor}

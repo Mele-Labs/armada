@@ -16,6 +16,7 @@
 import type {
   CallRead,
   CheckOutputRead,
+  Crewed,
   FrameRead,
   History,
   Holds,
@@ -42,6 +43,11 @@ export type JobFixture = {
   resources: Holds;
   /** `GET /jobs/:job_id/events`, where the fixture carries the Job's history. */
   history?: History;
+  /**
+   * `GET /jobs/:job_id/drones`, where the fixture carries the Job's Drones.
+   * Absent is a list never read, which lists the Job's own Drone alone.
+   */
+  jobDrones?: Crewed;
   recorded: FoldedReads;
   /**
    * Answers to `onReadCall`, keyed by the call id a transcript row carries —

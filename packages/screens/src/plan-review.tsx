@@ -49,7 +49,7 @@ import { CHANGED_NOTHING, drawn } from "./review";
 import type { TaskAct } from "./Acts";
 import type { JobDraft } from "./draft/held";
 import type { GroupView } from "./draft/group";
-import { droneViewsOf } from "./draft/drone";
+import { taskDronesOf } from "./draft/drone";
 import {
   DRONE_SAYS,
   droneOnTask,
@@ -425,14 +425,14 @@ export function usePlanReview({
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
   // **The task's own Drone, off the list the Drones destination reads**, so
   // the peek and that sheet show one Drone the same way.
-  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? droneViewsOf(groups), open.id);
+  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? taskDronesOf(groups), open.id);
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
   const peekTurns = useMemo(
     () =>
       own?.transcript === undefined
         ? []
-        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />, own.thoughts),
+        : droneTurnsOf(own.transcript, (lines) => <DroneBrief lines={lines} flat />),
     [own],
   );
   const ran = own === undefined || now === undefined ? undefined : ranForOf(own, now);

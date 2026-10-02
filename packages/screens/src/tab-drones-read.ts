@@ -5,9 +5,9 @@ import type { DroneTurn, JobDroneState, JobDronesFilter, Thought, TurnStep } fro
 import type { ReactNode } from "react";
 import type { JobDetail, Turn } from "@armada/protocol";
 
-import type { DroneThought, DroneView } from "./draft/drone";
+import type { DroneView } from "./draft/drone";
 import { clock, elapsedSince } from "./duration";
-import { entriesOf, type LogRow } from "./story";
+import { entriesOf, THINKING_TOKENS, type LogRow } from "./story";
 
 export type DronesFilter = "all" | JobDroneState;
 export type DronesOrder = "running" | "task";
@@ -20,8 +20,12 @@ export const DRONE_SAYS: Record<JobDroneState, string> = {
   killed: "Killed",
 };
 
-/** What one Drone's transcript says with no rows: Fleet serves none, or it has none yet. */
+/**
+ * What a task's Drone says in Plan's peek, which reads the draft's per-task
+ * Drones: nothing on the wire joins a task to a Drone's rows.
+ */
 export const TRANSCRIPT_UNSERVED = "Fleet does not serve one Drone's transcript yet.";
+/** What one Drone's transcript says with none of its rows in the Job's. */
 export const TRANSCRIPT_EMPTY = "This Drone has written nothing yet.";
 
 /**
@@ -104,13 +108,9 @@ export function stepOf(detail: JobDetail | null, stepId: string): TurnStep {
  * One Drone's rows as `DroneTurns` draws them: a call and its answer on one
  * row, the answer that said only that it answered folded into its call. What
  * Armada told it is drawn by `brief`, from the lines Overview's brief reads.
- * A thinking row carries what `thoughts` holds for it, toward its run's total.
+ * A thinking row carries what it added toward its run's total.
  */
-export function droneTurnsOf(
-  rows: readonly Turn[],
-  brief: (lines: LogRow["payload"]) => ReactNode,
-  thoughts?: DroneView["thoughts"],
-): DroneTurn[] {
+export function droneTurnsOf(rows: readonly Turn[], brief: (lines: LogRow["payload"]) => ReactNode): DroneTurn[] {
   const answers = new Map<string, boolean>();
   for (const row of rows) {
     if (row.saw.event === "answered") answers.set(row.saw.call, row.saw.failed);
@@ -121,10 +121,8 @@ export function droneTurnsOf(
   let estimated = 0;
   for (const row of rows) {
     const saw = row.saw;
-    const payload = thoughts?.get(row.seq);
     const before = estimated;
-    estimated =
-      saw.event === "unrecognised" && saw.kind === THINKING && payload?.of === "tokens" ? payload.estimated : 0;
+    estimated = saw.event === "thinking" ? saw.estimated_tokens : 0;
     const base = {
       id: String(row.seq),
       at: clock(row.ts),
@@ -164,11 +162,18 @@ export function droneTurnsOf(
           subject: `${saw.turns} turns · $${(saw.cost_micros / 1_000_000).toFixed(2)}`,
         });
         break;
-      case "unrecognised": {
-        const thought = thoughtOf(saw.kind, payload, before);
-        turns.push({ ...base, ...(thought === undefined ? { subject: saw.kind } : { thought }), quiet: true });
+      case "thinking":
+        turns.push({ ...base, thought: thoughtOf(saw.estimated_tokens, before), quiet: true });
         break;
-      }
+      case "unrecognised":
+        // A thinking line that carried no figure arrives under its old kind:
+        // still thinking, and adding nothing to the run's total.
+        turns.push({
+          ...base,
+          ...(saw.kind === THINKING_TOKENS ? { thought: { of: "thinking" as const } } : { subject: saw.kind }),
+          quiet: true,
+        });
+        break;
       default:
         turns.push(base);
     }
@@ -176,11 +181,8 @@ export function droneTurnsOf(
   return turns;
 }
 
-/** The harness saying the model is thinking. Carries `estimated_tokens` on its own line. */
-const THINKING = "system/thinking_tokens";
-
 /**
- * A thinking row, with what the draft carries for it.
+ * A thinking row, with what it added.
  *
  * **A row's count is what it added, not the running estimate.** The harness
  * sends a cumulative figure within one model call, so summed raw a run's total
@@ -188,10 +190,6 @@ const THINKING = "system/thinking_tokens";
  * `before` is the estimate the previous row left, zero at a call's start — and
  * a figure lower than it is a new call begun without a row between.
  */
-function thoughtOf(kind: string, payload: DroneThought | undefined, before: number): Thought | undefined {
-  if (kind === THINKING) {
-    if (payload?.of !== "tokens") return { of: "thinking" };
-    return { of: "thinking", tokens: payload.estimated - (payload.estimated < before ? 0 : before) };
-  }
-  return undefined;
+function thoughtOf(estimated: number, before: number): Thought {
+  return { of: "thinking", tokens: estimated - (estimated < before ? 0 : before) };
 }

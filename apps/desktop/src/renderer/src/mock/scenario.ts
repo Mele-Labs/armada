@@ -153,6 +153,7 @@ function asRow(fixture: JobFixture, at: number, slug: string, title: string): Jo
     journalled: moved(fixture.journalled),
     resources: moved(fixture.resources),
     history: fixture.history === undefined ? undefined : moved(fixture.history),
+    jobDrones: fixture.jobDrones === undefined ? undefined : moved(fixture.jobDrones),
     recorded: {
       footprint: moved(fixture.recorded.footprint),
       handed: moved(fixture.recorded.handed),
