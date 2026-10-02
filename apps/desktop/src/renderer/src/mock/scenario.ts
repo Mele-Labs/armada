@@ -113,10 +113,7 @@ function holding(
   };
 }
 
-/**
- * The same scenario with Fleet serving three lines: `armada land --status` as it printed on 2 Oct
- * 2026, `notes` with nobody in line, and `scratch` where nothing has landed.
- */
+/** The same scenario with Fleet serving three lines: `armada land --status`, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
   const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
   return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
@@ -447,8 +444,7 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
-  // `armada land --status` as it read on 2 Oct 2026, under a few Jobs, beside two quieter lines.
-  // Overview draws a panel for each below its lists; nothing else here reads them.
+  // Three merge lines under a few Jobs. Overview draws a panel for each below its lists.
   lined(
     holding(
       "merge-line",

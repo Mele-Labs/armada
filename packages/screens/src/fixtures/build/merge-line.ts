@@ -1,19 +1,15 @@
-// The merge line as `armada land --status` printed it on 2 Oct 2026, what
-// landed and what was sent back, as Fleet serves it, so the mock draws through
-// the same fold a real Bridge does (`../../merge-line`). Beside it, a line
-// nobody is in that has landed before, and one nothing has ever landed in.
+// The merge line `armada land --status` printed on 2 Oct 2026, what landed and
+// what was sent back, as Fleet serves it, so the mock draws through the same
+// fold a real Bridge does (`../../merge-line`). Beside it, a line nobody is in,
+// and one nothing has ever landed in.
 //
 // **The line is that run, row for row.** Six branches: the first and the last
-// waiting, and four in one turn between them. The runner had told the four
-// different things, so the details differ inside one batch, as they did: one
-// reads `verify-foundations`, one is in its Checks, which Fleet serves one by
-// one rather than as the runner's `running <name> (...)`, and two merge main
-// in. `--status` prints a waiting row's detail as `in line`, which the mark
-// already says, and Fleet carries none.
+// waiting, four in one turn between them, told different things as they were:
+// one reads `verify-foundations`, one is in its Checks, two merge main in.
+// Fleet carries no detail for a waiting row; the mark says it.
 //
-// **What left the line is made up from real branches.** The three landings did
-// land, at the commits shown; the red and the conflict are invented, on Checks
-// and files this repository has.
+// **What left the line is made up from real branches.** The three landings
+// did land, at the commits shown; the red and the conflict are invented.
 
 import type { MergeLine, MergeLines } from "@armada/protocol";
 
