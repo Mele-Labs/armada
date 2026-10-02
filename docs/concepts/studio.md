@@ -365,3 +365,14 @@ The rule below stands for the surface that takes it up.
 > Why: `V79` did exactly that for the three forge kinds, and the gate reads the last `CREATE TABLE` for each table — which is the set a fresh database gets.
 
 **What the check does not hold.** Each Run state's alias in `packages/tokens/src/status.css`: those four states are a run's rather than a Studio's, and no enum spells them, so there is nothing yet to compare against.
+
+## Open questions
+
+- **[zone-dispatch]** What a Job dispatched from a Zone is sent. A Zone holds
+  any mix of nodes (Notes, Clusters, Issues, a Finding, a Sketch), and the
+  proposer takes one request. It could get the Zone's contents as text in board
+  order, only the Issue drafts and addresses inside it, or nothing until the Zone
+  holds exactly one dispatchable node. An Issue draft carries its title and body
+  whole to the proposer, and an address is the whole request, so whatever a Zone
+  sends must not summarise either. Nothing dispatches a Zone until this is
+  answered.
