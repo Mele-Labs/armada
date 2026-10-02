@@ -2,9 +2,9 @@
 //! changes on one task. Spike 022, slice 3.
 //!
 //! **The planner picks a tier and the Job's map picks the model** (#1530,
-//! 22 Sep); **a person may pick a task's model directly, over the map**
-//! (`.claude/decisions/2026-09-30-a-person-can-pick-a-tasks-model.md`). The
-//! order every spawn resolves in is [`Job::model_spawned_for`]'s, spelled once.
+//! 22 Sep); **a person may pick a task's model directly, over the map** (the
+//! owner, 30 Sep 2026). The order every spawn resolves in is
+//! [`Job::model_spawned_for`]'s, spelled once.
 //!
 //! [`Job::model_spawned_for`]: crate::Job::model_spawned_for
 
