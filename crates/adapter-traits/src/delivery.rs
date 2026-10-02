@@ -20,7 +20,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::{Remark, UnderReview, Worktree};
+use crate::{Landable, Remark, UncheckedHead, UnderReview, Worktree};
 
 /// The branch a Job's work merges into, and where the name came from.
 ///
@@ -332,6 +332,8 @@ pub struct BaseMergedIn {
     pub onto: String,
     /// The branch's head with the base in it, which is what the Checks read.
     pub head: String,
+    /// Its tree, which is what is landable once they pass.
+    pub tree: String,
     /// The branch's head before, which [`Delivery::put_back`] returns it to.
     pub was: String,
     /// Every path either side changed since the branch last held the base, for
@@ -375,9 +377,12 @@ pub enum NotMerged {
     /// The branch, with the moved base merged in, did not pass its Checks, so
     /// nothing was pushed. Only `merge_by: push` says this.
     GateFailed { said: String },
+    /// The branch's head carries a tree its Checks never passed on, so nothing
+    /// was pushed. Only `merge_by: push` says this; the answer is to run them.
+    Unchecked { said: String },
     /// The forge refused and said something this vocabulary has no name for.
     ///
-    /// **Never folded into the seven above.** A guess about which kind a
+    /// **Never folded into the eight above.** A guess about which kind a
     /// sentence is would send a person to fix the wrong thing, and the honest
     /// answer is the sentence itself.
     Refused { said: String },
@@ -400,6 +405,9 @@ impl NotMerged {
                 "the branch with the base merged in did not pass its Checks",
                 said,
             ),
+            NotMerged::Unchecked { said } => {
+                ("the branch's head is not what its Checks passed on", said)
+            }
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");
@@ -422,6 +430,7 @@ impl NotMerged {
             NotMerged::NoTool { .. } => "no_tool",
             NotMerged::BaseMoved { .. } => "base_moved",
             NotMerged::GateFailed { .. } => "gate_failed",
+            NotMerged::Unchecked { .. } => "unchecked",
             NotMerged::Refused { .. } => "refused",
         }
     }
@@ -748,7 +757,11 @@ pub trait Delivery {
     ///
     /// **Only a branch that already holds the base lands.** One that does not,
     /// or a base that moves before the push, is [`NotMerged::BaseMoved`]:
-    /// the merged tree is the branch's own, which is the tree its gate ran on.
+    /// the merged tree is the branch's own.
+    ///
+    /// **And only a head `landable` names**, or it is
+    /// [`NotMerged::Unchecked`]. Read in the same call as the push, so nothing
+    /// that moves the branch between a Check and the push is landed unread.
     ///
     /// `handle` derives the branch, `declared` is `base:` in `armada.yml`, and
     /// `pull_request` is named in the merge's subject; the forge reads it
@@ -759,7 +772,27 @@ pub trait Delivery {
         handle: &str,
         declared: Option<&str>,
         pull_request: Option<u64>,
+        landable: Landable<'_>,
     ) -> Result<PushedOntoBase, NotMerged>;
+
+    /// The tree a worktree holds as it stands, untracked files included: the
+    /// tree Fleet's commit would make of it. What a gate's Checks read.
+    fn tree_as_it_stands(&self, worktree: &Worktree) -> Result<String, NotDelivered>;
+
+    /// The branch's head in its own worktree, and what changed since `checked`
+    /// and over the base the remote holds, for its Checks to read before
+    /// [`merge_by_push`](Delivery::merge_by_push) is asked again. `None` reads
+    /// every path as changed.
+    ///
+    /// **Refused where the worktree holds changes nothing committed**, for
+    /// [`merge_the_moved_base_in`](Delivery::merge_the_moved_base_in)'s reason.
+    fn the_unchecked_head(
+        &self,
+        in_repo: &str,
+        worktree: &Worktree,
+        declared: Option<&str>,
+        checked: Option<&str>,
+    ) -> Result<UncheckedHead, NotMerged>;
 
     /// Merge the base, as the remote holds it now, into a Job's branch in its
     /// own worktree — never a rebase — so the branch can be gated again before

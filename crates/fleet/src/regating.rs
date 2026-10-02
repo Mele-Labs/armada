@@ -198,6 +198,7 @@ where
 
         self.recorded_checks(job_id, &job.handle(), &step, attempt, &ruling)
             .await?;
+        self.kept_what_the_gate_checked(&job, &ruling).await;
         self.kept_timings(&job, announcing.timings()).await;
         drop(announcing);
         self.recorded_judgments(job_id, &step, &ruling).await?;

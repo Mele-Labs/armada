@@ -1,5 +1,5 @@
 //! What a gate's policies resolved to, per run: V87, and whether the rule
-//! decided: V88. #1683.
+//! decided: V89. #1683.
 //!
 //! **A run written the old way reads absent.** The first run here is recorded
 //! through the writers that existed before V87 and nothing else, which is

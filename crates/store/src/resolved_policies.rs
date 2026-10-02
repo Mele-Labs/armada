@@ -1,5 +1,5 @@
 //! What a gate's two policies resolved to, kept on every run that reached one
-//! (V88 says whether the rule decided: a stopped run's did not; 2 Oct 2026).
+//! (V89 says whether the rule decided: a stopped run's did not; 2 Oct 2026).
 //!
 //! `auto_merge` and `review_gate` are both `Live`, and `fleet::policy` folds
 //! them fresh at every gate. Until this table the answer lasted one decision,
@@ -38,16 +38,16 @@ CREATE TABLE job_step_policies (
 ) STRICT;
 "#;
 
-/// Version 88 — whether the run reached the advance gate, where the rule
+/// Version 89 — whether the run reached the advance gate, where the rule
 /// decides. Rows are now written on a run an earlier gate stopped too, and
 /// they say `0`.
 ///
-/// **Every row V87 wrote reads `1`, and that is a fact rather than a
-/// default.** V87 was written only by a ruling that read the advance gate,
+/// **Every row written before this reads `1`, and that is a fact rather than a
+/// default.** V87's table was written only by a ruling that read the advance gate,
 /// held or advanced, so every row already in the table is one the rule
 /// decided. The column default is what says so for them, and every write since
 /// names the value.
-pub(crate) const V88: &str = r#"
+pub(crate) const V89: &str = r#"
 ALTER TABLE job_step_policies
     ADD COLUMN decided INTEGER NOT NULL DEFAULT 1 CHECK (decided IN (0, 1));
 "#;

@@ -2115,7 +2115,7 @@ recorded as decided when it stopped before the rule. The two words still say wha
 at the gate the run stopped at; `decided: false` says the rule never answered for it.
 
 **A 21.9 payload has `resolved` without `decided`, and reads `true`.** 21.9 kept only runs that
-reached the advance gate, which is also why V88's column defaults to `1` for every row V87 wrote.
+reached the advance gate, which is also why V89's column defaults to `1` for every row V87 wrote.
 Absent `resolved` still means nothing was recorded, never a default.
 
 ## Open questions
