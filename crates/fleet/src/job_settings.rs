@@ -1,12 +1,15 @@
 //! What a person changes on one Job from its detail: the model its later
-//! steps run as, and the commands they allowed it.
+//! steps run as, the model each tier of its tasks runs on, and the commands
+//! they allowed it.
 //!
 //! **Settings, not moves**, for `core_model::WhenBlocked`'s reason: none
 //! changes a status or a step, each is read at the next spawn or permission
 //! question, and each change is a line in the Job's log.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{AllowedCommand, Component, Envelope, FieldValue, JobId, Level};
+use core_model::{
+    AllowedCommand, Component, Envelope, FieldValue, JobId, Level, ModelName, TierModels,
+};
 
 use crate::daemon::Fleet;
 use crate::permitting::NotPermitted;
@@ -109,6 +112,65 @@ where
             }
         }
         Ok(())
+    }
+
+    /// Refused where `list_models` does not offer `named`, `set_model`'s rule,
+    /// for a task's model and every model of a tier map. Spike 022, slice 3.
+    pub(crate) fn offered(&self, named: &str) -> Result<ModelName, NotPermitted> {
+        let offered = &self.models().models;
+        if !offered.iter().any(|one| one == named) {
+            return Err(NotPermitted::NoSuchModel {
+                named: named.to_string(),
+                offered: offered.clone(),
+            });
+        }
+        ModelName::new(named).map_err(|_| NotPermitted::NoSuchModel {
+            named: named.to_string(),
+            offered: offered.clone(),
+        })
+    }
+
+    /// Set which model each tier of this Job's tasks runs on, replacing the
+    /// map whole. **Every model is checked before any is kept**, so a map
+    /// with one name `list_models` does not offer changes nothing. A tier
+    /// left out is Armada picking (answer 8).
+    pub async fn set_tiers(
+        &self,
+        job: &JobId,
+        tiers: &ipc::TierModels,
+    ) -> Result<(), NotPermitted> {
+        let mut map = TierModels::default();
+        for (tier, named) in tiers.named() {
+            map = map.with(tier, self.offered(named)?);
+        }
+        self.store()
+            .lock()
+            .await
+            .set_tier_models(job, &map)
+            .map_err(|cause| NotPermitted::NotChanged {
+                cause: cause.to_string(),
+            })?;
+        let fields: Vec<(&'static str, String)> = map
+            .named()
+            .map(|(tier, model)| (tier.as_wire(), model.as_str().to_string()))
+            .collect();
+        self.noted_setting(
+            job,
+            "a person set which model each tier of this job's tasks runs on",
+            &fields,
+        )
+        .await;
+        Ok(())
+    }
+
+    /// This Job's tier map, for `get_job` and the spawn. **Empty where the
+    /// store will not say**, which is every tier Armada picking.
+    pub async fn tiers_of(&self, job: &JobId) -> TierModels {
+        self.store()
+            .lock()
+            .await
+            .tier_models(job)
+            .unwrap_or_default()
     }
 
     /// The model a person chose for this Job's review step, for `get_job` and the spawn.

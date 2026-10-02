@@ -30,7 +30,10 @@ use adapter_traits::{
     AgentHarness, Delivery, DroneSpawnConfig, Grant, McpConfig, Model, Prompt, SpawnConfigRefused,
     Toolbelt, Vcs, WorkProduct, Worktree,
 };
-use core_model::{Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, StepId};
+use core_model::{
+    Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, PlanTask, StepId,
+    TierModels,
+};
 
 use crate::adrift::Adrift;
 use crate::briefing::Opening;
@@ -105,6 +108,9 @@ where
         // asks this and answers no. `crate::landing` owns the rest, including
         // why a branch that would not go does not stop the step.
         self.sent_out_on_entry(job, step, &worktree).await;
+        // What a landed fix held is free once this copy has it, and the news
+        // rides the peer block below. #1673.
+        self.holds_caught_up(&job_id, moved.as_ref()).await;
         // Asked of the record on every spawn, and answered `None` on almost
         // all of them. It is read before the brief because it is part of the
         // brief, and kept beside it because clearing it needs the same value.
@@ -170,6 +176,7 @@ where
             .also_carrying(waiting.clone())
             .overtaken_by(overtaken)
             .told_of_peers(peers)
+            .holding_off(&self.held_off(&job_id).await)
             .sent_back_by(sent_back)
             .carrying_the_plan(the_plan)
             .ruling_out(self.dismissed_for(job, step).await?)
@@ -210,8 +217,9 @@ where
         // and what kind of section each one is.
         let headings = brief.headings().to_vec();
         let kinds = brief.kinds().to_vec();
+        let on_task = task.as_ref().map(|(_, task)| task);
         let config = match self
-            .spawn_config(job, step, &worktree, brief.prompt())
+            .spawn_config(job, step, &worktree, brief.prompt(), on_task)
             .await
         {
             Ok(config) => config,
@@ -270,6 +278,16 @@ where
         self.drone_at_work(&job_id, started.session.pid());
         self.drone_process_recorded(job, step, &drone, started.session.pid())
             .await?;
+        // Which model it runs as, kept beside the binding below and for its
+        // reason: `JobDrone.model` reads it, and nothing else records it.
+        // Spike 022, slice 3.
+        if let Ok(model) = ModelName::new(config.model().as_str()) {
+            self.store()
+                .lock()
+                .await
+                .record_drone_model(&job_id, &drone, &model)
+                .map_err(Adrift::Writing)?;
+        }
         // Before the arrival is announced, since Bridge reads which task a
         // Drone is on when it hears one arrive.
         if let Some((_, task)) = &task {
@@ -405,12 +423,17 @@ where
     /// **A person's choice beats both**, read here because this is the next
     /// spawn it is promised to. A name the store will not give back as one is
     /// no choice: the step runs as its workflow asked rather than not at all.
+    ///
+    /// **A Drone put on a task asks two things first** (spike 022, slice 3): a
+    /// person's pick on the task, then the Job's tier map for the task's tier.
+    /// `Job::model_spawned_for` spells the order.
     async fn spawn_config(
         &self,
         job: &Job,
         step: &StepId,
         worktree: &Worktree,
         brief: Prompt,
+        task: Option<&PlanTask>,
     ) -> Result<DroneSpawnConfig, SpawnConfigRefused> {
         let ports = self.port_env(job).await;
         // On the step that writes Armada's review, a person's review model beats their Job model. #903.
@@ -427,9 +450,16 @@ where
             None => self.model_override_of(job.id()).await,
         }
         .and_then(|named| ModelName::new(&named).ok());
+        let tiers = match task {
+            Some(_) => self.tiers_of(job.id()).await,
+            None => TierModels::default(),
+        };
         Ok(DroneSpawnConfig::spawn_in(
             worktree,
-            Model::named(job.model_spawned_at(step, chosen.as_ref()).as_str())?,
+            Model::named(
+                job.model_spawned_for(step, chosen.as_ref(), task, &tiers)
+                    .as_str(),
+            )?,
             brief,
             self.mcp_config(job).await?,
             self.toolbelt(job, step).await,
@@ -525,6 +555,10 @@ where
         // if a path ever arrives where they are not.
         if dispatches(job, step) {
             belt = belt.and(Grant::DispatchAJob);
+        }
+        // Denied at launch as well as refused at declaration. #1673.
+        for path in self.held_off(job.id()).await.paths() {
+            belt = belt.holding_off(path.as_str());
         }
         // The same two predicates `crate::work_plan` refuses a call by.
         for grant in job

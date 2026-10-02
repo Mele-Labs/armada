@@ -16,6 +16,7 @@ export * from "./DispatchJob";
 export * from "./JobDetail";
 export * from "./Manifest";
 export * from "./Log";
+export { LandCheckLogSheet } from "./check-log-sheet";
 export * from "./Overrule";
 export * from "./RaiseCap";
 export * from "./RaiseTurnCap";

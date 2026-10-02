@@ -636,6 +636,7 @@ and cuts from what was last fetched.
 | `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
 | A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
+| `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, or release it by path |
 | `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path |
 
 **The lease is held for the process that ran your shell** — the agent session,
@@ -769,8 +770,10 @@ request where there is one.
 turn ran. The turn gates again against the new `main`, up to five times, so
 nothing reaches `main` that was not gated against it.
 
-**A turn takes up to four branches in line and gates them together**
-(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red, or
+**A turn takes up to eight branches in line and gates them together**
+(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red turn
+halves how many the next takes and a green one doubles it back, and
+`--status` says how many and why. A red, or
 two of them that clash, splits the batch until each is alone, so a red you are
 told about is your branch's own. A new gate line naming a file only your branch
 touched comes straight to you, and the others are gated again without you.

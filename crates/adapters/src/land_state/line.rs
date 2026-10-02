@@ -1,5 +1,5 @@
 //! The merge line as Fleet reads it: the queue in place order with each
-//! branch's outcome, and the newest few that left it.
+//! branch's outcome, the newest few that landed, and those sent back lately.
 //!
 //! **Read-only, and it never starts a runner.** `armada land --status` takes up
 //! a turn a killed runner left, which is right for an agent standing in the
@@ -8,20 +8,32 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use super::codec::{self, ReadStateError};
 use super::dir::{git_common_dir, StateDir};
-use super::outcome::{read_outcome, Outcome, OutcomeState};
+use super::outcome::{read_outcome, CheckState, Outcome, OutcomeState};
 use super::queue::{queued, QueueEntry, QueuedError};
 use crate::reading_in::FORGE_HOST;
 
-/// How many branches that left the line are read back, newest first.
+/// How many branches that left the line are read back, newest first, as one
+/// list: what a Bridge before protocol 23.2 draws.
 ///
 /// **A bound, because the outcomes are never pruned**: every branch ever landed
 /// keeps one, and this clone held 310 on 2 Oct 2026. Three is what the panel
 /// was drawn and approved with.
 pub const OFF: usize = 3;
+
+/// How many landed branches are read back, newest first: *Recently landed*.
+pub const LANDED: usize = 3;
+
+/// How long a red, a conflict or a stop is read back for: *Sent back*.
+///
+/// **A bound by age rather than by count**, because a branch sent back is work
+/// somebody still owes, and three newer reds should not hide a fourth. Three
+/// days carries one over a weekend. The age is the outcome file's own write,
+/// so a branch sent back again starts again.
+pub const SENT_BACK_FOR: Duration = Duration::from_secs(3 * 24 * 60 * 60);
 
 /// Where one repository's line is, resolved once: two `git` calls a
 /// repository, not two a read.
@@ -46,6 +58,14 @@ pub struct Line {
     pub waiting: Vec<(QueueEntry, Option<Outcome>)>,
     /// Ended outcomes of branches no longer in line, newest first, at most [`OFF`].
     pub off: Vec<Outcome>,
+    /// Landed and no longer in line, newest first, at most [`LANDED`].
+    pub landed: Vec<Outcome>,
+    /// Red, conflict or stopped, no longer in line, written within
+    /// [`SENT_BACK_FOR`], newest first.
+    ///
+    /// **A branch that has since landed is not here without a rule saying so**:
+    /// a branch has one outcome file, and its landing overwrote the red.
+    pub sent_back: Vec<Outcome>,
 }
 
 /// `repo`'s common git directory and forge address. `None` where `git` cannot
@@ -66,8 +86,9 @@ pub fn locate(repo: &Path) -> Option<Located> {
     })
 }
 
-/// Read the line. `Ok(None)` where `armada land` has never run in this clone.
-pub fn read(at: &Located) -> Result<Option<Line>, ReadLineError> {
+/// Read the line as of `now`. `Ok(None)` where `armada land` has never run in
+/// this clone.
+pub fn read(at: &Located, now: SystemTime) -> Result<Option<Line>, ReadLineError> {
     let Some(state) = StateDir::existing(&at.common) else {
         return Ok(None);
     };
@@ -81,20 +102,128 @@ pub fn read(at: &Located) -> Result<Option<Line>, ReadLineError> {
         let outcome = read_outcome(&state, &entry.branch).map_err(ReadLineError::Outcome)?;
         waiting.push((entry, outcome));
     }
-    let off = left(&state, &waiting)?;
-    Ok(Some(Line { waiting, off }))
+    let since = now
+        .checked_sub(SENT_BACK_FOR)
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+    let left = left(&state, &waiting, since)?;
+    Ok(Some(Line {
+        waiting,
+        off: left.off,
+        landed: left.landed,
+        sent_back: left.sent_back,
+    }))
 }
 
-/// The newest ended outcomes of branches not in line. Newest by the file's
-/// own write, which every outcome makes whole through a rename.
+/// One Check's log in the turn a branch's outcome names.
+///
+/// **Found from the outcome and never from a path anybody sent.** The runner
+/// writes each Check of a turn to `logs/<entry>/<turn>/<check>.log`, and the
+/// outcome lists the turn's logs as it goes; the turn is the directory those
+/// sit in. A Check still running is not in that list yet, so the file is named
+/// from the turn and the Check rather than looked up in it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckLog {
+    /// Where the runner writes it. May not exist yet: a Check just started
+    /// has not opened it.
+    pub file: PathBuf,
+    check: String,
+    /// The turn's directory, resolved, so a later turn is told apart.
+    turn: PathBuf,
+}
+
+/// `check`'s log in the turn `branch`'s outcome is on, or `None` where there
+/// is none to read: no line, no outcome, no such Check, a Check still
+/// `waiting`, or a turn whose directory is not under this line's `logs/`.
+///
+/// **What makes the names safe to read a file with.** `check` must be one path
+/// component and a Check the outcome lists as started; the turn must resolve to
+/// exactly `logs/<entry>/<turn>` once links are followed; and a link planted
+/// where the log goes is refused rather than followed.
+pub fn check_log(at: &Located, branch: &str, check: &str) -> Option<CheckLog> {
+    let one_name =
+        !check.is_empty() && check != "." && check != ".." && !check.contains(['/', '\\', '\0']);
+    if !one_name {
+        return None;
+    }
+    let state = StateDir::existing(&at.common)?;
+    let outcome = read_outcome(&state, branch).ok()??;
+    let started = outcome
+        .checks
+        .iter()
+        .any(|run| run.name == check && run.state != CheckState::Waiting);
+    if !started {
+        return None;
+    }
+    let turn = turn_of(&outcome)?;
+    let logs = state.path().join("logs").canonicalize().ok()?;
+    if turn.parent().and_then(Path::parent) != Some(logs.as_path()) {
+        return None;
+    }
+    let file = turn.join(format!("{check}.log"));
+    if is_link(&file) {
+        return None;
+    }
+    Some(CheckLog {
+        file,
+        check: check.to_string(),
+        turn,
+    })
+}
+
+/// Whether the runner is still writing `log`: the branch is gating, the Check
+/// is `running`, and the turn is still the one `log` was found in.
+pub fn check_writing(at: &Located, branch: &str, log: &CheckLog) -> bool {
+    let Some(state) = StateDir::existing(&at.common) else {
+        return false;
+    };
+    let Ok(Some(outcome)) = read_outcome(&state, branch) else {
+        return false;
+    };
+    outcome.state == OutcomeState::Gating
+        && outcome
+            .checks
+            .iter()
+            .any(|run| run.name == log.check && run.state == CheckState::Running)
+        && turn_of(&outcome).as_ref() == Some(&log.turn)
+}
+
+/// Whether `path` is a link. Read on every pass, so one planted after the log
+/// was found is not followed either.
+pub fn is_link(path: &Path) -> bool {
+    path.symlink_metadata()
+        .is_ok_and(|meta| meta.file_type().is_symlink())
+}
+
+/// The turn's directory, resolved: where the outcome's logs sit.
+fn turn_of(outcome: &Outcome) -> Option<PathBuf> {
+    Path::new(outcome.logs.first()?)
+        .parent()?
+        .canonicalize()
+        .ok()
+}
+
+/// The outcomes of branches no longer in line, three ways.
+#[derive(Default)]
+struct Left {
+    off: Vec<Outcome>,
+    landed: Vec<Outcome>,
+    sent_back: Vec<Outcome>,
+}
+
+/// The ended outcomes of branches not in line, newest first. Newest by the
+/// file's own write, which every outcome makes whole through a rename.
+///
+/// **Decoded only until every list is full**: past `since`, with [`OFF`] and
+/// [`LANDED`] read, the rest of the folder is never opened.
 fn left(
     state: &StateDir,
     waiting: &[(QueueEntry, Option<Outcome>)],
-) -> Result<Vec<Outcome>, ReadLineError> {
+    since: SystemTime,
+) -> Result<Left, ReadLineError> {
     let folder = state.outcomes_dir();
     let listing = match std::fs::read_dir(&folder) {
         Ok(listing) => listing,
-        Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => return Ok(Left::default()),
         Err(cause) => {
             return Err(ReadLineError::Outcomes {
                 path: folder,
@@ -110,9 +239,10 @@ fn left(
         .collect();
     files.sort_by_key(|file| std::cmp::Reverse(file.0));
 
-    let mut off = Vec::new();
-    for (_, path) in files {
-        if off.len() == OFF {
+    let mut left = Left::default();
+    for (written, path) in files {
+        let past = written < since;
+        if past && left.off.len() == OFF && left.landed.len() == LANDED {
             break;
         }
         // One file that will not decode does not hide the rest: `queued`'s rule.
@@ -122,18 +252,24 @@ fn left(
         let in_line = waiting
             .iter()
             .any(|(entry, _)| entry.branch == outcome.branch);
-        let ended = matches!(
+        let landed = outcome.state == OutcomeState::Landed;
+        let sent_back = matches!(
             outcome.state,
-            OutcomeState::Landed
-                | OutcomeState::Red
-                | OutcomeState::Conflict
-                | OutcomeState::Stopped
+            OutcomeState::Red | OutcomeState::Conflict | OutcomeState::Stopped
         );
-        if ended && !in_line {
-            off.push(outcome);
+        if in_line || !(landed || sent_back) {
+            continue;
+        }
+        if left.off.len() < OFF {
+            left.off.push(outcome.clone());
+        }
+        if landed && left.landed.len() < LANDED {
+            left.landed.push(outcome);
+        } else if sent_back && !past {
+            left.sent_back.push(outcome);
         }
     }
-    Ok(off)
+    Ok(left)
 }
 
 /// `https://<forge>/<owner>/<repo>/pull/` from an `origin` on the forge,

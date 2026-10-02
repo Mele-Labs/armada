@@ -127,6 +127,7 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
   const sheet =
     open === null || shown === null ? null : (
       <Sheet
+        kind="studio-sketch"
         open
         contained
         size="widest"

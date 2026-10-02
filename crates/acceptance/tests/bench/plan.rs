@@ -275,6 +275,16 @@ impl Planned {
         self.plan().expect("a plan")
     }
 
+    /// Keep one change a person made, as `store` appends it.
+    pub fn moved(&mut self, change: PlanChange) -> WorkPlan {
+        self.history.push(PlanEntry {
+            change,
+            by: PlanAuthor::Person,
+            at: at(self.history.len() + 1),
+        });
+        self.plan().expect("a plan")
+    }
+
     /// What the plan as it stands says to one more call, **without keeping it** —
     /// `store` judges a change inside the write, and a refused one writes nothing.
     pub fn judged(
@@ -304,6 +314,16 @@ impl Planned {
         let plan = self.plan();
         opened.job.tasks = plan.as_ref().map(|plan| plan.counts().into());
         opened.work_plan = plan.as_ref().map(ipc::WorkPlan::from);
+        opened
+    }
+
+    /// [`Planned::detail`], with each group's runs as Fleet recorded them.
+    pub fn detail_with(&self, runs: &core_model::GroupRuns) -> JobDetail {
+        let mut opened = self.detail();
+        opened.work_plan = self
+            .plan()
+            .as_ref()
+            .map(|plan| ipc::WorkPlan::of(plan, runs));
         opened
     }
 
@@ -383,6 +403,7 @@ pub async fn gated_on_the_plan(planned: &Planned, plan: Option<WorkPlan>) -> Rul
         &submitted,
         None,
         &Lifted::of(&planned.job),
+        &[],
         fleet::Began::At(&Footprint::nothing()),
         &[],
         &FakeWorkProduct::untouched(),
@@ -446,6 +467,7 @@ pub async fn gated_on_implement(
         &submitted,
         Some(&declared),
         &Lifted::of(&planned.job),
+        &[],
         fleet::Began::At(&Footprint::nothing()),
         &recorded,
         &FakeWorkProduct::changed(&["src/log.rs"]),

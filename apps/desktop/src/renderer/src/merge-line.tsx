@@ -1,42 +1,90 @@
-// The merge line, as the window draws it: a panel under Overview's lists, and a rail surface of
-// its own. **One panel in both places**, the same rows and the same acts, so nothing on the line
+// The merge line, as the window draws it: panels under Overview's lists, and a rail surface of its
+// own. **The same panels in both places**, the same rows and the same acts, so nothing on the line
 // needs the other view to reach it. They share one fold too.
 //
-// **Drawn only where there is a line**, off what Fleet serves (`mergeLineView`): with nobody in
-// line, or none for this pick, neither the panel nor the rail row draws, rather than a sentence
-// about an absence or a row opening nothing.
+// **One panel per repository Fleet serves a line for**, off `mergeLineViews`: the picked one, or
+// every one on All, named once there is more than one. With none served for the pick, neither the
+// panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
+import { useState } from "react";
+
+import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
-import { mergeLineView } from "@armada/screens";
-import { Boundary, SURFACE } from "@armada/shell";
+import { LandCheckLogSheet, mergeLineViews, type MergeLineView } from "@armada/screens";
+import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import { followLandCheck } from "./commands";
 import { usePanelOpen } from "./panel-open";
 
-type Lined = Pick<BridgeState, "mergeLines" | "repository">;
+type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">;
 
-/** The surfaces the rail and the palette leave off: the merge line's, until there is a line. */
-export function hiddenSurfaces({ mergeLines, repository }: Lined): readonly string[] {
-  return mergeLineView(mergeLines, repository) === undefined ? [SURFACE.mergeLine] : [];
+function viewsOf({ mergeLines, repository, holds }: Lined): readonly MergeLineView[] {
+  const repositories: readonly RepositorySummary[] = holds.repositories ?? [];
+  return mergeLineViews(mergeLines, repository, repositories);
 }
 
-/** The panel, where there is a line. */
+/** The surfaces the rail and the palette leave off: the merge line's, until Fleet serves one. */
+export function hiddenSurfaces(state: Lined): readonly string[] {
+  return viewsOf(state).length === 0 ? [SURFACE.mergeLine] : [];
+}
+
+/**
+ * A panel for each line there is, and the log panel a Check on any of them opens in: **one, held
+ * here**, so a second press replaces the first rather than stacking a panel per line.
+ */
 export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink: (address: string) => void }) {
-  const mergeLine = mergeLineView(state.mergeLines, state.repository);
-  const [open, setOpen] = usePanelOpen("merge-line");
-  if (mergeLine === undefined) return null;
+  const [reading, setReading] = useState<LandCheckAt | null>(null);
+  const floor = useAtFloor();
+  return (
+    <>
+      {viewsOf(state).map((view) => (
+        <OneLine
+          key={view.root}
+          view={view}
+          onOpenLink={onOpenLink}
+          onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
+        />
+      ))}
+      {reading === null ? null : (
+        <LandCheckLogSheet
+          at={reading}
+          followed={state.landFollowed}
+          onFollow={followLandCheck}
+          floor={floor}
+          onClose={() => setReading(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/** One repository's panel, folded on its own. */
+function OneLine({
+  view,
+  onOpenLink,
+  onOpenCheck,
+}: {
+  view: MergeLineView;
+  onOpenLink: (address: string) => void;
+  onOpenCheck: (branch: string, check: string) => void;
+}) {
+  const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
   return (
     <MergeLine
-      line={mergeLine.line}
-      off={mergeLine.off}
+      name={view.name}
+      line={view.line}
+      landed={view.landed}
+      sentBack={view.sentBack}
       open={open}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
+      onOpenCheck={onOpenCheck}
     />
   );
 }
 
-/** The rail surface: the panel alone, on Overview's own padding. */
+/** The rail surface: the panels alone, on Overview's own padding. */
 export function MergeLineSurface({
   state,
   bridge,

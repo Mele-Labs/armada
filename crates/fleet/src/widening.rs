@@ -88,6 +88,13 @@ pub enum NotWidened {
     /// before a call does not: nothing was weighed. A Drone that asked for one
     /// absolute path and three ordinary ones can drop the first and ask again.
     Forbidden { paths: Vec<verification::Forbidden> },
+    /// Files of a test another Job is fixing, `NotDeclared::HeldOffByFix`'s
+    /// refusal before a Judge is asked. Spends no ask. #1673.
+    HeldOffByFix {
+        paths: Vec<RepoPath>,
+        fix: String,
+        handle: String,
+    },
     /// This step has already asked. One ask per step, counted off the record.
     AlreadyAsked { step: StepId },
     /// The call could not be made. **Nothing is recorded and nothing
@@ -146,6 +153,17 @@ impl fmt::Display for NotWidened {
                  will not change the answer. Ask again without it, or do the \
                  part you were given without it",
                 Reasoned(paths)
+            ),
+            NotWidened::HeldOffByFix { paths, fix, handle } => write!(
+                out,
+                "{} belongs to a test \"{fix}\" ({handle}) is fixing, so no part of this Job \
+                 may change it until that fix lands and reaches your copy. This was not \
+                 looked at, and asking again will not change the answer",
+                paths
+                    .iter()
+                    .map(|path| format!("`{}`", path.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             NotWidened::AlreadyAsked { step } => write!(
                 out,
@@ -272,6 +290,13 @@ where
         let absolute = verification::forbidden_among(paths.iter());
         if !absolute.is_empty() {
             return Err(NotWidened::Forbidden { paths: absolute });
+        }
+        if let Some((hold, paths)) = self.held_off(&job).await.refusing(&paths) {
+            return Err(NotWidened::HeldOffByFix {
+                paths,
+                fix: hold.title.clone(),
+                handle: hold.handle.clone(),
+            });
         }
         let adding = beyond(&held, &paths);
         if adding.is_empty() {

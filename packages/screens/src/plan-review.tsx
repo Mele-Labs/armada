@@ -37,9 +37,9 @@ import type {
 
 import { PlanGate } from "./plan-lead";
 import type { ActingAct } from "./pending";
-import { useTaskWidth } from "./task-width";
 import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
-import { movedGroups, planBoardOf } from "./plan-board";
+import type { JobCheckLog } from "./check-log-sheet";
+import { movedGroups, moveSent, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
@@ -51,7 +51,8 @@ import { TASK_STOP } from "./copy";
 import { doingOfTask, hasOwnDrone, lastEditOf } from "./task-live";
 import type { JobDraft } from "./draft/held";
 import type { GroupView } from "./draft/group";
-import { taskDronesOf } from "./draft/drone";
+import { taskDronesOf, type DroneView } from "./draft/drone";
+import { spentOf } from "./workflow-inspector";
 import {
   DRONE_SAYS,
   droneOnTask,
@@ -158,13 +159,19 @@ export type PlanReviewProps = {
   opensTask?: string;
   /** Open a Drone in the Drones destination, with its sheet open. Absent, the peek draws no Open. */
   onOpenDrone?: (droneId: string) => void;
+  /**
+   * Every Drone the Job has had — the Drones destination's own list, so a
+   * task's panel and that tab show one Drone the same way. **Absent reads the
+   * draft's**, and then the working task's from the plan alone.
+   */
+  drones?: readonly DroneView[];
   /** Now, injected, so a running Drone's run time moves with the header's. */
   now?: number;
   /**
-   * Open a boundary Check's own row in the Record, by its name and the step
-   * attempt that ran it. **The screen's.** Absent, no Check is a button.
+   * Open a boundary Check's log in the log panel. **The screen's**, which holds
+   * the panel. Absent, no Check is a button.
    */
-  onOpenCheck?: (name: string, stepAttempt: number) => void;
+  onOpenCheckLog?: (log: JobCheckLog) => void;
   /**
    * The way back, where a press in another destination's panel landed here,
    * and where this one's open panel is reported — `trail.ts`.
@@ -235,8 +242,9 @@ export function usePlanReview({
   diff,
   opensTask,
   onOpenDrone,
+  drones,
   now,
-  onOpenCheck,
+  onOpenCheckLog,
   trail,
 }: PlanReviewProps): PlanReviewParts {
   // Which task the inspector is on. **This region's own state, not the
@@ -256,7 +264,6 @@ export function usePlanReview({
   // What has been typed at the open task's Drone and not sent. This region's
   // own state, on the sheet's terms: it goes when the sheet does.
   const [instruction, setInstruction] = useState("");
-  const [taskWidth, resizeTask] = useTaskWidth();
   // The file open beside the task. It belongs to the task: another task, or
   // none, closes it.
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -311,7 +318,7 @@ export function usePlanReview({
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const read = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
+  const read = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheckLog);
   const board = read === undefined || moving === null ? read : { ...read, groups: movedGroups(read.groups, moving) };
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
@@ -346,7 +353,7 @@ export function usePlanReview({
       : {
           onMove: (next: PlanMove) => {
             setMoving(next);
-            void onMovePlan(job.id, next).finally(() => setMoving(null));
+            void onMovePlan(job.id, moveSent(read?.groups ?? [], next)).finally(() => setMoving(null));
           },
           disabled: moving !== null,
         };
@@ -436,7 +443,28 @@ export function usePlanReview({
   const open = openTask === null ? undefined : tasksOf(groups).find((one) => one.id === openTask);
   // **The task's own Drone, off the list the Drones destination reads**, so
   // the peek and that sheet show one Drone the same way.
-  const own = open === undefined ? undefined : droneOnTask(draft?.drones ?? taskDronesOf(groups), open.id);
+  const held = drones ?? draft?.drones ?? taskDronesOf(groups);
+  const own = open === undefined ? undefined : droneOnTask(held, open.id);
+  // **Every Drone the task has had**, oldest first, each opening where the
+  // Drones tab opens it (owner, 2 Oct 2026: *why is the task panel for a plan
+  // not showing the drones?*). The panel is shared by Graph and List.
+  const taskDrones =
+    open === undefined
+      ? []
+      : held
+          .filter((one) => one.task === open.id)
+          .sort((a, b) => (a.since ?? "").localeCompare(b.since ?? ""))
+          .map((one) => {
+            const spent = spentOf(one).join(" · ");
+            return {
+              id: one.id,
+              label: droneOfTask(whole, { ...open, drone_id: one.id })?.label ?? `Drone on ${open.id}`,
+              state: one.state,
+              stateSays: DRONE_SAYS[one.state],
+              ...(spent === "" ? {} : { spent }),
+              ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(one.id) }),
+            };
+          });
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
   const peekTurns = useMemo(
@@ -461,12 +489,11 @@ export function usePlanReview({
           ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
         };
   // **What only a task's own Drone can say: what it is doing, what it last
-  // wrote, and a stop for it alone.** Fleet runs one Drone per Job until
-  // slices 1 and 5 of `docs/spikes/022`, so on real Fleet no task has a Drone
-  // of its own and the sheet draws none of the three — not an empty field, and
-  // not the Job's Drone under the task's name. The mock's draft is their only
-  // source today.
-  const ownDrone = open !== undefined && hasOwnDrone(open);
+  // wrote, and a stop for it alone.** Only on a step working a Drone per task
+  // (23.1), where the Drone listed on the task is its own; elsewhere the sheet
+  // draws none of the three, never the Job's Drone under the task's name.
+  const ownDrone =
+    open !== undefined && (hasOwnDrone(open) || (open.treatment === "own_drone" && own !== undefined));
   const doing = open === undefined ? undefined : doingOfTask(open);
   const lastEdit = ownDrone ? lastEditOf(own?.transcript) : undefined;
   // **The stop is mocked**: Fleet has no act that ends one task's Drone
@@ -594,11 +621,10 @@ export function usePlanReview({
           {...(drop === undefined ? {} : { drop })}
           open
           floor={floor}
-          {...(taskWidth === undefined ? {} : { width: taskWidth })}
-          onResize={resizeTask}
           {...(proposeTask === undefined ? {} : { propose: proposeTask })}
           {...(redirect === undefined ? {} : { redirect })}
           {...(peek === undefined ? {} : { drone: peek })}
+          drones={taskDrones}
           {...(doing === undefined ? {} : { doing })}
           {...(lastEdit === undefined ? {} : { lastEdit })}
           {...(stop === undefined ? {} : { stop })}
@@ -636,8 +662,6 @@ export function usePlanReview({
             ? {}
             : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
           floor={floor}
-          {...(taskWidth === undefined ? {} : { width: taskWidth })}
-          onResize={resizeTask}
           under={adding !== null}
           onClose={() => setOpenGroup(null)}
         />

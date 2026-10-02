@@ -44,7 +44,7 @@ import type {
   WhenBlocked,
 } from "./commanding";
 import type { JudgeQuestion, WhenRefused } from "./asking";
-import type { WorkPlan } from "./work-plan";
+import type { TierModels, WorkPlan } from "./work-plan";
 
 /**
  * One Job, whole. The answer to `GET /jobs/:job_id`. `crates/ipc/src/detail.rs`.
@@ -248,6 +248,12 @@ export type JobDetail = {
   model_override?: string;
   /** The model a person chose for this Job's review step. Since 13.33, #903. Absent is no choice. */
   review_model_override?: string;
+  /**
+   * Which model each tier of this Job's tasks runs on. Since 23.6. **Absent
+   * where the map names no tier**, which is Armada picking for every tier.
+   * `set_tiers` moves it.
+   */
+  tiers?: TierModels;
   /** The label of the step that writes Armada's review. Since 13.33, #903. Absent where the workflow has none. */
   review_step?: string;
   /**
@@ -646,6 +652,13 @@ export type JobDelivery = {
    * open, still shows what it carried before this attempt.
    */
   unpushed?: string;
+  /** The pull request's title, kept after it settles. Since 23.6. */
+  pull_request_title?: string;
+  /**
+   * Its comments as last counted while open, kept after it settles; line
+   * comments not counted. Since 23.6. **Absent is unknown, never 0.**
+   */
+  pull_request_comments?: number;
 };
 
 /**

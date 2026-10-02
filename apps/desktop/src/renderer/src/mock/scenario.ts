@@ -44,16 +44,18 @@ import {
 } from "@armada/screens/src/fixtures/build/index";
 import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
+import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
-import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
+import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
+import { heldByTheGamingCheck } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
@@ -62,8 +64,11 @@ import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { zoning } from "./studio-read-in";
 import { zoneProposing } from "./studio-zone-proposal";
+import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
+import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
+import { writingLogs } from "./check-logs-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -114,9 +119,10 @@ function holding(
   };
 }
 
-/** The same scenario with Fleet serving the merge line `armada land --status` printed on 2 Oct 2026. */
+/** The same scenario with Fleet serving three lines: `armada land --status`, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
-  return { ...scenario, state: { ...scenario.state, mergeLines: mergeLines() } };
+  const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
+  return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
 }
 
 /**
@@ -398,6 +404,9 @@ function recordedBoard(): Scenario {
   };
 }
 
+/** The Job `held/gaming-check` opens on, as Fleet serves it with the Drone still there. */
+const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
+
 /**
  * Every scenario, by name. **The first is where the mock opens.**
  *
@@ -444,13 +453,12 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
-  // `armada land --status` as it read on 2 Oct 2026, under a few Jobs. Overview draws the line
-  // below its lists; nothing else here reads it.
   lined(
     holding(
       "merge-line",
-      "Six branches in line, four gating as one batch, three just off it",
+      "Three repositories with a line: six in one, nobody in another, nothing ever landed in the third",
       EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`))),
+      { alsoServed: [NOTES, SCRATCH] },
     ),
   ),
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
@@ -458,6 +466,7 @@ export const SCENARIOS: readonly Scenario[] = [
   studying().scenario,
   zoning().scenario,
   zoneProposing().scenario,
+  readingNothing().scenario,
   talking(),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a
@@ -467,6 +476,14 @@ export const SCENARIOS: readonly Scenario[] = [
   fillingIn(moment("arc", dispatchTyping())),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
+  // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
+  // the merge line's turn, each writing a log as it runs. Not an arc moment, so named here.
+  lined({
+    ...moment("arc", groupChecking()),
+    name: "check-logs",
+    says: "Group three's Checks and the merge line's turn, each writing its log",
+    behaves: writingLogs,
+  }),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),
@@ -491,9 +508,14 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // The same Job just before it landed, at its review gate: the record the gate draws (#1680).
+  holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id }),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
+  // A Job the gaming check holds with its Drone still on the step: a weakened
+  // assertion and three refused commands, answered under the lead (#1672).
+  holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

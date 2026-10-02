@@ -722,6 +722,26 @@ impl Job {
     ) -> &'a ModelName {
         chosen.unwrap_or_else(|| self.model_at(step))
     }
+    /// What the Drone put on `task` is spawned as (spike 022, slice 3): a
+    /// person's pick on the task, then `tiers` for the task's tier, then
+    /// [`model_spawned_at`](Job::model_spawned_at)'s answer. A Drone on no
+    /// task, and a tier the map leaves out, fall straight through to that
+    /// one, which is Armada picking (answer 8).
+    ///
+    /// **Spelled here beside the other two**, for `model_at`'s reason.
+    pub fn model_spawned_for<'a>(
+        &'a self,
+        step: &StepId,
+        chosen: Option<&'a ModelName>,
+        task: Option<&'a crate::PlanTask>,
+        tiers: &'a crate::TierModels,
+    ) -> &'a ModelName {
+        task.and_then(|task| {
+            task.model()
+                .or_else(|| task.tier().and_then(|tier| tiers.get(tier)))
+        })
+        .unwrap_or_else(|| self.model_spawned_at(step, chosen))
+    }
     pub fn acceptance_criteria(&self) -> &[AcceptanceCriterion] {
         &self.acceptance_criteria
     }

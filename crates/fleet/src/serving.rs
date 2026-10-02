@@ -368,15 +368,22 @@ where
     async fn get_job_events(&self, job_id: JobId) -> Result<JobHistory, Refusal> {
         let id = job_id.to_domain();
         self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let events = self
-            .store()
-            .lock()
-            .await
-            .events_for(&id)
-            .map_err(|cause| self.refusal(Adrift::Reading(LoadJobError::Unreadable(cause))))?;
+        let (events, coords) = {
+            let store = self.store().lock().await;
+            let events = store
+                .events_for(&id)
+                .map_err(|cause| self.refusal(Adrift::Reading(LoadJobError::Unreadable(cause))))?;
+            let coords = store
+                .group_coords(&id)
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            (events, coords)
+        };
         Ok(JobHistory {
             job_id,
-            moves: events.iter().map(recorded).collect(),
+            moves: events
+                .iter()
+                .map(|event| recorded(event, &coords))
+                .collect(),
         })
     }
 
@@ -812,6 +819,26 @@ where
     /// Each served repository's merge line — [`crate::merge_lines`].
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(crate::merge_lines::answer(self).await)
+    }
+
+    /// One Check's log on a served line — [`crate::merge_lines::land_log`].
+    async fn observe_land_check(
+        &self,
+        root: String,
+        branch: String,
+        check: String,
+    ) -> Result<api::LandOutput, Refusal> {
+        let asked = (root.clone(), branch.clone(), check.clone());
+        crate::merge_lines::land_log(self, root, branch, check)
+            .await
+            .ok_or_else(|| {
+                let (root, branch, check) = asked;
+                self.refusal(Adrift::NoSuchLandLog {
+                    root,
+                    branch,
+                    check,
+                })
+            })
     }
 
     /// What a Job may be spawned as, resolved once by the composition root.

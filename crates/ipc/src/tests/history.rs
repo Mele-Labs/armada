@@ -17,6 +17,8 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
         job_id: crate::JobId::carried("01JOB"),
         moves: vec![
             Recorded {
+                group: None,
+                group_attempt: None,
                 seq: 1,
                 status: crate::JobStatus::from_wire("awaiting_approval").expect("a status"),
                 moved: Movement::Status(StatusMoved {
@@ -27,6 +29,8 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
                 at: crate::Instant::carried("2026-08-26T09:01:00.000Z"),
             },
             Recorded {
+                group: None,
+                group_attempt: None,
                 seq: 2,
                 status: crate::JobStatus::from_wire("running").expect("a status"),
                 moved: Movement::Drone(DroneMoved {
@@ -38,6 +42,8 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
                 at: crate::Instant::carried("2026-08-26T09:02:00.000Z"),
             },
             Recorded {
+                group: None,
+                group_attempt: None,
                 seq: 3,
                 status: crate::JobStatus::from_wire("running").expect("a status"),
                 moved: Movement::Step(StepMoved {

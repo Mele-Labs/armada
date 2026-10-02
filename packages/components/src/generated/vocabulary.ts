@@ -12,7 +12,7 @@
 // one is listed in `GAPS` so a surface can say what it could not render instead
 // of inventing copy for it.
 
-import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileCheck, FileQuestionMark, Flag, Link, Megaphone, Minus, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
+import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileCheck, FileQuestionMark, Flag, GitMerge, Link, Megaphone, Minus, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** How one variant reads. `null` where the registry carries no answer. */
@@ -167,10 +167,11 @@ export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
 /** `land_state`, keyed by the wire value. */
 export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
-  "gating": { verb: "gating", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
-  "merging": { verb: "merging", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "gating": { verb: "Running Checks before landing", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "preparing": { verb: "Preparing to land", icon: GitMerge, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "merging": { verb: "Pushing onto main", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
-  "red": { verb: "red", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "red": { verb: "Checks failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "conflict": { verb: "conflict", icon: Unplug, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "stopped": { verb: "stopped", icon: Power, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
 };
@@ -257,6 +258,22 @@ export const ORIGIN: Readonly<Record<string, Rendering | undefined>> = {
   "drone_drafted": { verb: "Drafted by a Drone", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_dispatched": { verb: "From a Studio, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_helm_drafted": { verb: "From a Studio, via Helm", icon: null, badgeStatus: null, statusToken: null, hint: null },
+};
+
+/**
+ * What a gaming flag says happened, in the past tense, for the lead and the card
+ * a flag holds a step with. From `enum-verbs.toml`, beside the verb. #1672.
+ */
+export const GAMING_PATTERN_HEADLINE: Readonly<Record<string, string | undefined>> = {
+  "assertion_weakened": "An assertion was removed or loosened, which was judged to weaken the test coverage",
+  "test_scope_narrowed": "The tests were changed to cover less of the code, which was judged to weaken the test coverage",
+  "tautological_test": "A test was written so it passes whatever the code does, which was judged to make it check nothing",
+  "test_skipped": "A test that used to run was marked to skip, which was judged to weaken the test coverage",
+  "test_deleted": "A whole test file was deleted, which was judged to weaken the test coverage",
+  "check_config_edited": "A file a Check runs through was edited, which was judged to let the Check run less than it did",
+  "no_findings_on_substantial_diff": "The review found nothing in a large change, which was judged to mean it did not read the change",
+  "findings_not_tied_to_changed_lines": "The review named nothing this change touched, which was judged to mean it did not read the change",
+  "findings_generic": "The review's findings would fit any change, which was judged to mean they did not come from reading this one",
 };
 
 /** Where a Job is in its life, from `job-statuses.toml`. Not a rendering. */

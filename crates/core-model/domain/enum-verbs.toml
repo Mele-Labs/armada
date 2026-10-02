@@ -38,11 +38,11 @@
 #                                Promoted from the draft's words at protocol
 #                                22.0, `handed_in` and `failed` with it
 #   group_state                - where one group of a Job's plan is. No
-#                                registry file of its own and no enum to pair
-#                                against: Fleet has no group yet, so the set is
-#                                `packages/screens/src/draft/group.ts`'s until
-#                                `#1545` settles the schema. Its glyphs are the
-#                                step's borrowed one level further down, which
+#                                registry file of its own; paired against
+#                                `core_model::GroupState` since protocol 23.4,
+#                                when Fleet started running groups. Its glyphs
+#                                are the step's borrowed one level further
+#                                down, which
 #                                `[conventions.step_activity_borrowing]` in
 #                                `packages/icons/icons.toml` sanctions
 #   land_state                 - where one branch is on the merge line
@@ -116,6 +116,12 @@
 #                  measured figure — `FleetCapacity` carries no headroom
 #                  number over the wire at all (`crates/ipc/src/capacity.rs`),
 #                  so the sentence names what is short and claims no percentage
+#   headline     - `gaming_pattern` only, and required on every row there: what
+#                  happened and that it was judged to weaken the work, in the
+#                  past tense, as the lead and the card a flag holds a step
+#                  with say it. The owner's own model, 2 Oct 2026: *An
+#                  assertion was removed, which was judged to weaken the test
+#                  coverage*
 #   verb_and_icon_from
 #                - names the enum a variant borrows both from, where it has
 #                  neither of its own. Carried by no row today — see below
@@ -354,7 +360,7 @@ icon = "circle-dashed"
 status_token = "--status-not-started"
 vocabulary = "Group state"
 in_code = ""
-notes = "A group's states are the step's one level further down, and they take their glyphs the way a step takes the Job's — `[conventions.step_activity_borrowing]` in `packages/icons/icons.toml`, which already lends `circle-dashed` to a plan task's open state on exactly this argument. The convention's own words: a second silhouette for one meaning is the collision the page exists to prevent. **No registry file of its own**, for the reason the header gives: Fleet has no group, so there is no enum and no `*.toml` to pair against, and the set is `packages/screens/src/draft/group.ts`'s until `#1545` settles the schema. `--status-not-started` rather than the step row's empty token: a group's state is drawn as a tinted chip and the tint is `--status-not-started-bg`, which a step's rail row has no use for."
+notes = "A group's states are the step's one level further down, and they take their glyphs the way a step takes the Job's — `[conventions.step_activity_borrowing]` in `packages/icons/icons.toml`, which already lends `circle-dashed` to a plan task's open state on exactly this argument. The convention's own words: a second silhouette for one meaning is the collision the page exists to prevent. **No registry file of its own**, for the reason the header gives: the set is paired against `core_model::GroupState`, which Fleet writes since protocol 23.4. `--status-not-started` rather than the step row's empty token: a group's state is drawn as a tinted chip and the tint is `--status-not-started-bg`, which a step's rail row has no use for."
 
 [verbs.group_state.running]
 verb = "running"
@@ -852,6 +858,7 @@ notes = "Its own glyph, and that is the whole point of the row. Reusing never_ra
 
 [verbs.gaming_pattern.assertion_weakened]
 verb = "an assertion now asserts less"
+headline = "An assertion was removed or loosened, which was judged to weaken the test coverage"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -860,6 +867,7 @@ notes = "Neither glyph nor token, and that is the vocabulary's decision rather t
 
 [verbs.gaming_pattern.test_scope_narrowed]
 verb = "the tests cover less than they did"
+headline = "The tests were changed to cover less of the code, which was judged to weaken the test coverage"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -868,6 +876,7 @@ notes = "Both halves are a comparison, because that is what the check makes: the
 
 [verbs.gaming_pattern.tautological_test]
 verb = "a test that passes whatever the code does"
+headline = "A test was written so it passes whatever the code does, which was judged to make it check nothing"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -876,6 +885,7 @@ notes = "The enum's word is the one a reader is least likely to know, so the ver
 
 [verbs.gaming_pattern.test_skipped]
 verb = "a test that ran is now skipped"
+headline = "A test that used to run was marked to skip, which was judged to weaken the test coverage"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -884,6 +894,7 @@ notes = "`is now skipped` rather than `was skipped`, which reads as the runner h
 
 [verbs.gaming_pattern.test_deleted]
 verb = "a test file was removed whole"
+headline = "A whole test file was deleted, which was judged to weaken the test coverage"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -892,6 +903,7 @@ notes = "`whole` is load-bearing and says exactly what the scan answers — a `d
 
 [verbs.gaming_pattern.check_config_edited]
 verb = "the change edits what a Check runs through"
+headline = "A file a Check runs through was edited, which was judged to let the Check run less than it did"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -900,6 +912,7 @@ notes = "Names what the file does rather than the file, which is already in the 
 
 [verbs.gaming_pattern.no_findings_on_substantial_diff]
 verb = "a review that found nothing in a substantial change"
+headline = "The review found nothing in a large change, which was judged to mean it did not read the change"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -908,6 +921,7 @@ notes = "The one pattern whose finding is an absence, which is also why it is th
 
 [verbs.gaming_pattern.findings_not_tied_to_changed_lines]
 verb = "findings that name nothing this change touched"
+headline = "The review named nothing this change touched, which was judged to mean it did not read the change"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -916,6 +930,7 @@ notes = "A claim about the findings and never about whoever wrote them, which is
 
 [verbs.gaming_pattern.findings_generic]
 verb = "findings that would fit any change"
+headline = "The review's findings would fit any change, which was judged to mean they did not come from reading this one"
 icon = ""
 status_token = ""
 vocabulary = "Gaming pattern"
@@ -1246,15 +1261,23 @@ in_code = ""
 notes = "In line, and nothing is being done to it yet. The word `--status` already prints. `clock` and the queued hue are `job_status.queued`'s, borrowed one level over: a branch in line is queued work, and `clock`'s own row says it is the mark for nobody acting. The merge line is a list of branches and never a step's rail row, so the refusal `[conventions.step_activity_borrowing]` records for `clock` does not reach it."
 
 [verbs.land_state.gating]
-verb = "gating"
+verb = "Running Checks before landing"
 icon = "circle-dot"
 status_token = "--status-running"
 vocabulary = "Land state"
 in_code = ""
-notes = "In its turn: main merged in, the generators, `verify-foundations` and the Checks. `circle-dot` and the running hue, pulsing on the row while the turn holds it, as a running Job's badge does. Shared with `merging`, for `group_state.running`'s reason: both are the turn live, and the tooltip carries which."
+notes = "In its turn: main merged in, the generators, `verify-foundations` and the Checks. The owner found `gating` opaque on 2 Oct 2026 and chose these words for Bridge, for while a Check runs; before one does, Bridge reads `preparing`. The key, and what `--status` prints, stay `gating`. `circle-dot` and the running hue, pulsing on the row while the turn holds it, as a running Job's badge does. Shared with `merging`, for `group_state.running`'s reason: both are the turn live, and the tooltip carries which."
+
+[verbs.land_state.preparing]
+verb = "Preparing to land"
+icon = "git-merge"
+status_token = "--status-running"
+vocabulary = "Land state"
+in_code = ""
+notes = "Bridge's own, not a word `OutcomeState::word` prints: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `git-merge` (the owner chose it over `hammer`), pulsing in the running hue as `gating` does; see its row in `packages/icons/icons.toml`."
 
 [verbs.land_state.merging]
-verb = "merging"
+verb = "Pushing onto main"
 icon = "circle-dot"
 status_token = "--status-running"
 vocabulary = "Land state"
@@ -1270,7 +1293,7 @@ in_code = ""
 notes = "On main, as its own merge commit. `check` and the success hue, `group_state.landed`'s pair. Not `git-merge`, which is reserved to a merged pull request's badge: a branch lands with no pull request at all."
 
 [verbs.land_state.red]
-verb = "red"
+verb = "Checks failed"
 icon = "x"
 status_token = "--status-completed-failed"
 vocabulary = "Land state"

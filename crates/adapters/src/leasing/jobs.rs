@@ -66,3 +66,7 @@ pub(crate) fn release(slots: &SlotPool, slot: u32, job: &str) -> Result<(), Slot
         .map(|_| ())
         .map_err(|refused| SlotKept(refused.said()))
 }
+
+pub(crate) fn completed(slots: &SlotPool, slot: u32, job: &str) {
+    let _ = pool(slots).mark_completed(slot as usize, &Holder::job(job));
+}

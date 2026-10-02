@@ -186,6 +186,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines",
     },
+    // One Check's log on that line, as it is written. Named by the line's own
+    // three words in the query, never by a path: a root is a path itself.
+    Route {
+        operation: "observe_land_check",
+        method: "GET",
+        path: "/merge_lines/checks/observe",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",
@@ -735,6 +742,24 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/drop_task",
     },
+    // A person's two acts on a plan's groups, spike 022 slice 2: restart one
+    // failed task, and move a task or a group by `after`.
+    Route {
+        operation: "restart_task",
+        method: "POST",
+        path: "/jobs/:job_id/tasks/:task_id/restart",
+    },
+    Route {
+        operation: "move_plan",
+        method: "POST",
+        path: "/jobs/:job_id/plan/move",
+    },
+    // A person changes one task: spike 022 slice 3, `#1657`.
+    Route {
+        operation: "edit_task",
+        method: "POST",
+        path: "/jobs/:job_id/tasks/:task_id/edit",
+    },
     // The two acts that resume a step without redispatching. Two routes and
     // not one with a mode: which applies is decided by whether the Job holds a
     // Drone, and a caller that asked for the wrong one is told which is right
@@ -788,6 +813,11 @@ const ROUTES: &[Route] = &[
         operation: "set_review_model",
         method: "POST",
         path: "/jobs/:job_id/set_review_model",
+    },
+    Route {
+        operation: "set_tiers",
+        method: "POST",
+        path: "/jobs/:job_id/set_tiers",
     },
     Route {
         operation: "remove_allowed_command",

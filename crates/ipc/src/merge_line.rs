@@ -23,8 +23,17 @@ pub struct MergeLine {
     pub root: String,
     /// Waiting, or in a turn, in place order. Empty is a line with nobody in it.
     pub line: Vec<MergeLineEntry>,
-    /// The newest few that left the line with an outcome, newest first.
+    /// The newest few that left the line with an outcome, newest first, as
+    /// one list. What a Bridge before 23.2 draws; `landed` and `sent_back`
+    /// replace it.
     pub off: Vec<MergeLineEntry>,
+    /// The newest few that left the line landed, newest first. Since 23.2.
+    #[serde(default)]
+    pub landed: Vec<MergeLineEntry>,
+    /// Red, conflict or stopped and not back in line, written within the last
+    /// three days, newest first. Since 23.2.
+    #[serde(default)]
+    pub sent_back: Vec<MergeLineEntry>,
 }
 
 /// One branch, in line or just off it.
@@ -54,6 +63,32 @@ pub struct MergeLineEntry {
     /// `conflict`: the files main did not merge into.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// `gating`, `red` and `stopped`: each Check the turn runs, as it stands,
+    /// in the order they run. Since 23.2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<MergeLineCheck>,
+}
+
+/// One Check a turn runs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MergeLineCheck {
+    /// Its name in `armada.yml`.
+    pub name: String,
+    pub state: LandCheckState,
+}
+
+/// Where one Check stands in a turn: `waiting` until it is run, then
+/// `running`, then one of the three ends.
+///
+/// **Strict, for [`LandState`]'s reason**: Bridge draws each as a segment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LandCheckState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    TimedOut,
 }
 
 /// A pull request, by number and address.
@@ -61,6 +96,10 @@ pub struct MergeLineEntry {
 pub struct MergeLinePullRequest {
     pub number: u64,
     pub url: String,
+    /// `landed` only: how it ended, the Job's own `Settled`. Absent is
+    /// nothing known, which is every pull request still in line. Since 23.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled: Option<crate::Settled>,
 }
 
 /// Where one branch is on the line: `land_state` in `enum-verbs.toml`.
@@ -77,4 +116,35 @@ pub enum LandState {
     Red,
     Conflict,
     Stopped,
+}
+
+/// One message on a merge line Check's log socket, `observe_land_check`.
+///
+/// **`OutputMessage`'s three, with its own first message.** A turn's Check
+/// belongs to no Job, so the opening names the line instead: the repository,
+/// the branch and the Check. The lines and the end are `observe_check_output`'s
+/// own, so one reader draws both. Since 23.7.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "message", rename_all = "snake_case")]
+pub enum LandOutputMessage {
+    Opened(LandOutputOpened),
+    Lines(crate::OutputLines),
+    Closed(crate::OutputClosed),
+}
+
+/// The first message: whose log this is, and what the first read left out.
+///
+/// **No path.** The runner's logs sit in the clone's common directory, and
+/// `get_merge_lines` keeps every path in there off the wire; the three names
+/// the reader asked by are what it is told.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LandOutputOpened {
+    pub protocol_version: crate::ProtocolVersion,
+    /// The repository's root, as `list_repositories` names it.
+    pub root: String,
+    pub branch: String,
+    /// The Check, as `MergeLineCheck::name` spells it.
+    pub name: String,
+    /// Older lines the first read left out, because the window is bounded.
+    pub skipped: u64,
 }

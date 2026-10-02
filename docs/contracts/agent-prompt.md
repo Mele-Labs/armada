@@ -543,6 +543,27 @@ transcript back.
 └────────────────────────────────────────────────
 ```
 
+**A group's round is the third, and Fleet's alone** (spike 022, slice 2). On
+a step declaring `drone_per_task`, a group whose Checks are red with a retry
+left goes round on its own, and the group's last task's Drone is the one that
+goes. It is told the red Checks first, by the outcome turn every hand-back
+sends, and then this, `PlanChanged::round`, so it knows the round covers every
+task of the group rather than its own. Same `Occasion`.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ THE GROUP GOES ROUND ─────────────────────────
+│ The Checks above ran at the end of group G1,
+│ which is these tasks: T1 Stop the reader at the
+│ end; T2 Cover the last row. Fix what they found
+│ across all of them, not only your own, then
+│ call submit_evidence once for the group. Every
+│ one of them stays handed in while you do. Do
+│ not start a task of a later group.
+└────────────────────────────────────────────────
+```
+
 ## The peer turn
 
 Fires when another unfinished Job in the same repository first claims a path
@@ -556,6 +577,13 @@ one of its failed Checks printed the claimed test (#1001), and again when that
 fix lands or ends without landing. A fix item says the test is another Job's to
 fix and that this Job's checks still fail on it until the fix lands; the
 sentences about shared files are left out of a turn that carries only fixes.
+
+**A fix that holds files off this Job names them** (#1673): while it is
+fixing, that they are outside what this Job may change; when it lands, that
+they stay so until the next part starts; and in that part's opening brief,
+once the catch-up has brought the fix in, that it is already in this copy and
+the files are this Job's again. A fix that ends without landing frees them in
+the same line.
 
 **Queued, then spaced.** News waits until the Drone has gone `fleet::peers::SPACING`
 without a peer turn, and one turn names at most `fleet::peers::AT_MOST` items. Where no
@@ -656,10 +684,13 @@ the run and nothing else. Its own `Occasion`, `Fix`.
 ┌─ THE TEST YOU SAID IS BROKEN ON MAIN ──────────
 │ `<test>` fails on main too, so the failure is
 │ not your change. A fix is drafted as Job <id>
-│ and waits for a person's approval. Carry on with
-│ your part: your own checks still fail on that
-│ test until the fix lands, so say so in your
-│ evidence.
+│ and waits for a person's approval. Until it
+│ lands and reaches your copy, `<file>` are that
+│ fix's and outside what this Job may change: a
+│ declaration naming one is refused. Carry on with
+│ the rest of your part: your own checks still
+│ fail on that test until the fix lands, so say so
+│ in your evidence.
 │
 │ (or, where it passes on main or could not run
 │ there, the sentence saying why nothing was
@@ -1508,6 +1539,36 @@ Drone is offered no plan tool.
 step's does not, and the rail's *Submit when this part is done, then wait*
 still holds beside it: a hand-in that is not the last is followed by Fleet
 ending the Drone, and the last one's Drone waits for the outcome as any does.
+
+### Files another Job is fixing — added 2 Oct 2026
+
+Where a test this Job's checks failed on is claimed by another Job's fix
+(#1673), every sample above gains one block after the peer block and before
+the step, for every Drone the Job puts on. `fleet::fixing::HeldOff::text`
+renders it, naming every file and never counting them away.
+
+**Drafted wording. Not sanctioned.**
+
+```
+┌─ FILES ANOTHER JOB IS FIXING ───────────────────
+│ A test this Job's checks failed on is another
+│ Job's to fix, and these files are that fix's.
+│ Until it lands and reaches your copy they are
+│ outside what this Job may change: a declaration
+│ naming one is refused, and so is an edit to one.
+│ Do the rest of your part around them, and say in
+│ your evidence that the test still fails until
+│ the fix lands.
+│
+│ - "fix the parser on main" (7-fix-the-parser)
+│   is fixing `parser::takes_it`: `src/parse.rs`.
+└──────────────────────────────────────────────
+```
+
+**"Reaches your copy"**, not "lands": a fix that has merged is still absent
+from this Job's branch until the next part's catch-up, and the block keeps the
+line, as *landed its fix, and your branch could not take it yet*, where that
+catch-up could not replay.
 
 ---
 

@@ -107,14 +107,21 @@ pub struct Forgotten {
     pub reviews: usize,
     /// The parts of those reviews, counted together across their tables.
     pub review_parts: usize,
-    /// The tests broken on main this Job was drafted to fix, one row each. #999.
+    /// The tests broken on main this Job was drafted to fix, one row each, and
+    /// their files, one row each. #999, #1673.
     pub breakage_claims: usize,
-    /// The fixes this Job was pointed at, one row each. #1001.
+    /// The fixes this Job was pointed at, one row each, and the files landed
+    /// fixes still hold off it, one row each. #1001, #1673.
     pub fix_waiters: usize,
     /// The submission waiting for the gate when the Job ended, if any. #796.
     pub pending_evidence: usize,
     /// Each Drone put on one of the Job's tasks, one row each. Spike 022, 1b.
     pub task_drones: usize,
+    /// Each start and end of a run of one of the plan's groups. Spike 022, 2.
+    pub group_runs: usize,
+    /// The Job's tier map, one row per tier it names, and the model each of
+    /// its Drones ran, one row each. Spike 022, 3.
+    pub models: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -171,10 +178,12 @@ impl Forgotten {
             | "job_step_review_view"
             | "job_review_dismissals"
             | "job_review_followups" => &mut self.review_parts,
-            "job_breakage_claims" => &mut self.breakage_claims,
-            "job_fix_waiters" => &mut self.fix_waiters,
+            "job_breakage_claims" | "job_breakage_claim_files" => &mut self.breakage_claims,
+            "job_fix_waiters" | "job_landed_holds" => &mut self.fix_waiters,
             "job_pending_evidence" => &mut self.pending_evidence,
             "job_task_drones" => &mut self.task_drones,
+            "job_group_runs" => &mut self.group_runs,
+            "job_tier_models" | "job_drone_models" => &mut self.models,
             _ => return None,
         })
     }

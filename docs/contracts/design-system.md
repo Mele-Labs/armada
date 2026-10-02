@@ -51,7 +51,8 @@ needs them, and what broke.
 
 This is an instrument panel, not a marketing page. No hero sections, no
 decorative iconography, no illustration. Density and legibility win over
-impact.
+impact. The one illustration is the owner's: an empty merge line
+(`iconography.md`, Where the answer is no icon).
 
 **An instrument panel still has depth.** It sits open all day, and on a quiet
 day nothing on it carries status colour, so a flat grey screen reads as a dead
@@ -1228,7 +1229,23 @@ of the Manifest's Setup, Checks and Commands, with everything past it the run's
 own output. `--armada-sheet-wide`, `--armada-sheet-widest` and
 `--armada-sheet-reading` have no token behind them: `packages/tokens` carries
 no width scale for an overlay panel, only the sidebar's own range, which does
-not describe this. Reported, not minted here.
+not describe this. Reported, not minted here. `dock` is `--w-dock`, where
+Plan's task, group and wave-Job panels open.
+
+**Every sheet resizes, and each kind of sheet remembers its own width** (the
+owner, 2 Oct 2026). Helm's handle sits on a sheet's inner edge, contained or
+floating, and drags it from `--w-dock-min` to the far edge of the area it is
+drawn in, keeping only the handle's gap and a floating sheet's margin. There is
+no other ceiling: "I should be able to go as far as I want." A width
+remembered from a wider window draws clamped to today's area. A sheet beside
+another keeps its `--space-4` gap at whatever width that one was dragged to,
+so it never passes that one's edge. Each sheet names its kind (`plan-task`, `drone`, `job-diff`),
+and a kind opens at the width it was last dragged to, across a restart: a log
+panel dragged wide leaves Plan's task panel as it was. One shared width and
+none at all were the alternatives, and he chose this over both, at a little
+more to remember. A kind never dragged opens at its size. Helm folded into a
+sheet has no kind: it shares the dock's width, so a drag of either sets both.
+At the floor a sheet is flush to both edges and has no handle.
 
 ### Stacking
 
@@ -1771,7 +1788,7 @@ one claim.
 | Primary | `--accent` fill, `--fg-inverse` text, `--shadow-primary` | `--accent-hover` | One per view. Approve, Dispatch |
 | Secondary | `--bg-sunken`, `--border-strong`, `--fg-default` | `--bg-hover` | Everything ordinary |
 | Ghost | transparent, `--fg-muted` | `--bg-hover` • `--fg-default` | Row actions, icon buttons, toolbars |
-| Destructive | transparent, `--status-completed-failed` text and border | fill at 12% | Kill only. Never a filled red button |
+| Destructive | transparent, `--status-completed-failed` text and border | fill at 12% | Kill, and Send it back on a step the gaming check holds — it sends work back rather than forward (owner, 2 Oct 2026). Never a filled red button |
 | Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. The title bar's Dispatch. Never the one solid accent of a view |
 
 ```

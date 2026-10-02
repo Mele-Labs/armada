@@ -723,6 +723,16 @@ pub trait Commands: Send + Sync + 'static {
         choice: ipc::SetModel,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `set_tiers` — which model each tier of this Job's tasks runs on, the
+    /// whole map replaced. Spike 022, slice 3. **Read by the next spawn.**
+    ///
+    /// [`Refusal::IllegalMove`] on a model this Fleet does not offer.
+    fn set_tiers(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        tiers: ipc::SetTiers,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `remove_allowed_command` — take back a command a person allowed for
     /// this Job. The next reach for it is answered by the Job's setting again;
     /// one already written into armada.yml stays there.
@@ -1015,5 +1025,34 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         drop: DropTask,
+    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
+
+    /// `restart_task` — a fresh Drone on one failed task, with an optional
+    /// note it reads first, and the Job it leaves running. `#1656`. Refused
+    /// on a task that has not failed — `crates/ipc/operations.toml`.
+    fn restart_task(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        task: String,
+        restart: ipc::RestartTask,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `move_plan` — a person moves a task or a group by `after`, and the plan
+    /// it leaves comes back. `#1685`. Refused on a task, or a group holding
+    /// one, still in its group's run.
+    fn move_plan(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        move_plan: ipc::MovePlan,
+    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
+
+    /// `edit_task` — a person changes a task's title, note, scope, expects or
+    /// model, and the plan it leaves comes back. `#1657`. Refused on a task
+    /// that is not open or failed, and on a model this Fleet does not offer.
+    fn edit_task(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        task: String,
+        edit: ipc::EditTask,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

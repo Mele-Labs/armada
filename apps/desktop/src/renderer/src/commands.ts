@@ -27,7 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { SketchToKeep } from "@armada/protocol";
+import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -135,6 +135,7 @@ export const readBrief = (jobId: string, name: string) => window.armada.readBrie
 export const readComposing = (repository: string) => window.armada.readComposing(repository);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
+export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
 
 export const readFrame = (jobId: string, kept: string) => window.armada.readFrame(jobId, kept);
 /** Where a recording streams from. Composed, not fetched — main answers it. */

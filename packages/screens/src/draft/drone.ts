@@ -2,8 +2,8 @@
 // `list_job_drones` (`crates/ipc/src/drones.rs`) and the Job's observed turns,
 // which Fleet stamps with the Drone whose transcript each is in (protocol 21.4).
 //
-// Draft only in `task`: the redesign runs one Drone per task (the owner, 22 Sep
-// 2026), and Fleet runs one per step and joins none to a task.
+// `task` is on the wire since 23.1, on a step that works its tasks a Drone each
+// (spike 022, slice 1b); a Drone that worked its whole step names none.
 
 import type { DroneState, JobDetail, JobDrones, Turn } from "@armada/protocol";
 
@@ -15,8 +15,8 @@ export type DroneView = {
   /** The Drone's id — `drone_id` on the wire. */
   id: string;
   /**
-   * The task it was put on, by id. **The draft's alone**: the wire has no task,
-   * so every Drone Fleet lists works its step itself.
+   * The task it was put on, by id — `JobDrone.task`. **Absent on a Drone that
+   * worked its whole step.**
    */
   task?: string;
   /** The step it ran under. */
@@ -56,6 +56,7 @@ export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, t
   const rowsOf = (id: string) => (turns === undefined ? {} : { transcript: turns.filter((row) => row.drone_id === id) });
   const views = (listed?.drones ?? []).map((one): DroneView => ({
     id: one.drone_id,
+    ...(one.task === undefined ? {} : { task: one.task }),
     step: one.step_id,
     state: one.state,
     since: one.since,

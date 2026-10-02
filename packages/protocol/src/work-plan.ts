@@ -4,6 +4,8 @@
 // its work would be, and this is what the work is. The header rules in
 // `protocol.ts` hold: hand-written, and every closed set left as `string`.
 
+import type { Verdict } from "./detail";
+
 /** An approach and its tasks, in plan order, with the history folded away. */
 export type WorkPlan = {
   approach: string;
@@ -11,6 +13,49 @@ export type WorkPlan = {
   recorded_by: ChangedBy;
   recorded_at: string;
   tasks: PlanTask[];
+  /**
+   * The groups, in the order they run, each naming its tasks and its runs.
+   * Absent from a Fleet before 23.4, which ran a plan as one group.
+   */
+  groups?: PlanGroup[];
+};
+
+/**
+ * One group of the plan: the tasks the step's gate runs at the end of, and how
+ * each of its runs went. Since 23.4.
+ */
+export type PlanGroup = {
+  /** `G1`, `G2`, … — minted by Fleet at the recording, never renumbered. */
+  id: string;
+  /** Its tasks' ids, in plan order. Empty where a move took every one out. */
+  tasks: string[];
+  /**
+   * `pending`, `running`, `joining`, `checking`, `passed`, `failed`,
+   * `retrying` or `landed`. Fleet writes `pending`, `running`, `retrying`,
+   * `passed` and `failed` since 23.4.
+   */
+  state: string;
+  /** When its first run began. */
+  started_at?: string;
+  /** When its last run was answered, with none open since. */
+  ended_at?: string;
+  /** Every run, oldest first. Absent where it has not run. */
+  attempts?: PlanGroupRun[];
+};
+
+/** One run of a group. Since 23.4. */
+export type PlanGroupRun = {
+  /** Which run of the group, from one: a `CheckRun`'s `group_attempt`. */
+  attempt: number;
+  step_id: string;
+  /** The step's run it was filed under: a `CheckRun`'s `attempt`. */
+  step_attempt: number;
+  started_at: string;
+  ended_at?: string;
+  /** What its gate came to. Absent while it is open. */
+  verdict?: Verdict;
+  /** The commit a green run made, where it made one. */
+  commit?: string;
 };
 
 /** A run of a step, or a person. */
@@ -53,6 +98,25 @@ export type PlanTask = {
   state: string;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
+  /** The group it runs in, `G1` and on. Since 23.4. */
+  group?: string;
+  /**
+   * Present on a failed task and on nothing else: which group's Checks were
+   * still red on which run. Since 23.4.
+   */
+  failed_reason?: string;
+  /**
+   * `difficult`, `medium` or `easy`: how hard the planner thought it was, which
+   * picks its model off the Job's `tiers`. **Absent is the planner leaving it
+   * to Armada**, never a fourth word. Since 23.6.
+   */
+  tier?: string;
+  /**
+   * The model a person picked for this task with Edit this task, which beats
+   * the Job's tier map. **Absent is nobody having picked**; the model a Drone
+   * actually ran is on its `JobDrone.model`. Since 23.6.
+   */
+  model?: string;
   /**
    * Each stretch the task was marked `working`, oldest first. Since 14.5.
    * Absent on a task nobody marked working — and on a Fleet before 14.5.
@@ -99,6 +163,8 @@ export type JobPlanChanged = {
   task?: string;
   /** That task's state after the change, a `PlanTask.state` word. Present exactly where `task` is. Since 23.1. */
   state?: string;
+  /** The group a gate's verdict moved, on that change alone. Since 23.4. */
+  group?: string;
   actor: string;
   at: string;
 };
@@ -116,6 +182,62 @@ export type AddTask = {
   scope: string[];
   expects: string;
   after: string;
+};
+
+/**
+ * Restart this task — `restart_task`, `POST /jobs/{job_id}/tasks/{task_id}/restart`.
+ * Since 23.4. **No body is valid**, and is the plain restart; `note` is what
+ * the new Drone reads first, and is never blank.
+ */
+export type RestartTask = {
+  note?: string;
+};
+
+/**
+ * A person moves a task or a group — `move_plan`, `POST /jobs/{job_id}/plan/move`.
+ * Since 23.4. With `task`, that task goes into `group` after the task `after`
+ * names, or first where `after` is absent; without, `group` goes after the
+ * group `after` names, or first. **By `after`, never by index.**
+ */
+export type MovePlan = {
+  group: string;
+  task?: string;
+  after?: string;
+};
+
+/**
+ * Edit this task — `edit_task`, `POST /jobs/{job_id}/tasks/{task_id}/edit`.
+ * Since 23.6 (#1657). **Only the fields a person changed**: one left out is
+ * unchanged, and `note` or `expects` sent empty, or `scope` sent as `[]`,
+ * clears it. Taken on an open or a failed task; `model` is refused unless
+ * `list_models` offers it.
+ */
+export type EditTask = {
+  title?: string;
+  note?: string;
+  scope?: string[];
+  expects?: string;
+  model?: string;
+};
+
+/**
+ * Which model each tier of a Job's tasks runs on — `JobDetail.tiers`. Since
+ * 23.6. **A tier left out is Armada picking**: the Drone runs as its step, or
+ * the Job, would, and its `JobDrone.model` says which. Never `null`.
+ */
+export type TierModels = {
+  difficult?: string;
+  medium?: string;
+  easy?: string;
+};
+
+/**
+ * A person sets a Job's whole tier map — `set_tiers`,
+ * `POST /jobs/{job_id}/set_tiers`. Since 23.6. Refused, and nothing kept,
+ * where any model is one `list_models` does not offer.
+ */
+export type SetTiers = {
+  tiers: TierModels;
 };
 
 /**

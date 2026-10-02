@@ -41,7 +41,7 @@ scripts/land preflight    clean tree, commits ahead of main -> stamp HEAD^{tree}
 scripts/land              stamp matches -> queue entry -> runner started if none -> returns
                                                   |
 runner (holds the turn lock) ----------------------+
-  take the first ARMADA_LAND_BATCH entries (4), in place order: one batch
+  take the first <size> entries, in place order: one batch (size: 1 to ARMADA_LAND_BATCH, 8)
   each member: entry still queued, same nonce?  -- no -> dropped (withdrawn, or resubmitted)
   each member: local branch still at the queued head?  -- no -> outcome stopped
   fetch main; a member's head already in main? -- yes -> outcome landed (a killed runner's push)
@@ -68,8 +68,10 @@ runner (holds the turn lock) ----------------------+
 
 ## Batching
 
-**A turn takes up to four waiting branches and gates them once.** One gate per branch made the wait grow with every agent landing. `ARMADA_LAND_BATCH` sets the size; `1` is the line as it was.
+**A turn takes up to eight waiting branches and gates them once.** One gate per branch made the wait grow with every agent landing. `ARMADA_LAND_BATCH` sets that ceiling; `1` is the line as it was.
 
+- **The size moves with how turns go.** Decided 2 Oct 2026. After a red turn, one where any group went red, alone, by blame or by a split, the next takes half as many, down to one. After a green turn, one where a group landed and none went red, it takes twice as many, up to the ceiling. A conflict with `main` is the branch's own and moves nothing, nor does a clash between members, a stop or a withdrawal. The first turn takes the ceiling. A batch narrows on its union, so a bigger one narrows less; that is accepted.
+- **The size is kept in `armada-land/batch.json`**, written whole, so a new runner goes on from it. A ceiling lowered below it holds it down. `--status` says it and why: `taking up to 4 — halved after a red at 14:02 UTC`.
 - **Each branch still lands as its own merge commit, in place order.** Branch one is merged onto `main`, branch two onto that, and so on; the regeneration commits on top, and the push is of the top. `git log --first-parent main` reads one merge per branch, each with its `Landed-from:` trailer, and each outcome names its own merge.
 - **The gate and the Checks run once, over the union.** A Check runs when it covers any member's paths, or what landed on `main` since any member was cut.
 - **A new gate line that names a file goes to the member that touched it.** Where every path each new line names was changed by exactly one member, in its own diff from its merge-base, those members go back red with their own lines and the rest are gated again in the same turn, keeping their place. A line naming no path, or a path several members or none touched, splits the batch as a red does. Measured 1 Oct 2026: one `no_file_too_long` line named the only member that touched the file, and the blind split behind it cost two more turns of about eight minutes each.
@@ -262,9 +264,16 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 ## In Bridge
 
-**Overview draws the line as a panel below its lists, and the rail's Merge line row draws the same panel on its own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. The panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are the branches that just left the line, with their merge commit, failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. A conflict's mark is `unplug` and the rail row's is `merge`. **Both draw only where there is a line**: with nobody in line, a real Bridge draws neither the rail row, the palette entry nor the Overview panel. The mock's line is `?walk=theMergeLine`.
+**Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. Bridge's labels are its own and the words on disk and in `--status` do not change: `gating` reads *Preparing to land* (`git-merge`) until the turn's first Check starts and *Running Checks before landing* from then, which Bridge tells apart by whether Fleet serves any `checks` (`packages/screens/src/merge-line.ts`); `merging` reads *Pushing onto main* and `red` *Checks failed*. A conflict's mark is `unplug` and the rail row's is `merge`. The strip carries no `?`: `GroupBoundary`'s guide is the caller's, and guide 5 is a plan group's. The mock's lines are `?walk=theMergeLine`.
 
-**Fleet serves the line since protocol 22.1**, and reads it rather than runs it:
+| What Fleet serves for the pick | What draws |
+|---|---|
+| No line, or Fleet has not answered | No panel, no rail row, no palette entry |
+| A line with something in line, landed or sent back | The panel, with whichever of the three lists have rows |
+| A line with nothing in any of the three | The panel, with a picture under its heading and no words: the owner's one exception to the empty-state rule, 2 Oct 2026 |
+| All, with lines in more than one repository | One panel per repository, its label beside *Merge line* |
+
+**Fleet serves the line since protocol 22.1**, `landed`, `sent_back` and `checks` since 23.2, and reads it rather than runs it:
 
 ```
 armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/
@@ -273,24 +282,30 @@ Fleet, every 2 s, per served repository --reads----+   adapters::land_state::lin
    |  moved?                                            git asked once per repository, not per read
    +--> merge_lines.changed (MergeLines, whole) --> Bridge replaces state.mergeLines
 GET /merge_lines -------------------------------------> Bridge reads it once per connection
-                                                        mergeLineView(mergeLines, pick) -> MergeLine rows
+                                                        mergeLineViews(mergeLines, pick, repositories) -> one panel each
 ```
 
 | On disk | On the wire | In the panel |
 |---|---|---|
 | Queue order | `place`, 1-based | Place |
 | Outcome `state`, `waiting` with none | `state` | The mark |
-| `detail`, live states only, before ` — together with ` | `doing` | The runner's words |
+| `detail`, live states only, before ` — together with `, and not while a Check runs | `doing` | The runner's words |
 | The names after ` — together with ` | `batch`, the member first in place order | One bracketed group |
 | `pr` and `origin` on the forge | `pull_request` `{number, url}` | `#1770`, opening the address |
+| `pr_settled`, `landed` only: `merged` when the forge read the push as the merge, `closed_unmerged` when the runner closed it or found it closed | `pull_request.settled`, the Job's own `Settled` | The Job's own pull request badge beside the number, *Merged* or *Closed without merging*; nothing where it is not known |
 | `merge_commit`, `landed` only | `merge_commit`, whole | Its first ten characters |
 | `failed`, `red` and `stopped` only | `failed` | The failed Checks |
 | `conflicts`, `conflict` only | `conflicts` | The files |
+| `checks`, each Check the turn runs as `waiting`, `running`, `passed`, `failed` or `timed_out`; `gating`, `red` and `stopped` only | `checks` `{name, state}` | The plan's boundary strip, `GroupBoundary`: one segment a Check, its list open where one failed |
 
 - **The facts are taken only for the state that owns them.** An outcome keeps fields from earlier turns, so a branch that landed and then went red still holds the old merge commit on disk.
-- **Off the line is the three newest ended outcomes** of branches no longer queued, by the file's own write. Outcomes are never pruned; this clone held 310 on 2 Oct 2026. A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
-- **A picked repository draws its own line. All draws the one repository with a line**, and none where several have one, rather than one of them unnamed.
+- **Recently landed is the three newest `landed` outcomes** of branches no longer queued, by the file's own write. Outcomes are never pruned; this clone held 310 on 2 Oct 2026.
+- **Sent back is every `red`, `conflict` or `stopped` outcome of a branch no longer queued, written in the last three days** (`SENT_BACK_FOR` in `adapters::land_state::line`). By age rather than by count, so three newer reds never hide a fourth that is still owed. A branch that has since landed is not there without a rule saying so: a branch has one outcome file, and the landing overwrote the red.
+- `off` is still served, the three newest of either, for a Bridge before 23.2. This one does not read it.
+- A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
+- **A picked repository draws its own line. All draws every repository Fleet serves a line for**, each named by its repository once there is more than one.
 - A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.
+- **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.7. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
 
 ## What it depends on
 

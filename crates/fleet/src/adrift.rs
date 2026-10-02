@@ -655,6 +655,17 @@ pub enum Adrift {
     ///
     /// [`NoSuchCheckOutput`]: Adrift::NoSuchCheckOutput
     NoSuchBrief { named: String },
+    /// A merge line Check's log was asked for that Fleet will not open.
+    ///
+    /// **One answer for every reason**: a root this Fleet does not serve, a
+    /// branch with no outcome, a Check its turn has not started, or a name
+    /// that would leave the turn's directory. The outcome file is the only
+    /// thing that resolves the three names to a file.
+    NoSuchLandLog {
+        root: String,
+        branch: String,
+        check: String,
+    },
     /// A reading was asked for on a call this Job is neither waiting on nor
     /// refused.
     ///
@@ -786,6 +797,22 @@ pub enum Adrift {
     /// person's drop is answering a question already answered, and saying so
     /// by name is worth more than a silent no-op. `#897`.
     TaskAlreadySettled {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
+    /// Restart this task named a task that has not failed: one still working
+    /// or handed in is its group's own round to finish (answer 9), and one
+    /// open, dropped, or done outside a group the Judge refused has nothing
+    /// to restart. `#1656`.
+    TaskNotFailed {
+        job: JobId,
+        named: TaskId,
+        state: TaskState,
+    },
+    /// A person's move named a task, or a group holding one, that is working
+    /// or handed in: its group's run is still going. `#1685`.
+    TaskInFlight {
         job: JobId,
         named: TaskId,
         state: TaskState,

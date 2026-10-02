@@ -215,7 +215,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 ### A test broken on main
 
-**A Drone that hits a test already failing on main says so, and Fleet checks before anything is drafted.** Through `draft_fix` it names the Check and the test; Fleet runs just that test against a checkout of main, with the command the Check's `one_test` declares. The call answers once that run has started, and what it came to reaches the Drone as a later turn, as a dry run's report does. Only a failure there drafts the fix, and the fix waits at the approval gate like any proposal. A pass there means the failure is the Drone's own, and nothing is drafted. [Manifest](manifest.md), Running one test by name, holds the key.
+**A Drone that hits a test already failing on main says so, and Fleet checks before anything is drafted.** Through `draft_fix` it names the Check, the test and the files the test lives in, which Fleet checks are files in main's checkout; Fleet then runs just that test against a checkout of main, with the command the Check's `one_test` declares. The call answers once that run has started, and what it came to reaches the Drone as a later turn, as a dry run's report does. Only a failure there drafts the fix, and the fix waits at the approval gate like any proposal. A pass there means the failure is the Drone's own, and nothing is drafted. [Manifest](manifest.md), Running one test by name, holds the key.
 
 **The fix claims the test, so the same breakage is fixed once.** A claim names the repository, the Check and the test. A second Drone reporting that test is told which Job is fixing it, and nothing new is drafted. The claim ends when the fix's pull request merges or closes, or when the fix Job ends without one, and forgetting the fix removes it; the Job that reported it is kept by id rather than linked, so forgetting the reporter first leaves the claim standing.
 
@@ -224,6 +224,25 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 **Bounded the way a dry run is, one directory over.** A Drone waits on one Check run at a time, a step asks for at most one fix, and the checkout of main is shared by every Job on the repository, so one run is out there at a time.
 
 **It passes nothing.** A Drone told a test is someone else's still has its own step decided by its Checks, and a fix drafted from its report still takes a person's approval.
+
+### A test another Job is fixing
+
+**Decided by the owner, 2 Oct 2026: Fleet keeps the Job off the test, rather than only telling a person.** While a claim stands, the test's files are outside the write scope of the Job that reported it and of every Job pointed at the fix. The fix itself is not held. #1673.
+
+**Which files.** The files the reporting Drone named in `draft_fix`, then whatever the fix has declared it will change: its `write_targets` and its steps' plans, the claims the write-scope overlap above compares. A claim from before #1673, or one Fleet drafted itself from a repeated failure, names no files and holds only what the fix declares. Both Jobs' detail carry the list as `held_off`.
+
+**Where a held Job meets it**, and none of these takes the Drone's word:
+
+| Where | What happens |
+|---|---|
+| The opening brief | A block names the files and the fix, for every Drone the Job puts on, a task's included |
+| The Drone's launch | An edit to each file is denied on the argument list, as a git verb is |
+| `declare_scope` and `request_scope` | A path under a held file, or a directory over one, is refused with its own answer, and no Judge's lift reaches it |
+| The gate | A change to a held file fails the step under its own row, `held_off`, whatever wrote it — a shell command the launch's deny never saw included. No lift reaches it |
+| A Drone already working | Told by the fix report or the peer turn, which name the files |
+
+**The hold outlives the merge.** Fleet merges the base into a Job's branch only as a Drone is put on it (*Catching a branch up*, below), so when the fix lands every held Job's copy is still as broken as it was. The claim is given back at the merge as before, and what it held stays held off each Job until that Job's next catch-up takes the base. Then the files are the Job's again, for any reason of its own, and that Drone is told the fix is already in its copy. A catch-up git could not replay keeps the hold. A fix that ends without landing frees the files at once.
+
 
 ### Catching a branch up
 
@@ -272,6 +291,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **A comment on a pull request is untrusted input.** It is written by whoever can see the pull request. How many there are reaches the Job's log on the sweep and what they say does not — the road a comment's text travels ends at a file in a Drone's worktree, never at a log and never at a prompt directly. The sweep's own one-call budget reads the pull request's conversation and the note beside each review; a comment left on one line of the diff is a second query, asked only where a person opens the comments or presses on them.
 
 **Since `#661`, a changed reading also wakes Bridge, without a reopen.** The same sweep that decides whether to write the Job's log line also compares a stronger signature — every remark's handle, a hash of its words, and every reviewer's verdict — against what it read the sweep before. Where that changed, Fleet publishes `job.remarks_changed`, naming the Job, and Bridge re-asks `get_remarks` for whichever Job's comments are open on screen. The event carries no comments itself: `get_remarks` already answers what changed, and it also brings in the comments left on individual lines of the diff, which the sweep's own read never asks for. Nothing fires on the first sweep to read a given pull request — a Fleet that just started has no earlier reading to compare against, and firing there would publish one of these for every open pull request it holds the moment it came up.
+
+**The title and the comment count are kept on the record, so they outlive the merge.** Everything else the sweep reads is remembered only while the pull request is open, and forgotten when it settles or Fleet restarts. The title is written when Fleet opens the pull request, then on every read, the settling read included. The count is what the sweep's own read finds, so a comment on one line of the diff is not in it, and it stops moving when the pull request settles. A pull request that settled before the rotation ever found it open has a title and no count. `get_job` serves both and never asks the forge for either.
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
 
@@ -365,16 +386,23 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 > as abandoned after one.
 
 > **Rule.** A slot a Job holds is never taken back for a dead holder. It is
-> given back only when the Job reaches a terminal state.
+> given back only when the Job reaches a terminal state, or, for a
+> `completed_success` Job, when a person clears it.
 > Why: `awaiting_review`, `escalated` and `interrupted` Jobs still need their
 > work; a person may answer them days later.
+
+> **Rule.** A completed Job holds its slot until a person clears it, from the
+> Board's Clear or by deleting its record. The sweep never gives it back.
+> Why: the owner's decision of 2 Oct 2026, so Show again and anything else
+> reading a finished Job's tree keeps working.
 
 | The Job | Its slot |
 |---|---|
 | Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
-| `completed_success`, `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
-| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` |
+| `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
+| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
 > held by another, given back, or gone is escalated as `no_worktree`, naming
@@ -388,8 +416,13 @@ before the pool has no slot recorded and keeps `.armada/worktrees/<handle>`
 until it ends.
 
 **A finished Job's worktree is gone once its slot is given back.** What reads
-a finished Job's tree — Show again, a reclaim — finds it only while the pool
-kept the slot.
+a finished Job's tree — Show again, a reclaim — finds it while a completed Job
+holds its slot, and for any other end only while the pool kept it.
+
+**Completed Jobs nobody clears can fill the pool.** With every slot held, the
+next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
+--status` names the `done` slots. Clear the finished Jobs on the Board, which
+gives each slot back, or `armada worktree release <path>` one by hand.
 
 ## Ports
 

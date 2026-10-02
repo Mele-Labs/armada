@@ -4,9 +4,9 @@ import { ChevronDown, ShieldCheck, ShieldMinus, ShieldX, type LucideIcon } from 
 import { ConceptLabel } from "../../concepts";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { GuideMark } from "../GuideMark/GuideMark";
-import { GUIDE_GROUP_BOUNDARY } from "../../guides";
+import type { Guide } from "../../guides/guide";
 import { RowLink } from "../RowLink/RowLink";
-import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
+import { StepBar, type StepBarPress, type TaskBarSegment } from "../StepBar/StepBar";
 
 /**
  * A group's boundary — what runs once every task in the group has stopped, and
@@ -35,8 +35,10 @@ export type GroupBoundaryCheck = {
   /** What it came back with. Drawn under a Check that carries it, labelled `Result`. */
   result?: string;
   /**
-   * Open this Check's own Record row. **Absent where there is no row to open**
-   * — a Check that never ran — and the row is then not a button.
+   * Open this Check's log, live while it runs (owner, 2 Oct 2026: *click on
+   * the specific check to open a panel and see the live log*). **Absent where
+   * there is no log** — a Check that has not started — and neither its row nor
+   * its segment is then a button.
    */
   onOpen?: () => void;
 };
@@ -68,6 +70,8 @@ export type GroupBoundaryProps = {
   /** The commit the group left. Absent until it left one. */
   commit?: string;
   tests?: readonly GroupBoundaryTest[];
+  /** The `?` beside the Checks label. A plan group passes guide 5; the merge line passes none. */
+  guide?: Guide;
 };
 
 /** A Check's reading, on the bar's own segment grammar. */
@@ -92,8 +96,7 @@ const MARK: Partial<Record<GroupBoundaryCheckReads, LucideIcon>> = {
 /**
  * One Check, a row of its own (the owner, 29 Sep 2026: *each one get their own
  * row or maybe two columns of them*): its mark, its name, and what it came to.
- * **Pressing it opens the Check's own Record row**, which is where its output
- * and what it stopped are read.
+ * **Pressing it opens the Check's log**, as its segment on the folded bar does.
  */
 function CheckRow({ check }: { check: GroupBoundaryCheck }) {
   const Mark = MARK[check.reads];
@@ -149,6 +152,7 @@ function Strip({
   guide,
   count,
   segments,
+  presses,
   trailing,
   chips,
   open,
@@ -160,6 +164,8 @@ function Strip({
   guide?: ReactNode;
   count?: number;
   segments?: readonly TaskBarSegment[];
+  /** A press on each segment, where that one opens something. */
+  presses?: readonly (StepBarPress | undefined)[];
   trailing?: ReactNode;
   chips?: ReactNode;
   open?: boolean;
@@ -187,7 +193,7 @@ function Strip({
         {count === undefined || !sums ? null : <span className="armada-boundary__count">{count}</span>}
         {segments === undefined || segments.length === 0 || !sums ? null : (
           <span className="armada-boundary__bar">
-            <StepBar tasks={segments} />
+            <StepBar tasks={segments} {...(presses === undefined ? {} : { presses })} />
           </span>
         )}
         <span className="armada-boundary__gap" />
@@ -212,6 +218,7 @@ export function GroupBoundary({
   retrySays,
   commit,
   tests = [],
+  guide,
 }: GroupBoundaryProps) {
   const failed = checks.some((check) => check.reads === "failed");
   const [checksOpen, setChecksOpen] = useState(failed);
@@ -231,9 +238,15 @@ export function GroupBoundary({
         ) : (
           <Strip
             label="Checks"
-            // What a boundary is. The one Armada word here, so the one mark.
-            guide={<GuideMark guide={GUIDE_GROUP_BOUNDARY} />}
+            // What a boundary is, where the caller has a guide for it.
+            guide={guide === undefined ? undefined : <GuideMark guide={guide} />}
             segments={checks.map((check) => SEGMENT[check.reads])}
+            // Each segment is its Check, and opens its log where it has one.
+            presses={checks.map((check) =>
+              check.onOpen === undefined
+                ? undefined
+                : { label: `${check.name}, ${check.reads}`, onPress: check.onOpen },
+            )}
             chips={
               <>
                 {retrySays === undefined ? null : <FactChip>{retrySays}</FactChip>}

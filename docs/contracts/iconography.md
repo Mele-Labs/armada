@@ -436,7 +436,10 @@ the parent document.
 
 16px. Text buttons carry no icon — primary and secondary buttons are
 label-only. Icons appear on **ghost and icon-only row actions**, in
-confirmation dialogs, and in toolbars. Per the voice contract an action
+confirmation dialogs, and in toolbars. **One exception, by the owner on 2
+Oct 2026:** Carry on and Send it back on a step the gaming check holds carry
+`thumbs-up` and `thumbs-down`, because the two are read as a pair of
+opposites before their words are. Per the voice contract an action
 keeps its name through the flow, so the glyph must survive both the button
 and the resulting past-tense state. The full mapping (Approve, Reject,
 Dispatch, Kill, Redirect, Redispatch, Pilot, Freeze dispatch) is
@@ -672,6 +675,10 @@ reached for.
 - **Empty states.** No large centred icon, no illustration. The parent
   document gives empty states one line pointing at available work; a grey
   ghost glyph above it adds nothing and reads as a consumer app.
+  **One exception, the owner's, 2 Oct 2026**: a merge line with nobody in
+  it, nothing landed and nothing sent back draws a small picture in the
+  border tokens and no words under it. `EmptyLine` in
+  `packages/components/src/compositions/MergeLine/`.
 - **Spend, quota, elapsed, step N of M.** Numbers in mono. No gauge, no
   coin, no timer.
 - **Stats panel.** Text only. Its counts already carry their status token as
@@ -738,8 +745,9 @@ no table has not been decided, whatever it looks like in a mockup.
    label. Most new things need nothing.
 2. If an icon is needed it comes from **lucide-react**, at **12 or 16px**,
    **strokeWidth 2**, inheriting text colour. No second library, no emoji,
-   no illustration, no custom SVG. **One exception exists, and only one** —
-   see Brand mark below. A chart drawing a measurement is not an icon and
+   no illustration, no custom SVG. **Two exceptions exist, and only two** —
+   see Brand mark below, and the merge line's empty picture under Where the
+   answer is no icon. A chart drawing a measurement is not an icon and
    is not governed here; see Instruments in the
    [Design System](design-system.md).
 3. Choose on **outline, not detail**. At 12px only the silhouette survives.

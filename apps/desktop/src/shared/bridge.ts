@@ -41,6 +41,7 @@ import type {
   UnreadableJob,
 } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
+import type { FollowedLandLog } from "@armada/protocol";
 import type { RunFollowed, RunSheetRead, ServerList } from "@armada/protocol";
 import type { CheckoutRunFollowed, CheckoutRunSheetRead, ManifestDriftRead } from "@armada/protocol";
 import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
@@ -364,9 +365,14 @@ export type BridgeState = {
    * The line `armada land` keeps in each served repository that has one, or `null` before Fleet
    * has answered. **Read once per connection and replaced whole by `merge_lines.changed`**,
    * `servers`' terms: Fleet reads the files, and Bridge keeps no timer of its own. Shared, not
-   * this window's own: the panel folds it against the window's pick (`mergeLineView`).
+   * this window's own: the panels fold it against the window's pick (`mergeLineViews`).
    */
   mergeLines: MergeLines | null;
+  /**
+   * The merge line Check's log somebody opened, running or ended. **Its own socket**, `followed`'s
+   * reason, keyed by the line's names rather than a Job. `land-following.ts`.
+   */
+  landFollowed: FollowedLandLog;
   /**
    * What this repository's Manifest declares, for the Manifest surface.
    *
@@ -469,6 +475,7 @@ export const NOTHING_YET: BridgeState = {
   runFollowed: { state: "none" },
   servers: { servers: [] },
   mergeLines: null,
+  landFollowed: { state: "none" },
   checkoutRunSheet: { state: "none" },
   checkoutRunFollowed: { state: "none" },
   manifestDrift: { state: "none" },
@@ -535,6 +542,7 @@ export const CHANNELS = {
   watchJob: "bridge:watch-job",
   observeJob: "bridge:observe-job",
   followCheckOutput: "bridge:follow-check-output",
+  followLandCheck: "bridge:follow-land-check",
   readHistory: "bridge:read-history",
   readEvidence: "bridge:read-evidence",
   readResources: "bridge:read-resources",

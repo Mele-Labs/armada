@@ -44,7 +44,7 @@ const NOTICES: readonly string[] = [
  * This is the only thing dropped here, and it is dropped by name. **Nothing
  * else is** — a window that fails in silence is worse than one that says so.
  */
-function isNotice(event: ErrorEvent): boolean {
+export function isNotice(event: ErrorEvent): boolean {
   return !(event.error instanceof Error) && NOTICES.includes(event.message);
 }
 
