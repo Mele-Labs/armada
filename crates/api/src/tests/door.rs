@@ -391,7 +391,7 @@ async fn read_only_refuses_every_command_and_still_reads() {
             HELM,
             &calling(
                 row.operation,
-                r#"{"job_id":"1","studio_id":"01STUDIO","body":{}}"#,
+                r#"{"job_id":"1","studio_id":"01STUDIO","pid":"1","body":{}}"#,
             ),
         )
         .await;

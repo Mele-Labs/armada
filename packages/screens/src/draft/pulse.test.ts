@@ -69,26 +69,30 @@ describe("who owns a process", () => {
 });
 
 describe("the logs a board lists", () => {
-  it("is the Job's own, where anything has ever been written to it", () => {
-    const view = pulseViewOf(resources({ wrote_last_at: "2026-09-22T10:29:00Z" }));
+  const OWN = { kind: "job", path: ".armada/logs/1532.jsonl", bytes: 18_204, being_written: true } as const;
+  const TRANSCRIPT = { kind: "transcript", path: ".armada/transcripts/1532/01D.jsonl", bytes: 912_377 } as const;
 
-    expect(view.logs).toEqual([{ kind: "job", owner: null, writing: false }]);
+  it("is Fleet's list in Fleet's order, each the Job's own", () => {
+    const view = pulseViewOf(resources({ logs: [OWN, { ...TRANSCRIPT, being_written: false }] }));
+
+    expect(view.logs).toEqual([
+      { kind: "job", path: OWN.path, owner: null, bytes: 18_204, writing: true },
+      { kind: "transcript", path: TRANSCRIPT.path, owner: null, bytes: 912_377, writing: false },
+    ]);
   });
 
-  it("says nothing is writing, because the wire cannot say that it is", () => {
-    const view = pulseViewOf(resources({ wrote_last_at: "2026-09-22T10:29:00Z" }));
-
-    expect(view.logs[0]?.writing).toBe(false);
+  it("says nothing is writing where lsof did not answer, since no writer was seen", () => {
+    expect(pulseViewOf(resources({ logs: [TRANSCRIPT] })).logs[0]?.writing).toBe(false);
   });
 
-  it("gives no size, because nothing measures one", () => {
-    const view = pulseViewOf(resources({ wrote_last_at: "2026-09-22T10:29:00Z" }));
+  it("gives no size where Fleet could not stat the file, never zero", () => {
+    const view = pulseViewOf(resources({ logs: [{ kind: "brief", path: ".armada/briefs/1532/plan.1.a1.md" }] }));
 
-    expect(view.logs[0]?.bytes).toBeUndefined();
+    expect(view.logs[0] && "bytes" in view.logs[0]).toBe(false);
   });
 
-  it("is empty where nothing has been written at all", () => {
-    expect(pulseViewOf(resources()).logs).toEqual([]);
+  it("is empty where Fleet lists no file, whenever the Job last wrote", () => {
+    expect(pulseViewOf(resources({ wrote_last_at: "2026-09-22T10:29:00Z" })).logs).toEqual([]);
   });
 });
 

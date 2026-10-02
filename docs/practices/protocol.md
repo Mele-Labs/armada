@@ -2093,7 +2093,32 @@ stood), a run from before 21.9, or an older Fleet. None of them is a resolution,
 no policy rather than `never` or `human_always`. It is `#[serde(default, skip_serializing_if)]
 Option` on Fleet's side and `?:` on Bridge's.
 
-## Protocol 21.10: a kept brief is read back
+## Protocol 21.10: every run that reached a gate keeps its policies, and says whether they decided
+
+`StepAttempt.resolved` gains `decided: boolean`, and is now set on every run a gate stopped as well
+as on one that reached the advance gate. Additive, on 21.9's argument: an older Bridge ignores the
+key, and an older Fleet never sends it.
+
+**The owner's decision of 2 Oct 2026** (#1683): a run whose Checks failed, whose Judge refused, or
+whose gaming check flagged it keeps what `auto_merge` and `review_gate` said at that moment too. His
+reason: "Isn't it helpful to record them so we know what ran?" 21.9 kept them only where the
+advance gate was read.
+
+| Run | `resolved` | `decided` |
+|---|---|---|
+| Held for review, advanced or finished | set | `true` |
+| Checks red (handed back or failed), Judge refused, Judge asking a person, gaming flagged, gate could not decide | set | `false` |
+| Submission of the wrong kind, still going, from before 21.9, or an older Fleet | absent | — |
+
+**`decided` is read off the ruling's variant in `fleet`, never carried**, so a run cannot be
+recorded as decided when it stopped before the rule. The two words still say what the rules were
+at the gate the run stopped at; `decided: false` says the rule never answered for it.
+
+**A 21.9 payload has `resolved` without `decided`, and reads `true`.** 21.9 kept only runs that
+reached the advance gate, which is also why V89's column defaults to `1` for every row V87 wrote.
+Absent `resolved` still means nothing was recorded, never a default.
+
+## Protocol 21.11: a kept brief is read back
 
 One route and one DTO: `GET /jobs/:job_id/briefs/:name` (`get_brief`) answers `BriefContents`,
 which is `path`, `lines`, `total_lines`, `bytes` and `whole`. Additive. It is what Pulse's log

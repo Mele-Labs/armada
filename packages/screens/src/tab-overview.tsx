@@ -21,7 +21,6 @@ import type { ReactNode } from "react";
 
 import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
 import { heldForMoney, heldForTurns } from "./Acts";
-import { useCallArguments } from "./calls";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
 /** What `followed` reads as where the caller hands none in. */
@@ -31,8 +30,7 @@ import { openArtifact, openPullRequest } from "./opening";
 import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
 import { useDetailKeys } from "./detail-keys";
-import { DetailSheet, holdOf, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
-import { turnsOfAttempt } from "./timeline";
+import { DetailSheet, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
 import { leadOf } from "./lead";
 import { OverviewBoard } from "./OverviewBoard";
 import { Approving } from "./approving";
@@ -63,7 +61,6 @@ import { whyNoSteps } from "./run";
 import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
 import { proposerWaitOf } from "./proposing";
 import { taskGroupsOf } from "./draft/group";
-import { entriesOf, hideUnread } from "./story";
 import {
   LOOK_FAILED,
   nothingToAsk,
@@ -196,7 +193,6 @@ export function OverviewTab(props: OverviewTabProps) {
     onReadDiff,
     onOpenArtifact,
     onOpenPullRequest,
-    onReadCall,
     onReadCheckOutput,
     followed,
     onFollowCheckOutput,
@@ -236,8 +232,7 @@ export function OverviewTab(props: OverviewTabProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   // Which sheet is up and what it is reading. Held by the screen, so the Job
-  // header can open one: `Sheets.tsx`'s `SheetReading`, and one value because
-  // the log's attempt and its held position only ever change with the sheet.
+  // header can open one: `Sheets.tsx`'s `SheetReading`.
   const onSheet = props.onSheet;
   const move = props.onMove;
   // Whether the folded inspector is up. Read only while `narrow`: above the
@@ -247,8 +242,6 @@ export function OverviewTab(props: OverviewTabProps) {
   // what a press changes is what is drawn — `useDroppedMembers` says why.
   const dropping = useDroppedMembers();
   const sheet = onSheet.which;
-  const logAttempt = onSheet.which === "log" ? (onSheet.attempt ?? null) : null;
-  const held = onSheet.which === "log" ? onSheet.held : null;
   // Which Check the check-output sheet is open on, or `undefined` for none —
   // #1021. `checkSheetOf` in `Sheets.tsx` is what turns this into live or kept.
   const openCheckId = onSheet.which === "check" ? onSheet.checkId : undefined;
@@ -346,18 +339,11 @@ export function OverviewTab(props: OverviewTabProps) {
   // Job is open and not before, so nothing on the Board listens for a key that
   // means nothing there — and the press is swallowed only where something
   // answered it.
-  const keys = useDetailKeys({
+  useDetailKeys({
     // `f`, from `actions.toml` — `open_diff`, scope `detail`. It opens the
     // layer now rather than a chapter: the patch stopped being something the
     // panel draws.
     onOpenSheet: () => openSheet("diff"),
-    // `L`, from `actions.toml` — `open_log`, scope `detail`. **This is the line
-    // that was missing.** The registry carried the key, `detail-keys` carried
-    // the binding and dispatched it, and nothing here handed it a handler, so
-    // the press found `undefined`, answered nothing and read as a key that was
-    // never bound. `DetailShape` requires both openers now, so the next one
-    // cannot go missing quietly.
-    onOpenLog: () => openSheet("log"),
     onOpenRun: () => runHook.open(), // `r`, Journey 9 — freed from `review`
     // `o` — a Check's output, from the open step. The failed Check first: a
     // person reaching for an output on a step that stopped wants the one that
@@ -386,11 +372,6 @@ export function OverviewTab(props: OverviewTabProps) {
     onCompose,
   });
 
-  // The rest of any call argument the socket cut, for as long as this Job is
-  // open. **Held for the Job rather than for a log**, so a fetch made once is
-  // not made again when the sheet reopens on the same row.
-  const calls = useCallArguments(onReadCall, job.id);
-
   // What each Check printed, for as long as this Job is open. **Held for the
   // Job rather than for a step**, because a Job's steps each have their own
   // Checks and a reader moving between them should not re-fetch a file it
@@ -417,31 +398,10 @@ export function OverviewTab(props: OverviewTabProps) {
   }, [shownBy, frames]);
 
   const turns = watching === null ? [] : watching.rows;
-  // The sheet's turns: one attempt's where it was opened from one, the step's
-  // whole record otherwise.
-  const read = open === undefined || logAttempt === null ? turns : turnsOfAttempt(open, logAttempt, turns);
-  const rows = hideUnread(open === undefined ? [] : entriesOf(read, open.step_id)).rows;
 
-  /**
-   * Open a sheet. **The second one replaces the first** rather than stacking on
-   * it. Opening the log on a live step starts following the tail — #1155 — and
-   * the sheet itself is what holds once a person scrolls away from it, through
-   * `onFollowingChange` in `Sheets.tsx`.
-   */
-  function openSheet(which: Exclude<OpenSheet, null | "check" | "task">, attempt?: number): void {
-    // Held on open only where there is a tail and nothing is watching it: a run
-    // that has ended does not grow, so the strip would offer a jump to nothing,
-    // and a live run starts following instead of holding from the first paint.
-    const holding =
-      which === "log" && attempt === undefined && observed.state !== "watching"
-        ? holdOf(now, rows.length)
-        : undefined;
-    move({
-      move: "open",
-      which,
-      ...(attempt === undefined ? {} : { attempt }),
-      ...(holding === undefined ? {} : { held: holding }),
-    });
+  /** Open a sheet. **The second one replaces the first** rather than stacking on it. */
+  function openSheet(which: Exclude<OpenSheet, null | "check" | "task">): void {
+    move({ move: "open", which });
   }
 
   /** Close it. */
@@ -597,27 +557,13 @@ export function OverviewTab(props: OverviewTabProps) {
             job={job}
             whole={whole}
             step={open}
-            rows={rows}
-            {...(logAttempt === null ? {} : { ofAttempt: logAttempt })}
-            // The turns those rows were folded from, which carry the tool and
-            // the timing a row no longer does. The sheet folds runs of one tool,
-            // and this is what it folds them by.
-            turns={read}
-            observed={observed}
             diff={recorded.diff}
-            calls={calls}
-            // Its own name, which is what `detail-keys` keys the open row by.
-            log={keys.inLog("sheet")}
-            held={held}
-            now={now}
             checkId={openCheckId}
             {...(onSheet.which === "task" ? { taskId: onSheet.taskId } : {})}
             {...(taskTouched === undefined ? {} : { taskTouched })}
             planTasks={plan?.recorded === true ? plan.tasks : undefined}
             outputs={outputs}
             following={following}
-            onHold={(to) => move({ move: "hold", held: to })}
-            onRedirect={onRedirect}
             // The Pulse board, derived exactly as the Pulse tab derives it —
             // `Refresh` came with it, because it acts on this reading and not
             // on the five lines that open it. Two derivations of one `Held`

@@ -1,103 +1,88 @@
-// Every Drone a Job has used, one per task and the one on a step that works no
-// task, with its whole transcript. Draft,
-// for `crates/ipc/src/drones.rs`.
+// Every Drone a Job has had, each with its own rows. Read off
+// `list_job_drones` (`crates/ipc/src/drones.rs`) and the Job's observed turns,
+// which Fleet stamps with the Drone whose transcript each is in (protocol 21.4).
 //
-// Source of truth today: `DroneList` and `DroneDetail`, which serve **live
-// Drones only** — an exited Drone is gone from both — and `DroneMoved` in the
-// Job's history, which names every Drone the Job has had and nothing about
-// what it did. A `Turn` carries no Drone id, so one Drone's rows cannot be
-// pulled out of the Job's stream. What is added is the Drone's state after it
-// stopped, its turns and cost, and its transcript keyed by its id.
+// Draft only in `task`: the redesign runs one Drone per task (the owner, 22 Sep
+// 2026), and Fleet runs one per step and joins none to a task.
 
-import type { JobDetail, Turn } from "@armada/protocol";
+import type { DroneState, JobDetail, JobDrones, Turn } from "@armada/protocol";
 
 import type { GroupView } from "./group";
 
-/**
- * Where a Drone is. `failed` is a task's own agent that stopped without
- * finishing; `killed` is one a person ended. Two different events wanting two
- * different responses, the split `drone_killed` exists for.
- */
-export type DroneState = "running" | "done" | "failed" | "killed";
+export type { DroneState };
 
 export type DroneView = {
-  /** The Drone's id, as `DroneSummary.drone_id`. */
+  /** The Drone's id — `drone_id` on the wire. */
   id: string;
   /**
-   * The task it was put on, by id. **Absent on a Drone working the step
-   * itself** — a plan step's, which writes the tasks rather than working one.
+   * The task it was put on, by id. **The draft's alone**: the wire has no task,
+   * so every Drone Fleet lists works its step itself.
    */
   task?: string;
   /** The step it ran under. */
   step: string;
   state: DroneState;
-  /** When it was spawned — `DroneMoved`'s `drone_spawned`. Absent where unknown. */
+  /** When it was spawned. Absent only on the Job's own Drone before the list has it. */
   since?: string;
   /** When it stopped. Absent while it runs. */
   ended_at?: string;
-  /** Turns taken so far. */
+  /** Turns taken so far. **Absent where none has been counted**, never nought. */
   turns?: number;
   /**
-   * What it cost, in millionths of a dollar. **Absent while it runs**, for
-   * `TaskView.cost_micros`'s reason: cost reaches Armada on the session's
-   * terminating line.
+   * What it cost, in millionths of a dollar. A running Drone carries one as of
+   * its last finished invocation. **Absent is no price named**, never nought.
    */
   cost_micros?: number;
   /**
-   * Every row this Drone wrote, in order. **Absent is a transcript Fleet does
-   * not serve**, never an empty one: today's `observe_job` does not say which
-   * Drone wrote a row.
+   * Every row this Drone's transcript holds, in order — the Job's observed
+   * turns whose `drone_id` is this one's. **Absent is the Job's turns not in
+   * hand**, never an empty transcript.
    */
   transcript?: readonly Turn[];
-  /**
-   * What a thinking row in `transcript` carries beyond its kind, by the row's
-   * `seq`. **A sidecar rather than a row type wrapping `Turn`**, so the
-   * transcript stays the wire's own rows and this is the one field deleted
-   * when Fleet serves what it holds. Absent, a thinking row reads in words and
-   * nothing more.
-   */
-  thoughts?: ReadonlyMap<number, DroneThought>;
 };
 
 /**
- * One thinking row's payload, which the wire drops today.
+ * Every Drone Fleet lists for the Job, in the order they were spawned, each
+ * with its rows out of `turns`. A row with no `drone_id` is no Drone's — a
+ * Helm thread's, or one from a Fleet before 21.4.
  *
- * **Fleet owes the count** (the owner, 29 Sep 2026: "words and a token
- * count"): a `system/thinking_tokens` line's `estimated_tokens` is read by
- * `crates/adapters/src/watching.rs` for the proposer and dropped by the
- * transcript decoder, which emits only the kind.
+ * **And the Job's own Drone, given the Job, where the list does not hold it
+ * and no running Drone already stands on its step.** `assigned_drone` is
+ * presence, so it reads running on the step the Job is on — what the tab drew
+ * while the list was unread, or was a step behind the event that spawned it
+ * (owner, 1 Oct 2026: Job 2's tab was empty while its plan step worked).
  */
-export type DroneThought =
-  /** The harness's estimate, **cumulative within one model call**, as it is sent. */
-  { of: "tokens"; estimated: number };
-
-/**
- * Today's wire: the Drone on each task that names one, with no transcript.
- * A task's `failed` is its Drone's; nothing today can say a person ended one.
- *
- * **And the Job's own Drone, given the Job, where no running Drone already
- * stands on its step.** A Drone on a planning step works no task, so no task
- * names it, and Job 2's Drones tab was empty while one worked (owner, 1 Oct
- * 2026). `assigned_drone` is presence — a process is on the Job — so it reads
- * running, on the step the Job is on. **Past Drones are not here**: Fleet
- * serves live ones only.
- */
-export function droneViewsOf(groups: readonly GroupView[], whole?: JobDetail): DroneView[] {
-  const onTasks = taskDronesOf(groups);
+export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, turns?: readonly Turn[]): DroneView[] {
+  const rowsOf = (id: string) => (turns === undefined ? {} : { transcript: turns.filter((row) => row.drone_id === id) });
+  const views = (listed?.drones ?? []).map((one): DroneView => ({
+    id: one.drone_id,
+    step: one.step_id,
+    state: one.state,
+    since: one.since,
+    ...(one.ended_at === undefined ? {} : { ended_at: one.ended_at }),
+    ...(one.turns === undefined ? {} : { turns: one.turns }),
+    ...(one.cost_micros === undefined ? {} : { cost_micros: one.cost_micros }),
+    ...rowsOf(one.drone_id),
+  }));
   const id = whole?.job.assigned_drone;
   const step = whole?.job.current_step_id;
-  if (id === undefined || step === undefined) return onTasks;
-  if (onTasks.some((one) => one.id === id || (one.step === step && one.state === "running"))) return onTasks;
-  const view: DroneView = { id, step, state: "running" };
+  if (id === undefined || step === undefined) return views;
+  if (views.some((one) => one.id === id || (one.step === step && one.state === "running"))) return views;
+  const view: DroneView = { id, step, state: "running", ...rowsOf(id) };
   // **The step's live run began when its Drone was spawned for it**, so that
   // run's start is the Drone's — `GET /drones`' `since` differs by the spawn's
   // milliseconds. A run that has ended says nothing about this Drone.
   const run = whole?.steps.find((one) => one.step_id === step)?.attempts.at(-1);
   if (run !== undefined && run.ended_at === undefined) view.since = run.started_at;
-  return [...onTasks, view];
+  return [...views, view];
 }
 
-function taskDronesOf(groups: readonly GroupView[]): DroneView[] {
+/**
+ * The Drone on each task that names one, with no transcript — the draft's
+ * per-task Drones, and Plan's peek at a task's own. A task's `failed` is its
+ * Drone's; nothing here can say a person ended one.
+ */
+export function taskDronesOf(groups: readonly GroupView[]): DroneView[] {
   return groups.flatMap((group) => group.tasks).flatMap((task): DroneView[] => {
     if (task.drone_id === undefined) return [];
     const state: DroneState | undefined =

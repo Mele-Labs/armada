@@ -68,6 +68,7 @@ afterEach(async () => {
 const SCREEN = {
   detail: `/jobs/${A_JOB}`,
   resources: `/jobs/${A_JOB}/resources`,
+  drones: `/jobs/${A_JOB}/drones`,
   history: `/jobs/${A_JOB}/events`,
   evidence: `/jobs/${A_JOB}/evidence`,
   diff: `/jobs/${A_JOB}/diff`,
@@ -99,6 +100,8 @@ function answering(route: string, preferences: unknown): unknown {
       return { ...A_ROW, steps: [], acceptance_criteria: [], workflow_steps: [] };
     case SCREEN.resources:
       return { job_id: A_JOB, read_at: "2026-09-02T19:00:00Z", held: "running", processes: [] };
+    case SCREEN.drones:
+      return { job_id: A_JOB, drones: [] };
     case SCREEN.history:
       return { job_id: A_JOB, moves: [] };
     case SCREEN.evidence:
@@ -491,6 +494,7 @@ it("brings back every region of the open Job when Fleet comes back", async () =>
     (state) =>
       state.watched.state === "read" &&
       state.resources.state === "read" &&
+      state.jobDrones.state === "read" &&
       state.history.state === "read" &&
       state.evidence.state === "read" &&
       state.diff.state === "read",

@@ -21,6 +21,7 @@ export * from "./confidence";
 export * from "./connection";
 export * from "./detail";
 export * from "./drift";
+export * from "./drones";
 export * from "./editing";
 export * from "./events";
 export * from "./explaining";
