@@ -43,7 +43,7 @@ import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
-import { RecordTab, type CheckAt } from "./tab-record";
+import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
 import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
@@ -191,6 +191,15 @@ function OneJob(props: JobDetailProps) {
   useEffect(() => setCheckLog(null), [job.id]);
   const checkOutputs = useCheckOutputs(props.onReadCheckOutput, job.id);
   const checkFollowing = useFollowing(props.onFollowCheckOutput, props.followed ?? NOT_FOLLOWING, job.id);
+  // The open log's own Record row, where the Record holds one: the way on from
+  // the log to what the Check stopped. A live log has none yet.
+  const checkRow =
+    checkLog?.stepAttempt === undefined
+      ? undefined
+      : checkRowOf(recordOf(props, whole).rows, whole, { name: checkLog.name, stepAttempt: checkLog.stepAttempt });
+  // Bumped by that way on, so the Record opens on the row even where it is
+  // already the destination: it reads which row to open once, as it mounts.
+  const [recordVisit, setRecordVisit] = useState(0);
 
   // Why the Workflow tab has no run to draw, where it has none. The same
   // reading Overview's run column takes, so the two never give a Job's empty
@@ -467,6 +476,7 @@ function OneJob(props: JobDetailProps) {
         />
       ) : tab === "record" ? (
         <RecordTab
+          key={recordVisit}
           {...recordOf(props, whole)}
           reading={unread !== undefined}
           jobId={job.id}
@@ -532,6 +542,18 @@ function OneJob(props: JobDetailProps) {
           log={checkLog}
           outputs={checkOutputs}
           following={checkFollowing}
+          {...(checkRow === undefined
+            ? {}
+            : {
+                onOpenRecord: () => {
+                  if (tab !== "record") trail.push(tab);
+                  setOpensCheck(undefined);
+                  setOpensRow(checkRow);
+                  setCheckLog(null);
+                  setRecordVisit((was) => was + 1);
+                  setTab("record");
+                },
+              })}
           floor={floor}
           onClose={() => setCheckLog(null)}
         />

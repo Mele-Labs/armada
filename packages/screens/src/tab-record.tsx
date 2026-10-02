@@ -97,7 +97,7 @@ export type CheckAt = { name: string; stepAttempt: number; step?: string };
  * named or the one the groups are worked at, at that attempt. **Nothing where
  * the Record holds no such row.**
  */
-function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: CheckAt): string | undefined {
+export function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, at: CheckAt): string | undefined {
   const step = at.step ?? (detail === null ? undefined : stepThatWorksTheGroups(detail));
   if (step === undefined) return undefined;
   const row = rows.find(

@@ -9,7 +9,9 @@
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
-import { BeingWritten, ConsoleWrapToggle, Sheet } from "@armada/components";
+import { ChevronRight } from "lucide-react";
+
+import { BeingWritten, Button, ConsoleWrapToggle, Sheet, Tooltip } from "@armada/components";
 
 export type LogSheetProps = {
   /** Which kind of panel this is, for the width it remembers. `Sheet`'s own `kind`. */
@@ -24,6 +26,12 @@ export type LogSheetProps = {
   /** The wrap toggle, where the lines are console lines. Absent draws none. */
   wrap?: { wrap: boolean; onToggle: () => void };
   /**
+   * A way on to where this log's record is read, icon-only and named by its tooltip: a Check's
+   * log goes to the Check's own Record row (owner, 2 Oct 2026). Absent draws none, never a
+   * control that is off.
+   */
+  goes?: { label: string; onGo: () => void };
+  /**
    * Inside the screen it was opened from, or over the whole work area. Pulse's panel sits inside
    * its tab; a Check's opens from a card or a row anywhere, so it floats, as Record's and Drones'
    * sheets do.
@@ -34,7 +42,7 @@ export type LogSheetProps = {
   children: ReactNode;
 };
 
-export function LogSheet({ kind, title, about, live, grows, wrap, placement, floor, onClose, children }: LogSheetProps) {
+export function LogSheet({ kind, title, about, live, grows, wrap, goes, placement, floor, onClose, children }: LogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   // The tail, while it is written. A reader that follows its own (`DroneTurns`) is not moved by
   // this either way: it is already at the bottom.
@@ -61,7 +69,23 @@ export function LogSheet({ kind, title, about, live, grows, wrap, placement, flo
           ) : null}
         </>
       }
-      {...(wrap === undefined ? {} : { controls: <ConsoleWrapToggle wrap={wrap.wrap} onToggle={wrap.onToggle} /> })}
+      {...(wrap === undefined && goes === undefined
+        ? {}
+        : {
+            controls: (
+              <>
+                {wrap === undefined ? null : <ConsoleWrapToggle wrap={wrap.wrap} onToggle={wrap.onToggle} />}
+                {goes === undefined ? null : (
+                  // `chevron-right`'s goes-to, alone: the tooltip is its label.
+                  <Tooltip label={goes.label} asChild>
+                    <Button variant="ghost" size="sm" iconOnly aria-label={goes.label} onClick={goes.onGo}>
+                      <ChevronRight size={16} strokeWidth={2} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                )}
+              </>
+            ),
+          })}
       closeLabel="Close"
       closeBinding="Esc"
       bodyRef={body}

@@ -65,6 +65,44 @@ test("a passed group's Check opens the log its run kept", async () => {
   await expect.element(log().getByText("1383 passed (1383)")).toBeVisible();
 });
 
+// The owner, walking it on 2 Oct 2026: the log leads on to the Check's own Record row, where what
+// it stopped is read. The destination the press itself opened before.
+const toTheRecord = () => log().getByRole("button", { name: "Open in the Record" });
+
+test("a ruled Check's log goes on to its own Record row", async () => {
+  mount("arc/group-failed");
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "List" }).click();
+  await page.getByRole("button", { name: "screens_test, failed" }).first().click();
+  await entered(log());
+  await toTheRecord().click();
+
+  await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
+  await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+  await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
+  expect(log().query()).toBeNull();
+});
+
+test("from a task's row on the Record, the log goes on to the Check's row in the same Record", async () => {
+  mount("arc/group-failed");
+  await page.getByRole("tab", { name: /^Record/ }).click();
+  await page.getByRole("button", { name: /^T5 marked done/ }).click();
+  await entered(page.getByRole("dialog", { name: /^T5 marked done/ }));
+  await page.getByRole("button", { name: "screens_test, failed" }).click();
+  await entered(log());
+  await toTheRecord().click();
+
+  await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
+  await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
+});
+
+test("a log still being written has no Record row yet, so no way on is drawn", async () => {
+  await groupThree();
+  await boundary().getByRole("button", { name: "screens_test, running" }).click();
+  await expect.element(log().getByText("plan-board.test.ts")).toBeVisible();
+  expect(toTheRecord().query()).toBeNull();
+});
+
 test("a merge line row's running Check opens its log, which grows as the runner writes it", async () => {
   mount("check-logs");
   await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Merge line", exact: true }).click();
@@ -84,6 +122,8 @@ test("a merge line Check that failed and was sent back opens its whole log", asy
 
   await expect.element(log().getByText("AssertionError: expected 2 to be 1")).toBeVisible();
   expect(log().getByRole("img", { name: "Being written" }).query()).toBeNull();
+  // A merge line Check has no Record row, so there is no way on, not even an off one.
+  expect(toTheRecord().query()).toBeNull();
   // A Check still waiting in the turn has no log, so it is no button.
   const turn = page.getByRole("listitem", { name: /^worktree-agent-aef3c24792026e2c3/ });
   expect(turn.getByRole("button", { name: "desktop_test, not run" }).query()).toBeNull();

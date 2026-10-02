@@ -151,7 +151,10 @@ describe("a boundary that failed", () => {
     const onOpenCheckLog = (log: JobCheckLog) => void opened.push(log);
     const drawn = planBoardOf(read.whole, groupFailed().draft, () => undefined, undefined, false, read.step, onOpenCheckLog)!;
     drawn.groups[2]!.boundary.checks.find((one) => one.name === "screens_test")!.onOpen!();
-    expect(opened).toEqual([{ name: "screens_test", kept: "implement.1.screens_test.log", live: false }]);
+    // The run's attempt rides with it, so the log can go on to the run's own Record row.
+    expect(opened).toEqual([
+      { name: "screens_test", kept: "implement.1.screens_test.log", live: false, stepAttempt: 1 },
+    ]);
   });
 
   // The step's runs are every group's, so a group nothing reached would

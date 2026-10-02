@@ -136,7 +136,9 @@ function logOf(
     return live === undefined ? undefined : { name, kept: basename(live), live: true };
   }
   const kept = run?.output_path;
-  return kept === undefined ? undefined : { name, kept: basename(kept), live: false };
+  return kept === undefined || run === undefined
+    ? undefined
+    : { name, kept: basename(kept), live: false, stepAttempt: run.attempt };
 }
 
 /**

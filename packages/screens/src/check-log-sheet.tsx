@@ -24,7 +24,19 @@ import { followFailedNote, liveRowsOf, rowsOf, type Following, type Outputs } fr
  * whether the gate is still writing it. Fixed at the press, so a Check that ends while its panel
  * is open keeps the lines it was followed to.
  */
-export type JobCheckLog = { name: string; kept: string; live: boolean };
+export type JobCheckLog = {
+  name: string;
+  kept: string;
+  live: boolean;
+  /**
+   * The step attempt of the run whose file this is, where it is a kept run, so the sheet can go on
+   * to that run's own Record row. Absent on a live log: no row is written until the gate rules.
+   */
+  stepAttempt?: number;
+};
+
+/** What the way on to a Check's own Record row says, as its tooltip and its name. */
+const TO_THE_RECORD = "Open in the Record";
 
 /** What both kinds of panel are titled. */
 const TITLE = "Check log";
@@ -34,12 +46,15 @@ export function JobCheckLogSheet({
   outputs,
   following,
   floor,
+  onOpenRecord,
   onClose,
 }: {
   log: JobCheckLog;
   outputs: Outputs;
   following: Following;
   floor: boolean;
+  /** Go to this Check's own Record row. Absent where the Record holds none: no control is drawn. */
+  onOpenRecord?: () => void;
   onClose: () => void;
 }) {
   const { follow, reading } = following;
@@ -62,6 +77,7 @@ export function JobCheckLogSheet({
         live={false}
         rows={held?.state === "got" ? rowsOf(held.output) : []}
         {...(held?.state === "absent" ? { emptyNote: held.note } : {})}
+        {...(onOpenRecord === undefined ? {} : { onOpenRecord })}
         floor={floor}
         onClose={onClose}
       />
@@ -77,6 +93,7 @@ export function JobCheckLogSheet({
       live={ours?.state === "following" && ended === undefined}
       rows={liveRowsOf(reading, log.kept)}
       {...(note === undefined ? {} : { emptyNote: note })}
+      {...(onOpenRecord === undefined ? {} : { onOpenRecord })}
       floor={floor}
       onClose={onClose}
     />
@@ -134,6 +151,7 @@ function CheckLogPanel({
   live,
   rows,
   emptyNote,
+  onOpenRecord,
   floor,
   onClose,
 }: {
@@ -141,6 +159,8 @@ function CheckLogPanel({
   live: boolean;
   rows: ConsoleRow[];
   emptyNote?: string;
+  /** A merge line Check has no Record row, so it never passes one. */
+  onOpenRecord?: () => void;
   floor: boolean;
   onClose: () => void;
 }) {
@@ -154,6 +174,7 @@ function CheckLogPanel({
       live={live}
       grows={rows.length}
       wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
+      {...(onOpenRecord === undefined ? {} : { goes: { label: TO_THE_RECORD, onGo: onOpenRecord } })}
       floor={floor}
       onClose={onClose}
     >
