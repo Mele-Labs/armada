@@ -191,6 +191,14 @@ gap, an aside that deserved an issue, a `TODO` left in code.
 file it and fix it, fix it without an issue, or drop it. A follow-up that exists
 only as a sentence in the transcript counts as **not documented**.
 
+**A fix chosen here is new work, and its agent's leftovers are not this step's
+to offer.** Filing is the default option. When the owner picks a fix, land it,
+and file whatever its agent reports as "found, not touched" rather than offering
+it as the next round of fixes. Confirmed 2 Oct 2026: a session about rendering
+markdown chained six PRs out of this step, deleting about 18,000 lines, adding a
+task-sheet feature and removing keys. Each agent's leftovers became the next
+question. The owner: "this is way past markdown parsing".
+
 **The history file is not a home, and writing one does not discharge this
 step.** It is a record of a session, read by nobody looking for open work. A
 deferred item needs a durable home in the repository — an **open question** in
