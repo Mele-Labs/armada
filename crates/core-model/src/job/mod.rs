@@ -56,6 +56,7 @@ mod status;
 mod step;
 mod step_machine;
 mod stuck;
+mod tiers;
 mod transition;
 mod verdict;
 mod work_plan;
@@ -112,6 +113,7 @@ pub use step_machine::{
     IllegalStepTransition, StepEdge, StepTarget, ADVANCING_STATUSES, STEP_EDGES,
 };
 pub use stuck::{DroneStanding, Recourse, Refusal, Refusals, Standing, Stuck};
+pub use tiers::{TaskEdit, TaskTier, TierModels};
 pub use transition::{
     CriteriaOwed, Edge, IllegalTransition, PilotReason, Target, TransitionReason, EDGES,
 };

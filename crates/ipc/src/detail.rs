@@ -255,6 +255,12 @@ pub struct JobDetail {
     /// no choice. `set_review_model` moves it, like `set_model` moves `model_override`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_model_override: Option<String>,
+    /// Which model each tier of this Job's tasks runs on. **Since 23.5.** Left
+    /// out where the map names no tier, which is Armada picking for every
+    /// tier. `set_tiers` moves it. Filled after [`JobDetail::of`], like
+    /// `model_override`.
+    #[serde(default, skip_serializing_if = "crate::TierModels::is_empty")]
+    pub tiers: crate::TierModels,
     /// The label of the step that writes Armada's review. **Since 13.33**, #903. Absent on a
     /// workflow with no review step, where there is no review model to choose.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -738,6 +744,7 @@ impl JobDetail {
             repository_allowed_commands: Vec::new(),
             model_override: None,
             review_model_override: None,
+            tiers: crate::TierModels::default(),
             review_step: None,
             review,
             confidence: None,

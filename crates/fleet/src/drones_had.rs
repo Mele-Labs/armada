@@ -174,7 +174,7 @@ where
             .load(&job_id.to_domain())
             .await
             .map_err(|why| self.refusal(why))?;
-        let (events, spends, on_tasks) = {
+        let (events, spends, on_tasks, models) = {
             let store = self.store().lock().await;
             let events = store.events_for(job.id()).map_err(|cause| {
                 self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause)))
@@ -185,7 +185,10 @@ where
             let on_tasks = store
                 .task_drones(job.id())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            (events, spends, on_tasks)
+            let models = store
+                .drone_models(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            (events, spends, on_tasks, models)
         };
         let mut drones = Vec::new();
         for had in drones_had(&events) {
@@ -211,6 +214,10 @@ where
                 drone_id: (&had.drone).into(),
                 step_id: (&had.step).into(),
                 task: on_task.map(|bound| bound.task.to_string()),
+                model: models
+                    .iter()
+                    .find(|(drone, _)| *drone == had.drone)
+                    .map(|(_, model)| model.clone()),
                 state: had.state,
                 since: (&had.spawned_at).into(),
                 ended_at: had.left_at.as_ref().map(Into::into),

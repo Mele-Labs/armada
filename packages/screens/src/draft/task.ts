@@ -24,7 +24,10 @@ export type TaskState = "open" | "working" | "handed_in" | "done" | "failed" | "
 /** How a task is run. A step's Drone, a Drone of its own, or a whole Job. */
 export type TaskTreatment = "step_drone" | "own_drone" | "job";
 
-/** How hard the planner thought the task was. The model follows from the Job's map. */
+/**
+ * How hard the planner thought the task was, which picks its model off the
+ * Job's map unless a person picked one. `PlanTask.tier` since 23.5.
+ */
 export type TaskTier = "difficult" | "medium" | "easy";
 
 /** One task of a plan, with everything the boards draw. */
@@ -56,12 +59,16 @@ export type TaskView = {
   /** The other tasks of that group running at the same time, by id. */
   concurrent_with: string[];
   /**
-   * The tier the planner gave it. **The planner picks the tier and the model
-   * follows from the Job's map** (#1530, 22 Sep), so nothing here names a model
-   * the person did not choose a tier for.
+   * The tier the planner gave it, which picks the model off the Job's map
+   * (#1530, 22 Sep). **A person may pick the task's model directly, over the
+   * map** (30 Sep 2026), so the tier no longer decides it alone. On the wire a
+   * task with no tier leaves `PlanTask.tier` out, which is Armada picking.
    */
   tier: TaskTier;
-  /** The model the Job's tier map resolved that to. */
+  /**
+   * A person's pick, `PlanTask.model`, which beats the map. The model a
+   * Drone actually ran is on its `JobDrone.model`, not here.
+   */
   model: string;
   treatment: TaskTreatment;
   /** The Drone on it, where one is. Absent on a task nothing has run. */

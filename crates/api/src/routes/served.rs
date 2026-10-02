@@ -747,6 +747,12 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/plan/move",
     },
+    // A person changes one task: spike 022 slice 3, `#1657`.
+    Route {
+        operation: "edit_task",
+        method: "POST",
+        path: "/jobs/:job_id/tasks/:task_id/edit",
+    },
     // The two acts that resume a step without redispatching. Two routes and
     // not one with a mode: which applies is decided by whether the Job holds a
     // Drone, and a caller that asked for the wrong one is told which is right
@@ -800,6 +806,11 @@ const ROUTES: &[Route] = &[
         operation: "set_review_model",
         method: "POST",
         path: "/jobs/:job_id/set_review_model",
+    },
+    Route {
+        operation: "set_tiers",
+        method: "POST",
+        path: "/jobs/:job_id/set_tiers",
     },
     Route {
         operation: "remove_allowed_command",

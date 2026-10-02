@@ -33,6 +33,7 @@ mod manifest_allowed;
 mod manifest_snapshot;
 mod migrate;
 mod model_override;
+mod model_per_task;
 mod plan;
 mod ports;
 mod preferences;

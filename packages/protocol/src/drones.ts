@@ -30,6 +30,12 @@ export type JobDrone = {
    * each. **Absent on a Drone that worked its whole step.** Since 23.1.
    */
   task?: string;
+  /**
+   * The model it was spawned as: a person's pick on its task, the Job's tier
+   * map for the task's tier, the step's model, or the Job's, in that order.
+   * **Absent on a Drone spawned before 23.5**, which recorded none.
+   */
+  model?: string;
   state: DroneState;
   /** When it was spawned onto the step, off `drone_spawned`. */
   since: string;

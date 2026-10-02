@@ -266,6 +266,8 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+/// Edit this task, and a Job's tier map. Spike 022, slice 3.
+pub mod task_edits;
 /// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
 pub mod tasking;
 pub mod terms;

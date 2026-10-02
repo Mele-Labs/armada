@@ -161,7 +161,7 @@ where
     }
 
     /// Keep a person's change, and say so on `job.plan_changed`.
-    async fn changed_by_person(
+    pub(crate) async fn changed_by_person(
         &self,
         job: &JobId,
         change: &PlanChange,

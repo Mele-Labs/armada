@@ -633,6 +633,26 @@ pub(crate) async fn move_plan<D: Commands>(
     }
 }
 
+/// Edit this task: what a person changed on one task, and only that. **The
+/// plan it leaves comes back**, `move_plan`'s rule. 409 on a task that is not
+/// open or failed, and on a model `list_models` does not offer, as `set_model`
+/// refuses one; 422 on a body changing nothing or a blank title. `#1657`.
+pub(crate) async fn edit_task<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    Path(NamedTask { task_id }): Path<NamedTask>,
+    body: Bytes,
+) -> Response {
+    let edit: ipc::EditTask = match ipc::decode("a task edit", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().edit_task(job.id(), task_id, edit).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Say something to the Drone that is there. **The Job comes back `running`**,
 /// at the same step, with the same Drone — nothing was spawned and nothing was
 /// thrown away.
@@ -780,6 +800,24 @@ pub(crate) async fn set_review_model<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().set_review_model(job.id(), choice).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Set which model each tier of this Job's tasks runs on, the whole map at
+/// once. **The Job comes back unchanged**: the next spawn reads it. Spike 022,
+/// slice 3.
+pub(crate) async fn set_tiers<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let tiers: ipc::SetTiers = match ipc::decode("a tier map", &body) {
+        Ok(tiers) => tiers,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_tiers(job.id(), tiers).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -994,6 +994,15 @@ where
         self.summarised(&job).await
     }
 
+    /// Which model each tier of this Job's tasks runs on. `task_edits` has it.
+    async fn set_tiers(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::SetTiers,
+    ) -> Result<JobSummary, Refusal> {
+        Fleet::set_tiers_by_person(self, job, body).await
+    }
+
     /// A command a person allowed for this Job, taken back.
     async fn remove_allowed_command(
         self: Arc<Self>,
@@ -1044,5 +1053,15 @@ where
         body: ipc::MovePlan,
     ) -> Result<WorkPlan, Refusal> {
         Fleet::move_plan_by_person(self, job, body).await
+    }
+
+    /// Edit this task. `#1657`; `task_edits` has it.
+    async fn edit_task(
+        self: Arc<Self>,
+        job: JobId,
+        task: String,
+        body: ipc::EditTask,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::edit_task_by_person(self, job, task, body).await
     }
 }
