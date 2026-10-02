@@ -4,9 +4,8 @@
 // **The defect was navigational, so the test is.** The owner dispatched from a
 // Studio, watched the job, and could not get back to the notes and the draft
 // it came from — nothing on the job even said a Studio existed. What is pinned
-// is the sentence on the header, the named Studio under *Where things are*,
-// and that one press leaves the job and lands on that Studio with the job's
-// own node picked.
+// is the sentence on the header, and that one press on it leaves the job and
+// lands on that Studio with the job's own node picked — #1674.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
@@ -18,7 +17,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "./studio-fleet";
-import { mount, unmountAfterEach } from "./testing";
+import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -64,22 +63,39 @@ test("the header says where the job came from and who pressed, in one sentence",
   await expect.element(page.getByText("From a Studio, by you").first()).toBeVisible();
 });
 
-// **The route back to the Studio went with *Where things are*** on 29 Sep
-// 2026. Two claims stood here: the region naming the Studio beside the
-// worktree, and one press landing on that Studio with this Job's node picked.
-// The header still says *From a Studio, by you*, which is the claim above —
-// what it does not carry is the press, so there is no way back from a Job to
-// the canvas it was dispatched from.
+/** The header's origin sentence, as a control. Exact: the Board's row says it too, as text. */
+const fromTheHeader = () => page.getByRole("button", { name: "From a Studio, by you", exact: true });
+
+// **The route back went with *Where things are*** on 29 Sep 2026, and #1674
+// put it on the header's own sentence: it already said where the Job came
+// from, so pressing it goes there. The tooltip names the Studio, because the
+// registry's sentence has no slot for it.
+test("the header's sentence names that Studio on its tooltip", async () => {
+  mount(dispatchedFromAStudio());
+  await expect.element(fromTheHeader()).toHaveAccessibleDescription(`Open ${EVERY_KIND_NAME}`);
+});
+
+test("one press on the header's sentence leaves the job and lands on that Studio, with the job's node picked", async () => {
+  mount(dispatchedFromAStudio());
+  await fromTheHeader().click();
+  await openHelm();
+  // **Helm's footer is what says where a person is**, and it names the node as
+  // well as the Studio — the same reading `studios.test.tsx` asserts a pick by.
+  // The job itself is gone: `goTo` clears it the way every destination does.
+  await expect
+    .element(page.getByText(`Studios · ${EVERY_KIND_NAME} · Job ${running().job.title} selected`))
+    .toBeVisible();
+});
 
 test("a job whose Studio has been deleted says so, and offers no press", async () => {
   mount(dispatchedFromAStudio({ still: false }));
   await expect.element(page.getByText("That Studio has been deleted").first()).toBeVisible();
-  expect(page.getByRole("button", { name: `Open ${EVERY_KIND_NAME}` }).query()).toBeNull();
+  expect(fromTheHeader().query()).toBeNull();
 });
 
-test("a job nothing dispatched from a Studio says nothing extra", async () => {
+test("a job nothing dispatched from a Studio says nothing extra, and draws no way to one", async () => {
   mount(onJob(running(), { whereOpen: true }));
   await expect.element(page.getByRole("button", { name: running().job.handle })).toBeVisible();
   expect(page.getByText("That Studio has been deleted").query()).toBeNull();
-  expect(page.getByRole("button", { name: `Open ${EVERY_KIND_NAME}` }).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^From a Studio/ }).query()).toBeNull();
 });

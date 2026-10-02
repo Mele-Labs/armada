@@ -258,6 +258,7 @@ function OneJob(props: JobDetailProps) {
     onRaisingTurns: setRaisingTurns,
     onOpenPullRequest: props.onOpenPullRequest,
     onOpenJob: props.onOpenJob,
+    onOpenStudio: props.onOpenStudio,
     onCopied: props.onCopied,
     onSaid: props.onSaid,
   });
