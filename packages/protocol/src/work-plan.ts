@@ -45,7 +45,11 @@ export type PlanTask = {
    * fact worth drawing. Since 15.0.
    */
   shown?: string;
-  /** `open`, `working`, `done` or `dropped`. A claim, and it gates nothing. */
+  /**
+   * `open`, `working`, `handed_in`, `done`, `failed` or `dropped`. A claim, and
+   * it gates nothing. `handed_in` and `failed` since 22.0, written by Fleet
+   * alone: the first at a task Drone's hand-in, the second when Checks go red.
+   */
   state: string;
   /** Present on a dropped task and on nothing else. */
   reason?: string;
@@ -69,14 +73,19 @@ export type WorkingWindow = {
 };
 
 /**
- * How many tasks stand where. `done` over `done + working + open` is the figure
- * a person reads; a dropped task is not counted against it.
+ * How many tasks stand where. `done` over every count but `dropped` is the
+ * figure a person reads: a handed-in task and a failed one join the total and
+ * neither joins `done`.
  */
 export type TaskCounts = {
   done: number;
   working: number;
   open: number;
   dropped: number;
+  /** Since 22.0, and absent at zero. */
+  handed_in?: number;
+  /** Since 22.0, and absent at zero. */
+  failed?: number;
 };
 
 /**

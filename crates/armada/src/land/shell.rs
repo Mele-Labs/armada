@@ -102,14 +102,15 @@ pub struct Limited {
 /// still holding the pipe would otherwise hold the turn.
 const DRAINED_WITHIN: Duration = Duration::from_secs(5);
 
-/// [`run`] with no stdin, killed past `limit` along with every process group
-/// its descendants lead: `armada check` puts a Check's command in a group of
-/// its own, which killing the child's group alone would miss.
+/// [`run`] with no stdin and `env` added, killed past `limit` along with every
+/// process group its descendants lead: `armada check` puts a Check's command
+/// in a group of its own, which killing the child's group alone would miss.
 pub fn run_limited(
     argv: &[&str],
     cwd: &Path,
     log: &Path,
     limit: Duration,
+    env: &[(&str, &str)],
 ) -> Result<Limited, Stopped> {
     let spawn_failed = |cause: std::io::Error| {
         Stopped::stopped(format!(
@@ -121,6 +122,7 @@ pub fn run_limited(
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .current_dir(cwd)
+        .envs(env.iter().copied())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -304,6 +306,7 @@ mod tests {
             dir.path(),
             &log,
             Duration::from_secs(2),
+            &[],
         )
         .expect("sh runs");
         assert!(limited.timed_out);
@@ -333,6 +336,7 @@ mod tests {
             dir.path(),
             &dir.path().join("quick.log"),
             Duration::from_secs(30),
+            &[],
         )
         .expect("sh runs");
         assert!(!limited.timed_out);

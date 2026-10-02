@@ -578,6 +578,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
 
     let events = fleet.events();
+    // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
+    let clock = SystemClock::new();
+    api::tally_every(events.clone(), api::TALLY_EVERY, move |tally| {
+        eprintln!("{} {tally}", clock.now().as_str());
+    });
     let run_id = ipc::RunId::carried(UlidMint::new().ulid().as_str());
     // The reader for a Job's own log, taken from the Fleet before it is handed
     // over. **Nothing else on this side knows where the logs are**, which is

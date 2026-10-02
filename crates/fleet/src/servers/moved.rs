@@ -72,19 +72,19 @@ where
             return;
         }
         let holder = Holder::Checkout(root.to_string());
-        for state in self.servers().moved_on(&holder, commits) {
+        self.servers().moved_on(&holder, commits, |state| {
             // The whole row in the kind its phase is, because the three
             // `server.*` kinds each carry the whole `ServerState` and a reader
             // replaces a row rather than patching it — `crates/ipc/operations.toml`.
             let event = match state.phase {
-                ServerPhase::Serving => Event::ServerServing(state),
-                ServerPhase::Starting => Event::ServerStarting(state),
+                ServerPhase::Serving => Event::ServerServing(state.clone()),
+                ServerPhase::Starting => Event::ServerStarting(state.clone()),
                 // Unreachable: `moved_on` walks what is held, and an instance
                 // that ended is not held. Skipped rather than published under
                 // a kind that would say it had come back up.
-                ServerPhase::Exited => continue,
+                ServerPhase::Exited => return,
             };
             self.publish(event);
-        }
+        });
     }
 }

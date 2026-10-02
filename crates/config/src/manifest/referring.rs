@@ -24,13 +24,14 @@
 //! bad names is one edit.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::num::NonZeroU32;
 
 use core_model::{Prerequisite, ResolvedCheck};
 use serde_yaml_ng::Value;
 
 use super::declared::{Check, Command, Preparation};
 use super::seed::Seed;
-use super::{texts, DraftCheck, AFTER_MERGE_KEYS, SETUP_KEYS};
+use super::{texts, DraftCheck, AFTER_MERGE_KEYS, SETUP_KEYS, WORKTREES_UNSTATED};
 use crate::error::{Fault, Refusal};
 use crate::yaml::{self, Table};
 
@@ -51,18 +52,23 @@ pub(super) fn preparation(
     commands: &BTreeMap<String, Command>,
     serves: &BTreeSet<String>,
     out: &mut Vec<Refusal>,
-) -> (Vec<Preparation>, Option<Seed>) {
+) -> (Vec<Preparation>, Option<Seed>, Option<NonZeroU32>) {
     let Some(mut table) = Table::open("setup", value, out) else {
-        return (Vec::new(), None);
+        return (Vec::new(), None, Some(WORKTREES_UNSTATED));
     };
-    // `requires` is required unless `seed` is there, because `setup:` with
+    // `requires` is required unless another key is there, because `setup:` with
     // nothing under it says nothing and `close` would report no fault for it.
     let seed = table
         .optional("seed")
         .and_then(|value| super::seed::read(value, declares, commands, serves, out));
+    // Zero is refused: a pool of none would make every lease wait for ever.
+    let worktrees = match table.optional("worktrees") {
+        None => Some(WORKTREES_UNSTATED),
+        Some(value) => yaml::positive(&table.at("worktrees"), value, out).and_then(NonZeroU32::new),
+    };
     let items = match table.optional("requires") {
         Some(value) => yaml::list(&table.at("requires"), value, out),
-        None if table.present("seed") => None,
+        None if table.present("seed") || table.present("worktrees") => None,
         None => {
             out.push(Refusal::new(table.at("requires"), Fault::Missing));
             None
@@ -76,7 +82,7 @@ pub(super) fn preparation(
             .collect(),
         None => Vec::new(),
     };
-    (prepared, seed)
+    (prepared, seed, worktrees)
 }
 
 /// `after_merge:`, the Checks this repository asks to be run against the tree a

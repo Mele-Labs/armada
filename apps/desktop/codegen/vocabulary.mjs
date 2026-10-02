@@ -91,6 +91,9 @@ const WANTED = [
   "criterion_verdict_check",
   "criterion_verdict_judge",
   "step_state",
+  // A task of a Job's plan, promoted from `TASK_STATE_WORDS` in
+  // `packages/screens/src/draft/words.ts` at protocol 22.0 with its glyphs.
+  "task_state",
   // A group of a Job's plan, between a step and a task. Wanted here with no
   // enum and no registry file behind it, which is the case `advance_gate` and
   // `gaming_pattern` already are: `enum-verbs.toml`'s header says why, and its
@@ -99,6 +102,9 @@ const WANTED = [
   // the words but could carry no glyph — a draft value has no registry row to
   // attach one to, which is that file's own stated reason for withholding it.
   "group_state",
+  // A branch on the merge line `armada land` keeps, as Bridge's Overview draws
+  // it. Fleet does not serve the line yet, so only the mock fills it.
+  "land_state",
   "advance_gate",
   // The Setup sheet and the Manifest form both offer its three words, and both showed the file's.
   "auto_merge",

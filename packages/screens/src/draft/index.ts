@@ -35,6 +35,7 @@ export * from "./held";
 export * from "./landing";
 export * from "./ledger";
 export * from "./members";
+export * from "./merge-line";
 export * from "./peers";
 export * from "./proposal";
 export * from "./pulse";

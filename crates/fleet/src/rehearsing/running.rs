@@ -216,6 +216,7 @@ where
                 Writing::Appending(log),
                 &env,
                 until(stopped.clone()),
+                checks_runner::Priority::Normal,
             )
             .await;
             required.push(needed.name().to_string());
@@ -243,6 +244,7 @@ where
             Writing::Appending(log),
             &env,
             until(stopped.clone()),
+            checks_runner::Priority::Normal,
         )
         .await;
         let was_stopped = *stopped.borrow();

@@ -12,7 +12,7 @@
 // one is listed in `GAPS` so a surface can say what it could not render instead
 // of inventing copy for it.
 
-import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileQuestionMark, Flag, Link, Megaphone, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
+import { Archive, ArrowUpToLine, Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, Clock, Cpu, Eye, FileCheck, FileQuestionMark, Flag, Link, Megaphone, Minus, OctagonAlert, Pause, Power, RefreshCw, RotateCw, ScanLine, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Split, Stamp, Terminal, Unplug, UserCheck, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** How one variant reads. `null` where the registry carries no answer. */
@@ -142,6 +142,16 @@ export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "stopped": { verb: "stopped", icon: Flag, badgeStatus: null, statusToken: null, hint: null },
 };
 
+/** `task_state`, keyed by the wire value. */
+export const TASK_STATE: Readonly<Record<string, Rendering | undefined>> = {
+  "open": { verb: "open", icon: CircleDashed, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "working": { verb: "working", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "handed_in": { verb: "handed in", icon: FileCheck, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "done": { verb: "done", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+  "failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "dropped": { verb: "dropped", icon: Minus, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
+};
+
 /** `group_state`, keyed by the wire value. */
 export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "pending": { verb: "not started", icon: CircleDashed, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
@@ -152,6 +162,17 @@ export const GROUP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "retrying": { verb: "retrying", icon: RotateCw, badgeStatus: "awaiting-review", statusToken: "--status-awaiting-review", hint: null },
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+};
+
+/** `land_state`, keyed by the wire value. */
+export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
+  "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "gating": { verb: "gating", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "merging": { verb: "merging", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
+  "red": { verb: "red", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
+  "conflict": { verb: "conflict", icon: Unplug, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
+  "stopped": { verb: "stopped", icon: Power, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
 };
 
 /** `advance_gate`, keyed by the wire value. */

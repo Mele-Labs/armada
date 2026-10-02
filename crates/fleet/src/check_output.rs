@@ -388,7 +388,9 @@ fn write(dir: &Path, name: &str, printed: &Output) -> bool {
 /// **The tail, for the reason `checks_runner` captures the tail**: a test
 /// runner prints its failures last, and a runaway command prints forever, so
 /// keeping the beginning keeps the part nobody opened the Job for.
-const A_READING: usize = 2_000;
+///
+/// `crate::asked::read_back` reads a kept brief through the same window.
+pub(crate) const A_READING: usize = 2_000;
 
 /// How many bytes of those lines one read carries.
 ///
@@ -396,7 +398,7 @@ const A_READING: usize = 2_000;
 /// minified bundle. The window loses its oldest lines to stay under it, which
 /// keeps this read's cost a property of the code rather than of whatever a
 /// Check printed.
-const MOST: usize = 256 * 1024;
+pub(crate) const MOST: usize = 256 * 1024;
 
 /// One Check's output, read back out of the file its row points at.
 ///

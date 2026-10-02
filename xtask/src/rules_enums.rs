@@ -96,6 +96,10 @@ const ENUMS: &[EnumSource] = &[
         path: "crates/core-model/src/job/declared.rs",
     },
     EnumSource {
+        name: "TaskState",
+        path: "crates/core-model/src/job/work_plan.rs",
+    },
+    EnumSource {
         name: "DronePresence",
         path: "crates/core-model/src/job/drone.rs",
     },
@@ -235,6 +239,14 @@ const PAIRINGS: &[Pairing] = &[
         prefix: "verbs.evidence_type.",
         enum_name: "EvidenceType",
     },
+    // Where one task of a plan stands. No registry file of its own: the set is
+    // the planner's and Fleet's, and the verbs are where it is spelled key by
+    // key. A state unpaired here is a Plan row with no mark.
+    Pairing {
+        registry: "enum-verbs.toml",
+        prefix: "verbs.task_state.",
+        enum_name: "TaskState",
+    },
     // Whether a Drone arrived on a step or left it. No registry file of its own
     // either — `assigned_drone` is a pointer with no states, so the verbs are
     // the only place the two moments are spelled key by key.
@@ -259,6 +271,7 @@ const PAIRINGS: &[Pairing] = &[
 /// paired as things stand: their enums are `crates/ipc`'s and carry a serde
 /// derive instead of the `ALL` and `as_wire` pair [`read_enum`] reads.
 /// `auto_merge` cannot either: `core_model::AutoMerge` spells through `as_written`.
+/// Nor `land_state`: `armada`'s `OutcomeState` spells through `word`.
 const VOCABULARIES: &[&str] = &[
     "job_status",
     "queued_reason",
@@ -268,7 +281,9 @@ const VOCABULARIES: &[&str] = &[
     "escalation_reason",
     "step_verdict",
     "step_state",
+    "task_state",
     "group_state",
+    "land_state",
     "advance_gate",
     "auto_merge",
     "check_outcome",

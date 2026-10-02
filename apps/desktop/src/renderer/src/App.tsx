@@ -129,16 +129,14 @@ import {
   watchOverview,
 } from "./commands";
 import { useDrafted } from "./drafted";
+import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { statsOf, fleetPanelOf } from "./left-column";
-import { useCommandPalette } from "@armada/shell";
-import { copyDebugInfoFor } from "@armada/shell";
-import { Shell } from "@armada/shell";
-import { SURFACE, SURFACES, useSurfaceKeys } from "@armada/shell";
-import { useAtFloor, useNarrow } from "@armada/shell";
+import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
+import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -216,6 +214,8 @@ export function App({ draft }: AppProps = {}) {
   // last row, so it carries no digit. Every guide, numbered and grouped,
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
+  const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
+  const hidden = hiddenSurfaces(useDrafted()); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -498,6 +498,7 @@ export function App({ draft }: AppProps = {}) {
     setSettingsShowing(surfaceId === SURFACE.settings);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
+    setLining(surfaceId === SURFACE.mergeLine);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -606,6 +607,7 @@ export function App({ draft }: AppProps = {}) {
     <ProseLinks.Provider value={openProseLink}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
         <Shell
+          hidden={hidden}
           connection={state.connection}
           repositories={repositories}
           listed={listed}
@@ -690,7 +692,7 @@ export function App({ draft }: AppProps = {}) {
                       ? SURFACE.guides
                       : studying
                         ? SURFACE.studios
-                        : SURFACE.overview
+                        : lining ? SURFACE.mergeLine : SURFACE.overview
           }
           onSurface={goTo}
         >
@@ -893,7 +895,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : clearing ? (
+            ) : lining ? (<MergeLineSurface {...guarded} onOpenLink={openProseLink} />) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and
@@ -1095,6 +1097,7 @@ export function App({ draft }: AppProps = {}) {
                   onCursor={setCursor}
                   land={landing}
                   onLanded={() => setLanding(null)}
+                  onOpenLink={openProseLink}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
@@ -1145,7 +1148,7 @@ export function App({ draft }: AppProps = {}) {
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
-          surfaces={SURFACES}
+          surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           jobs={state.jobs}
           checkoutRunSheet={state.checkoutRunSheet}
           cursor={cursor}

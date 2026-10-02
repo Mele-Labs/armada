@@ -153,8 +153,8 @@ wire_enum! {
     JudgeVerdict, core_model::JudgeVerdict, "a judge verdict"
 }
 wire_enum! {
-    /// Who caused a transition. Three ways, and a message that did not record
-    /// which never will.
+    /// Who caused a transition, and a message that did not record which never
+    /// will. `judge` and `check` since 22.0: a strict set, so each was a major.
     Actor, core_model::Actor, "an actor"
 }
 wire_enum! {
@@ -262,6 +262,7 @@ wire_enum! {
 wire_enum! {
     /// Where one task of a Job's plan stands. **A Drone's claim or a person's,
     /// and it gates nothing** — Bridge draws a mark from it and matches on it.
+    /// `handed_in` and `failed` since 22.0, and Fleet's alone to write.
     TaskState, core_model::TaskState, "a task state"
 }
 

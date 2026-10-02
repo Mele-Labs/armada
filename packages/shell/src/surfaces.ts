@@ -23,6 +23,7 @@ import {
   FileCog,
   HardDrive,
   LayoutDashboard,
+  Merge,
   Presentation,
   Settings as SettingsIcon,
 } from "lucide-react";
@@ -62,6 +63,8 @@ const RAIL = [
   "kit",
   "settings",
   "guides",
+  // The tenth: joined at the end, so no digit moves and it takes none.
+  "merge-line",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -75,6 +78,7 @@ export const SURFACE = {
   settings: "settings",
   studios: "studios",
   guides: "guides",
+  mergeLine: "merge-line",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -165,6 +169,15 @@ export const SURFACES: readonly PaletteSurface[] = [
     aliases: ["help", "guide", "explain"],
     icon: BookOpen,
   },
+  {
+    id: SURFACE.mergeLine,
+    label: "Merge line",
+    // Past the ninth, so no key; reached by the rail and by name.
+    shortcut: digitOf(SURFACE.mergeLine),
+    // `armada land` is the word a person already runs to read it.
+    aliases: ["land"],
+    icon: Merge,
+  },
 ];
 
 /**
@@ -181,7 +194,11 @@ export const SURFACES: readonly PaletteSurface[] = [
  * row's picker, which is a control rather than a row.
  */
 export const RAIL_PANELS = [
-  { id: "work", label: "Work", surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees] },
+  {
+    id: "work",
+    label: "Work",
+    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine],
+  },
   { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
 
