@@ -20,6 +20,7 @@ const ADD: readonly (readonly [string, StudioNodeByHandKind])[] = [
   [ACTION.add_note?.shortcut ?? "", "note"],
   [ACTION.add_link?.shortcut ?? "", "link"],
   [ACTION.add_sketch?.shortcut ?? "", "sketch"],
+  [ACTION.add_zone?.shortcut ?? "", "zone"],
 ];
 
 /** What a press means on an open Studio, or `null` where it means nothing here. */

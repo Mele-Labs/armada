@@ -362,6 +362,8 @@
 /* The wait a Job at `proposing` is in, drawn inside Overview's lead. #1159. */
 @import "./compositions/ProposerWait/ProposerWait.css";
 @import "./compositions/SketchPreview/SketchPreview.css";
+/* A Zone, or a Cluster round its Notes, on a Studio's whiteboard. #1620. */
+@import "./compositions/StudioFrame/StudioFrame.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

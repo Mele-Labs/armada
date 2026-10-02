@@ -552,8 +552,9 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position),
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveStudioSketch, studioId, nodeId, drawing),
-  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position),
+  // `within` is the frame it was put down in, and `null` the board — #1620.
+  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.moveStudioNode, studioId, nodeId, position, within),
   // The frame is main's: this hands over what was pointed at and nothing else,
   // so the capability added here is a Note on a Studio and not a screenshot.
   captureStudioNote: (studioId: string, said: string, capture: StudioCapture): Promise<Outcome> =>

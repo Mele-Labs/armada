@@ -12,6 +12,7 @@
 import type {
   CaptureStudioNote,
   FrameRead,
+  MoveStudioNode,
   Outcome,
   SketchDrawn,
   StagedFrame,
@@ -202,8 +203,10 @@ export class StudioReads {
     return this.acted(await this.act(member(studioId, "/edit_sketch"), { node_id: nodeId, drawing }));
   }
 
-  async moveNode(studioId: string, nodeId: string, position: StudioPosition): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/move_node"), { node_id: nodeId, position }));
+  /** `within` is the frame it was put down in, and `null` the board — #1620. */
+  async moveNode(studioId: string, nodeId: string, position: StudioPosition, within: string | null): Promise<Outcome> {
+    const body: MoveStudioNode = within === null ? { node_id: nodeId, position } : { node_id: nodeId, within, position };
+    return this.acted(await this.act(member(studioId, "/move_node"), body));
   }
 
   /**

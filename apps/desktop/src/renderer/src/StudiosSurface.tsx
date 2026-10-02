@@ -157,7 +157,7 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onAddSketch={(drawing, position) => addStudioSketch(openId ?? "", drawing, position)}
         onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
         onDispatchSketch={props.onDispatchSketch}
-        onMoveNode={(nodeId, position) => moveStudioNode(openId ?? "", nodeId, position)}
+        onMoveNode={(nodeId, position, within) => moveStudioNode(openId ?? "", nodeId, position, within)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}
         onReadFrame={readStudioFrame}

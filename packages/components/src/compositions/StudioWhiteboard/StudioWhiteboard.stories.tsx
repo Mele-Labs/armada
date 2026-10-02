@@ -32,6 +32,8 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "cluster", position: { x: 680, y: 260 }, node: { kind: "cluster", title: "The Board's legend is illegible", facts: ["2 notes"] } },
   { id: "sketch", position: { x: 680, y: 520 }, node: { kind: "sketch", title: "", drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "The legend, redrawn" }], lines: [], strokes: [], pictures: [] } } },
   { id: "picture", position: { x: 1020, y: 520 }, node: { kind: "picture", title: "", frame: {} } },
+  // A Zone a person put down and has not filled yet — #1620. A frame, sized to nothing.
+  { id: "zone", position: { x: 1020, y: 780 }, node: { kind: "zone", title: "" } },
   { id: "file", position: { x: 680, y: 780 }, node: { kind: "file", title: "packages/components/src/compositions/StatusLegend/StatusLegend.css", path: "packages/components/src/compositions/StatusLegend/StatusLegend.css" } },
   { id: "deferral", position: { x: 1020, y: -130 }, node: { kind: "deferral", state: "open", title: "Does the legend belong on the Board?", facts: ["blocks 1"] } },
   { id: "outline", position: { x: 1020, y: 260 }, node: { kind: "outline", state: "draft", title: "Legend, then width", facts: ["3 parts"] } },
@@ -115,7 +117,7 @@ export const EveryKind: Story = {
       fireEvent.mouseUp(view, { clientX: before.x + 120, clientY: before.y + 80, view });
       await waitFor(() => expect(apart().x).toBeGreaterThan(gap.x + 60));
       await expect(apart().y).toBeGreaterThan(gap.y + 30);
-      await expect(args.onNodeMoved).toHaveBeenCalledWith("note-legend", expect.anything());
+      await expect(args.onNodeMoved).toHaveBeenCalledWith("note-legend", expect.anything(), null);
     });
 
     await step("a node is selected and moved by keyboard", async () => {
@@ -127,7 +129,7 @@ export const EveryKind: Story = {
       const before = centre(job).y - centre(issue).y;
       await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
       await waitFor(() => expect(centre(job).y - centre(issue).y).toBeGreaterThan(before));
-      await expect(args.onNodeMoved).toHaveBeenCalledWith("job", expect.anything());
+      await expect(args.onNodeMoved).toHaveBeenCalledWith("job", expect.anything(), null);
     });
 
     await step("zoom in draws every node larger", async () => {

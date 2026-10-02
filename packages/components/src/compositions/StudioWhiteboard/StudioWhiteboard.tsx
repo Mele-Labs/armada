@@ -18,6 +18,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 
+import { StudioFrame, studioFrameLabel, type StudioFrameKind } from "../StudioFrame/StudioFrame";
+import { frameSizes, landing, onTheBoard, parentsFirst } from "./frames";
+
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import {
   STUDIO_NODE_KIND,
@@ -48,7 +51,13 @@ import {
 
 export type StudioWhiteboardNode = {
   id: string;
-  /** Where the node sits, in the whiteboard's own coordinates. */
+  /**
+   * The frame it sits in — a Zone, or a Note's Cluster — by its id. Absent is
+   * the board. A Zone and a Cluster draw as frames round what names them here,
+   * sized to it. `#1620`.
+   */
+  within?: string;
+  /** Where the node sits: from its frame's corner, or the board's origin where it is in none. */
   position: { x: number; y: number };
   node: StudioNodeOf & { title: string; facts?: readonly string[] };
 };
@@ -89,8 +98,13 @@ export type StudioWhiteboardEdge = {
 export type StudioWhiteboardProps = {
   nodes: readonly StudioWhiteboardNode[];
   edges: readonly StudioWhiteboardEdge[];
-  /** A node was put down somewhere new, by pointer or by arrow key. */
-  onNodeMoved?: (id: string, position: { x: number; y: number }) => void;
+  /**
+   * A node was put down somewhere new, by pointer or by arrow key: the frame it
+   * landed in, `null` for the board, and its spot from that frame's corner.
+   * **Dropped on a Zone it goes in, and dragged off one it comes out**; a Note
+   * in a Cluster stays in it. Dragging a frame carries what it holds.
+   */
+  onNodeMoved?: (id: string, position: { x: number; y: number }, within: string | null) => void;
   onSelectionChange?: (ids: readonly string[]) => void;
   /**
    * One node to arrive selected — the board opened *at* something rather than
@@ -170,9 +184,16 @@ export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
   answers: "answers",
 };
 
-type BoardNodeData = StudioWhiteboardNode["node"];
+/**
+ * `within` is the frame the caller last said the node is in. **Kept beside the
+ * card rather than read off `parentId`**, which is the board's own and moves
+ * the moment a node is dropped somewhere new: a frame the caller names that
+ * differs from the one it named before is the caller moving it.
+ */
+type BoardNodeData = StudioWhiteboardNode["node"] & { within?: string };
 type DraftNodeData = { kind: StudioNodeKind; field: ReactNode; pending: boolean };
-type BoardNode = Node<BoardNodeData, "studio"> | Node<DraftNodeData, "draft">;
+type FrameNodeData = { kind: StudioFrameKind; title: string; within?: string };
+type BoardNode = Node<BoardNodeData, "studio"> | Node<DraftNodeData, "draft"> | Node<FrameNodeData, "frame">;
 /** A proposed relation's card: who drew it, the sentence its buttons are named by, and the answer. */
 type Proposal = {
   proposer: string;
@@ -190,12 +211,28 @@ type BoardEdge = Edge<BoardEdgeData, "studio">;
  * Nothing connects by hand, so none is drawn.
  */
 function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio">>) {
+  const { within: _, ...card } = data;
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
       ))}
-      <StudioNode {...data} selected={selected} />
+      <StudioNode {...card} selected={selected} />
+      {GRAPH_CANVAS_SIDES.map((side) => (
+        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
+      ))}
+    </>
+  );
+}
+
+/** A Zone or a Cluster: a region the whiteboard sizes round what it holds. */
+function FrameNodeView({ data, selected }: NodeProps<Node<FrameNodeData, "frame">>) {
+  return (
+    <>
+      {GRAPH_CANVAS_SIDES.map((side) => (
+        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
+      ))}
+      <StudioFrame kind={data.kind} title={data.title} selected={selected} />
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
@@ -350,11 +387,52 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
  */
 const JOINS_THE_SELECTION = ["Meta", "Control"];
 
-const NODE_TYPES = { studio: BoardNodeView, draft: DraftNodeView };
+const NODE_TYPES = { studio: BoardNodeView, draft: DraftNodeView, frame: FrameNodeView };
 const EDGE_TYPES = { studio: BoardEdgeView };
 
-function toBoardNode({ id, position, node }: StudioWhiteboardNode): BoardNode {
-  return { id, position, type: "studio", data: node, ariaLabel: studioNodeLabel(node) };
+function toBoardNode({ id, position, node, within }: StudioWhiteboardNode): BoardNode {
+  const held = within === undefined ? {} : { parentId: within };
+  if (node.kind === "zone" || node.kind === "cluster") {
+    // A Zone holds no words; a Cluster's title is its head.
+    const title = node.kind === "cluster" ? node.title : "";
+    return {
+      id,
+      position,
+      ...held,
+      type: "frame",
+      data: { kind: node.kind, title, ...(within === undefined ? {} : { within }) },
+      ariaLabel: studioFrameLabel({ kind: node.kind, title }),
+    };
+  }
+  const data = within === undefined ? node : { ...node, within };
+  return { id, position, ...held, type: "studio", data, ariaLabel: studioNodeLabel(node) };
+}
+
+/** The frame the caller last named for a node, off its data. */
+function namedWithin(node: BoardNode): string | undefined {
+  return node.type === "draft" ? undefined : node.data.within;
+}
+
+/**
+ * Each frame sized round what it holds, and every node after the frame it
+ * sits in. **Never kept**: worked out from where things sit, every render.
+ */
+function framed(nodes: BoardNode[]): BoardNode[] {
+  const sizes = frameSizes(nodes.map(asFraming));
+  return parentsFirst(nodes).map((node) => {
+    const size = sizes.get(node.id);
+    return size === undefined ? node : { ...node, width: size.width, height: size.height };
+  });
+}
+
+function asFraming(node: BoardNode) {
+  return {
+    id: node.id,
+    kind: node.data.kind,
+    position: node.position,
+    ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
+    ...(node.measured === undefined ? {} : { measured: node.measured }),
+  };
 }
 
 /** What a draft is read aloud as: the kind, and that it is not on the Studio yet. */
@@ -379,6 +457,11 @@ function toDraftNode({ id, kind, position, field, pending = false }: StudioWhite
  * What the caller gave, over what React Flow keeps per node — where it was put,
  * its measured size, whether it is selected. A node's kind, title and state
  * always come from the caller, so a Finding that freezes redraws in place.
+ *
+ * **Where it sits is the board's, until the caller moves it.** A frame the
+ * caller names that differs from the one it named last time is the caller
+ * putting the node somewhere — grouping Notes into a Cluster, or a frame
+ * deleted out from under it — and the node takes the caller's frame and spot.
  */
 function merged(
   given: readonly StudioWhiteboardNode[],
@@ -387,10 +470,18 @@ function merged(
 ): BoardNode[] {
   const byId = new Map(kept.map((node) => [node.id, node]));
   const fresh = [...given.map(toBoardNode), ...(draft === null ? [] : [toDraftNode(draft)])];
-  return fresh.map((node) => {
-    const held = byId.get(node.id);
-    return held === undefined ? node : ({ ...held, data: node.data, ariaLabel: node.ariaLabel } as BoardNode);
-  });
+  return framed(
+    fresh.map((node) => {
+      const held = byId.get(node.id);
+      if (held === undefined) return node;
+      const { parentId: _, ...placed } = held;
+      const moved = namedWithin(held) !== namedWithin(node);
+      const at = moved
+        ? { position: node.position, ...(node.parentId === undefined ? {} : { parentId: node.parentId }) }
+        : { position: held.position, ...(held.parentId === undefined ? {} : { parentId: held.parentId }) };
+      return { ...placed, ...at, data: node.data, ariaLabel: node.ariaLabel } as BoardNode;
+    }),
+  );
 }
 
 /** The edge as a sentence: `Note A same as Note B`. */
@@ -505,26 +596,54 @@ function Board({
     given.map((entry) => ({ ...toBoardNode(entry), selected: pick !== null && entry.id === pick })),
   );
   const nodes = useMemo(() => merged(given, draft, kept), [given, draft, kept]);
+  const showing = useRef(nodes);
+  showing.current = nodes;
 
   const onNodesChange = useCallback(
     (changes: NodeChange<BoardNode>[]) => {
-      setKept((current) => applyNodeChanges(changes, merged(given, draft, current)));
       // `dragging: false` is a node put down: a drag ending, or an arrow key.
+      // **Where it lands is worked out against the board as it was drawn**, so
+      // a frame is measured without the node leaving it.
+      const landed = new Map<string, { position: { x: number; y: number }; within: string | null }>();
       for (const change of changes) {
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
-          if (change.id === draft?.id) draft.onMoved?.(change.position);
-          else onNodeMoved?.(change.id, change.position);
+          if (change.id === draft?.id) {
+            draft.onMoved?.(change.position);
+            continue;
+          }
+          const where = landing(showing.current.map(asFraming), change.id, change.position);
+          landed.set(change.id, where);
+          onNodeMoved?.(change.id, where.position, where.within);
         }
       }
+      setKept((current) =>
+        applyNodeChanges(changes, merged(given, draft, current)).map((node) => {
+          const where = landed.get(node.id);
+          if (where === undefined) return node;
+          const { parentId: _, ...placed } = node;
+          return { ...placed, position: where.position, ...(where.within === null ? {} : { parentId: where.within }) };
+        }),
+      );
     },
     [given, draft, onNodeMoved, readOnly],
   );
 
   const edges = useMemo<BoardEdge[]>(() => {
-    const titles = new Map(given.map(({ id, node }) => [id, `${STUDIO_NODE_KIND[node.kind]} ${node.title}`]));
+    const titles = new Map(given.map(({ id, node }) => [id, `${STUDIO_NODE_KIND[node.kind]} ${node.title}`.trim()]));
     const titleOf = (id: string) => titles.get(id) ?? id;
-    const placed = new Map(nodes.map((node) => [node.id, node]));
+    // Which sides an edge leaves and lands on is read off where both ends sit
+    // on the board, not inside whatever frame each is in.
+    const framing = new Map(nodes.map((node) => [node.id, asFraming(node)]));
+    const placed = new Map(
+      nodes.map((node) => [
+        node.id,
+        {
+          position: onTheBoard(node.id, framing),
+          measured: { width: node.width ?? node.measured?.width, height: node.height ?? node.measured?.height },
+        },
+      ]),
+    );
     return givenEdges.map((edge) => ({
       id: edge.id,
       source: edge.source,
