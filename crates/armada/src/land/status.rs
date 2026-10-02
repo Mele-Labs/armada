@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use super::dir::StateDir;
+use super::env::Env;
 use super::outcome::read_outcome;
 use super::queue::queued;
 use super::repo::{common_git_dir, current_branch};
@@ -29,10 +30,11 @@ pub fn status(cwd: &Path, branch: Option<&str>) -> Result<u8, Refused> {
             .map_err(|why| Refused(why.to_string()))?;
     }
 
+    let size = super::size::describe(&state, Env::read().batch);
     if line.is_empty() {
-        println!("merge line: empty");
+        println!("merge line: empty, {size}");
     } else {
-        println!("merge line: {} in line", line.len());
+        println!("merge line: {} in line, {size}", line.len());
     }
     for (n, entry) in line.iter().enumerate() {
         let held = read_outcome(&state, &entry.branch).map_err(|why| Refused(why.to_string()))?;

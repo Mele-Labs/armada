@@ -51,6 +51,10 @@ pub const EVIDENCE_SCOPE: &str = "evidence_scope";
 /// on a step with a scope and another on a step without.
 pub const OUT_OF_BOUNDS: &str = "out_of_bounds";
 
+/// What a change to a file another Job's fix holds off is written down as.
+/// Named by what it is, for [`OUT_OF_BOUNDS`]' reason: no field asks for it. #1673.
+pub const HELD_OFF: &str = "held_off";
+
 /// How a Check's process ended. The fact, before anything decides what it
 /// means.
 ///
@@ -274,6 +278,11 @@ pub enum CheckFailed {
     /// over a footprint alone — and identical in what a person is told, which
     /// [`OUT_OF_BOUNDS`] and [`reaches`] are what keep true.
     OutOfBounds { paths: Vec<Forbidden> },
+    /// The step changed files of a test another Job is fixing, which no Job
+    /// that hit the test may change until the fix is in its copy. **Whatever
+    /// wrote them**: the launch denies the edit tools, and this is what a shell
+    /// command meets. #1673.
+    HeldOffByFix { paths: Vec<String> },
 }
 
 impl CheckFailed {
@@ -289,7 +298,8 @@ impl CheckFailed {
             | CheckFailed::ArtifactNotThere { .. }
             | CheckFailed::TooFewTasks { .. }
             | CheckFailed::OutOfScope(_)
-            | CheckFailed::OutOfBounds { .. } => CheckOutcome::Failed,
+            | CheckFailed::OutOfBounds { .. }
+            | CheckFailed::HeldOffByFix { .. } => CheckOutcome::Failed,
             CheckFailed::Signalled { .. } => CheckOutcome::Signalled,
             CheckFailed::TimedOut { .. } => CheckOutcome::TimedOut,
             CheckFailed::NeverRan { .. } => CheckOutcome::NeverRan,
@@ -334,6 +344,9 @@ impl CheckFailed {
             CheckFailed::OutOfScope(_) => {
                 "the step declares only paths its evidence scope allows".to_string()
             }
+            CheckFailed::HeldOffByFix { .. } => {
+                "the step changes nothing another Job's fix holds off this one".to_string()
+            }
         }
     }
 
@@ -361,6 +374,18 @@ impl CheckFailed {
             },
             CheckFailed::OutOfScope(outside) => outside.to_string(),
             CheckFailed::OutOfBounds { paths } => reaches(paths),
+            CheckFailed::HeldOffByFix { paths } => format!(
+                "it changed {}, which another Job is fixing; put {} back as main has it",
+                paths
+                    .iter()
+                    .map(|path| format!("`{path}`"))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                match paths.len() {
+                    1 => "it",
+                    _ => "them",
+                }
+            ),
         }
     }
 
@@ -406,6 +431,14 @@ impl CheckFailed {
             CheckFailed::OutOfScope(OutsideScope::Forbidden { .. })
             | CheckFailed::OutOfBounds { .. } => Some(StepCheck {
                 name: OUT_OF_BOUNDS.to_string(),
+                outcome: CheckOutcome::Failed,
+                expected: Some(self.expected()),
+                produced: Some(self.produced()),
+                output_path: None,
+                reused_from_dry_run: None,
+            }),
+            CheckFailed::HeldOffByFix { .. } => Some(StepCheck {
+                name: HELD_OFF.to_string(),
                 outcome: CheckOutcome::Failed,
                 expected: Some(self.expected()),
                 produced: Some(self.produced()),

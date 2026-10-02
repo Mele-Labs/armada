@@ -238,11 +238,11 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 | The opening brief | A block names the files and the fix, for every Drone the Job puts on, a task's included |
 | The Drone's launch | An edit to each file is denied on the argument list, as a git verb is |
 | `declare_scope` and `request_scope` | A path under a held file, or a directory over one, is refused with its own answer, and no Judge's lift reaches it |
+| The gate | A change to a held file fails the step under its own row, `held_off`, whatever wrote it — a shell command the launch's deny never saw included. No lift reaches it |
 | A Drone already working | Told by the fix report or the peer turn, which name the files |
 
 **The hold outlives the merge.** Fleet merges the base into a Job's branch only as a Drone is put on it (*Catching a branch up*, below), so when the fix lands every held Job's copy is still as broken as it was. The claim is given back at the merge as before, and what it held stays held off each Job until that Job's next catch-up takes the base. Then the files are the Job's again, for any reason of its own, and that Drone is told the fix is already in its copy. A catch-up git could not replay keeps the hold. A fix that ends without landing frees the files at once.
 
-**Refusing a held file at the gate is not built yet.** A write that gets past the launch's deny — a shell command, say — is caught by nothing here until the gate refuses a change to a held file, which waits on the gate work in flight.
 
 ### Catching a branch up
 
@@ -291,6 +291,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **A comment on a pull request is untrusted input.** It is written by whoever can see the pull request. How many there are reaches the Job's log on the sweep and what they say does not — the road a comment's text travels ends at a file in a Drone's worktree, never at a log and never at a prompt directly. The sweep's own one-call budget reads the pull request's conversation and the note beside each review; a comment left on one line of the diff is a second query, asked only where a person opens the comments or presses on them.
 
 **Since `#661`, a changed reading also wakes Bridge, without a reopen.** The same sweep that decides whether to write the Job's log line also compares a stronger signature — every remark's handle, a hash of its words, and every reviewer's verdict — against what it read the sweep before. Where that changed, Fleet publishes `job.remarks_changed`, naming the Job, and Bridge re-asks `get_remarks` for whichever Job's comments are open on screen. The event carries no comments itself: `get_remarks` already answers what changed, and it also brings in the comments left on individual lines of the diff, which the sweep's own read never asks for. Nothing fires on the first sweep to read a given pull request — a Fleet that just started has no earlier reading to compare against, and firing there would publish one of these for every open pull request it holds the moment it came up.
+
+**The title and the comment count are kept on the record, so they outlive the merge.** Everything else the sweep reads is remembered only while the pull request is open, and forgotten when it settles or Fleet restarts. The title is written when Fleet opens the pull request, then on every read, the settling read included. The count is what the sweep's own read finds, so a comment on one line of the diff is not in it, and it stops moving when the pull request settles. A pull request that settled before the rotation ever found it open has a title and no count. `get_job` serves both and never asks the forge for either.
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
 

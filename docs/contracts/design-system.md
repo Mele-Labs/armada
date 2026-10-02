@@ -1785,7 +1785,7 @@ one claim.
 | Primary | `--accent` fill, `--fg-inverse` text, `--shadow-primary` | `--accent-hover` | One per view. Approve, Dispatch |
 | Secondary | `--bg-sunken`, `--border-strong`, `--fg-default` | `--bg-hover` | Everything ordinary |
 | Ghost | transparent, `--fg-muted` | `--bg-hover` • `--fg-default` | Row actions, icon buttons, toolbars |
-| Destructive | transparent, `--status-completed-failed` text and border | fill at 12% | Kill only. Never a filled red button |
+| Destructive | transparent, `--status-completed-failed` text and border | fill at 12% | Kill, and Send it back on a step the gaming check holds — it sends work back rather than forward (owner, 2 Oct 2026). Never a filled red button |
 | Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. The title bar's Dispatch. Never the one solid accent of a view |
 
 ```

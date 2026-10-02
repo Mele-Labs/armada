@@ -456,6 +456,7 @@ impl Bench {
             submitted,
             run.declared.as_ref(),
             &Lifted::of(&run.job),
+            &[],
             fleet::Began::At(&entered_with),
             &recorded,
             &self.work,

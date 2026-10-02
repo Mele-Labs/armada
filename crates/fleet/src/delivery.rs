@@ -267,6 +267,16 @@ where
             .vcs()
             .open_for_review(worktree, base, &review)
             .map_err(|why| Adrift::from_delivery(job.id(), why))?;
+        // **The title is known now, so it is kept now**, rather than waiting
+        // on a sweep that may never find the pull request open. One already
+        // open keeps whatever its own title is; the next read writes it.
+        if matches!(opened, Opened::PullRequest { .. }) {
+            self.store()
+                .lock()
+                .await
+                .record_pull_request_opened(job.id(), review.title())
+                .map_err(Adrift::Writing)?;
+        }
         // **The same composition, kept beside the Job.** The pull request
         // already carries `review`'s Markdown; this is what lets `get_job`
         // serve the sections it was built from with no second read of the

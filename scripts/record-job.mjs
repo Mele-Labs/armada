@@ -107,6 +107,8 @@ for (const [name, route] of [
   ["evidence", "/evidence"],
   ["diff", "/diff"],
   ["remarks", "/remarks"],
+  // The Drones tab's read, which main makes beside the Job's own.
+  ["drones", "/drones"],
 ]) {
   reads[name] = await get(`/jobs/${id}${route}`);
 }
