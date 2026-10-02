@@ -320,10 +320,12 @@ where
                 ended.node().added_by().unwrap_or(StudioAuthor::Person),
             );
             placed += 1;
+            let id = node.id().clone();
             if let Some(handle) = handle {
-                by_handle.push((handle.to_string(), node.id().clone()));
+                by_handle.push((handle.to_string(), id.clone()));
             }
             made.push((node, StudioEdgeId::carried(self.mint().ulid())));
+            id
         };
         for note in &read.notes {
             mint(
@@ -334,13 +336,15 @@ where
                 Some(&note.id),
             );
         }
+        let mut clusters: Vec<(StudioNodeId, &[String])> = Vec::new();
         for cluster in &read.clusters {
-            mint(
+            let id = mint(
                 StudioNodeContent::Cluster {
                     title: cluster.title.clone(),
                 },
                 None,
             );
+            clusters.push((id, &cluster.of));
         }
         for one in &read.contradictions {
             mint(
@@ -360,6 +364,32 @@ where
         };
         let author = ended.node().added_by().unwrap_or(StudioAuthor::Person);
         let mut edges: Vec<StudioEdge> = Vec::new();
+        // A Cluster is its Notes, by a `produced` edge from each, the way
+        // grouping makes one. A handle naming no Note in this answer is
+        // skipped, as an unknown one in a relation is.
+        for (cluster, of) in &clusters {
+            let mut joined: Vec<StudioNodeId> = Vec::new();
+            for handle in *of {
+                let Some(note) =
+                    named(handle).filter(|_| read.notes.iter().any(|note| &note.id == handle))
+                else {
+                    continue;
+                };
+                if joined.contains(&note) {
+                    continue;
+                }
+                joined.push(note.clone());
+                if let Ok(edge) = StudioEdge::produced(
+                    StudioEdgeId::carried(self.mint().ulid()),
+                    note,
+                    cluster.clone(),
+                    at.clone(),
+                    author,
+                ) {
+                    edges.push(edge);
+                }
+            }
+        }
         for relation in &read.relations {
             let (Some(from), Some(to)) = (named(&relation.from), named(&relation.to)) else {
                 continue;

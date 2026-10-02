@@ -230,8 +230,8 @@ pub fn check(
                  confirms, even from the keyboard"
             ));
         }
-        // Scope is part of the key, not decoration. `Enter` is `open_focused`
-        // on a list and `open_log` on detail, and those are one binding each on
+        // Scope is part of the key, not decoration. `o` is `open` on a list
+        // and `open_output` on detail, and those are one binding each on
         // a surface a person is looking at — not two acts fighting over a key.
         // Keying on tier and shortcut alone refused a registry that was right.
         let (tier, shortcut, scope) =

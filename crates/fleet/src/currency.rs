@@ -90,7 +90,8 @@ where
         // **One Job at a time from here**, `caught_up_onto`'s own reason: a
         // merge writes into the one `.git` every worktree shares, and this
         // must never run beside a spawn's own catch-up or a delivery's commit
-        // and push.
+        // and push. No Check reads the merge, under `merge_by: push` too: the
+        // push refuses its head until they pass on it, `crate::pushing_onto_base`.
         let outcome = {
             let _at_the_merge_end = self.merge_end().lock().await;
             let (vcs, repo_root, handle, owned_base) = (

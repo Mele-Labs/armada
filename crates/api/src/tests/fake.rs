@@ -36,7 +36,8 @@ use super::shapes::{run_id, status};
 use crate::{Broadcaster, Feed, Refusal, Turns};
 
 pub struct FakeDaemon {
-    jobs: Mutex<Vec<JobSummary>>,
+    /// Every Job held, which the fake's own acts move.
+    pub jobs: Mutex<Vec<JobSummary>>,
     unreadable: Mutex<Vec<UnreadableJob>>,
     events: Broadcaster,
     /// The per-Job transcript channels, so a test can watch one Job while a
