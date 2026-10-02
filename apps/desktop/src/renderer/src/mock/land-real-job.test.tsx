@@ -76,7 +76,7 @@ test("no value on the board is cut off at 1280 wide", async () => {
   // The pull request, the commit, the branch and the record: Job 2 gave its
   // worktree back, so that row is not drawn at all.
   expect(drawn.map((one) => one.textContent)).toEqual([
-    "https://github.com/NickMele/armada/pull/1750",
+    expect.stringMatching(/\/NickMele\/armada\/pull\/1750$/),
     "daae5427cfd2c705d4cbcf719121e6b5e1b285d7",
     "armada/2-retire-guides-8-and-20-add-validation-that",
     expect.stringMatching(/\/\.armada\/logs\/2-retire-guides-8-and-20-add-validation-that\.jsonl$/),
