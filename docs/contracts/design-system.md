@@ -1228,7 +1228,20 @@ of the Manifest's Setup, Checks and Commands, with everything past it the run's
 own output. `--armada-sheet-wide`, `--armada-sheet-widest` and
 `--armada-sheet-reading` have no token behind them: `packages/tokens` carries
 no width scale for an overlay panel, only the sidebar's own range, which does
-not describe this. Reported, not minted here.
+not describe this. Reported, not minted here. `dock` is `--w-dock`, where
+Plan's task, group and wave-Job panels open.
+
+**Every sheet resizes, and each kind of sheet remembers its own width** (the
+owner, 2 Oct 2026). Helm's handle sits on a sheet's inner edge, contained or
+floating, and drags it between `--w-dock-min` and what leaves `--w-work-min`
+of the area under it uncovered, or the sheet's own size where that is wider.
+A sheet beside another keeps its `--space-4` gap at whatever width that one
+was dragged to. Each sheet names its kind (`plan-task`, `drone`, `job-diff`),
+and a kind opens at the width it was last dragged to, across a restart: a log
+panel dragged wide leaves Plan's task panel as it was. One shared width and
+none at all were the alternatives, and he chose this over both, at a little
+more to remember. A kind never dragged opens at its size. At the floor a sheet
+is flush to both edges and has no handle.
 
 ### Stacking
 
