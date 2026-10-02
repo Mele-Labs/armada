@@ -90,6 +90,8 @@ Job detail carries the same rehearsal for one Job, against the Manifest that Job
 
 Where the Job's worktree no longer exists, **Run…** stays in place, disabled, and the row says why.
 
+**Retired: Run… and Run it here.** *Where things are* and the step's Checks chapter, which drew them, went with Overview's reframe of 29 Sep 2026, and their code is deleted. `r` and the palette are the ways in that remain.
+
 ### What it lists
 
 | Group | Holds | Each row carries |
@@ -122,7 +124,7 @@ A Command with `serve` stays running, on ports from the Job's span. [Manifest](.
 |---|---|
 | Before `ready` passes | The row reads *starting*, with the log streaming |
 | Serving | *serving*, how long it has been up, a button per link, and Stop |
-| The sheet closed | Nothing stops; *Where things are* gains a row per server, with its links |
+| The sheet closed | Nothing stops. *Where things are* drew a row per server, with its links; that region is retired |
 | Started by a Drone | The same row, with Stop |
 | It exits on its own | Its exit code and log, as a failure |
 

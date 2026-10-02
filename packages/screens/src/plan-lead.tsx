@@ -22,8 +22,7 @@ export type PlanLeadProps = {
   /**
    * The plan's gate, as `PlanReview` builds it — the same node Overview's gate
    * draws. At a Judge's refusal it is Overview's own refusal block,
-   * `JudgeAsked`, and Approve the plan is not drawn, so the two cannot offer
-   * different acts.
+   * `JudgeAsked`, with the request field under it and no Approve the plan.
    */
   gate: ReactNode;
   /**
@@ -75,9 +74,12 @@ function originSaid(criterion: CriterionView): string {
  *
  * Drawn only while the step that recorded the plan is waiting on a person.
  *
- * **A Judge's refusal on the step is answered first, and only that** (owner,
- * 1 Oct 2026, `#1748` row 13): Overview's own block, `JudgeAsked`, with the
- * same handler and nothing else, as Overview offers nothing else there.
+ * **A Judge's refusal on the step is answered first** (owner, 1 Oct 2026,
+ * `#1748` row 13): Overview's own block, `JudgeAsked`, with the same handler,
+ * and Approve the plan is not drawn, since approving would skip the question.
+ * **The request field stays open under the block** (owner, 1 Oct 2026, keeping
+ * his 30 Sep call that it is always open), so he can disagree with the Judge
+ * and still ask for changes in one visit.
  */
 export function PlanGate({
   job,
@@ -92,9 +94,12 @@ export function PlanGate({
   onAnswerJudge,
 }: PlanGateProps) {
   const [instruction, setInstruction] = useState("");
-  if (judgeAskedOn(whole, step)) {
-    return (
-      <div className="armada-plan-tab__gate">
+  const asked = judgeAskedOn(whole, step);
+  if (!asked && (step === undefined || step.state !== "awaiting_human")) return null;
+  const empty = instruction.trim() === "";
+  return (
+    <div className="armada-plan-tab__gate">
+      {asked ? (
         <JudgeAsked
           jobId={job.id}
           whole={whole}
@@ -104,14 +109,9 @@ export function PlanGate({
           actingAct={actingAct}
           onAnswerJudge={onAnswerJudge}
         />
-      </div>
-    );
-  }
-  if (step === undefined || step.state !== "awaiting_human") return null;
-  const empty = instruction.trim() === "";
-  return (
-    <div className="armada-plan-tab__gate">
-      <p className="armada-plan-tab__waiting">This plan is waiting on you.</p>
+      ) : (
+        <p className="armada-plan-tab__waiting">This plan is waiting on you.</p>
+      )}
       <Textarea
         label="Request changes to the entire plan"
         rows={3}
@@ -120,15 +120,17 @@ export function PlanGate({
         onChange={(event) => setInstruction(event.target.value)}
       />
       <div className="armada-plan-tab__acts">
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={stale || deciding}
-          pending={deciding}
-          onClick={() => onApproveReview(job.id)}
-        >
-          Approve the plan
-        </Button>
+        {asked ? null : (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={stale || deciding}
+            pending={deciding}
+            onClick={() => onApproveReview(job.id)}
+          >
+            Approve the plan
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="sm"

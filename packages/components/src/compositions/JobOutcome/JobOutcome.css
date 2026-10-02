@@ -11,21 +11,23 @@
   background: var(--bg-sunken);
 }
 
-/* Five tracks declared once on the list and borrowed by each row through
+/* Four tracks declared once on the list and borrowed by each row through
    `subgrid`, so the names and the values line up down the whole region rather
-   than per row. The value's floor is 288px, which is a pull request's address:
-   below it the meta beside it — a pushed ref, longer than the value it
-   annotates — took the room and clipped the address to nothing. Each is a floor and never a fixed width — a fixed one truncates
-   the longest branch name against empty space, which is the defect the
-   fixed-width column rule produced. The value track is the `minmax(0, 1fr)`
-   that absorbs the slack, so growth lands in one deliberate place. */
+   than per row. The body — the value and what is known beside it — takes the
+   slack, so growth lands in one deliberate place.
+
+   **Nothing in the body clips** (owner, 1 Oct 2026). A laptop's 1280px cut the
+   branch, the worktree and the record on the narrow column, and the address
+   and the commit on the wide one: the value had a 288px floor and the meta a
+   track of its own, and the two took turns cutting each other. The body wraps
+   now, the meta drops under the value where the two do not share a line, and
+   a value longer than the column breaks inside itself. */
 .armada-outcome__parts {
   display: grid;
   grid-template-columns:
     min-content
     max-content
-    minmax(calc(var(--space-12) * 6), 1fr)
-    minmax(0, max-content)
+    minmax(0, 1fr)
     max-content;
   gap: var(--space-2) var(--space-3);
   margin: 0;
@@ -60,18 +62,26 @@
   white-space: nowrap;
 }
 
+/* The value, and what is known beside it, on one line where they fit. */
+.armada-outcome__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
 /* The value. Mono, because every one of these is machine-derived, and one step
    under the sans beside it. It copies on click and says so by going to
-   --accent on hover — no `copy` glyph: the affordance token is the affordance. */
+   --accent on hover — no `copy` glyph: the affordance token is the affordance.
+   A path or a branch has no spaces, so it breaks wherever it must. */
 .armada-outcome__value {
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-sm);
   color: var(--fg-default);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease);
 }
@@ -91,19 +101,25 @@
   text-wrap: pretty;
 }
 
+/* The state the part is in, and the meta after it. */
+.armada-outcome__beside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
 /* What is known beside the value. Mono and neutral — nothing below Job level
-   declares a hue for a file count, so it stays neutral. It clips rather than
-   holding its full width: a pushed ref is longer than the value it annotates,
-   and a `max-content` meta squeezed the pull request's address to an ellipsis. */
+   declares a hue for a file count, so it stays neutral. A pushed ref is longer
+   than the value it annotates, so it breaks the way the value does. */
 .armada-outcome__meta {
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-sm);
   color: var(--fg-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .armada-outcome__action {
@@ -170,17 +186,7 @@
   color: var(--fg-default);
 }
 
-/* The count. Mono, because it is a figure — and neutral, because the hue that
-   would say whether it is enough belongs on the criterion it came from. */
-.armada-outcome__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-sm);
-  color: var(--fg-muted);
-}
-
-.armada-outcome__says,
-.armada-outcome__completes {
+.armada-outcome__says {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -190,12 +196,6 @@
   line-height: var(--leading-xs);
   color: var(--fg-muted);
   text-wrap: pretty;
-}
-
-/* What completing it means. Subtle: it is standing copy about the Job's own
-   rule rather than something that happened. */
-.armada-outcome__completes {
-  color: var(--fg-subtle);
 }
 
 /* One thing the Job was held to, and the verb that answered it. Two tracks
@@ -297,13 +297,12 @@
 /* One run of one case. Five tracks on the list, borrowed by each row, so the
    verbs and the frames line up down the set.
 
-   `justify-content: start` puts the slack after the last column rather than
-   between the spec and what became of it: a row read as a sentence — this
-   spec, this verdict, by this hand — pulls apart at a wide window otherwise. */
+   **The table spans its region** (owner, 1 Oct 2026: the rows were bunched up
+   at the left with the region empty beside them). The spec takes two shares
+   of the width and each column after it one, never less than its widest. */
 .armada-outcome__runs {
   display: grid;
-  grid-template-columns: minmax(0, max-content) repeat(4, max-content);
-  justify-content: start;
+  grid-template-columns: minmax(0, max-content) repeat(4, minmax(max-content, 1fr));
   gap: var(--space-1) var(--space-3);
   margin: 0;
   padding: 0;
@@ -376,12 +375,11 @@
   gap: var(--space-2);
 }
 
-/* The run, step by step. Four tracks on the list and the slack after the last,
-   on the runs list's own rule: the row is read as a sentence. */
+/* The run, step by step. Four tracks on the list, spanning the region on the
+   runs list's own rule: the label takes two shares and each column one. */
 .armada-outcome__steps {
   display: grid;
-  grid-template-columns: minmax(0, max-content) repeat(3, max-content);
-  justify-content: start;
+  grid-template-columns: minmax(0, max-content) repeat(3, minmax(max-content, 1fr));
   gap: var(--space-1) var(--space-3);
   margin: 0;
   padding: 0;
