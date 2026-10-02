@@ -2093,6 +2093,22 @@ stood), a run from before 21.9, or an older Fleet. None of them is a resolution,
 no policy rather than `never` or `human_always`. It is `#[serde(default, skip_serializing_if)]
 Option` on Fleet's side and `?:` on Bridge's.
 
+## Protocol 21.10: a kept brief is read back
+
+One route and one DTO: `GET /jobs/:job_id/briefs/:name` (`get_brief`) answers `BriefContents`,
+which is `path`, `lines`, `total_lines`, `bytes` and `whole`. Additive. It is what Pulse's log
+panel reads when a person presses a brief row, so a Judge's or a gaming check's brief opens inside
+Bridge the way a transcript does (the owner's decision, 2 Oct 2026).
+
+**`:name` is the last part of a `brief_path`**, the same file `JobResources.logs` lists as kind
+`brief`. Fleet resolves it inside that Job's briefs directory. A name that would leave it (`..`, a
+separator, another Job's brief, a link out) gets the 422 a name it never kept gets. A missing Job
+is a 404.
+
+**The window is the head, not the tail.** The bounds are `get_check_output`'s, 2,000 lines and
+256 KiB, but a brief opens on its criterion and ends in the diff, so the start is what is kept.
+`whole` is stated, never inferred.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

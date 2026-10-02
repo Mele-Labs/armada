@@ -394,6 +394,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/jobs/:job_id/frames/:run/:name",
     },
+    // One brief a Judge or a gaming check was asked. `:name` is the last part
+    // of a `brief_path`, resolved inside this Job's briefs directory.
+    Route {
+        operation: "get_brief",
+        method: "GET",
+        path: "/jobs/:job_id/briefs/:name",
+    },
     Route {
         operation: "list_workflows",
         method: "GET",

@@ -603,6 +603,23 @@ The split is `get_call`'s, made against the same measurement. A Check's output i
 `agent_access` is `Yes` since `#697`, and the context cost it was refused for is answered at the door rather than by this column. A tool answer is cut at 64 KiB and says so, naming this route for the rest — and this operation was already a window, which makes it the cheapest of the six to open. What the refusal cost was the larger number: an agent may `start_run` and could not read what the run printed, which is an agent that cannot verify its own work.
 """
 
+[operations.get_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One brief a Judge or a gaming check was asked, read back into the app"
+notes = """
+**The other end of `brief_path`.** `Judged.brief_path` and a gaming flag's `brief_path` have named the file a verdict was argued from since Fleet kept it, and `JobResources.logs` lists it as kind `brief` — but nothing served its contents, so the row opened outside Bridge. The owner decided on 2 Oct 2026 that a brief opens in Pulse's log panel the way a transcript does, and this is what that panel reads.
+
+The split is `get_check_output`'s, on the same measurement: a brief carries the whole branch diff, so it rides no event and no `get_job`. The cheap fact — that there is one, and where — rides the row; the bytes are fetched once, by whoever pressed it.
+
+**`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
+
+**A window from the top**, where `get_check_output`'s is from the bottom, under the same two bounds: 2,000 lines and 256 KiB. A brief opens on the criterion and ends in the diff. `total_lines` is exact and `whole` is stated.
+
+`agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
+"""
+
 [operations.get_frame]
 kind = "query"
 transport = "HTTP"
