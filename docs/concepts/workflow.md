@@ -113,6 +113,12 @@ it, since Revert has no earlier step to put a recording step on — and on
 any step after it. It is refused on a step strictly before the recording
 step, and in a workflow with no recording step at all.
 
+**A step works its tasks a Drone each by declaring `drone_per_task: true`.**
+Fleet puts a Drone on each task in plan order and marks the task itself, so
+the step's Drones get neither plan tool even beside `follows_plan`; the
+step's gate runs once, after the last task is handed in. Feature, Bug and
+Refactor declare it on `implement`. [Plan](plan.md), *A Drone per task*.
+
 **Its Judge reads the plan rendered as text, beside whatever the step
 delivers or changes, labelled apart** — the approach, then every task with
 its id, title, state and a dropped task's reason. `context_paths` is not
