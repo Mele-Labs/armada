@@ -21,6 +21,22 @@ use crate::tests::transcript::reading::{Transcript, A_WRITER_HAS_LONG_ENOUGH};
 
 const HEADING: &str = "OTHER JOBS WRITING WHERE YOU ARE";
 
+/// Fleet's own row for a peer turn. **Not the heading**: `/bin/cat` echoes each
+/// turn back as a second row later, so the heading counts one turn twice and a
+/// read between the two rows sees half of it.
+const TOLD: &str = "\"occasion\":\"peers\"";
+
+/// How many peer turns the transcript records.
+fn turns(written: &str) -> usize {
+    written.matches(TOLD).count()
+}
+
+/// The row recording the last peer turn.
+fn last_turn(written: &str) -> &str {
+    let from = written.rfind(TOLD).expect("a peer turn");
+    written[from..].lines().next().unwrap_or_default()
+}
+
 /// `concurrency::two_at_once`, on a clock the case can move.
 fn two_at_once_on(home: &TempDir, clock: &Arc<Held>) -> (Fixture, Arc<Placing>) {
     let peers = Placing::nothing();
@@ -74,14 +90,12 @@ async fn transcript(fleet: &Fixture, home: &TempDir, job: &JobId) -> Transcript 
     Transcript::of(home, &record.handle(), &drone)
 }
 
-/// The transcript once it mentions the heading more than `past` times, or as it
-/// stands when the wait runs out.
+/// The transcript once it records more than `past` peer turns, or as it stands
+/// when the wait runs out.
 async fn told_more_than(fleet: &Fixture, home: &TempDir, job: &JobId, past: usize) -> String {
     transcript(fleet, home, job)
         .await
-        .until(A_WRITER_HAS_LONG_ENOUGH, |written| {
-            written.matches(HEADING).count() > past
-        })
+        .until(A_WRITER_HAS_LONG_ENOUGH, |written| turns(written) > past)
         .await
         .unwrap_or_else(|stood| stood)
 }
@@ -143,29 +157,19 @@ async fn a_new_shared_path_waits_out_the_spacing_and_a_repeated_one_is_not_said(
     .await;
     declares(&fleet, 51204, &["crates/store"]).await;
     fleet.turn().await.expect("a turn");
-    let once = told_more_than(&fleet, &home, &reader, 0)
-        .await
-        .matches(HEADING)
-        .count();
+    let once = turns(&told_more_than(&fleet, &home, &reader, 0).await);
     assert!(once > 0, "the first overlap is told");
 
     declares(&fleet, 51204, &["crates/store", "crates/ipc"]).await;
     fleet.turn().await.expect("a turn inside the spacing");
     let early = told_nothing_more(&fleet, &home, &reader).await;
-    assert_eq!(
-        early.matches(HEADING).count(),
-        once,
-        "nothing inside the spacing: {early}"
-    );
+    assert_eq!(turns(&early), once, "nothing inside the spacing: {early}");
 
     clock.on(SPACING.as_secs());
     fleet.turn().await.expect("a turn past the spacing");
     let later = told_more_than(&fleet, &home, &reader, once).await;
-    assert!(
-        later.matches(HEADING).count() > once,
-        "told once the spacing passed"
-    );
-    let last = &later[later.rfind(HEADING).expect("the heading")..];
+    assert!(turns(&later) > once, "told once the spacing passed");
+    let last = last_turn(&later);
     assert!(
         last.contains("crates/ipc/src/lib.rs"),
         "the new path: {last}"
@@ -257,10 +261,7 @@ async fn a_note_reaches_the_other_jobs_drone_fenced_as_its_senders_words() {
     let clock = Arc::new(Held::started());
     let (fleet, peers) = two_at_once_on(&home, &clock);
     let (reader, writer) = overlapping(&fleet, &peers, &home, &clock, (51209, 51210)).await;
-    let before = told_more_than(&fleet, &home, &reader, 0)
-        .await
-        .matches(HEADING)
-        .count();
+    let before = turns(&told_more_than(&fleet, &home, &reader, 0).await);
     let handle = fleet.load(&reader).await.expect("the reader").handle();
 
     fleet
@@ -273,7 +274,7 @@ async fn a_note_reaches_the_other_jobs_drone_fenced_as_its_senders_words() {
     fleet.turn().await.expect("a turn");
 
     let heard = told_more_than(&fleet, &home, &reader, before).await;
-    let last = &heard[heard.rfind(HEADING).expect("a peer turn")..];
+    let last = last_turn(&heard);
     assert!(
         last.contains("> I am renumbering migrations, take V64 after me"),
         "the words, behind the marker: {last}"
