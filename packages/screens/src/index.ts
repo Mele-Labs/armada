@@ -39,6 +39,8 @@ export * from "./studio-starting";
 export * from "./pending";
 export * from "./title";
 export * from "./board";
+// The merge line `armada land` keeps, as Fleet serves it. Since 21.12.
+export * from "./merge-line";
 // On All repositories, the question a surface that needs one repository asks first.
 export * from "./AskRepository";
 export * from "./calls";

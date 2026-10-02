@@ -1,5 +1,5 @@
-// The merge line draws only where there is a line: the owner, 2 Oct 2026. A real Bridge is handed
-// none until Fleet serves it, and there neither the rail row nor Overview's panel may draw.
+// The merge line draws only where there is a line: the owner, 2 Oct 2026. Where Fleet serves none,
+// or nobody is in line, neither the rail row nor Overview's panel may draw.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";

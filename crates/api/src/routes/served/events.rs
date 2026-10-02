@@ -114,6 +114,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // `get_merge_lines`' answer, whole, whenever a line moved on disk.
+    Route {
+        operation: "merge_lines.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A Studio after a write, whole, and a Studio deleted.
     Route {
         operation: "studio.changed",

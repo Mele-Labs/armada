@@ -2,25 +2,27 @@
 // its own. **One panel in both places**, the same rows and the same acts, so nothing on the line
 // needs the other view to reach it. They share one fold too.
 //
-// **Only the mock hands a line over.** Fleet does not serve it yet, so a real Bridge draws neither
-// the panel nor the rail row, rather than a sentence about an absence or a row opening nothing.
+// **Drawn only where there is a line**, off what Fleet serves (`mergeLineView`): with nobody in
+// line, or none for this pick, neither the panel nor the rail row draws, rather than a sentence
+// about an absence or a row opening nothing.
 
 import { MergeLine } from "@armada/components";
+import { mergeLineView } from "@armada/screens";
 import { Boundary, SURFACE } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { Drafted } from "./drafted";
-import { useDrafted } from "./drafted";
 import { usePanelOpen } from "./panel-open";
 
+type Lined = Pick<BridgeState, "mergeLines" | "repository">;
+
 /** The surfaces the rail and the palette leave off: the merge line's, until there is a line. */
-export function hiddenSurfaces({ mergeLine }: Drafted): readonly string[] {
-  return mergeLine === undefined ? [SURFACE.mergeLine] : [];
+export function hiddenSurfaces({ mergeLines, repository }: Lined): readonly string[] {
+  return mergeLineView(mergeLines, repository) === undefined ? [SURFACE.mergeLine] : [];
 }
 
-/** The panel, where a line was handed over. */
-export function MergeLinePanel({ onOpenLink }: { onOpenLink: (address: string) => void }) {
-  const { mergeLine } = useDrafted();
+/** The panel, where there is a line. */
+export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink: (address: string) => void }) {
+  const mergeLine = mergeLineView(state.mergeLines, state.repository);
   const [open, setOpen] = usePanelOpen("merge-line");
   if (mergeLine === undefined) return null;
   return (
@@ -36,10 +38,12 @@ export function MergeLinePanel({ onOpenLink }: { onOpenLink: (address: string) =
 
 /** The rail surface: the panel alone, on Overview's own padding. */
 export function MergeLineSurface({
+  state,
   bridge,
   onCopied,
   onOpenLink,
 }: {
+  state: Lined;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
@@ -47,7 +51,7 @@ export function MergeLineSurface({
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview">
-        <MergeLinePanel onOpenLink={onOpenLink} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} />
       </div>
     </Boundary>
   );

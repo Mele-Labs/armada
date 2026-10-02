@@ -812,6 +812,10 @@ impl Queries for FakeDaemon {
         })
     }
 
+    async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
+        Ok(ipc::MergeLines::default())
+    }
+
     async fn search_files(
         &self,
         query: String,

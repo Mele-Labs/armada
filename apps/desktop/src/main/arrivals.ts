@@ -21,7 +21,7 @@ import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
-import { ask, capacityOf, limitsOf, preferencesOf } from "./request";
+import { ask, capacityOf, limitsOf, mergeLinesOf, preferencesOf } from "./request";
 import type { ReviewMaterial } from "./review";
 import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
@@ -175,6 +175,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And every server Fleet holds, once per connection — `server.*` on
     // `/events` carries each row whole from here on.
     void host.rehearsal.readServers(fleet.port);
+    // And each repository's merge line, once per connection — `merge_lines.changed` carries it whole.
+    void mergeLinesOf(fleet.port).then((mergeLines) => host.publish({ mergeLines }));
     // And every question waiting on a person, from every repository: events carry only what is
     // asked next, so what was already waiting is read off the Jobs that can hold one.
     void host.questions.readAll(fleet.port);
@@ -425,6 +427,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Carried whole, so an add made in another window or at the CLI lands without a round trip.
     host.publish({ connection });
     return void host.repositories.listed(event, fleet.port);
+  }
+  if (event.kind === "merge_lines.changed") {
+    // Above the tail, `manifest.reread`'s reason. Replaced whole, never folded.
+    const { kind: _kind, ...mergeLines } = event;
+    host.publish({ connection, mergeLines });
+    return;
   }
   if (event.kind === "studio.changed") {
     // Above the tail, `manifest.reread`'s reason: there is no Job to find. The Studio travels whole,

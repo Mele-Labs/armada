@@ -1025,6 +1025,19 @@ Beside `list_manifests` rather than instead of it: Setup starts from a folder no
 `agent_access` is `No` for `get_repository_scan`'s reason: a root is the owner's checkout on disk.
 """
 
+[operations.get_merge_lines]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, and the newest three that left it"
+notes = """
+A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
+
+A repository nobody has run `armada land` in is left out rather than listed empty. `off` is bounded at three, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026.
+
+`agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
+"""
+
 [operations.add_repository]
 kind = "command"
 transport = "HTTP"
@@ -2957,6 +2970,19 @@ Published when a repository is added by folder, when a clone lands and is added,
 Names no Job, no Drone and no step. No actor and no `at`: the add that caused it answered its own caller, and every other Bridge only needs the list.
 
 A resync does not carry it. A client that reconnects asks `list_repositories` again, as it did before this existed.
+"""
+
+[operations."merge_lines.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A merge line moved on disk, and this is every line now"
+notes = """
+Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
+
+Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """
 
 [operations."studio.changed"]

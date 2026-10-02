@@ -68,6 +68,20 @@ impl OutcomeState {
     }
 }
 
+/// What a batch member's `detail` ends with, before the others it gates with.
+/// `armada land`'s `batch::tell` writes it and [`together`] reads it back, so
+/// `--status` and Fleet read one spelling.
+pub const TOGETHER: &str = " — together with ";
+
+/// A detail split into what the runner is doing and the other members of its
+/// batch, in the order `tell` named them. No suffix is a branch gated alone.
+pub fn together(detail: &str) -> (&str, Vec<&str>) {
+    match detail.split_once(TOGETHER) {
+        Some((doing, others)) => (doing, others.split(", ").collect()),
+        None => (detail, Vec::new()),
+    }
+}
+
 /// What is known about one branch's most recent turn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Outcome {
@@ -154,7 +168,7 @@ pub fn read_outcome(dir: &StateDir, branch: &str) -> Result<Option<Outcome>, Rea
 /// `updated` is taken as an argument rather than read here: this crate
 /// reads no clock of its own — `crates/fleet/src/clock.rs`'s own doc names
 /// itself the one place that does, and a later stage wires its
-/// [`fleet::Clock`] reading down to this call.
+/// `fleet::Clock` reading down to this call.
 pub fn merge_outcome(
     dir: &StateDir,
     branch: &str,

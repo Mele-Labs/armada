@@ -2133,6 +2133,26 @@ is a 404.
 **The window is `get_check_output`'s**: the tail, 2,000 lines and 256 KiB. A brief ends on what
 it asks, after the diff, so a cut brief keeps its question. `whole` is stated, never inferred.
 
+## Protocol 21.12: the merge line, read off disk
+
+One route, one event kind and four DTOs: `GET /merge_lines` (`get_merge_lines`) answers
+`MergeLines`, and `merge_lines.changed` carries the same body whole. Each `MergeLine` is one served
+repository's `root`, its `line` in place order and the newest three `off` it, as `MergeLineEntry`
+rows with `state` a `LandState`. Additive. `docs/capabilities/merge-line.md`, *In Bridge*, has
+the field-by-field table.
+
+**A fleet-wide fact that persists, so a route and an event**, `manifest.reread`'s rule. What is
+new is the writer: `armada land` is another process, so nothing tells Fleet a line moved. Fleet
+reads every served repository's `armada-land/` every two seconds and publishes only when the answer
+changed. Bridge reads the route once per connection and keeps no timer.
+
+**`LandState` is a strict enum, not an open set.** Bridge branches on it: the two live states
+pulse and each end state draws its own facts. A new state is a major move.
+
+**On the unmeasured risk above: neutral.** It adds no queue. It publishes at most once a read and
+only on a change, so a quiet line costs the shared backlog nothing. A busy turn costs a handful of
+events a minute.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

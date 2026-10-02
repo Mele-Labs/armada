@@ -45,7 +45,7 @@
 #   land_state                 - where one branch is on the merge line
 #                                `armada land` keeps. Keys are the words
 #                                `OutcomeState::word` prints in
-#                                `crates/armada/src/land/outcome.rs`. Not
+#                                `crates/adapters/src/land_state/outcome.rs`. Not
 #                                paired: that enum spells through `word`, not
 #                                `as_wire`, and carries no `ALL`
 #   advance_gate               - what it takes to advance past one step. No

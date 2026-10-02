@@ -259,7 +259,7 @@ const PAIRINGS: &[Pairing] = &[
 /// paired as things stand: their enums are `crates/ipc`'s and carry a serde
 /// derive instead of the `ALL` and `as_wire` pair [`read_enum`] reads.
 /// `auto_merge` cannot either: `core_model::AutoMerge` spells through `as_written`.
-/// Nor `land_state`: `armada`'s `OutcomeState` spells through `word`.
+/// Nor `land_state`: `adapters`' `OutcomeState` spells through `word`.
 const VOCABULARIES: &[&str] = &[
     "job_status",
     "queued_reason",

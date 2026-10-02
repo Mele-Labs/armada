@@ -10,7 +10,7 @@ use super::env::Env;
 use super::git::best_effort;
 use super::merge_in::{merge_in, regenerate, MergeInFailed};
 use super::onto_main::{merge_commit, message};
-use super::outcome::{read_outcome, OutcomePatch, OutcomeState};
+use super::outcome::{read_outcome, OutcomePatch, OutcomeState, TOGETHER};
 use super::prepare::{nothing_left, seed};
 use super::queue::QueueEntry;
 use super::repo::{changed_paths, is_ancestor, merge_base, rev_parse};
@@ -37,7 +37,7 @@ pub fn tell(
         let said = if others.is_empty() {
             detail.clone()
         } else {
-            format!("{detail} — together with {}", others.join(", "))
+            format!("{detail}{TOGETHER}{}", others.join(", "))
         };
         say(state, &entry.branch, status, said, patch.clone())?;
     }

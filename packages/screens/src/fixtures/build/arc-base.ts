@@ -37,7 +37,6 @@ import type {
   JobMembersView,
   LandingRule,
   LedgerRow,
-  MergeLineView,
   ProposalView,
   PulseView,
   ScopeRevisionView,
@@ -45,6 +44,7 @@ import type {
   TaskView,
   WaveView,
 } from "../../draft";
+import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
