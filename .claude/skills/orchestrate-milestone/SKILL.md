@@ -40,6 +40,9 @@ buildable. Getting this wrong wastes a whole agent.
 Every brief carries these, and each is here because leaving it out cost something:
 
 - **The skill to load.** `work-issue` first, always.
+- **The slot it works in.** Lease one with `armada worktree lease <branch>`,
+  put the path it prints in the brief, and dispatch without `isolation:
+  "worktree"`. `agent-worktrees` has why, and the release after the merge.
 - **The current verification numbers**, exactly: tests with `--exclude
   acceptance`, acceptance separately, and what `verify-foundations` reads on
   `main`. Ask for the delta, not the absolute — an agent reporting "86 failing"
@@ -136,7 +139,8 @@ two wire changes about to share one version; the door took 13.37.
 - **The heavy-run hook reads command text anywhere in a Bash call**, fixture strings included: a sample Job history saying `pnpm -C apps/desktop test` was refused as a test run. So was a story title with `#801`, which `verify-foundations` read as a colour literal. Keep command text and `#` plus hex digits out of fixtures.
 - **A screen change merged on green checks still looked wrong to the owner** three times: panels jammed to the edge, rows that did not align, a header that wrapped a handle across four lines. A screen change lands only after the owner has looked at it through a walk, served from the agent's worktree, at his widths (about 2000px, and 1284×930 with the dock open). `annotations`, step 4, has the rule.
 
-**Then give the worktree back** — see `agent-worktrees`. At the merge, not later.
+**Then give the worktree back** — `armada worktree release <path>` for a
+leased slot; see `agent-worktrees`. At the merge, not later.
 
 **Restart Fleet when the protocol moves**, and after a store migration. A running
 Fleet is a stale binary the moment you merge, and a major bump means Bridge

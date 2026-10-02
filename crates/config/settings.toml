@@ -477,6 +477,21 @@ notes = """
 Toggle to pause all dispatch for this project (a release freeze, say), independent of per-Job approval. Live — and the checkpoint set is what makes it true: if sub-dispatch is not a gated checkpoint, a frozen Manifest still fans out.
 """
 
+[settings.manifest-worktree-slots]
+name = "Worktree slots"
+scope = "Manifest only"
+default = "8"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "armada"
+notes = """
+`setup.worktrees` in the root `armada.yml`: how many permanent, warm worktrees the repository keeps under `.armada/slots/` and leases out through `armada worktree lease`. **The pool is the cap**: with every slot held, a lease waits rather than cutting another tree. Read at each lease, so a change applies to the next one; lowering it leaves the slots above the new number on disk, unleased.
+
+**Agents only, so far.** Fleet's Jobs still cut their own worktree under `.armada/worktrees/`, and do not count against the pool. `docs/concepts/fleet.md`, *Worktree slots*.
+"""
+
 [settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only]
 name = "Helm action authority (Tier 1 Redirect enabled vs read-only)"
 scope = "Machine"

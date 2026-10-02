@@ -50,7 +50,9 @@ export function turnArrived(
 
 /**
  * What a run of transcript messages does to the turns held so far, and the
- * `seq` the next row takes.
+ * `seq` the next row takes. `behind` is present where a `missed` is among these
+ * messages, after any `opened`: the pane has a gap, and a live reader reopens the socket
+ * so the backfill redraws it whole (#1759). A replay cannot, and keeps the count.
  *
  * **Batched because a backfill is up to 2048 rows**, and copying `rows` once
  * per message made opening a Job quadratic. `rows` is copied once per call and
@@ -61,9 +63,10 @@ export function turnsArrived(
   held: Turns,
   messages: readonly TurnMessage[],
   seq: number,
-): { turns: Turns; seq: number; ended?: string } {
+): { turns: Turns; seq: number; ended?: string; behind?: true } {
   let { live, skipped, missed, rows } = held;
   let owned = false;
+  let behind = false;
   for (const message of messages) {
     if (message.message === "opened") {
       // `live` and `skipped` are stated once, on the first message, and are
@@ -74,6 +77,7 @@ export function turnsArrived(
       missed = 0;
       rows = [];
       owned = true;
+      behind = false;
     } else if (message.message === "row") {
       if (!owned) {
         rows = rows.slice();
@@ -86,13 +90,16 @@ export function turnsArrived(
       // gap reads as a Drone that went quiet, which is the one thing this
       // record exists to tell apart.
       missed += message.dropped;
+      behind = true;
     } else {
       // `closed` carries why, because a socket that simply stops is
       // indistinguishable from one that broke. The rows are kept.
-      return { turns: { live: false, skipped, missed, rows }, seq, ended: message.because };
+      const turns = { live: false, skipped, missed, rows };
+      return behind ? { turns, seq, ended: message.because, behind } : { turns, seq, ended: message.because };
     }
   }
-  return { turns: { live, skipped, missed, rows }, seq };
+  const turns = { live, skipped, missed, rows };
+  return behind ? { turns, seq, behind } : { turns, seq };
 }
 
 function turnOf(message: TurnMessage & { message: "row" }, seq: number): Turn {

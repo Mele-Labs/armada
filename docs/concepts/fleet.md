@@ -312,6 +312,48 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default. `ThrottleInterval` 2 brings that to 2.6 s.
 
+## Worktree slots
+
+**A repository keeps a pool of permanent, warm worktrees and leases them out**,
+so an agent's build starts from the last one's `target/` instead of from
+nothing. Each slot is a checkout at `.armada/slots/slot-<n>`, beside
+`.armada/worktrees/` and never inside it, and the Manifest's
+`setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
+worktrees a repository leases*.
+
+> **Rule.** The pool is the cap. With every slot held, a lease waits and says
+> so; it never cuts another tree.
+> Why: on 2 Oct 2026 twenty-six agent worktrees each built the workspace cold
+> on a machine already loaded past 20 on 18 cores.
+
+| Act | What happens |
+|---|---|
+| Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
+| Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
+| Status | Every slot, its branch, who holds it and for how long |
+
+**A lease is held for a process, recorded beside the slot as its pid and start
+time.** The command that leases exits at once, so a lock held open could not
+be the holder; the `flock` on `slot-<n>.lease` only makes one take or release
+at a time. The holder is the process that ran the shell the command was run
+from — an agent's session, or the terminal a person typed in.
+
+> **Rule.** A slot whose holder is gone is taken back only when its tree is
+> clean and nothing on it is unlanded. Otherwise it stays held, and a lease
+> waiting for a slot names it.
+> Why: a slot is reused, and reuse must never be what throws work away.
+
+> **Rule.** A lease refuses a branch that already exists with commits on
+> neither the remote nor the base.
+> Why: a lease cuts its branch fresh from the base, and resetting one that
+> holds work would orphan it.
+
+**Fleet's Jobs do not lease from the pool.** A Job still cuts its own worktree
+under `.armada/worktrees/<handle>`, derived from its id, and holds it until
+retention sweeps it — see `../contracts/system-architecture.md`, which fixes
+that path. `armada worktree` and its forms are in
+`../practices/running-locally.md`, *Leasing a worktree*.
+
 ## Ports
 
 A Job claims a contiguous span of ports for the life of its worktree. Each repository's main checkout claims one too, held while Fleet runs; the proof run after a merge and any server started with no Job draw from it. Fleet's own listener claims a single port the same way, out of the same range.

@@ -191,6 +191,49 @@ describe("a full backfill", () => {
   });
 });
 
+describe("a Bridge that falls behind a Job's turns", () => {
+  // #1759, spike 022's choice: `/events`' resync one socket over. The history
+  // is the transcript file, so one bounded backfill redraws what was dropped.
+  it("reopens, and the backfill redraws the pane whole without emptying it first", async () => {
+    const server = new WebSocketServer({ host: HOST, port: 0 });
+    await once(server, "listening");
+    opened.push(() => server.close());
+    const connections: Promise<Socket>[] = [];
+    let next: (socket: Socket) => void = () => {};
+    const awaitConnection = () => connections.push(new Promise((keep) => (next = keep)));
+    awaitConnection();
+    server.on("connection", (socket: Socket) => {
+      const keep = next;
+      awaitConnection();
+      keep(socket);
+    });
+    const arrived = (n: number) => connections[n - 1] as Promise<Socket>;
+    const published = watching();
+    const turns = new ObserveSocket((state) => published.publish(state));
+    opened.push(() => turns.close());
+
+    turns.open((server.address() as AddressInfo).port, A_JOB);
+    const first = await arrived(1);
+    first.send(JSON.stringify(OPENED));
+    first.send(JSON.stringify({ ...A_ROW, text: "row 0" }));
+    first.send(JSON.stringify({ message: "missed", dropped: 2 }));
+    first.send(JSON.stringify({ ...A_ROW, text: "row 3" }));
+
+    const second = await arrived(2);
+    second.send(JSON.stringify(OPENED));
+    for (let at = 0; at < 4; at += 1) second.send(JSON.stringify({ ...A_ROW, text: `row ${at}` }));
+    const whole = await published.until((state) => "turns" in state && state.turns.rows.length === 4);
+
+    expect("turns" in whole && whole.turns.rows.map((row) => row.saw)).toEqual(
+      [0, 1, 2, 3].map((at) => ({ event: "said", text: `row ${at}` })),
+    );
+    expect("turns" in whole && whole.turns.missed).toBe(0);
+    // Nothing between the two connections read as a pane starting over.
+    const after = published.seen.slice(published.seen.findIndex((state) => state.state === "watching"));
+    expect(after.every((state) => state.state === "watching" && state.turns.rows.length > 0)).toBe(true);
+  });
+});
+
 describe("a row Fleet stamped with its Drone", () => {
   // **The frame byte for byte as Fleet sends it**: the string
   // `crates/ipc/src/tests/turns.rs` asserts `TurnMessage::Row` encodes to.

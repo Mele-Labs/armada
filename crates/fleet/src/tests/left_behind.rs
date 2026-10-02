@@ -62,6 +62,24 @@ impl Left {
         self.seen_end.set(self.seen_end.get() || ended);
         ended
     }
+
+    /// Whether it has ended, without waiting.
+    fn has_ended(&self) -> bool {
+        let ended = self.ended.try_recv().is_ok();
+        self.seen_end.set(self.seen_end.get() || ended);
+        self.seen_end.get()
+    }
+
+    /// Once it has ended. **No deadline**: what ends it has already been sent,
+    /// and a stalled machine is not a group that survived it.
+    fn ended(&self) {
+        if !self.seen_end.get() {
+            self.ended
+                .recv()
+                .expect("the waiting thread reports how it ended");
+            self.seen_end.set(true);
+        }
+    }
 }
 
 impl Drop for Left {
@@ -109,10 +127,7 @@ async fn a_group_a_crashed_fleet_left_running_is_ended_at_startup() {
         .reaped_left_servers(fleet.first().records_root())
         .await;
     assert_eq!(reaped.ended, 1, "{reaped:?}");
-    assert!(
-        left.ended_within(Duration::from_secs(5)),
-        "the group was ended"
-    );
+    left.ended();
     assert!(!dir.join("held").exists(), "and its record removed");
 }
 
@@ -156,13 +171,12 @@ async fn the_main_checkouts_span_is_free_after_the_cleanup() {
         "python3",
         &["-m", "http.server", &port_text, "--bind", "127.0.0.1"],
     );
-    let bound = tokio::time::timeout(Duration::from_secs(10), async {
-        while BindConnectProbe.free(port) {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await;
-    assert!(bound.is_ok(), "the leftover server is holding its port");
+    // **Until it binds or ends, with no deadline**: a 10s one failed when
+    // python took longer to start, and a bind that failed ends python at once.
+    while BindConnectProbe.free(port) {
+        assert!(!left.has_ended(), "python ended before binding {port}");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
     let dir = a_server_dir(&home, "01HOLDSAPORT");
     recorded(
         &dir,
@@ -175,10 +189,7 @@ async fn the_main_checkouts_span_is_free_after_the_cleanup() {
 
     fleet.reconcile().await.expect("startup reconciles");
 
-    assert!(
-        left.ended_within(Duration::from_secs(5)),
-        "ended at startup"
-    );
+    left.ended();
     assert!(BindConnectProbe.free(port), "its port is free");
     assert_eq!(
         fleet

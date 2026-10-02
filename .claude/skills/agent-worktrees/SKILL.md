@@ -1,6 +1,6 @@
 ---
 name: agent-worktrees
-description: Cutting an agent worktree and giving it back — the cleanup that has to happen when a branch merges, and why a build directory is not the thing to delete. Load before dispatching agents at issues, and before merging their work.
+description: Leasing an agent a warm worktree slot and releasing it, or cutting a worktree and giving it back — the cleanup that has to happen when a branch merges, and why a build directory is not the thing to delete. Load before dispatching agents at issues, and before merging their work.
 ---
 
 # Agent worktrees
@@ -13,6 +13,39 @@ until a disk fills mid-run.
 That has happened once, and it cost the session: **74 worktrees, 220 GB, three
 agents dead at zero bytes free** with uncommitted work in each. This skill is
 what that taught.
+
+## Lease a slot rather than cut a tree
+
+**Every cut tree builds the workspace cold.** On 2 Oct 2026 there were 26 agent
+worktrees, each building from nothing, on a machine loaded past 20 on 18 cores.
+The repository keeps a pool of warm slots instead — `setup.worktrees` in
+`armada.yml`, eight by default — and the pool is the cap.
+
+```
+path=$(armada worktree lease <branch>)   # waits while every slot is held
+armada worktree --status                 # who holds each, and since when
+armada worktree release <path>           # after the branch lands
+```
+
+**The dispatcher leases, and the path goes in the brief.** Dispatch without
+`isolation: "worktree"`, and tell the agent to work only at that path, with
+absolute paths and `git -C <path>` — the rest of this skill still applies to it.
+The lease is held for the session that ran the command, so lease from the
+session that will release it.
+
+**Release at the merge, never remove.** A release refuses while anything is
+uncommitted or on neither the remote nor the base, so it is the dirty check and
+the unmerged check in one. It detaches the slot and leaves its `target/`; the
+branch stays until you delete it. A slot whose session ended without releasing
+is taken back by the next lease only when it is clean and landed — otherwise it
+reads `stranded` in `--status` and stays held.
+
+**Only where `armada` does not know the verb**, because the installed binary
+predates it, fall back to `isolation: "worktree"` and everything below.
+`scripts/restart` installs the current binary.
+
+**The pool does not reach `.claude/worktrees/`.** Those already cut are left as
+they are; give each back by the rules below.
 
 ## Give it back when the branch merges
 

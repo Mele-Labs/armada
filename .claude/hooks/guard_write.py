@@ -151,9 +151,10 @@ def main() -> None:
 def in_checkout(root: str, rel: str) -> "tuple[str, str]":
     """The checkout a repo-relative path is in, and the path within that checkout.
 
-    A worktree under `.claude/worktrees/` or `.armada/worktrees/` is its own.
+    A worktree under `.claude/worktrees/`, `.armada/worktrees/` or a leased slot
+    under `.armada/slots/` is its own.
     """
-    for prefix in (".claude/worktrees/", ".armada/worktrees/"):
+    for prefix in (".claude/worktrees/", ".armada/worktrees/", ".armada/slots/"):
         if rel.startswith(prefix):
             name, _, within = rel[len(prefix):].partition("/")
             if within:
