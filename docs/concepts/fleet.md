@@ -238,11 +238,11 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 | The opening brief | A block names the files and the fix, for every Drone the Job puts on, a task's included |
 | The Drone's launch | An edit to each file is denied on the argument list, as a git verb is |
 | `declare_scope` and `request_scope` | A path under a held file, or a directory over one, is refused with its own answer, and no Judge's lift reaches it |
+| The gate | A change to a held file fails the step under its own row, `held_off`, whatever wrote it — a shell command the launch's deny never saw included. No lift reaches it |
 | A Drone already working | Told by the fix report or the peer turn, which name the files |
 
 **The hold outlives the merge.** Fleet merges the base into a Job's branch only as a Drone is put on it (*Catching a branch up*, below), so when the fix lands every held Job's copy is still as broken as it was. The claim is given back at the merge as before, and what it held stays held off each Job until that Job's next catch-up takes the base. Then the files are the Job's again, for any reason of its own, and that Drone is told the fix is already in its copy. A catch-up git could not replay keeps the hold. A fix that ends without landing frees the files at once.
 
-**Refusing a held file at the gate is not built yet.** A write that gets past the launch's deny — a shell command, say — is caught by nothing here until the gate refuses a change to a held file, which waits on the gate work in flight.
 
 ### Catching a branch up
 
