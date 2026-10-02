@@ -1,5 +1,6 @@
 // What an issue drafted from a For context finding starts as, for a person to edit. #906.
 
+import { proseText } from "@armada/components";
 import type { JobConfidence } from "@armada/protocol";
 
 export type IssueDraft = { finding: string; title: string; body: string };
@@ -10,7 +11,7 @@ export function issueDraftOf(confidence: JobConfidence, finding: string): IssueD
   const reason = why === "" ? "" : `\n\nWhy it was raised: ${why}`;
   return {
     finding,
-    title: finding.replaceAll("`", ""),
+    title: proseText(finding),
     body: `${finding}${reason}\n\nRaised by Armada's review.`,
   };
 }
