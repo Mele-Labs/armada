@@ -252,6 +252,20 @@ woken only by a message, never by its background build finishing. Confirmed
 watched and woken by hand each time. Put *"run heavy commands in the foreground
 and wait; never end your turn while a run is in the background"* in the brief.
 
+**A brief points, so the agent reads less.** Give each file as `path:line`, name
+at most two skills (the one the work needs, plus `commit-message`), and put
+*"read by range — grep first, never read a file over 300 lines whole; tail test
+output"* in the brief. An agent starts cold, and what it reads to find its place
+is most of what it costs. Confirmed 2 Oct 2026: four Studio agents briefed with
+five skills each and file names without lines used 61k–551k tokens apiece, and
+the session's own `/context` put reads at 55% of everything it took in.
+
+**Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a
+merge or a conflict, a doc or registry edit, a fix whose cause the brief already
+names. Design, visual work and anything that crosses the seam stays on the
+default model. The owner asked for this on 2 Oct 2026, for the same reason as
+the rule above.
+
 **An agent that stalls takes its uncommitted work with it.** Confirmed 17 Sep
 2026: two `bridge-engineer` agents in a row, each briefed to move the Board's
 Storybook tests onto App, ended on *"no progress for 600s"*. Neither had
