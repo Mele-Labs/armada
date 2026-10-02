@@ -200,6 +200,10 @@ approximations.
   — the nine headers an agent CLI's HTTP MCP client sends, measured against a
   logging server, and why refusing a request that carries an `Origin` cannot
   refuse a Drone submitting evidence.
+- [`spikes/022-the-wire-lock-for-the-new-job.md`](spikes/022-the-wire-lock-for-the-new-job.md)
+  — the wire the new Job is built against: each draft type's DTO, bump and
+  source of truth, the questions left for the owner, and the backend milestone
+  in slices. Awaiting his sign-off.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
