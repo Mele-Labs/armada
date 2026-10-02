@@ -37,17 +37,18 @@ export type StepAttempt = {
   /** Absent is the run still going, and there is at most one of those. */
   ended_at?: string;
   /**
-   * What both Manifest policies resolved to when this run passed its gate.
-   * Since 21.9. Absent is a run with nothing recorded: one still going, one a
-   * gate stopped before it read the policies, one from before 21.9, or an
-   * older Fleet. Never read it as either policy's default.
+   * What both Manifest policies resolved to at the gate this run reached.
+   * Since 21.9; on a run an earlier gate stopped since 21.10, with `decided`
+   * false. Absent is a run with nothing recorded: one still going, one that
+   * reached no gate, one from before 21.9, or an older Fleet. Never read it as
+   * either policy's default.
    */
   resolved?: ResolvedPolicies;
 };
 
 /**
- * What a gate resolved `auto_merge` and `review_gate` to, on the run it passed,
- * spelled as `armada.yml` writes them. Both or neither. `ManifestSummary`'s two
+ * What a gate resolved `auto_merge` and `review_gate` to, on the run that
+ * reached it, spelled as `armada.yml` writes them. Both or neither. `ManifestSummary`'s two
  * words say what the repository says today, which is a different fact.
  */
 export type ResolvedPolicies = {
@@ -55,4 +56,10 @@ export type ResolvedPolicies = {
   auto_merge: string;
   /** `human_always` or `auto_if_judge_passes`. */
   review_gate: string;
+  /**
+   * Whether the run reached the advance gate, where the rule decides: held or
+   * advanced. False is a run its Checks, its Judge or its gaming check stopped
+   * first; the two words say what the rules were then. Since 21.10.
+   */
+  decided: boolean;
 };
