@@ -339,6 +339,7 @@ where
         let Ok(read) = ipc::what_a_scout_read_in(learned) else {
             return;
         };
+        let read = zone::without_thin_clusters(read);
         if read.empty() {
             return;
         }

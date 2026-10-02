@@ -458,6 +458,49 @@ async fn a_cluster_read_in_is_produced_by_each_note_it_names() {
     );
 }
 
+/// **A read-in lands no Cluster of fewer than two Notes**, as grouping by hand
+/// refuses one: a Cluster naming one Note, and one naming none that came back,
+/// make no frame, and the Notes still land in the Zone. The owner, 2 Oct 2026.
+#[tokio::test]
+async fn a_cluster_of_one_note_or_none_lands_no_frame_and_its_note_still_lands() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"One\",\"of\":[\"n1\"]},{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    let thread = home.path().join("helm");
+    std::fs::create_dir_all(&thread).expect("a helm directory");
+    std::fs::write(
+        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
+        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    )
+    .expect("a thread");
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 5).await;
+    assert_eq!(
+        kinds(&read),
+        ["link", "zone", "finding", "note", "note"],
+        "no frame round one Note, and none round nothing"
+    );
+    for note in &read.nodes[3..] {
+        assert_eq!(
+            note.within.as_ref(),
+            Some(&read.nodes[1].id),
+            "loose in the Zone"
+        );
+    }
+}
+
 /// **A session is found by this checkout's own project directory**, so one
 /// belonging to another repository is not addressable rather than refused.
 #[tokio::test]
