@@ -444,7 +444,6 @@ export const SCENARIOS: readonly Scenario[] = [
     reads: {},
   },
   recordedBoard(),
-  // Three merge lines under a few Jobs. Overview draws a panel for each below its lists.
   lined(
     holding(
       "merge-line",
