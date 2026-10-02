@@ -189,6 +189,9 @@ test("held by the gaming check: the lead names the refused commands, and the ste
   await page.getByRole("button", { name: /^Regression check, / }).last().click();
   const asks = page.getByRole("region", { name: "Question for you" }).last();
   await expect.element(asks.getByRole("group", { name: "Is the flag right?" })).toBeVisible();
+  // The flagged hunk, as Overview draws it, and not the citation alone: a
+  // line of context only the patch carries.
+  await expect.element(asks.getByText(/expect\(next\.version\)/)).toBeVisible();
   await expect.element(asks.getByRole("button", { name: "Send it back" })).toBeVisible();
   await expect.element(asks.getByRole("button", { name: "Carry on" })).toBeVisible();
 });

@@ -363,6 +363,7 @@ function OneJob(props: JobDetailProps) {
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
           onAnswerJudge={props.onAnswerJudge}
           diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
           opens={{ jobId: job.id, open: props.onOpenArtifact, onSaid: props.onSaid }}
           onOverrule={props.onOverrule}
           onSendBack={props.onSendBack}

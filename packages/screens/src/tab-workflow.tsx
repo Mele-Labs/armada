@@ -93,6 +93,8 @@ export type WorkflowTabProps = {
    * how a flag's brief opens, Carry on and Send it back.
    */
   diff: Diff;
+  /** Ask for this Job's patch, or let it go with `null`. */
+  onReadDiff: (jobId: string | null) => void;
   opens: Opens;
   onOverrule: (jobId: string, reason: string) => void;
   onSendBack: (jobId: string, note?: string) => void;
@@ -140,6 +142,7 @@ export function WorkflowTab({
   actingAct,
   onAnswerJudge,
   diff,
+  onReadDiff,
   opens,
   onOverrule,
   onSendBack,
@@ -176,6 +179,16 @@ export function WorkflowTab({
     trail?.onHere(openedStep === undefined ? null : { id: openedStep.step_id, label: openedStep.label });
     // `trail` is rebuilt by the screen every render; what matters is the step.
   }, [openedStep?.step_id]);
+  // **The patch, while a held step's panel is open**, so the block draws the
+  // flagged lines as Overview's does. Overview reads it for as long as it is
+  // mounted and lets it go when it is not, and the citation alone is what the
+  // panel drew in its place.
+  const flagHeld = heldByAFlag(whole, openedStep);
+  useEffect(() => {
+    if (!flagHeld) return;
+    onReadDiff(job.id);
+    return () => onReadDiff(null);
+  }, [flagHeld, job.id]);
 
   // **Nothing scrolls the panel into view any more, because it is never out of
   // it.** Until 25 Sep the panel was a column that folded under the whole graph
@@ -286,7 +299,7 @@ export function WorkflowTab({
                 />
               ),
             }
-          : heldByAFlag(whole, openedStep)
+          : flagHeld
             ? {
                 // Overview's own block for a step the gaming check holds,
                 // with the same handlers (owner, 2 Oct 2026, #1672).
