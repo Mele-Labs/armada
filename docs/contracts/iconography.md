@@ -529,7 +529,8 @@ Link and Sketch. Its press opens what the checkout declares, and the node lands
 where the person is looking. The owner moved it there on 2 Oct 2026 from a card
 at the whiteboard's top-right (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`).
 It draws `zap`, and no chevron, because the menu-trigger mark is kept off a
-trigger with no label. While the Studio is read-only it and the three kinds
+trigger with no label. `R` and the command palette's Run row open the same
+menu, and the row draws the same `zap`. While the Studio is read-only it and the three kinds
 beside it are drawn off with their reason rather than hidden, so the rail is the
 same in both modes.
 

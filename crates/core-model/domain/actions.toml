@@ -487,3 +487,14 @@ scope = "open studio"
 destructive = false
 confirms = false
 notes = "A Zone rings off part of a Studio so what is in it moves together (#1620). The word is the owner's, 28 Sep 2026: `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. Placing one puts an empty Zone where the board was pressed, with no field: a Zone holds no words, and a node dropped on it goes in. `Z` for zone, shifted because a single letter on an open Studio is a node's and `z` is free only by accident. The glyph is `packages/icons/icons.toml`'s `vector-square`, group `Canvas rail`."
+
+[actions.start_studio_run]
+kind = "Action"
+tier = "Contextual"
+verb = "Run"
+icon = "zap"
+shortcut = "R"
+scope = "open studio"
+destructive = false
+confirms = false
+notes = "Run on a Studio's rail (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`): the key and the palette row open the same menu its press does — the Checks and Commands the checkout declares, then its servers — and the node lands where the person is looking. Added 2 Oct 2026 on the owner's *\"Add it, with R as the original design drew it.\"* Shifted, on `add_note`'s precedent, because `r` is Review on a list and the run sheet on detail. Off when the rail's Run is off, for the rail's reason — read-only, no connection, or nothing declared — and the palette row says that reason. The glyph is the rail's `zap`, whose row reserves it to this act."

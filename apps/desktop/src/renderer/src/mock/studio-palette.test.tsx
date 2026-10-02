@@ -4,7 +4,7 @@
 // **The glyph is read as lucide's class on the drawn `svg`**, `land-real-job.test.tsx`'s precedent:
 // an icon is `aria-hidden`, so no role or name carries which one it is.
 
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted } from "./mount";
@@ -64,4 +64,47 @@ test("the palette's Add a note, link and sketch draw the rail's icons", async ()
     await expect.element(option).toBeInTheDocument();
     expect(glyphOf(option.element()), kind).toBe(glyph);
   }
+});
+
+const runMenu = () => page.getByRole("menuitem", { name: "typecheck", exact: true });
+
+test("R opens the rail's Run menu, and so does the palette's Run, and a pick starts it", async () => {
+  const app = open(studying().scenario);
+  await openTheStudio();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect.element(rail().getByRole("button", { name: "Run", exact: true })).toBeEnabled();
+
+  await userEvent.keyboard("R");
+  await expect.element(runMenu()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => runMenu().query()).toBeNull();
+
+  const list = await palette();
+  const row = list.getByRole("option", { name: /^Run\b/ });
+  expect(glyphOf(row.element())).toBe("lucide-zap");
+  await row.click();
+  await expect.element(runMenu()).toBeVisible();
+
+  const startStudioRun = vi.spyOn(app.api, "startStudioRun");
+  await runMenu().click();
+  await expect.poll(() => startStudioRun.mock.calls.length).toBe(1);
+  expect(startStudioRun.mock.calls[0]![1]).toBe("typecheck");
+});
+
+test("while read-only, R opens nothing and the palette's Run is off with the rail's reason", async () => {
+  open(studying().scenario);
+  await openTheStudio();
+
+  await userEvent.keyboard("R");
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(runMenu().query()).toBeNull();
+
+  const list = await palette();
+  const row = list.getByRole("option", { name: /^Run\b/ });
+  await expect.element(row).toHaveAttribute("aria-disabled", "true");
+  await expect.element(row).toHaveTextContent("Continue this Studio to run something.");
+  // Pressed anyway: a dimmed row is drawn to say why, and choosing it opens nothing.
+  await row.click({ force: true });
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(runMenu().query()).toBeNull();
 });

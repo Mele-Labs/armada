@@ -75,7 +75,8 @@ import { padOf } from "./studio-sketch";
 import type { Drawing } from "./draft/sketch";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
-import { useAddNodeKeys } from "./studio-keys";
+import { useAddNodeKeys, useRunKey } from "./studio-keys";
+import { useRailRun } from "./studio-run-ask";
 import { landingOf, pastedOf } from "./studio-paste";
 import { studioStartEntries, studioStarts, type StudioStart } from "./studio-starting";
 import type { StudioAnswer, StudioRead, StudiosRead } from "./studio-reads";
@@ -117,6 +118,9 @@ function bindingOf(act: string): { shortcut?: string } {
   const key = ACTION[act]?.shortcut;
   return key === undefined ? {} : { shortcut: key };
 }
+
+/** Run's binding, as the registry gives it. */
+const RUN_KEY = ACTION.start_studio_run?.shortcut;
 
 /** What the rail is, and what hovers over what is picked. */
 const RAIL_LABEL = "What you can put on this Studio";
@@ -923,6 +927,10 @@ function addOff(editable: boolean, live: boolean): string | undefined {
  * looking** — the owner, 2 Oct 2026. `useStudioPlacement` reads the viewport
  * React Flow holds, which the rail is inside. **While read-only every act is
  * drawn off with their reason**, so the rail is the same in both modes.
+ *
+ * **`R` and the palette's Run open the same menu**, the owner's word the same
+ * day, so the menu is held here rather than by its trigger. Both are dead
+ * exactly when Run is drawn off, and the palette's row says the same reason.
  */
 function AddRail({
   addOff: off,
@@ -943,6 +951,15 @@ function AddRail({
   onStart: (start: StudioStart, position: StudioPosition) => void;
 }) {
   const place = useStudioPlacement();
+  const [running, setRunning] = useState(false);
+  const runOn = why === undefined && !starting;
+  const runAsked = useCallback(() => setRunning(true), []);
+  useRunKey(runOn, runAsked);
+  useRailRun(why, () => runOn && setRunning(true));
+  // A menu shut by Run going off stays shut when it comes back on.
+  useEffect(() => {
+    if (!runOn) setRunning(false);
+  }, [runOn]);
   const kinds: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
@@ -956,9 +973,12 @@ function AddRail({
     id: "run",
     name: STUDIO_NODE_KIND.run,
     icon: Zap,
-    disabled: why !== undefined || starting,
-    ...(why === undefined ? {} : { why }),
+    disabled: !runOn,
+    // Off, `R` is dead too, so the tooltip offers no binding beside the reason.
+    ...(why === undefined ? (RUN_KEY === undefined ? {} : { shortcut: RUN_KEY }) : { why }),
     menu: {
+      open: running,
+      onOpenChange: setRunning,
       entries: studioStartEntries(starts) ?? [],
       onSelect: (id) => {
         const started = starts.find((one) => one.id === id);

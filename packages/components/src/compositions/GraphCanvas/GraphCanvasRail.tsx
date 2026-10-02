@@ -62,7 +62,13 @@ export type GraphCanvasRailAct = {
        * Run, whose press opens the checkout's commands (the owner, 2 Oct 2026).
        * The chosen entry goes to `onSelect`.
        */
-      menu: { entries: DropdownMenuEntry[]; onSelect: (id: string) => void };
+      menu: {
+        entries: DropdownMenuEntry[];
+        onSelect: (id: string) => void;
+        /** Held by the surface, where something besides the press opens it — Run's `R`. */
+        open?: boolean;
+        onOpenChange?: (open: boolean) => void;
+      };
       onPress?: never;
     }
 );
@@ -101,6 +107,8 @@ export function GraphCanvasRailGroup({ label, acts, disabled = false }: GraphCan
                 entries={act.menu.entries}
                 disabled={off}
                 onSelect={act.menu.onSelect}
+                {...(act.menu.open === undefined ? {} : { open: act.menu.open })}
+                {...(act.menu.onOpenChange === undefined ? {} : { onOpenChange: act.menu.onOpenChange })}
               />
             ) : (
               <Button

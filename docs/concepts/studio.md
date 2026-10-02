@@ -110,7 +110,7 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why.
+> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. `R` and the command palette's Run open the same menu. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why, `R` does nothing, and the palette's row is dimmed with the same reason.
 > Why: the owner asked why Run sat in a card at the board's top-right rather than on the rail, and chose the rail. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
 
 > **Rule.** While a Studio is read-only, every act on the rail is drawn off, each with a tooltip saying Continue turns it on, and none is hidden.
