@@ -72,14 +72,25 @@ pub struct WorkingWindow {
     pub left: Option<Instant>,
 }
 
-/// How many tasks stand where. `done` over `done + working + open` is the
-/// figure a person reads; a dropped task is not counted against it.
+/// How many tasks stand where. `done` over every count but `dropped` is the
+/// figure a person reads: a handed-in task and a failed one join the total and
+/// neither joins `done`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskCounts {
     pub done: u32,
     pub working: u32,
     pub open: u32,
     pub dropped: u32,
+    /// Since 22.0, and absent at zero, as on every Fleet before it.
+    #[serde(default, skip_serializing_if = "none")]
+    pub handed_in: u32,
+    /// Since 22.0, and absent at zero.
+    #[serde(default, skip_serializing_if = "none")]
+    pub failed: u32,
+}
+
+fn none(count: &u32) -> bool {
+    *count == 0
 }
 
 /// A Job's plan changed. **The counts ride along and the plan does not**: a
@@ -101,6 +112,8 @@ impl From<core_model::TaskCounts> for TaskCounts {
             working: counts.working,
             open: counts.open,
             dropped: counts.dropped,
+            handed_in: counts.handed_in,
+            failed: counts.failed,
         }
     }
 }

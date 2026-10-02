@@ -196,6 +196,35 @@ fn dropped_needs_a_reason_and_no_other_state_keeps_one() {
     assert_eq!(TaskUpdate::read("working", ""), Ok(TaskUpdate::Working));
 }
 
+/// Slice 1a adds the two words and no writer: 1b and slice 2 are Fleet's
+/// writers, and neither is a Drone's `update_task` or a person's act.
+#[test]
+fn handed_in_and_failed_are_states_nobody_can_write_yet() {
+    for (said, state) in [
+        ("handed_in", TaskState::HandedIn),
+        ("failed", TaskState::Failed),
+    ] {
+        assert_eq!(TaskState::from_wire(said), Some(state));
+        assert_eq!(
+            TaskUpdate::read(said, ""),
+            Err(NotAnUpdate::FleetMarksIt { state })
+        );
+    }
+}
+
+#[test]
+fn a_handed_in_task_and_a_failed_one_count_against_done_and_are_not_it() {
+    let counts = crate::TaskCounts {
+        done: 1,
+        working: 1,
+        open: 1,
+        dropped: 1,
+        handed_in: 1,
+        failed: 1,
+    };
+    assert_eq!(counts.not_dropped(), 5, "1 of 5, and the drop is out of it");
+}
+
 #[test]
 fn a_task_id_reads_only_its_own_spelling() {
     assert_eq!(TaskId::read("T12").map(TaskId::number), Some(12));

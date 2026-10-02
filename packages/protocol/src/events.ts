@@ -70,7 +70,7 @@ export type Event =
   | ({ kind: "manifest.reread" } & ManifestReading)
   /** The repositories Fleet serves changed; the list now, whole, as `list_repositories` answers. */
   | ({ kind: "repositories.changed" } & RepositoryList)
-  /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 21.12. */
+  /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 22.1. */
   | ({ kind: "merge_lines.changed" } & MergeLines)
   | ({ kind: "run.finished" } & RunRecord)
   /** A run in the main checkout ended. Its own kind: the record names no Job. Since 11.9. */

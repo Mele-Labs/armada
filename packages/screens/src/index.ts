@@ -6,7 +6,7 @@
 // That is what lets a screen be rendered, storied and tested with no daemon.
 //
 // The host calls a screen needs arrive as arguments — `onReadDiff`,
-// `onOpenArtifact`, `onReadCall`, `onNeedMaterial`, `onStage`, `onWant`. Each
+// `onOpenArtifact`, `onNeedMaterial`, `onStage`, `onWant`. Each
 // used to be a `window.armada` call written inline, which is precisely what
 // held these files inside the app.
 
@@ -39,11 +39,10 @@ export * from "./studio-starting";
 export * from "./pending";
 export * from "./title";
 export * from "./board";
-// The merge line `armada land` keeps, as Fleet serves it. Since 21.12.
+// The merge line `armada land` keeps, as Fleet serves it. Since 22.1.
 export * from "./merge-line";
 // On All repositories, the question a surface that needs one repository asks first.
 export * from "./AskRepository";
-export * from "./calls";
 export * from "./outputs";
 export * from "./checkout-runs";
 export * from "./checkout-run-diff";

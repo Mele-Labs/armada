@@ -1,5 +1,5 @@
 // The merge line `armada land` keeps in each repository Fleet serves —
-// `crates/ipc/src/merge_line.rs`. Since protocol 21.12.
+// `crates/ipc/src/merge_line.rs`. Since protocol 22.1.
 //
 // Read once per connection off `get_merge_lines`, and replaced whole by every
 // `merge_lines.changed`. The header rules in `events.ts` hold: hand-written,

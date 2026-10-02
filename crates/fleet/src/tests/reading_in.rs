@@ -132,18 +132,30 @@ fn keyed(key: &str) -> String {
         .collect()
 }
 
-/// What the stand-in was told, once it has been started.
-fn turns(home: &TempDir) -> String {
-    let log = home.path().join("stand-in/turns.log");
-    for _ in 0..1000 {
-        if let Ok(read) = std::fs::read_to_string(&log) {
-            if !read.trim().is_empty() {
-                return read;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(10));
+/// What the stand-in was told, once the scout it ran as has ended.
+///
+/// **After the end, never while it runs**: the shell writes a long turn 1024
+/// bytes at a time, and a read between two writes had half of it. **No
+/// deadline**: a 10s one ran out while process spawns stalled for 30s.
+async fn turns(fleet: &Arc<Reading>, studio: &ipc::Studio, home: &TempDir) -> String {
+    while !fleet
+        .get_studio(studio.id.clone(), None)
+        .await
+        .expect("reads")
+        .nodes
+        .iter()
+        .any(|node| {
+            matches!(
+                &node.content,
+                StudioNodeContent::Finding { ended: Some(_), .. }
+            )
+        })
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("the scout was never told anything");
+    let told = std::fs::read_to_string(home.path().join("stand-in/turns.log")).unwrap_or_default();
+    assert!(!told.trim().is_empty(), "the scout was never told anything");
+    told
 }
 
 fn executable(at: &std::path::Path) {
@@ -204,9 +216,10 @@ fn code(refusal: &Refusal) -> &str {
     }
 }
 
-/// The Studio once it holds `wanted` nodes.
+/// The Studio once it holds `wanted` nodes. **No deadline**, for `turns`'
+/// reason.
 async fn once_there_are(fleet: &Arc<Reading>, studio: &ipc::Studio, wanted: usize) -> ipc::Studio {
-    for _ in 0..1000 {
+    loop {
         let read = fleet
             .get_studio(studio.id.clone(), None)
             .await
@@ -216,7 +229,6 @@ async fn once_there_are(fleet: &Arc<Reading>, studio: &ipc::Studio, wanted: usiz
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("the Studio never reached {wanted} nodes");
 }
 
 fn kinds(studio: &ipc::Studio) -> Vec<&'static str> {
@@ -313,7 +325,7 @@ async fn a_thread_read_in_leaves_the_link_standing_with_notes_and_a_contradictio
     assert_eq!(ended.as_ref().expect("ended").cost_micros, Some(3_100));
 
     // What the scout was told: the thread's prose, and the warning first.
-    let told = turns(&home);
+    let told = turns(&fleet, &studio, &home).await;
     assert!(told.contains("is a Studio per repository?"), "{told}");
     assert!(told.contains("one per repository"), "{told}");
     assert!(
@@ -418,7 +430,7 @@ async fn a_session_of_this_repository_is_read_in_and_another_repositorys_is_not_
         )
         .await
         .expect("read in");
-    let told = turns(&home);
+    let told = turns(&fleet, &studio, &home).await;
     assert!(told.contains("why is the rail per repository?"), "{told}");
     assert!(told.contains("because Helm answers for one"), "{told}");
     assert!(

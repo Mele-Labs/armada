@@ -229,12 +229,6 @@ export function escalatedEvidenceSuspect(): JobFixture {
         ].join("\n"),
       ),
     }),
-    calls: {
-      call_nextest_1: {
-        ok: true,
-        call: { tool: "Bash", call: "call_nextest_1", arguments: "cargo nextest run --workspace", whole: true },
-      },
-    },
     checkOutputs: {
       "regression_verify.1.cargo_nextest.log": {
         ok: true,

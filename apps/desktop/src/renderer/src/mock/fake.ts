@@ -327,8 +327,6 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       }),
     readDiff: async (jobId) =>
       publish({ diff: jobId === null ? nothing : (readsOf(jobId)?.recorded.diff ?? failed(jobId, "/diff")) }),
-    readCall: async (jobId, callId) =>
-      readsOf(jobId)?.calls[callId] ?? refused(path(jobId, `/calls/${callId}`)),
     readCheckOutput: async (jobId, kept) =>
       readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),

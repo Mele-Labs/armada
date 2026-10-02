@@ -68,3 +68,14 @@ test("searching log offers no Open the log", async () => {
   await expect.element(list.getByText("Nothing matches “log”.", { exact: false })).toBeVisible();
   expect(list.getByRole("option", { name: /^Open the log/ }).query()).toBeNull();
 });
+
+// **The owner removed Expand and collapse on 2 Oct 2026**, with the keys that
+// moved through the activity log and opened its rows: the log went, and they
+// reached nothing. Searched by its verb rather than its id, because the
+// palette matches the label and `disclose` never matched anything — and by two
+// words, because Toggle sidebar answers "expand the column".
+test("searching expand and offers no Expand and collapse", async () => {
+  const list = await searched("expand and");
+  await expect.element(list.getByText("Nothing matches “expand and”.", { exact: false })).toBeVisible();
+  expect(list.getByRole("option", { name: /^Expand and collapse/ }).query()).toBeNull();
+});

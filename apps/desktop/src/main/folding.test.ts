@@ -98,6 +98,16 @@ describe("a transcript backfill, folded", () => {
     });
   });
 
+  // #1759. A count leaves the pane with a hole in it; a reader that is behind
+  // reopens, and the backfill that follows is what fills it.
+  it("says it is behind once a `missed` arrives, until a fresh `opened`", () => {
+    expect(turnsArrived(NO_TURNS, [OPENED, rowAt(0)], 0).behind).toBeUndefined();
+    const behind = turnsArrived(NO_TURNS, [OPENED, rowAt(0), { message: "missed", dropped: 2 }, rowAt(3)], 0);
+    expect(behind.behind).toBe(true);
+    expect(turnsArrived(behind.turns, [OPENED, rowAt(0)], 0).behind).toBeUndefined();
+    expect(turnsArrived(NO_TURNS, [{ message: "missed", dropped: 2 }, OPENED], 0).behind).toBeUndefined();
+  });
+
   it("starts over on a second `opened`", () => {
     const again = turnsArrived(NO_TURNS, [OPENED, ...ROWS.slice(0, 5), { ...OPENED, live: false, skipped: 0 }, rowAt(5)], 0);
     expect(again.turns).toEqual({ live: false, skipped: 0, missed: 0, rows: [EXPECTED_ROWS[5]] });

@@ -56,6 +56,20 @@ Still open: whether the root *owns* the lockfile as opposed to merely being able
 
 **`setup.seed` names the build directories a new worktree starts from, and the Commands that fill them.** Fleet runs `warm` in the base checkout when the base moves and marks the seed only once every command has succeeded; it clones `paths` into each new worktree, copy-on-write, before `setup.requires` runs. A Job cut while the seed is warming, or on a volume that cannot clone, starts cold and says why — a seed is never copied in full, and never shared. A repository that declares no seed gets none.
 
+### How many worktrees a repository leases
+
+**`setup.worktrees` is the size of the repository's pool of warm worktrees**, which `armada worktree lease` hands out — [Fleet](fleet.md), *Worktree slots*.
+
+```yaml
+setup:
+  worktrees: 4
+```
+
+- **Absent means eight.**
+- **Zero, a negative number and anything that is not a whole number are refused at load.**
+- **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
+- **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
+
 ### Cross-Workspace Jobs
 
 **A Job that writes in several Workspaces is still one Job.** It has one worktree on one branch, and every Drone it spawns works that one. One worktree per Workspace would mean either several Drones at once or one Drone straddling branches, and neither can produce a single commit.

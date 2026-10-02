@@ -16,11 +16,10 @@ import type { JobDetail, PlanTask } from "@armada/protocol";
 import { coordOfTask, type RunCoord } from "./coord";
 
 /**
- * What a task is doing. **Today's wire has four of these**; `failed` is the
- * draft's own — a task whose own agent stopped without finishing, which is not
- * the same as a person dropping it.
+ * What a task is doing — the wire's six since 22.0. `handed_in` is its agent
+ * done and the Checks not yet answered; `failed` is not a person dropping it.
  */
-export type TaskState = "open" | "working" | "done" | "failed" | "dropped";
+export type TaskState = "open" | "working" | "handed_in" | "done" | "failed" | "dropped";
 
 /** How a task is run. A step's Drone, a Drone of its own, or a whole Job. */
 export type TaskTreatment = "step_drone" | "own_drone" | "job";
@@ -125,13 +124,12 @@ export function taskViewsOf(detail: JobDetail): TaskView[] {
   return (detail.work_plan?.tasks ?? []).map((task) => taskViewOf(detail, task));
 }
 
-// `failed` is the draft's own value and today's wire cannot produce it: a task
-// whose Drone stopped is still `working` on the record, and the failure is the
-// step's. So a state arriving from the wire is carried through as itself, and
-// anything unrecognised reads as `open` rather than as a guess.
+// The wire's six are carried through as themselves, and anything unrecognised
+// reads as `open` rather than as a guess.
 function stateOf(task: PlanTask): TaskState {
   switch (task.state) {
     case "working":
+    case "handed_in":
     case "done":
     case "dropped":
     case "failed":

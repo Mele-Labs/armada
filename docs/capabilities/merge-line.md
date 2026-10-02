@@ -238,7 +238,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 **Overview draws the line as a panel below its lists, and the rail's Merge line row draws the same panel on its own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. The panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. Under it are the branches that just left the line, with their merge commit, failed Checks or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. A conflict's mark is `unplug` and the rail row's is `merge`. **Both draw only where there is a line**: with nobody in line, a real Bridge draws neither the rail row, the palette entry nor the Overview panel. The mock's line is `?walk=theMergeLine`.
 
-**Fleet serves the line since protocol 21.12**, and reads it rather than runs it:
+**Fleet serves the line since protocol 22.1**, and reads it rather than runs it:
 
 ```
 armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/

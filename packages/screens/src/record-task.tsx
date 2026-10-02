@@ -53,7 +53,8 @@ export function TaskRead({
   const evidence = task.scope.length > 0 || owed.length > 0 || checks.length > 0 || touched !== undefined;
   return (
     <>
-      {row.kind === "task_done" && (task.expects !== undefined || task.shown !== undefined) ? (
+      {(row.kind === "task_done" || row.kind === "task_handed_in") &&
+      (task.expects !== undefined || task.shown !== undefined) ? (
         <>
           {task.expects === undefined ? null : <Field label="Expected" value={task.expects} />}
           {task.shown === undefined ? null : <Field label="Shown" value={task.shown} />}

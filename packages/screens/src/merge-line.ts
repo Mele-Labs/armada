@@ -1,7 +1,7 @@
 // The merge line: the branches waiting to land on main, and the ones that just
 // left it, as Overview's panel and the rail's Merge line surface draw them.
 //
-// Fleet serves it since protocol 21.12 — `get_merge_lines`, kept current by
+// Fleet serves it since protocol 22.1 — `get_merge_lines`, kept current by
 // `merge_lines.changed` — reading what `armada land` keeps on disk. This is the
 // one fold from that wire onto the composition's rows.
 

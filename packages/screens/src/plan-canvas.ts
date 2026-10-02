@@ -13,6 +13,7 @@
 
 import {
   GROUP_STATE,
+  TASK_STATE,
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
   type WorkflowStepCardProps,
@@ -68,6 +69,8 @@ const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "c
 const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   open: "not_started",
   working: "running",
+  // In flight until its Checks answer, `group_state.checking`'s reading.
+  handed_in: "running",
   done: "advanced",
   failed: "failed",
   dropped: "stopped",
@@ -108,7 +111,7 @@ export function taskCard(task: TaskView, onOpen: (() => void) | undefined): Work
     kind: "task",
     name: task.title,
     activity: TASK_ACTIVITY[task.state],
-    said: task.state,
+    said: TASK_STATE[task.state]?.verb ?? task.state,
     facts,
     ...(onOpen === undefined ? {} : { onOpen }),
   };

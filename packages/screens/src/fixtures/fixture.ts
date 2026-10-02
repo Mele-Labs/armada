@@ -14,7 +14,6 @@
 // quietly stops matching what Fleet sends.
 
 import type {
-  CallRead,
   CheckOutputRead,
   Crewed,
   FrameRead,
@@ -50,13 +49,6 @@ export type JobFixture = {
    */
   jobDrones?: Crewed;
   recorded: FoldedReads;
-  /**
-   * Answers to `onReadCall`, keyed by the call id a transcript row carries —
-   * `Saw.called.call` and `Saw.answered.call`, the same id `CallArguments.call`
-   * echoes back. `Log.tsx` reads through this key (`cut.id`) when a person
-   * presses a cut argument open.
-   */
-  calls: Record<string, CallRead>;
   /**
    * Answers to `onReadCheckOutput`, keyed by the **basename** of
    * `CheckRun.output_path` — `checks.tsx`'s `ChecksOutput` calls

@@ -146,3 +146,44 @@ fn a_plan_change_travels_under_the_name_the_inventory_declares() {
     let received: Event = decode("an event", body.as_bytes()).expect("reads back");
     assert_eq!(received, event);
 }
+
+/// 22.0's two counts are left out at zero, so a row with no handed-in or failed
+/// task reads exactly as it did before them, and present where one stands.
+#[test]
+fn the_two_new_counts_are_absent_at_zero_and_carried_when_a_task_stands_there() {
+    let none = encode(&crate::TaskCounts::default()).expect("encodes");
+    assert!(
+        !none.contains("handed_in") && !none.contains("failed"),
+        "{none}"
+    );
+    let before: crate::TaskCounts = decode(
+        "task counts",
+        br#"{"done":1,"working":0,"open":2,"dropped":0}"#,
+    )
+    .expect("a Fleet before 22.0's counts still read");
+    assert_eq!((before.handed_in, before.failed), (0, 0));
+    let some = crate::TaskCounts {
+        handed_in: 2,
+        failed: 1,
+        ..crate::TaskCounts::default()
+    };
+    let text = encode(&some).expect("encodes");
+    assert!(
+        text.contains(r#""handed_in":2"#) && text.contains(r#""failed":1"#),
+        "{text}"
+    );
+}
+
+/// Both new states cross under the spellings Bridge matches on.
+#[test]
+fn a_task_state_crosses_as_its_registry_spelling() {
+    for (state, said) in [
+        (core_model::TaskState::HandedIn, "\"handed_in\""),
+        (core_model::TaskState::Failed, "\"failed\""),
+    ] {
+        assert_eq!(
+            encode(&crate::TaskState::from(state)).expect("encodes"),
+            said
+        );
+    }
+}

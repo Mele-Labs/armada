@@ -65,7 +65,6 @@ export function preparing(): JobFixture {
     ]),
     resources: holdsRead({ job_id: JOB_ID, read_at: "2026-09-10T14:11:03.000Z", held: "none", processes: [] }),
     recorded: foldedReads(),
-    calls: {},
     checkOutputs: {},
     frames: {},
     now: NOW,
