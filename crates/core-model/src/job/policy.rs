@@ -193,15 +193,19 @@ impl ReviewGate {
 /// the Record say a step held because the repository said `human_always` at the
 /// time, whatever it says now.
 ///
-/// **Both, always, and no `Default`.** The owner decided both are recorded on
-/// every attempt that passes a gate, not only the one that gated. An attempt
-/// from before this was recorded has no value at all, and a `Default` here is
-/// the call that would let a reader turn that absence into `never` and
-/// `human_always`, a claim nobody made.
+/// **Both, always, on every run that reached any gate, and no `Default`.** The
+/// owner decided both (1 Oct 2026) and every gate, a stopped run's too (2 Oct).
+/// An attempt from before this was recorded has no value at all, and a
+/// `Default` here is the call that would let a reader turn that absence into
+/// `never` and `human_always`, a claim nobody made.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedPolicies {
     pub auto_merge: AutoMerge,
     pub review_gate: ReviewGate,
+    /// Whether the run reached the advance gate, where the rule decides: held
+    /// or advanced. `false` is a run an earlier gate stopped, whose policies
+    /// say what the rules were and decided nothing.
+    pub decided: bool,
 }
 
 #[cfg(test)]

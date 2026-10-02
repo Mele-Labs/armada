@@ -13,8 +13,9 @@
 use std::process::{Command, Output};
 
 use adapter_traits::{
-    Base, BaseOnTheRemote, BroughtUpToDate, Delivery, KeptCurrent, Merged, NotDelivered, NotMerged,
-    Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UnderReview, WhatBecameOfIt,
+    Base, BaseOnTheRemote, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged, NotDelivered,
+    NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UncheckedHead,
+    UnderReview, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree};
 use git2::{BranchType, Repository};
@@ -225,8 +226,24 @@ impl Delivery for GitVcs {
         handle: &str,
         declared: Option<&str>,
         pull_request: Option<u64>,
+        landable: Landable<'_>,
     ) -> Result<PushedOntoBase, NotMerged> {
-        crate::landing::merge_by_push(in_repo, handle, declared, pull_request)
+        crate::landing::merge_by_push(in_repo, handle, declared, pull_request, landable)
+    }
+
+    fn tree_as_it_stands(&self, worktree: &Worktree) -> Result<String, NotDelivered> {
+        crate::snapshot::tree_as_it_stands(std::path::Path::new(worktree.path()))
+            .map_err(|why| NotDelivered::of("reading the worktree as a tree", why.to_string()))
+    }
+
+    fn the_unchecked_head(
+        &self,
+        in_repo: &str,
+        worktree: &Worktree,
+        declared: Option<&str>,
+        checked: Option<&str>,
+    ) -> Result<UncheckedHead, NotMerged> {
+        crate::merging_the_base_in::the_unchecked_head(in_repo, worktree, declared, checked)
     }
 
     fn merge_the_moved_base_in(

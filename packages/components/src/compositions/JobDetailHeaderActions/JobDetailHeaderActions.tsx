@@ -110,6 +110,12 @@ export type JobDetailField = {
    * `step` to be re-cased as a label of its own.
    */
   continues?: boolean;
+  /**
+   * The state the thing this fact names is in, drawn as a badge after the
+   * value: `Pull request #1750 [Merged]`. `Badge`'s own two fields, so a pull
+   * request's state reads the same here as on the Land board's row for it.
+   */
+  badge?: { status: string; icon: LucideIcon; label: ReactNode };
 };
 
 export type JobDetailHeaderActionsProps = {
@@ -318,6 +324,14 @@ export function JobDetailHeaderActions({
                   </span>
                 )}
                 {field.suffix ? <> {field.suffix}</> : null}
+                {field.badge === undefined ? null : (
+                  <>
+                    {field.label !== undefined || field.value !== undefined ? " " : null}
+                    <Badge status={field.badge.status} icon={field.badge.icon}>
+                      {field.badge.label}
+                    </Badge>
+                  </>
+                )}
               </Fragment>
             ))}
           </span>

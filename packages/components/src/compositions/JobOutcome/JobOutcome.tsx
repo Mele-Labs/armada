@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 
+import { Badge } from "../../primitives/Badge/Badge";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_COMPLETION } from "../../guides";
@@ -51,6 +52,12 @@ export type JobOutcomePart = {
   value?: string;
   /** What is known beside the value. Mono and neutral, never a count nothing measures. */
   meta?: ReactNode;
+  /**
+   * The state the part is in, drawn as a badge after the value — a pull
+   * request's `Merged`. `Badge`'s own two fields, so it reads the same here
+   * as in the Job's header.
+   */
+  badge?: { status: string; icon: LucideIcon; label: ReactNode };
   /** Why there is no value. Said in words, never left as a blank. */
   absent?: ReactNode;
   /** A control that opens it. Secondary and unfilled: there is no decision here. */
@@ -78,27 +85,21 @@ export type JobOutcomeCriterion = {
 };
 
 /**
- * The line a finished Job is read by: how many of the things it was held to
- * were met, and what completing it means.
+ * The line a finished Job is read by: where the work got to, and every
+ * criterion under it with what answered it.
  *
- * **The count is the headline and the criteria are under it.** A landed Job
- * that met three of four is not the same Job as one that met four, and a
- * region that opens with a branch name says neither.
+ * **No count, and no rule for completing** (owner, 1 Oct 2026). `0 of 1 with
+ * a verdict recorded` was a count drawn beside the one row it counted, and
+ * read as something missed; `Completes when…` was drawn on a Job that had
+ * completed. The criteria say the first and the Job's badge says the second.
  */
 export type JobOutcomeHeadline = {
   /** `Landed`, `Delivered`. Where the work got to, in one word. */
   verb: ReactNode;
-  /** `2 of 2 met`. Mono, because it is a count and not a claim. */
-  count?: ReactNode;
-  /** The sentence under the count. */
+  /** A sentence under the verb, where there is something true to say. */
   says?: ReactNode;
   /** Every criterion, in the order the Job froze them. */
   criteria?: JobOutcomeCriterion[];
-  /**
-   * What finishing this Job means — "completes when its pull request lands",
-   * or "when every member has landed" where a Job has members (#1530).
-   */
-  completes?: ReactNode;
 };
 
 /** Parts under a heading: what was produced, and what was left behind. */
@@ -151,15 +152,15 @@ export type JobOutcomeStep = {
   meta?: ReactNode;
 };
 
-/** A set of runs under a heading — the handoff run, and what came after it. */
+/**
+ * A set of runs under a heading. **Only a set with a run in it is drawn**
+ * (owner, 1 Oct 2026): a heading over a sentence saying nothing ran read as
+ * something still to run.
+ */
 export type JobOutcomeRuns = {
   name: ReactNode;
   meta?: ReactNode;
   runs: JobOutcomeRun[];
-  /** What a set with no runs in it says. Never an empty table. */
-  absent?: ReactNode;
-  /** A sentence under the set: that there is no before-run, and who may post one. */
-  note?: ReactNode;
 };
 
 export type JobOutcomeProps = {
@@ -173,7 +174,7 @@ export type JobOutcomeProps = {
   /** How the Job was answered, above everything else it left. */
   headline?: JobOutcomeHeadline;
   /** What it cost, as labelled readings. `FigureList`'s own rows. */
-  cost?: { name: ReactNode; figures: Figure[]; note?: ReactNode };
+  cost?: { name: ReactNode; figures: Figure[] };
   /** The run, step by step, with what each came to. */
   steps?: { name: ReactNode; meta?: ReactNode; steps: JobOutcomeStep[]; absent?: ReactNode };
   /** The test runs, one set per heading. */
@@ -237,9 +238,8 @@ export function JobOutcome({
             <span className="armada-outcome__section-name">{cost.name}</span>
           </p>
           <div className="armada-outcome__cost">
-            <FigureList figures={cost.figures} column="fit" />
+            <FigureList figures={cost.figures} column="fit" wraps />
           </div>
-          {cost.note === undefined ? null : <p className="armada-outcome__aside">{cost.note}</p>}
         </section>
       )}
       {steps === undefined ? null : (
@@ -319,21 +319,32 @@ function Parts({
             {part.iconLabel ? <span className="armada-outcome__sr">{part.iconLabel}</span> : null}
           </span>
           <span className="armada-outcome__name">{part.name}</span>
-          {part.value === undefined ? (
-            <span className="armada-outcome__absent">{part.absent}</span>
-          ) : (
-            /* The title carries the whole value however narrow the row gets,
-               and so does the clipboard: a copy that truncated with the
-               display would be worse than the overflow it was fixing. */
-            <span
-              className="armada-outcome__value"
-              title={part.value}
-              onClick={(event) => onCopy(event, part.value as string)}
-            >
-              {part.value}
-            </span>
-          )}
-          <span className="armada-outcome__meta">{part.meta}</span>
+          {/* The value and what is known beside it wrap rather than clip
+              (owner, 1 Oct 2026: a laptop cut every value on the board). The
+              meta goes under the value when the two do not fit on one line. */}
+          <span className="armada-outcome__body">
+            {part.value === undefined ? (
+              <span className="armada-outcome__absent">{part.absent}</span>
+            ) : (
+              <span
+                className="armada-outcome__value"
+                title={part.value}
+                onClick={(event) => onCopy(event, part.value as string)}
+              >
+                {part.value}
+              </span>
+            )}
+            {part.badge === undefined && part.meta === undefined ? null : (
+              <span className="armada-outcome__beside">
+                {part.badge === undefined ? null : (
+                  <Badge status={part.badge.status} icon={part.badge.icon}>
+                    {part.badge.label}
+                  </Badge>
+                )}
+                {part.meta === undefined ? null : <span className="armada-outcome__meta">{part.meta}</span>}
+              </span>
+            )}
+          </span>
           <span className="armada-outcome__action">{part.action}</span>
         </li>
       ))}
@@ -349,12 +360,14 @@ function Parts({
  * two custom properties the same way, and for the same reason: the roster is
  * the state machine's and a stylesheet cannot enumerate it.
  */
-function Headline({ verb, count, says, criteria, completes }: JobOutcomeHeadline) {
+function Headline({ verb, says, criteria }: JobOutcomeHeadline) {
   return (
     <div className="armada-outcome__headline">
       <p className="armada-outcome__verdict">
         <span className="armada-outcome__verb">{verb}</span>
-        {count === undefined ? null : <span className="armada-outcome__count">{count}</span>}
+        {/* What done means, and the four rules a Job may carry, is the guide.
+            It rode on the rule's sentence until that left a finished Job. */}
+        <GuideMark guide={GUIDE_COMPLETION} />
       </p>
       {says === undefined ? null : <p className="armada-outcome__says">{says}</p>}
       {criteria === undefined || criteria.length === 0 ? null : (
@@ -374,51 +387,36 @@ function Headline({ verb, count, says, criteria, completes }: JobOutcomeHeadline
           ))}
         </ol>
       )}
-      {completes === undefined ? null : (
-        <p className="armada-outcome__completes">
-          {completes}
-          {/* Which rule this Job carries is the fact. What a landing rule is,
-              and that there are four, is the guide. */}
-          <GuideMark guide={GUIDE_COMPLETION} />
-        </p>
-      )}
     </div>
   );
 }
 
-/** One set of case runs, or the sentence saying there are none. */
-function Runs({ name, meta, runs, absent, note }: JobOutcomeRuns) {
+/** One set of case runs. */
+function Runs({ name, meta, runs }: JobOutcomeRuns) {
   return (
     <section className="armada-outcome__section">
       <p className="armada-outcome__section-head">
         <span className="armada-outcome__section-name">{name}</span>
         {meta === undefined ? null : <span className="armada-outcome__section-meta">{meta}</span>}
       </p>
-      {runs.length === 0 ? (
-        <p className="armada-outcome__absent" role="note">
-          {absent}
-        </p>
-      ) : (
-        <ol className="armada-outcome__runs">
-          {runs.map((run, at) => (
-            <li className="armada-outcome__run" key={at}>
-              <Spec path={run.spec} />
-              <span
-                className="armada-outcome__run-outcome"
-                {...(run.status === undefined
-                  ? {}
-                  : { style: { color: `var(--status-${run.status})` } })}
-              >
-                {run.outcome}
-              </span>
-              <span className="armada-outcome__run-who">{run.who}</span>
-              <span className="armada-outcome__run-meta">{run.meta}</span>
-              <span className="armada-outcome__run-when">{run.when}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      {note === undefined ? null : <p className="armada-outcome__aside">{note}</p>}
+      <ol className="armada-outcome__runs">
+        {runs.map((run, at) => (
+          <li className="armada-outcome__run" key={at}>
+            <Spec path={run.spec} />
+            <span
+              className="armada-outcome__run-outcome"
+              {...(run.status === undefined
+                ? {}
+                : { style: { color: `var(--status-${run.status})` } })}
+            >
+              {run.outcome}
+            </span>
+            <span className="armada-outcome__run-who">{run.who}</span>
+            <span className="armada-outcome__run-meta">{run.meta}</span>
+            <span className="armada-outcome__run-when">{run.when}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
