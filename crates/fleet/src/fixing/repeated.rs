@@ -192,6 +192,7 @@ fn synthesized(check: &str, test: &str, record: &Job) -> DraftFix {
     DraftFix {
         check: check.to_string(),
         test: test.to_string(),
+        files: Vec::new(),
         failure: format!("`{test}` fails under `{check}` on main, the same as on {handle}."),
         title: format!("Fix `{test}` failing on main under `{check}`"),
         workflow: record.workflow_id().as_str().to_string(),
