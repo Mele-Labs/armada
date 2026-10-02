@@ -106,6 +106,18 @@ export type PlanTask = {
    */
   failed_reason?: string;
   /**
+   * `difficult`, `medium` or `easy`: how hard the planner thought it was, which
+   * picks its model off the Job's `tiers`. **Absent is the planner leaving it
+   * to Armada**, never a fourth word. Since 23.6.
+   */
+  tier?: string;
+  /**
+   * The model a person picked for this task with Edit this task, which beats
+   * the Job's tier map. **Absent is nobody having picked**; the model a Drone
+   * actually ran is on its `JobDrone.model`. Since 23.6.
+   */
+  model?: string;
+  /**
    * Each stretch the task was marked `working`, oldest first. Since 14.5.
    * Absent on a task nobody marked working — and on a Fleet before 14.5.
    */
@@ -191,6 +203,41 @@ export type MovePlan = {
   group: string;
   task?: string;
   after?: string;
+};
+
+/**
+ * Edit this task — `edit_task`, `POST /jobs/{job_id}/tasks/{task_id}/edit`.
+ * Since 23.6 (#1657). **Only the fields a person changed**: one left out is
+ * unchanged, and `note` or `expects` sent empty, or `scope` sent as `[]`,
+ * clears it. Taken on an open or a failed task; `model` is refused unless
+ * `list_models` offers it.
+ */
+export type EditTask = {
+  title?: string;
+  note?: string;
+  scope?: string[];
+  expects?: string;
+  model?: string;
+};
+
+/**
+ * Which model each tier of a Job's tasks runs on — `JobDetail.tiers`. Since
+ * 23.6. **A tier left out is Armada picking**: the Drone runs as its step, or
+ * the Job, would, and its `JobDrone.model` says which. Never `null`.
+ */
+export type TierModels = {
+  difficult?: string;
+  medium?: string;
+  easy?: string;
+};
+
+/**
+ * A person sets a Job's whole tier map — `set_tiers`,
+ * `POST /jobs/{job_id}/set_tiers`. Since 23.6. Refused, and nothing kept,
+ * where any model is one `list_models` does not offer.
+ */
+export type SetTiers = {
+  tiers: TierModels;
 };
 
 /**

@@ -123,7 +123,7 @@ pub enum LandState {
 /// **`OutputMessage`'s three, with its own first message.** A turn's Check
 /// belongs to no Job, so the opening names the line instead: the repository,
 /// the branch and the Check. The lines and the end are `observe_check_output`'s
-/// own, so one reader draws both. Since 23.6.
+/// own, so one reader draws both. Since 23.7.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "message", rename_all = "snake_case")]
 pub enum LandOutputMessage {

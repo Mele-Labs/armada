@@ -305,7 +305,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
 - **A picked repository draws its own line. All draws every repository Fleet serves a line for**, each named by its repository once there is more than one.
 - A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.
-- **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.6. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
+- **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.7. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
 
 ## What it depends on
 

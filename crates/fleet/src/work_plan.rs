@@ -106,8 +106,11 @@ impl fmt::Display for NotPlanned {
                 "group {named} comes after a higher group. List the tasks group by group, \
                  in the order the groups run, and call again"
             ),
+            // A person's act, never a Drone's tool call: here for the match.
             NotPlanned::Refused(
-                why @ (PlanRefused::NoSuchGroup { .. } | PlanRefused::NotInGroup { .. }),
+                why @ (PlanRefused::NoSuchGroup { .. }
+                | PlanRefused::NotInGroup { .. }
+                | PlanRefused::NotEditable { .. }),
             ) => write!(out, "{why}. {CARRY_ON}"),
             NotPlanned::NotKept(why) => write!(
                 out,
@@ -287,6 +290,7 @@ pub(crate) fn receipt_word(change: &PlanChange, plan: &WorkPlan) -> String {
     match change {
         PlanChange::Recorded { .. } => "recorded".to_string(),
         PlanChange::Updated { .. } => "updated".to_string(),
+        PlanChange::Edited { .. } => "edited".to_string(),
         PlanChange::MovedTask { .. } | PlanChange::MovedGroup { .. } => "moved".to_string(),
         PlanChange::Added { .. } => plan
             .tasks()

@@ -113,6 +113,7 @@ mod merge_lines;
 mod merging;
 mod merging_by_push;
 mod migrating;
+mod model_per_task;
 mod modelling;
 mod noticing;
 mod out_of_bounds;

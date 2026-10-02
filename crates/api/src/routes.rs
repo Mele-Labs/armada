@@ -289,6 +289,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(restart_task::<D>),
         )
         .route("/jobs/:job_id/plan/move", post(move_plan::<D>))
+        .route(
+            "/jobs/:job_id/tasks/:task_id/edit",
+            post(crate::commands::edit_task::<D>),
+        )
         .route("/jobs/:job_id/redirect", post(redirect_drone::<D>))
         .route("/jobs/:job_id/restart_step", post(restart_step::<D>))
         .route("/jobs/:job_id/answer_question", post(answer_question::<D>))
@@ -309,6 +313,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/jobs/:job_id/set_review_model",
             post(crate::commands::set_review_model::<D>),
+        )
+        .route(
+            "/jobs/:job_id/set_tiers",
+            post(crate::commands::set_tiers::<D>),
         )
         .route(
             "/jobs/:job_id/remove_allowed_command",

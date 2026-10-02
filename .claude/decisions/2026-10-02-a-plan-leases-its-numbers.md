@@ -6,11 +6,17 @@ Two agent branches each add a store migration, both pick V93, and the one that l
 
 Offered the 14 Sep union-merge plan, a number filled in at landing, and a lease taken when a branch starts, he took none of them: *"We have a new plan system. Why can't part of the plan be that it needs to lease a new migration (also what else besides migrations might need to be leased like this to avoid conflicts)."*
 
-**Chosen: a plan's task declares the leases it needs, and Fleet issues them when the plan is recorded.** Each repository declares its leasable kinds; work outside a plan leases from the CLI.
+**First answer, revised the same day: Fleet issues the number when the plan is recorded.** He then changed who decides: *"instead of fleet issuing the number I really think that we should let whoever proposed the 'needs' defines what they need. Fleet keeps it and when another tasks says that it needs something in the same directory/file, fleet lets that task know that something else is already ahead of it. Heck even potentially letting the two agents communicate with each other and then fleet keeps track of the lease resolution once they decide."*
 
-- **Asked what happens when Job B holds 96 and is ready before Job A, holding 95, he chose "B waits for A".** A Job lands only once every lower number of its kind has landed or been handed back. **Cost he took:** a slow or stuck Job holds the Jobs behind it in the merge line.
-- **Asked whether append-only lists (component exports, CSS imports, `operations.toml`, `icons.toml`, mod lists) belong in the same work, he chose "keep both lines".** No lease; a conflict confined to a declared list file is resolved by taking both sides. **Cost he took:** a list file must hold only entries, or two edits interleave unseen.
+**Chosen: a task declares what it needs on a file, and Fleet records it and the order.** A need is a path and what is needed there, in the declarer's words (`crates/store/src/migrations.rs`, *a new migration*). A second need on the same file hears which Job is ahead and what it took. No repository declares kinds up front; the file is the resource, so a Rails repository's need sits on `db/schema.rb`. A Drone can add a need mid-work, as it corrects its scope.
 
-**Not decided:** whether a stalled Job's lease expires or is taken back by a person.
+- **First to declare goes first, he chose.** Fleet tells the second Job who is ahead and what that Job took, and records the order. The two agents talk only when one asks to go first, and Fleet records what they agree; that part is a later build. **Cost he took:** until it exists, a Job that should jump the queue needs him to reorder it.
+- **The later Job waits at the merge line, he chose.** A Job lands only once every need ahead of it on the same file has landed or been given back. **Cost he took:** a slow or stuck Job holds the Jobs behind it.
+- **Sessions outside Fleet declare from the `armada` CLI, he chose**, the way `armada worktree lease` works. **Cost he took:** a step in `work-issue` an agent can forget, and a forgotten one collides as today.
+- **Append-only lists (component exports, CSS imports, `operations.toml`, `icons.toml`, mod lists) keep both lines, he chose.** No need is declared for them; a conflict confined to a declared list file is resolved by taking both sides. **Cost he took:** a list file must hold only entries, or two edits interleave unseen.
+
+**This changes a rule in `docs/concepts/fleet.md`**, *Write-scope overlap*: "It is deliberately not a lease." Overlap stays a warning; a declared need is the part that is ordered.
+
+**Not decided:** whether a stalled Job's need expires or is taken back by a person.
 
 **Where it landed:** https://github.com/NickMele/armada/issues/1059, rewritten. Nothing built.

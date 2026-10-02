@@ -1,6 +1,6 @@
 // The merge line `armada land` keeps in each repository Fleet serves —
 // `crates/ipc/src/merge_line.rs`. Since protocol 22.1; `landed` and `sent_back` since 23.2, and
-// one Check's log on its own socket since 23.6.
+// one Check's log on its own socket since 23.7.
 //
 // Read once per connection off `get_merge_lines`, and replaced whole by every
 // `merge_lines.changed`. The header rules in `events.ts` hold: hand-written,
@@ -50,7 +50,7 @@ export type MergeLineRow = {
 export type MergeLineCheck = { name: string; state: string };
 
 /**
- * One message on a merge line Check's log socket, `observe_land_check`. Since 23.6.
+ * One message on a merge line Check's log socket, `observe_land_check`. Since 23.7.
  *
  * **`OutputMessage`'s three with its own first one**: a turn's Check belongs to no Job, so the
  * opening names the line. A finished Check's log opens too, sends what it holds and closes
