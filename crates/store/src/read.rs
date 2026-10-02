@@ -184,6 +184,7 @@ impl Store {
         // Both are caches of the fold now, like `status`, and neither is read
         // back: a step move and a Drone arriving are each a row in the log.
 
+        let frozen = maybe(row, "workflow")?;
         let new = NewJob {
             id: job_id.clone(),
             // Refused rather than substituted. A blank here is a row the
@@ -197,14 +198,13 @@ impl Store {
                     detail: blank.to_string(),
                 }
             })?,
-            // The declaration the Job froze, not the id beside it. The
-            // `workflow_id` column is written from this and never read into it.
-            workflow: columns::read_workflow(&maybe(row, "workflow")?.ok_or_else(|| {
-                RowError::WorkflowNotFrozen {
-                    job_id: job_id.clone(),
-                }
-            })?)
-            .map_err(malformed("workflow"))?,
+            // The declaration the Job froze, not the id beside it. Null is a
+            // Job that was dispatched at `proposing` and not yet answered,
+            // whose `workflow_id` names at most what the proposer settled on.
+            workflow: match &frozen {
+                Some(text) => columns::read_workflow(text).map_err(malformed("workflow"))?,
+                None => crate::proposing::settled(string(row, "workflow_id")?),
+            },
             owner_manifest_id: ManifestId::carried(Ulid::carried(string(
                 row,
                 "owner_manifest_id",
@@ -257,26 +257,13 @@ impl Store {
 
         let origin = enum_value(Origin::from_wire, "jobs", "origin", &string(row, "origin")?)?;
         let dispatched_by = dispatched_by(row)?;
-        let created = match origin.top_level() {
-            Some(top_level) => {
-                // `dispatched_by` wins where the two disagree, and the
-                // top-level constructor has nowhere to put one. Refused rather
-                // than dropped.
-                if let Some(by) = dispatched_by {
-                    return Err(RowError::ColumnNotReconstructable {
-                        job_id,
-                        column: "dispatched_by",
-                        value: by.job_id.as_str().to_string(),
-                    });
-                }
-                Job::create_top_level(new, top_level, created_at)
-            }
-            None => {
-                let by = dispatched_by.ok_or_else(|| RowError::SubDispatchedWithoutOrigin {
-                    job_id: job_id.clone(),
-                })?;
-                Job::create_sub_dispatched(new, by, created_at)
-            }
+        let events = self.events_for(&job_id)?;
+        let (created, events) = match crate::proposing::born_proposing(frozen.is_some(), &events) {
+            true => crate::proposing::rebuilt(new, origin, frozen.is_some(), created_at, &events)?,
+            false => (
+                constructed(new, origin, dispatched_by, created_at)?,
+                events.as_slice(),
+            ),
         };
 
         // Not folded, and not on `NewJob`: the worktree is made after creation
@@ -335,8 +322,7 @@ impl Store {
             None => created,
         };
 
-        let events = self.events_for(&job_id)?;
-        Ok((replay(created, &events)?, cached))
+        Ok((replay(created, events)?, cached))
     }
 
     /// The `job_steps` rows, as the seeds creation took: which step, and where
@@ -664,9 +650,10 @@ fn dispatched_by(row: &Row<'_>) -> Result<Option<DispatchOrigin>, RowError> {
         maybe(row, "dispatched_by_job_id")?,
         maybe(row, "dispatched_by_step_id")?,
     ) {
-        (Some(job_id), Some(step_id)) => Ok(Some(DispatchOrigin {
+        (Some(job_id), step_id) => Ok(Some(DispatchOrigin {
             job_id: JobId::carried(Ulid::carried(job_id)),
-            step_id: StepId::new(step_id),
+            // Null on one of a split's extras, which no step dispatched.
+            step_id: step_id.map(StepId::new),
         })),
         (None, None) => Ok(None),
         _ => Err(RowError::MalformedColumn {
@@ -674,5 +661,38 @@ fn dispatched_by(row: &Row<'_>) -> Result<Option<DispatchOrigin>, RowError> {
             column: "dispatched_by_job_id",
             detail: "half of a dispatch origin is present".to_string(),
         }),
+    }
+}
+
+/// A Job's creation, from the constructor its `origin` and `dispatched_by`
+/// name: top-level, one of a split's extras, or sub-dispatched.
+fn constructed(
+    new: NewJob,
+    origin: Origin,
+    dispatched_by: Option<DispatchOrigin>,
+    created_at: Timestamp,
+) -> Result<Job, RowError> {
+    let job_id = new.id.clone();
+    match (origin.top_level(), dispatched_by) {
+        (Some(top_level), None) => Ok(Job::create_top_level(new, top_level, created_at)),
+        // A split's extra names the head and no step of it.
+        (
+            Some(top_level),
+            Some(DispatchOrigin {
+                job_id: head,
+                step_id: None,
+            }),
+        ) => Ok(Job::create_split(new, head, top_level, created_at)),
+        // `dispatched_by` wins where the two disagree, and the top-level
+        // constructor has nowhere to put a step. Refused rather than dropped.
+        (Some(_), Some(by)) => Err(RowError::ColumnNotReconstructable {
+            job_id,
+            column: "dispatched_by",
+            value: by.job_id.as_str().to_string(),
+        }),
+        (None, Some(by)) if by.step_id.is_some() => {
+            Ok(Job::create_sub_dispatched(new, by, created_at))
+        }
+        (None, _) => Err(RowError::SubDispatchedWithoutOrigin { job_id }),
     }
 }

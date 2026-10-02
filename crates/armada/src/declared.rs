@@ -378,7 +378,7 @@ pub enum NotDeclared {
         path: PathBuf,
     },
     /// A test was named, and the Check declares no `one_test` to run it with,
-    /// or the name cannot be one argument.
+    /// or the name is blank.
     NoOneTest {
         name: String,
         test: String,

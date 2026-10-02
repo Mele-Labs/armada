@@ -141,6 +141,23 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
     }
 }
 
+/// **A bare test function's name runs it**, as its full path does: `test`'s
+/// `one_test` matches the name as the last segment of a path, not the whole.
+#[test]
+fn this_repositorys_test_runs_one_test_by_its_bare_name() {
+    let manifest = config::Manifest::load(&repository().join("armada.yml")).expect("it reads");
+    let template = manifest
+        .check("test")
+        .and_then(config::Check::one_test)
+        .expect("`test` declares a one_test");
+    let command = checks_runner::one_test(template, "a_span_holding_one_taken_port_is_not_free")
+        .expect("a name runs");
+    assert!(
+        command.ends_with("-E test(/(^|::)a_span_holding_one_taken_port_is_not_free$/)"),
+        "{command}"
+    );
+}
+
 /// **A Check takes the machine's slots**, waits while every one is held, and
 /// tells what it starts that it holds one, so a Check inside it does not wait
 /// on its own parent.

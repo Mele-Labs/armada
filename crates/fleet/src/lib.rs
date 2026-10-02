@@ -70,6 +70,7 @@ pub mod detach;
 /// enters a prompt.**
 mod dismissing;
 pub mod dispatch;
+mod dispatched;
 pub mod drafting;
 /// Whether the repository still has what `armada.yml` names. **A read of the
 /// repository**, where `daemon::rereading` is a read of the file — a `run`

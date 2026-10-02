@@ -13,7 +13,7 @@
 import WebSocket from "ws";
 
 import type { JournalMessage, Journalled, JobLog } from "@armada/protocol";
-import { NO_NOTES, SOCKET_CLOSED, noteArrived } from "@armada/protocol";
+import { NO_NOTES, SOCKET_CLOSED, notesArrived } from "@armada/protocol";
 import { HOST } from "./runtime-file";
 
 
@@ -31,6 +31,9 @@ export class JournalSocket {
   private log: JobLog = NO_NOTES;
   /** Monotonic per connection. A note's own identity, since none carries one. */
   private seq = 0;
+  /** What arrived this tick, folded once — `ObserveSocket`'s reason. */
+  private pending: JournalMessage[] = [];
+  private folding: NodeJS.Immediate | null = null;
 
   constructor(publish: (journalled: Journalled) => void) {
     this.publish = publish;
@@ -71,6 +74,9 @@ export class JournalSocket {
   }
 
   close(): void {
+    this.pending = [];
+    if (this.folding !== null) clearImmediate(this.folding);
+    this.folding = null;
     const socket = this.socket;
     this.socket = null;
     if (socket === null) return;
@@ -96,11 +102,23 @@ export class JournalSocket {
       this.broke("Fleet sent a message this Bridge could not read.");
       return;
     }
+    this.pending.push(message);
+    this.folding ??= setImmediate(() => this.fold());
+  }
 
-    // What the message does to the log is `noteArrived`'s, in the wire
+  /** Everything that arrived since the last fold, folded at once. */
+  private fold(): void {
+    const jobId = this.jobId;
+    const pending = this.pending;
+    this.pending = [];
+    if (this.folding !== null) clearImmediate(this.folding);
+    this.folding = null;
+    if (jobId === null || pending.length === 0) return;
+
+    // What the messages do to the log is `notesArrived`'s, in the wire
     // package, for `observe.ts`'s reason.
-    const next = noteArrived(this.log, message, this.seq);
-    if (message.message === "note") this.seq += 1;
+    const next = notesArrived(this.log, pending, this.seq);
+    this.seq = next.seq;
     this.log = next.log;
     if (next.ended === undefined) {
       this.publish({ state: "watching", jobId, log: this.log });
@@ -116,6 +134,8 @@ export class JournalSocket {
   }
 
   private ended(because: string): void {
+    // A `closed` still waiting to be folded is the reason a reader wanted.
+    this.fold();
     const jobId = this.jobId;
     if (jobId === null || this.socket === null) return;
     this.socket.removeAllListeners();
@@ -131,8 +151,11 @@ export class JournalSocket {
    * the panel went back to reading as a Job nothing had happened to.
    */
   private broke(detail: string): void {
+    // The notes before the break are read first; a `closed` among them ended
+    // the stream, and the break is past its end.
+    this.fold();
     const jobId = this.jobId;
-    if (jobId === null) return;
+    if (jobId === null || this.socket === null) return;
     // **Let go, not merely dropped.** One of the two ways here is a frame this
     // Bridge could not parse, and that leaves a socket which is otherwise
     // perfectly healthy: without this it stayed open with every listener

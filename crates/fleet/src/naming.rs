@@ -11,12 +11,12 @@
 //!
 //! # It is total rather than best-effort
 //!
-//! **A handle is derived from two columns that never change** — the number the
-//! store allocated at insert and a title that cannot be edited — so an entry
-//! here can be absent but never wrong. And it is not absent: Fleet is the only
-//! thing that creates a Job, [`Names::learn`] is called at the boot read and at
-//! each of the three inserts, so a Job Fleet can write a log line about is a Job
-//! this already holds. A miss means no such Job.
+//! **A handle is derived from the number the store allocated and the title**,
+//! which changes once, when a proposer's answer replaces the request —
+//! `crate::dispatched` learns the new name and moves the log in the same act.
+//! So an entry here can be absent but never wrong, and it is not absent:
+//! [`Names::learn`] is called at the boot read, at each insert and at that
+//! answer, so a Job Fleet can write a log line about is one this holds.
 //!
 //! `std::sync::RwLock` rather than tokio's, for `Fleet::drones`' reason: what
 //! is held across it is a map lookup, and nothing here awaits.
@@ -35,7 +35,7 @@ impl Names {
         Names(RwLock::new(BTreeMap::new()))
     }
 
-    /// Take this Job's name. Idempotent, because a handle cannot change.
+    /// Take this Job's name, over whatever it was called before.
     pub(crate) fn learn(&self, job: &Job) {
         if let Ok(mut names) = self.0.write() {
             names.insert(job.id().clone(), named(job));
