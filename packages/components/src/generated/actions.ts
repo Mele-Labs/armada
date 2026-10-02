@@ -6,8 +6,8 @@
 // `docs/contracts/design-system.md` promises under "One artifact, three
 // columns" and the authority on all three.
 //
-// **A Motion is here and is not an act.** `move_focus`, `open_focused` and
-// `focus_chapter` move the cursor and act on nothing; the registry says they
+// **A Motion is here and is not an act.** `move_focus` and `open_focused`
+// move the cursor and act on nothing; the registry says they
 // appear in no palette and carry no glyph, so they are emitted for
 // completeness and filtered out by anything that draws a list of acts.
 //
@@ -447,19 +447,6 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥↑ ⌥↓",
-    scope: "detail",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
-    id: "focus_chapter",
-    kind: "Motion",
-    tier: "Contextual",
-    verb: "Move between chapters",
-    icon: null,
-    iconAbsent: null,
-    shortcut: "[ ]",
     scope: "detail",
     destructive: false,
     confirms: false,

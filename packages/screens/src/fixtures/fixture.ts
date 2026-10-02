@@ -2,10 +2,9 @@
 //
 // **This is `JobDetailProps`' wire half, and nothing else.** The app never
 // hands `JobDetail` a derived prop — it hands it `JobSummary`, `Watched` and
-// four more reads, and derives the panel itself through `chapters.tsx`,
-// `phases.tsx`, `heading.tsx` and `run.ts`. A story that built `InsideAJob`'s
-// props directly skipped that derivation, and a bug in it — the block-heading
-// wiring `chapters.test.ts` now pins — shipped because nothing rendered it.
+// four more reads, and derives the panel itself through `phases.tsx`,
+// `heading.tsx` and `run.ts`. A story that built `InsideAJob`'s props directly
+// skipped that derivation, and a bug in it shipped because nothing rendered it.
 // `JobFixture` is the input a story gives `JobDetail` instead, so the same
 // derivation the app runs is what a story exercises.
 //

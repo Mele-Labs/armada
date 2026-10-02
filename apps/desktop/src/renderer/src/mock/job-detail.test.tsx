@@ -100,10 +100,10 @@ test("the header's one control opens the rest of what this Job can do", async ()
   await expect.element(page.getByRole("menuitem", { name: /record/i })).toBeVisible();
 });
 
-// **Breakages have no region since 29 Sep 2026.** `workOf` in `work.tsx`
-// built the rows — a Check failing on a test another Job is already fixing,
-// and the count of Jobs waiting on this one to be the fix — and nothing
-// calls it. Two claims stood here and neither has a screen to be made on.
+// **Breakages have no region since 29 Sep 2026.** The rows — a Check failing
+// on a test another Job is already fixing, and the count of Jobs waiting on
+// this one to be the fix — went with the arrangement that drew them. Two
+// claims stood here and neither has a screen to be made on.
 
 const text = () => document.body.textContent ?? "";
 

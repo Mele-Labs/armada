@@ -6,22 +6,15 @@
 // rows and the strip say while `StepDetail.checking` is there: a running Check
 // reads as running with how long it has run, one waiting for a slot reads as
 // waiting, a finished one reads as its result, and the Drone is no longer the
-// one working.
+// one working. `checkRow` builds each row.
 
-import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { AssertionSet, type CheckRun as CheckRunRow } from "@armada/components";
-import type { CheckRun, CheckUnderway, StepDetail } from "@armada/protocol";
+import type { CheckRun as CheckRunRow } from "@armada/components";
+import type { CheckRun, StepDetail } from "@armada/protocol";
 
-import { checkSheetOf, checksChapter, saidOf } from "./checks";
-import type { Opens } from "./phases";
-
-const OPENS: Opens = {
-  jobId: "01M130Y1380016YK5S0JXBXDQ5",
-  open: () => Promise.resolve({ ok: true }),
-  onSaid: () => {},
-};
+import { checkRow, checkSheetOf, saidOf } from "./checks";
+import { checksOf } from "./gates";
 
 const STARTED = "2026-09-11T09:00:00Z";
 
@@ -70,9 +63,7 @@ function gating(over: Partial<StepDetail> = {}): StepDetail {
 }
 
 function rowsOf(step: StepDetail): CheckRunRow[] {
-  const chapter = checksChapter(step, [], OPENS, NOW);
-  const preview = chapter?.preview as ReactElement<{ rows: CheckRunRow[] }>;
-  return preview.props.rows;
+  return checksOf(step).map((read) => checkRow(read, NOW));
 }
 
 describe("a step whose gate is running its Checks", () => {
@@ -90,11 +81,6 @@ describe("a step whose gate is running its Checks", () => {
     expect(format?.named).toBe("queued");
     expect(format?.result).toBe("waiting");
     expect(rows.find((row) => row.id === "build")?.named).toBe("passed");
-  });
-
-  it("counts what is running in the chapter's summary", () => {
-    const chapter = checksChapter(gating(), [], OPENS, NOW);
-    expect(chapter?.summary).toBe("1 running · 1 of 3 passed");
   });
 });
 
@@ -117,10 +103,6 @@ describe("a gate waiting for room on the machine", () => {
     expect(build?.says).toBe("Waiting for room behind 3 other Checks on this machine.");
     expect(build?.result).toBe("waiting");
     expect(build?.named).toBe("queued");
-  });
-
-  it("says it waits for room in the summary", () => {
-    expect(checksChapter(queued, [], OPENS, NOW)?.summary).toBe("3 waiting for room");
   });
 
   it("names one other Check in the singular", () => {
@@ -169,38 +151,6 @@ describe("a Check that takes more than one place", () => {
   });
 });
 
-// #1021 — a press names the Check, and the sheet is what decides live or
-// kept. This file draws the chapter, not the sheet, so what is proved here is
-// narrower: pressing a row reports the pressed Check and nothing more, and
-// nothing the chapter draws is a reading with no end.
-describe("a press on a Check's row", () => {
-  it("reports the Check pressed, rather than opening a file itself", () => {
-    const opened: string[] = [];
-    const chapter = checksChapter(gating(), [], OPENS, NOW, undefined, undefined, undefined, (checkId) =>
-      opened.push(checkId),
-    );
-    const preview = chapter?.preview as ReactElement<{ onOpen?: (checkId: string) => void }>;
-    preview.props.onOpen?.("test");
-    expect(opened).toEqual(["test"]);
-  });
-
-  it("draws no console output under the rows, live or kept — only the assertion set has an end", () => {
-    // One Check recorded (`build`, so `assertedIn` has a row to draw) beside
-    // one still running (`test`, with a live `output_path`) — the exact shape
-    // #1021 poured a growing log out of. The content this chapter offers is
-    // whatever survived that fix: `AssertionSet` alone, never a `ConsoleOutput`
-    // for the running Check's log.
-    const chapter = checksChapter(
-      gating({ check_runs: [{ attempt: 1, name: "build", outcome: "passed" }] }),
-      [],
-      OPENS,
-      NOW,
-    );
-    const content = chapter?.content as ReactElement<{ rows: unknown[] }> | undefined;
-    expect(content?.type).toBe(AssertionSet);
-  });
-});
-
 // The sheet's own question — `Sheets.tsx`'s `CheckSheet` calls this on every
 // render, so a Check that finishes while its sheet is open moves from live to
 // kept without the sheet closing.
@@ -238,60 +188,5 @@ describe("a Check the gate reused from the Drone's own dry run", () => {
   it("says it was reused, and a Check the gate ran itself does not", () => {
     expect(saidOf(reused)).toBe("Passed — reused from the drone's run");
     expect(saidOf(passed)).toBe("Passed");
-  });
-});
-
-// #1062 — a Drone's own mid-step run, drawn where the gate's would be and
-// marked as the Drone's, so a person never reads it as a ruling.
-describe("a Drone's own run of the step's Checks", () => {
-  function asking(checks: CheckUnderway[]): StepDetail {
-    return gating({ checking: undefined, dry_run: { attempt: 1, checks } });
-  }
-
-  it("draws which Check is running and each result as it lands, marked as the Drone's run", () => {
-    const step = asking([
-      { name: "build", started_at: STARTED, took_ms: 9_000, ran: { attempt: 1, name: "build", outcome: "passed" } },
-      { name: "test", started_at: STARTED },
-      { name: "format" },
-    ]);
-    expect(checksChapter(step, [], OPENS, NOW)?.summary).toBe("The Drone's run · 1 running · 1 of 3 passed");
-    const rows = rowsOf(step);
-    expect(rows.find((row) => row.id === "build")?.named).toBe("passed");
-    expect(rows.find((row) => row.id === "test")?.says).toBe("Running for 1m 04s.");
-    expect(rows.find((row) => row.id === "format")?.named).toBe("queued");
-  });
-
-  it("counts the Checks its first failure stopped apart from the one that failed", () => {
-    const stopped = "stopped when `build` did not pass";
-    const step = asking([
-      {
-        name: "build",
-        started_at: STARTED,
-        took_ms: 4_000,
-        ran: { attempt: 1, name: "build", outcome: "failed", produced: "it exited 1" },
-      },
-      {
-        name: "test",
-        started_at: STARTED,
-        took_ms: 4_100,
-        ran: { attempt: 1, name: "test", outcome: "signalled", produced: stopped },
-        stopped_by: "build",
-      },
-      {
-        name: "format",
-        took_ms: 0,
-        ran: { attempt: 1, name: "format", outcome: "never_ran", produced: stopped },
-        stopped_by: "build",
-      },
-    ]);
-    expect(checksChapter(step, [], OPENS, NOW)?.summary).toBe("The Drone's run · 1 of 3 did not pass · 2 stopped");
-    const test = rowsOf(step).find((row) => row.id === "test");
-    expect(test?.says).toBe("Stopped when build did not pass.");
-    expect(test?.named).toBeUndefined();
-  });
-
-  it("gives way to the gate's own run, which is the step's now", () => {
-    const both = gating({ dry_run: { attempt: 1, checks: [{ name: "build", started_at: STARTED }] } });
-    expect(checksChapter(both, [], OPENS, NOW)?.summary).toBe("1 running · 1 of 3 passed");
   });
 });

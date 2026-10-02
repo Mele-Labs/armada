@@ -1,46 +1,27 @@
-// Chapter four — every Check this step declares, and what each came to.
+// Every Check this step declares, and what each came to.
 //
 // **Declared rather than run.** A Check the gate has not reached keeps its row,
 // because the shape of what is coming is part of reading a running Job, and a
 // list built from the runs would make a Job look like it has fewer gates than
 // it has.
 //
-// **The Judge is a row here as well as a chapter of its own.** It is one of the
-// things that gates the step, so leaving it off would make the list shorter
-// than the gate. It says what the grid below says, from the same reading of the
-// same rows, because it is the same panel.
+// **The Judge is a row here.** It is one of the things that gates the step, so
+// leaving it off would make the list shorter than the gate.
 //
 // **The reading is `gates.ts`'s** — which attempt's runs count. This file
 // decides only what a row looks like; a press opens its output on a sheet.
 
-import {
-  AssertionSet,
-  Button,
-  CheckRuns,
-  Kbd,
-  keyFor,
-  type CheckRun as CheckRunRow,
-} from "@armada/components";
-import type { StepChapter } from "@armada/components";
+import type { CheckRun as CheckRunRow } from "@armada/components";
 import { CHECK_OUTCOME, CRITERION_VERDICT_CHECK, CRITERION_VERDICT_JUDGE } from "@armada/components";
 import type { CheckRun, StepDetail } from "@armada/protocol";
 
-import { assertedIn, WHAT_THE_SUITE_ASSERTED } from "./asserted";
-import { HELD_FOR_HANDOFF, judgeOf, RUNS_LAST_BEFORE_HANDOFF, runsAtOf } from "./declared";
-import { namesChapter } from "./detail-keys";
+import { judgeOf, RUNS_LAST_BEFORE_HANDOFF } from "./declared";
 import { span } from "./duration";
 import {
-  checksFromAttempt,
   checksOf,
-  checksStand,
   didNotPass,
-  droneRunOf,
-  DRONES_RUN,
   isRunning,
   isWaiting,
-  notedFrom,
-  notInTheDronesRun,
-  outputRunOf,
   placesOf,
   runEnded,
   sentenceOf,
@@ -49,122 +30,7 @@ import {
   type CheckRead,
   type Panel,
 } from "./gates";
-import { basename, openKept, type Opens } from "./phases";
-import { countedIn } from "./verdicts";
-
-/** Which chapter the Checks are, so the keyboard can name it. */
-export const CHECKS_CHAPTER = "checks";
-
-/**
- * Chapter four, or none.
- *
- * **A step that declares no Check draws nothing.** So does one whose workflow
- * Fleet does not hold — the phase strip's note is what tells those two apart,
- * and an empty labelled list here would read as a reading that failed rather
- * than as a step that gates on nothing.
- */
-export function checksChapter(
-  step: StepDetail,
-  panels: Panel[],
-  opens: Opens,
-  now: number,
-  /** Fleet's own reason the gate could not decide. `verdictsChapter`'s own. */
-  undecided?: string,
-  /**
-   * **Run it here** on a refused Check's row — Journey 9. Opens the run sheet
-   * with that Check selected and narrowed. Absent where the caller has no run
-   * sheet to send the row to.
-   */
-  onRunHere?: (checkId: string) => void,
-  /** Which Check's output sheet is open, so its row says so. `undefined` for none. */
-  openCheckId?: string,
-  /**
-   * Opens the Check output sheet on this Check — live where the gate is still
-   * running it, kept once it has ruled. **The sheet is what decides which**,
-   * from `checkSheetOf`; a press here only names the Check.
-   */
-  onOpenCheck?: (checkId: string) => void,
-): Omit<StepChapter, "ordinal"> | undefined {
-  // **A Drone's own run draws here until the gate takes the step**, marked as
-  // the Drone's in the summary so it never reads as a ruling. #1062.
-  const drone = droneRunOf(step);
-  const reads = drone ?? checksOf(step);
-  const held = step.held_for_handoff ?? [];
-  if (reads.length === 0 && held.length === 0) return undefined;
-
-  const rows = reads.map((read) => checkRow(read, now, onRunHere));
-  // What this reading did not run, so a green one never reads as the whole
-  // bar: Checks a Drone's run leaves out, and ones a later step runs. #849.
-  if (drone !== undefined) {
-    for (const check of notInTheDronesRun(step)) {
-      const name = check.name ?? check.kind;
-      rows.push({ id: name, says: runsAtOf(check), identifier: name });
-    }
-  }
-  for (const name of held) {
-    rows.push({ id: `held:${name}`, says: HELD_FOR_HANDOFF, identifier: name });
-  }
-  const judge = judgeRow(step, panels, undecided);
-  if (judge !== undefined) rows.push(judge);
-
-  // The header act, `o` and the sheet all open the same file, because all
-  // three come through one reading. Absent where no Check on this attempt
-  // kept an output — a control that opens nothing is the defect `#246` was
-  // about with a click added to it.
-  const reading = outputRunOf(step);
-  const output = reading?.output_path;
-  const asserted = assertedIn(step);
-
-  return {
-    id: CHECKS_CHAPTER,
-    title: "Checks",
-    // The same sentence the phase strip's tier stands at, from the same call
-    // — with which attempt it is from, where a rerun gate has left it behind
-    // the step's own current one.
-    summary:
-      drone === undefined
-        ? notedFrom(checksStand(reads), checksFromAttempt(step))
-        : `${DRONES_RUN} · ${checksStand(reads)}`,
-    // The preview is the whole list — four rows is not a reading. What has no
-    // end is what is behind each row, and pressing one opens the sheet rather
-    // than filling this chapter with it. `CheckRuns` only draws the control on
-    // a row that has an `output` field, so a queued Check offers nothing to
-    // press.
-    preview: (
-      <CheckRuns
-        rows={rows}
-        openSaid={OPENS_THE_OUTPUT}
-        openId={openCheckId ?? null}
-        onOpen={onOpenCheck}
-      />
-    ),
-    // **`AssertionSet` and nothing else.** It is one row per Check the gate
-    // decided and it has an end, which is what lets it stay inline — the rule
-    // `StepChapter.act` states. A Check's own output has no end and left for
-    // the sheet; drawing it here is #1021.
-    ...(asserted.length === 0
-      ? {}
-      : {
-          content: <AssertionSet rows={asserted} label={WHAT_THE_SUITE_ASSERTED} />,
-          openLabel: OPENS_THE_READING,
-        }),
-    ...(output === undefined
-      ? {}
-      : {
-          act: (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openKept(opens, { kept: output, what: "check" })}
-              {...namesChapter(CHECKS_CHAPTER)}
-            >
-              Open the output
-              <Kbd>{keyFor("open_output")}</Kbd>
-            </Button>
-          ),
-        }),
-  };
-}
+import { basename } from "./phases";
 
 /**
  * What one Check's output sheet should read — live where the gate is still
@@ -199,8 +65,6 @@ export function checkSheetOf(step: StepDetail, checkId: string): CheckSheetRead 
 export function checkRow(
   read: CheckRead,
   now: number,
-  /** **Run it here**, drawn only on a Check that did not pass — Journey 9. */
-  onRunHere?: (checkId: string) => void,
 ): CheckRunRow {
   const { name, run, live } = read;
   if (isWaiting(read)) {
@@ -255,7 +119,6 @@ export function checkRow(
     icon: iconOf(run),
     ...(run?.produced === undefined ? {} : { result: run.produced }),
     ...(run?.output_path === undefined ? {} : { output: basename(run.output_path) }),
-    ...(failed && onRunHere !== undefined ? { onRunHere: () => onRunHere(name) } : {}),
   };
 }
 
@@ -421,14 +284,6 @@ const NEVER_ASKED = "The gate did not reach the panel.";
  */
 const ASKED_AND_SILENT = "The panel was asked and did not answer.";
 
-/**
- * What a row's own control says. **One sentence for live and kept alike** —
- * the row cannot tell which the sheet will open (`checkSheetOf` decides that
- * from the same reading), and a caption that guessed would be wrong half the
- * time.
- */
-const OPENS_THE_OUTPUT = "Click to open this Check's output";
-
 /** What a Check the gate has reached and not started says. */
 const WAITING_TO_START = "Waiting to start.";
 
@@ -449,11 +304,15 @@ const RUNNING_NOW = "Running now.";
 const STOPPED = "stopped";
 
 /**
- * What opening the chapter offers.
+ * `2 of 2 criteria met`, `1 of 4 criteria refused`.
  *
- * **It names the reading, not the file.** The act on the header line opens the
- * output in an editor and says so; this opens the assertion set, and a control
- * that said "open the output" twice on one line would be two words for two
- * different places.
+ * **Criteria, never calls.** A panel of three answering two criteria sends six
+ * rows, and counting those would report `1 of 6 refused` for a step where one
+ * criterion of two was refused.
  */
-const OPENS_THE_READING = "Read what the Checks asserted";
+function countedIn(refused: number, criteria: number, asking = 0): string {
+  const said = criteria === 1 ? "criterion" : "criteria";
+  if (refused > 0) return `${refused} of ${criteria} ${said} refused`;
+  const met = criteria - asking;
+  return `${met} of ${criteria} ${said} met`;
+}
