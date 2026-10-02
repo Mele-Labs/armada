@@ -13,6 +13,7 @@ import { running } from "@armada/screens/src/fixtures/build/index";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { repository } from "@armada/screens/src/fixtures/build/base";
+import { originReading } from "@armada/screens/src/origin";
 
 import { onJob } from "./scenario";
 import type { Scenario } from "./scenario";
@@ -97,5 +98,8 @@ test("a job nothing dispatched from a Studio says nothing extra, and draws no wa
   mount(onJob(running(), { whereOpen: true }));
   await expect.element(page.getByRole("button", { name: running().job.handle })).toBeVisible();
   expect(page.getByText("That Studio has been deleted").query()).toBeNull();
-  expect(page.getByRole("button", { name: /^From a Studio/ }).query()).toBeNull();
+  // Its own origin sentence is drawn, and is not a press: there is no Studio behind it.
+  const said = originReading(running().job)!;
+  await expect.element(page.getByText(said, { exact: true }).first()).toBeVisible();
+  expect(page.getByRole("button", { name: said, exact: true }).query()).toBeNull();
 });
