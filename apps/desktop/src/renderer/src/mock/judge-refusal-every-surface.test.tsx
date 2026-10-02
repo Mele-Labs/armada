@@ -74,5 +74,5 @@ test("the Workflow step panel draws the refusal and its three answers", async ()
 test("the refusal draws no rule of its own beside the lead card's accent", async () => {
   await opened();
   await expect.element(refusal()).toBeVisible();
-  expect(getComputedStyle(refusal().element()).borderInlineStartWidth).toBe("0px");
+  expect(Number.parseFloat(getComputedStyle(refusal().element()).borderInlineStartWidth)).toBe(0);
 });
