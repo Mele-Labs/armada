@@ -1744,12 +1744,6 @@ the only channel. Full specification on [Iconography](iconography.md).
 12px is an exact half-scale and a stroke of 2 lands on exactly 1px. 11px
 scales to 0.917px and antialiases into fuzz on a dark ground.
 
-**One exception, a pull request's settled state** (owner, 1 Oct 2026): `Merged`
-in the landed hue, `Closed without merging` in `not_started`'s, the same badge
-in the Job header and on the Land board's row. It draws its word alone, because
-the icon registry has no glyph for either state and none is minted at a call
-site; it takes one when the registry does.
-
 **A bordered pill is a Job state and nothing else.** An origin tag and
 provenance are plain sans in `--fg-muted`; drift states are plain sans in
 `--notice-caution`. Two chips in

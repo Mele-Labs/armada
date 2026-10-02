@@ -1,6 +1,7 @@
 // What the Land board reads off a Job that finished — the arithmetic, which is
 // where the old boards contradicted themselves.
 
+import { GitMerge } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { landed } from "./fixtures/build/arc-landed";
@@ -210,7 +211,7 @@ describe("what it produced and what it left", () => {
   it("names the pull request and the branch it merged into", () => {
     const delivered = read().sections[0]!;
     expect(delivered.parts[0]?.value).toBe("https://git.example/armada/pull/1604");
-    expect(delivered.parts[0]?.badge).toEqual({ status: "completed-success", label: "Merged" });
+    expect(delivered.parts[0]?.badge).toEqual({ status: "completed-success", icon: GitMerge, label: "Merged" });
     expect(delivered.parts[0]?.meta).toBe("into main");
   });
 

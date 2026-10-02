@@ -12,6 +12,7 @@
 // waited for a merge would be missing exactly when it is wanted. `#422`.
 
 import type { ReactNode } from "react";
+import { GitMerge } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { factsOf, pullRequestNumber } from "./facts";
@@ -136,7 +137,7 @@ describe("did this land", () => {
     // One thought — what the branch came to — said to the depth the record can
     // say it, and its state a badge like the Job's own (owner, 1 Oct 2026).
     const whole = detail({ pull_request: "https://forge.invalid/pull/1", landed: "merged" });
-    expect(linked(whole)?.badge).toEqual({ status: "completed-success", label: "Merged" });
+    expect(linked(whole)?.badge).toEqual({ status: "completed-success", icon: GitMerge, label: "Merged" });
     // And not a second fact continuing it in words.
     expect(badges(whole)).toHaveLength(1);
     expect(labels(whole)).not.toContain("merged");

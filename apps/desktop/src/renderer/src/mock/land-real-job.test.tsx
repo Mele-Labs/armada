@@ -57,10 +57,22 @@ test("nothing on the board describes what Fleet did not send", async () => {
   await expect.element(page.getByText("no verdict recorded", { exact: true })).toBeVisible();
 });
 
-test("the pull request's state is a badge in the header and on the board", async () => {
+test("the pull request's state is a badge with its glyph, in the header and on the board", async () => {
   await landed();
   expect(badgesIn(".armada-job-head__facts")).toEqual(["Merged"]);
   expect(badgesIn(".armada-land")).toEqual(["Merged"]);
+  // `git-merge`, minted for it: every badge carries its glyph.
+  for (const badge of document.querySelectorAll(".armada-job-head__facts .armada-badge, .armada-land .armada-badge")) {
+    expect(badge.querySelector("svg.lucide-git-merge")).not.toBeNull();
+  }
+});
+
+// Job 2 gave its checkout back; Fleet's detail says `worktree_on_disk: false`,
+// and the header offered to reclaim it anyway (owner, 1 Oct 2026).
+test("a finished Job whose worktree is gone offers no reclaim", async () => {
+  await landed();
+  expect(page.getByRole("button", { name: /Reclaim worktree/ }).elements()).toHaveLength(0);
+  expect(page.getByRole("menuitem", { name: /Reclaim worktree/ }).elements()).toHaveLength(0);
 });
 
 test("the act beside the verdict is the registry's Dispatch, with its key", async () => {

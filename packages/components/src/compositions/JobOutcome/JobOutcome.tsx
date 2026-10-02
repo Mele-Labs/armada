@@ -57,7 +57,7 @@ export type JobOutcomePart = {
    * request's `Merged`. `Badge`'s own two fields, so it reads the same here
    * as in the Job's header.
    */
-  badge?: { status: string; label: ReactNode };
+  badge?: { status: string; icon: LucideIcon; label: ReactNode };
   /** Why there is no value. Said in words, never left as a blank. */
   absent?: ReactNode;
   /** A control that opens it. Secondary and unfilled: there is no decision here. */
@@ -337,7 +337,9 @@ function Parts({
             {part.badge === undefined && part.meta === undefined ? null : (
               <span className="armada-outcome__beside">
                 {part.badge === undefined ? null : (
-                  <Badge status={part.badge.status}>{part.badge.label}</Badge>
+                  <Badge status={part.badge.status} icon={part.badge.icon}>
+                    {part.badge.label}
+                  </Badge>
                 )}
                 {part.meta === undefined ? null : <span className="armada-outcome__meta">{part.meta}</span>}
               </span>

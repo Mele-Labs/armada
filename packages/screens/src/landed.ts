@@ -18,6 +18,7 @@ import type {
   StepDetail,
 } from "@armada/protocol";
 import { artifactPath, recordsOf, repoOf } from "@armada/protocol";
+import type { LucideIcon } from "lucide-react";
 
 import { costOf, groupOf, summaryOf, type LandedCost, type LandedGroup } from "./landed-cost";
 import { clock, span } from "./duration";
@@ -64,7 +65,7 @@ export type LandedPart = {
   /** Whether a press opens it. Only the pull request has anywhere to go. */
   opens?: "pull_request";
   /** The state it settled in, as a badge: the pull request's `Merged`. */
-  badge?: { status: string; label: string };
+  badge?: { status: string; icon: LucideIcon; label: string };
 };
 
 export type LandedSection = {

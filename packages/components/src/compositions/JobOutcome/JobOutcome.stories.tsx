@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { GitBranch, GitCommitHorizontal, GitPullRequest, FileCheck } from "lucide-react";
+import { GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest, FileCheck } from "lucide-react";
 import { expect } from "storybook/test";
 import { JobOutcome } from "./JobOutcome";
 
@@ -162,7 +162,7 @@ export const TheLandBoard: Story = {
             icon: GitPullRequest,
             iconLabel: "Pull request",
             value: "https://git.example/armada/pull/1604",
-            badge: { status: "completed-success", label: "Merged" },
+            badge: { status: "completed-success", icon: GitMerge, label: "Merged" },
             meta: "into main",
           },
           {

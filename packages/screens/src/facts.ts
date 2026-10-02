@@ -48,12 +48,13 @@
 // dispatched this job, then which job it replaced.
 
 import type { JobDetailField } from "@armada/components";
+import type { LucideIcon } from "lucide-react";
 
 import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 import { freezeLineOf } from "./freeze";
 import { fromAStudio, originReading } from "./origin";
 import { leading } from "./reading";
-import { LANDED, LANDED_STATUS, elapsedOf } from "./Row";
+import { LANDED, LANDED_BADGE, elapsedOf } from "./Row";
 
 /**
  * The run, in the order the drawing runs it: what is holding this Job, what
@@ -210,7 +211,7 @@ export function hostLabel(address: string): string {
 }
 
 /** A settled pull request's badge: the word `Row.tsx` spells and the hue beside it. */
-type Settled = { status: string; label: string };
+type Settled = { status: string; icon: LucideIcon; label: string };
 
 /**
  * What a settled pull request reads as, as a badge. Sentence case, the way
@@ -218,8 +219,8 @@ type Settled = { status: string; label: string };
  */
 export function settledBadgeOf(landed: string | undefined): Settled | undefined {
   const said = LANDED[landed ?? ""];
-  const status = LANDED_STATUS[landed ?? ""];
-  return said === undefined || status === undefined ? undefined : { status, label: leading(said) };
+  const badge = LANDED_BADGE[landed ?? ""];
+  return said === undefined || badge === undefined ? undefined : { ...badge, label: leading(said) };
 }
 
 /**
