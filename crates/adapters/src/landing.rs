@@ -242,38 +242,10 @@ pub(crate) fn merge_by_push(
     let branch = WorktreeSpec::for_job(in_repo, handle)
         .map_err(|why| refused(why.said()))?
         .branch();
-    let repo = Repository::open(in_repo).map_err(|cause| refused(cause.message().to_string()))?;
-    let base = match crate::base::resolve(&repo, declared) {
-        Ok(Some(base)) => base.name().to_string(),
-        Ok(None) => {
-            return Err(refused(String::from(
-                "this repository names no base branch",
-            )))
-        }
-        Err(why) => return Err(refused(why.said())),
-    };
     let root = Path::new(in_repo);
     let candidate = rev_parse(in_repo, &format!("refs/heads/{branch}"))
         .ok_or_else(|| refused(format!("the branch {branch} is gone")))?;
-    let tracking = format!("refs/remotes/{REMOTE}/{base}");
-    let fetched = run_in(
-        in_repo,
-        "git",
-        &[
-            "fetch",
-            "--quiet",
-            REMOTE,
-            &format!("+refs/heads/{base}:{tracking}"),
-        ],
-    )
-    .map_err(|why| NotMerged::NoTool {
-        said: format!("`git` would not run: {why}"),
-    })?;
-    if !fetched.status.success() {
-        return Err(refused(said(&fetched)));
-    }
-    let gated = rev_parse(in_repo, &tracking)
-        .ok_or_else(|| refused(format!("{REMOTE} has no branch {base}")))?;
+    let RemoteBase { base, gated, .. } = fetched_base(in_repo, declared)?;
     if onto_base::is_ancestor(root, &candidate, &gated) {
         return Ok(PushedOntoBase {
             base,
@@ -307,6 +279,55 @@ pub(crate) fn merge_by_push(
             said: format!("{base} moved on {REMOTE} between the fetch and the push"),
         }),
     }
+}
+
+/// The base a `merge_by: push` lands on, as the remote holds it this moment.
+pub(crate) struct RemoteBase {
+    pub(crate) base: String,
+    /// The ref the fetch wrote, which a merge names.
+    pub(crate) tracking: String,
+    /// The commit it is on.
+    pub(crate) gated: String,
+}
+
+/// Resolve the base and fetch the remote's copy of it: the push is checked
+/// against that one, so every merge toward it is made on it.
+pub(crate) fn fetched_base(in_repo: &str, declared: Option<&str>) -> Result<RemoteBase, NotMerged> {
+    let refused = |said: String| NotMerged::Refused { said };
+    let repo = Repository::open(in_repo).map_err(|cause| refused(cause.message().to_string()))?;
+    let base = match crate::base::resolve(&repo, declared) {
+        Ok(Some(base)) => base.name().to_string(),
+        Ok(None) => {
+            return Err(refused(String::from(
+                "this repository names no base branch",
+            )))
+        }
+        Err(why) => return Err(refused(why.said())),
+    };
+    let tracking = format!("refs/remotes/{REMOTE}/{base}");
+    let fetched = run_in(
+        in_repo,
+        "git",
+        &[
+            "fetch",
+            "--quiet",
+            REMOTE,
+            &format!("+refs/heads/{base}:{tracking}"),
+        ],
+    )
+    .map_err(|why| NotMerged::NoTool {
+        said: format!("`git` would not run: {why}"),
+    })?;
+    if !fetched.status.success() {
+        return Err(refused(said(&fetched)));
+    }
+    let gated = rev_parse(in_repo, &tracking)
+        .ok_or_else(|| refused(format!("{REMOTE} has no branch {base}")))?;
+    Ok(RemoteBase {
+        base,
+        tracking,
+        gated,
+    })
 }
 
 fn rev_parse(in_repo: &str, rev: &str) -> Option<String> {

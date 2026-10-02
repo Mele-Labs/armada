@@ -207,6 +207,10 @@ const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
 /// because the answer is the branch brought up and gated again, never the
 /// forge.
 const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
+/// `merge_by: push` brought the branch up to a moved base and its Checks went
+/// red on the merge. Its own code because the answer is the branch's, and
+/// apart from [`MERGE_CHECKS_NOT_PASSED`] because these are Armada's Checks.
+const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
 /// Nothing on this machine could ask the forge. **A 500**, unlike the four
 /// above: nothing about the request is wrong and asking again is reasonable
 /// once whoever runs Fleet has signed in.
@@ -632,7 +636,7 @@ where
             // about them, and here is where they stop being one thing —
             // because a client does.
             //
-            // The five that are the person's to answer are 409s; the two that
+            // The six that are the person's to answer are 409s; the two that
             // are this machine's are 500s, for `NOT_RECLAIMED`'s reason.
             Adrift::NotMerged { job, why } => {
                 let job = ipc::JobId::from(job);
@@ -651,6 +655,7 @@ where
                     }
                     NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
                     NotMerged::BaseMoved { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
+                    NotMerged::GateFailed { .. } => Refusal::IllegalMove(raised(MERGE_GATE_FAILED)),
                     NotMerged::NoTool { .. } => Refusal::Fault(raised(MERGE_NO_TOOL)),
                     NotMerged::Refused { .. } => Refusal::Fault(raised(MERGE_REFUSED)),
                 }

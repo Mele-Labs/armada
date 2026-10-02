@@ -10,6 +10,10 @@ use std::fmt;
 use std::path::Path;
 use std::process::{Command, Output};
 
+/// How many times a base may move under a gate before the landing gives up:
+/// `armada land`'s turn, and Fleet's `merge_by: push`.
+pub const ROUNDS: u32 = 5;
+
 /// The message of the merge commit a branch lands as.
 pub fn message(branch: &str, pull_request: Option<u64>) -> String {
     let subject = match pull_request {
