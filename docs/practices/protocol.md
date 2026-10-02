@@ -2327,6 +2327,26 @@ how every plan before this reads.
 **Store V95** keeps each group's runs, the group and run in `job_step_checks`' key so two groups
 gated on one run of a step keep both their rows, and a plan's two moves and a failed task's reason.
 
+## Protocol 23.5: a pull request's title and comment count, after it merges
+
+**Two optional fields on `JobDelivery`, additive.** `pull_request_title` and `pull_request_comments`
+sit beside `pull_request` and are served only where it is. Unlike `pull_request_detail`, which is the
+sweep's live reading and goes away when the pull request settles, both come off the Job's record, so
+a merged Job still has them.
+
+**`pull_request_title`** is written when Fleet opens the pull request, from the title it opened it
+with, and again on every read of the forge, the settling read included, so a title edited on the
+forge replaces it. Absent means no read has named it: a pull request opened before 23.5 and not read
+since.
+
+**`pull_request_comments`** is the count the sweep's read finds while the pull request is open:
+conversation comments plus reviews that say something. A comment on one line of the diff is not
+counted, because that is the second query only `get_remarks` asks. **Absent is unknown, never 0**:
+the pull request settled before the rotation reached it open. Opening a new pull request clears it.
+
+**No forge call on a Job read.** Both are written on reads Fleet already makes. **Store V96** keeps
+them, in two `jobs` columns.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
