@@ -85,8 +85,7 @@ export const OneOfFourMoved: Story = {
 
 /**
  * **A folded pair opens.** Folded rather than dropped: a reader who wants to
- * check that a screen really did stay put can, which is `RunTree`'s rule for a
- * spent attempt one surface over — the outcome stays, the working folds.
+ * check that a screen really did stay put can.
  */
 export const AFoldedPairOpens: Story = {
   args: OneOfFourMoved.args,

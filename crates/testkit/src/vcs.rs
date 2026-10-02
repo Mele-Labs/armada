@@ -30,9 +30,9 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
-    CommitTime, Committed, Delivery, KeptCurrent, Landing, Mergeable, Merged, NotCloned,
+    CommitTime, Committed, Delivery, KeptCurrent, Landable, Landing, Mergeable, Merged, NotCloned,
     NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark, RepositoryStanding, Review,
-    Standing, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
+    Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
@@ -132,6 +132,9 @@ pub struct FakeVcs {
     /// What merging a moved base into a branch refuses with, or `None` where it
     /// merges clean.
     merging_the_base_in: Mutex<Option<NotMerged>>,
+    /// The tree the Job's branch carries. Every merge this fake makes into it
+    /// moves it, so `merge_by_push` can refuse a head no Check read.
+    trees: Mutex<Trees>,
     /// What commit each ref is at. **Scripted**, for
     /// [`commits`](FakeVcs::commits)' reason: there is no repository here to
     /// have a history, and a fake that invented one id per name would make
@@ -147,6 +150,26 @@ pub struct FakeVcs {
     bases: Mutex<BTreeMap<String, bool>>,
     /// Every base checkout this fake has been asked to drop, in order.
     dropped_bases: Mutex<Vec<String>>,
+}
+
+/// The branch's tree, and the one before the last merge into it, numbered.
+#[derive(Debug, Default)]
+struct Trees {
+    now: u64,
+    was: u64,
+    made: u64,
+}
+
+impl Trees {
+    fn merged_into(&mut self) {
+        self.made += 1;
+        self.was = self.now;
+        self.now = self.made;
+    }
+
+    fn now(&self) -> String {
+        format!("{:040x}", self.now)
+    }
 }
 
 /// What this fake's forge does when asked to merge.
@@ -219,6 +242,8 @@ pub enum Delivered {
     },
     /// The base the remote holds was merged into the branch, to be gated again.
     MergedTheBaseIn { branch: String },
+    /// The branch's head was read for its Checks to run on before it lands.
+    ReadTheUncheckedHead { branch: String },
     /// The branch was put back from that merge, its gate having gone red.
     PutBack { branch: String },
 }
@@ -643,7 +668,7 @@ impl Delivery for FakeVcs {
                     .collect::<Vec<(&str, Change)>>(),
             );
         }
-        Ok(self
+        let brought = self
             .delivery
             .lock()
             .expect("not poisoned")
@@ -652,7 +677,11 @@ impl Delivery for FakeVcs {
             .unwrap_or(BroughtUpToDate::Clean {
                 base: base.name().to_string(),
                 commits: 0,
-            }))
+            });
+        if matches!(brought, BroughtUpToDate::Clean { commits, .. } if commits > 0) {
+            self.trees.lock().expect("not poisoned").merged_into();
+        }
+        Ok(brought)
     }
 
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {
@@ -812,6 +841,7 @@ impl Delivery for FakeVcs {
         handle: &str,
         declared: Option<&str>,
         pull_request: Option<u64>,
+        landable: Landable<'_>,
     ) -> Result<PushedOntoBase, NotMerged> {
         // Scripted the same way as `merge`, through the one `merging` field:
         // this fake has no remote base to merge onto.
@@ -832,13 +862,57 @@ impl Delivery for FakeVcs {
             .lock()
             .expect("not poisoned")
             .pop_front();
+        let scripted = next.is_some();
         let answer = next.unwrap_or_else(|| self.merging.lock().expect("not poisoned").clone());
         let merged = match answer {
             Merging::Takes => Merged::Taken,
             Merging::AlreadyMerged => Merged::AlreadyMerged,
             Merging::Refuses(why) => return Err(why),
         };
+        // Asked where the real one asks it: once the branch holds the base, and
+        // before the push. A refusal leaves the scripted answer for the next.
+        let tree = self.trees.lock().expect("not poisoned").now();
+        let read = match landable {
+            Landable::Checked(checked) => checked == tree,
+            Landable::Unchecked => false,
+            Landable::NothingToCheck => true,
+        };
+        if merged == Merged::Taken && !read {
+            if scripted {
+                self.pushes_in_turn
+                    .lock()
+                    .expect("not poisoned")
+                    .push_front(Merging::Takes);
+            }
+            return Err(NotMerged::Unchecked {
+                said: format!("the branch carries {tree}, which no run of its Checks passed on"),
+            });
+        }
         Ok(PushedOntoBase { base, merged })
+    }
+
+    fn tree_as_it_stands(&self, _worktree: &Worktree) -> Result<String, NotDelivered> {
+        Ok(self.trees.lock().expect("not poisoned").now())
+    }
+
+    fn the_unchecked_head(
+        &self,
+        _in_repo: &str,
+        worktree: &Worktree,
+        _declared: Option<&str>,
+        _checked: Option<&str>,
+    ) -> Result<UncheckedHead, NotMerged> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadTheUncheckedHead {
+                branch: worktree.branch().to_string(),
+            });
+        Ok(UncheckedHead {
+            head: String::from("c0ffee0000000000000000000000000000000000"),
+            tree: self.trees.lock().expect("not poisoned").now(),
+            touched: vec![String::from("src/log.rs")],
+        })
     }
 
     fn merge_the_moved_base_in(
@@ -861,10 +935,13 @@ impl Delivery for FakeVcs {
         {
             return Err(why);
         }
+        let mut trees = self.trees.lock().expect("not poisoned");
+        trees.merged_into();
         Ok(BaseMergedIn {
             base: String::from("main"),
             onto: String::from("5b4ec82700000000000000000000000000000000"),
             head: String::from("e1f2a3b400000000000000000000000000000000"),
+            tree: trees.now(),
             was: String::from("a1b2c3d400000000000000000000000000000000"),
             touched: vec![String::from("src/log.rs")],
         })
@@ -877,6 +954,8 @@ impl Delivery for FakeVcs {
             .push(Delivered::PutBack {
                 branch: worktree.branch().to_string(),
             });
+        let mut trees = self.trees.lock().expect("not poisoned");
+        trees.now = trees.was;
         Ok(())
     }
 
@@ -892,11 +971,16 @@ impl Delivery for FakeVcs {
                 handle: handle.to_string(),
                 base: base.to_string(),
             });
-        self.delivery
+        let kept = self
+            .delivery
             .lock()
             .expect("not poisoned")
             .kept_current
-            .clone()
+            .clone();
+        if matches!(kept, KeptCurrent::Rebased { .. }) {
+            self.trees.lock().expect("not poisoned").merged_into();
+        }
+        kept
     }
 
     fn caught_the_repository_up(&self, _in_repo: &str, base: &str) -> RepositoryStanding {

@@ -5,9 +5,7 @@
 //
 // **Ids are prefixed by group**, so a press can tell a Check from a Command
 // from a server apart without a second lookup — `setup:`, `check:`,
-// `command:`, `server:`. The Checks chapter's own rows carry a Check's bare
-// name, so `checkEntryId` composes the same prefix on the way in and the two
-// agree without either side knowing the other's scheme.
+// `command:`, `server:`.
 
 import { useEffect, useState } from "react";
 import type {
@@ -41,11 +39,6 @@ export const SETUP_PREFIX = "setup:";
 export const CHECK_PREFIX = "check:";
 export const COMMAND_PREFIX = "command:";
 export const SERVER_PREFIX = "server:";
-
-/** The id `checkRow` composes for **Run it here**, off the same Check name. */
-export function checkEntryId(name: string): string {
-  return `${CHECK_PREFIX}${name}`;
-}
 
 /** Whether an id names one of the entries `servers` composed. */
 export function isServerEntry(id: string): boolean {

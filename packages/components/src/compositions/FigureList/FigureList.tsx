@@ -90,11 +90,18 @@ export type FigureListProps = {
    * puts a label and its figure a hand's width apart. #1538.
    */
   column?: FigureColumn;
+  /**
+   * A detail wraps under its value rather than clipping. **The Land board's
+   * cost card only** (owner, 1 Oct 2026): `group one, group two, group three,
+   * g…` cut the one thing the line was there to say. A panel 160px wide keeps
+   * the clip, where a wrapped detail would be a column of single words.
+   */
+  wraps?: boolean;
 };
 
-export function FigureList({ figures, column = "wide" }: FigureListProps) {
+export function FigureList({ figures, column = "wide", wraps = false }: FigureListProps) {
   return (
-    <dl className="armada-figures" data-column={column}>
+    <dl className="armada-figures" data-column={column} data-wraps={wraps || undefined}>
       {figures.map((figure) => {
         const lines = (
           <>

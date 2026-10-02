@@ -1,11 +1,10 @@
 // What a step's gates found, read once for both surfaces that draw it.
 //
-// **Two surfaces read `check_runs` and `judged` now, and one of them is new.**
-// The phase strip says where a step stands; the Checks and Verdicts chapters
-// say what the gates found and let a person argue with it. Those are the same
-// rows read for two purposes, and reading them twice is the defect `#321`
-// already found once in this file's neighbours — two surfaces stating one
-// ordering separately, agreeing until one of them changed.
+// **Several surfaces read `check_runs` and `judged`** — the lead, the verdict
+// slot and the grounds a refusal is read on. Those are the same rows read for
+// different purposes, and reading them twice is the defect `#321` already found
+// once in this file's neighbours — two surfaces stating one ordering
+// separately, agreeing until one of them changed.
 //
 // **Nothing here is JSX, and that is the seam.** What a strip row looks like
 // and what a verdict grid looks like are each surface's own answer. What they
@@ -27,13 +26,11 @@ import type {
   CheckUnderway,
   Criterion,
   DeclaredCheck,
-  JudgeInFlight,
   Judged,
   StepDetail,
 } from "@armada/protocol";
 
 import { isSweepMarker, nameOf } from "./declared";
-import { span } from "./duration";
 import { onlyCurrentAttempt } from "./facts";
 
 /**
@@ -92,34 +89,6 @@ export function checksOf(step: StepDetail): CheckRead[] {
     return { name, check, run, live };
   });
 }
-
-/**
- * The Drone's own mid-step run, read the way the gate's Checks are — or
- * `undefined` where there is none, and while the gate's run is up, which is
- * the step's now. **Never the gate's**: nothing it finds moves the step. #1062.
- */
-export function droneRunOf(step: StepDetail): CheckRead[] | undefined {
-  if (step.checking !== undefined || step.dry_run === undefined) return undefined;
-  const underway = step.dry_run.checks;
-  return (step.checks ?? [])
-    .filter((check) => !isSweepMarker(check) && check.runs_at === undefined)
-    .map((check) => {
-      const name = nameOf(check);
-      const live = underway.find((one) => one.name === name);
-      return { name, check, run: live === undefined ? undefined : ranOf(live), live };
-    });
-}
-
-/**
- * The step's Checks a Drone's own run leaves out — declared `gate` or `handoff`
- * — so the chapter can say so beside a run that passed. #849.
- */
-export function notInTheDronesRun(step: StepDetail): DeclaredCheck[] {
-  return (step.checks ?? []).filter((check) => !isSweepMarker(check) && check.runs_at !== undefined);
-}
-
-/** What a Drone's own run is called wherever it is drawn where the gate's would be. */
-export const DRONES_RUN = "The Drone's run";
 
 /** Stopped when another Check failed first, so it says nothing either way. #1062. */
 export function isStopped(read: CheckRead): boolean {
@@ -382,49 +351,6 @@ export function panelsFrom(
 }
 
 /**
- * Which attempt the step's Checks are from, where a rerun gate or an
- * overrule has left the step's current attempt without Checks of its own —
- * `1` on a step now on attempt 2. `undefined` on the ordinary case: no
- * Checks yet, or Checks already on the live attempt.
- *
- * **Read off `check_runs` directly, not off `checksOf`.** `checksOf` joins
- * runs onto declared Checks, and a declared Check the gate has not reached
- * carries no run — so the join alone cannot say which attempt answered.
- */
-export function checksFromAttempt(step: StepDetail): number | undefined {
-  return earlierAttempt(step, onlyCurrentAttempt(step.check_runs));
-}
-
-/** The same reading for the panel's rows — `judged`'s own attempt. */
-export function judgeFromAttempt(step: StepDetail): number | undefined {
-  return earlierAttempt(step, onlyCurrentAttempt(step.judged));
-}
-
-/**
- * The attempt a narrowed list is from, only where it is earlier than the
- * step's own current attempt. Every row `onlyCurrentAttempt` returns carries
- * the same attempt, so the first is enough to ask.
- */
-function earlierAttempt<T extends { attempt: number }>(
-  step: StepDetail,
-  narrowed: readonly T[],
-): number | undefined {
-  const shown = narrowed[0]?.attempt;
-  const current = step.attempts.at(-1)?.attempt;
-  return shown !== undefined && current !== undefined && shown < current ? shown : undefined;
-}
-
-/**
- * A tier's own sentence, with which attempt it is from appended where that is
- * not the step's current one — `"3 of 3 passed — from attempt 1"`. Unchanged
- * where `from` is `undefined`, which is every ordinary reading: a step worked
- * once, and a step whose latest attempt is the one that answered.
- */
-export function notedFrom(said: string, from: number | undefined): string {
-  return from === undefined ? said : `${said} — from attempt ${from}`;
-}
-
-/**
  * Whether the run this step is being read as has ended.
  *
  * **Not the same question as `state`.** A run handed back reads `retrying`,
@@ -439,25 +365,6 @@ export function runEnded(step: StepDetail): boolean {
 /** How many criteria the step's declaration says the panel will answer. */
 export function askedOf(step: StepDetail): number {
   return (step.judge_checks ?? []).reduce((sum, judge) => sum + judge.criteria, 0);
-}
-
-/**
- * What a Judge call out right now says — `asking implements_the_scope · call
- * 2 of 5 · sonnet · 40s`.
- *
- * **One sentence for both surfaces that draw a call in flight.** #1153: the
- * target is `criterion_id` or `pattern`, the raw id and never the question —
- * #653 carries that.
- */
-export function judgeAsking(judging: JudgeInFlight, now: number | undefined): string {
-  const what = judging.criterion_id ?? judging.pattern;
-  const elapsed = now === undefined ? null : span(judging.since, now);
-  return [
-    what === undefined ? "asking" : `asking ${what}`,
-    `call ${judging.call} of ${judging.of}`,
-    judging.model,
-    ...(elapsed === null ? [] : [elapsed]),
-  ].join(" · ");
 }
 
 /**
@@ -483,43 +390,4 @@ export function stoppedUndecided(step: StepDetail): boolean {
 export function sentenceOf(said: string): string {
   const capped = said.charAt(0).toUpperCase() + said.slice(1);
   return /[.!?]$/.test(capped) ? capped : `${capped}.`;
-}
-
-/**
- * How many judges answer each criterion.
- *
- * **The declaration first, the rows second.** `panel_size` is what the header
- * of a verdict grid is drawn from before a single row arrives, and it is
- * **absent at one** — the convention `Judged.member` keeps, so a value always
- * means a panel. The rows are the floor under it: a panel that answered with
- * more members than were declared is a fact, not a reason to draw fewer marks
- * than there are.
- */
-export function panelSizeOf(step: StepDetail, panels: readonly Panel[]): number {
-  const declared = (step.judge_checks ?? []).map((judge) => judge.panel_size ?? 1);
-  return Math.max(1, ...declared, ...panels.map((panel) => panel.members.length));
-}
-
-/**
- * What one member of a panel is called — `j2`.
- *
- * **A position, not a person, and never part of a citation.** `Judged.member`
- * says so, and it is absent at `panel_size: 1`, where the panel is one judge
- * and the number would be a count nobody asked for.
- */
-export function judgeNamed(one: Judged): string {
-  return `j${one.member ?? 1}`;
-}
-
-/**
- * A run of judges, in a sentence — `j2`, `j1 and j3`, `j1, j2 and j3`.
- *
- * Written here rather than at each caller because the Checks row, the split and
- * the silence line all name the same set and would each have found their own
- * comma.
- */
-export function judgesSaid(members: readonly Judged[]): string {
-  const named = members.map(judgeNamed);
-  if (named.length <= 1) return named.join("");
-  return `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
 }

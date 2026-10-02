@@ -32,7 +32,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@armada/components";
 
-import { CRITERION_VERDICT_JUDGE } from "@armada/components";
 import type { StepDetail } from "@armada/protocol";
 import type { Kept } from "@armada/protocol";
 // The one reading of `check_runs` and `judged`. The Checks and Verdicts
@@ -110,28 +109,6 @@ export function openKept(opens: Opens, kept: Kept): void {
 /** The last segment of a repository-relative path. The informative half. */
 export function basename(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
-}
-
-/**
- * What a criterion's row says the panel came to.
- *
- * **Silent about the panel at one**, the convention `Judged.member` keeps: a
- * lone judge reads exactly as it did before panels were recorded, so no step
- * grows a count it did not have.
- *
- * **Exported, because the Verdicts grid says the same thing on the same row.**
- * The split on a closed criterion is this sentence's second half, and two
- * spellings of *refused by 2 of 3* on one screen is the drift `gates.ts` names.
- */
-export function howThePanelWent(verdict: string, refused: number, members: number): string {
-  // Not the registry's — `criterion_verdict_judge` has only `met` and
-  // `not_met`. A live question is a Bridge-only reading of the same row.
-  if (verdict === "asking") return "asking you";
-  const verb = CRITERION_VERDICT_JUDGE[verdict]?.verb ?? verdict;
-  if (members < 2) return verb;
-  // A refusal from one of three is a close call and a refusal from all three is
-  // not, and that difference is the reason the member number is on the wire.
-  return refused === 0 ? `${verb} · ${members} judges` : `${verb} by ${refused} of ${members}`;
 }
 
 /**

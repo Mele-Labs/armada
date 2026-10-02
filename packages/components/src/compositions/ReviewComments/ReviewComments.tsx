@@ -42,9 +42,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * around it — comes ahead of the words, exactly as the forge answered it: no
  * syntax highlighting, in a `pre` block. **A link to the comment on the forge** is its own control, drawn
  * from `id` through `onOpenLink` rather than from a `url` string handed
- * straight to an anchor — the same discipline `WhereRow`'s `open` act keeps,
- * so nothing this surface was given reaches the OS without main resolving it
- * again.
+ * straight to an anchor, so nothing this surface was given reaches the OS
+ * without main resolving it again.
  *
  * # A comment already sent is drawn and cannot be picked
  *
