@@ -132,3 +132,42 @@ fn a_transition(from: &str, to: &str) -> ipc::Event {
         _ => panic!("an event"),
     }
 }
+
+/// A minute that published more than the window holds says how many it could
+/// not count, rather than reading as a quieter minute than it was. #1759.
+#[test]
+fn a_tally_wider_than_its_window_says_how_much_it_could_not_count() {
+    let events = Broadcaster::new();
+    let from = events.cursor();
+    for _ in 0..crate::TALLIED + 10 {
+        events.publish(a_transition("queued", "running"));
+    }
+    let tally = events.tallied(from);
+    let window = crate::TALLIED as u64;
+    assert_eq!(tally.count("job.state_changed"), window);
+    assert_eq!(tally.count_for("01JOB0", "job.state_changed"), window);
+    let line = tally.to_string();
+    assert!(line.contains("published 4106 events"), "{line}");
+    assert!(
+        line.contains("10 beyond the tally window, uncounted"),
+        "{line}"
+    );
+}
+
+/// One row for the stream and one per Job, so a Job's rate reads off its own.
+#[test]
+fn a_tally_reads_as_one_line_for_the_stream_and_one_per_job() {
+    let events = Broadcaster::new();
+    let from = events.cursor();
+    events.publish(a_transition("queued", "running"));
+    events.publish(a_transition("running", "awaiting_review"));
+    let tally = events.tallied(from);
+    assert_eq!(
+        tally.to_string(),
+        format!(
+            "published 2 events (BACKLOG {}): job.state_changed 2\n  01JOB0: 2 — job.state_changed 2",
+            crate::BACKLOG
+        )
+    );
+    assert!(events.tallied(tally.upto()).is_empty());
+}

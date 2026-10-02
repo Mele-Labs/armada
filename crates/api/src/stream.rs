@@ -25,11 +25,14 @@
 //! detectable from its `from` status, and a missing one is not detectable.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use ipc::{Cursor, Delivered, Event, EventTally, EventsSince};
 use tokio::sync::broadcast;
+use tokio::task::JoinHandle;
 
 /// How many events the stream holds for a subscriber that is not keeping up.
 ///
@@ -37,7 +40,8 @@ use tokio::sync::broadcast;
 /// an open question, along with whether one capacity serves every event kind.
 /// This one is chosen to absorb the burst a few Drones produce while a renderer
 /// is busy, and to be small enough that a Bridge which has stopped draining
-/// hears about it in seconds rather than minutes.
+/// hears about it in seconds rather than minutes. Fleet's log carries a
+/// [`Tally`] every [`TALLY_EVERY`] to read it against.
 pub const BACKLOG: usize = 256;
 
 /// How many published kinds the tally window keeps for `get_events_since`.
@@ -47,6 +51,10 @@ pub const BACKLOG: usize = 256;
 /// an event — so the window that decides whether it is told "you missed N" is
 /// cheaper per entry and can afford to be longer.
 pub const TALLIED: usize = 4096;
+
+/// How often Fleet writes a [`Tally`] to its log: once a minute, so a rate
+/// can be read against [`BACKLOG`] from live runs. #1759.
+pub const TALLY_EVERY: Duration = Duration::from_secs(60);
 
 /// What crossed, as positions and names, for a caller with no socket.
 ///
@@ -113,6 +121,119 @@ impl Tallies {
             missed: (from < oldest).then(|| oldest - from),
         }
     }
+
+    /// Every kind published from `from` to `upto`, and again by the Job each
+    /// names. **Read off this window, not counted a second time** on the
+    /// publish path, so a minute wider than [`TALLIED`] says so.
+    fn tally(&self, from: u64, upto: u64) -> Tally {
+        let oldest = self.seen.front().map(|(at, ..)| *at).unwrap_or(upto);
+        let mut tally = Tally {
+            from,
+            upto,
+            uncounted: oldest.saturating_sub(from).min(upto - from),
+            kinds: BTreeMap::new(),
+            jobs: BTreeMap::new(),
+        };
+        for (_, kind, (job, _)) in self
+            .seen
+            .iter()
+            .filter(|(at, ..)| (from..upto).contains(at))
+        {
+            *tally.kinds.entry(kind.clone()).or_default() += 1;
+            if let Some(job) = job {
+                let of_job = tally.jobs.entry(job.clone()).or_default();
+                *of_job.entry(kind.clone()).or_default() += 1;
+            }
+        }
+        tally
+    }
+}
+
+/// What the stream carried between two positions, by kind and by the Job each
+/// event names. What Fleet writes to its log every [`TALLY_EVERY`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tally {
+    from: u64,
+    upto: u64,
+    /// Published, but fallen off the back of the window before it was read.
+    uncounted: u64,
+    kinds: BTreeMap<String, u64>,
+    jobs: BTreeMap<String, BTreeMap<String, u64>>,
+}
+
+impl Tally {
+    /// Where this tally ended, which is where the next one starts.
+    pub fn upto(&self) -> Cursor {
+        Cursor::at(self.upto)
+    }
+
+    /// How many events of `kind` were published.
+    pub fn count(&self, kind: &str) -> u64 {
+        self.kinds.get(kind).copied().unwrap_or(0)
+    }
+
+    /// How many events of `kind` named `job`.
+    pub fn count_for(&self, job: &str, kind: &str) -> u64 {
+        let of_job = self.jobs.get(job);
+        of_job
+            .and_then(|kinds| kinds.get(kind))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    /// Nothing was published.
+    pub fn is_empty(&self) -> bool {
+        self.upto == self.from
+    }
+}
+
+/// `n kind, n kind` in kind order.
+fn counted(kinds: &BTreeMap<String, u64>) -> String {
+    let each = kinds.iter().map(|(kind, n)| format!("{kind} {n}"));
+    each.collect::<Vec<_>>().join(", ")
+}
+
+impl fmt::Display for Tally {
+    /// One line for the stream, then one per Job that published, indented.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total = self.upto - self.from;
+        write!(
+            f,
+            "published {total} events (BACKLOG {BACKLOG}): {}",
+            counted(&self.kinds)
+        )?;
+        if self.uncounted > 0 {
+            write!(f, "; {} beyond the tally window, uncounted", self.uncounted)?;
+        }
+        for (job, kinds) in &self.jobs {
+            let n: u64 = kinds.values().sum();
+            write!(f, "\n  {job}: {n} — {}", counted(kinds))?;
+        }
+        Ok(())
+    }
+}
+
+/// Hand `write` what the stream carried every `every`, from now on. **A minute
+/// nothing crossed writes nothing**, so a quiet Fleet's log stays quiet.
+pub fn tally_every(
+    events: Broadcaster,
+    every: Duration,
+    write: impl Fn(&Tally) + Send + 'static,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(every);
+        // The first tick is immediate; the window opens on it.
+        ticker.tick().await;
+        let mut from = events.cursor();
+        loop {
+            ticker.tick().await;
+            let tally = events.tallied(from);
+            from = tally.upto();
+            if !tally.is_empty() {
+                write(&tally);
+            }
+        }
+    })
 }
 
 /// Where events are published, and what a socket subscribes to.
@@ -187,6 +308,24 @@ impl Broadcaster {
                 upto: Cursor::at(upto),
                 kinds: Vec::new(),
                 missed: None,
+            },
+        }
+    }
+
+    /// Everything published since `from`, by kind and by Job. #1759.
+    pub fn tallied(&self, from: Cursor) -> Tally {
+        let upto = self.next.load(Ordering::SeqCst);
+        let from = from.position().min(upto);
+        match self.tallies.lock() {
+            Ok(tallies) => tallies.tally(from, upto),
+            // `since_within`'s reason: a poisoned lock is a panic that cannot
+            // happen, and the whole span is then said to be uncounted.
+            Err(_) => Tally {
+                from,
+                upto,
+                uncounted: upto - from,
+                kinds: BTreeMap::new(),
+                jobs: BTreeMap::new(),
             },
         }
     }
