@@ -436,6 +436,11 @@ Check prints nothing while it runs, which reads as a hang and is not one.
 session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
 use`. `../concepts/manifest.md`, *How many Checks run at once*.
 
+**A Check runs at agent priority**, beneath the merge line's and Bridge's, so
+on a loaded machine it takes longer than the same Check run by `scripts/land`.
+`ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
+`../concepts/manifest.md`, *At what priority a Check runs*.
+
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough
 (`a_span_holding_one_taken_port_is_not_free`), and a path from any module down

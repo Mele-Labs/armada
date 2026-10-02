@@ -63,7 +63,10 @@ pub fn check(
     log: &Path,
     limit: Duration,
 ) -> Result<CheckRan, Stopped> {
-    let limited = run_limited(&[armada, "check", name], cwd, log, limit)?;
+    // The merge line's Checks keep normal priority; every other caller's are
+    // lowered beneath them. `checks_runner::Priority`.
+    let normal = [(checks_runner::PRIORITY_ENV, "normal")];
+    let limited = run_limited(&[armada, "check", name], cwd, log, limit, &normal)?;
     Ok(CheckRan {
         passed: limited.ran.success() && !limited.timed_out,
         timed_out: limited.timed_out,
@@ -75,4 +78,33 @@ pub struct CheckRan {
     pub passed: bool,
     pub timed_out: bool,
     pub output: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::os::unix::fs::PermissionsExt as _;
+    use std::time::Duration;
+
+    use super::check;
+    use crate::tests::TempDir;
+
+    /// The merge line's Checks are what everyone else's yield to, so it says
+    /// so explicitly rather than leaving it to whatever its caller inherited.
+    #[test]
+    fn the_merge_line_runs_its_checks_at_normal_priority() {
+        let dir = TempDir::new();
+        dir.write("armada", "#!/bin/sh\necho \"$ARMADA_CHECK_PRIORITY\"\n");
+        let stub = dir.path().join("armada");
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let Ok(ran) = check(
+            stub.to_str().expect("a UTF-8 path"),
+            dir.path(),
+            "test",
+            &dir.path().join("check.log"),
+            Duration::from_secs(30),
+        ) else {
+            panic!("the stub runs");
+        };
+        assert_eq!(ran.output.trim(), "normal");
+    }
 }
