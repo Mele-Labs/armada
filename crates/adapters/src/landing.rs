@@ -147,80 +147,6 @@ pub(crate) fn merge(in_repo: &str, pull_request: &str) -> Result<Merged, NotMerg
     }
 }
 
-/// Merge a pull request, pinned to the commit it was gated on. `#1315`.
-///
-/// **The same read-then-write as [`merge`], with the pin carried into both
-/// halves.** The state is read fresh — including `headRefOid` — so a branch
-/// that moved on the remote between the gate's push and this call is caught
-/// here rather than merging a commit nobody gated: `--match-head-commit`
-/// alone would only make the forge refuse the write, and this refuses before
-/// asking the forge to try.
-pub(crate) fn merge_pinned(
-    in_repo: &str,
-    pull_request: &str,
-    expected_head: &str,
-) -> Result<Merged, NotMerged> {
-    let Some(standing) = asked(
-        in_repo,
-        pull_request,
-        "state,mergeable,mergeStateStatus,headRefOid",
-        "[.state, .mergeable, .mergeStateStatus, .headRefOid] | @tsv",
-    ) else {
-        return Err(NotMerged::NoTool {
-            said: format!("`{FORGE} pr view {pull_request}` would not answer"),
-        });
-    };
-    let Some([state, mergeable, status, head]) = fields::<4>(&standing) else {
-        return Err(NotMerged::Refused {
-            said: format!("`{FORGE}` answered `{standing}`, which has no reading here"),
-        });
-    };
-    match state {
-        "MERGED" => return Ok(Merged::AlreadyMerged),
-        "OPEN" => {}
-        other => {
-            return Err(NotMerged::NotOpen {
-                said: format!("the forge says it is {other}"),
-            })
-        }
-    }
-    if head != expected_head {
-        return Err(NotMerged::Refused {
-            said: format!(
-                "the pull request's head is {head}, not the {expected_head} this was gated against"
-            ),
-        });
-    }
-    if mergeable == "CONFLICTING" {
-        return Err(NotMerged::Conflicted {
-            said: String::from("the forge cannot merge this branch into its base as it stands"),
-        });
-    }
-    let run = match run_in(
-        in_repo,
-        FORGE,
-        &[
-            "pr",
-            "merge",
-            pull_request,
-            "--merge",
-            "--match-head-commit",
-            expected_head,
-        ],
-    ) {
-        Ok(run) => run,
-        Err(why) => {
-            return Err(NotMerged::NoTool {
-                said: format!("`{FORGE}` would not run: {why}"),
-            })
-        }
-    };
-    match run.status.success() {
-        true => Ok(Merged::Taken),
-        false => Err(why_not(status, said(&run))),
-    }
-}
-
 /// The remote a `merge_by: push` lands on, and the one `crate::base` reads a
 /// default branch from.
 const REMOTE: &str = "origin";
@@ -242,38 +168,10 @@ pub(crate) fn merge_by_push(
     let branch = WorktreeSpec::for_job(in_repo, handle)
         .map_err(|why| refused(why.said()))?
         .branch();
-    let repo = Repository::open(in_repo).map_err(|cause| refused(cause.message().to_string()))?;
-    let base = match crate::base::resolve(&repo, declared) {
-        Ok(Some(base)) => base.name().to_string(),
-        Ok(None) => {
-            return Err(refused(String::from(
-                "this repository names no base branch",
-            )))
-        }
-        Err(why) => return Err(refused(why.said())),
-    };
     let root = Path::new(in_repo);
     let candidate = rev_parse(in_repo, &format!("refs/heads/{branch}"))
         .ok_or_else(|| refused(format!("the branch {branch} is gone")))?;
-    let tracking = format!("refs/remotes/{REMOTE}/{base}");
-    let fetched = run_in(
-        in_repo,
-        "git",
-        &[
-            "fetch",
-            "--quiet",
-            REMOTE,
-            &format!("+refs/heads/{base}:{tracking}"),
-        ],
-    )
-    .map_err(|why| NotMerged::NoTool {
-        said: format!("`git` would not run: {why}"),
-    })?;
-    if !fetched.status.success() {
-        return Err(refused(said(&fetched)));
-    }
-    let gated = rev_parse(in_repo, &tracking)
-        .ok_or_else(|| refused(format!("{REMOTE} has no branch {base}")))?;
+    let RemoteBase { base, gated, .. } = fetched_base(in_repo, declared)?;
     if onto_base::is_ancestor(root, &candidate, &gated) {
         return Ok(PushedOntoBase {
             base,
@@ -307,6 +205,55 @@ pub(crate) fn merge_by_push(
             said: format!("{base} moved on {REMOTE} between the fetch and the push"),
         }),
     }
+}
+
+/// The base a `merge_by: push` lands on, as the remote holds it this moment.
+pub(crate) struct RemoteBase {
+    pub(crate) base: String,
+    /// The ref the fetch wrote, which a merge names.
+    pub(crate) tracking: String,
+    /// The commit it is on.
+    pub(crate) gated: String,
+}
+
+/// Resolve the base and fetch the remote's copy of it: the push is checked
+/// against that one, so every merge toward it is made on it.
+pub(crate) fn fetched_base(in_repo: &str, declared: Option<&str>) -> Result<RemoteBase, NotMerged> {
+    let refused = |said: String| NotMerged::Refused { said };
+    let repo = Repository::open(in_repo).map_err(|cause| refused(cause.message().to_string()))?;
+    let base = match crate::base::resolve(&repo, declared) {
+        Ok(Some(base)) => base.name().to_string(),
+        Ok(None) => {
+            return Err(refused(String::from(
+                "this repository names no base branch",
+            )))
+        }
+        Err(why) => return Err(refused(why.said())),
+    };
+    let tracking = format!("refs/remotes/{REMOTE}/{base}");
+    let fetched = run_in(
+        in_repo,
+        "git",
+        &[
+            "fetch",
+            "--quiet",
+            REMOTE,
+            &format!("+refs/heads/{base}:{tracking}"),
+        ],
+    )
+    .map_err(|why| NotMerged::NoTool {
+        said: format!("`git` would not run: {why}"),
+    })?;
+    if !fetched.status.success() {
+        return Err(refused(said(&fetched)));
+    }
+    let gated = rev_parse(in_repo, &tracking)
+        .ok_or_else(|| refused(format!("{REMOTE} has no branch {base}")))?;
+    Ok(RemoteBase {
+        base,
+        tracking,
+        gated,
+    })
 }
 
 fn rev_parse(in_repo: &str, rev: &str) -> Option<String> {
