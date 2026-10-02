@@ -422,6 +422,11 @@ pub enum SpawnConfigRefused {
     EnvNameTwice {
         name: String,
     },
+    /// A Judge's checkout was relative, so it would read wherever the call
+    /// happened to start. [`crate::Reading::checkout`].
+    CheckoutNotAbsolute {
+        given: String,
+    },
 }
 
 /// What a harness turns a [`DroneSpawnConfig`] into: a process, not yet started.
@@ -547,6 +552,12 @@ impl SpawnConfigRefused {
                 let mut said = String::from("`");
                 said.push_str(name);
                 said.push_str("` was named twice, and which one wins is not decided here");
+                said
+            }
+            SpawnConfigRefused::CheckoutNotAbsolute { given } => {
+                let mut said = String::from("the checkout `");
+                said.push_str(given);
+                said.push_str("` is relative, so a Judge would read wherever it started");
                 said
             }
         }

@@ -92,9 +92,8 @@ pub const PROVISIONAL_CHECK_BUDGET: Duration = Duration::from_secs(900);
 /// is waiting behind — latency is what this bounds, not money.
 ///
 /// `judge-cost-cap-per-check` is open for a different reason and does not
-/// belong in this sentence: a Judge is rendered `--output-format text
-/// --max-turns 1` and emits no result envelope, so nothing can read what one
-/// cost. A dollar cap there would be enforced by nothing.
+/// belong in this sentence: a Judge is rendered `--output-format text` and
+/// emits no result envelope, so nothing can read what one cost. A dollar cap there would be enforced by nothing.
 pub const PROVISIONAL_JUDGE_BUDGET: Duration = Duration::from_secs(120);
 
 /// How long a plain command may take — one that only reads and writes the

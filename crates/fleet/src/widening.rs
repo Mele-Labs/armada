@@ -316,7 +316,7 @@ where
         let brief = WideningBrief::about(
             declared,
             Request::of(&record),
-            &judging.standing,
+            &judging.told(),
             &held,
             &adding,
             &request.reason,

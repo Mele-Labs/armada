@@ -16,7 +16,8 @@
 //! takes on its way to deleting a branch. Nothing here forms its own opinion
 //! about what merged means, and nothing matches a path against a pattern:
 //! every candidate is a Job the store handed out, reached through the
-//! `WorktreeSpec` that derived its checkout. A hand-run `git branch -D` over
+//! `WorktreeSpec` its record names — a pool slot it still holds, or the path a
+//! Job cut before the pool derives. A hand-run `git branch -D` over
 //! `armada/*` destroyed nine branches belonging to no Job.
 //!
 //! # What it took goes on the Job
@@ -25,7 +26,7 @@
 //! with no record of who took it.
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::{BranchStanding, Reclaimed, UnmergedWork, WorktreeStanding};
 use core_model::{
     Component, DependencyDirection, Envelope, FieldValue, Job, JobId, JobStatus, Level, Timestamp,
@@ -233,7 +234,7 @@ where
         let held = self.worktrees_held().await?;
         let mut gave_back = Vec::new();
         for one in held.iter().filter(|one| one.provably_safe()) {
-            if let Some(taken) = self.gave_back(&one.job, &one.handle) {
+            if let Some(taken) = self.gave_back(&one.job).await {
                 gave_back.push(taken);
             }
         }
@@ -273,7 +274,7 @@ where
     /// cannot be asked about still reports the reasons that do not need git.
     fn holding_of(&self, job: &Job, board: &[&Job]) -> Option<Holding> {
         let served = self.served_by(job).ok()?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).ok()?;
+        let spec = self.reclaimed_spec(&served, job).ok()?;
         let stands = adapters::standing(&spec, served.manifest().base()).ok()?;
         if stands.empty_handed() {
             return None;
@@ -331,9 +332,16 @@ where
     /// Fleet must never be the thing that destroys work nobody has taken — and
     /// a second reading that disagreed with the first would be caught by it
     /// rather than acted on.
-    fn gave_back(&self, job: &JobId, handle: &str) -> Option<GaveBack> {
-        let served = self.served_by_id(job).ok()?;
-        let spec = WorktreeSpec::for_job(served.root(), handle).ok()?;
+    ///
+    /// **A slot goes back to the pool, never away.** A Job that ended holding
+    /// one because its release was refused is given the release again here,
+    /// now that every test has passed; `adapters::reclaim` then leaves the
+    /// slot's directory to the pool and takes only the branch.
+    async fn gave_back(&self, job: &JobId) -> Option<GaveBack> {
+        let loaded = self.load(job).await.ok()?;
+        self.released_slot(&loaded).await;
+        let served = self.served_by(&loaded).ok()?;
+        let spec = self.reclaimed_spec(&served, &loaded).ok()?;
         let reclaimed = adapters::reclaim(&spec, served.manifest().base(), UnmergedWork::Keep)
             .inspect_err(|cause| self.noted_unreclaimed(job, &cause.why))
             .ok()?;
@@ -426,6 +434,7 @@ fn said_of(worktree: &adapters::WorktreeGone) -> String {
         Absent { path } => format!("nothing at {path}"),
         Locked { path, reason } => format!("{path} is locked: {reason}"),
         NotRemoved { path, why } => format!("{path} was not removed: {why}"),
+        Pooled { path } => format!("{path} is a pool slot, given back rather than removed"),
     }
 }
 

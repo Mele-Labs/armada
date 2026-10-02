@@ -65,6 +65,7 @@ fn judging(client: Arc<FakeJudge>, asked: Asked) -> Judging {
         marking: Marking::detached(),
         asked,
         standing: verification::Standing::unstated(),
+        reading: None,
     }
 }
 

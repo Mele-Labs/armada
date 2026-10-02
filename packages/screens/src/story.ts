@@ -132,9 +132,10 @@ export type CalledParts = {
  * it said which file. What is left is the path as the repository spells it,
  * which is how the diff and the footprint already name a file.
  *
- * **Derived from the layout, not guessed at.** `artifacts.ts` fixes it as
- * `<repo>/.armada/worktrees/<job>`, and says it is not configurable — so the
- * segment after `worktrees` is the worktree and everything before it is the
+ * **Derived from the layout, not guessed at.** A Job works in the pool slot
+ * it leased, `<repo>/.armada/slots/slot-<n>`, or — cut before the pool — in
+ * `<repo>/.armada/worktrees/<job>`; neither is configurable, so the segment
+ * after `slots` or `worktrees` is the worktree and everything before it is the
  * machine. **The message only**: the payload keeps the argument whole, because
  * a row that opens is a row somebody wants the real path from.
  */
@@ -142,8 +143,11 @@ export function inside(detail: string): string {
   return detail.replace(WORKTREE, "");
 }
 
-/** `<anything>/.armada/worktrees/<one segment>/`, wherever it appears. */
-const WORKTREE = new RegExp(`\\S*/${ARMADA.replace(".", "\\.")}/worktrees/[^/\\s]+/`, "g");
+/** `<anything>/.armada/slots/slot-<n>/` or `<anything>/.armada/worktrees/<one segment>/`. */
+const WORKTREE = new RegExp(
+  `\\S*/${ARMADA.replace(".", "\\.")}/(?:slots/slot-\\d+|worktrees/[^/\\s]+)/`,
+  "g",
+);
 
 /**
  * `path +3 -2`, `path +3`, or a bare path, read back off a row's detail. The

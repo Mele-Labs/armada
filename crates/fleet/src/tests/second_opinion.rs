@@ -109,6 +109,7 @@ async fn ruled(
             marking: Marking::detached(),
             asked,
             standing: verification::Standing::unstated(),
+            reading: None,
         },
         &keeping_nowhere(),
         Policies::unstated(),

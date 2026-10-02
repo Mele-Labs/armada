@@ -327,6 +327,7 @@ impl Bench {
                 marking: Marking::detached(),
                 asked: Asked::nowhere(),
                 standing: verification::Standing::unstated(),
+                reading: None,
             },
             moves: RefCell::new(Vec::new()),
             step_moves: RefCell::new(Vec::new()),

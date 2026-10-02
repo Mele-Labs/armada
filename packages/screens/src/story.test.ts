@@ -326,6 +326,12 @@ describe("a call's argument loses the worktree it was read in", () => {
     );
   });
 
+  it("drops a pool slot's prefix the same way", () => {
+    expect(inside("~/Development/armada/.armada/slots/slot-3/crates/ipc/src/turn.rs")).toBe(
+      "crates/ipc/src/turn.rs",
+    );
+  });
+
   it("drops the prefix from every path in one argument", () => {
     const both =
       "grep -n foo ~/x/.armada/worktrees/1-a-job/crates/a.rs ~/x/.armada/worktrees/1-a-job/crates/b.rs";

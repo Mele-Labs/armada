@@ -2261,7 +2261,7 @@ each Job until that Job's next catch-up brings the fix in. That hold is not on t
 is told, and `docs/concepts/fleet.md`, *A test another Job is fixing*, has why it outlives the merge.
 
 **Not on the wire: `draft_fix` gains a required `files`.** It is an MCP tool, not this protocol, and
-its own schema says so. **Store V93** keeps a claim's files and what a landed fix still holds.
+its own schema says so. **Store V94** keeps a claim's files and what a landed fix still holds.
 
 ## Open questions
 

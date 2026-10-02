@@ -168,6 +168,11 @@ pub struct Job {
     /// has never been dispatched, and is absent rather than a name it does not
     /// yet have.
     branch: Option<Branch>,
+    /// The pool slot the Job's worktree is, where it leased one. Written the
+    /// way `branch` is, when the worktree is made. **`None` is a Job cut
+    /// before the pool**, whose worktree is still at the path its handle
+    /// derives — and a Job never dispatched.
+    worktree_slot: Option<u32>,
     /// When this Job's worktree and branch were given back while its record
     /// stayed. **`None` is a Job whose disk still stands** — every Job before a
     /// reclaim, and every Job a reclaim has not yet reached.
@@ -262,6 +267,7 @@ impl Job {
             number: new.number,
             // No worktree exists yet. `on_branch` is what fills this in.
             branch: None,
+            worktree_slot: None,
             // A Job that was just created has nothing to give back.
             reclaimed_at: None,
             // Nothing has been said to a Job that does not exist yet.
@@ -337,6 +343,16 @@ impl Job {
     pub fn on_branch(&self, branch: Branch) -> Job {
         let mut job = self.clone();
         job.branch = Some(branch);
+        job
+    }
+
+    /// Record the pool slot the Job's worktree is.
+    ///
+    /// [`on_branch`](Job::on_branch)'s reason: no event carries a worktree,
+    /// so the column is this field's authority, and it overwrites.
+    pub fn in_slot(&self, slot: u32) -> Job {
+        let mut job = self.clone();
+        job.worktree_slot = Some(slot);
         job
     }
 
@@ -760,6 +776,11 @@ impl Job {
     /// The branch the Job's worktree is on. `None` until one is made.
     pub fn branch(&self) -> Option<&Branch> {
         self.branch.as_ref()
+    }
+    /// The pool slot the Job leased. `None` is a Job never dispatched, or one
+    /// cut before the pool at its derived path.
+    pub fn worktree_slot(&self) -> Option<u32> {
+        self.worktree_slot
     }
     /// When this Job's worktree and branch were given back. `None` is a Job
     /// whose disk still stands.

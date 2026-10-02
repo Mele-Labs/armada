@@ -44,13 +44,13 @@ CREATE TABLE job_fix_waiters (
 ) STRICT;
 "#;
 
-/// Version 93 — the test's files on a claim, and what a landed fix still
+/// Version 94 — the test's files on a claim, and what a landed fix still
 /// holds off a Job until its copy takes the fix. #1673.
 ///
 /// **Two tables beside the claim rather than a column on it**, for
 /// `crate::plan`'s reason: a list is rows. `job_id` is the fix on the first
 /// and the held Job on the second, so each goes with the Job that owns it.
-pub(crate) const V93: &str = r#"
+pub(crate) const V94: &str = r#"
 CREATE TABLE job_breakage_claim_files (
     job_id      TEXT NOT NULL REFERENCES jobs(job_id),
     repository  TEXT NOT NULL,

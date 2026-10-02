@@ -37,6 +37,8 @@ pub struct FakeJudge {
     asked: Mutex<Vec<String>>,
     /// The model each question was put to, beside [`FakeJudge::asked`].
     models: Mutex<Vec<String>>,
+    /// The checkout each question's call could read, beside [`FakeJudge::asked`].
+    directories: Mutex<Vec<Option<String>>>,
     /// How long the rendered program takes before it answers. Zero on every
     /// judge but one a test asked for [`FakeJudge::taking`].
     taking: Duration,
@@ -57,6 +59,7 @@ impl FakeJudge {
             printed: None,
             asked: Mutex::new(Vec::new()),
             models: Mutex::new(Vec::new()),
+            directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
             sequence: None,
         }
@@ -89,6 +92,7 @@ impl FakeJudge {
             printed: None,
             asked: Mutex::new(Vec::new()),
             models: Mutex::new(Vec::new()),
+            directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
             sequence: None,
         }
@@ -104,6 +108,7 @@ impl FakeJudge {
             printed: None,
             asked: Mutex::new(Vec::new()),
             models: Mutex::new(Vec::new()),
+            directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
             sequence: None,
         }
@@ -120,6 +125,7 @@ impl FakeJudge {
             printed: Some((stdout.to_string(), stderr.to_string())),
             asked: Mutex::new(Vec::new()),
             models: Mutex::new(Vec::new()),
+            directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
             sequence: None,
         }
@@ -139,6 +145,7 @@ impl FakeJudge {
             printed: None,
             asked: Mutex::new(Vec::new()),
             models: Mutex::new(Vec::new()),
+            directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
             sequence: Some(Mutex::new((
                 0,
@@ -191,6 +198,12 @@ impl FakeJudge {
         self.models.lock().expect("not poisoned").clone()
     }
 
+    /// The checkout each call in [`FakeJudge::asked`] was given to read, in
+    /// order, or `None` for a call that could read nothing.
+    pub fn directories(&self) -> Vec<Option<String>> {
+        self.directories.lock().expect("not poisoned").clone()
+    }
+
     /// What this judge would answer a question. Matched on the question's text
     /// because a criterion id is not on the `Ask` — the model is never told
     /// one, and a citation names the criterion on Fleet's side.
@@ -226,6 +239,10 @@ impl ModelClient for FakeJudge {
             .lock()
             .expect("not poisoned")
             .push(ask.model().as_str().to_string());
+        self.directories
+            .lock()
+            .expect("not poisoned")
+            .push(ask.reads().map(|reading| reading.directory().to_string()));
         // Read once and reused below: `answer` advances `sequence` a step per
         // read, and a second read here would spend that step on nothing.
         let answer = self.answer(ask.question());
@@ -270,6 +287,10 @@ impl ModelClient for FakeJudge {
             .lock()
             .expect("not poisoned")
             .push(ask.model().as_str().to_string());
+        self.directories
+            .lock()
+            .expect("not poisoned")
+            .push(ask.reads().map(|reading| reading.directory().to_string()));
         let mut lines = vec![
             String::from(r#"{"type":"system","subtype":"init"}"#),
             String::from(r#"{"type":"system","subtype":"status","status":"requesting"}"#),

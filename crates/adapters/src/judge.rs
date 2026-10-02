@@ -3,25 +3,50 @@
 //! # It is not a Drone, and the argument list is where that is true
 //!
 //! No `--input-format stream-json`, so stdin is one prompt and then EOF rather
-//! than a session. `--max-turns 1`, so the model answers once. `--tools ""`,
-//! so it holds none. `--strict-mcp-config` with no `--mcp-config`, so no
-//! server at all is reachable — not even the Evidence tool a Drone always
-//! holds.
+//! than a session. `--strict-mcp-config` with no `--mcp-config`, so no server
+//! at all is reachable — not even the Evidence tool a Drone always holds.
 //!
-//! # A Judge cannot reach the repository because nothing points it at one
+//! # Two fences, chosen by the ask
 //!
-//! `JudgeCall` carries no directory, so there is no worktree on the argument
-//! list and none to inherit: Fleet runs it somewhere with no repository under
-//! it. The patch is text inside the question.
+//! **An ask with no [`Reading`] reaches nothing**: `--max-turns 1`, so the
+//! model answers once, and `--tools ""`, so it holds no tool. The Job proposer,
+//! generated copy and a link lookup are asked this way.
 //!
-//! # `--allowedTools ""` is a floor; `--tools ""` is the fence
+//! **An ask with one reads the repository**, decided 2 Oct 2026 so that a
+//! Judge can learn what a repository requires of a change the way a Drone
+//! does — a Judge that could not read refused work CLAUDE.md asked for as
+//! *scope expansion*. It starts in the checkout the reading names, a
+//! repository's own and never a Job's worktree, and holds:
+//!
+//! | Argument | What it holds the call to |
+//! |---|---|
+//! | `--tools Read,Grep,Glob` | the three read tools, and no other in the session |
+//! | `--disallowedTools` | every built-in that is not a read, plus `Read(./.armada/**)` |
+//! | `--restricted` | reads inside the working directory, measured in spike 017 |
+//! | `--max-turns` | the reading's cap, reads and answer together |
+//!
+//! **`.armada/` is refused** because Fleet's Job worktrees and records are
+//! under it: a checkout's `.armada/worktrees/<job>` is the Drone's own work,
+//! and a Judge that read it would read how the work was done rather than what
+//! the repository requires. Measured on 2 Oct 2026 against 2.1.287: without the
+//! rule, Read, Glob and Grep all reached a file under `.armada/worktrees/`
+//! although the checkout ignores `.armada/`; with it, all three were refused or
+//! came back empty.
+//!
+//! # `--allowedTools ""` is a floor; `--tools` is the fence
 //!
 //! The first is a permission allowlist and leaves the toolset standing; a
-//! denied use still spends the one turn. `#1047`.
+//! denied use still spends a turn. `--tools` is what the session holds. `#1047`.
 
-use adapter_traits::{Ask, Heard, JudgeCall, ModelClient};
+use adapter_traits::{Ask, Heard, JudgeCall, ModelClient, Reading};
 
 use crate::harness::HeadlessAgent;
+use crate::scouting::{NOT_A_READ, READ_TOOLS};
+
+/// What a reading Judge may not open, however it asks: Fleet's own directory in
+/// the checkout, where every Job's worktree and record lives. A permission rule
+/// in the CLI's own syntax, relative to the working directory.
+const NOT_THE_WORK: &str = "Read(./.armada/**)";
 
 /// The model a request is read by when nothing names one.
 ///
@@ -112,10 +137,10 @@ enum Watched {
 
 /// The argument list both renders use.
 ///
-/// **One builder, because the confinement is the argument list.** `--tools ""`
-/// is what actually holds a Judge to no toolset; two lists that happened to
-/// agree the day they were written would stop agreeing the first time one of
-/// them was edited.
+/// **One builder, because the confinement is the argument list.** `--tools` is
+/// what actually holds a call to its toolset; two lists that happened to agree
+/// the day they were written would stop agreeing the first time one of them
+/// was edited.
 fn asking(ask: &Ask, watched: Watched) -> Vec<String> {
     let mut args: Vec<String> = vec!["-p".into(), "--output-format".into()];
     match watched {
@@ -138,15 +163,25 @@ fn asking(ask: &Ask, watched: Watched) -> Vec<String> {
     args.extend([
         "--model".into(),
         ask.model().as_str().into(),
-        // One turn. A verifier that can take a second turn is a verifier
-        // that can go looking, which is the property this call is bought
-        // for.
-        "--max-turns".into(),
-        "1".into(),
         "--permission-mode".into(),
         "dontAsk".into(),
         // No `--mcp-config` beside it, which is what makes the set empty.
         "--strict-mcp-config".into(),
+    ]);
+    match ask.reads() {
+        None => fenced(&mut args),
+        Some(reading) => reading_only(&mut args, reading),
+    }
+    args
+}
+
+/// A call that reaches nothing: one turn and no tool.
+fn fenced(args: &mut Vec<String>) {
+    args.extend([
+        // One turn. A call that can take a second turn is a call that can go
+        // looking, and nothing asked this way was given anywhere to look.
+        "--max-turns".into(),
+        "1".into(),
         "--allowedTools".into(),
         String::new(),
         // The fence `--allowedTools` alone is not: it disables every tool
@@ -154,5 +189,27 @@ fn asking(ask: &Ask, watched: Watched) -> Vec<String> {
         "--tools".into(),
         String::new(),
     ]);
-    args
+}
+
+/// A call that may read its checkout and nothing else. The directory is not an
+/// argument: [`JudgeCall::rendered`] copies it off the ask, and Fleet starts
+/// the call there.
+fn reading_only(args: &mut Vec<String>, reading: &Reading) {
+    let mut denied: Vec<&str> = NOT_A_READ.to_vec();
+    denied.push(NOT_THE_WORK);
+    args.extend([
+        "--max-turns".into(),
+        reading.turns().to_string(),
+        // Reads stay inside the working directory: a bare allow let a call
+        // read a sibling directory, and this refused it. Spike 017.
+        "--restricted".into(),
+        "--tools".into(),
+        READ_TOOLS.join(","),
+        "--allowedTools".into(),
+        READ_TOOLS.join(","),
+        // Denied as well as left out of the toolset, since a deny beats an
+        // operator's own allow, and `.armada/` with them.
+        "--disallowedTools".into(),
+        denied.join(","),
+    ]);
 }

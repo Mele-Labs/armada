@@ -46,12 +46,47 @@ pub fn a_proposal(title: &str) -> ipc::ProposeJob {
     }
 }
 
-/// Make the directory `FakeVcs` says it made. See this module's comment.
-/// **Takes the Job and not its id**, because a worktree is named by the handle
-/// now and the handle is derived from the number and the title. A fixture that
-/// took an id would make a directory Fleet does not look in.
+/// Make the directory a Job cut before the pool would work in. See this
+/// module's comment. **A leased Job works in its slot**, which the fake's lease
+/// makes, so on a Job Fleet dispatches this is left over and harmless.
 pub fn worktree_directory(home: &TempDir, job: &core_model::Job) {
     worktree_directory_named(home, &job.handle());
+}
+
+/// Where a Job works, found as the pool records it: the slot its record names,
+/// else the slot whose lease names its id — so a `Job` read before its
+/// dispatch finds it too — else, for a Job not dispatched yet, the first slot
+/// no lease names, which is the one its dispatch will lease. Made, so a case
+/// can write into it first.
+pub fn spec_held(
+    home: &TempDir,
+    job: &core_model::Job,
+) -> Result<WorktreeSpec, adapter_traits::WorktreeSpecRefused> {
+    let root = home.path().to_string_lossy();
+    let spec = crate::leasing::spec_of(&root, job)?;
+    if spec.slot().is_some() {
+        return Ok(spec);
+    }
+    let holder = |slot: u32| {
+        let path = adapter_traits::slot_path(&root, slot);
+        adapters::leasing::holder_of(std::path::Path::new(&path))
+    };
+    let held = adapters::leasing::Holder::job(job.id().as_str());
+    let slot = (1..=64)
+        .find(|slot| holder(*slot).as_ref() == Some(&held))
+        .or_else(|| (1..=64).find(|slot| holder(*slot).is_none()))
+        .expect("a slot");
+    let spec = spec.in_slot(slot);
+    std::fs::create_dir_all(spec.worktree_path()).expect("the slot, made early");
+    Ok(spec)
+}
+
+/// The slot the first Job a fresh pool leases is handed, for a case that has
+/// to write into the worktree before the dispatch that makes it.
+pub fn first_slot(home: &TempDir) -> std::path::PathBuf {
+    let path = adapter_traits::slot_path(&home.path().to_string_lossy(), 1);
+    std::fs::create_dir_all(&path).expect("the first slot, made early");
+    std::path::PathBuf::from(path)
 }
 
 /// The same directory, for a caller holding the handle and not the Job — an

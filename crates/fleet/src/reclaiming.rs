@@ -28,7 +28,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::{BranchGone, BranchRefused, Reclaimed, UnmergedWork};
 use api::Refusal;
 use core_model::{Component, Envelope, FieldValue, JobId, JobStatus, Level};
@@ -119,7 +119,7 @@ where
     /// the module for why the safe setting is not a choice here.
     ///
     /// It runs inline. `adapters::reclaim` is version control and a directory
-    /// removal on the calling thread, which is what `create_worktree` on the
+    /// removal on the calling thread, which is what the slot lease on the
     /// dispatch path already is; the seam that would move it off this thread is
     /// the `Vcs` trait, and reclaiming is not on it.
     pub async fn reclaim_worktree(&self, job_id: &JobId) -> Result<Reclaimed, Adrift> {
@@ -131,12 +131,18 @@ where
             });
         }
         let served = self.served_by(&job)?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).map_err(|cause| {
-            Adrift::Unworkable {
+        // A slot is given back to the pool rather than removed. One the Job
+        // still holds after that is one the pool refused, and nothing here
+        // takes it instead.
+        let kept = self.released_slot(&job).await;
+        let spec = self.reclaimed_spec(&served, &job)?;
+        if let Some(slot) = spec.slot() {
+            return Err(Adrift::SlotKept {
                 job: job_id.clone(),
-                cause,
-            }
-        })?;
+                slot,
+                why: kept.unwrap_or_else(|| String::from("the Job still holds it")),
+            });
+        }
         // `base:` in `armada.yml` is the repository's own answer to what this
         // branch would have merged into. Where it declares none, `adapters`
         // falls back to the remote's head and then to `main`/`master` — and
@@ -178,12 +184,7 @@ where
             }));
         }
         let served = self.served_by(&job)?;
-        let spec = WorktreeSpec::for_job(served.root(), &job.handle()).map_err(|cause| {
-            Adrift::Unworkable {
-                job: job_id.clone(),
-                cause,
-            }
-        })?;
+        let spec = self.reclaimed_spec(&served, &job)?;
         let failed = |why| Adrift::BranchNotDeleted {
             job: job_id.clone(),
             why,
