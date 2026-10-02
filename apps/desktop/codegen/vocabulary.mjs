@@ -91,6 +91,9 @@ const WANTED = [
   "criterion_verdict_check",
   "criterion_verdict_judge",
   "step_state",
+  // A task of a Job's plan, promoted from `TASK_STATE_WORDS` in
+  // `packages/screens/src/draft/words.ts` at protocol 22.0 with its glyphs.
+  "task_state",
   // A group of a Job's plan, between a step and a task. Wanted here with no
   // enum and no registry file behind it, which is the case `advance_gate` and
   // `gaming_pattern` already are: `enum-verbs.toml`'s header says why, and its

@@ -20,6 +20,9 @@
 //! clock therefore writes its own. Named here as a gap rather than left to be
 //! discovered as a coincidence.
 
+/// Arc's own apparatus: a step move signed by whoever the ruling names, and
+/// the signers read back. See its own header.
+pub mod arc;
 /// Board's own apparatus: the record-to-wire conversions, and the round trip
 /// every assertion in `board.rs` is made through. See its own header.
 pub mod board;
@@ -396,8 +399,8 @@ impl Bench {
             .expect_err("the machine admitted a move it should have refused")
     }
 
-    /// Move one step of the frozen workflow. **Always Fleet**: the inner
-    /// machine has no human actor at M1.
+    /// Move one step of the frozen workflow, as Fleet. A stop a ruling wrote
+    /// is signed by the Judge or Check behind it, through `arc`'s own move.
     ///
     pub fn step_moved(&self, run: &mut Run, step: &StepId, to: StepTarget) {
         let moved = run
@@ -504,7 +507,7 @@ impl Bench {
             self.step_moved(run, step, StepTarget::HeldForReview);
         }
         if let Some(why) = stopping(ruling) {
-            self.step_moved(run, step, StepTarget::Stopped(why));
+            self.step_moved_by(run, step, StepTarget::Stopped(why), ruling.signed_by());
         }
         if let Some(moved) = apply(&run.job, ruling, self.clock.now()) {
             let moved = moved.expect("the move a ruling implies is a legal one");

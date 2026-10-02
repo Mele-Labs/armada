@@ -26,18 +26,19 @@ export function hasOwnDrone(task: TaskView): boolean {
 
 /**
  * What the task's own agent has spent, as bare facts: `14 turns` while it
- * works, `27 turns · ~$1.90` once it stopped. **Working and done only**: the
- * sheet already says why a failed or dropped task stopped, and an open task has
+ * works, `27 turns · ~$1.90` once it stopped — handed in or done. **Not failed
+ * or dropped**: the sheet already says why either stopped, and an open task has
  * no agent. Absent where there is nothing to say.
  *
  * **No cost while it runs**: cost reaches Armada on a session's last line, so a
  * live figure would be invented.
  */
 export function doingOfTask(task: TaskView): string | undefined {
-  if (!hasOwnDrone(task) || (task.state !== "working" && task.state !== "done")) return undefined;
+  const stopped = task.state === "handed_in" || task.state === "done";
+  if (!hasOwnDrone(task) || (task.state !== "working" && !stopped)) return undefined;
   const parts: string[] = [];
   if (task.turns !== undefined) parts.push(`${task.turns} turns`);
-  if (task.state === "done" && task.cost_micros !== undefined) parts.push(money(task.cost_micros));
+  if (stopped && task.cost_micros !== undefined) parts.push(money(task.cost_micros));
   return parts.length === 0 ? undefined : parts.join(" · ");
 }
 

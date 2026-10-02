@@ -34,6 +34,9 @@
 #                                Keys match step-states.toml, and it is the
 #                                inner half of the two-level machine
 #                                `job_status` is the outer half of
+#   task_state                 - where one task of a Job's plan stands.
+#                                Promoted from the draft's words at protocol
+#                                22.0, `handed_in` and `failed` with it
 #   group_state                - where one group of a Job's plan is. No
 #                                registry file of its own and no enum to pair
 #                                against: Fleet has no group yet, so the set is
@@ -83,7 +86,7 @@
 # `crates/ipc`'s and carry a serde derive rather than the `ALL` and `as_wire`
 # pair the rule reads. `auto_merge` joins them because `core_model::AutoMerge`
 # spells its words through `as_written`, not `as_wire`. `advance_gate`,
-# `evidence_type`, `step_state` and `drone_presence` are paired.
+# `evidence_type`, `step_state`, `task_state` and `drone_presence` are paired.
 #
 # Fields:
 #   verb         - what a person reads. Never the enum name
@@ -290,6 +293,54 @@ status_token = ""
 vocabulary = "Step state"
 in_code = ""
 notes = "Retries spent, and neither retrying nor waiting on a person — folding it into either would make a designed human gate and a dead stop render alike, which is `step-states.toml`'s own `why`. The verb stays `stopped` rather than becoming `retries spent`: the count of attempts is on the row beside it, and a verb that stated a cause would say twice what the badge above already says once. `flag` is reserved to this state alone and to nothing else in Armada. No token, and this row is the one place that is a real loss: the state's whole treatment is a surface, `--step-stopped-bg`, rather than a glyph hue, and a `--status-` stem cannot carry it."
+
+[verbs.task_state.open]
+verb = "open"
+icon = "circle-dashed"
+status_token = "--status-not-started"
+vocabulary = "Task state"
+in_code = ""
+notes = "Promoted from `packages/screens/src/draft/words.ts` with the rest of the set at protocol 22.0, spike 022 slice 1a, and that draft entry is gone. `circle-dashed` is `TaskMark`'s, under its own usage row in `packages/icons/icons.toml`: a stroke broken at rest, for a task no work has touched."
+
+[verbs.task_state.working]
+verb = "working"
+icon = "circle-dot"
+status_token = "--status-running"
+vocabulary = "Task state"
+in_code = ""
+notes = "`circle-dot`, `job_status.running`'s glyph two levels down, as `TaskMark` already draws it."
+
+[verbs.task_state.handed_in]
+verb = "handed in"
+icon = "file-check"
+status_token = "--status-running"
+vocabulary = "Task state"
+in_code = ""
+notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-running` because the work is in flight, `group_state.checking`'s reason. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
+
+[verbs.task_state.done]
+verb = "done"
+icon = "check"
+status_token = "--status-completed-success"
+vocabulary = "Task state"
+in_code = ""
+notes = "The bare checkmark `TaskMark` takes for done, `step_state.advanced`'s borrowing one level further down."
+
+[verbs.task_state.failed]
+verb = "failed"
+icon = "x"
+status_token = "--status-completed-failed"
+vocabulary = "Task state"
+in_code = ""
+notes = "Not `dropped`: an agent that stopped without finishing, or a group whose Checks went red, is a system failure, bare `x`'s reservation, where a drop is a person's decision. `x`'s usage row for `TaskMark` sanctions it. Written by Fleet from slice 2; nothing writes it at 22.0."
+
+[verbs.task_state.dropped]
+verb = "dropped"
+icon = "minus"
+status_token = "--status-killed"
+vocabulary = "Task state"
+in_code = ""
+notes = "`minus`, under its own usage row for a dropped plan task: nobody has ruled on whether it still stands. `--status-killed`, a person's decision. Out of the done-over-total figure, where `handed_in` and `failed` are in it."
 
 [verbs.group_state.pending]
 verb = "not started"

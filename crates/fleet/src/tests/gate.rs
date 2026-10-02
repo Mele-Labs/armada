@@ -708,7 +708,7 @@ async fn the_diff_fleet_reads_is_of_the_job_s_own_worktree() {
 // ------------------------------------------------------- what the Job then does
 
 #[tokio::test]
-async fn a_failed_check_holds_the_job_and_fleet_is_the_actor() {
+async fn a_failed_check_holds_the_job_and_the_check_signs_it() {
     let workflow = workflow("/usr/bin/false");
     let worktree = worktree();
     let at_step = AtStep::first(workflow.frozen(), &worktree).expect("a first step");
@@ -742,7 +742,11 @@ async fn a_failed_check_holds_the_job_and_fleet_is_the_actor() {
         .expect("a legal move");
 
     assert_eq!(moved.job.status(), JobStatus::AwaitingRepair);
-    assert_eq!(moved.event.actor(), Actor::Fleet);
+    assert_eq!(
+        moved.event.actor(),
+        Actor::Check,
+        "the Check's answer decided it, so the Record names the Check (spike 022, 1a)"
+    );
     assert!(
         ruling.ends_the_drone(),
         "a person's repair costs no fleet time, so the slot goes back with the \

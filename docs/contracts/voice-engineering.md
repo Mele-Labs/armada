@@ -38,14 +38,17 @@ contract.
   record carrying `Attestation` must render distinctly from one verified
   mechanically, and its criterion verdicts read `confirmed` / `withheld`
   rather than either mechanical vocabulary.
-- **Actor:** `human`, `Helm`, `Drone`, `Fleet`. Audit attribution. Answers
-  who did this, and is what the three-way separation (human / Helm /
-  Drone) depends on at the point a person actually reads it.
+- **Actor:** `human`, `Helm`, `Drone`, `Fleet`, `Judge`, `Check`. Audit
+  attribution. Answers who did this, and is what the three-way separation
+  (human / Helm / Drone) depends on at the point a person actually reads it.
+  A Judge and a Check sign the rows their own answer wrote, since protocol
+  22.0 (spike 022).
 
 Events may carry one, both or neither. A manual change during Pilot is
 actor=human with no verification source. An allowlist denial is
 actor=Fleet with no verification source. A failed gate is verification
-source=Check with actor=Drone.
+source=Check with actor=Check: the Drone's evidence was a signal, and the
+Check's answer is what stopped the step.
 
 *Source: P4 and the Debug/Pilot audit trail. Phase: with the verification
 result type, and with the Pilot takeover work.*

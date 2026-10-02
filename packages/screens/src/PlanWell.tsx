@@ -18,6 +18,7 @@ import {
   Textarea,
   useHaptics,
   type ButtonAnswer,
+  type TaskMarkState,
 } from "@armada/components";
 
 import type { Outcome } from "@armada/protocol";
@@ -344,7 +345,8 @@ export function PlanWell({
   onSaid?: (sentence: string) => void;
 }) {
   const notDropped = tasks.filter(
-    (task): task is PlanTaskRow & { state: "open" | "working" | "done" } => task.state !== "dropped",
+    (task): task is PlanTaskRow & { state: Exclude<TaskMarkState, "dropped"> } =>
+      task.state !== "dropped",
   );
   const done = notDropped.filter((task) => task.state === "done").length;
 
@@ -359,7 +361,7 @@ export function PlanWell({
       <div className="armada-inside__plan">
         <div className="armada-inside__plan-progress">
           <StepBar
-            tasks={notDropped.map((task) => task.state)}
+            tasks={notDropped.map((task) => (task.state === "handed_in" ? "working" : task.state))}
             label={`${done} of ${notDropped.length} tasks`}
           />
           <span className="armada-inside__plan-figure">
