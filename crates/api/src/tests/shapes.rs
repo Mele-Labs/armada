@@ -617,8 +617,8 @@ pub fn check_output(kept: String) -> CheckOutput {
     }
 }
 
-/// One kept brief, whole: Fleet reads a brief from its head, so a short one
-/// comes back with `whole` true and every line counted.
+/// One kept brief, short enough to come back whole: `from_line` one, `whole`
+/// true and every line counted.
 pub fn brief(name: &str) -> ipc::BriefContents {
     let lines: Vec<String> = [
         "You are judging one criterion of one step.",
@@ -630,6 +630,7 @@ pub fn brief(name: &str) -> ipc::BriefContents {
     .collect();
     ipc::BriefContents {
         path: format!(".armada/briefs/fix-the-parser/{name}"),
+        from_line: 1,
         total_lines: lines.len() as u32,
         bytes: lines.iter().map(|line| line.len() as u64 + 1).sum(),
         lines,
