@@ -1,8 +1,19 @@
 # Acceptance tests
 
 One test per milestone, standing for the milestone's claim. It lives in
-`crates/acceptance/`, it is written before the code it tests, and the gate
-watches it — rule one of `cargo xtask verify-foundations`.
+`crates/acceptance/`, it is written before the code it tests, and two things
+watch it.
+
+| Half | Owned by | Asserts |
+|---|---|---|
+| **Exists** | Rule one of `cargo xtask verify-foundations` | Each row of the table below names a file that is there and holds a `#[test]` |
+| **Passes** | The `acceptance` Check in `armada.yml` | `cargo nextest run -p acceptance`, on every merge-line turn whose change it could break |
+
+**The gate does not run the suite.** Until 2 Oct 2026 rule one ran
+`cargo test -p acceptance` as well, so a merge-line turn compiled the suite for
+the gate and again for the Check. The Check's `when` is everything the suite
+compiles from, and a path missing from it is a change nothing tests.
+`pnpm gate` runs the gate alone, so it says nothing about passing.
 
 Read this before writing a milestone's test, reconciling one, or changing what
 the gate asserts about it.
@@ -57,7 +68,8 @@ satisfied by a non-zero exit; a Stop hook ended any session in which
 | The acceptance crate | Uncompiled, so unchecked by every other rule |
 | An agent's instinct | Fighting the gate, which is why the hook existed |
 
-Both mechanisms are now retired: rule one asserts the test passes, and the Stop
+Both mechanisms are now retired: the `acceptance` Check asserts the test
+passes, and the Stop
 hook and its entry in `.claude/settings.json` are deleted. The reasoning did
 not retire with them. A milestone that can fake itself green proves nothing;
 what changed is the direction the falsehood would run.
@@ -108,7 +120,7 @@ before the code, so that half was never really open.
 exist, so `cargo test -p acceptance` did not compile and rule one was satisfied
 by a non-zero exit. That is unrepeatable now, for a reason that did not exist
 when there was one milestone: the package holds every milestone's test and the
-gate compiles all of them in one invocation. A Focus test that named `job_steps`'
+`acceptance` Check compiles all of them in one invocation. A Focus test that named `job_steps`'
 Drone pointer before #137 built it would take `bug_job.rs` down with it, and
 M1's claim would stop being run for the length of Focus.
 
@@ -121,7 +133,7 @@ merges green.
 
 > **Rule.** No failing test is merged — a milestone's own test, written first,
 > included.
-> Why: rule one reads the same line whichever acceptance test fails, so a claim
+> Why: the `acceptance` Check reads red whichever acceptance test fails, so a claim
 > left red on `main` by design hides a real break in every other milestone's.
 
 **It asserts what is carried, and states the rest.** A step of the claim that

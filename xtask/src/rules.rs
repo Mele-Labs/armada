@@ -59,11 +59,11 @@ pub fn acceptance_test_exists(root: &Path) -> Report {
     report
 }
 
-/// `(milestone, path)` for each row of the doc's first table whose last cell
-/// names a file under `crates/acceptance/tests/`.
+/// `(milestone, path)` for each row of the doc's `| Milestone |` table whose
+/// last cell names a file under `crates/acceptance/tests/`.
 fn milestone_tests(doc: &str) -> Vec<(String, String)> {
     doc.lines()
-        .skip_while(|line| !line.starts_with('|'))
+        .skip_while(|line| !line.starts_with("| Milestone |"))
         .take_while(|line| line.starts_with('|'))
         .filter_map(|row| {
             let cells: Vec<&str> = row.trim_matches('|').split('|').map(str::trim).collect();
