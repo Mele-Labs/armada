@@ -30,7 +30,10 @@ use adapter_traits::{
     AgentHarness, Delivery, DroneSpawnConfig, Grant, McpConfig, Model, Prompt, SpawnConfigRefused,
     Toolbelt, Vcs, WorkProduct, Worktree,
 };
-use core_model::{Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, StepId};
+use core_model::{
+    Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, PlanTask, StepId,
+    TierModels,
+};
 
 use crate::adrift::Adrift;
 use crate::briefing::Opening;
@@ -214,8 +217,9 @@ where
         // and what kind of section each one is.
         let headings = brief.headings().to_vec();
         let kinds = brief.kinds().to_vec();
+        let on_task = task.as_ref().map(|(_, task)| task);
         let config = match self
-            .spawn_config(job, step, &worktree, brief.prompt())
+            .spawn_config(job, step, &worktree, brief.prompt(), on_task)
             .await
         {
             Ok(config) => config,
@@ -274,6 +278,16 @@ where
         self.drone_at_work(&job_id, started.session.pid());
         self.drone_process_recorded(job, step, &drone, started.session.pid())
             .await?;
+        // Which model it runs as, kept beside the binding below and for its
+        // reason: `JobDrone.model` reads it, and nothing else records it.
+        // Spike 022, slice 3.
+        if let Ok(model) = ModelName::new(config.model().as_str()) {
+            self.store()
+                .lock()
+                .await
+                .record_drone_model(&job_id, &drone, &model)
+                .map_err(Adrift::Writing)?;
+        }
         // Before the arrival is announced, since Bridge reads which task a
         // Drone is on when it hears one arrive.
         if let Some((_, task)) = &task {
@@ -409,12 +423,17 @@ where
     /// **A person's choice beats both**, read here because this is the next
     /// spawn it is promised to. A name the store will not give back as one is
     /// no choice: the step runs as its workflow asked rather than not at all.
+    ///
+    /// **A Drone put on a task asks two things first** (spike 022, slice 3): a
+    /// person's pick on the task, then the Job's tier map for the task's tier.
+    /// `Job::model_spawned_for` spells the order.
     async fn spawn_config(
         &self,
         job: &Job,
         step: &StepId,
         worktree: &Worktree,
         brief: Prompt,
+        task: Option<&PlanTask>,
     ) -> Result<DroneSpawnConfig, SpawnConfigRefused> {
         let ports = self.port_env(job).await;
         // On the step that writes Armada's review, a person's review model beats their Job model. #903.
@@ -431,9 +450,16 @@ where
             None => self.model_override_of(job.id()).await,
         }
         .and_then(|named| ModelName::new(&named).ok());
+        let tiers = match task {
+            Some(_) => self.tiers_of(job.id()).await,
+            None => TierModels::default(),
+        };
         Ok(DroneSpawnConfig::spawn_in(
             worktree,
-            Model::named(job.model_spawned_at(step, chosen.as_ref()).as_str())?,
+            Model::named(
+                job.model_spawned_for(step, chosen.as_ref(), task, &tiers)
+                    .as_str(),
+            )?,
             brief,
             self.mcp_config(job).await?,
             self.toolbelt(job, step).await,

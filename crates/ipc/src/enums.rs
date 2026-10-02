@@ -271,6 +271,12 @@ wire_enum! {
     /// since 23.4; a peer must still read the other three.
     GroupState, core_model::GroupState, "a group state"
 }
+wire_enum! {
+    /// How hard the planner thought a task was, which picks its model off the
+    /// Job's map. **A task with no tier leaves the field out**: that is the
+    /// planner leaving it to Armada, not a fourth word. Since 23.6.
+    TaskTier, core_model::TaskTier, "a task tier"
+}
 
 /// The four origins a Job proposed over the wire may claim.
 ///
