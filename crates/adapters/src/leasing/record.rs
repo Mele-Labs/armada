@@ -13,8 +13,8 @@ use std::process::Command;
 pub enum Holder {
     /// A running process: an agent's session, or a person's terminal.
     Process { pid: u32, started: String },
-    /// One of Fleet's Jobs, by id. Given back when the Job ends, never taken
-    /// back for a dead process.
+    /// One of Fleet's Jobs, by id. Given back when the Job ends or a person
+    /// clears a completed one, never taken back for a dead process.
     Job(String),
 }
 
@@ -109,6 +109,8 @@ pub(super) struct Record {
     /// was. Only a Job's lease carries one: it is how a slot a finished Job
     /// could not give back says so.
     pub(super) kept: Option<String>,
+    /// The Job completed and holds the slot until a person clears it.
+    pub(super) completed: bool,
 }
 
 impl Record {
@@ -125,6 +127,7 @@ impl Record {
             holder: Holder::read(field("holder")?)?,
             since: field("since")?.parse().ok()?,
             kept: field("kept").map(str::to_string),
+            completed: text.lines().any(|line| line == "completed"),
         })
     }
 
@@ -137,6 +140,9 @@ impl Record {
         );
         if let Some(why) = &self.kept {
             text.push_str(&format!("kept {}\n", why.replace('\n', " ")));
+        }
+        if self.completed {
+            text.push_str("completed\n");
         }
         std::fs::write(path, text).map_err(|why| format!("{}: {why}", path.display()))
     }

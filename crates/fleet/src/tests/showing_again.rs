@@ -52,7 +52,7 @@ fn a_fleet_showing(home: &TempDir, run: &str) -> Arc<Fixture> {
     // A press held on a file is bounded by the Check budget, and the fixture's
     // five seconds would end one on a loaded machine before the test lifts it.
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
+    Arc::new(Fleet::assembled(fittings))
 }
 
 /// A one-step workflow that asks to be captured, holding at
@@ -99,7 +99,7 @@ evidence:
     fittings.starting().manifest = armada_yml;
     // A press held while `ready` is asked is bounded by the Check budget.
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
+    Arc::new(Fleet::assembled(fittings))
 }
 
 /// A two-step workflow whose steps are both captured, so one Job's Drones name
@@ -129,17 +129,7 @@ fn a_fleet_showing_two_captured_steps(home: &TempDir) -> Arc<Fixture> {
     fittings.starting().workflows = one(resolved);
     fittings.starting().manifest = armada_yml;
     fittings.budget = CheckBudget::of(Duration::from_secs(600));
-    kept_when_finished(Arc::new(Fleet::assembled(fittings)))
-}
-
-/// **A finished Job's worktree is on disk only while the pool keeps its slot**,
-/// which it does while the branch holds work on neither the remote nor the
-/// base. A press on a finished Job is a press on such a slot.
-fn kept_when_finished(fleet: Arc<Fixture>) -> Arc<Fixture> {
-    fleet
-        .vcs()
-        .keep_every_release("its branch holds commits on neither the remote nor the base");
-    fleet
+    Arc::new(Fleet::assembled(fittings))
 }
 
 fn worktree_of(home: &TempDir, job: &Job) -> PathBuf {
@@ -407,6 +397,26 @@ async fn a_press_keeps_a_set_of_its_own_while_the_other_jobs_keep_turning() {
         .expect("the facts read");
     assert_eq!(facts.shown.len(), 1, "get_job carries the set");
     assert_eq!(facts.showing_since, None, "and no press is out any more");
+}
+
+/// **A completed Job holds its slot until a person clears it**, so a press
+/// after it finished runs in the tree it finished in.
+#[tokio::test]
+async fn a_completed_job_is_shown_again_in_the_slot_it_still_holds() {
+    let home = TempDir::new();
+    let fleet = a_fleet_showing(&home, HELD_WHILE_ASKED);
+    let job = shown_once(&fleet, &home, "show the panel", "the step's own picture").await;
+    assert_eq!(job.status(), JobStatus::CompletedSuccess);
+    std::fs::write(worktree_of(&home, &job).join("marker"), "after it finished")
+        .expect("the screen changed");
+
+    let pressed = Arc::clone(&fleet)
+        .show_again(job.id(), None)
+        .await
+        .expect("the press ran");
+
+    let set = pressed.set.expect("the harness captured a frame");
+    assert_eq!(read(&home, &set.frames[0].path), "after it finished");
 }
 
 /// **A second press is a second set.** The owner's decision: nothing a press

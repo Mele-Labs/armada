@@ -365,16 +365,23 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 > as abandoned after one.
 
 > **Rule.** A slot a Job holds is never taken back for a dead holder. It is
-> given back only when the Job reaches a terminal state.
+> given back only when the Job reaches a terminal state, or, for a
+> `completed_success` Job, when a person clears it.
 > Why: `awaiting_review`, `escalated` and `interrupted` Jobs still need their
 > work; a person may answer them days later.
+
+> **Rule.** A completed Job holds its slot until a person clears it, from the
+> Board's Clear or by deleting its record. The sweep never gives it back.
+> Why: the owner's decision of 2 Oct 2026, so Show again and anything else
+> reading a finished Job's tree keeps working.
 
 | The Job | Its slot |
 |---|---|
 | Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
-| `completed_success`, `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
-| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` |
+| `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
+| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
 > held by another, given back, or gone is escalated as `no_worktree`, naming
@@ -388,8 +395,13 @@ before the pool has no slot recorded and keeps `.armada/worktrees/<handle>`
 until it ends.
 
 **A finished Job's worktree is gone once its slot is given back.** What reads
-a finished Job's tree — Show again, a reclaim — finds it only while the pool
-kept the slot.
+a finished Job's tree — Show again, a reclaim — finds it while a completed Job
+holds its slot, and for any other end only while the pool kept it.
+
+**Completed Jobs nobody clears can fill the pool.** With every slot held, the
+next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
+--status` names the `done` slots. Clear the finished Jobs on the Board, which
+gives each slot back, or `armada worktree release <path>` one by hand.
 
 ## Ports
 

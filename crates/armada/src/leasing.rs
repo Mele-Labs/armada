@@ -106,7 +106,7 @@ pub fn status(within: &Path) -> u8 {
     0
 }
 
-fn line(slot: &Slot, now: u64) -> String {
+pub(crate) fn line(slot: &Slot, now: u64) -> String {
     let name = format!("slot-{}", slot.number);
     let path = slot.path.display();
     match &slot.state {
@@ -120,9 +120,10 @@ fn line(slot: &Slot, now: u64) -> String {
             branch,
             holder,
             since,
-            kept: None,
+            kept: Some(why),
+            ..
         } => format!(
-            "{name}  held     {path}  {branch}  by {} for {}",
+            "{name}  kept     {path}  {branch}  by {} for {}, which ended and could not give it back: {why}",
             holder.said(),
             ago(now, *since)
         ),
@@ -130,9 +131,20 @@ fn line(slot: &Slot, now: u64) -> String {
             branch,
             holder,
             since,
-            kept: Some(why),
+            completed: true,
+            ..
         } => format!(
-            "{name}  kept     {path}  {branch}  by {} for {}, which ended and could not give it back: {why}",
+            "{name}  done     {path}  {branch}  by {} for {}, which is done and holds it until the Job is cleared",
+            holder.said(),
+            ago(now, *since)
+        ),
+        SlotState::Held {
+            branch,
+            holder,
+            since,
+            ..
+        } => format!(
+            "{name}  held     {path}  {branch}  by {} for {}",
             holder.said(),
             ago(now, *since)
         ),

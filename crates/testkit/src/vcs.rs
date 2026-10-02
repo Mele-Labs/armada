@@ -1132,6 +1132,10 @@ impl Vcs for FakeVcs {
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
         self.slots.release(pool, slot, job_id)
     }
+
+    fn mark_slot_completed(&self, _pool: &SlotPool, slot: u32, job_id: &str) {
+        self.slots.completed(slot, job_id)
+    }
 }
 
 #[cfg(test)]

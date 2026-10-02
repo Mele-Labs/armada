@@ -296,6 +296,21 @@ impl Pool {
         })
     }
 
+    /// Write on slot `number`, which `holder` must hold, that its Job
+    /// completed. `--status` then says it is held until a person clears it.
+    pub fn mark_completed(&self, number: usize, holder: &Holder) -> Result<(), String> {
+        let lock = self.lock_file(number)?;
+        lock.lock().map_err(|why| why.to_string())?;
+        let path = self.record_path(number);
+        match Record::read(&path) {
+            Some(mut record) if record.holder == *holder => {
+                record.completed = true;
+                record.write(&path)
+            }
+            _ => Err(format!("{} does not hold slot-{number}", holder.said())),
+        }
+    }
+
     /// The slot `holder` holds, if it holds one.
     pub fn held_by(&self, holder: &Holder) -> Option<usize> {
         (1..=self.count).find(|number| {
@@ -347,6 +362,7 @@ impl Pool {
             holder,
             since,
             kept,
+            completed,
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
             return SlotState::Held {
@@ -354,6 +370,7 @@ impl Pool {
                 holder: holder.clone(),
                 since: *since,
                 kept: kept.clone(),
+                completed: *completed,
             };
         }
         // **Asked of a slot with no record too.** A record lost or cut short
@@ -428,6 +445,7 @@ impl Pool {
             holder: holder.clone(),
             since,
             kept: None,
+            completed: false,
         }
         .write(&self.record_path(number))
         .map_err(LeaseRefused::Vcs)?;
