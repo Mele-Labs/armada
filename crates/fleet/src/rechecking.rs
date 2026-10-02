@@ -377,6 +377,7 @@ where
         self.kept_timings(job, announcing.timings()).await;
         drop(announcing);
         self.recorded_judgments(job_id, step, &ruling).await?;
+        self.recorded_policies(job_id, step, &ruling).await?;
         self.recorded_evidence(job_id, step, submission, &ruling)
             .await?;
         self.recorded_gaming(job_id, step, &ruling).await?;

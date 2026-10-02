@@ -185,7 +185,7 @@ pub use amending::{
 };
 pub use approval_ask::AskedApproval;
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
-pub use attempt::{ended_at, first_started_at, Move, StepAttempt};
+pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
 pub use capacity::{AdmissionHold, FleetCapacity};
 pub use capturing::{

@@ -184,6 +184,26 @@ impl ReviewGate {
     }
 }
 
+/// What both policies came to at one gate, as the attempt that passed it
+/// recorded them. #1683.
+///
+/// **History, where [`AutoMerge`] and [`ReviewGate`] alone are live.** Both
+/// settings can change between two gates, so the answer a gate acted on is
+/// true only of that gate. This is the answer written down, which is what lets
+/// the Record say a step held because the repository said `human_always` at the
+/// time, whatever it says now.
+///
+/// **Both, always, and no `Default`.** The owner decided both are recorded on
+/// every attempt that passes a gate, not only the one that gated. An attempt
+/// from before this was recorded has no value at all, and a `Default` here is
+/// the call that would let a reader turn that absence into `never` and
+/// `human_always`, a claim nobody made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResolvedPolicies {
+    pub auto_merge: AutoMerge,
+    pub review_gate: ReviewGate,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

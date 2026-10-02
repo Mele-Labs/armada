@@ -541,7 +541,7 @@ export type {
 // Every run of one step. Its own file for the reason `crates/ipc/src/attempt.rs`
 // has one: it is folded out of the job's log rather than read off a row, and
 // this file was over the gate's ceiling.
-export type { StepAttempt } from "./attempt";
+export type { ResolvedPolicies, StepAttempt } from "./attempt";
 
 export type {
   ChangedFile,
