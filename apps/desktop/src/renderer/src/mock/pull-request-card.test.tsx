@@ -30,6 +30,8 @@ describe("the pull request card", () => {
       const card = page.getByRole("link", { name: "Pull request #1750", exact: true });
 
       await expect.element(card).toBeVisible();
+      // The review's own comments have been read, so a count taken from them would be drawn by now.
+      await expect.element(page.getByRole("region", { name: "Comments on the pull request" })).toBeVisible();
       expect(card.element().textContent).not.toMatch(/comment/);
       expect(card.element().textContent).not.toContain("Retire guides");
     },
