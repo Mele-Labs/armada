@@ -19,30 +19,43 @@ function criterion(source: string, text = "The gate refuses a main-process impor
 
 describe("how a criterion is answered", () => {
   it("renames the wire's source rather than keeping two meanings on one row", () => {
-    const view = criterionViewOf(criterion("check"));
+    const view = criterionViewOf(criterion("check"), "manual");
 
     expect(view.verified_by).toBe("check");
     expect("source" in view).toBe(false);
   });
 
   it("carries all three of the registry's spellings", () => {
-    expect(criterionViewOf(criterion("check")).verified_by).toBe("check");
-    expect(criterionViewOf(criterion("judge")).verified_by).toBe("judge");
-    expect(criterionViewOf(criterion("attested")).verified_by).toBe("attested");
+    expect(criterionViewOf(criterion("check"), "manual").verified_by).toBe("check");
+    expect(criterionViewOf(criterion("judge"), "manual").verified_by).toBe("judge");
+    expect(criterionViewOf(criterion("attested"), "manual").verified_by).toBe("attested");
   });
 
   it("reads a spelling it does not know as judge, never as check", () => {
-    expect(criterionViewOf(criterion("something_new")).verified_by).toBe("judge");
+    expect(criterionViewOf(criterion("something_new"), "manual").verified_by).toBe("judge");
   });
 });
 
 describe("where the words came from", () => {
-  it("is the prompt, because the wire records no issue and no person", () => {
-    expect(criterionViewOf(criterion("judge")).origin).toEqual({ origin: "prompt" });
+  it("is the prompt where a person dispatched the Job, because the wire records no issue", () => {
+    for (const origin of ["manual", "studio_dispatched", "helm_drafted", "studio_helm_drafted"]) {
+      expect(criterionViewOf(criterion("judge"), origin).origin).toEqual({ origin: "prompt" });
+    }
+  });
+
+  // `#1748` row 17: every criterion read *From your prompt* on a Job Fleet
+  // found itself.
+  it("is unsaid where no person dispatched it, and nothing is drawn for it", () => {
+    for (const origin of ["auto_detected", "workflow_triggered", "sub_dispatched", "drone_drafted"]) {
+      const view = criterionViewOf(criterion("judge"), origin);
+      expect(view.origin).toEqual({ origin: "unsaid" });
+      expect(originSaidOf(view)).toBeUndefined();
+      expect(originLineOf(view)).toBeUndefined();
+    }
   });
 
   it("says nothing about the source having moved", () => {
-    expect(criterionViewOf(criterion("judge")).origin_moved_at).toBeUndefined();
+    expect(criterionViewOf(criterion("judge"), "manual").origin_moved_at).toBeUndefined();
   });
 });
 
@@ -84,8 +97,8 @@ describe("what a criterion says about itself", () => {
   it("names an issue as an issue, and hands the reference over whole", () => {
     const said = originSaidOf(written({ origin: { origin: "issue", ref: "armada/1162" } }));
 
-    expect(said.said).toBe("From issue");
-    expect(said.issue).toEqual({ ref: "armada/1162" });
+    expect(said?.said).toBe("From issue");
+    expect(said?.issue).toEqual({ ref: "armada/1162" });
   });
 
   it("carries the forge address where a surface has been given one", () => {
@@ -93,7 +106,7 @@ describe("what a criterion says about itself", () => {
       written({ origin: { origin: "issue", ref: "armada/1162", url: "https://example/1162" } }),
     );
 
-    expect(said.issue?.url).toBe("https://example/1162");
+    expect(said?.issue?.url).toBe("https://example/1162");
   });
 
   it("gives the other two origins no reference, because they are not places", () => {

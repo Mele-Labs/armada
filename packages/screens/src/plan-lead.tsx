@@ -61,7 +61,8 @@ export type PlanGateProps = {
  * confusing on 28 Sep. A second copy is how it came back the first time.
  */
 function originSaid(criterion: CriterionView): string {
-  return `${originLineOf(criterion)} · ${decidedSaidOf(criterion)}`;
+  const from = originLineOf(criterion);
+  return from === undefined ? decidedSaidOf(criterion) : `${from} · ${decidedSaidOf(criterion)}`;
 }
 
 /**
