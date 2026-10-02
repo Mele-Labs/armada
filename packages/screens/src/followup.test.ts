@@ -20,6 +20,13 @@ describe("issueDraftOf", () => {
     });
   });
 
+  it("titles the draft in plain words, whatever markdown the finding was written in", () => {
+    const finding = "The consumers still import the **old** path, `settings_store`";
+    expect(issueDraftOf(confidence, finding).title).toBe(
+      "The consumers still import the old path, settings_store",
+    );
+  });
+
   it("leaves the reason out where the review gave none it can find", () => {
     expect(issueDraftOf(confidence, "Something else").body).toBe(
       "Something else\n\nRaised by Armada's review.",
