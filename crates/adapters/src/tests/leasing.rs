@@ -28,7 +28,10 @@ fn here() -> Holder {
 /// A holder whose process has ended: a pid recorded beside a start time no
 /// process carries.
 fn gone() -> Holder {
-    Holder::recorded(std::process::id(), "a start no process has")
+    Holder::Process {
+        pid: std::process::id(),
+        started: String::from("a start no process has"),
+    }
 }
 
 fn no_seed(_: &Path, _: &Path) -> Result<(), String> {
@@ -215,7 +218,7 @@ fn a_branch_holding_unlanded_work_is_not_reset_by_a_lease() {
 fn the_caller_is_a_running_process_that_is_not_this_one() {
     let caller = Holder::the_caller().expect("a test runs under something");
     assert!(caller.alive());
-    assert_ne!(caller.pid(), std::process::id());
+    assert_ne!(caller.pid(), Some(std::process::id()));
     assert!(!gone().alive());
 }
 

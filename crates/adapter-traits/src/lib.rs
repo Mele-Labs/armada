@@ -2,7 +2,7 @@
 //! them.
 //!
 //! One trait per boundary, and `Secret<T>`. Version control splits into three
-//! of them — [`Vcs`] creates a worktree at approval, [`WorkProduct`] reads one
+//! of them — [`Vcs`] leases a Job its worktree, [`WorkProduct`] reads one
 //! at the gate, [`Delivery`] publishes what a finished one holds — because each
 //! is held by a different caller and none may reach another's methods. The implementations live
 //! in `adapters`, which is the only crate permitted to know whose API it is
@@ -43,6 +43,7 @@ mod landable;
 mod link_lookup;
 mod secret;
 mod setup;
+mod slots;
 mod under_review;
 mod work_product;
 mod worktree;
@@ -71,6 +72,7 @@ pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
+pub use slots::{SlotKept, SlotLeased, SlotPool, SlotStanding};
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
     WhatPeopleSaid, WhatTheForgeRan,
@@ -79,7 +81,7 @@ pub use work_product::{
     Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured, Patch,
     WorkProduct,
 };
-pub use worktree::{derived, Worktree, WorktreeSpec, WorktreeSpecRefused};
+pub use worktree::{derived, slot_path, Worktree, WorktreeSpec, WorktreeSpecRefused, SLOT_ROOT};
 
 /// The agent harness: what a Drone is started as, and what its output means.
 ///
@@ -188,11 +190,13 @@ pub trait Vcs {
     /// disk. Neither list is a list of things to do about the other.
     type CommitError;
 
-    /// Create a Job's worktree on its own new branch.
+    /// Create a Job's worktree on its own new branch, at the path its handle
+    /// derives.
     ///
-    /// Called at approval, **before any Drone exists**. A failure here is a
-    /// failed Job with nothing spawned, which is why the error type is the
-    /// caller's to match on rather than something to log.
+    /// **Fleet no longer calls this**: a Job leases a pool slot through
+    /// [`lease_slot`](Vcs::lease_slot). It stays for the tests that cut a
+    /// Job's tree as a fixture. A failure is the caller's to match on rather
+    /// than something to log.
     ///
     /// The branch is derived from the Job id and is **new**: an existing branch
     /// of that name is refused, never checked out. v1 discovered why on a real
@@ -304,6 +308,32 @@ pub trait Vcs {
         destination: &str,
         within: core::time::Duration,
     ) -> Result<(), NotCloned>;
+
+    /// Lease a slot from the repository's pool for one Job, held by
+    /// `job_id`, with `spec`'s branch cut fresh from the base.
+    ///
+    /// **A Job that already holds a slot is handed that one, untouched**, so a
+    /// dispatch that died between the lease and the record finds its own slot
+    /// rather than resetting it or taking a second. [`SlotLeased::Full`] is
+    /// every slot held and none by this Job; it waits, and is not an error.
+    fn lease_slot(
+        &self,
+        pool: &SlotPool,
+        spec: &WorktreeSpec,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
+    /// Whether [`lease_slot`](Vcs::lease_slot) would hand this Job a slot now.
+    /// The one predicate admission and a Board row both ask.
+    fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool;
+
+    /// Where the slot a Job's record names stands now.
+    fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding;
+
+    /// Give back the slot this Job holds, by the pool's rules: refused while
+    /// the tree holds anything uncommitted, or commits on neither the remote
+    /// nor the base. Refused, the slot stays held and says why.
+    fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept>;
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

@@ -1,0 +1,368 @@
+//! A Job's worktree is the pool slot it leased: leased at dispatch, held by
+//! the Job's id, looked up rather than derived, and given back when the Job
+//! ends. `docs/concepts/fleet.md`, *Worktree slots*.
+//!
+//! The pool's own git rules are `adapters`' tests. These are Fleet's half:
+//! what it records, when it gives a slot back, and what it refuses to do when
+//! a Job's slot is not its own any more.
+
+use std::path::PathBuf;
+
+use adapter_traits::{SlotStanding, Vcs, WorktreeSpec};
+use adapters::leasing::{Holder, Pool, SlotState};
+use adapters::GitVcs;
+use core_model::{
+    Actor, EscalationTrigger, JobId, JobStatus, QueuedReason, Target, TransitionReason,
+};
+use testkit::{FakeHarness, FakeWorkProduct};
+
+use crate::adrift::Adrift;
+use crate::daemon::Fleet;
+use crate::slots::Concurrency;
+use crate::tests::admitted::admit;
+use crate::tests::daemon::{
+    a_fleet, a_proposal, diff_evidence, fitted_over, fittings, note_evidence, worktree_directory,
+};
+use crate::tests::reclaim::a_repository;
+use crate::tests::reviewing::{a_fleet_reviewing_the_first_step, at_the_gate};
+use crate::tests::tmp::TempDir;
+use crate::tests::tools::submitted_by_the_one;
+
+type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+
+fn root(home: &TempDir) -> String {
+    home.path().to_string_lossy().to_string()
+}
+
+fn slot(home: &TempDir, n: u32) -> PathBuf {
+    home.path().join(format!(".armada/slots/slot-{n}"))
+}
+
+/// Propose and approve a Job, and admit what there is room for.
+async fn approved(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+    let job = fleet.propose(a_proposal(title)).await.expect("proposed");
+    worktree_directory(home, &job);
+    fleet.approve(job.id()).await.expect("approved");
+    admit(fleet).await.expect("admission runs");
+    job.id().clone()
+}
+
+/// Four Drones at once, so four Jobs each hold a slot together.
+fn four_at_once(home: &TempDir) -> Fixture {
+    let mut fitted = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
+    fitted.concurrency = Concurrency::of(4);
+    Fleet::assembled(fitted)
+}
+
+async fn status_of(fleet: &Fixture, job: &JobId) -> JobStatus {
+    fleet.load(job).await.expect("the Job").status()
+}
+
+#[tokio::test]
+async fn a_job_leases_a_slot_and_its_worktree_is_the_slot() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = approved(&fleet, &home, "fix the reader").await;
+
+    let loaded = fleet.load(&job).await.expect("the Job");
+    assert_eq!(loaded.status(), JobStatus::Running);
+    assert_eq!(loaded.worktree_slot(), Some(1), "the record names its slot");
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home)),
+        vec![
+            Some(job.as_str().to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None
+        ],
+        "held by the Job's id"
+    );
+    let worktree = fleet
+        .worktree_of(&loaded)
+        .expect("readable")
+        .expect("the Job has a worktree");
+    assert_eq!(PathBuf::from(worktree.path()), slot(&home, 1));
+    assert_eq!(
+        worktree.branch(),
+        format!("armada/{}", loaded.handle()),
+        "the branch is still the Job's own"
+    );
+}
+
+/// Real git, and a second Fleet over the same home: a Fleet restart. The
+/// lease names the Job and no process, so the new Fleet's pid reads it as held.
+#[tokio::test]
+async fn a_fleet_restart_leaves_a_jobs_slot_held_by_that_job() {
+    let home = TempDir::new();
+    a_repository(&home);
+    let first = Fleet::assembled(fitted_over(
+        &home,
+        FakeWorkProduct::changed(&["src/log.rs"]),
+        FakeHarness::that_listens(),
+        GitVcs::new(),
+    ));
+    let job = first
+        .propose(a_proposal("fix the reader"))
+        .await
+        .expect("proposed");
+    first.approve(job.id()).await.expect("approved");
+    let _ = first.admit_next().await;
+    assert_eq!(
+        first.load(job.id()).await.expect("the Job").worktree_slot(),
+        Some(1)
+    );
+    drop(first);
+
+    let second = Fleet::assembled(fitted_over(
+        &home,
+        FakeWorkProduct::changed(&["src/log.rs"]),
+        FakeHarness::that_listens(),
+        GitVcs::new(),
+    ));
+    let _ = second.reconcile().await;
+
+    let pool = Pool::at(home.path(), 8, "main", Vec::new());
+    match pool.state(1) {
+        SlotState::Held { holder, .. } => assert_eq!(holder, Holder::job(job.id().as_str())),
+        other => panic!("the Job's slot after a restart: {other:?}"),
+    }
+    let loaded = second.load(job.id()).await.expect("the Job");
+    assert_eq!(loaded.worktree_slot(), Some(1));
+    assert!(
+        !matches!(
+            pool.try_lease("an-agent", &Holder::of(std::process::id()).unwrap(), 0, &|_, _| Err(
+                String::new()
+            )),
+            Ok(adapters::leasing::Leased::Took(lease)) if lease.slot() == 1
+        ),
+        "the restart did not make the Job's slot look abandoned"
+    );
+}
+
+#[tokio::test]
+async fn terminal_states_release_the_slot_and_waiting_ones_do_not() {
+    let home = TempDir::new();
+    let fleet = four_at_once(&home);
+    let reviewed = approved(&fleet, &home, "one held at a person's gate").await;
+    let escalated = approved(&fleet, &home, "one escalated").await;
+    let interrupted = approved(&fleet, &home, "one interrupted").await;
+    let killed = approved(&fleet, &home, "one killed").await;
+    let held = |job: &JobId| Some(job.as_str().to_string());
+
+    let moved = |job: JobId, to: Target, by: Actor| {
+        let fleet = &fleet;
+        async move {
+            let loaded = fleet.load(&job).await.expect("the Job");
+            fleet.move_job(&loaded, to, by).await.expect("a legal move");
+        }
+    };
+    moved(reviewed.clone(), Target::AwaitingReview, Actor::Fleet).await;
+    moved(
+        escalated.clone(),
+        Target::Escalated(EscalationTrigger::NoWorktree),
+        Actor::Fleet,
+    )
+    .await;
+    moved(
+        interrupted.clone(),
+        Target::Escalated(EscalationTrigger::Interrupted),
+        Actor::Fleet,
+    )
+    .await;
+    let holders = fleet.vcs().slot_holders(&root(&home));
+    assert_eq!(
+        holders[..4],
+        [
+            held(&reviewed),
+            held(&escalated),
+            held(&interrupted),
+            held(&killed)
+        ],
+        "awaiting_review, escalated and interrupted all hold their slots"
+    );
+    assert!(fleet.vcs().released_slots().is_empty());
+
+    moved(killed.clone(), Target::Killed, Actor::Human).await;
+    moved(reviewed.clone(), Target::Rejected, Actor::Human).await;
+    moved(escalated.clone(), Target::CompletedFailed, Actor::Human).await;
+
+    assert_eq!(
+        fleet.vcs().released_slots(),
+        vec![
+            (4, killed.as_str().to_string()),
+            (1, reviewed.as_str().to_string()),
+            (2, escalated.as_str().to_string()),
+        ],
+        "killed, rejected and failed each gave its slot back"
+    );
+    let holders = fleet.vcs().slot_holders(&root(&home));
+    assert_eq!(holders[..4], [None, None, held(&interrupted), None]);
+}
+
+/// Completed through the gate rather than moved by hand: `completed_success`
+/// is guarded on every step having advanced.
+#[tokio::test]
+async fn a_job_that_completes_gives_its_slot_back() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = approved(&fleet, &home, "fix the off-by-one").await;
+
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("a diff");
+    fleet.turn().await.expect("the first step advances");
+    assert!(fleet.vcs().released_slots().is_empty(), "still running");
+    submitted_by_the_one(&fleet, note_evidence())
+        .await
+        .expect("a note");
+    fleet.turn().await.expect("the Job finishes");
+
+    assert_eq!(status_of(&fleet, &job).await, JobStatus::CompletedSuccess);
+    assert_eq!(
+        fleet.vcs().released_slots(),
+        vec![(1, job.as_str().to_string())]
+    );
+}
+
+#[tokio::test]
+async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_why() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = approved(&fleet, &home, "one with work nobody pushed").await;
+    fleet
+        .vcs()
+        .keep_next_release("armada/1-x has 2 commits on neither the remote nor the base");
+
+    let loaded = fleet.load(&job).await.expect("the Job");
+    fleet
+        .move_job(
+            &loaded,
+            Target::Escalated(EscalationTrigger::Interrupted),
+            Actor::Fleet,
+        )
+        .await
+        .expect("escalated");
+    let loaded = fleet.load(&job).await.expect("the Job");
+    fleet
+        .move_job(&loaded, Target::CompletedFailed, Actor::Human)
+        .await
+        .expect("failed");
+
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home))[0],
+        Some(job.as_str().to_string()),
+        "the slot stays held while it holds work"
+    );
+    let handle = fleet.load(&job).await.expect("the Job").handle();
+    let said = std::fs::read_to_string(crate::transcript::log_of(&root(&home), &handle))
+        .unwrap_or_default();
+    assert!(
+        said.contains("2 commits on neither the remote nor the base"),
+        "the Job's own log says why: {said}"
+    );
+}
+
+/// The worktree a Job's earlier steps worked in is now somebody else's. Fleet
+/// stops the Job for a person; it never quietly leases a second slot.
+#[tokio::test]
+async fn a_job_whose_slot_another_holds_escalates_and_leases_no_other() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reviewing_the_first_step(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = at_the_gate(&fleet, &home).await;
+    fleet
+        .approve_review(&job)
+        .await
+        .expect("the slot is the Job's while the person reads");
+    fleet.vcs().hold_slot(&root(&home), 1, "an agent's session");
+
+    let refused = admit(&fleet)
+        .await
+        .expect_err("there is nothing of its own to put a Drone back onto");
+    match &refused {
+        Adrift::SlotLost { slot, why, .. } => {
+            assert_eq!(*slot, 1);
+            assert!(why.contains("an agent's session"), "{why}");
+        }
+        other => panic!("expected the lost slot, got {other:?}"),
+    }
+    assert_eq!(status_of(&fleet, &job).await, JobStatus::Escalated);
+    assert_eq!(
+        fleet.last_reason(&job).await.expect("a reason"),
+        Some(TransitionReason::Escalation(EscalationTrigger::NoWorktree))
+    );
+    assert_eq!(fleet.vcs().created().len(), 1, "no second slot was leased");
+    assert!(
+        !fleet
+            .vcs()
+            .slot_holders(&root(&home))
+            .contains(&Some(job.as_str().to_string())),
+        "and the Job holds none"
+    );
+}
+
+#[tokio::test]
+async fn with_every_slot_held_a_new_job_waits_on_resources_and_starts_when_one_frees() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    for n in 1..=8 {
+        fleet.vcs().hold_slot(&root(&home), n, "an agent's session");
+    }
+
+    let job = approved(&fleet, &home, "fix the reader").await;
+    assert_eq!(status_of(&fleet, &job).await, JobStatus::Queued);
+    let loaded = fleet.load(&job).await.expect("the Job");
+    assert_eq!(
+        fleet.queued_reason(&loaded).await.expect("a reason").reason,
+        Some(QueuedReason::WaitingOnResources),
+        "the Board says what admission is waiting for"
+    );
+
+    fleet.vcs().free_slot(&root(&home), 6);
+    let loaded = fleet.load(&job).await.expect("the Job");
+    assert_eq!(
+        fleet.queued_reason(&loaded).await.expect("a reason").reason,
+        None
+    );
+    admit(&fleet).await.expect("admission runs");
+    let started = fleet.load(&job).await.expect("the Job");
+    assert_eq!(started.status(), JobStatus::Running);
+    assert_eq!(started.worktree_slot(), Some(6));
+}
+
+/// A Job cut before the pool: no slot on its record, and a worktree at the
+/// path its handle derives. It keeps working there until it ends.
+#[tokio::test]
+async fn a_job_with_no_slot_recorded_uses_its_derived_path() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = fleet
+        .propose(a_proposal("cut before the pool"))
+        .await
+        .expect("proposed");
+    let derived = WorktreeSpec::for_job(&root(&home), &job.handle()).expect("a legal spec");
+    std::fs::create_dir_all(derived.worktree_path()).expect("its old worktree");
+
+    assert_eq!(job.worktree_slot(), None);
+    let worktree = fleet
+        .worktree_of(&job)
+        .expect("readable")
+        .expect("its old worktree is found");
+    assert_eq!(worktree.path(), derived.worktree_path());
+    assert_eq!(
+        fleet.surviving_worktree(&job).expect("still there").path(),
+        derived.worktree_path()
+    );
+    assert_eq!(
+        fleet.vcs().slot_standing(
+            &crate::leasing::pool_of(&fleet.first()),
+            1,
+            job.id().as_str()
+        ),
+        SlotStanding::Gone,
+        "and it never touched the pool"
+    );
+}

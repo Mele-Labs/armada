@@ -1,4 +1,4 @@
-//! One worktree per Job, on its own new branch, created before a Drone exists.
+//! A Job's tree at its derived path. Fleet leases pool slots; only test fixtures cut one.
 //!
 //! **Every refusal happens before anything is written.** v1's bug was that the
 //! branch collision was discovered by `git worktree add` failing halfway, which
@@ -26,10 +26,14 @@
 use std::fs;
 use std::path::Path;
 
-use adapter_traits::{BaseCheckout, BaseSpec, CommitTime, Committed, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{
+    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotPool, SlotStanding,
+    Vcs, Worktree, WorktreeSpec,
+};
 use git2::{BranchType, ErrorCode, Repository, WorktreeAddOptions};
 
 use crate::error::{CommitWorkError, CreateWorktreeError};
+use crate::leasing::LeaseRefused;
 
 /// Version control against a real repository on this machine.
 ///
@@ -116,6 +120,38 @@ impl Vcs for GitVcs {
         within: std::time::Duration,
     ) -> Result<(), adapter_traits::NotCloned> {
         crate::cloning::clone_repository(url, destination, within)
+    }
+
+    fn lease_slot(
+        &self,
+        pool: &SlotPool,
+        spec: &WorktreeSpec,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        crate::leasing::jobs::lease(pool, spec, job_id).map_err(|refused| {
+            CreateWorktreeError::SlotNotLeased {
+                repo: pool.repo_root().to_string(),
+                why: match refused {
+                    LeaseRefused::BranchHoldsWork { branch, commits } => format!(
+                        "{branch} already exists with {commits} commits on neither the remote \
+                         nor the base, and a lease would reset it"
+                    ),
+                    LeaseRefused::Vcs(why) => why,
+                },
+            }
+        })
+    }
+
+    fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
+        crate::leasing::jobs::open(pool, job_id)
+    }
+
+    fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
+        crate::leasing::jobs::standing(pool, slot, job_id)
+    }
+
+    fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
+        crate::leasing::jobs::release(pool, slot, job_id)
     }
 }
 

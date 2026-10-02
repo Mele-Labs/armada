@@ -166,6 +166,18 @@ where
         let Some(seed) = manifest.seed() else {
             return;
         };
+        // **A reused slot keeps the build its last lease left**, and nothing is
+        // cloned over it. Nothing is recorded either: the record says what this
+        // Job's tree was seeded with, and it was seeded for another.
+        let tree = Path::new(worktree.path());
+        if seed.paths().iter().all(|path| tree.join(path).exists()) {
+            self.noted_seeding(
+                job,
+                "the worktree is a reused pool slot, and keeps the build its last lease left",
+                &[("paths", FieldValue::Str(seed.paths().join(", ")))],
+            );
+            return;
+        }
         let seeding = self.seeding(job, worktree, manifest, seed).await;
         match &seeding {
             Seeding::Seeded { commit, paths } => self.noted_seeding(
