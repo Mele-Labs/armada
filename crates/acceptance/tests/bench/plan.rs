@@ -285,6 +285,17 @@ impl Planned {
         self.plan().expect("a plan")
     }
 
+    /// What the plan as it stands says to one more change a person makes,
+    /// **without keeping it**, for [`Planned::judged`]'s reason.
+    pub fn judged_by_person(&self, change: PlanChange) -> Result<WorkPlan, PlanRefused> {
+        let entry = PlanEntry {
+            change,
+            by: PlanAuthor::Person,
+            at: at(self.history.len() + 1),
+        };
+        WorkPlan::after(self.plan().as_ref(), &entry)
+    }
+
     /// What the plan as it stands says to one more call, **without keeping it** —
     /// `store` judges a change inside the write, and a refused one writes nothing.
     pub fn judged(

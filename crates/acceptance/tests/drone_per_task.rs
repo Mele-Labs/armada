@@ -2,8 +2,9 @@
 //! Drone per task, group by group, and I can see and act on each task, each
 //! group and each Drone.** Added slice by slice; a slice not named is its
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
-//! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task, and
-//! 2's red group going round on its own before its tasks fail.
+//! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task,
+//! 2's red group going round on its own before its tasks fail, and 3's model
+//! per task.
 //!
 //! | Not proved here | Why not |
 //! |---|---|
@@ -12,6 +13,7 @@
 //! | A Fleet built before 1a refuses the store | Hermetic; `crates/store/src/tests/signers.rs` |
 //! | Fleet writing the line once a minute | A `tokio` interval in `crates/armada/src/serve.rs` |
 //! | A group's round, failed tasks and restart through the routes | `crates/fleet/src/tests/groups.rs` drives the fake harness and the store |
+//! | A spawn recording the model it ran, and `edit_task` refusing a model `list_models` does not offer | `crates/fleet/src/tests/model_per_task.rs` drives the fake harness and the store |
 
 // The bench is shared with every other milestone's test and none uses all of it.
 #[allow(dead_code)]
@@ -19,6 +21,7 @@ mod bench;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
 use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, StepTarget};
+use core_model::{ModelName, TaskTier, TierModels};
 use fleet::tasking::{self, GroupEnd, HandIn, NotRestartable};
 use fleet::{briefing, Crossed, Ruling, ThePlan};
 use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesChanged};
@@ -446,6 +449,7 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
         drone_id: (&drone(2)).into(),
         step_id: (&implement).into(),
         task: Some("T2".to_string()),
+        model: None,
         state: ipc::DroneState::Done,
         since: (&at(10)).into(),
         ended_at: Some((&at(20)).into()),
@@ -683,5 +687,172 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
         order,
         [(task("T1"), g1), (task("T3"), g2), (task("T2"), g2)],
         "a failed task moves to after the task named"
+    );
+}
+
+/// Four tasks the planner gave a tier each but the last, which it left to
+/// Armada.
+const FOUR_TIERED: &str = r#"{"approach":"Bound the reader, cover it, say so, and tidy",
+    "tasks":[{"title":"Stop the reader at the end","note":"","scope":["crates/store/src/read.rs"],"expects":"","tier":"difficult"},
+             {"title":"Cover the last row","note":"","scope":[],"expects":"","tier":"easy"},
+             {"title":"Note the bound in the module","note":"","scope":[],"expects":"","tier":"medium"},
+             {"title":"Tidy the imports","note":"","scope":[],"expects":""}]}"#;
+
+fn model(name: &str) -> ModelName {
+    ModelName::new(name).expect("a model name")
+}
+
+fn edit_body(json: &str) -> ipc::EditTask {
+    ipc::decode("an Edit this task body", json.as_bytes()).expect("Bridge's body decodes")
+}
+
+/// Slice 3: **a hard task runs on the strong model and an easy one on the
+/// cheap one, a task I gave a model of my own runs on that one, and each Drone
+/// tells me which it ran.** The Job's map names the strong and the cheap model
+/// and leaves `medium` out, which is Armada picking (answer 8). The edit is
+/// Edit this task's own body, `EditTask`, read the way `edit_task` reads it.
+#[test]
+fn each_task_runs_on_the_model_its_tier_or_its_person_picked_and_its_drone_says_which() {
+    let mut planned = Planned::created_with("bound the reader", feature_with_a_drone_per_task());
+    let implement = StepId::new("implement");
+    let tiers = TierModels::default()
+        .with(TaskTier::Difficult, model("the-strong-model"))
+        .with(TaskTier::Easy, model("the-cheap-model"));
+
+    // ------------------------------------------ the planner gives each a tier
+    let plan = planned.kept(called("record_plan", FOUR_TIERED), "plan", 1);
+    let tiered: Vec<Option<TaskTier>> = plan.tasks().iter().map(|t| t.tier()).collect();
+    assert_eq!(
+        tiered,
+        [
+            Some(TaskTier::Difficult),
+            Some(TaskTier::Easy),
+            Some(TaskTier::Medium),
+            None
+        ]
+    );
+
+    // ------------------------------------- a person picks one task's model
+    // After the plan's gate: T3 has not run, so its Drone will read the edit.
+    let edit = fleet::task_edits::the_edit(&edit_body(
+        r#"{"note":"Say where the bound is read","model":"a-model-of-my-own"}"#,
+    ))
+    .expect("an edit that changes something");
+    let plan = planned.moved(PlanChange::Edited {
+        task: task("T3"),
+        edit,
+    });
+    let t3 = plan.task(task("T3")).expect("T3");
+    assert_eq!(t3.note(), "Say where the bound is read");
+    assert_eq!(
+        t3.title(),
+        "Note the bound in the module",
+        "a field not sent is kept"
+    );
+    assert_eq!(t3.model(), Some(&model("a-model-of-my-own")));
+    assert_eq!(
+        plan.recorded_by(),
+        &core_model::PlanAuthor::Step {
+            step_id: StepId::new("plan"),
+            attempt: Attempt::FIRST,
+        },
+        "the plan still reads as the planner's: the edit is a change after it, not a new recording"
+    );
+
+    // ------------------------------------------ each spawn resolves its model
+    let ran: Vec<(&str, String)> = ["T1", "T2", "T3", "T4"]
+        .iter()
+        .map(|id| {
+            let on = plan.task(task(id));
+            let spawned = planned.job.model_spawned_for(&implement, None, on, &tiers);
+            (*id, spawned.as_str().to_string())
+        })
+        .collect();
+    assert_eq!(
+        ran,
+        [
+            ("T1", "the-strong-model".to_string()),
+            ("T2", "the-cheap-model".to_string()),
+            ("T3", "a-model-of-my-own".to_string()),
+            ("T4", "a-model".to_string()),
+        ],
+        "the hard task on the strong model, the easy one on the cheap one, my pick over the \
+         map, and a tier the map leaves out falls through to the Job's own"
+    );
+
+    // ----------------------------------------- the next Drone reads the edit
+    let crossed = Crossed::nothing().and_the_plan(Some(ThePlan::for_task(&plan, t3)));
+    let workflow = planned.job.workflow().clone();
+    let brief = briefing::first_turn(&planned.job, &workflow, &implement, &crossed)
+        .expect("a brief assembles");
+    assert!(
+        brief.as_str().contains("Say where the bound is read"),
+        "T3's Drone is told the edited brief: {}",
+        brief.as_str()
+    );
+
+    // ------------------------------------------------- what crosses the wire
+    let served = received_detail(&planned.detail())
+        .work_plan
+        .expect("the plan crossed");
+    let wire: Vec<(Option<&str>, Option<&str>)> = served
+        .tasks
+        .iter()
+        .map(|t| (t.tier.map(|tier| tier.as_wire()), t.model.as_deref()))
+        .collect();
+    assert_eq!(
+        wire,
+        [
+            (Some("difficult"), None),
+            (Some("easy"), None),
+            (Some("medium"), Some("a-model-of-my-own")),
+            (None, None),
+        ],
+        "each task's tier, and a person's pick where one was made"
+    );
+    let map = ipc::encode(&ipc::TierModels::from(&tiers)).expect("a map encodes");
+    assert!(
+        !map.contains("medium") && !map.contains("null"),
+        "a tier the map leaves out is a key left out, never null: {map}"
+    );
+
+    // ------------------------------------------- each Drone says which it ran
+    let row = ipc::JobDrone {
+        drone_id: (&drone(1)).into(),
+        step_id: (&implement).into(),
+        task: Some("T1".to_string()),
+        model: Some("the-strong-model".to_string()),
+        state: ipc::DroneState::Done,
+        since: (&at(10)).into(),
+        ended_at: Some((&at(20)).into()),
+        turns: None,
+        cost_micros: None,
+    };
+    let body = ipc::encode(&row).expect("a Drone row encodes");
+    let back: ipc::JobDrone = ipc::decode("a Drone row", body.as_bytes()).expect("and decodes");
+    assert_eq!(
+        back.model.as_deref(),
+        Some("the-strong-model"),
+        "a Drone's row names the model it ran"
+    );
+
+    // ------------------------------- a task in its Drone's hands is not edited
+    planned.marked(tasking::started(task("T1")), "implement", 1);
+    let again =
+        fleet::task_edits::the_edit(&edit_body(r#"{"title":"Something else"}"#)).expect("an edit");
+    assert_eq!(
+        planned.judged_by_person(PlanChange::Edited {
+            task: task("T1"),
+            edit: again,
+        }),
+        Err(core_model::PlanRefused::NotEditable {
+            named: task("T1"),
+            state: TaskState::Working
+        }),
+        "a working task is its Drone's"
+    );
+    assert!(
+        fleet::task_edits::the_edit(&edit_body("{}")).is_none(),
+        "an edit that changes nothing is not one"
     );
 }
