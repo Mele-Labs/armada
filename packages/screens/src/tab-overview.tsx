@@ -730,6 +730,9 @@ export function OverviewTab(props: OverviewTabProps) {
       pulseAbsent={whyNoReading(resources)}
       {...(whole === null ? {} : { brief: whole.facts })}
       briefAbsent={whyNoBrief(watched, job.id)}
+      {...(whole?.from_studio === undefined || props.onOpenStudio === undefined
+        ? {}
+        : { fromStudio: whole.from_studio, onOpenStudio: props.onOpenStudio })}
       // What froze, and whether anybody has moved a setting since. `changedOf`
       // is the same count the strip's own Settings tab carries.
       settings={settingsSaid(props.draft?.landing, changedOf(whole))}
