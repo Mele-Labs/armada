@@ -291,6 +291,17 @@ describe("a proposal fills in as it is written", () => {
     expect(row.textContent).toContain(SECOND_REQUEST_SAYS);
   });
 
+  test("the request standing in for the title reads as words, not as the markdown it was typed in", async () => {
+    mount("arc/proposing-workflow-landed");
+    await listed();
+    const row = settling();
+    // The request carries a bold word and a code span — `arc-proposing.ts`.
+    expect(row.textContent).toContain("the worktree alone");
+    expect(row.textContent).toContain("the branch as well");
+    expect(row.textContent).not.toContain("**");
+    expect(row.textContent).not.toContain("`");
+  });
+
   test("the title lands second, and the row says it", async () => {
     mount("arc/proposing-title-landed");
     await listed();
