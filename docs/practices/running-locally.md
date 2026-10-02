@@ -799,9 +799,9 @@ The script suite takes about a minute, the hook suite under a second.
 
 | Form | Removes |
 |---|---|
-| `armada clean` | This repository's worktrees under `.armada/`, the branch each is on, and that Manifest's Jobs |
+| `armada clean` | This repository's worktrees under `.armada/`, the branch each is on, and that Manifest's Jobs. A worktree slot a Job holds is named and left |
 | `--all` | And the machine's store, its write-ahead files, the runtime file, the MCP configuration |
-| `--force` | And the unmerged branches, and their commits |
+| `--force` | And the unmerged branches, and their commits. And the slots completed or kept Jobs hold, where the pool would release them |
 
 **`--force` and `--all` are separate questions.** One is *delete work nobody has
 taken*; the other is *clear this machine's store too*.
@@ -835,6 +835,24 @@ branch is kept and the line says so.
 **What to do about one it left:** merge it, then `git branch -d
 armada/<job-id>`. Git refuses that itself while the branch is unmerged, so the
 two checks agree.
+
+### It gives a slot back only by the pool's rules
+
+**A slot is never removed, only released**, because the next lease reuses it.
+A Job's branch is checked out in its slot until then, so `clean` leaves both
+and names the slot, the Job holding it, and why:
+
+| The slot reads | `armada clean` | `armada clean --force` |
+|---|---|---|
+| `held` — the Job has not ended | Named, left | Named, left. Its slot is its work in progress |
+| `done` — the Job completed | Named, left | Released, then its branch deleted |
+| `kept` — the Job ended and its release was refused | Named with the reason | Released, then its branch deleted |
+
+**`--force` releases a slot under the pool's usual refusals**: a tree holding
+uncommitted files, or commits on neither the remote nor the base. It names the
+file or the count and leaves the slot held, which is narrower than what
+`--force` does to a branch outside the pool. Commit and land the work, or
+discard it in the slot, then run it again.
 
 ### What it prints
 
