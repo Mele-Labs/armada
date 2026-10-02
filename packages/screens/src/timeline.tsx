@@ -2,10 +2,9 @@
 // the order they happen — instructed, working, checks, judge. What the attempt
 // wrote rides on working, with the turns that wrote it.
 //
-// **Derived here and drawn by the panel.** `stepTimelineOf` below arranges the
-// step's own chapters into these rows, and `InsideAJob` draws them in place of
-// the strip and the story that used to say the same thing twice. The draft this
-// was written against is deleted, which is what a draft is for.
+// **Derived here, and drawn nowhere since the Overview reframe.**
+// `stepTimelineOf` below arranges the step's own chapters into these rows, and
+// `[` `]` on Overview walk them through `landingsOf`.
 //
 // # What the wire can and cannot say
 //
@@ -20,7 +19,7 @@
 import { Fragment, type ReactNode } from "react";
 
 import type { ChangedFile, CheckRun, Judged, StepAttempt, StepDetail, Turn } from "@armada/protocol";
-import type { StepActivity, StepChapter, StepTimelineAttempt } from "@armada/components";
+import type { StepActivity, StepChapter } from "@armada/components";
 
 import { isSweepMarker } from "./declared";
 import { namesChapter } from "./detail-keys";
@@ -468,9 +467,53 @@ function gamingRow(read: StepDetail, attempt: StepAttempt, current: boolean): Ti
   };
 }
 
+/** What the Drone is doing, in parts — `Editing`, the path, `3s`. */
+export type StepTimelineNow = {
+  verb?: ReactNode;
+  /** The path, the command, or the Drone's own sentence. */
+  detail?: ReactNode;
+  took?: ReactNode;
+  /** Whether `detail` is machine-derived. A path is; a sentence is not. */
+  mono?: boolean;
+};
+
+/** One phase of one attempt, with the chapters that phase produced. */
+export type StepTimelineRow = {
+  id: string;
+  /** `Instructed`, `Working`, `Checks`, `Judge`. */
+  name: ReactNode;
+  activity: StepActivity;
+  /** What the row says folded — `1756 turns · 43m 37s · 36 files`. */
+  meta?: ReactNode;
+  /** The Drone is in this row now. */
+  live?: boolean;
+  /** What the Drone is doing right now, on a live Working row only. */
+  now?: StepTimelineNow;
+  /** What the row opens to. Absent is a row that does not open. */
+  body?: ReactNode;
+  /** Hold the body to a height of its own — the opening brief. */
+  bounded?: boolean;
+  /** Attributes naming this row, which `[` `]` land on. */
+  marker?: Record<string, string>;
+  /** The control on the row's line — `Open the log`, `Open the diff`. */
+  act?: ReactNode;
+};
+
+/** One attempt at a step, and its phases. */
+export type StepTimelineAttempt = {
+  id: string;
+  /** `Attempt 2`. */
+  name: ReactNode;
+  /** What became of it — `handed back · 2m 22s`. */
+  said?: ReactNode;
+  /** The attempt being read. */
+  current?: boolean;
+  rows: StepTimelineRow[];
+};
+
 /**
- * The timeline as the panel draws it: the phases of each attempt, with the
- * step's own chapters arranged into the rows they belong to.
+ * The timeline's rows: the phases of each attempt, with the step's own
+ * chapters arranged into the rows they belong to.
  *
  * **Arranged, never rebuilt.** `chaptersOf` already builds the brief, the log,
  * what was produced and what the gates found, and each carries its own preview,
@@ -490,8 +533,6 @@ export function stepTimelineOf(
   now: number,
   /** The step's story over one of its runs. `ended` is a run that is over. */
   story: (read: AttemptRead, ended: boolean) => readonly StepChapter[],
-  /** The plan bar, beside every Working row's act where the Job has a plan. #1185. */
-  plan?: ReactNode,
 ): StepTimelineAttempt[] {
   return timelineOf(step, turns, now).map((attempt) => {
     const mine = new Map(
@@ -533,10 +574,6 @@ export function stepTimelineOf(
             ? { now: doing }
             : {}),
           ...drawn.row,
-          // The plan bar sits beside `Open the log`, as drawn. #1185, #1187.
-          ...(row.phase === "working" && plan !== undefined
-            ? { act: <>{plan}{drawn.row.act}</> }
-            : {}),
         };
       }),
     };

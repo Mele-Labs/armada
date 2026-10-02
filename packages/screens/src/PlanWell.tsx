@@ -21,7 +21,8 @@ import {
 } from "@armada/components";
 
 import type { Outcome } from "@armada/protocol";
-import { Eyebrow, type PlanRegionData, type PlanTaskRow } from "./InsideAJob";
+import type { PlanRegionData, PlanTaskRow } from "./plan";
+import { Eyebrow } from "./regions";
 import { ADD_TASK_LABEL, DROP_TASK_LABEL, said } from "./copy";
 import type { PlanEditAnswer } from "./plan-edits";
 
@@ -311,36 +312,10 @@ function TaskRow({
 }
 
 /**
- * The Plan region before a plan is recorded — a step on the workflow declares
- * `plan_recorded` and has not run yet. One muted line naming that step, and
- * nothing else: no task bar, no figure, no approach, no `Add task`. `#1007`;
- * `docs/journeys/monitor-active-work.md`, Plan.
- *
- * **The same wrapper `PlanWell` opens with.** Reusing `.armada-inside__pulse-head`
- * keeps the eyebrow at the region's usual place rather than drawing a second
- * shape a reader has to recognise as the same region.
- */
-export function PlanPending({ stepLabel }: { stepLabel: string }) {
-  return (
-    <PlanRegion>
-      <div className="armada-inside__pulse-head">
-        <Eyebrow>Plan</Eyebrow>
-      </div>
-      <p className="armada-inside__absent" role="note">
-        No plan yet — {stepLabel} records it.
-      </p>
-    </PlanRegion>
-  );
-}
-
-/**
- * The region both forms draw into. **It carries the name**, so what a reader
+ * The region the well draws into. **It carries the name**, so what a reader
  * hears is the same word the strip's Plan tab uses — and so a surface can ask
  * whether the region is there at all without reading a class or matching a
  * word the tab also spells.
- *
- * Its gap is the run column's own, so it lays the two forms out exactly as the
- * bare fragments they replaced did.
  */
 function PlanRegion({ children }: { children: ReactNode }) {
   return (

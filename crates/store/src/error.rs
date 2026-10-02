@@ -263,6 +263,11 @@ pub enum WriteError {
     UnknownPreference {
         name: String,
     },
+    /// `record_answered` handed a move that is not a proposer's answer — the
+    /// Job it carries has frozen no workflow.
+    NotAnAnswer {
+        job_id: JobId,
+    },
 }
 
 /// Why one Job would not load.
@@ -456,6 +461,11 @@ display!(WriteError, |self, f| match self {
     ),
     WriteError::UnknownPreference { name } =>
         write!(f, "`{name}` is not a preference this build reads"),
+    WriteError::NotAnAnswer { job_id } => write!(
+        f,
+        "job {} was handed to record_answered with no frozen workflow",
+        job_id.as_str()
+    ),
 });
 
 display!(LoadJobError, |self, f| match self {

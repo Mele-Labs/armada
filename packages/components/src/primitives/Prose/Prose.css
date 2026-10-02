@@ -6,7 +6,7 @@
    *Prose — model-written markdown*.
 
    BLOCK FLOW, NEVER FLEX. `-webkit-line-clamp` counts no lines inside a flex
-   box, and Prose is drawn inside `Clamped` (PlanBoard's approach, JobBrief).
+   box, and Prose is drawn inside `Clamped` (PlanBoard's approach).
    Every gap is a margin between siblings. */
 .armada-prose {
   display: block;

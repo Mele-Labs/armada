@@ -113,7 +113,6 @@ export type LandedRead = {
   runs: LandedRuns[];
   groups: LandedGroup[];
   groupsSummary: string;
-  groupsAbsent: string;
 };
 
 export type LandedInput = {
@@ -158,7 +157,6 @@ export function landedOf({ job, whole, draft, manifest, holding }: LandedInput):
     runs: runSetsOf(cases, runs),
     groups: groups.map(groupOf),
     groupsSummary: summaryOf(groups),
-    groupsAbsent: "This Job recorded no plan, so it ran as one piece.",
   };
 }
 

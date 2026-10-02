@@ -95,6 +95,8 @@ mod remarks;
 /// What a person says went wrong, kept after the Job it is about is gone.
 mod report;
 mod repositories;
+/// What a gate's two policies resolved to, per run. #1683.
+mod resolved_policies;
 /// A ULID, a whole handle or a bare number in, one Job out — **a second way
 /// in and never a second key.**
 mod resolving;

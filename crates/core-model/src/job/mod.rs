@@ -93,9 +93,9 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
-pub use policy::{AutoMerge, ReviewGate};
+pub use policy::{AutoMerge, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
-pub use record::{Job, NewJob, StepTransitioned, Transitioned};
+pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
 pub use review::{
     Area, Became, Bucket, ChangedTest, Confidence, Dismissal, Finding, FollowUp, Proves,
     ReviewRecord, TestChange, TestsInChange, Untested, ViewStep,

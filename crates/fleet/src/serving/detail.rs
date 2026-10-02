@@ -56,6 +56,7 @@ where
             moves,
             ran_every_attempt,
             judged_every_attempt,
+            resolved,
             frames,
             started_at,
             ended_at,
@@ -85,6 +86,10 @@ where
             let judged_every_attempt = store
                 .step_judgments_every_attempt(job.id())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            // What each run's gate resolved its policies to. #1683.
+            let resolved = store
+                .resolved_policies_every_attempt(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             // Every attempt's, for `ran_every_attempt`'s reason: a person
             // comparing the run that was handed back against the one that
             // passed needs both, and the rail stamps each with its run.
@@ -105,6 +110,7 @@ where
                 moves,
                 ran_every_attempt,
                 judged_every_attempt,
+                resolved,
                 frames,
                 started_at,
                 ended_at,
@@ -246,6 +252,7 @@ where
                 ran_every_attempt,
                 judged_every_attempt,
                 flagged,
+                resolved,
                 frames,
                 &moves,
             ),

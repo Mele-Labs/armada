@@ -18,7 +18,6 @@ export type LandedGroup = {
   name: string;
   verb: string;
   status?: string;
-  tasks: string;
   took?: string;
   files: string;
   checks?: string;
@@ -109,7 +108,6 @@ function ordinalWord(ordinal: number): string {
 /** One group's row: what it came to, and what it left. */
 export function groupOf(group: GroupView): LandedGroup {
   const word = GROUP_STATE[group.state];
-  const done = group.tasks.filter((task) => task.state === "done").length;
   const files = new Set(group.tasks.flatMap((task) => task.scope)).size;
   const checks = group.checks_selected.length;
   const took =
@@ -120,7 +118,6 @@ export function groupOf(group: GroupView): LandedGroup {
     name: `Group ${ordinalWord(group.ordinal)}`,
     verb: word?.verb ?? group.state,
     status: word?.badgeStatus ?? undefined,
-    tasks: `${done} of ${group.tasks.length} done`,
     ...(took === null ? {} : { took }),
     files: files === 1 ? "1 file" : `${files} files`,
     ...(checks === 0
@@ -135,7 +132,3 @@ export function summaryOf(groups: readonly GroupView[]): string {
   const files = new Set(tasks.flatMap((task) => task.scope)).size;
   return `${groups.length} groups · ${tasks.length} tasks · ${files} files`;
 }
-
-/** Why a group's row says `not timed`. Fleet times a step, and a group is not one. */
-export const GROUPS_NOTE =
-  "Nothing times a group: the record times a step, so no group here carries a span of its own.";

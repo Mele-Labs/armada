@@ -57,6 +57,7 @@ import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
+import { job2Landed } from "./job-2-landed";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -458,6 +459,9 @@ export const SCENARIOS: readonly Scenario[] = [
   ...RECORDED.map(([slug, fixture]) =>
     holding(`recorded/${slug}`, fixture.name, [fixture], { opens: fixture.job.id }),
   ),
+  // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
+  // for, every task still `open`, and a 40-character commit.
+  holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

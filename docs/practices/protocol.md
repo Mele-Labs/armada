@@ -2033,6 +2033,66 @@ record; killing the Drone's own pid is `kill_drone`, and so is killing every pro
 descendants that left the Drone's process group. The operations' notes in
 `crates/ipc/operations.toml` carry the whole rule.
 
+## Protocol 21.6: a dispatched request is a Job, and the proposal names it
+
+`ProposalMoved.job_id` names the Job at `proposing` the call is reading for. It is absent only from
+an older Fleet, which created no Job until the call answered. Two escalation reasons are new on
+`Reason.named`: `no_workflow_fits` and `proposer_failed`, both on `proposing -> escalated`. All of
+it is additive.
+
+**The row exists from the press** (#1714). `propose_from_request` creates the Job at `proposing`
+before the call goes out, with the request as its title, `workflow_id` empty, no steps, and
+`workflow_source` blank. The route still answers the plan or the refusal code. On a refusal the
+Job is now escalated rather than never created: `fleet.no_workflow_fits` takes `no_workflow_fits`.
+`fleet.proposer_unreachable`, `fleet.proposer_unreadable` and `fleet.proposer_model_not_held` take
+`proposer_failed`, and the Job's log says which (#1716). A stop takes the Job to `killed`.
+
+**The head of the plan is that Job, moved to the gate**, with the proposer's title replacing the
+request. Its `job.state_changed` is the move, not a `job.created`. The other Jobs of a split arrive
+as `job.created` with `dispatched_by` naming the head.
+
+## Protocol 21.7: a merge refused because the base moved
+
+`merge_pull_request` gains one refusal, `fleet.merge_base_moved`, a 409 carrying `refused:
+base_moved`. Only a repository whose Manifest says `merge_by: push` meets it: Fleet makes the
+merge commit itself and refuses a branch that does not hold the base it would land on, which the
+forge would have merged. No shape moves.
+
+**Minor because a refusal code added is additive**, for 14.14's reason.
+
+## Protocol 21.8: a merge refused because its Checks went red on the moved base
+
+`merge_pull_request` gains one refusal, `fleet.merge_gate_failed`, a 409 carrying `refused:
+gate_failed`. Under `merge_by: push`, Fleet now answers a moved base by merging it into the Job's
+branch and running the Job's Checks again before pushing, and this is that run going red. A
+conflict on the way is the `fleet.merge_conflicted` that already existed, and `fleet.merge_base_moved`
+now means the base kept moving through every round. No shape moves.
+
+**Minor because a refusal code added is additive**, for 14.14's reason.
+
+## Protocol 21.9: a step's run says what its gate resolved the policies to
+
+One optional field on `StepAttempt`, `resolved`, holding `auto_merge` and `review_gate` as
+`armada.yml` writes them. It is set on a run whose ruling read the advance gate (advanced,
+finished, or held for review) and absent on every other. Additive, on 18.4's argument: an older
+Bridge ignores the key, and an older Fleet never sends it.
+
+**History, beside 18.4's live reading** (#1683). `ManifestSummary`'s two words say what the
+repository says now. This says what one gate acted on, written to `job_step_policies` on that run
+before the step moved. A Manifest edited afterwards changes the next run's value and leaves this
+one as it was. That is what lets the Record say a step held because the repository said
+`human_always` at the time.
+
+**Both policies, on every gate that read them.** The owner decided this on 1 Oct 2026: not only the
+one that gated. One object rather than two optional words, because they are written together and
+neither can be there without the other.
+
+**Absent means nothing was recorded, never a default.** Four causes give the same reading: a run
+still going, a run stopped before the gate (a Check failed, the Judge refused, a gaming flag
+stood), a run from before 21.9, or an older Fleet. None of them is a resolution, so Bridge draws
+no policy rather than `never` or `human_always`. It is `#[serde(default, skip_serializing_if)]
+Option` on Fleet's side and `?:` on Bridge's.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

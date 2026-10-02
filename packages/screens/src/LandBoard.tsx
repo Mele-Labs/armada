@@ -75,10 +75,7 @@ export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: Land
         <div className="armada-land__produced">
           <JobOutcome sections={delivered} steps={read.steps} onCopied={onCopied} />
           <ProducedPanel summary={read.groupsSummary}>
-            <ProducedGroups
-              groups={read.groups}
-              emptyNote={read.groupsAbsent}
-            />
+            <ProducedGroups groups={read.groups} />
           </ProducedPanel>
         </div>
 

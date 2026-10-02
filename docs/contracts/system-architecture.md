@@ -779,4 +779,17 @@ so they are not lost.
   to the existing Guild row and its inbound relations; and how the concept
   table's row count changes as a result.
 
+- **[fleet-store-lock-contention]** Does Fleet's one store lock queue reads behind the turn loop once Jobs are live, and if so, what replaces it?
+  Fleet holds its store behind one `tokio::sync::Mutex<Store>`
+  (`crates/fleet/src/daemon.rs`), the turn loop runs every 250 ms and its
+  passes take that lock, and the SQL runs on the async runtime rather than
+  under `spawn_blocking`. One `GET /jobs/:id` takes it several times over
+  (unmeasured how many). Nobody has measured
+  contention: on 1 Oct 2026 a job detail that opened seconds late was traced
+  to Bridge, not to this, and the store then held no Jobs to measure against.
+  Needs: read latency for `/jobs/:id` under a running Drone, with and
+  without turns, before choosing between leaving it, a read connection
+  beside the writer (WAL allows it), or moving the SQL off the runtime. The
+  Persistence row's "contention is not expected" is the claim this tests.
+
 Also bearing on this document, and written where each belongs: `[adapter-admission-test]` in `adapters.md`; `[config-source-enum-values]` in `configuration.md`; `[platform-differences-layer]` in `adapters.md`. A question has one home — answering it in two places is how one of them goes stale.

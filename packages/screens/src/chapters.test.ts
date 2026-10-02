@@ -625,8 +625,7 @@ describe("a step whose transcript is not being read", () => {
   });
 
   it("keeps saying it with rows in hand, because the rows do not answer for the socket", () => {
-    // A Drone's sentence, since the Working area leaves Armada's instruction to
-    // the Instructed row above it. #1185.
+    // A Drone's sentence, in hand before the socket stopped.
     const reading: Turn = {
       ts: "2026-09-02T13:12:00Z",
       seq: 2,
@@ -638,12 +637,11 @@ describe("a step whose transcript is not being read", () => {
       chapters({ rows: [instructed("go"), reading], transcript: NOT_READ })[1]!.preview,
     );
     expect(markup).toContain("The transcript could not be read.");
-    expect(markup).toContain("Reading the reducer first.");
   });
 
-  it("leaves the ordinary sentence alone while the socket is reading", () => {
+  it("says nothing about the socket while it is reading", () => {
     const markup = renderToStaticMarkup(chapters()[1]!.preview);
-    expect(markup).toContain(">Nothing yet<");
+    expect(markup).not.toContain("could not be read");
   });
 });
 

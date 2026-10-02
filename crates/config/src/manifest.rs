@@ -7,7 +7,8 @@
 //! `container` and `env` under `ports.<name>`, a fourth registry;
 //! `setup.requires` and `setup.seed`, [`seed`]; the three keys [`drone`] reads, the one section here that
 //! is a dial rather than a registry; and the two policies a
-//! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`; and
+//! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`;
+//! `merge_by`, [`merge_by`]; and
 //! `freeze`, [`freeze`]; `standing_rules`, [`standing`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
@@ -27,6 +28,7 @@
 
 mod declared;
 mod harness;
+mod merge_by;
 mod referring;
 mod runner;
 mod seed;
@@ -37,6 +39,7 @@ use serving::CommandEntry;
 
 pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
+pub use merge_by::MergeBy;
 pub use seed::{BadSeedPath, Seed};
 pub use serving::{Link, Server};
 
@@ -73,6 +76,8 @@ const TOP_LEVEL: &[&str] = &[
     // carries the reasoning and the values.
     "auto_merge",
     "review_gate",
+    // How work lands, beside whether it may: [`merge_by`].
+    "merge_by",
     "freeze",
     "standing_rules",
 ];
@@ -520,6 +525,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
         None => drone::Drone::unstated(),
     };
     let (auto_merge, review_gate) = policies::read(&mut top, out);
+    let merge_by = merge_by::read(&mut top, out);
     let freeze = freeze::read(&mut top, out);
     let standing_rules = standing::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
@@ -562,6 +568,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
             dials: drone.dials,
             auto_merge,
             review_gate,
+            merge_by,
             freeze,
         }),
     })

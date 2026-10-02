@@ -994,7 +994,7 @@ There is no name here because `armada.yml` declares none — `version`, `id`, `c
 
 Every Manifest Fleet serves, the one it was started in first: one Fleet serves many repositories and the rail's project picker switches between them. A repository added with no `armada.yml` is not here until one loads — `list_repositories` lists it.
 
-It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate and records nothing.
+It carries `auto_merge` and `review_gate` since 18.4, as words: a gate declaring `manifest_rule:<key>` is answered by one of them, and a screen drawing that gate had no way to say what the deference resolved to. Reported, not resolved — `fleet::policy` folds a Job's several gating Manifests at the gate. What a gate resolved them to is a different fact, kept on the run that passed it and served as `StepAttempt.resolved` since 21.9.
 """
 
 [operations.list_repositories]
@@ -1494,7 +1494,7 @@ notes = """
 
 **Everything after the merge is `noticing`'s, reached rather than repeated.** The record, the fast-forward of the base branch, the run of `after_merge.checks` and the `job.landed` event are one path whether Fleet noticed a merge or a person pressed for one. So the Checks cannot run twice for one commit — the dedupe is keyed by the commit, not by the Job, because two Jobs merging within a minute are two merges into one commit.
 
-**A refused merge says which of the reasons it was, and nothing retries.** A protected base, a conflict, a check the forge requires that has not passed, a pull request that is not open, no tool on the machine, and a refusal this vocabulary has no word for are six codes rather than one — each sends a person somewhere different, and a button that failed silently on a protected branch would be worse than no button. The Job is left exactly where the press found it, answerable by the three acts it was answerable by a moment earlier.
+**A refused merge says which of the reasons it was, and nothing retries.** A protected base, a conflict, a check the forge requires that has not passed, a pull request that is not open, no tool on the machine, a base that kept moving under `merge_by: push`, the Job's Checks going red on that base merged in, and a refusal this vocabulary has no word for are eight codes rather than one — each sends a person somewhere different, and a button that failed silently on a protected branch would be worse than no button. The Job is left exactly where the press found it, answerable by the three acts it was answerable by a moment earlier.
 
 Refused with a 409 on a Job that is not at `awaiting_review`, sharing that refusal with the three acts beside it, and with a 409 where the Job's record holds no pull request — a workflow that declares no delivering step opened none, and the act a person wants on one of those is `approve_review`.
 
@@ -1764,6 +1764,13 @@ proposer. What comes back is every Job the request became, all at
 awaiting_approval, exactly as propose_job answers for one — this adds no gate and
 removes none, and the person approves the same proposal at the same place.
 
+**The request is a Job before the call goes out** (#1714): a row at `proposing`,
+the request as its title, no workflow and no steps, published as `job.created`.
+The answer moves that same Job to the gate as the head of the plan, under the
+proposer's title, and any other Jobs it split into arrive naming it through
+`dispatched_by`. Every `proposal.moved` names it on `job_id`. The call runs on a
+task of its own, so a caller that stops waiting does not stop it.
+
 It answers with a plan rather than a Job because one request can be several, and
 approving is a different act depending on how many: one Job is dispatched by its
 approval, several are a plan whose members each take their own in turn. A member
@@ -1785,14 +1792,17 @@ member's own, and duplicating an attachment onto every Job in a chain is not
 this field's decision to make on a caller's behalf.
 
 Where no workflow resolves the request is refused and returned unchanged, on the
-error envelope's `request` field, and no Job is created. Nothing here assigns a
+error envelope's `request` field, and the Job it was dispatched as is escalated
+with `no_workflow_fits`, so the words survive on the Board. Nothing here assigns a
 workflow by default: the resolved definition is frozen into the Job and becomes
 what the work is judged against, so a nearest fit would be the standard rather
 than a guess somebody could correct.
 
 A call that could not be made — the network, the quota, the timeout — is a
 fault and not that refusal. The two answer different statuses because a person
-does different things about them.
+does different things about them. On the Job, a fault, an unreadable answer, a
+model this machine does not run and a Fleet restart under the call all escalate
+with `proposer_failed`, and the Job's log says which (#1716).
 
 An answer that could not be read is asked for once more, stating what was
 wrong with it; a second answer that still cannot be read is a fault carrying
@@ -1836,9 +1846,10 @@ rather than a 404. By the time somebody presses this the call may have just land
 and the Jobs are on the board either way — telling them their press failed would be
 telling them something that is not true about the only thing they care about.
 
-It is not on the Intervention Ladder and it ends no Job, because there is no Job.
-Nothing is created, nothing moves, and the person is returned to the form with what
-they typed.
+It is not on the Intervention Ladder. The Job the request was dispatched as, at
+`proposing`, is killed by it (#1714). Nothing else moves, and the request is still
+the killed Job's title, and the route answers it on the refusal's `request`
+field.
 
 agent_access is Helm only now. Helm proposes without a surface and has nobody
 waiting, so there is normally no wait of its own for it to abandon — but where a

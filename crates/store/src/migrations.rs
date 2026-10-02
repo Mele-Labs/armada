@@ -115,6 +115,7 @@ pub const MIGRATIONS: &[&str] = &[
     crate::studio::V84,
     crate::studio::V85,
     crate::studio::V86,
+    crate::resolved_policies::V87,
 ];
 
 /// Every table whose rows belong to one Job, asked of the file rather than

@@ -260,8 +260,9 @@ async fn only_the_dispatching_step_may_create_jobs() {
             .dispatched_by()
             .expect("a child names its parent")
             .step_id
-            .as_str(),
-        "dispatch",
+            .as_ref()
+            .map(|step| step.as_str()),
+        Some("dispatch"),
     );
 }
 

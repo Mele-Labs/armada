@@ -37,6 +37,7 @@ export * from "./studio-promotion";
 export * from "./studio-reads";
 export * from "./studio-starting";
 export * from "./pending";
+export * from "./title";
 export * from "./board";
 // On All repositories, the question a surface that needs one repository asks first.
 export * from "./AskRepository";
@@ -80,7 +81,6 @@ export * from "./review";
 export * from "./run";
 export * from "./StepActs";
 export * from "./steering";
-export * from "./stopped";
 export * from "./story";
 export * from "./verdicts";
 export * from "./waiting";

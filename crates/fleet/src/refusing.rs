@@ -73,8 +73,8 @@ const PROPOSER_UNREACHABLE: &str = "fleet.proposer_unreachable";
 /// `NO_WORKFLOW_FITS` makes against `UNACCEPTABLE` one step along: a client
 /// that rendered this as `PROPOSER_UNREACHABLE` would tell somebody Armada
 /// broke when what happened is that they pressed a control Armada offered them.
-/// Nothing was created and what they typed comes back, so the surface returns
-/// them to the form rather than to an error.
+/// The Job it was dispatched as is killed and what they typed comes back, so
+/// the surface returns them to the form rather than to an error.
 const PROPOSER_STOPPED: &str = "fleet.proposer_stopped";
 /// The proposer answered — twice — and neither reply could be turned into a
 /// plan. **Never [`PROPOSER_UNREACHABLE`]** — that code says the call could
@@ -203,6 +203,14 @@ const MERGE_CHECKS_NOT_PASSED: &str = "fleet.merge_checks_not_passed";
 /// the Job is answerable and the pull request is not: what is left is an
 /// approval or a redispatch.
 const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
+/// `merge_by: push` found the base past the branch through every round of
+/// bringing it up and gating it again — `crate::pushing_onto_base`. Its own
+/// code because the answer is a quieter base, never the forge.
+const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
+/// `merge_by: push` brought the branch up to a moved base and its Checks went
+/// red on the merge. Its own code because the answer is the branch's, and
+/// apart from [`MERGE_CHECKS_NOT_PASSED`] because these are Armada's Checks.
+const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
 /// Nothing on this machine could ask the forge. **A 500**, unlike the four
 /// above: nothing about the request is wrong and asking again is reasonable
 /// once whoever runs Fleet has signed in.
@@ -459,7 +467,7 @@ where
             // The request was read and declined, and it goes back on the field
             // rather than being echoed in the message: what the person retypes
             // or hands to `propose_job` is what they wrote, character for
-            // character. No Job exists.
+            // character. The Job it was dispatched as is escalated.
             Adrift::NoWorkflowFits { request, .. } => Refusal::Unacceptable(
                 WireError::raised(NO_WORKFLOW_FITS, said, self.run_id())
                     .with_field("request", WireValue::Str(request.clone())),
@@ -628,7 +636,7 @@ where
             // about them, and here is where they stop being one thing —
             // because a client does.
             //
-            // The four that are the person's to answer are 409s; the two that
+            // The six that are the person's to answer are 409s; the two that
             // are this machine's are 500s, for `NOT_RECLAIMED`'s reason.
             Adrift::NotMerged { job, why } => {
                 let job = ipc::JobId::from(job);
@@ -646,6 +654,8 @@ where
                         Refusal::IllegalMove(raised(MERGE_CHECKS_NOT_PASSED))
                     }
                     NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
+                    NotMerged::BaseMoved { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
+                    NotMerged::GateFailed { .. } => Refusal::IllegalMove(raised(MERGE_GATE_FAILED)),
                     NotMerged::NoTool { .. } => Refusal::Fault(raised(MERGE_NO_TOOL)),
                     NotMerged::Refused { .. } => Refusal::Fault(raised(MERGE_REFUSED)),
                 }

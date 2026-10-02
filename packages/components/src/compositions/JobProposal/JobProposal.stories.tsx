@@ -199,7 +199,7 @@ export const ApprovedAndFrozen: Story = {
             you: true,
             overridden: true,
             advanceGate: "human_always",
-            does: "It holds at awaiting_review for you to answer, with nothing run before you read it.",
+            does: "It holds at awaiting review for you to answer, with nothing run before you read it.",
           },
     ),
     // The request and a criterion in markdown, as a model writes them: read

@@ -10,10 +10,10 @@ import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepAct
 /**
  * Drone brief — what Armada told the Drone, in the blocks it was written in.
  *
- * **Named for whose brief it is.** `JobBrief` is the requester's half: what done
- * means and what context the Job carries. This is Fleet's turn into a Drone's
- * context, and a component called `Brief` beside that one would be one name
- * covering two different things.
+ * **Named for whose brief it is.** The Job's brief is the requester's half: what
+ * done means and what context the Job carries. This is Fleet's turn into a
+ * Drone's context, and a component called `Brief` beside that one would be one
+ * name covering two different things.
  *
  * **A heading is a heading because the wire says which line it is.**
  * `crates/fleet/src/briefing.rs` writes every block as its heading, a blank

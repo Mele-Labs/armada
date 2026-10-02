@@ -336,6 +336,7 @@ where
             // read from somewhere else.
             model: self.proposer_model.as_str().to_string(),
             actor: by,
+            reading_for: None,
         }
     }
 

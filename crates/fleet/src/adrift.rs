@@ -497,12 +497,17 @@ pub enum Adrift {
         job: JobId,
         why: crate::rechecking::Unrecheckable,
     },
-    /// A restart or a redispatch was asked for while this Job's Checks are
-    /// running again. Both would take the worktree the Checks are reading.
+    /// An act was asked of a Job whose Checks are running again — a person's
+    /// re-run, or a `merge_by: push` merge gating a moved base. Each would
+    /// change the worktree the Checks are reading.
     ChecksRunningAgain { job: JobId },
     /// The task a re-run of the Checks ran on ended without answering, which
     /// only a panic in it does. The Job is pressable again, as a press is.
     RecheckAbandoned { job: JobId },
+    /// The task a dispatched request's proposal ran on ended without
+    /// answering, which only a panic in it does. The Job it created, if it got
+    /// that far, is moved at the next boot.
+    ProposalAbandoned,
     /// A person asked a Job to show its work and it cannot run. **Refused
     /// before anything runs**, and the reason names what is missing rather
     /// than the press failing on it — `crate::showing_again`.
@@ -701,7 +706,8 @@ pub enum Adrift {
     /// and a Judge are built from would not build.
     NotProposable(SpawnConfigRefused),
     /// **The request was read and no workflow resolved.** It is refused at
-    /// dispatch and comes back unchanged, and no Job exists.
+    /// dispatch and comes back unchanged, and the Job it was dispatched as is
+    /// escalated with `no_workflow_fits` — `crate::dispatched`.
     ///
     /// Not a fault and never a default: the resolved definition is frozen into
     /// the Job and becomes the yardstick the work is judged against, so a
@@ -709,8 +715,8 @@ pub enum Adrift {
     /// correct.
     NoWorkflowFits { request: String, why: Unresolved },
     /// **The request was read and it asked for a model this machine does not
-    /// run.** Refused at dispatch, the request comes back unchanged, and no
-    /// Job exists.
+    /// run.** Refused at dispatch, the request comes back unchanged, and the
+    /// Job it was dispatched as is escalated with `proposer_failed`.
     ///
     /// Deliberately not [`Adrift::NoWorkflowFits`], and that division is the
     /// whole reason this exists: that refusal's advice is to say the request

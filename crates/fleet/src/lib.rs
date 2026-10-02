@@ -70,6 +70,7 @@ pub mod detach;
 /// enters a prompt.**
 mod dismissing;
 pub mod dispatch;
+mod dispatched;
 pub mod drafting;
 /// Whether the repository still has what `armada.yml` names. **A read of the
 /// repository**, where `daemon::rereading` is a read of the file — a `run`
@@ -174,6 +175,8 @@ mod proposing;
 /// Running the repository's Checks against the tree a merge left behind, and
 /// the record that is keyed by the commit rather than by a Job.
 mod proving;
+/// `merge_by: push` over a base that moved: brought up, gated again, pushed.
+mod pushing_onto_base;
 pub mod questioning;
 /// Giving one Job more money than the tier above it allows, and the ceiling on
 /// which surface may give it. **The act `over_budget` has always pointed at.**
