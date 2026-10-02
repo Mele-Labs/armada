@@ -285,6 +285,13 @@ export type CheckRun = {
    * protocol 13.39.
    */
   reused_from_dry_run?: string;
+  /**
+   * The group whose gate it ran at, `G1` and on. **Absent on a Check run at a
+   * step's own gate**, which held back no group — never "unknown". Since 23.2.
+   */
+  group?: string;
+  /** Which run of that group, from one. Present exactly where `group` is. Since 23.2. */
+  group_attempt?: number;
 };
 
 /**

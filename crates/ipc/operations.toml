@@ -1993,6 +1993,36 @@ Delivery and the event are `add_task`'s.
 `agent_access` is `Helm only`, `add_task`'s reason.
 """
 
+[operations.restart_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Restart this task: a fresh Drone on one failed task of the plan, with an optional note it reads first. Refused with `fleet.task_not_failed` on a task that has not failed"
+notes = """
+`POST /jobs/:job_id/tasks/:task_id/restart`, spike 022 slice 2 (`#1656`). The body is `RestartTask`, an optional `note`; **no body is valid**, and is the plain restart, `restart_step`'s rule. A blank note is refused as `restart_step` refuses one. Answers the Job's `JobSummary`.
+
+**Only a failed task**, which is a task whose group's Checks were still red when the step's retries ran out (answer 9). A task working or handed in is its group's own round to finish, so this is a 409 `fleet.task_not_failed` before the retries run out, as it is on a task open, done or dropped.
+
+**The task reopens, then `restart_step`'s own act runs**, so every refusal that act has is this one's too, and a refusal puts the task back to failed as it was. The Drone spawned is put on that task alone; the group's gate waits for it to hand in again and then runs over the whole group. A person's restart does not reset the group's retry budget, as `restart_step` does not reset a step's.
+
+`agent_access` is `Helm only`, `restart_step`'s own reason.
+"""
+
+[operations.move_plan]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person moves one task, into any group, or one group, by the task or group it comes after, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/plan/move`, spike 022 slice 2 (`#1685`). The body is `MovePlan`: `group`, and with `task` that task goes into `group` after the task `after` names, or first in it; without, `group` goes after the group `after` names, or first. **By `after`, never by index**: an index counted at the drag is stale the moment a Drone adds or drops a task. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published with `actor` `human`.
+
+**Refused by name.** A 409 `fleet.task_in_flight` on a task, or a group holding one, that is working or handed in, since its group's run is still going; a 422 `fleet.no_such_group` on a group the plan does not hold, and `fleet.no_such_task` on a task, or an `after` outside the group it moves into.
+
+**A move putting a task before one it needs is taken** (`#1685`'s own rule): the plan's scope-intersection warning is what says so, not a refusal here.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""
+
 [operations.redirect_drone]
 kind = "command"
 transport = "HTTP"

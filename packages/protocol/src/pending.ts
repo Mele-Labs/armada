@@ -25,6 +25,8 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
+  // Served since 23.2. Deleted with the mock answering both, which a person
+  // walks first: the Bridge half of #1763.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
   { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
@@ -43,18 +45,6 @@ export type EditTask = {
   scope?: string[];
   expects?: string;
   model?: string;
-};
-
-/**
- * What a drop on the plan sends to `move_plan` (#1685): a group to a new place
- * among the groups, or, with `task`, that task into `group` at `to`. `to`
- * counts from zero, in the order after the move. Fleet has not agreed a body
- * yet, so this is what Bridge sends and the debug info carries.
- */
-export type MovePlan = {
-  group: string;
-  task?: string;
-  to: number;
 };
 
 /**

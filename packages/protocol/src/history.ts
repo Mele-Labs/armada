@@ -48,6 +48,13 @@ export type Recorded = {
    */
   actor: string;
   at: string;
+  /**
+   * The group whose gate made this move, `G1` and on: a round's `retrying`,
+   * or the stop that failed its tasks. Absent on every other row. Since 23.2.
+   */
+  group?: string;
+  /** Which run of that group. Present exactly where `group` is. Since 23.2. */
+  group_attempt?: number;
 };
 
 /** What the row says moved. The three shapes the log admits, and no fourth. */
