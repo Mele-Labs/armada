@@ -235,12 +235,18 @@ fn end_the_tree(root: u32) {
 }
 
 fn append_log(path: &Path, argv: &[&str], ran: &Ran) {
+    logged(path, argv, &ran.output);
+}
+
+/// Append one command's argv and output to `path`, for a command this module
+/// did not run itself.
+pub fn logged(path: &Path, argv: &[&str], output: &Output) {
     use std::fs::OpenOptions;
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "$ {}", argv.join(" "));
-        let _ = file.write_all(&ran.output.stdout);
-        let _ = file.write_all(&ran.output.stderr);
-        let _ = writeln!(file, "[exit {}]", ran.status_code());
+        let _ = file.write_all(&output.stdout);
+        let _ = file.write_all(&output.stderr);
+        let _ = writeln!(file, "[exit {}]", output.status.code().unwrap_or(-1));
     }
 }
 

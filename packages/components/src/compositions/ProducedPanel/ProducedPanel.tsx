@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import { CHANGE_KIND } from "../../generated/vocabulary";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Chapter } from "../Chapter/Chapter";
 
 /**
@@ -15,7 +16,11 @@ import { Chapter } from "../Chapter/Chapter";
  * act and the body's well are the ones already agreed.
  */
 export type ProducedPanelProps = {
-  /** `8 files · +154 −23`, the header's fact. */
+  /**
+   * `8 files · +154 −23`, the header's fact. **Drawn only while the panel is
+   * folded**: open, the list it counts is under it, and a count appears only
+   * where the items do not (owner's standing rule, 29 Sep 2026).
+   */
   summary?: ReactNode;
   /** `Open the diff`, where there is a patch to open. */
   act?: ReactNode;
@@ -29,7 +34,7 @@ export function ProducedPanel({ summary, act, children }: ProducedPanelProps) {
     <div className="armada-produced">
       <Chapter
         name="Produced"
-        {...(summary === undefined ? {} : { meta: summary })}
+        {...(summary === undefined || open ? {} : { meta: summary })}
         {...(act === undefined ? {} : { act })}
         open={open}
         onToggle={() => setOpen(!open)}
@@ -183,49 +188,53 @@ export type ProducedGroup = {
   verb: string;
   /** The status token stem that verb takes. `Badge`'s own field. */
   status?: string;
-  /** `2 of 2 done`, from the tasks the group holds. */
-  tasks: string;
   /**
-   * How long the group took. **Absent where nothing timed it**, which is every
-   * group today: the wire times a step and has no group to time. A caller says
-   * so in `note` rather than drawing a zero.
+   * How long the group took. **Absent where nothing timed it**, and then the
+   * column is not drawn at all: an empty slot stays empty, rather than a word
+   * for what is missing or a zero that claims a measurement.
    */
   took?: string;
   /** How many files its tasks claim. */
   files: string;
   /** What ran at its boundary — `7 Checks, run twice`. */
   checks?: string;
-  /** The commit it left, where it left one. Mono, and it copies. */
+  /**
+   * The commit it left, where it left one, whole. **Drawn short, with the
+   * whole value in its tooltip**: forty characters in a column that does not
+   * wrap pushed the row past its card, and the Checks beside it drew over it.
+   */
   commit?: string;
 };
 
 export type ProducedGroupsProps = {
   groups: ProducedGroup[];
-  /** What a Job with no groups says. Never an empty table. */
-  emptyNote: string;
-  /** Under the list — what nothing timed, and anything else the rows cannot say. */
+  /**
+   * Unused. A Job with no groups draws nothing here: an empty slot stays empty
+   * rather than holding a sentence. Kept until its caller stops passing it.
+   */
+  emptyNote?: string;
+  /** Under the list, where there is something the rows cannot say. */
   note?: ReactNode;
 };
 
 /**
- * The groups a Job ran, one row each: what it came to, its tasks, how long it
- * took, what it wrote and what it left.
+ * The groups a Job ran, one row each: what it came to, how long it took where
+ * something timed it, what it wrote and what it left.
  *
- * **A row says what it cannot say.** A group nothing timed draws the word for
- * that in the column, rather than a dash a reader has to interpret or a zero
- * that claims a measurement.
+ * **No count of the group's tasks.** It sat beside the groups it counted, and
+ * on the wire it read `0 of 1 done` for every group of a merged Job, because
+ * Fleet marks no task done (#1752).
  */
-export function ProducedGroups({ groups, emptyNote, note }: ProducedGroupsProps) {
-  if (groups.length === 0) {
-    return (
-      <p className="armada-produced__empty" role="note">
-        {emptyNote}
-      </p>
-    );
-  }
+export function ProducedGroups({ groups, note }: ProducedGroupsProps) {
+  if (groups.length === 0) return null;
+  // The column is drawn where any group was timed, so the rest line up under it.
+  const timed = groups.some((group) => group.took !== undefined);
   return (
     <div className="armada-produced__groups">
-      <ol className="armada-produced__group-rows">
+      <ol
+        className={`armada-produced__group-rows${timed ? " armada-produced__group-rows--timed" : ""}`}
+        aria-label="Groups"
+      >
         {groups.map((group) => (
           <li className="armada-produced__group" key={group.name}>
             <span className="armada-produced__group-name">{group.name}</span>
@@ -237,11 +246,18 @@ export function ProducedGroups({ groups, emptyNote, note }: ProducedGroupsProps)
             >
               {group.verb}
             </span>
-            <span className="armada-produced__group-fact">{group.tasks}</span>
-            <span className="armada-produced__group-fact">{group.took ?? NOT_TIMED}</span>
+            {timed ? <span className="armada-produced__group-fact">{group.took}</span> : null}
             <span className="armada-produced__group-fact">{group.files}</span>
-            <span className="armada-produced__group-fact">{group.checks}</span>
-            <span className="armada-produced__group-commit mono">{group.commit}</span>
+            <span className="armada-produced__group-fact armada-produced__group-checks">
+              {group.checks}
+            </span>
+            {group.commit === undefined ? (
+              <span />
+            ) : (
+              <Tooltip label={`Commit ${group.commit}`}>
+                <span className="armada-produced__group-commit mono">{shortCommit(group.commit)}</span>
+              </Tooltip>
+            )}
           </li>
         ))}
       </ol>
@@ -250,11 +266,7 @@ export function ProducedGroups({ groups, emptyNote, note }: ProducedGroupsProps)
   );
 }
 
-/**
- * What a group nothing timed reads as.
- *
- * **Not a dash and not a zero.** The wire times a step, and a group is between
- * a step and a task, so there is no instant to subtract — which is a fact about
- * what Fleet records rather than a group that took no time.
- */
-const NOT_TIMED = "not timed";
+/** A commit as `git log --oneline` prints it: its first seven characters. */
+function shortCommit(commit: string): string {
+  return commit.slice(0, 7);
+}

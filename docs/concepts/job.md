@@ -82,11 +82,11 @@ The full set of Job statuses — each with its meaning, its reason values and wh
 
 ## Transitions
 
-A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent. A Job dispatched from a request enters at `proposing`, before either — declared, and not yet built.
+A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent. A Job dispatched from a request enters at `proposing`, before either.
 
 ### Reading the request is a status, and approval is what locks
 
-**Declared, not yet built.** A Job is created before the [Job proposer](job-proposer.md) has answered, at the `proposing` status #1159 adds, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed. Classifying what the work is is that same status and not a second one. The row is in `crates/core-model/domain/job-statuses.toml` with its three edges out and `in_code = "Not yet"`; nothing in Fleet creates a Job at dispatch, and `propose_from_request` still answers with the Jobs the request became.
+A Job is created before the [Job proposer](job-proposer.md) has answered, at the `proposing` status #1159 adds, so the reading shows on the [Job Board](job-board.md) while it happens rather than only where the request was typed. Classifying what the work is is that same status and not a second one. Fleet creates it at dispatch with no frozen workflow and no steps (#1714). The proposer's answer is the only thing that moves it to `awaiting_approval`, freezing the workflow on the way. A decline escalates it with `no_workflow_fits`, and a call that fails escalates it with `proposer_failed` (#1716).
 
 **It is the third entry status and nothing arrives at it.** A Job created here has no frozen workflow, so it has no `job_steps` rows at all — the one status beneath which no step state is ever seen — and the step machine is initialised on the way out, where the proposer's answer freezes a `WorkflowDef`. Its `who_is_acting` is `None` with `mode` `Working`, which is the furthest apart those two questions come: something is happening and it is neither a person nor a Drone.
 

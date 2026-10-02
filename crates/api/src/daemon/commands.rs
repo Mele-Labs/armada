@@ -71,7 +71,7 @@ pub trait Commands: Send + Sync + 'static {
     /// `by` is [`Commands::propose_job`]'s own word, for the same reason: the
     /// door lets a Helm session read a request too.
     fn propose_from_request(
-        &self,
+        self: std::sync::Arc<Self>,
         request: ipc::JobRequest,
         manifest_id: Option<ipc::ManifestId>,
         by: Redirector,

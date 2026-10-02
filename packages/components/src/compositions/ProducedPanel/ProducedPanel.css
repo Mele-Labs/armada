@@ -115,10 +115,12 @@
 }
 
 /* ── The groups a landed Job ran (#1542) ───────────────────────────────────
-   Seven tracks declared once on the list and borrowed by each row, so every
-   column lines up down the list rather than per row. Each is a floor: a commit
-   is eight characters and a group's name is not, and a fixed width would clip
-   whichever the drawing was not made against. */
+   Tracks declared once on the list and borrowed by each row, so every column
+   lines up down the list rather than per row. Each is a floor: a group's name
+   is not the length the drawing was made against, and a fixed width would clip
+   it. The Checks take the slack, and are the one cell that gives way when the
+   card is narrow — cut short, never drawn over the commit beside them, which
+   is what a forty-character commit in a max-content track did on Job 2. */
 .armada-produced__groups {
   display: flex;
   flex-direction: column;
@@ -128,9 +130,8 @@
 
 .armada-produced__group-rows {
   display: grid;
+  /* name, verb, files, Checks, commit */
   grid-template-columns:
-    max-content
-    max-content
     max-content
     max-content
     max-content
@@ -140,6 +141,17 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* With the time a group took, after its verb, where any group was timed. */
+.armada-produced__group-rows--timed {
+  grid-template-columns:
+    max-content
+    max-content
+    max-content
+    max-content
+    minmax(0, 1fr)
+    max-content;
 }
 
 .armada-produced__group {
@@ -172,6 +184,12 @@
   line-height: var(--leading-sm);
   color: var(--fg-subtle);
   white-space: nowrap;
+}
+
+.armada-produced__group-checks {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .armada-produced__group-commit {
