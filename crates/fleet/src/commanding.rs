@@ -1025,4 +1025,24 @@ where
     async fn drop_task(self: Arc<Self>, job: JobId, body: DropTask) -> Result<WorkPlan, Refusal> {
         Fleet::drop_task_by_person(self, job, body).await
     }
+
+    /// Restart this task. `#1656`; `plan_acts` has it.
+    async fn restart_task(
+        self: Arc<Self>,
+        job: JobId,
+        task: String,
+        body: ipc::RestartTask,
+    ) -> Result<JobSummary, Refusal> {
+        let restarted = Fleet::restart_task_by_person(Arc::clone(&self), job, task, body).await?;
+        self.summarised(&restarted).await
+    }
+
+    /// A person moves a task or a group. `#1685`; `plan_acts` has it.
+    async fn move_plan(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::MovePlan,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::move_plan_by_person(self, job, body).await
+    }
 }

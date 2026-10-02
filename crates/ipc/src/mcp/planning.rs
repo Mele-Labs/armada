@@ -21,8 +21,9 @@ pub const ADD_TASK_TOOL: &str = "add_task";
 pub const UPDATE_TASK_TOOL: &str = "update_task";
 
 pub const RECORD_PLAN_FIELDS: &[&str] = &["approach", "tasks"];
-/// The fields of one entry of `record_plan`'s `tasks`.
-pub const TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects"];
+/// The fields of one entry of `record_plan`'s `tasks`. `group` alone may be
+/// left out, and is the group of the task before it.
+pub const TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "group"];
 pub const ADD_TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "after"];
 pub const UPDATE_TASK_FIELDS: &[&str] = &["task", "state", "reason", "shown"];
 
@@ -39,8 +40,13 @@ pub struct PlanCall {
 pub enum PlanArgument {
     NotATaskList,
     NotAPathList,
-    NotATaskId { field: &'static str, named: String },
+    NotATaskId {
+        field: &'static str,
+        named: String,
+    },
     NotAnUpdate(NotAnUpdate),
+    /// A task's `group` that is not a positive whole number.
+    NotAGroup,
 }
 
 impl fmt::Display for PlanArgument {
@@ -58,6 +64,11 @@ impl fmt::Display for PlanArgument {
                 out,
                 "`{field}` is `{named}`, which is not a task id. Task ids are `T1`, \
                  `T2` and so on, as the plan numbered them"
+            ),
+            PlanArgument::NotAGroup => out.write_str(
+                "`group` is not a whole number of 1 or more. Number the groups 1, 2 and so \
+                 on in the order they run, or leave `group` out to keep a task in the group \
+                 of the task before it",
             ),
             PlanArgument::NotAnUpdate(NotAnUpdate::NoSuchState { named }) => write!(
                 out,
@@ -114,7 +125,15 @@ fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument>
     for entry in listed {
         let entry = entry.as_object().ok_or_else(not_a_list)?;
         closed(entry, RECORD_PLAN_TOOL, TASK_FIELDS)?;
-        tasks.push(task(entry)?);
+        let group = match entry.get("group") {
+            None => 0,
+            Some(number) => number
+                .as_u64()
+                .and_then(|n| u32::try_from(n).ok())
+                .filter(|n| *n > 0)
+                .ok_or(NotAnArgument::Planning(PlanArgument::NotAGroup))?,
+        };
+        tasks.push(task(entry)?.in_group(group));
     }
     Ok(PlanChange::Recorded { approach, tasks })
 }
@@ -187,12 +206,14 @@ pub(super) fn record_plan_tool() -> Value {
         "name": RECORD_PLAN_TOOL,
         "description":
             "Record the plan for this Job: the approach in a paragraph, and the \
-             tasks it breaks into in the order they will be done. Fleet keeps it, \
-             and the parts after this one work from it and keep each task's state \
-             current. Tasks are named T1, T2 and so on in the order you give them. \
-             Calling it again replaces the whole plan, so correct a plan by \
-             recording it again. It does not finish this part — submit_evidence \
-             still does.",
+             tasks it breaks into in the order they will be done, in groups. Each \
+             group's tasks are done one after another and its Checks run once they \
+             all are, so a group is tasks that only make sense checked together. \
+             Fleet keeps it, and the parts after this one work from it and keep \
+             each task's state current. Tasks are named T1, T2 and so on in the \
+             order you give them. Calling it again replaces the whole plan, so \
+             correct a plan by recording it again. It does not finish this part — \
+             submit_evidence still does.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -230,6 +251,14 @@ pub(super) fn record_plan_tool() -> Value {
                                     code. Whoever does the task records what actually \
                                     proved it, and the two are read side by side. \"\" if \
                                     you cannot say yet.",
+                            },
+                            "group": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Which group the task is in: 1, 2 and so on, \
+                                    in the order the groups run, never going back. Leave it \
+                                    out to keep the task in the group of the task before \
+                                    it; a plan naming no group is one group.",
                             },
                         },
                         "required": ["title", "note", "scope", "expects"],

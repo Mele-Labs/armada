@@ -15,7 +15,7 @@ import {
   groupFailed,
 } from "./fixtures/build/arc";
 import type { ArcMoment } from "./fixtures/build/arc-base";
-import { boundaryOf, planBoardOf, shapeSaid, verdictSaid } from "./plan-board";
+import { boundaryOf, moveSent, planBoardOf, shapeSaid, verdictSaid } from "./plan-board";
 import { runBySaid } from "./tab-plan-read";
 import { tasksField } from "./step";
 
@@ -277,5 +277,35 @@ describe("a group's shape says the shape and nothing else", () => {
   test("no group's line mentions the Job's Drone cap, whatever the gate settled", () => {
     const drawn = board(executingConcurrent())!;
     expect(drawn.groups.map((one) => one.shapeSays).join(" ")).not.toContain("Drones at once");
+  });
+});
+
+// Spike 022's bodies table: a move crosses by the task or group it now follows,
+// never by the index the drag counted, which a Drone's add or drop makes stale.
+describe("a move as Fleet takes it", () => {
+  const groups = () => board(executingSequential())!.groups;
+
+  test("a task dropped second in its group goes after the one now before it", () => {
+    const into = groups()[1]!;
+    const [first, second] = into.tasks;
+    expect(moveSent(groups(), { group: into.id, task: first!.id, to: 1 })).toEqual({
+      group: into.id,
+      task: first!.id,
+      after: second!.id,
+    });
+  });
+
+  test("dropped first, a task or a group names nothing to come after", () => {
+    const [head, next] = groups();
+    expect(moveSent(groups(), { group: next!.id, to: 0 })).toEqual({ group: next!.id });
+    expect(moveSent(groups(), { group: head!.id, task: next!.tasks[0]!.id, to: 0 })).toEqual({
+      group: head!.id,
+      task: next!.tasks[0]!.id,
+    });
+  });
+
+  test("a group dropped later goes after the group now before it", () => {
+    const [head, next] = groups();
+    expect(moveSent(groups(), { group: head!.id, to: 1 })).toEqual({ group: head!.id, after: next!.id });
   });
 });
