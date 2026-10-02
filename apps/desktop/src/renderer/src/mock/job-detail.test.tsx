@@ -20,7 +20,7 @@ import {
   withRow,
 } from "./job-detail-fixtures";
 import type { } from "./scenario";
-import { onJob } from "./scenario";
+import { onJob, scenarioNamed } from "./scenario";
 import { entered, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -117,12 +117,24 @@ test("a Check failed on a test another Job is fixing: the row names the fix", as
   await expect.element(page.getByText(`Failed — ${FIX_TITLE} is already fixing it`)).toBeVisible();
 });
 
-test("this Job is the fix, and two Jobs wait on it: a count, never the list", async () => {
-  await opened(withBreakages((jobId) => [brokenOnMain(jobId, "01M1REPORTER0000000000000000")]));
-  await expect.poll(text).toMatch(/2 Jobs wait on it/);
-  expect(text()).not.toContain("Round the cost estimate to a cent");
-  expect(text()).not.toContain("Memoise the manifest list");
-});
+// **The Jobs themselves, and no count beside them** — the owner's note of
+// 2 Oct 2026 on the count this claim first held: *"This should show the jobs
+// that are waiting on this job."*
+for (const [title, handle] of [
+  ["Trim the brief to the files the step touched", "91-parked"],
+  ["Memoise the manifest list", "92-parked-too"],
+]) {
+  test(`this Job is the fix, and two Jobs wait on it: each is listed, and ${handle} opens`, async () => {
+    mount(scenarioNamed("breakage/fixed-elsewhere")!);
+    await page.getByRole("button", { name: FIX_TITLE, exact: true }).click();
+    const parked = page.getByRole("list", { name: "Waiting on this fix" });
+    await expect.element(parked).toBeVisible();
+    expect(parked.getByRole("button").elements()).toHaveLength(2);
+    expect(text()).not.toMatch(/Jobs? waits? on it/);
+    await parked.getByRole("button", { name: title, exact: true }).click();
+    await expect.element(page.getByRole("button", { name: handle, exact: true })).toBeVisible();
+  });
+}
 
 const text = () => document.body.textContent ?? "";
 

@@ -402,23 +402,21 @@ function recordedBoard(): Scenario {
 }
 
 /**
- * Two Jobs on one claim, #1673: one fixing a test broken on main, and one
- * whose Check failed on that test, parked on the fix with another Job beside
- * it. **One claim on both details**, because Fleet serves one entry to either
- * side: the fix names what it claims, and the parked Job names who is fixing.
+ * Three Jobs on one claim, #1673: one fixing a test broken on main, and two
+ * parked on the fix — the first because its Check failed on that test.
+ * **One claim on every detail**, because Fleet serves one entry to either
+ * side: the fix names what it claims, and a parked Job names who is fixing.
  */
 function fixedElsewhere(): Scenario {
   const fixing = asRow(running(), 90, "fixing", FIX_TITLE);
   const parked = asRow(retryingCheckFailure(), 91, "parked", "Trim the brief to the files the step touched");
+  const alsoParked = asRow(running(), 92, "parked-too", "Memoise the manifest list");
   const claim = {
     ...brokenOnMain(fixing.job.id, parked.job.id),
-    waiting: [
-      { job_id: parked.job.id, title: parked.job.title },
-      { job_id: "01M1WAITINGTWO00000000000000", title: "Memoise the manifest list" },
-    ],
+    waiting: [parked, alsoParked].map((one) => ({ job_id: one.job.id, title: one.job.title })),
   };
-  const both = [withBreakages(() => [claim], parked), withBreakages(() => [claim], fixing)];
-  return holding("breakage/fixed-elsewhere", "A Check failed on a test another Job is already fixing", both, {
+  const all = [parked, fixing, alsoParked].map((one) => withBreakages(() => [claim], one));
+  return holding("breakage/fixed-elsewhere", "A Check failed on a test another Job is already fixing", all, {
     opens: parked.job.id,
   });
 }

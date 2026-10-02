@@ -80,6 +80,13 @@ export type JobLead = {
    * clause after the title.
    */
   fix?: { job: string; title: string; rest: string };
+  /**
+   * The Jobs parked on this one's fix, each by its id and, where the wire
+   * read it, its title. **The Jobs themselves and not a count** — the owner,
+   * 2 Oct 2026, on the count this replaced: *"This should show the jobs that
+   * are waiting on this job."* Drawn under the lead's line, never in it.
+   */
+  parkedOnIt?: { job: string; title?: string }[];
 };
 
 /** The step a person is being asked about, or the one a Drone is on. */
@@ -308,19 +315,19 @@ function fixedElsewhere(job: JobSummary, whole: JobWhole | null, failed: CheckRu
 }
 
 /**
- * How many Jobs wait on this one to land its fix, or nothing where none do.
- *
- * **A count, never the list** — the owner's rule, 29 Sep 2026, and #1673's
- * decision of 2 Oct. A Job parked on two of this Job's claims is one Job.
+ * The Jobs parked on this one's fix, or nothing where none are. A Job parked
+ * on two of this Job's claims is one Job. #1673.
  */
-function waitsSaid(job: JobSummary, whole: JobWhole | null): string {
-  const waiting = new Set(
-    (whole?.breakages ?? [])
-      .filter((one) => one.fix === job.id)
-      .flatMap((one) => (one.waiting ?? []).map((parked) => parked.job_id)),
-  );
-  if (waiting.size === 0) return "";
-  return `${waiting.size} ${waiting.size === 1 ? "Job waits" : "Jobs wait"} on it`;
+function parkedOn(job: JobSummary, whole: JobWhole | null): { parkedOnIt?: { job: string; title?: string }[] } {
+  const parked = new Map<string, string | undefined>();
+  for (const claim of whole?.breakages ?? []) {
+    if (claim.fix !== job.id) continue;
+    for (const one of claim.waiting ?? []) parked.set(one.job_id, parked.get(one.job_id) ?? one.title);
+  }
+  if (parked.size === 0) return {};
+  return {
+    parkedOnIt: [...parked].map(([id, title]) => (title === undefined ? { job: id } : { job: id, title })),
+  };
 }
 
 /**
@@ -515,11 +522,10 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
         ...(fix === undefined ? {} : { fix }),
       };
     }
-    // **The Jobs parked on this one's fix take the second fact**, ahead of
-    // what the gate holds up inside this Job: approving releases them too.
     return {
       said: "Waiting for your review",
-      because: because(metSaid(whole), waitsSaid(job, whole) || holdsUp(whole, step)),
+      because: because(metSaid(whole), holdsUp(whole, step)),
+      ...parkedOn(job, whole),
       tone: "awaiting-review",
       act: "Review it",
     };
@@ -572,9 +578,8 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       step === undefined
         ? "Nothing needs you"
         : `${step.label}${on === undefined ? "" : ` · ${on} in`}`,
-    // The Jobs parked on this one's fix, ahead of the next gate: they are
-    // waiting now, and the gate is steps away.
-    because: because(tasksSaid(whole), waitsSaid(job, whole) || nextGateSaid(whole, step)),
+    because: because(tasksSaid(whole), nextGateSaid(whole, step)),
+    ...parkedOn(job, whole),
     ...(step === undefined ? { quiet: true as const } : {}),
   };
 }

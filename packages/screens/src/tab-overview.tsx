@@ -699,6 +699,17 @@ export function OverviewTab(props: OverviewTabProps) {
         ...(lead.fix === undefined
           ? {}
           : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
+        // Each Job parked on this one's fix, by the wire's title or the
+        // Board's, and a press that opens it. #1673.
+        ...(lead.parkedOnIt === undefined
+          ? {}
+          : {
+              parked: lead.parkedOnIt.map((one) => ({
+                job: one.job,
+                title: one.title ?? props.board?.find((row) => row.id === one.job)?.title ?? one.job,
+                ...(openJob === undefined ? {} : { onOpen: () => openJob(one.job) }),
+              })),
+            }),
       }}
       waiting={waiting}
       // **What the approval approves, only while the lead offers it.** The
