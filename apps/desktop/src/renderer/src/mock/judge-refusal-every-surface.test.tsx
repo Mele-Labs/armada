@@ -46,6 +46,17 @@ test("Plan draws Overview's refusal and its three answers, and no Approve the pl
   await answersAndNoApproval();
 });
 
+// The owner, 1 Oct 2026: the request field is always open (his call of 30
+// Sep), so he can disagree with the Judge and ask for changes in one visit.
+test("Plan keeps Request changes and its Send under the refusal", async () => {
+  await opened();
+  await page.getByRole("tab", { name: /^Plan/ }).last().click();
+  await expect.element(refusal()).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Request changes to the entire plan" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Send", exact: true })).toBeVisible();
+  expect(page.getByRole("button", { name: "Approve the plan" }).query()).toBeNull();
+});
+
 test("Disagree, just this step on Plan answers the Judge as Overview's does", async () => {
   const { api, jobId } = await opened();
   const answerJudge = vi.spyOn(api, "answerJudge");

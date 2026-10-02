@@ -2,8 +2,6 @@ import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/HoldButton";
-import { PathChip } from "../PathChip/PathChip";
-import { Prose } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
@@ -106,46 +104,10 @@ export type WorkflowInspectorRedirect = Omit<DroneMessageBoxProps, "placeholder"
   onReaches?: (id: string) => void;
 };
 
-/** One line of a task's log, newest last. */
-export type WorkflowInspectorLine = {
-  id: string;
-  /** When it was said, already formatted. */
-  at?: string;
-  said: string;
-  /**
-   * `said` is the Drone's own words, so it is drawn as the markdown it was
-   * written in. **Absent is a line Armada assembled** — a call and its
-   * argument, a Check — and that stays literal: a glob in a call's argument,
-   * read as markdown, loses its stars to emphasis.
-   */
-  words?: true;
-};
-
-/**
- * What one task is, read whole. **Drawn only for `kind: "task"`** — a step and
- * a group carry tasks, and a task carries what it was told and what it wrote.
- */
-export type WorkflowInspectorTaskReading = {
-  /** What its Drone was told — the planner's words, never a paraphrase. */
-  brief?: string;
-  briefAbsent?: string;
-  /** The repository-relative paths it claims. */
-  scope?: readonly string[];
-  scopeAbsent?: string;
-  /** The tasks it runs beside, by id. Empty is a task that runs alone. */
-  beside?: readonly string[];
-  /** The last thing it wrote — a path, and what the edit was. */
-  lastEdit?: { path: string; says?: string };
-  lastEditAbsent?: string;
-  /** Its own lines. Bounded by the caller, which says what it left out. */
-  log?: readonly WorkflowInspectorLine[];
-  logAbsent?: string;
-};
-
-export type WorkflowInspectorProps = WorkflowInspectorTaskReading & {
-  /** The step's label, the group's name, or the task's id and title. */
+export type WorkflowInspectorProps = {
+  /** The step's label, or the group's name. */
   name: string;
-  kind: "step" | "group" | "task";
+  kind: "step" | "group";
   /** Where it sits, over the name in caps — `Step 2`. */
   eyebrow?: string;
   /** Its state, as the board's pill under the name. */
@@ -256,90 +218,6 @@ function Absent({ said }: { said: string }) {
   );
 }
 
-/** The directory half of a path, trailing separator kept — `PathChip`'s rule. */
-function splitPath(path: string): { directory?: string; basename: string } {
-  const cut = path.lastIndexOf("/");
-  if (cut < 0) return { basename: path };
-  return { directory: path.slice(0, cut + 1), basename: path.slice(cut + 1) };
-}
-
-/** What a task was told, what it claims, what it wrote and what it said. */
-function TaskRegions({ reading }: { reading: WorkflowInspectorTaskReading }) {
-  const beside = reading.beside ?? [];
-  const scope = reading.scope ?? [];
-  const log = reading.log ?? [];
-  return (
-    <>
-      <Region name="What its Drone was told">
-        {reading.brief === undefined ? (
-          <Absent said={reading.briefAbsent ?? "No brief was recorded for this task."} />
-        ) : (
-          <div className="armada-wf-inspector__brief">
-            <Prose text={reading.brief} />
-          </div>
-        )}
-      </Region>
-
-      <Region name="What it may touch">
-        {scope.length === 0 ? (
-          <Absent said={reading.scopeAbsent ?? "The planner named no files for this task."} />
-        ) : (
-          <ul className="armada-wf-inspector__scope">
-            {scope.map((path) => (
-              <li key={path}>
-                <PathChip {...splitPath(path)} title={path} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Region>
-
-      <Region name="What it runs beside">
-        {beside.length === 0 ? (
-          <Absent said="Nothing else in its group runs at the same time." />
-        ) : (
-          <p className="armada-wf-inspector__beside">{beside.join(", ")}</p>
-        )}
-      </Region>
-
-      <Region name="Its last edit">
-        {reading.lastEdit === undefined ? (
-          <Absent said={reading.lastEditAbsent ?? "Nothing this task wrote has been read yet."} />
-        ) : (
-          <PathChip
-            {...splitPath(reading.lastEdit.path)}
-            title={reading.lastEdit.path}
-            {...(reading.lastEdit.says === undefined ? {} : { note: reading.lastEdit.says })}
-          />
-        )}
-      </Region>
-
-      <Region name="Its log">
-        {log.length === 0 ? (
-          <Absent said={reading.logAbsent ?? "This task has said nothing yet."} />
-        ) : (
-          <ul className="armada-wf-inspector__log">
-            {log.map((line) => (
-              <li key={line.id}>
-                {line.at === undefined ? null : (
-                  <span className="armada-wf-inspector__at mono">{line.at}</span>
-                )}
-                {line.words === true ? (
-                  <div className="armada-wf-inspector__said">
-                    <Prose text={line.said} />
-                  </div>
-                ) : (
-                  <span className="armada-wf-inspector__said">{line.said}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Region>
-    </>
-  );
-}
-
 export function WorkflowInspector({
   name,
   kind,
@@ -360,7 +238,6 @@ export function WorkflowInspector({
   stop,
   onClose,
   sheet,
-  ...reading
 }: WorkflowInspectorProps) {
   const pill =
     state === undefined ? null : (
@@ -385,9 +262,7 @@ export function WorkflowInspector({
         </Region>
       )}
 
-      {kind === "task" ? <TaskRegions reading={reading} /> : null}
-
-      {kind === "task" ? null : plan !== undefined ? (
+      {plan !== undefined ? (
         <Region name="The plan">
           <PlanCard plan={plan} />
         </Region>
@@ -472,65 +347,61 @@ export function WorkflowInspector({
         </Region>
       )}
 
-      {kind === "task" ? null : (
-        <>
-        {/* Apart from the Checks below, and never folded into them. Where no
-            case runs here the band says what is missing and which issue builds
-            it — the owner's `frpl`: a line that named Fleet and nothing else
-            told him neither. */}
-        {tests.length === 0 && testsAbsent === undefined ? null : (
-          <Region name={kind === "step" ? "Tests at this step" : "Tests at this boundary"}>
-            {tests.length === 0 && testsAbsent !== undefined ? (
-              <p className="armada-wf-inspector__note" role="note">
-                {testsAbsent.says}
-                {testsAbsent.issue === undefined ? null : (
-                  <>
-                    {" "}
-                    <a
-                      className="armada-wf-inspector__link"
-                      href={testsAbsent.issue.href}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {testsAbsent.issue.label}
-                    </a>
-                  </>
-                )}
-              </p>
-            ) : (
-              <ul className="armada-wf-inspector__rows">
-                {tests.map((test) => (
-                  <li className="armada-wf-inspector__row" key={test.id}>
-                    <span className="armada-wf-inspector__row-name">{test.title}</span>
-                    <FactChip named={test.named}>{test.outcome ?? "not covered"}</FactChip>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Region>
-        )}
-
-        <Region name={kind === "step" ? "Checks at this step" : "Checks at this boundary"}>
-          {checks.length === 0 ? (
-            <Absent said={checksAbsent ?? "No Check runs here."} />
+      {/* Apart from the Checks below, and never folded into them. Where no
+          case runs here the band says what is missing and which issue builds
+          it — the owner's `frpl`: a line that named Fleet and nothing else
+          told him neither. */}
+      {tests.length === 0 && testsAbsent === undefined ? null : (
+        <Region name={kind === "step" ? "Tests at this step" : "Tests at this boundary"}>
+          {tests.length === 0 && testsAbsent !== undefined ? (
+            <p className="armada-wf-inspector__note" role="note">
+              {testsAbsent.says}
+              {testsAbsent.issue === undefined ? null : (
+                <>
+                  {" "}
+                  <a
+                    className="armada-wf-inspector__link"
+                    href={testsAbsent.issue.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {testsAbsent.issue.label}
+                  </a>
+                </>
+              )}
+            </p>
           ) : (
             <ul className="armada-wf-inspector__rows">
-              {checks.map((check) => (
-                <li className="armada-wf-inspector__row" key={check.name} data-live={check.live}>
-                  <span className="armada-wf-inspector__row-name">
-                    {check.live === "running" ? (
-                      <StepActivityMark activity="running" label="running" pulsing />
-                    ) : null}
-                    {check.name}
-                  </span>
-                  <FactChip named={check.named}>{check.outcome ?? "not run"}</FactChip>
+              {tests.map((test) => (
+                <li className="armada-wf-inspector__row" key={test.id}>
+                  <span className="armada-wf-inspector__row-name">{test.title}</span>
+                  <FactChip named={test.named}>{test.outcome ?? "not covered"}</FactChip>
                 </li>
               ))}
             </ul>
           )}
         </Region>
-        </>
       )}
+
+      <Region name={kind === "step" ? "Checks at this step" : "Checks at this boundary"}>
+        {checks.length === 0 ? (
+          <Absent said={checksAbsent ?? "No Check runs here."} />
+        ) : (
+          <ul className="armada-wf-inspector__rows">
+            {checks.map((check) => (
+              <li className="armada-wf-inspector__row" key={check.name} data-live={check.live}>
+                <span className="armada-wf-inspector__row-name">
+                  {check.live === "running" ? (
+                    <StepActivityMark activity="running" label="running" pulsing />
+                  ) : null}
+                  {check.name}
+                </span>
+                <FactChip named={check.named}>{check.outcome ?? "not run"}</FactChip>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Region>
 
       {stop === undefined ? null : (
         <div className="armada-wf-inspector__acts">

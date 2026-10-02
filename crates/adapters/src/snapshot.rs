@@ -306,6 +306,13 @@ fn git(worktree: &Path, doing: &'static str, cause: git2::Error) -> SnapshotErro
     }
 }
 
+/// The tree the worktree holds as it stands: what Fleet's commit would make of
+/// it, and what `merge_by: push` lands only once its Checks pass.
+pub(crate) fn tree_as_it_stands(worktree: &Path) -> Result<String, SnapshotError> {
+    let repo = open(worktree)?;
+    as_it_stands(&repo, worktree).map(|tree| tree.to_string())
+}
+
 /// Everything git can see in the worktree, untracked files included, as a tree.
 ///
 /// **Through a scratch copy of the worktree's index**, seeded from the real one

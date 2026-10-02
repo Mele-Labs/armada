@@ -37,6 +37,8 @@ mod asking;
 mod attempt;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
+/// The tree a Job's Checks last passed on, for `merge_by: push`.
+mod checked;
 mod columns;
 /// The Drone pointer, where it now lives: one column per step.
 mod delivery;

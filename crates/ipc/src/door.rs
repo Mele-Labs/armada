@@ -542,6 +542,7 @@ fn describe(name: &str) -> String {
             String::from("The Manifest. Your session is scoped to the one you are standing in")
         }
         "drone_id" => String::from("The Drone, as `list_drones` names it"),
+        "pid" => String::from("A process the Job holds, as `get_job_resources` lists it"),
         "since" => String::from(
             "The cursor your last call answered with, as `upto`. Nought is the whole stream",
         ),
