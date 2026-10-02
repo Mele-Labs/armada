@@ -68,3 +68,11 @@ test("the Workflow step panel draws the refusal and its three answers", async ()
   await expect.element(page.getByRole("region", { name: "Question for you" }).last()).toBeVisible();
   await answersAndNoApproval();
 });
+
+// `#1748` row 14: inside Overview's lead the block drew a second yellow rule
+// beside the card's own accent, two parallel lines the owner called terrible.
+test("the refusal draws no rule of its own beside the lead card's accent", async () => {
+  await opened();
+  await expect.element(refusal()).toBeVisible();
+  expect(getComputedStyle(refusal().element()).borderInlineStartWidth).toBe("0px");
+});

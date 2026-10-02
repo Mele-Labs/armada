@@ -1,15 +1,15 @@
 /* Judge question — a refusal held open for a person to answer, drawn where the
    verdict is drawn now.
 
-   Same left rule as `DroneQuestion`, on `--step-waiting`: both are "needs you,
-   not urgent", and neither gets a second framed region under a band that
-   already carries the tone. */
+   **No rule of its own.** It drew `DroneQuestion`'s left rule on
+   `--step-waiting`, and inside Overview's lead, whose card already carries
+   that accent, the two read as parallel yellow lines about 30px apart — the
+   owner called it terrible (1 Oct 2026, `#1748` row 14). The surface it sits
+   on carries the tone; this block is set apart by its gap alone. */
 .armada-judge-question {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-inline-start: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--step-waiting);
   color: var(--fg-default);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
