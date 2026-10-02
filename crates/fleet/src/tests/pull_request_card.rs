@@ -18,6 +18,7 @@ use crate::tests::daemon::{
 };
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
+use crate::tests::under_review::{published, remarks_changed};
 
 type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
@@ -272,5 +273,61 @@ async fn an_unanswered_line_comment_read_keeps_the_last_count() {
         delivery_of(&fleet, &job_id).await.pull_request_comments,
         Some(3),
         "the silence is not a count"
+    );
+}
+
+/// **A new comment on a line of the diff wakes Bridge**, as a new conversation
+/// comment does. The sweep fetches them for the count, so the signature that
+/// decides `job.remarks_changed` reads them too.
+#[tokio::test]
+async fn a_new_line_comment_publishes_job_remarks_changed() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    let job_id = a_finished_job(&fleet, &home).await;
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet
+        .vcs()
+        .now_inline_remarks(Some(vec![a_line_comment("2001", 41, "this leaks")]));
+    fleet.turn().await.unwrap();
+
+    let mut subscription = fleet.events().subscribe();
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let seen = published(&mut subscription).await;
+    assert_eq!(
+        remarks_changed(&seen),
+        vec![&ipc::JobId::from(&job_id)],
+        "the Job whose pull request gained a line comment, named once: {seen:?}"
+    );
+}
+
+/// **A silence is not a change.** A line-comment read that goes unanswered,
+/// then answers what it answered before, wakes Bridge on neither turn.
+#[tokio::test]
+async fn an_unanswered_line_comment_read_publishes_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    a_finished_job(&fleet, &home).await;
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let mut subscription = fleet.events().subscribe();
+    fleet.vcs().now_inline_remarks(None);
+    fleet.turn().await.unwrap();
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let seen = published(&mut subscription).await;
+    assert!(
+        remarks_changed(&seen).is_empty(),
+        "an unanswered read, then the same answer: {seen:?}"
     );
 }
