@@ -58,6 +58,13 @@ describe("what the derivation fills in where the wire says nothing", () => {
     expect(view.concurrent_with).toEqual([]);
   });
 
+  it("runs every task on a Drone of its own where a step declares one per task", () => {
+    const detail = sampleDetail();
+    detail.steps = detail.steps.map((step) => ({ ...step, drone_per_task: true }));
+
+    expect(taskViewOf(detail, sampleTask()).treatment).toBe("own_drone");
+  });
+
   it("takes the model from the Job, since no tier map is served", () => {
     const detail = sampleDetail();
     detail.job.model = "opus";

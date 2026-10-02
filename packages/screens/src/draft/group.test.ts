@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { derivedGroupId } from "./coord";
-import { taskGroupsOf } from "./group";
+import { stepThatWorksTheGroups, taskGroupsOf } from "./group";
 import { sampleDetail, samplePlan, sampleStep, sampleTask } from "./sample";
 
 function withTasks(ids: string[], step = sampleStep()) {
@@ -155,6 +155,19 @@ describe("where a group is", () => {
     expect(group?.state).toBe("pending");
     expect(group?.checks_selected).toEqual(["test"]);
     expect(group?.verdict).toBeUndefined();
+  });
+
+  it("is worked at the step declaring a Drone per task, not merely the one after the plan", () => {
+    const plan = sampleStep({ step_id: "plan", ordinal: 1, state: "advanced" });
+    const read = sampleStep({ step_id: "read", ordinal: 2, state: "advanced" });
+    const implement = sampleStep({ step_id: "implement", ordinal: 3, drone_per_task: true });
+    const detail = sampleDetail({
+      steps: [plan, read, implement],
+      work_plan: samplePlan([sampleTask({ id: "T1", state: "working" })]),
+      job: { ...sampleDetail().job, current_step_id: "implement" },
+    });
+
+    expect(stepThatWorksTheGroups(detail)).toBe("implement");
   });
 
   it("is passed where the task itself is done, whatever the step is doing", () => {

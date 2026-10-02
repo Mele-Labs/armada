@@ -17,7 +17,7 @@ use crate::adrift::Adrift;
 use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
 use crate::grouping::{in_flight, restartable, NotRestartable};
-use crate::resume::Redirection as Instruction;
+use crate::resume::{Ending, Redirection as Instruction};
 use crate::work_plan::plan_not_kept;
 
 /// What a `move_plan` body asks for, or `None` where an id does not read.
@@ -52,8 +52,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Restart this task, from Bridge: refused unless the task failed, then
-    /// the task reopens and `restart_step`'s own act puts a Drone on it.
+    /// Restart this task, from Bridge: refused unless the task failed or the
+    /// Judge refused its group, then the task reopens and `restart_step`'s own
+    /// act puts a Drone on it, which opens with what stopped the step.
     pub(crate) async fn restart_task_by_person(
         self: Arc<Self>,
         job_id: ipc::JobId,
@@ -108,7 +109,8 @@ where
         note: Option<&Instruction>,
     ) -> Result<Job, Adrift> {
         let plan = self.planned(job).await?;
-        if let Err(why) = restartable(&plan, task) {
+        let runs = self.group_runs_of(job).await?;
+        if let Err(why) = restartable(&plan, &runs, task) {
             return Err(match why {
                 NotRestartable::NoSuchTask { task } => Adrift::PlanRefused {
                     job: job.clone(),
@@ -121,20 +123,26 @@ where
                 },
             });
         }
-        let failed = plan
-            .task(task)
-            .and_then(|t| t.failed_reason())
-            .map(str::to_string);
+        // What the task goes back to on a refusal: failed with its reason, or
+        // done, where the Judge refused its group after green Checks.
+        // The Drone a refusal leaves idle is ended: the owner's press asks for
+        // a new agent on this task, never a redirect of the last one.
+        let (was, ending) = match plan.task(task).and_then(|t| t.failed_reason()) {
+            Some(why) => (
+                core_model::FailReason::new(why).map(TaskUpdate::Failed),
+                Ending::Unheard,
+            ),
+            None => (Some(TaskUpdate::Done), Ending::Any),
+        };
         self.changed_by_person(job, &reopened(task, TaskUpdate::Open))
             .await?;
-        match self.restart_step(job, note).await {
+        match self.restart_step_ending(job, note, ending).await {
             Ok(job) => Ok(job),
-            // Refused: the task fails again as it was, so the plan says what
-            // the Job does.
+            // Refused: the task goes back as it was, so the plan says what the
+            // Job does.
             Err(why) => {
-                if let Some(reason) = failed.as_deref().and_then(core_model::FailReason::new) {
-                    self.changed_by_person(job, &reopened(task, TaskUpdate::Failed(reason)))
-                        .await?;
+                if let Some(was) = was {
+                    self.changed_by_person(job, &reopened(task, was)).await?;
                 }
                 Err(why)
             }

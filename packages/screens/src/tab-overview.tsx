@@ -46,6 +46,7 @@ import { workflowRunOf } from "./workflow-canvas";
 import type { Figure } from "@armada/components";
 import type { JobExamined } from "@armada/protocol";
 import type { PulseView } from "./draft/pulse";
+import type { DroneView } from "./draft/drone";
 import type { LandingRule } from "./draft/landing";
 import { changedOf } from "./settings";
 import { LandBoard } from "./LandBoard";
@@ -132,6 +133,8 @@ export type OverviewTabProps = JobDetailProps & {
   onOpenDrone?: (droneId: string) => void;
   opensTask?: string;
   trail?: TrailProps;
+  /** Every Drone the Job has had, which a task's panel lists its own from. */
+  drones?: readonly DroneView[];
 };
 
 /**
@@ -485,6 +488,7 @@ export function OverviewTab(props: OverviewTabProps) {
       diff: recorded.diff,
       ...(props.opensTask === undefined ? {} : { opensTask: props.opensTask }),
       ...(props.onOpenDrone === undefined ? {} : { onOpenDrone: props.onOpenDrone }),
+      ...(props.drones === undefined ? {} : { drones: props.drones }),
       now,
       onOpenCheck: (name, stepAttempt) => props.onOpenCheck({ name, stepAttempt }),
       ...(props.trail === undefined ? {} : { trail: props.trail }),

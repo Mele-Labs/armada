@@ -1,0 +1,33 @@
+{
+  "job_id": "01M3WJ4CVF0021ZQB9G8PQMAHM",
+  "steps": [
+    {
+      "step_id": "handoff",
+      "evidence_type": "review",
+      "claimed": "Guides 8 and 20 are gone from the catalogue and their numbers are retired along with 11. The Job screen no longer draws the step-bar mark and the guide figure no longer has a step-bar drawing. The repository checks now fail when a guide's piece is drawn on no screen, apart from the five catalogue-only pieces.",
+      "shown_by": "Part 3 reported the desktop test suite passing when run alone, and build, test, typecheck, bridge_build and storybook passing in an earlier full run. The new rule's tests are in xtask/src/rules_guides/tests.rs, and the retirement test is in packages/screens/src/guides.test.ts. I did not run any of them again in this review.",
+      "not_claimed": "I did not run the new rule against the real tree myself in this review, so I have not seen it pass on the post-removal tree or fail on the pre-change one. A full desktop test run in part 3 had 11 timeouts that did not recur on rerun, and I did not find the cause. The earlier timeout in the studios test is still uninvestigated. I did not re-check the docs for prose that points at guides 8 and 20, beyond what the diff shows."
+    },
+    {
+      "step_id": "implement",
+      "evidence_type": "diff",
+      "claimed": "Guides 8 and 20 are gone from the catalogue, and RETIRED_GUIDE_NUMBERS is [8, 11, 20]. The InsideAJob mark, the 'step-bar' figure, its story and its CSS are removed. The xtask rule every_guides_piece_is_drawn is registered in verify-foundations. It fails a guide whose const no non-story, non-test source outside guides/ names, with the five catalogue-only pieces exempt. design-system.md documents the rule. The rustfmt diffs in the rule's tests are fixed.",
+      "shown_by": "xtask/src/rules_guides/tests.rs — Rust unit tests for the rule. The `test` and `desktop_test` checks passed on this branch; `desktop_test` had failed once on a studios.test.tsx timeout (not touched by this change) and passed on rerun with no code change.",
+      "not_claimed": "`format` was fixed by applying the exact rustfmt diffs it printed, but I did not rerun it. I did not run `cargo xtask verify-foundations` on the real tree. I did not add the vitest assertion that 8, 20 and 11 are absent; that is part 3. The studios.test.tsx timeout looks flaky; I did not investigate it. The guide 20 retirement is my reading of the brief."
+    },
+    {
+      "step_id": "plan",
+      "evidence_type": "plan",
+      "claimed": "The Job has a recorded plan: retire guides 8 and 20 (files, catalogue, retired numbers, the InsideAJob mark, the step-bar figure), add an xtask gate rule that every guide's piece is drawn, and document it. No code has changed yet.",
+      "shown_by": "The plan recorded with record_plan (4 tasks, T1–T4), grounded in reads of guides/index.ts, guide.ts, guides.test.ts, InsideAJob.tsx and the GuideMark call sites.",
+      "not_claimed": "Nothing is implemented or tested. I did not run the checks beyond this part's plan_recorded. The retirement of guide 20 is my reading of the brief; its piece run.drift has no mark on any screen, but the owner's retire decision was recorded only for guide 8. The StepBar composition itself and the fixtures that mention \"guide 8\" in mock job titles are left alone."
+    },
+    {
+      "step_id": "tests",
+      "evidence_type": "diff",
+      "claimed": "The screens test suite asserts that guide numbers 8, 11 and 20 are retired, that no catalogue guide carries them, and that no guide claims the pieces run.step-bar or run.drift. The desktop test suite passes on this branch when run alone.",
+      "shown_by": "screens_test passed on the whole run, and desktop_test passed on a rerun alone (91.8s, exit 0). Both cover the current branch with no code change between them.",
+      "not_claimed": "I made no change in response to the desktop_test failure. The 11 failures in the earlier full run were all timeouts (5s and 15s) in tests unrelated to guides: connection, repositories-changed, servers-live, whiteboard-resize, locate and manifest. They did not recur on the rerun, so I read them as load-related flakiness. I did not find a cause. The same run had build, test, typecheck, bridge_build and storybook all passing. I did not run the xtask rule against the real tree myself, beyond the full `test` check that passed. The studios.test.tsx timeout part 2 flagged is still uninvestigated."
+    }
+  ]
+}

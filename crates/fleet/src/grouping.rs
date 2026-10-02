@@ -9,6 +9,7 @@
 //! - **Red with none left**: every task in the group turns `failed`, which is
 //!   when Restart this task and Move apply.
 //! - **A Judge refusal** stops the group for a person, as today (answer 3).
+//!   Its tasks read `done`, and Restart this task answers each of them too.
 
 use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct};
 use core_model::{
@@ -137,22 +138,24 @@ pub enum NotRestartable {
     NoSuchTask {
         task: TaskId,
     },
-    /// Restart answers a failed task alone: one still working or handed in is
-    /// its group's own round to finish (answer 9).
+    /// Restart answers a failed task, and a done one in a group the Judge
+    /// refused: one still working or handed in is its group's own round to
+    /// finish (answer 9).
     NotFailed {
         task: TaskId,
         state: TaskState,
     },
 }
 
-/// Whether Restart this task answers.
-pub fn restartable(plan: &WorkPlan, task: TaskId) -> Result<(), NotRestartable> {
-    let state = plan
-        .task(task)
-        .ok_or(NotRestartable::NoSuchTask { task })?
-        .state();
-    match state {
+/// Whether Restart this task answers: on a failed task, and on a done task in
+/// a group the Judge refused, which is one press to run that task again.
+pub fn restartable(plan: &WorkPlan, runs: &GroupRuns, task: TaskId) -> Result<(), NotRestartable> {
+    let named = plan.task(task).ok_or(NotRestartable::NoSuchTask { task })?;
+    match named.state() {
         TaskState::Failed => Ok(()),
+        // `gate_failure` over tasks still done is a Judge refusal and nothing
+        // else: a red last run writes the same trigger but fails every task.
+        TaskState::Done if runs.stopped_on_gate_failure(named.group()) => Ok(()),
         state => Err(NotRestartable::NotFailed { task, state }),
     }
 }

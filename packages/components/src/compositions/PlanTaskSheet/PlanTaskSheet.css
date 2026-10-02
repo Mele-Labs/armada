@@ -152,6 +152,58 @@
   overflow-wrap: anywhere;
 }
 
+/* The task's Drones: the state mark, the Drone, and what it spent at the end,
+   one row each, as the Drones tab's own columns read across. */
+.armada-task-sheet__drones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.armada-task-sheet__drones li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-task-sheet__drones li + li {
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* `.armada-drones__open`'s reset: the Drones tab's own press on the same name. */
+.armada-task-sheet__drone-open {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-task-sheet__drone-open:hover {
+  text-decoration: underline;
+}
+
+.armada-task-sheet__drone-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-task-sheet__drone-spent {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
 /* A hairline between rows rather than a box round each. */
 .armada-task-sheet__files li + li {
   border-top: var(--border-width) solid var(--border-subtle);

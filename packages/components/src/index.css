@@ -367,6 +367,8 @@
 @import "./compositions/MergeLine/MergeLine.css";
 /* A Zone, or a Cluster round its Notes, on a Studio's whiteboard. #1620. */
 @import "./compositions/StudioFrame/StudioFrame.css";
+/* A pull request, small: the review gate's The work. #1680. */
+@import "./compositions/PullRequestCard/PullRequestCard.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

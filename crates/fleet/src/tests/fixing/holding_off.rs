@@ -5,7 +5,7 @@
 //! to the store, `waiting`'s shape. A works a Drone per task, so the release is
 //! read off the second task's Drone: Fleet catches a branch up only at a spawn.
 
-use adapter_traits::{BroughtUpToDate, Standing, WorkProduct, Worktree};
+use adapter_traits::{BroughtUpToDate, Change, Standing, WorkProduct, Worktree};
 use core_model::{
     Approach, Breakage, BreakageClaim, EvidenceType, JobId, ManifestId, NewTask, PlanChange,
     RepoPath, Ulid,
@@ -18,8 +18,10 @@ use crate::daemon::Fleet;
 use crate::evidence::Call;
 use crate::fixing::{FixAnswer, NotFixed};
 use crate::scope::NotDeclared;
-use crate::tests::admitted::dispatched;
-use crate::tests::daemon::{a_proposal_for, fitted_over, manifest, one, worktree_directory};
+use crate::tests::admitted::{dispatched, started};
+use crate::tests::daemon::{
+    a_proposal_for, diff_evidence, fitted_over, manifest, one, worktree_directory,
+};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
@@ -68,13 +70,18 @@ fn a_held_fleet(home: &TempDir) -> Fixture {
 
 /// Job A, proposed, and Job B claiming [`TEST`] in A's repository for [`HELD`].
 async fn a_held_by_b(fleet: &Fixture, home: &TempDir) -> (JobId, JobId) {
+    held_on(fleet, home, "fixture-held").await
+}
+
+/// [`a_held_by_b`], on any workflow the Fleet holds.
+async fn held_on(fleet: &Fixture, home: &TempDir, workflow: &str) -> (JobId, JobId) {
     let a = fleet
-        .propose(a_proposal_for("bound the parser", "fixture-held"))
+        .propose(a_proposal_for("bound the parser", workflow))
         .await
         .expect("A is proposed");
     worktree_directory(home, &a);
     let b = fleet
-        .propose(a_proposal_for("fix the parser on main", "fixture-held"))
+        .propose(a_proposal_for("fix the parser on main", workflow))
         .await
         .expect("B is proposed");
     let owner = fleet.names().owner_of(a.id()).expect("an owner");
@@ -278,4 +285,87 @@ async fn the_files_a_drone_names_are_checked_against_main_and_kept_on_the_claim(
         [RepoPath::new(HELD)],
         "and it is held off the reporter"
     );
+}
+
+/// The gate is the layer nothing gets past: a write to a held file that did
+/// not go through the edit tools the launch denies, a shell command's, fails
+/// the step with its own row, and the same write passes once the fix is in
+/// A's copy. #1673.
+#[tokio::test]
+async fn a_shell_write_to_a_held_off_file_fails_the_gate_until_the_fix_is_in_the_copy() {
+    let home = TempDir::new();
+    let work = FakeWorkProduct::changed(&["src/read.rs"]);
+    let shell = work.holding();
+    let copy = work.holding();
+    let mut fittings = fitted_over(
+        &home,
+        work,
+        FakeHarness::that_listens(),
+        FakeVcs::new().writing_into(copy, &[HELD]),
+    );
+    fittings.starting().workflows = one(testkit::retried(
+        &[testkit::Sketch {
+            id: "implement",
+            label: "Implement",
+            evidence_type: Some("diff"),
+            gates: &[testkit::Gate::DiffNonempty],
+            judged_on: &[],
+            scope: None,
+            gaming: None,
+        }],
+        0,
+    ));
+    let fleet = Fleet::assembled(fittings);
+    let (a, b) = held_on(&fleet, &home, "fixture-workflow").await;
+    dispatched(&fleet, &a).await.expect("A dispatches");
+
+    // Past the launch's deny: nothing but the gate reads this write.
+    shell.wrote(&[(HELD, Change::Modified)]);
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("handed in");
+    let turned = fleet.turn().await.expect("a turn");
+    let ruled = turned.ruled().expect("the gate ruled");
+    assert!(!ruled.advanced(), "{ruled:?}");
+    let row = ruled
+        .checks()
+        .iter()
+        .find(|check| check.name == verification::HELD_OFF)
+        .unwrap_or_else(|| panic!("a held_off row: {:?}", ruled.checks()));
+    assert_eq!(row.outcome, core_model::CheckOutcome::Failed);
+    assert!(
+        row.produced
+            .as_deref()
+            .is_some_and(|said| said.contains(HELD)),
+        "{row:?}"
+    );
+
+    // B lands, and A's next Drone is put on a branch the fix arrives on.
+    fleet.fix_settled(&b, true).await;
+    fleet.vcs().now_behind(
+        Standing::Behind { commits: 1 },
+        Some(BroughtUpToDate::Clean {
+            base: String::from("main"),
+            commits: 1,
+        }),
+    );
+    fleet
+        .restart_step(&a, None)
+        .await
+        .expect("a fresh Drone is asked for");
+    started(&fleet, &a).await.expect("and spawned");
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("handed in again");
+    let turned = fleet.turn().await.expect("a turn");
+    let ruled = turned.ruled().expect("the gate ruled");
+    assert!(
+        !ruled
+            .checks()
+            .iter()
+            .any(|check| check.name == verification::HELD_OFF),
+        "the file is A's again: {:?}",
+        ruled.checks()
+    );
+    assert!(ruled.advanced(), "{ruled:?}");
 }

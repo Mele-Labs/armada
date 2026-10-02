@@ -64,6 +64,7 @@ import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } fro
 import { zoning } from "./studio-read-in";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
+import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -517,6 +518,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
   // for, every task still `open`, and a 40-character commit.
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
+  // The same Job just before it landed, at its review gate: the record the gate draws (#1680).
+  holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id }),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),

@@ -68,14 +68,13 @@ test("Reject, behind the other caret, still asks before it ends the Job", async 
   expect(rejectWork).toHaveBeenCalledWith(JOB_ID);
 });
 
-// **The record's card did not unfold it.** The decision record of 29 Sep 2026,
-// `2026-09-29-the-review-gate-sits-under-the-lead.md`: unfolded, the sheet put
-// five sections between the lead and the buttons. Only the screen knows the
-// lead is above it.
-test("the Job's record stays folded under the lead, with the decision under it", async () => {
+// **The record is open at the gate**, with nothing to unfold: the owner took
+// the fold away on 2 Oct 2026 (#1680, recorded in
+// `2026-09-29-the-review-gate-sits-under-the-lead.md`).
+test("the Job's record is open under the lead, with the decision under it", async () => {
   await opened(reviewAtDelivery());
-  const fold = page.getByRole("button", { name: "The Job's record" });
-  await expect.element(fold).toHaveAttribute("aria-expanded", "false");
+  await expect.element(page.getByRole("region", { name: "What proves it" })).toBeVisible();
+  expect(page.getByRole("button", { name: "The Job's record" }).query()).toBeNull();
   await expect.element(page.getByRole("textbox", { name: "Notes" })).toBeVisible();
 });
 
