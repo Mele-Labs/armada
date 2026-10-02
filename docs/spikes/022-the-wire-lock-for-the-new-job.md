@@ -30,9 +30,9 @@ minutes ago, T2's agent is working, and the step's Checks run once T4 is in.
 You open the plan.
 
 **Today almost nothing marks a task** (#1752): of eleven Drones told to mark
-theirs, two did, so tasks read open from start to finish. The rule written down for when Fleet does mark them is *working
-when its agent starts, done when its group's Checks come back green*
-(`docs/concepts/plan.md`). Under that rule T1 reads working while nobody is
+theirs, two did, so tasks read open from start to finish. The rule written
+down for when Fleet marks them is *working when its agent starts, done when its
+group's Checks come back green* (`docs/concepts/plan.md`). Under that rule T1 reads working while nobody is
 working on it, and all four turn done together at the end.
 
 - **A. Done when its agent hands in.** If the group's Checks then go red, every
@@ -191,8 +191,8 @@ calling any open.** A question this page answers by choosing is marked
 
 **An open Job already reads `get_job` again on every event that names it**, and
 every tab draws from that one read. The split precedent is size: `get_diff` and
-`get_call` exist because their payloads run to 64 KiB streams, and a plan is
-titles and paths. A second read would let Plan and Workflow draw two different
+`get_call` are split out because their payloads are large, a Check's output
+alone running to two 64 KiB streams, and a plan is titles and paths. A second read would let Plan and Workflow draw two different
 moments of one Job.
 
 ### Why a transition rides `job.plan_changed`
@@ -248,7 +248,7 @@ is a type served today or one that never crosses.
 | Type | Lands on | Change | Bump | Source of truth | Slice |
 |---|---|---|---|---|---|
 | `RunCoord` | `CheckRun`, `Recorded` | Optional `group`, `group_attempt`, `task` | Minor | Fleet's group record | 2 |
-| `TaskState` | `TaskState` | Adds `failed` | Major | `crates/core-model/src/job/work_plan.rs` | 2 |
+| `TaskState` | `TaskState` | Adds `failed` | Major | `crates/core-model/src/job/work_plan.rs` | 2, or 1 under question 1's C |
 | `TaskTier` | `PlanTask.tier` | New, optional | Minor | The planner's `record_plan` | 3 |
 | `TaskTreatment` | Nothing | Every task gets its own Drone | None | — | — |
 | `TaskView` | `PlanTask` | Field by field below | Minor | `WorkPlan` in core-model | 1–5 |
@@ -298,7 +298,7 @@ pull request needs slice 2's groups.
 
 | Type | Lands on | Change | Bump | Source of truth | Slice |
 |---|---|---|---|---|---|
-| `LedgerActor` | `Actor` | Adds `judge`, `check`; no `contributor` yet | Major | `crates/core-model/src/envelope.rs` | 2 |
+| `LedgerActor` | `Actor` | Adds `judge`, `check`; no `contributor` yet | Major | `crates/core-model/src/envelope.rs` | 2, or 1 under question 1's C |
 | `LedgerRow` | `Recorded` | Optional coordinate fields; `kind` stays opaque | Minor | `job_events` | 2 |
 | `LedgerFamily`, `LedgerReads` | Nothing | Bridge's composition | None | — | — |
 | `MemberLink` | Nothing | Only `merged` is built; Bridge derives it | None | — | — |
@@ -424,8 +424,8 @@ written before slice 1 and added to slice by slice, in a new file beside
 
 **One ordering departs from #1545's list, because the code argues for it.** 0b
 runs beside slice 1 rather than before it: the bound and its resync are built,
-and slice 1 runs one Drone per Job at a time, so the rate it adds is close to a
-step's today. The rate multiplies at slice 5, which 0b must precede.
+and slice 1 runs one Drone per Job at a time, so its events arrive in sequence
+rather than at once. The rate multiplies at slice 5, which 0b must precede.
 
 **A second departure: `task_brief` moves into slice 1.** A Drone cannot be put on
 a task without being told which task, so slice 3 keeps only the tier and the
