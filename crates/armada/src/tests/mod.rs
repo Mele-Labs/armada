@@ -19,6 +19,7 @@ mod land;
 mod locating;
 mod loopback;
 mod mcp;
+mod reaching;
 mod setup;
 mod watching;
 
