@@ -196,6 +196,8 @@ test("a kind armed and pressed inside the Zone lands in it", async () => {
   await page.getByRole("button", { name: "Add note" }).click();
 
   await expect.poll(() => said(fleet, "Pressed inside the Zone")?.within).toBe("read-in-zone");
+  // Fleet holding it is not the board drawing it: the publish renders after the write answers.
+  await expect.element(node(/^Note: Pressed inside the Zone/)).toBeVisible();
   expect(holds(box("Zone"), box(/^Note: Pressed inside the Zone/))).toBe(true);
 });
 
