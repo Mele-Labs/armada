@@ -102,6 +102,9 @@ const WANTED = [
   // the words but could carry no glyph — a draft value has no registry row to
   // attach one to, which is that file's own stated reason for withholding it.
   "group_state",
+  // A branch on the merge line `armada land` keeps, as Bridge's Overview draws
+  // it. Fleet does not serve the line yet, so only the mock fills it.
+  "land_state",
   "advance_gate",
   // The Setup sheet and the Manifest form both offer its three words, and both showed the file's.
   "auto_merge",

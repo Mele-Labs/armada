@@ -130,6 +130,11 @@ export type ShellProps = {
    *  reach for. **It takes the id**: with more than one row, a handler that
    *  ignored which was pressed would land on the wrong screen silently. */
   onSurface?: (surfaceId: string) => void;
+  /**
+   * Surfaces with nothing behind them yet, left off the rail rather than drawn as a row that opens
+   * an empty screen. The merge line, until there is a line to show.
+   */
+  hidden?: readonly string[];
   /** Every question waiting on a person, from every repository, as the dock's cards. Oldest first. */
   questions?: readonly DockQuestion[];
   /**
@@ -166,6 +171,7 @@ export function Shell({
   onSearch,
   showing,
   onSurface,
+  hidden = [],
   questions = [],
   asking = 0,
   helm,
@@ -216,16 +222,18 @@ export function Shell({
       panels={RAIL_PANELS.map((panel) => ({
         id: panel.id,
         label: panel.label,
-        surfaces: panelSurfaces(panel).map((surface) => ({
-          id: surface.id,
-          label: surface.label,
-          icon: surface.icon,
-          shortcut: surface.shortcut,
-          // **No row carries a count.** The Board's did — active Jobs, the
-          // owner's ruling of 11 Sep 2026 — and that row went with the page.
-          // Stats already carries every count the column shows, and a second
-          // place to read one is a second chance to disagree.
-        })),
+        surfaces: panelSurfaces(panel)
+          .filter((surface) => !hidden.includes(surface.id))
+          .map((surface) => ({
+            id: surface.id,
+            label: surface.label,
+            icon: surface.icon,
+            shortcut: surface.shortcut,
+            // **No row carries a count.** The Board's did — active Jobs, the
+            // owner's ruling of 11 Sep 2026 — and that row went with the page.
+            // Stats already carries every count the column shows, and a second
+            // place to read one is a second chance to disagree.
+          })),
       }))}
       activeId={showing}
       onSelect={onSurface}

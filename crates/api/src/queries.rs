@@ -337,6 +337,29 @@ pub(crate) async fn get_check_output<D: Queries>(
     }
 }
 
+/// The segment after the Job on `/jobs/:job_id/briefs/:name`. See [`Kept`].
+#[derive(Deserialize)]
+pub(crate) struct BriefName {
+    name: String,
+}
+
+/// One brief a Judge or a gaming check was asked, read back once.
+///
+/// `get_check_output`'s route for the file a verdict was argued from. 404
+/// where the Job is unknown; 422 where the Job is known and kept no brief
+/// under that name, which is also the answer to a name that would leave the
+/// Job's briefs directory.
+pub(crate) async fn get_brief<D: Queries>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    Path(BriefName { name }): Path<BriefName>,
+) -> Response {
+    match served.daemon().get_brief(job.id(), name).await {
+        Ok(brief) => answer(StatusCode::OK, &brief, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One Job's own log, settled: what Fleet did to it, read back once.
 ///
 /// **`observe_job_log`'s backfill without its tail**, and a second route rather

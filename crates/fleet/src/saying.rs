@@ -589,6 +589,12 @@ impl fmt::Display for Adrift {
                  run's harness wrote its own, so a name from a row whose `.armada/frames` \
                  directory has since been reclaimed reaches no file"
             ),
+            Adrift::NoSuchBrief { named } => write!(
+                out,
+                "this Job kept no brief named `{named}`. A brief is named by the last part of \
+                 its `brief_path`, and one whose `.armada/briefs` directory has since been \
+                 reclaimed reaches no file"
+            ),
             Adrift::NoSuchManifest { named, held } => write!(
                 out,
                 "no Manifest is named `{named}`. This Fleet holds `{held}`, and `list_manifests` \
@@ -780,6 +786,7 @@ impl Adrift {
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::Unresolvable(_)
             | Adrift::NoSuchFrame { .. }
+            | Adrift::NoSuchBrief { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::NoReadingWorktree(_)
@@ -856,6 +863,7 @@ impl Error for Adrift {
             | Adrift::NoSuchDrone { .. }
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
+            | Adrift::NoSuchBrief { .. }
             // The five resume refusals are refusals rather than faults: a Job
             // that cannot be redirected has nothing underneath saying why, only
             // the state it is in.

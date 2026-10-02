@@ -1,8 +1,19 @@
 # Acceptance tests
 
 One test per milestone, standing for the milestone's claim. It lives in
-`crates/acceptance/`, it is written before the code it tests, and the gate
-watches it — rule one of `cargo xtask verify-foundations`.
+`crates/acceptance/`, it is written before the code it tests, and two things
+watch it.
+
+| Half | Owned by | Asserts |
+|---|---|---|
+| **Exists** | Rule one of `cargo xtask verify-foundations` | Each row of the table below names a file that is there and holds a `#[test]` |
+| **Passes** | The `acceptance` Check in `armada.yml` | `cargo nextest run -p acceptance`, on every merge-line turn whose change it could break |
+
+**The gate does not run the suite.** Until 2 Oct 2026 rule one ran
+`cargo test -p acceptance` as well, so a merge-line turn compiled the suite for
+the gate and again for the Check. The Check's `when` is everything the suite
+compiles from, and a path missing from it is a change nothing tests.
+`pnpm gate` runs the gate alone, so it says nothing about passing.
 
 Read this before writing a milestone's test, reconciling one, or changing what
 the gate asserts about it.
@@ -29,7 +40,7 @@ the gate asserts about it.
 | Trust | Work that passes its Check but is wrong gets caught, and I can see that it was caught rightly, before I take it | `crates/acceptance/tests/trust.rs` |
 | Overview | Everything in flight and everything waiting on me, across my repositories, on one surface — and I can answer it, or ask Helm about it, without leaving | `crates/acceptance/tests/overview.rs` |
 | Studio | I can work something out on a Studio — notes from using the app, what a scout read, what I pasted in — turn what holds up into a Job, and come back later to see how I got there | `crates/acceptance/tests/studio.rs` |
-| Arc | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
+| The new Job, spike 022 | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
@@ -58,7 +69,8 @@ satisfied by a non-zero exit; a Stop hook ended any session in which
 | The acceptance crate | Uncompiled, so unchecked by every other rule |
 | An agent's instinct | Fighting the gate, which is why the hook existed |
 
-Both mechanisms are now retired: rule one asserts the test passes, and the Stop
+Both mechanisms are now retired: the `acceptance` Check asserts the test
+passes, and the Stop
 hook and its entry in `.claude/settings.json` are deleted. The reasoning did
 not retire with them. A milestone that can fake itself green proves nothing;
 what changed is the direction the falsehood would run.
@@ -109,7 +121,7 @@ before the code, so that half was never really open.
 exist, so `cargo test -p acceptance` did not compile and rule one was satisfied
 by a non-zero exit. That is unrepeatable now, for a reason that did not exist
 when there was one milestone: the package holds every milestone's test and the
-gate compiles all of them in one invocation. A Focus test that named `job_steps`'
+`acceptance` Check compiles all of them in one invocation. A Focus test that named `job_steps`'
 Drone pointer before #137 built it would take `bug_job.rs` down with it, and
 M1's claim would stop being run for the length of Focus.
 
@@ -122,7 +134,7 @@ merges green.
 
 > **Rule.** No failing test is merged — a milestone's own test, written first,
 > included.
-> Why: rule one reads the same line whichever acceptance test fails, so a claim
+> Why: the `acceptance` Check reads red whichever acceptance test fails, so a claim
 > left red on `main` by design hides a real break in every other milestone's.
 
 **It asserts what is carried, and states the rest.** A step of the claim that

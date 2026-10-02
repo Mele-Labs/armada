@@ -352,6 +352,7 @@ async fn beforehand(
             Writing::Nowhere,
             env,
             stop.clone().stopped(),
+            checks_runner::Priority::from_env(),
         )
         .await;
         // **Nothing but zero passes**, for `prepare`'s reason: `expect_exit_code`
@@ -678,6 +679,7 @@ pub(crate) async fn ran(
                         writing.as_deref().map_or(Writing::Nowhere, Writing::Fresh),
                         &env,
                         ended,
+                        checks_runner::Priority::from_env(),
                     )
                     .await;
                     (at, attempt, began.elapsed(), held)
