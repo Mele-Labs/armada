@@ -1,4 +1,5 @@
-//! What a gate's two policies resolved to, kept on the run that passed it.
+//! What a gate's two policies resolved to, kept on every run that reached one
+//! (V88 says whether the rule decided: a stopped run's did not; 2 Oct 2026).
 //!
 //! `auto_merge` and `review_gate` are both `Live`, and `fleet::policy` folds
 //! them fresh at every gate. Until this table the answer lasted one decision,
@@ -8,10 +9,6 @@
 //! run under a changed policy sits beside its first rather than over it. The
 //! run is counted inside the writing transaction, for
 //! [`attempt_now`](crate::attempt::attempt_now)'s reason.
-//!
-//! **Every run a gate reached has one since V88**, the owner's decision of 2 Oct
-//! 2026: a run its Checks, its Judge or its gaming check stopped keeps what the
-//! rules said too, and `decided` says it never reached the rule.
 //!
 //! **No row is the answer for every run before this existed**, and it reads as
 //! absent rather than as either policy's default. Nothing is backfilled, by V5's

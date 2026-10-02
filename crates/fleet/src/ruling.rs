@@ -65,11 +65,9 @@ pub enum Ruling {
         /// the record of how often the first look is wrong. Empty wherever no
         /// flag was raised.
         cleared: Vec<GamingFlag>,
-        /// What both policies resolved to at this gate, kept on the run.
-        /// **Carried on every ruling a gate reached**, the owner's decision of
-        /// 2 Oct 2026, so the record cannot be written with a value other than
-        /// the one the gate held. Whether the rule decided is read off the
-        /// variant by [`Ruling::resolved`], never carried. #1683.
+        /// What both policies resolved to at this gate, kept on the run. On
+        /// every ruling a gate reached, so the record is the value the gate
+        /// held. [`Ruling::resolved`] reads whether it decided. #1683.
         policies: Policies,
     },
     /// The last step passed. The Drone is told, then terminated, and the Job
@@ -282,17 +280,10 @@ impl Ruling {
         matches!(self, Ruling::Advanced { .. } | Ruling::Finished { .. })
     }
 
-    /// What both policies resolved to, on every ruling a gate reached, and
-    /// whether the rule decided. #1683, widened on 2 Oct 2026.
-    ///
-    /// **`decided` is read off the variant here and nowhere else**, so a
-    /// ruling cannot be written down as decided when it stopped before the
-    /// advance gate, or the reverse. Matched exhaustively, so a new ruling is a
-    /// compile error here rather than a run recorded under the wrong word.
-    ///
-    /// `None` only on [`NotWhatTheStepAsked`](Ruling::NotWhatTheStepAsked),
-    /// which ran nothing: the submission was refused before any gate, and the
-    /// run goes on.
+    /// What both policies resolved to on every ruling a gate reached, and
+    /// whether the rule decided: **read off the variant and never carried**, so
+    /// a run stopped before the advance gate cannot be written down as decided.
+    /// `None` only where the submission was refused before any gate. #1683.
     pub fn resolved(&self) -> Option<ResolvedPolicies> {
         let (policies, decided) = match self {
             Ruling::Advanced { policies, .. }
