@@ -22,14 +22,15 @@ import { verdictSlotAtGate } from "./verdict";
 
 import { mount, rerender, unmount } from "./mounted";
 import {
-  briefOf,
   cameBackOf,
+  checksLineOf,
   currencyLineOf,
   leftAloneOf,
   neverAsksAPerson,
   neverDelivers,
   provesItNoteOf,
   provesItOf,
+  proofOf,
   pullRequestBlockOf,
   risksOf,
   tookOf,
@@ -180,10 +181,10 @@ describe("what proves it", () => {
 });
 
 describe("the line under the checklist", () => {
-  it("names the missing workflow where nothing on the step can say", () => {
-    expect(provesItNoteOf(step({ checks: undefined, judge_checks: undefined }), "reviewing")).toMatch(
-      /cannot say what gates this step/,
-    );
+  // The owner's Job 2, 2 Oct 2026: its delivering step said *Fleet cannot say
+  // what gates this step* over 21 Checks the steps before it had passed.
+  it("says nothing where the step has no Check of its own", () => {
+    expect(provesItNoteOf(step({ checks: undefined, judge_checks: undefined }), "reviewing")).toBeUndefined();
   });
 
   it("says the answer is the only verdict, at a gate with no Judge", () => {
@@ -243,29 +244,22 @@ function withReview(review: JobWhole["review"]): JobWhole {
 }
 
 describe("the served review — one builder, issue 665", () => {
-  it("reads the brief Fleet composed, Markdown and all, for the sheet to draw", () => {
-    const whole = withReview({
-      why: "The **export** button the brief asked for, over `src/export.ts`.",
-      outcome: "",
-      risks: "",
-      evidence: "",
-    });
-    expect(briefOf(whole)).toBe("The **export** button the brief asked for, over `src/export.ts`.");
-  });
-
-  it("is absent where Fleet has composed no review yet", () => {
-    expect(briefOf(withReview(undefined))).toBeUndefined();
-    expect(briefOf(null)).toBeUndefined();
-  });
-
-  it("reads the risks Fleet composed, trimmed", () => {
+  it("reads the risks Fleet composed, without the paragraph it opens every one with", () => {
     const whole = withReview({
       why: "",
       outcome: "",
-      risks: "Every line below is something Fleet ran.\n\n",
+      risks:
+        "Every line below is something Fleet ran, not something the agent reported. What no\n" +
+        "Check covered is not covered here either.\n\n" +
+        "These acceptance criteria are not a Check:\n\n- The export works\n\n",
       evidence: "",
     });
-    expect(risksOf(whole)).toBe("Every line below is something Fleet ran.");
+    expect(risksOf(whole)).toBe("These acceptance criteria are not a Check:\n\n- The export works");
+  });
+
+  it("is absent where the opening paragraph was all Fleet said", () => {
+    const whole = withReview({ why: "", outcome: "", risks: "Every line below is something Fleet ran.\n\n", evidence: "" });
+    expect(risksOf(whole)).toBeUndefined();
   });
 
   it("is absent where the review carries nothing to say", () => {
@@ -555,5 +549,33 @@ describe("tookOf", () => {
     expect(tookOf(job({ status: "running", started_at: "2026-09-09T09:00:00Z" }), null, now)).toBe(
       "5m 00s",
     );
+  });
+});
+
+// The owner's Job 2, 2 Oct 2026: the delivering step a person reviews at ran
+// nothing of its own, so the record read one step and proved nothing.
+describe("what proves it reads the whole Job", () => {
+  const passed = (name: string) => ({ attempt: 1, name, outcome: "passed" as const });
+  const implement = () =>
+    step({ step_id: "implement", label: "Implement", ordinal: 1, check_runs: [passed("build"), passed("test")] });
+  const handoff = () => step({ step_id: "handoff", label: "Review the change", ordinal: 2 });
+
+  it("lists every step that measured something, in workflow order, and not the one that did not", () => {
+    const proof = proofOf([handoff(), implement()], handoff(), [], NOW);
+    expect(proof.map((one) => one.label)).toEqual(["Implement"]);
+  });
+
+  it("is empty where no step measured anything", () => {
+    expect(proofOf([handoff()], handoff(), [], NOW)).toEqual([]);
+  });
+
+  it("counts the Job's Checks for the pull request card, skips out of both figures", () => {
+    const tests = step({
+      step_id: "tests",
+      ordinal: 2,
+      check_runs: [passed("test"), { attempt: 1, name: "acceptance", outcome: "skipped" }],
+    });
+    expect(checksLineOf([implement(), tests, handoff()])).toBe("3/3 Checks passed");
+    expect(checksLineOf([handoff()])).toBeUndefined();
   });
 });
