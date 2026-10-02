@@ -31,7 +31,10 @@ export type VerifiedBy = "check" | "judge" | "attested";
 export type CriterionOrigin =
   | { origin: "issue"; ref: string; url?: string }
   | { origin: "prompt" }
-  | { origin: "person" };
+  | { origin: "person" }
+  // A Job no person dispatched: nothing names where its words came from, so
+  // none is drawn rather than one invented (owner, 1 Oct 2026, `#1748` row 17).
+  | { origin: "unsaid" };
 
 /** One acceptance criterion, with its provenance. */
 export type CriterionView = {
@@ -49,22 +52,35 @@ export type CriterionView = {
 };
 
 /**
- * Today's wire carries the text, the id and how it is verified, and says
- * nothing about where the words came from — so every criterion derives as
- * `prompt`, which is where a requester's words are typed.
+ * The Job origins a person dispatched, by typing or by asking Helm, which is
+ * where a requester's words are typed. `ORIGIN`'s keys.
  */
-export function criterionViewOf(criterion: Criterion): CriterionView {
+const A_PERSON_ASKED: ReadonlySet<string> = new Set([
+  "manual",
+  "studio_dispatched",
+  "helm_drafted",
+  "studio_helm_drafted",
+]);
+
+/**
+ * Today's wire carries the text, the id and how it is verified, and says
+ * nothing about where the words came from — so a criterion derives from the
+ * Job's own `origin`: `prompt` where a person dispatched it, and `unsaid`
+ * everywhere else. It read *From your prompt* on a Job Fleet found itself
+ * (owner, 1 Oct 2026, `#1748` row 17).
+ */
+export function criterionViewOf(criterion: Criterion, jobOrigin: string): CriterionView {
   return {
     criterion_id: criterion.criterion_id,
     text: criterion.text,
     verified_by: verifiedByOf(criterion.source),
-    origin: { origin: "prompt" },
+    origin: { origin: A_PERSON_ASKED.has(jobOrigin) ? "prompt" : "unsaid" },
   };
 }
 
 /** Every criterion a Job is held to, in the order it was given. */
 export function criterionViewsOf(detail: JobDetail): CriterionView[] {
-  return detail.acceptance_criteria.map(criterionViewOf);
+  return detail.acceptance_criteria.map((one) => criterionViewOf(one, detail.job.origin));
 }
 
 // The wire leaves every closed set as `string`, so an unrecognised spelling is
@@ -98,7 +114,8 @@ export type OriginSaid = {
 };
 
 /**
- * Where a criterion's words came from, as a person reads it.
+ * Where a criterion's words came from, as a person reads it, or `undefined`
+ * where nothing names it — the slot stays empty rather than holding a guess.
  *
  * **One sentence, written once.** Three surfaces say it — the classifying
  * screen while it is yours to change, the same screen frozen, and Plan — and a
@@ -109,7 +126,7 @@ export type OriginSaid = {
  * armada/1162`, and the owner asked what that was (`u7y9`): a bare
  * `owner/number` is a repository, a path and a branch as readily as an issue.
  */
-export function originSaidOf(criterion: CriterionView): OriginSaid {
+export function originSaidOf(criterion: CriterionView): OriginSaid | undefined {
   const origin = criterion.origin;
   switch (origin.origin) {
     case "issue":
@@ -119,15 +136,18 @@ export function originSaidOf(criterion: CriterionView): OriginSaid {
       };
     case "person":
       return { said: "You wrote this" };
+    case "unsaid":
+      return undefined;
     default:
       return { said: "From your prompt" };
   }
 }
 
 /** The same thing on one line, for a surface that draws text and no link. */
-export function originLineOf(criterion: CriterionView): string {
-  const { said, issue } = originSaidOf(criterion);
-  return issue === undefined ? said : `${said} ${issue.ref}`;
+export function originLineOf(criterion: CriterionView): string | undefined {
+  const from = originSaidOf(criterion);
+  if (from === undefined) return undefined;
+  return from.issue === undefined ? from.said : `${from.said} ${from.issue.ref}`;
 }
 
 /**
