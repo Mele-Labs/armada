@@ -154,8 +154,8 @@ fn forgetting_the_reporter_leaves_the_claim_and_forgetting_the_fix_removes_it() 
         .forget_job(&job_id(FIX))
         .expect("the fix is forgotten");
     assert_eq!(
-        removed.breakage_claims, 1,
-        "and the claim is counted by name"
+        removed.breakage_claims, 3,
+        "and the claim and its two files are counted by name"
     );
     assert!(store
         .breakages_claimed_by(&job_id(FIX))
