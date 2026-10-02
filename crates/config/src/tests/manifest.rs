@@ -10,6 +10,7 @@ mod ports;
 mod seed;
 mod servers;
 mod standing;
+mod worktrees;
 
 use crate::error::Fault;
 use crate::manifest::Manifest;
@@ -651,14 +652,14 @@ fn a_setup_with_no_requires_is_refused() {
 }
 
 #[test]
-fn requires_and_seed_are_the_only_keys_setup_has() {
+fn requires_seed_and_worktrees_are_the_only_keys_setup_has() {
     let refused = refusals(parse(
         "version: 1\nid: a\ncommands:\n  fmt:\n    run: x\n\
          setup:\n  requires: [fmt]\n  timeout: 60\n",
     ));
     assert!(matches!(
         fault_at(&refused, "setup.timeout"),
-        Fault::Unknown { known } if *known == ["requires", "seed"]
+        Fault::Unknown { known } if *known == ["requires", "seed", "worktrees"]
     ));
 }
 

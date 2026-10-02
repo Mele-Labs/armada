@@ -24,6 +24,7 @@ mod issue_lookup;
 mod judge;
 mod keeping_current;
 mod landing;
+mod leasing;
 mod mcp;
 mod merging_by_push;
 mod reading_in;
