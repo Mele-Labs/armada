@@ -2,9 +2,10 @@
 //! and reopening the pull request. `#663`, and a merge since `#1131`.
 //!
 //! **Its own worktree, or one borrowed for the call.** A finished Job's worktree
-//! is often gone by the time its base moves, so where nothing is at the derived
-//! path a worktree is attached onto the existing branch — never creating one —
-//! and removed before returning. The branch, which is the work, is untouched.
+//! is often gone by the time its base moves, so where nothing is at the path
+//! Fleet looked up a worktree is attached onto the existing branch — never
+//! creating one — and removed before returning. The branch, which is the work,
+//! is untouched.
 //!
 //! **A conflict is put back.** No Drone reads markers left here, so the branch
 //! and the worktree stay as they were; Fleet's catch-up meets the same conflict
@@ -28,15 +29,8 @@ pub(crate) fn base_tip(in_repo: &str, base: &str) -> Option<String> {
 }
 
 /// See the module.
-pub(crate) fn kept_current(in_repo: &str, handle: &str, base: &str) -> KeptCurrent {
-    let Ok(spec) = WorktreeSpec::for_job(in_repo, handle) else {
-        // Unreachable in practice: `handle` is read off a Job the store
-        // already holds, which passed this exact derivation to create its
-        // worktree in the first place. Treated as `NoBranch` rather than a
-        // tool refusal, because there is equally nothing to merge into.
-        return KeptCurrent::NoBranch;
-    };
-    let repo = match Repository::open(in_repo) {
+pub(crate) fn kept_current(spec: &WorktreeSpec, base: &str) -> KeptCurrent {
+    let repo = match Repository::open(spec.repo_root()) {
         Ok(repo) => repo,
         Err(cause) => {
             return KeptCurrent::NotDelivered(NotDelivered::of(
@@ -52,7 +46,7 @@ pub(crate) fn kept_current(in_repo: &str, handle: &str, base: &str) -> KeptCurre
     let already_there = Path::new(&spec.worktree_path()).exists();
     let worktree = match already_there {
         true => Worktree::at(spec.worktree_path(), spec.branch()),
-        false => match attached(&repo, &spec) {
+        false => match attached(&repo, spec) {
             Ok(worktree) => worktree,
             Err(cause) => return KeptCurrent::NotDelivered(cause),
         },
@@ -64,7 +58,7 @@ pub(crate) fn kept_current(in_repo: &str, handle: &str, base: &str) -> KeptCurre
         // was this call's own scaffolding, not a fact anybody reads. Leaving
         // it behind on a failed detach costs disk and nothing else — the
         // branch, which is the work, is untouched either way.
-        detached(&repo, &spec);
+        detached(&repo, spec);
     }
     outcome
 }

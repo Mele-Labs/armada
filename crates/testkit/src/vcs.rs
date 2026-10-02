@@ -233,7 +233,7 @@ pub enum Delivered {
     /// replaced. **Counted for
     /// [`AskedWhatBecameOfIt`](Delivered::AskedWhatBecameOfIt)'s reason**: a
     /// test that could not see it could not tell once from every sweep.
-    KeptCurrent { handle: String, base: String },
+    KeptCurrent { worktree: String, base: String },
     /// The repository every worktree is cut from was asked to catch up.
     CaughtTheRepositoryUp { base: String },
     /// The forge was asked to merge a pull request. **The one write to a
@@ -969,12 +969,12 @@ impl Delivery for FakeVcs {
         self.refs.lock().expect("not poisoned").get(base).cloned()
     }
 
-    fn kept_current(&self, _in_repo: &str, handle: &str, base: &str) -> KeptCurrent {
+    fn kept_current(&self, spec: &WorktreeSpec, base: &str) -> KeptCurrent {
         self.delivered
             .lock()
             .expect("not poisoned")
             .push(Delivered::KeptCurrent {
-                handle: handle.to_string(),
+                worktree: spec.worktree_path(),
                 base: base.to_string(),
             });
         let kept = self
