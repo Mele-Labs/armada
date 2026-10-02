@@ -284,6 +284,21 @@ Both cases badged as `churning`, and a person reading `churning` on a step whose
 A sub-kind under `thrashing` was the alternative and is refused for `silent`'s reason read backwards. A sub-kind renders as its parent, so `escalation_reason` would still say `thrashing` on the wire and `churning` on the badge, which is the whole of what is being fixed.
 """
 
+[triggers.no_workflow_fits]
+kind = "Trigger"
+level = "Job"
+meaning = "The Job proposer read the request and no workflow this repository holds fits it, so the Job created at dispatch stops at `proposing` and asks for the request to be said again."
+job_transitions = ["proposing -> escalated"]
+in_code = ""
+notes = """
+**A refusal about the request**, carrying what `fleet.no_workflow_fits` already said at the route: the proposer found nothing to run this under, and a nearest fit would become the standard the work is judged against rather than a guess somebody could correct. What a person does is rephrase and dispatch again — `escalated -> killed`, with the next Job carrying `redispatched_from`.
+
+Job-level because a Job at `proposing` has no step, so there is nothing for `last_verdict` to hold and `StepLevelTrigger::of` refuses a step-level trigger on one. **Not overrulable**: an override advances a step, and nothing here weighed any work. Its edge is its own — `proposing -> escalated` admits this trigger and `proposer_failed`, and no other.
+"""
+why = """
+Decided by the owner on 1 Oct 2026, on #1716. Two rows and not one on #334 and #410's rule: a request no workflow fits wants rewriting, and a call that faulted wants nothing done to the request at all. One word for both would send a person to rephrase a request that was never read.
+"""
+
 [triggers.no_worktree]
 kind = "Trigger"
 level = "Job"
@@ -354,6 +369,23 @@ why = """
 It was raised as `interrupted` from the day preparation shipped until 2026-08-31, which is a lie of the same shape `gate_failure` told an hour earlier: `interrupted` means a Job marked running has no matching OS process, and a person reading it goes looking for a dead Drone. There was never a Drone. The remedy is a line in `armada.yml` or a missing tool on the path, and neither is anywhere near where that verb sends them.
 
 A payload on `interrupted` was the alternative and is refused for the reason `silent` is a sub-kind rather than a field: what a person reads first is the trigger, and a distinction carried only in a payload is a distinction the badge does not make.
+"""
+
+[triggers.proposer_failed]
+kind = "Trigger"
+level = "Job"
+meaning = "The Job proposer's call did not produce a plan — it never got through, its answer could not be read twice over, it named a model this machine does not run, or Fleet restarted while it was out — so the Job created at dispatch stops at `proposing`. The Job's log says which."
+job_transitions = ["proposing -> escalated"]
+in_code = ""
+notes = """
+**Folds every way the call can fail into one word**, on `not_prepared`'s own argument for folding six paths: a person does the same thing about each — dispatch the same request again, or go and look at the machine — and which one it was belongs on the Job's log rather than on a badge. The codes it folds are the route's own: `fleet.proposer_unreachable`, `fleet.proposer_unreadable` and `fleet.proposer_model_not_held`. A Fleet restart folds in too: the proposer's call lives in Fleet's own process and does not survive it, so boot reconciliation moves a Job still at `proposing` here rather than leaving a row whose call nobody is making.
+
+**`fleet.proposer_model_not_held` stays its own code at the route** and is folded only here. At the route it answers a person holding the request in a form, where the act is a different model; on a Job that already exists, the acts are this row's. Decided by the owner on 1 Oct 2026, choosing it over a third trigger.
+
+Job-level, not overrulable, and its edge is `proposing -> escalated` — `no_workflow_fits`' reasons, on that row.
+"""
+why = """
+Decided by the owner on 1 Oct 2026, on #1716: the call never got through, or its answer could not be read. Not `no_workflow_fits`, which is a refusal about the request; nothing about the request was wrong here.
 """
 
 [triggers.resource_exhausted]

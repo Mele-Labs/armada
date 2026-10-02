@@ -379,6 +379,8 @@ export type JobCommandWaiting = {
  */
 export type ProposalMoved = {
   proposal_id: string;
+  /** The Job at `proposing` this call is reading for. Since 21.6. */
+  job_id?: string;
   /**
    * The caller's own token, echoed. **On the envelope as well as inside
    * `proposing`** — it is what a client filters on, and the coming-back message

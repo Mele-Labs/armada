@@ -50,15 +50,9 @@ fn every_status_is_reachable_from_an_entry_status() {
     assert_eq!(seen.len(), JobStatus::ALL.len(), "unreachable: {seen:?}");
 }
 
-/// `proposing` is left out and its edge is not: `proposing -> killed` is in
-/// [`EDGES`] and `every_edge_in_the_table_is_admitted` below leaves it out for
-/// the same reason — nothing creates a Job standing there yet. See [`reach`].
 #[test]
 fn killed_is_reachable_from_every_non_terminal_status() {
-    for status in JobStatus::ALL
-        .iter()
-        .filter(|s| !s.is_terminal() && **s != JobStatus::Proposing)
-    {
+    for status in JobStatus::ALL.iter().filter(|s| !s.is_terminal()) {
         let job = reach(*status);
         let moved = job
             .transition(Target::Killed, Actor::Human, at("2026-08-26T10:00:00.000Z"))
@@ -69,20 +63,22 @@ fn killed_is_reachable_from_every_non_terminal_status() {
 
 // ------------------------------------------------------------- what is legal
 
-/// **Every edge but the three out of `proposing`.** Admitting an edge needs a
-/// Job standing at its `from`, and nothing builds one there — see [`reach`]. The
-/// gate's `the transition registry and the edge table name the same edges` is
-/// what holds those three, and it compares text rather than driving a machine.
+/// **`proposing -> awaiting_approval` is admitted through the answer**, which
+/// is the only thing that crosses it — `proposing.rs` asserts that, and the
+/// refusal through `transition`. Every other edge is walked here.
 #[test]
 fn every_edge_in_the_table_is_admitted() {
-    for edge in EDGES.iter().filter(|e| e.from != JobStatus::Proposing) {
+    for edge in EDGES
+        .iter()
+        .filter(|e| !(e.from == JobStatus::Proposing && e.to == JobStatus::AwaitingApproval))
+    {
         // A guarded edge makes two claims and this is the first: admitted with
         // its condition met. That it refuses without it is asserted below.
         let job = match edge.guard {
             Some(_) => reach_with_every_step_advanced(edge.from),
             None => reach(edge.from),
         };
-        let target = target_for(edge.to, edge.escalation_trigger);
+        let target = target_for(edge.to, trigger_for(edge.from, edge.escalation_trigger));
         let by = match crate::job::transition::a_persons_edge(edge.from, edge.to) {
             true => Actor::Human,
             false => Actor::Fleet,
@@ -96,19 +92,17 @@ fn every_edge_in_the_table_is_admitted() {
     }
 }
 
-/// **`proposing` is out of both loops, on two different grounds.** As a `from`,
-/// no Job stands there to be refused from — see [`reach`]. As a `to`, there is
-/// no [`Target`] naming it at all, which is a stronger refusal than this test's:
-/// the move cannot be spelled rather than being spelled and turned down.
+/// **`proposing` is out as a `to`**: no [`Target`] names it, which is a
+/// stronger refusal than this test's — the move cannot be spelled at all.
 #[test]
 fn every_pair_the_table_does_not_name_is_refused() {
-    let walkable = || {
+    let destinations = || {
         JobStatus::ALL
             .iter()
             .filter(|s| **s != JobStatus::Proposing)
     };
-    for from in walkable() {
-        for to in walkable() {
+    for from in JobStatus::ALL {
+        for to in destinations() {
             if EDGES.iter().any(|e| e.from == *from && e.to == *to) {
                 continue;
             }
@@ -201,6 +195,8 @@ fn the_default_escalation_edge_accepts_every_trigger() {
     }
 }
 
+/// An edge one trigger claims names it; an edge two claim names neither,
+/// and admits each of them — `proposing -> escalated`.
 #[test]
 fn every_declared_trigger_edge_is_in_the_table() {
     for trigger in EscalationTrigger::ALL {
@@ -211,7 +207,26 @@ fn every_declared_trigger_edge_is_in_the_table() {
             .iter()
             .find(|e| e.from == from && e.to == to)
             .expect("a trigger names an edge the table does not have");
-        assert_eq!(edge.escalation_trigger, Some(*trigger));
+        let claimants = EscalationTrigger::ALL
+            .iter()
+            .filter(|t| t.declared_edge() == Some((from, to)))
+            .count();
+        match claimants {
+            1 => assert_eq!(edge.escalation_trigger, Some(*trigger)),
+            _ => {
+                assert_eq!(edge.escalation_trigger, None);
+                let moved = reach(from).transition(
+                    Target::Escalated(*trigger),
+                    Actor::Fleet,
+                    at("2026-08-26T10:00:00.000Z"),
+                );
+                assert!(
+                    moved.is_ok(),
+                    "{} refused on its own edge",
+                    trigger.as_wire()
+                );
+            }
+        }
     }
 }
 

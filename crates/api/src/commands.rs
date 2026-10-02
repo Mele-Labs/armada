@@ -69,7 +69,7 @@ pub(crate) async fn propose_from_request<D: Commands>(
         None => Redirector::Person,
     };
     match served
-        .daemon()
+        .shared()
         .propose_from_request(request, scope.manifest(), by)
         .await
     {
