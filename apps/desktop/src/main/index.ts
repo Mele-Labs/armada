@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome } from "@armada/protocol";
-import type { HelmContext, StagedAttachment } from "@armada/protocol";
+import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
+import { landCheckAt } from "./land-following";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type {
   Artifact,
@@ -704,6 +705,11 @@ void app.whenReady().then(() => {
     CHANNELS.followCheckOutput,
     (_event, jobId: string | null, kept: string | null) =>
       connection?.followCheckOutput(jobId, kept),
+  );
+  // Which merge line Check's log is open, by the line's three names. Its own socket, read-only.
+  // **Only the three strings cross**: anything else the renderer sends is not asked about.
+  ipcMain.handle(CHANNELS.followLandCheck, (_event, at: LandCheckAt | null) =>
+    connection?.followLandCheck(landCheckAt(at)),
   );
   // Which Job's transition history is unfolded. One HTTP read, kept current
   // while it is open, and dropped when the section closes — a history is its

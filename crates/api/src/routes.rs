@@ -66,7 +66,7 @@ use crate::repositories::{add_repository, clone_repository, get_merge_lines, lis
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
-use crate::sockets::{events, job_log, observe_check_output, observe_job};
+use crate::sockets::{events, job_log, observe_check_output, observe_job, observe_land_check};
 use crate::studios::{
     add_studio_node, ask_scout, capture_studio_note, create_studio, decide_studio_edge,
     defer_on_studio, delete_studio, dispatch_studio_draft, edit_studio_draft, edit_studio_link,
@@ -118,6 +118,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
+        .route("/merge_lines/checks/observe", get(observe_land_check::<D>))
         .route("/models", get(list_models::<D>))
         .route("/capacity", get(get_capacity::<D>))
         .route("/limits", get(get_limits::<D>))

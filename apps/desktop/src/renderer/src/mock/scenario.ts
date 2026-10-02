@@ -44,6 +44,7 @@ import {
 } from "@armada/screens/src/fixtures/build/index";
 import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
+import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
@@ -66,6 +67,7 @@ import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { job2AtReview } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
+import { writingLogs } from "./check-logs-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -472,6 +474,14 @@ export const SCENARIOS: readonly Scenario[] = [
   fillingIn(moment("arc", dispatchTyping())),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
+  // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
+  // the merge line's turn, each writing a log as it runs. Not an arc moment, so named here.
+  lined({
+    ...moment("arc", groupChecking()),
+    name: "check-logs",
+    says: "Group three's Checks and the merge line's turn, each writing its log",
+    behaves: writingLogs,
+  }),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),

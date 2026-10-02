@@ -81,7 +81,17 @@ export type StepBarProps =
        */
       tasks: readonly TaskBarSegment[];
       label?: string;
+      /**
+       * A press on each segment, by position, where that segment opens
+       * something. **Absent draws the bar as a picture**, which is every bar
+       * but a boundary's Checks: there each segment is one Check and opens
+       * its log (owner, 2 Oct 2026). A segment with none stays a mark.
+       */
+      presses?: readonly (StepBarPress | undefined)[];
     };
+
+/** One segment's press, and the name it carries: its tooltip and its label. */
+export type StepBarPress = { label: string; onPress: () => void };
 
 export function StepBar(props: StepBarProps) {
   const { label } = props;
@@ -111,20 +121,38 @@ export function StepBar(props: StepBarProps) {
       ? `${props.tasks.filter((task) => task === "done").length} of ${props.tasks.length} tasks`
       : `Step ${props.current} of ${props.total}`;
 
+  const presses = props.tasks === undefined ? undefined : props.presses;
+  const pressable = presses !== undefined && presses.some((press) => press !== undefined);
   const bar = (
-    <span className="armada-step-bar" role="img" aria-label={label ?? fallbackLabel}>
-      {segments.map((segment, i) => (
-        <span
-          key={i}
-          className="armada-step-bar__segment"
-          data-state={segment.state}
-          data-activity={segment.activity}
-        />
-      ))}
+    // A bar any segment of which is a button is a group of them, not a picture.
+    <span className="armada-step-bar" role={pressable ? "group" : "img"} aria-label={label ?? fallbackLabel}>
+      {segments.map((segment, i) => {
+        const press = presses?.[i];
+        return press === undefined ? (
+          <span
+            key={i}
+            className="armada-step-bar__segment"
+            data-state={segment.state}
+            data-activity={segment.activity}
+          />
+        ) : (
+          <Tooltip key={i} label={press.label} asChild>
+            <button
+              type="button"
+              className="armada-step-bar__segment armada-step-bar__press"
+              data-state={segment.state}
+              data-activity={segment.activity}
+              aria-label={press.label}
+              onClick={press.onPress}
+            />
+          </Tooltip>
+        );
+      })}
     </span>
   );
 
   // The exact count lives in the tooltip, which is why the bar carries no
   // number of its own.
-  return label ? <Tooltip label={label}>{bar}</Tooltip> : bar;
+  // A pressable segment carries its own, and two tooltips on one point is one too many.
+  return label && !pressable ? <Tooltip label={label}>{bar}</Tooltip> : bar;
 }

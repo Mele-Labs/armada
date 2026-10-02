@@ -1042,6 +1042,23 @@ A repository nobody has run `armada land` in is left out rather than listed empt
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
 
+[operations.observe_land_check]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One Check's log on a served repository's merge line, by the root, the branch and the Check: what it holds, then what the runner writes next"
+notes = """
+**`observe_check_output`'s shape for a Check no Job owns.** The runner appends each Check of a turn to `logs/<entry>/<turn>/<check>.log` under `armada-land/` as it runs, and this reads that file the way `observe_check_output` reads a Job's: what is there, then what is appended, a quarter-second behind, then `closed` with why. The first message is `LandOutputMessage::Opened`, naming the line rather than a Job; the lines and the end are `OutputLines` and `OutputClosed`. Since 23.7.
+
+**An ended Check is served on the same socket.** It opens, sends what the file holds and closes `finished`, so one reader draws a Check that is running and one that has ended. A Check is still writing while its branch is `gating`, it reads `running` in the outcome, and the outcome still names the turn it was found in.
+
+**The three names are the whole request, and no path is taken.** `root` must be a root this Fleet serves; the branch's outcome names its turn, as the directory its `logs` sit in, and the Checks that turn has started. `check` must be one path component and one of those, not `waiting`. The turn must resolve to exactly `logs/<entry>/<turn>` under this line's own `armada-land/` once links are followed, and a link where the log goes is refused, and read as unreadable if one is planted after. Anything else is one 422, `fleet.unacceptable_proposal`, before the socket opens: Fleet opens nothing it did not find this way.
+
+`get_merge_lines` still keeps the outcome's `logs` off the wire, and so does this: the opening carries the three names and no path.
+
+`agent_access` is `No` for `get_merge_lines`' reason.
+"""
+
 [operations.add_repository]
 kind = "command"
 transport = "HTTP"
