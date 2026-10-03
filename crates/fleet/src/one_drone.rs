@@ -63,6 +63,15 @@ where
         as_caller(named, self.redirect(job_id, instruction, by)).await
     }
 
+    /// The Job's kept Drone, as `None`, then each live Drone beside it: the
+    /// order a person's answer to something one of them asked is tried in.
+    pub(crate) async fn each_live(&self, job_id: &JobId) -> Vec<Option<DroneId>> {
+        let crew = self.slots().lock().await.crew_of(job_id);
+        std::iter::once(None)
+            .chain(crew.into_iter().map(|(drone, _)| Some(drone)))
+            .collect()
+    }
+
     async fn which_live(&self, job_id: &JobId, drone: &DroneId) -> Result<Named, Adrift> {
         let (kept, beside) = {
             let slots = self.slots().lock().await;
