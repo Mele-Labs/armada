@@ -84,6 +84,7 @@ fn door(operation: &str) -> Option<Because> {
     const GONE: &[&str] = &[
         "kill_job",
         "kill_drone",
+        "kill_one_drone",
         "kill_process",
         "kill_processes",
         "forget_job",

@@ -481,6 +481,22 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.fake_kill_process(job_id, pid).await
     }
+    async fn kill_one_drone(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_one_drone(job_id, drone_id, true).await
+    }
+    async fn redirect_one_drone(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+        _instruction: ipc::Redirection,
+        _by: crate::Redirector,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_one_drone(job_id, drone_id, false).await
+    }
     async fn kill_processes(
         self: std::sync::Arc<Self>,
         job_id: JobId,

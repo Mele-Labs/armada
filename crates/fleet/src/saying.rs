@@ -368,6 +368,13 @@ impl fmt::Display for Adrift {
                  the worktree it left behind",
                 job.as_str()
             ),
+            Adrift::DroneNotLive { job, drone } => write!(
+                out,
+                "Drone {} is not one of {}'s live Drones — it has gone, and nothing was sent \
+                 to another in its place",
+                drone.as_str(),
+                job.as_str()
+            ),
             Adrift::NotTheJobsProcess { job, pid } => write!(
                 out,
                 "pid {pid} is not in {}'s process tree as Fleet read it just now, so nothing was \
@@ -788,6 +795,7 @@ impl Adrift {
             | Adrift::NotResumable { job, .. }
             | Adrift::NoStepStopped { job }
             | Adrift::NoDroneToRedirect { job }
+            | Adrift::DroneNotLive { job, .. }
             | Adrift::NotTheJobsProcess { job, .. }
             | Adrift::NotAnswerable { job, .. }
             | Adrift::NotUnderReview { job, .. }
@@ -933,6 +941,7 @@ impl Error for Adrift {
             | Adrift::NotResumable { .. }
             | Adrift::NoStepStopped { .. }
             | Adrift::NoDroneToRedirect { .. }
+            | Adrift::DroneNotLive { .. }
             // A kill naming a pid the tree no longer holds: what was read.
             | Adrift::NotTheJobsProcess { .. }
             // And an answer that does not apply, which is the same shape.

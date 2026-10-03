@@ -57,6 +57,8 @@ mod limiting;
 mod manifest_proposals;
 mod mcp;
 mod observing;
+/// A message or a stop addressed to one Drone of a Job. #1666.
+mod one_drone;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
@@ -97,7 +99,7 @@ pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};
 pub use journal::{Journal, Reading, Window, FOLLOW};
 pub use mcp::{Caller, MCP_PATH};
-pub use observing::{Feed, Observed, Seen, Turns, Watch, WATCHING};
+pub use observing::{Channel, Feed, Observed, Seen, Turns, Watch, WATCHING};
 pub use reference::Resolved;
 pub use routes::{router, Route, SERVED};
 pub use served::Served;

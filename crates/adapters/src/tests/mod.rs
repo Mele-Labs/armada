@@ -16,6 +16,7 @@ mod cloning;
 mod commit;
 mod conversing;
 mod delivery;
+mod edited;
 mod existing_setup;
 mod filing;
 mod git_guard_gaps;
