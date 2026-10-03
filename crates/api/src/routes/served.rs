@@ -253,6 +253,12 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/manifest/files",
     },
+    // What a Job may start from and land in: #1605, spike 022 slice 4.
+    Route {
+        operation: "list_branches",
+        method: "GET",
+        path: "/manifest/branches",
+    },
     // A rule a person always-allowed for the repository is Fleet's own, kept
     // per Manifest rather than any one Job's — `#836`. The remove spells the
     // act in its last segment for `save_manifest_file`'s reason.
@@ -469,6 +475,12 @@ const ROUTES: &[Route] = &[
         operation: "approve_dispatch",
         method: "POST",
         path: "/jobs/:job_id/approve_dispatch",
+    },
+    // A proposal's words, saved without releasing it: the route of #1699.
+    Route {
+        operation: "edit_job",
+        method: "POST",
+        path: "/jobs/:job_id/edit",
     },
     // The three answers at a human gate, and three routes rather than one with
     // a decision in the body: each does something different to the Job, and one

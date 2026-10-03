@@ -152,6 +152,29 @@ pub(crate) async fn search_files<D: Queries>(
     }
 }
 
+/// Which repository a branch list is of, absent being the one Fleet was
+/// started in.
+#[derive(Deserialize)]
+pub(crate) struct OfRepository {
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// The repository's local branches, the base first. #1605.
+pub(crate) async fn list_branches<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(OfRepository { manifest_id }): Query<OfRepository>,
+) -> Response {
+    match served
+        .daemon()
+        .list_branches(manifest_id.map(ipc::ManifestId::carried))
+        .await
+    {
+        Ok(branches) => answer(StatusCode::OK, &branches, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One Job in full. **The Board row plus what the list redacts** — the steps
 /// and where each got to, the criteria, the branch, the brief.
 pub(crate) async fn get_job<D: Queries>(

@@ -162,6 +162,11 @@ wire_enum! {
     CriterionSource, core_model::CriterionSource, "a criterion source"
 }
 wire_enum! {
+    /// Whether a Job's pull request is offered for review or parked as a
+    /// draft. Since 23.8.
+    PrMode, core_model::PrMode, "a pull request mode"
+}
+wire_enum! {
     /// Kit's own tier for one MCP server: whether a Drone gets it where the
     /// Manifest has said nothing. `#1275`.
     ReachesDrones, core_model::ReachesDrones, "Kit's reach for a server"

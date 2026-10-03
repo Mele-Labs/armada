@@ -37,6 +37,27 @@ pub(crate) fn pool_of(served: &Served) -> SlotPool {
     )
 }
 
+/// The pool, cutting a new lease's branch from `from` where a person chose a
+/// branch at approval — spike 022, slice 4 — and from the base where nobody
+/// did. Only the lease asks this; every other question of the pool is the
+/// pool's own, measured from the base.
+pub(crate) fn pool_cut_from(served: &Served, from: Option<&core_model::Branch>) -> SlotPool {
+    let Some(from) = from else {
+        return pool_of(served);
+    };
+    let manifest = served.manifest();
+    let keep = manifest
+        .seed()
+        .map(|seed| seed.paths().to_vec())
+        .unwrap_or_default();
+    SlotPool::of(
+        served.root(),
+        manifest.worktrees().get(),
+        from.as_str(),
+        keep,
+    )
+}
+
 /// Where a Job's record says its worktree is: the slot it leased, or the
 /// derived path of a Job cut before the pool. **Not whether the Job still
 /// holds the slot** — [`Fleet::job_tree`] asks that.

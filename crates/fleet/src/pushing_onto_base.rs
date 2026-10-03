@@ -101,7 +101,7 @@ where
             Arc::clone(self.vcs()),
             served.root().to_string(),
             job.handle(),
-            served.manifest().base().map(str::to_string),
+            self.target_of(served, job.id()).await,
         );
         let _at_the_merge_end = self.merge_end().lock().await;
         tokio::task::spawn_blocking(move || {
@@ -138,7 +138,7 @@ where
                 Arc::clone(self.vcs()),
                 served.root().to_string(),
                 worktree.clone(),
-                served.manifest().base().map(str::to_string),
+                self.target_of(served, job.id()).await,
             );
             let _at_the_merge_end = self.merge_end().lock().await;
             tokio::task::spawn_blocking(move || {
@@ -203,7 +203,7 @@ where
                 Arc::clone(self.vcs()),
                 served.root().to_string(),
                 worktree.clone(),
-                served.manifest().base().map(str::to_string),
+                self.target_of(served, job.id()).await,
                 self.checked_tree(job).await,
             );
             let _at_the_merge_end = self.merge_end().lock().await;

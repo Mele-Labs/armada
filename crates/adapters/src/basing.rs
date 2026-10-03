@@ -84,6 +84,38 @@ pub fn base_commit(
     Ok(Some(commit.id().to_string()))
 }
 
+/// The repository's local branches, the base first and the rest by name.
+/// #1605. The base is [`crate::base::resolve`]'s, for `base_commit`'s reason;
+/// a declared base the repository lacks marks no branch rather than failing
+/// the list, since the list is what a person picks another one from.
+pub fn branches(
+    repo_root: &str,
+    declared: Option<&str>,
+) -> Result<Vec<adapter_traits::BranchListed>, CreateWorktreeError> {
+    let repo = open(repo_root)?;
+    let base = crate::base::resolve(&repo, declared)
+        .ok()
+        .flatten()
+        .map(|base| base.name().to_string());
+    let unreadable = |cause| CreateWorktreeError::RepoUnreadable {
+        repo: repo_root.to_string(),
+        cause,
+    };
+    let mut listed = Vec::new();
+    for found in repo.branches(Some(BranchType::Local)).map_err(unreadable)? {
+        let (branch, _) = found.map_err(unreadable)?;
+        // A name that is not UTF-8 is not one a person can type back.
+        if let Ok(Some(name)) = branch.name() {
+            listed.push(adapter_traits::BranchListed {
+                name: name.to_string(),
+                base: base.as_deref() == Some(name),
+            });
+        }
+    }
+    listed.sort_by(|a, b| b.base.cmp(&a.base).then_with(|| a.name.cmp(&b.name)));
+    Ok(listed)
+}
+
 /// The checkout at this commit, made if it is not there.
 pub fn base_checkout(spec: &BaseSpec) -> Result<BaseCheckout, CreateWorktreeError> {
     let path = spec.path();

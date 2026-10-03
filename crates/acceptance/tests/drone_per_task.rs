@@ -4,10 +4,14 @@
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
 //! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task,
 //! 2's red group going round on its own before its tasks fail, 3's model per
-//! task, and 5's tasks at once, in [`at_once`].
+//! task, 4's proposal running as a person approved it, and 5's tasks at
+//! once, in [`at_once`].
 //!
 //! | Not proved here | Why not |
 //! |---|---|
+//! | The worktree cut from `from_ref`, the pull request opened against `target` and as a draft | Hermetic: nothing here leases or delivers. `crates/fleet/src/tests/approving.rs` drives the fake VCS |
+//! | The issue rotation's second cursor reaching each issue-linked Job in turn | A `tokio` turn; `crates/fleet/src/tests/approving.rs` drives the clock |
+//! | Which forge call reads when an issue was last edited | The forge is `adapters`' to name; `crates/adapters/src/tests/issue_lookup.rs` |
 //! | Fleet spawning, ending and respawning the Drones themselves | Hermetic: nothing here spawns. `crates/fleet/src/tests/drone_per_task.rs` drives a fake harness through every task |
 //! | Bridge redrawing the pane whole after a `missed` | Nothing here renders; `apps/desktop/src/main/observe.test.ts` |
 //! | A Fleet built before 1a refuses the store | Hermetic; `crates/store/src/tests/signers.rs` |
@@ -20,17 +24,20 @@
 mod bench;
 
 /// Slice 5's claim, in a module of its own for the line limit.
+#[path = "drone_per_task/at_once.rs"]
 mod at_once;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
+use core_model::{AdvanceGate, AutoMerge, CriterionOrigin, CriterionSource, ReviewGate, Timestamp};
 use core_model::{Attempt, GroupId, GroupMove, GroupRuns, PlanChange, StepTarget};
 use core_model::{ModelName, TaskTier, TierModels};
 use fleet::tasking::{self, GroupEnd, HandIn, NotRestartable};
-use fleet::{briefing, Crossed, Ruling, ThePlan};
+use fleet::{briefing, Crossed, Policies, Ruling, ThePlan};
 use ipc::{ChangeKind, ChangedFile, DroneExited, DroneSpawned, Event, JobFilesChanged};
 use ipc::{JobPlanChanged, JobStateChanged, JobSummary, RepositoryList};
 use testkit::{FakeJudge, FakeWorkProduct};
 
+use bench::arc::landing_by_the_repository;
 use bench::arc::{feature_with_a_drone_per_task, per_task_with_two_retries, step_signers};
 use bench::board::received_detail;
 use bench::focus::{drone, now};
@@ -861,4 +868,261 @@ fn each_task_runs_on_the_model_its_tier_or_its_person_picked_and_its_drone_says_
         fleet::task_edits::the_edit(&edit_body("{}")).is_none(),
         "an edit that changes nothing is not one"
     );
+}
+
+/// What Approve sends at the gate: every field of the proposal, as the person
+/// left it. The workflow is the one the Job was proposed on; the gates set
+/// `plan` to stop for a person, `implement` to run on its own with its
+/// repository Check unticked, and override the repository's `auto_merge` on
+/// `tests`. `c1` is reworded, `c2` is taken off and one line is added.
+const APPROVED: &str = r#"{
+  "title": "Bound the reader at the last row",
+  "facts": "The cursor reads one row past the end. Stop it at the last row.",
+  "workflow_id": "feature-landing-by-rule",
+  "gates": [
+    {"step_id": "plan", "checks": true, "judge": false, "you": true},
+    {"step_id": "implement", "checks": false, "judge": false, "you": false},
+    {"step_id": "tests", "checks": true, "judge": false, "you": false, "overridden": true}
+  ],
+  "criteria": [
+    {"criterion_id": "c1", "text": "the reported symptom no longer occurs at the last row", "source": "check"},
+    {"text": "the bound is named where the module says what it reads", "source": "judge"}
+  ],
+  "tiers": {"difficult": "the-strong-model", "easy": "the-cheap-model"},
+  "drone_cap": 2,
+  "landing": {"target": "release/2.0", "from_ref": "reader/bound", "branching": "job",
+              "pr_mode": "draft", "complete_when": "delivered"}
+}"#;
+
+fn approval(json: &str) -> ipc::ApproveDispatch {
+    ipc::decode("an approval body", json.as_bytes()).expect("Bridge's body decodes")
+}
+
+/// Slice 4: **everything I change on a proposal — its words, workflow, gates,
+/// criteria, tiers, Drone cap and how it lands — is what the Job runs after I
+/// approve it, and a criterion read from an issue says so and says when that
+/// issue moved.** The body is Approve's own, read the way `approve_dispatch`
+/// reads it; what the Job runs is read where it runs: the frozen step the gate
+/// rules on, the spawn's model, the first Drone's brief, the policy a gate
+/// resolves.
+#[test]
+fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it_moved() {
+    let issue = core_model::IssueSource::read(
+        "armada#1162".to_string(),
+        "https://forge.example/NickMele/armada/issues/1162".to_string(),
+        at(1),
+    );
+    let mut planned = Planned::from_an_issue("bound the reader", landing_by_the_repository());
+    let (plan, implement, tests) = (
+        StepId::new("plan"),
+        StepId::new("implement"),
+        StepId::new("tests"),
+    );
+
+    // ------------------------------------------------ read against the Job
+    let decided = fleet::approving::decided(&planned.job, &approval(APPROVED), None)
+        .expect("a proposal a person may approve");
+    planned.job = planned
+        .job
+        .proposal_edited(decided.edit.clone(), &at(2))
+        .expect("the Job is at its approval gate");
+    assert_eq!(
+        planned.job.title().as_str(),
+        "Bound the reader at the last row"
+    );
+    assert_eq!(
+        planned.job.facts().as_str(),
+        "The cursor reads one row past the end. Stop it at the last row."
+    );
+
+    // ------------------------------------------------------------- criteria
+    let criteria: Vec<(&str, &str, CriterionSource, CriterionOrigin)> = planned
+        .job
+        .acceptance_criteria()
+        .iter()
+        .map(|c| (c.criterion_id.as_str(), c.text.as_str(), c.source, c.origin))
+        .collect();
+    assert_eq!(
+        criteria,
+        [
+            (
+                "c1",
+                "the reported symptom no longer occurs at the last row",
+                CriterionSource::Check,
+                CriterionOrigin::Issue
+            ),
+            (
+                "c3",
+                "the bound is named where the module says what it reads",
+                CriterionSource::Judge,
+                CriterionOrigin::Person
+            ),
+        ],
+        "a reworded line keeps its id and its issue; a removed id is never minted again; a \
+         line typed at the gate is the Judge's and the person's"
+    );
+
+    // ---------------------------------------------------------------- gates
+    let step = |id: &StepId| planned.job.workflow().step(id).expect("a step").clone();
+    assert_eq!(step(&plan).advance_gate(), AdvanceGate::HumanAlways);
+    assert_eq!(step(&implement).advance_gate(), AdvanceGate::Auto);
+    assert!(
+        step(&implement)
+            .checks()
+            .iter()
+            .all(|check| check.kind() != core_model::MANIFEST_CHECK),
+        "an unticked Check is not run at the gate the step is ruled at"
+    );
+    assert_eq!(
+        step(&tests).advance_gate(),
+        AdvanceGate::ManifestRuleAutoMerge,
+        "an override leaves the step deferring, so the Record still says whose rule it was"
+    );
+    for the_file_says in [AutoMerge::Never, AutoMerge::Always] {
+        let resolved = Policies::gating([(the_file_says, ReviewGate::HumanAlways)])
+            .overridden_by(&decided.overrides);
+        assert_eq!(
+            resolved.auto_merge(),
+            AutoMerge::ChecksPass,
+            "the override holds for the life of the Job, whatever the repository says now \
+             ({the_file_says:?})"
+        );
+    }
+
+    // ------------------------------------------------- tiers, cap, landing
+    let tiers = decided.tiers.clone().expect("the approval names a map");
+    let spawned = planned
+        .job
+        .model_spawned_for(&implement, None, None, &tiers)
+        .clone();
+    assert_eq!(
+        spawned.as_str(),
+        "a-model",
+        "a task with no tier is Armada picking"
+    );
+    assert_eq!(
+        tiers.get(TaskTier::Difficult).map(ModelName::as_str),
+        Some("the-strong-model")
+    );
+    assert_eq!(decided.drone_cap, Some(2), "kept now, enforced by slice 5");
+    assert_eq!(
+        decided.landing,
+        core_model::Landing {
+            target: core_model::branch_named(Some("release/2.0")),
+            from_ref: core_model::branch_named(Some("reader/bound")),
+            pr_mode: core_model::PrMode::Draft,
+        }
+    );
+
+    // -------------------------------------------- the first Drone is told it
+    let workflow = planned.job.workflow().clone();
+    let brief = briefing::first_turn(&planned.job, &workflow, &plan, &Crossed::nothing())
+        .expect("a brief assembles");
+    for said in [
+        "Stop it at the last row.",
+        "the bound is named where the module says what it reads",
+    ] {
+        assert!(
+            brief.as_str().contains(said),
+            "the brief says {said:?}: {}",
+            brief.as_str()
+        );
+    }
+    assert!(
+        !brief
+            .as_str()
+            .contains("a test covers the reported symptom"),
+        "a criterion taken off is not one the Drone is held to"
+    );
+
+    // ----------------------------------- a criterion says where it came from
+    let moved = issue
+        .edited(&Timestamp::from_rfc3339("2026-10-02T12:00:00Z"))
+        .expect("an edit after the read is news");
+    assert!(
+        moved
+            .edited(&Timestamp::from_rfc3339("2026-10-02T11:00:00Z"))
+            .is_none(),
+        "an edit no later than the one noticed is not news"
+    );
+    let served: Vec<ipc::Criterion> = planned
+        .job
+        .acceptance_criteria()
+        .iter()
+        .map(|c| ipc::Criterion::of(c, Some(&moved)))
+        .collect();
+    let body = ipc::encode(&served).expect("criteria encode");
+    let back: Vec<ipc::Criterion> = ipc::decode("criteria", body.as_bytes()).expect("and decode");
+    assert_eq!(
+        back[0].origin,
+        Some(ipc::CriterionOrigin::Issue {
+            reference: "armada#1162".to_string(),
+            url: "https://forge.example/NickMele/armada/issues/1162".to_string(),
+        })
+    );
+    assert_eq!(
+        back[0].origin_moved_at.as_ref().map(ipc::Instant::as_str),
+        Some("2026-10-02T12:00:00Z"),
+        "the Job keeps the words it froze, and says the issue has moved since"
+    );
+    assert_eq!(back[1].origin, Some(ipc::CriterionOrigin::Person));
+    assert_eq!(
+        back[1].origin_moved_at, None,
+        "a person's line moved with nobody"
+    );
+
+    // ------------------------------------------- and after the press, frozen
+    planned.job = planned
+        .job
+        .transition(Target::Queued, Actor::Human, at(3))
+        .expect("approved")
+        .job;
+    assert_eq!(
+        fleet::approving::decided(&planned.job, &approval(APPROVED), None).err(),
+        Some(fleet::approving::Refused::Frozen(JobStatus::Queued)),
+        "an approved Job runs what was approved"
+    );
+    let edit: ipc::EditJob =
+        ipc::decode("an edit", br#"{"title":"Something else"}"#).expect("Bridge's edit decodes");
+    assert_eq!(
+        fleet::approving::edited(&planned.job, &edit).err(),
+        Some(fleet::approving::Refused::Frozen(JobStatus::Queued)),
+        "edit_job saves only a proposal nobody has released"
+    );
+
+    // ------------------------------------- what the lock refuses to pretend
+    for refused in ["pr_merged", "pr_opened", "all_members_landed"] {
+        let body = APPROVED.replace(
+            r#""complete_when": "delivered""#,
+            &format!(r#""complete_when": "{refused}""#),
+        );
+        let job = Planned::from_an_issue("bound the reader", landing_by_the_repository()).job;
+        assert!(
+            matches!(
+                fleet::approving::decided(&job, &approval(&body), None),
+                Err(fleet::approving::Refused::NotHonoured { .. })
+            ),
+            "{refused} is not a setting Fleet runs"
+        );
+    }
+    let inserted = approval(
+        r#"{"criteria": [
+          {"text": "a line typed above the others", "source": "judge"},
+          {"criterion_id": "c1", "text": "the reported symptom no longer occurs", "source": "check"}
+        ]}"#,
+    );
+    let job = Planned::from_an_issue("bound the reader", landing_by_the_repository()).job;
+    assert_eq!(
+        fleet::approving::decided(&job, &inserted, None).err(),
+        Some(fleet::approving::Refused::OutOfPlace {
+            id: "c1".to_string()
+        }),
+        "a new line goes at the foot, so no citation's place moves"
+    );
+    for route in ["edit_job", "list_branches"] {
+        assert!(
+            api::SERVED.iter().any(|served| served.operation == route),
+            "{route} is a route Fleet answers"
+        );
+    }
 }

@@ -58,6 +58,7 @@ pub fn asking(title: &str, facts: &str, criteria: &[&str]) -> Job {
                     criterion_id: CriterionId::new(format!("c{}", position + 1)),
                     text: (*text).to_string(),
                     source: CriterionSource::Check,
+                    origin: core_model::CriterionOrigin::Unsaid,
                 })
                 .collect(),
             steps: vec![StepSeed {

@@ -516,13 +516,26 @@ impl RepositoryStanding {
 pub struct Review {
     title: String,
     body: String,
+    draft: bool,
 }
 
 impl Review {
+    /// Offered for review, which is what every pull request was before a
+    /// person could choose a draft.
     pub fn assembled(title: impl Into<String>, body: impl Into<String>) -> Review {
         Review {
             title: title.into(),
             body: body.into(),
+            draft: false,
+        }
+    }
+
+    /// The same contents, opened as a draft. Spike 022, slice 4: a person
+    /// chose it at the Job's approval.
+    pub fn as_draft(self) -> Review {
+        Review {
+            draft: true,
+            ..self
         }
     }
 
@@ -532,6 +545,10 @@ impl Review {
 
     pub fn body(&self) -> &str {
         &self.body
+    }
+
+    pub fn draft(&self) -> bool {
+        self.draft
     }
 }
 

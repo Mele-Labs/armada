@@ -83,6 +83,7 @@ where
         // of what an older Fleet wrote under a ULID. See
         // [`mod@crate::naming`] and `crate::transcript::migrating`.
         self.names().learn_all(&loaded.jobs);
+        self.cut_from_learned(&loaded.jobs).await;
         let mut reconciled = Reconciled {
             repaired: loaded.repaired.len(),
             unreadable,
@@ -113,6 +114,7 @@ where
         self.reaped_left_servers(served.records_root()).await;
         let (loaded, _) = self.every_job().await?;
         self.names().learn_all(&loaded.jobs);
+        self.cut_from_learned(&loaded.jobs).await;
         let mut reconciled = Reconciled::default();
         self.reconciled_jobs(served, &loaded.jobs, &mut reconciled)
             .await?;

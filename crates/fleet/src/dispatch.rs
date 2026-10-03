@@ -40,7 +40,6 @@ use crate::daemon::Fleet;
 use crate::drone::{aftermath, Aftermath, Ending, Left};
 use crate::gate::{apply, Ruling};
 use crate::grouping::GroupEnd;
-use crate::leasing::pool_of;
 use crate::session::{LiveSession, Occasion};
 use crate::terms::Declaring;
 use crate::working::Working;
@@ -101,13 +100,21 @@ where
                 cause,
             }
         })?;
+        // **Cut from the branch a person chose at approval**, where they chose
+        // one (spike 022, slice 4), and learned before the worktree is first
+        // measured so every reading of it starts where the work did.
+        let from = self.landing_of(&job_id).await.from_ref;
+        if let Some(from) = &from {
+            self.cut_from().learn(&spec.branch(), from.as_str());
+        }
         // **Held by the Job's id**, so a Fleet restart is not the Job letting
         // go. A Job that already holds one — a dispatch that died after the
         // lease — is handed the same slot back, untouched.
-        let leased = match self
-            .vcs()
-            .lease_slot(&pool_of(&served), &spec, job_id.as_str())
-        {
+        let leased = match self.vcs().lease_slot(
+            &crate::leasing::pool_cut_from(&served, from.as_ref()),
+            &spec,
+            job_id.as_str(),
+        ) {
             Ok(SlotLeased::Full) => return Ok(Dispatched::NoSlot),
             Ok(SlotLeased::Took { slot, worktree, .. }) => Ok((slot, worktree)),
             Err(cause) => Err(cause),
