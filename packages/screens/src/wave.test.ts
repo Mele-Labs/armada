@@ -173,29 +173,37 @@ describe("where each Job stands", () => {
   });
 });
 
-// **The wire cannot tell a wave from a landing order**, because both are read
-// off `dispatched_by`. A derived wave drew the graph over the members moments,
-// where the landing band is the right region — so nothing is derived, and
-// `waveOf` waits for the wire to say which a Job is (`#1545`).
+// **A wave is not a landing order**, and both are read off `dispatched_by`. A
+// derived wave once drew the graph over the members moments, where the landing
+// band is the right region. Since 23.11 a wave's rows carry `dispatched_pass`
+// and a landing order's do not, so only those draw one.
 describe("which Jobs draw a wave", () => {
-  it("draws one only where the moment says this Job is one", () => {
+  it("draws the moment's own where it says this Job is one", () => {
     const view = wave([job({ job: "a" })]);
     expect(waveReadingOf(null, { wave: view }, [])).toBe(view);
   });
 
-  it("draws none from the Board's rows alone, however many a Job dispatched", () => {
-    const whole = {
-      job: { id: "parent" },
-      created_at: "",
-      steps: [],
-      acceptance_criteria: [],
-      dependencies: [],
-    } as unknown as Parameters<typeof waveReadingOf>[0];
+  const whole = {
+    job: { id: "parent", title: "The parent" },
+    created_at: "",
+    steps: [],
+    acceptance_criteria: [],
+    dependencies: [],
+  } as unknown as Parameters<typeof waveReadingOf>[0];
+
+  it("draws none from rows that carry no pass, however many a Job dispatched", () => {
     const rows = [
       { id: "a", dispatched_by: "parent" },
       { id: "b", dispatched_by: "parent" },
     ] as unknown as Parameters<typeof waveReadingOf>[2];
     expect(waveReadingOf(whole, undefined, rows)).toBeUndefined();
     expect(waveReadingOf(whole, {}, rows)).toBeUndefined();
+  });
+
+  it("draws one from rows the parent's plan proposed, by their pass", () => {
+    const rows = [
+      { id: "a", title: "A", status: "queued", dispatched_by: "parent", dispatched_pass: 1 },
+    ] as unknown as Parameters<typeof waveReadingOf>[2];
+    expect(waveReadingOf(whole, undefined, rows)?.jobs.map((one) => one.job)).toEqual(["a"]);
   });
 });
