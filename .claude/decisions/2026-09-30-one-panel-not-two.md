@@ -28,6 +28,9 @@ and the pull request's comments are all one panel now.
 
 **The record stays folded.** Unfolding it to make the merge look tidier is
 reversing yesterday's decision, which the other record already argues.
+**2 Oct 2026: the owner unfolded it himself** (#1680), so the record's cards are
+open inside this panel now. `2026-09-29-the-review-gate-sits-under-the-lead.md`
+has his words.
 
 **Where it landed:** `packages/screens/src/JobLead.tsx` draws the slot,
 `OverviewBoard` hands it over, and `step.tsx` is where the two boxes lost their

@@ -316,6 +316,7 @@ mod loop_return;
 mod machine;
 mod models;
 mod note;
+mod plan_group;
 mod proposing;
 mod record;
 mod revisions;

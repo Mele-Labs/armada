@@ -32,7 +32,7 @@ import {
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
 import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
@@ -43,7 +43,12 @@ import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
-import { RecordTab, type CheckAt } from "./tab-record";
+import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
+import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
+import { useCheckOutputs, useFollowing } from "./outputs";
+
+/** What `followed` reads as where the caller hands none in. `tab-overview.tsx`'s own. */
+const NOT_FOLLOWING: FollowedLog = { state: "none" };
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
@@ -178,6 +183,24 @@ function OneJob(props: JobDetailProps) {
   const narrow = useNarrow();
   const floor = useAtFloor();
 
+  // The Check whose log is open in the log panel, pressed from a boundary's
+  // strip on Overview, Plan or the Record. **Held here, which every one of
+  // them is under**, so one press opens one panel whichever drew the strip,
+  // and another Job opens with none.
+  const [checkLog, setCheckLog] = useState<JobCheckLog | null>(null);
+  useEffect(() => setCheckLog(null), [job.id]);
+  const checkOutputs = useCheckOutputs(props.onReadCheckOutput, job.id);
+  const checkFollowing = useFollowing(props.onFollowCheckOutput, props.followed ?? NOT_FOLLOWING, job.id);
+  // The open log's own Record row, where the Record holds one: the way on from
+  // the log to what the Check stopped. A live log has none yet.
+  const checkRow =
+    checkLog?.stepAttempt === undefined
+      ? undefined
+      : checkRowOf(recordOf(props, whole).rows, whole, { name: checkLog.name, stepAttempt: checkLog.stepAttempt });
+  // Bumped by that way on, so the Record opens on the row even where it is
+  // already the destination: it reads which row to open once, as it mounts.
+  const [recordVisit, setRecordVisit] = useState(0);
+
   // Why the Workflow tab has no run to draw, where it has none. The same
   // reading Overview's run column takes, so the two never give a Job's empty
   // workflow two different reasons.
@@ -258,6 +281,7 @@ function OneJob(props: JobDetailProps) {
     onRaisingTurns: setRaisingTurns,
     onOpenPullRequest: props.onOpenPullRequest,
     onOpenJob: props.onOpenJob,
+    onOpenStudio: props.onOpenStudio,
     onCopied: props.onCopied,
     onSaid: props.onSaid,
   });
@@ -338,6 +362,7 @@ function OneJob(props: JobDetailProps) {
             setOpensCheck(at);
             setTab("record");
           }}
+          onOpenCheckLog={setCheckLog}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
           {...(opensTask === undefined ? {} : { opensTask })}
@@ -347,6 +372,7 @@ function OneJob(props: JobDetailProps) {
             setTab("drones");
           }}
           trail={trail.of("overview")}
+          drones={drones}
         />
         </div>
       ) : tab === "workflow" ? (
@@ -362,6 +388,11 @@ function OneJob(props: JobDetailProps) {
           acting={props.acting}
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
           onAnswerJudge={props.onAnswerJudge}
+          diff={props.recorded.diff}
+          onReadDiff={props.onReadDiff}
+          opens={{ jobId: job.id, open: props.onOpenArtifact, onSaid: props.onSaid }}
+          onOverrule={props.onOverrule}
+          onSendBack={props.onSendBack}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           drones={drones}
           onRedirect={props.onRedirect}
@@ -414,16 +445,13 @@ function OneJob(props: JobDetailProps) {
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
           now={props.now}
+          drones={drones}
           onOpenDrone={(droneId) => {
             trail.push("plan");
             setOpensDrone(droneId);
             setTab("drones");
           }}
-          onOpenCheck={(name, stepAttempt) => {
-            trail.push("plan");
-            setOpensCheck({ name, stepAttempt });
-            setTab("record");
-          }}
+          onOpenCheckLog={setCheckLog}
           trail={trail.of("plan")}
         />
       ) : tab === "settings" ? (
@@ -456,6 +484,7 @@ function OneJob(props: JobDetailProps) {
         />
       ) : tab === "record" ? (
         <RecordTab
+          key={recordVisit}
           {...recordOf(props, whole)}
           reading={unread !== undefined}
           jobId={job.id}
@@ -471,6 +500,7 @@ function OneJob(props: JobDetailProps) {
             setOpensStep(stepId);
             setTab("workflow");
           }}
+          onOpenCheckLog={setCheckLog}
           {...(opensCheck === undefined ? {} : { opensCheck })}
           {...(opensRow === undefined ? {} : { opensRow })}
           trail={trail.of("record")}
@@ -513,6 +543,27 @@ function OneJob(props: JobDetailProps) {
           journalled={props.journalled}
           floor={floor}
           onReadBrief={props.onReadBrief}
+        />
+      )}
+      {checkLog === null ? null : (
+        <JobCheckLogSheet
+          log={checkLog}
+          outputs={checkOutputs}
+          following={checkFollowing}
+          {...(checkRow === undefined
+            ? {}
+            : {
+                onOpenRecord: () => {
+                  if (tab !== "record") trail.push(tab);
+                  setOpensCheck(undefined);
+                  setOpensRow(checkRow);
+                  setCheckLog(null);
+                  setRecordVisit((was) => was + 1);
+                  setTab("record");
+                },
+              })}
+          floor={floor}
+          onClose={() => setCheckLog(null)}
         />
       )}
     </div>

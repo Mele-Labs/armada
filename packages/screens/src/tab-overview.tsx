@@ -31,7 +31,10 @@ import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
 import { useDetailKeys } from "./detail-keys";
 import { DetailSheet, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
+import type { JobCheckLog } from "./check-log-sheet";
 import { leadOf } from "./lead";
+import { heldByAFlag } from "./gaming";
+import { GamingHeld } from "./gaming-held";
 import { OverviewBoard } from "./OverviewBoard";
 import { Approving } from "./approving";
 import type { DetailTab } from "./detail-tabs";
@@ -44,6 +47,7 @@ import { workflowRunOf } from "./workflow-canvas";
 import type { Figure } from "@armada/components";
 import type { JobExamined } from "@armada/protocol";
 import type { PulseView } from "./draft/pulse";
+import type { DroneView } from "./draft/drone";
 import type { LandingRule } from "./draft/landing";
 import { changedOf } from "./settings";
 import { LandBoard } from "./LandBoard";
@@ -115,6 +119,8 @@ export type OverviewTabProps = JobDetailProps & {
    * Plan's group boundary.
    */
   onOpenCheck: (at: CheckAt) => void;
+  /** Open a boundary Check's log in the log panel. **The screen's**, which holds the panel. */
+  onOpenCheckLog: (log: JobCheckLog) => void;
   /**
    * The Job header's own acts, drawn again as the lead's where the lead's act
    * is approving the dispatch. **The same element, not a second control**, so
@@ -130,6 +136,8 @@ export type OverviewTabProps = JobDetailProps & {
   onOpenDrone?: (droneId: string) => void;
   opensTask?: string;
   trail?: TrailProps;
+  /** Every Drone the Job has had, which a task's panel lists its own from. */
+  drones?: readonly DroneView[];
 };
 
 /**
@@ -483,8 +491,9 @@ export function OverviewTab(props: OverviewTabProps) {
       diff: recorded.diff,
       ...(props.opensTask === undefined ? {} : { opensTask: props.opensTask }),
       ...(props.onOpenDrone === undefined ? {} : { onOpenDrone: props.onOpenDrone }),
+      ...(props.drones === undefined ? {} : { drones: props.drones }),
       now,
-      onOpenCheck: (name, stepAttempt) => props.onOpenCheck({ name, stepAttempt }),
+      onOpenCheckLog: props.onOpenCheckLog,
       ...(props.trail === undefined ? {} : { trail: props.trail }),
     },
   });
@@ -600,9 +609,31 @@ export function OverviewTab(props: OverviewTabProps) {
   // Bound to the Job being read, so nothing downstream carries an id back.
   const explain =
     onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
+  // The step Fleet's own record of the stop names, which is the one a flag holds.
+  const heldStep = whole?.steps.find((one) => one.step_id === whole.stuck?.step_id);
   const waiting = waitingOf(
     questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
     commandOf(whole, answering, explain),
+    // A step the gaming check holds, answered where the lead names it — the
+    // block the Workflow step panel draws too (owner, 2 Oct 2026, #1672).
+    // Only where a flag holds it: an element is a slot drawn, even one that
+    // renders nothing, and a drawn slot takes the lead's act away.
+    !heldByAFlag(whole, heldStep) ? undefined : (
+      <GamingHeld
+        job={job}
+        whole={whole}
+        step={heldStep}
+        diff={recorded.diff}
+        opens={opensRecords}
+        stale={stale}
+        acting={acting}
+        actingAct={actingAct}
+        onOverrule={props.onOverrule}
+        onSendBack={props.onSendBack}
+        onRedirect={onRedirect}
+        underTheLead
+      />
+    ),
     verdictSlot,
     // The proposer's own call, on the one status where the thing the lead names
     // is a model reading rather than anything a step holds. #1159.
@@ -730,6 +761,9 @@ export function OverviewTab(props: OverviewTabProps) {
       pulseAbsent={whyNoReading(resources)}
       {...(whole === null ? {} : { brief: whole.facts })}
       briefAbsent={whyNoBrief(watched, job.id)}
+      {...(whole?.from_studio === undefined || props.onOpenStudio === undefined
+        ? {}
+        : { fromStudio: whole.from_studio, onOpenStudio: props.onOpenStudio })}
       // What froze, and whether anybody has moved a setting since. `changedOf`
       // is the same count the strip's own Settings tab carries.
       settings={settingsSaid(props.draft?.landing, changedOf(whole))}

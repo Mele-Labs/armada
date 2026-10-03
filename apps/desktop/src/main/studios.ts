@@ -49,6 +49,18 @@ const PROMOTION_ROUTE: Readonly<Record<StudioPromotion["act"], string>> = {
   read_in: "/read_in",
 };
 
+/** Where a node's own corner is on the board: its spot, and every frame's it is inside. */
+function cornerOf(studio: Studio, nodeId: string): StudioPosition {
+  let x = 0;
+  let y = 0;
+  for (let at = studio.nodes.find((one) => one.id === nodeId), hops = 0; at !== undefined && hops < 8; hops += 1) {
+    x += at.position.x;
+    y += at.position.y;
+    at = at.within === undefined ? undefined : studio.nodes.find((one) => one.id === at?.within);
+  }
+  return { x, y };
+}
+
 export class StudioReads {
   private readonly publish: Publish;
   private readonly port: () => number | null;
@@ -193,9 +205,38 @@ export class StudioReads {
    * Put a Note, a Link, a Sketch or a File on a Studio where the person is looking —
    * #1364. **The kind is the narrow one**, so nothing the renderer can ask for
    * is a kind Fleet would refuse as `fleet.studio_node_not_a_persons`.
+   *
+   * **In a Zone it is two writes**, because `add_node` names no frame: the node
+   * is added where it sits on the board, then moved into the Zone with
+   * `position` from its corner — the owner, 2 Oct 2026, pressing inside a Zone.
+   * The node added is the one the answer holds that the Studio did not, at the
+   * spot it was sent to. A move Fleet refuses leaves it on the board at that
+   * same spot, and says why. One write waits on `add_node` taking `within`.
    */
-  async addNode(studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/add_node"), { ...node, position }));
+  async addNode(
+    studioId: string,
+    node: StudioNodeByHand,
+    position: StudioPosition,
+    within: string | null = null,
+  ): Promise<Outcome> {
+    const graph = this.graph?.id === studioId ? this.graph : null;
+    if (within === null || graph === null) {
+      return this.acted(await this.act(member(studioId, "/add_node"), { ...node, position }));
+    }
+    const before = new Set(graph.nodes.map((one) => one.id));
+    const corner = cornerOf(graph, within);
+    const board = { x: corner.x + position.x, y: corner.y + position.y };
+    const added = await this.act(member(studioId, "/add_node"), { ...node, position: board });
+    if (!added.ok) return added.outcome;
+    const made = added.studio.nodes.find(
+      (one) => !before.has(one.id) && one.position.x === board.x && one.position.y === board.y,
+    );
+    if (made === undefined) return this.acted(added);
+    const body: MoveStudioNode = { node_id: made.id, within, position };
+    const moved = await this.act(member(studioId, "/move_node"), body);
+    if (moved.ok) return this.acted(moved);
+    this.acted(added);
+    return moved.outcome;
   }
 
   /** The whole drawing a person left on a Sketch's pad, its new pictures staged — 1 Oct 2026. */

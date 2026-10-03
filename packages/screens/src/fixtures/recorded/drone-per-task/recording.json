@@ -1,0 +1,2070 @@
+{
+ "says": "A plan of five tasks worked one at a time, each by a Drone of its own, every task done",
+ "recorded_at": "2026-10-02T14:46:58.966Z",
+ "now": 1790952418967,
+ "summary": {
+  "id": "01M3YH62V40012RJWKMGBKX3Q4",
+  "handle": "2-write-five-small-files-one-task-each",
+  "title": "Write five small files, one task each",
+  "status": "completed_success",
+  "created_at": "2026-10-02T14:44:38.884Z",
+  "started_at": "2026-10-02T14:44:38.946Z",
+  "ended_at": "2026-10-02T14:45:29.214Z",
+  "branch": "armada/2-write-five-small-files-one-task-each",
+  "workflow_id": "rate",
+  "owner_manifest_id": "armada",
+  "origin": "manual",
+  "urgency": "normal",
+  "atomic": false,
+  "model": "sonnet",
+  "current_step_id": "wrap",
+  "tasks": {
+   "done": 5,
+   "working": 0,
+   "open": 0,
+   "dropped": 0
+  }
+ },
+ "reads": {
+  "detail": {
+   "status": 200,
+   "body": {
+    "job": {
+     "id": "01M3YH62V40012RJWKMGBKX3Q4",
+     "handle": "2-write-five-small-files-one-task-each",
+     "title": "Write five small files, one task each",
+     "status": "completed_success",
+     "created_at": "2026-10-02T14:44:38.884Z",
+     "started_at": "2026-10-02T14:44:38.946Z",
+     "ended_at": "2026-10-02T14:45:29.214Z",
+     "branch": "armada/2-write-five-small-files-one-task-each",
+     "workflow_id": "rate",
+     "owner_manifest_id": "armada",
+     "origin": "manual",
+     "urgency": "normal",
+     "atomic": false,
+     "model": "sonnet",
+     "current_step_id": "wrap",
+     "tasks": {
+      "done": 5,
+      "working": 0,
+      "open": 0,
+      "dropped": 0
+     }
+    },
+    "created_at": "2026-10-02T14:44:38.884Z",
+    "branch": "armada/2-write-five-small-files-one-task-each",
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan the change",
+      "ordinal": 0,
+      "state": "advanced",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "check_runs": [
+       {
+        "attempt": 1,
+        "name": "plan_recorded",
+        "outcome": "passed"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false,
+      "last_verdict": {
+       "attempt": 1,
+       "named": "passed"
+      },
+      "overridden": false,
+      "judged": [],
+      "flagged": [],
+      "attempts": [
+       {
+        "attempt": 1,
+        "outcome": "advanced",
+        "started_at": "2026-10-02T14:44:38.952Z",
+        "ended_at": "2026-10-02T14:44:39.201Z",
+        "resolved": {
+         "auto_merge": "never",
+         "review_gate": "human_always",
+         "decided": true
+        }
+       }
+      ],
+      "verdicts": [
+       {
+        "attempt": 1,
+        "named": "passed"
+       }
+      ],
+      "entered_at": "2026-10-02T14:44:38.952Z",
+      "updated_at": "2026-10-02T14:44:39.201Z"
+     },
+     {
+      "step_id": "implement",
+      "label": "Implement",
+      "ordinal": 1,
+      "state": "advanced",
+      "checks": [
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "check_runs": [
+       {
+        "attempt": 1,
+        "name": "diff_nonempty",
+        "outcome": "passed"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false,
+      "drone_per_task": true,
+      "last_verdict": {
+       "attempt": 1,
+       "named": "passed"
+      },
+      "overridden": false,
+      "judged": [],
+      "flagged": [],
+      "attempts": [
+       {
+        "attempt": 1,
+        "outcome": "advanced",
+        "started_at": "2026-10-02T14:44:39.202Z",
+        "ended_at": "2026-10-02T14:45:28.972Z",
+        "resolved": {
+         "auto_merge": "never",
+         "review_gate": "human_always",
+         "decided": true
+        }
+       }
+      ],
+      "verdicts": [
+       {
+        "attempt": 1,
+        "named": "passed"
+       }
+      ],
+      "entered_at": "2026-10-02T14:44:39.202Z",
+      "updated_at": "2026-10-02T14:45:28.972Z"
+     },
+     {
+      "step_id": "wrap",
+      "label": "Wrap up",
+      "ordinal": 2,
+      "state": "advanced",
+      "checks": [],
+      "check_runs": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false,
+      "last_verdict": {
+       "attempt": 1,
+       "named": "passed"
+      },
+      "overridden": false,
+      "judged": [],
+      "flagged": [],
+      "attempts": [
+       {
+        "attempt": 1,
+        "outcome": "advanced",
+        "started_at": "2026-10-02T14:45:28.976Z",
+        "ended_at": "2026-10-02T14:45:29.213Z",
+        "resolved": {
+         "auto_merge": "never",
+         "review_gate": "human_always",
+         "decided": true
+        }
+       }
+      ],
+      "verdicts": [
+       {
+        "attempt": 1,
+        "named": "passed"
+       }
+      ],
+      "entered_at": "2026-10-02T14:45:28.976Z",
+      "updated_at": "2026-10-02T14:45:29.213Z"
+     }
+    ],
+    "acceptance_criteria": [
+     {
+      "criterion_id": "c1",
+      "text": "each of the five files exists",
+      "source": "check"
+     }
+    ],
+    "facts": "Five small files, each worked by a Drone of its own.",
+    "dependencies": [],
+    "footprint": {
+     "files": [
+      {
+       "path": "task-T1.txt",
+       "change": "added",
+       "lines": {
+        "added": 1,
+        "deleted": 0
+       }
+      },
+      {
+       "path": "task-T2.txt",
+       "change": "added",
+       "lines": {
+        "added": 1,
+        "deleted": 0
+       }
+      },
+      {
+       "path": "task-T3.txt",
+       "change": "added",
+       "lines": {
+        "added": 1,
+        "deleted": 0
+       }
+      },
+      {
+       "path": "task-T4.txt",
+       "change": "added",
+       "lines": {
+        "added": 1,
+        "deleted": 0
+       }
+      },
+      {
+       "path": "task-T5.txt",
+       "change": "added",
+       "lines": {
+        "added": 1,
+        "deleted": 0
+       }
+      }
+     ],
+     "recorded_at": "2026-10-02T14:45:29.220Z",
+     "plans": []
+    },
+    "spend": {
+     "cost_micros": 0,
+     "cost_cap_micros": 10000000,
+     "turns": 0,
+     "turn_cap": 300,
+     "ran_ms": 50071,
+     "unpriced": 7,
+     "drones": 7
+    },
+    "show_again": {
+     "harness": false,
+     "worktree_on_disk": true,
+     "specs": [],
+     "drone_working": false,
+     "shown": []
+    },
+    "when_blocked": "ask_me",
+    "when_refused": "per_criterion",
+    "allowed_commands": [],
+    "repository_allowed_commands": [],
+    "workflow_source": "repository",
+    "work_plan": {
+     "approach": "Three small files, one per task",
+     "recorded_by": {
+      "by": "step",
+      "step_id": "plan",
+      "attempt": 1
+     },
+     "recorded_at": "2026-10-02T14:44:39.028Z",
+     "tasks": [
+      {
+       "id": "T1",
+       "title": "Write file 1",
+       "scope": [
+        "task-T1.txt"
+       ],
+       "expects": "task-T1.txt exists",
+       "shown": "task-T1.txt holds it",
+       "state": "done",
+       "working_windows": [
+        {
+         "entered": "2026-10-02T14:44:39.219Z",
+         "left": "2026-10-02T14:44:41.296Z"
+        }
+       ]
+      },
+      {
+       "id": "T2",
+       "title": "Write file 2",
+       "scope": [
+        "task-T2.txt"
+       ],
+       "expects": "task-T2.txt exists",
+       "shown": "task-T2.txt holds it",
+       "state": "done",
+       "working_windows": [
+        {
+         "entered": "2026-10-02T14:44:41.460Z",
+         "left": "2026-10-02T14:44:43.522Z"
+        }
+       ]
+      },
+      {
+       "id": "T3",
+       "title": "Write file 3",
+       "scope": [
+        "task-T3.txt"
+       ],
+       "expects": "task-T3.txt exists",
+       "shown": "task-T3.txt holds it",
+       "state": "done",
+       "working_windows": [
+        {
+         "entered": "2026-10-02T14:44:43.701Z",
+         "left": "2026-10-02T14:45:24.406Z"
+        }
+       ]
+      },
+      {
+       "id": "T4",
+       "title": "Write file 4",
+       "scope": [
+        "task-T4.txt"
+       ],
+       "expects": "task-T4.txt exists",
+       "shown": "task-T4.txt holds it",
+       "state": "done",
+       "working_windows": [
+        {
+         "entered": "2026-10-02T14:45:24.550Z",
+         "left": "2026-10-02T14:45:26.676Z"
+        }
+       ]
+      },
+      {
+       "id": "T5",
+       "title": "Write file 5",
+       "scope": [
+        "task-T5.txt"
+       ],
+       "expects": "task-T5.txt exists",
+       "shown": "task-T5.txt holds it",
+       "state": "done",
+       "working_windows": [
+        {
+         "entered": "2026-10-02T14:45:26.723Z",
+         "left": "2026-10-02T14:45:28.824Z"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "resources": {
+   "status": 200,
+   "body": {
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "read_at": "2026-10-02T14:46:56.832Z",
+    "held": "none",
+    "processes": [],
+    "worktree": {
+     "path": "~/Development/armada/.armada/worktrees/2-write-five-small-files-one-task-each",
+     "branch": "armada/2-write-five-small-files-one-task-each",
+     "bytes": 36864,
+     "measured_at": "2026-10-02T14:46:56.832Z"
+    },
+    "wrote_last_at": "2026-10-02T14:45:29.230Z",
+    "logs": [
+     {
+      "kind": "job",
+      "path": ".armada/logs/2-write-five-small-files-one-task-each.jsonl",
+      "bytes": 8090,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH62XA0026RN3TQMBHZTX9.jsonl",
+      "bytes": 4657,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH6357003181EA7Z3RFPD7.jsonl",
+      "bytes": 5406,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH65BA004C7F1Y3K7DF1QE.jsonl",
+      "bytes": 5208,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH67HH005BENSNX7P7P904.jsonl",
+      "bytes": 5248,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7FCC006F3QQDB1ZM2083.jsonl",
+      "bytes": 5288,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7HHR0070YEZ0FSVTT36G.jsonl",
+      "bytes": 5874,
+      "being_written": false
+     },
+     {
+      "kind": "transcript",
+      "path": ".armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7KRX008B2FTXMEGR2RGA.jsonl",
+      "bytes": 4170,
+      "being_written": false
+     }
+    ]
+   }
+  },
+  "events": {
+   "status": 200,
+   "body": {
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "moves": [
+     {
+      "seq": 24,
+      "status": "awaiting_approval",
+      "moved": {
+       "kind": "status",
+       "to": "queued"
+      },
+      "actor": "human",
+      "at": "2026-10-02T14:44:38.913Z"
+     },
+     {
+      "seq": 25,
+      "status": "queued",
+      "moved": {
+       "kind": "status",
+       "to": "running"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:38.946Z"
+     },
+     {
+      "seq": 26,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "plan",
+       "from": "not_started",
+       "to": "running"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:38.952Z"
+     },
+     {
+      "seq": 27,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "plan",
+       "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:38.960Z"
+     },
+     {
+      "seq": 28,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "plan",
+       "from": "running",
+       "to": "advanced"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:39.201Z"
+     },
+     {
+      "seq": 29,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "implement",
+       "from": "not_started",
+       "to": "running"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:39.202Z"
+     },
+     {
+      "seq": 30,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "plan",
+       "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:39.205Z"
+     },
+     {
+      "seq": 31,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH6357003181EA7Z3RFPD7",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:39.220Z"
+     },
+     {
+      "seq": 32,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH6357003181EA7Z3RFPD7",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:41.446Z"
+     },
+     {
+      "seq": 33,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH65BA004C7F1Y3K7DF1QE",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:41.461Z"
+     },
+     {
+      "seq": 34,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH65BA004C7F1Y3K7DF1QE",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:43.695Z"
+     },
+     {
+      "seq": 35,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH67HH005BENSNX7P7P904",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:44:43.702Z"
+     },
+     {
+      "seq": 36,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH67HH005BENSNX7P7P904",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:24.477Z"
+     },
+     {
+      "seq": 37,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH7FCC006F3QQDB1ZM2083",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:24.551Z"
+     },
+     {
+      "seq": 38,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH7FCC006F3QQDB1ZM2083",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:26.708Z"
+     },
+     {
+      "seq": 39,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:26.724Z"
+     },
+     {
+      "seq": 40,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "implement",
+       "from": "running",
+       "to": "advanced"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:28.972Z"
+     },
+     {
+      "seq": 41,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "wrap",
+       "from": "not_started",
+       "to": "running"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:28.976Z"
+     },
+     {
+      "seq": 42,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "implement",
+       "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:28.983Z"
+     },
+     {
+      "seq": 43,
+      "status": "running",
+      "moved": {
+       "kind": "drone",
+       "step_id": "wrap",
+       "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+       "presence": "drone_spawned"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:29.000Z"
+     },
+     {
+      "seq": 44,
+      "status": "running",
+      "moved": {
+       "kind": "step",
+       "step_id": "wrap",
+       "from": "running",
+       "to": "advanced"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:29.213Z"
+     },
+     {
+      "seq": 45,
+      "status": "running",
+      "moved": {
+       "kind": "status",
+       "to": "completed_success"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:29.214Z"
+     },
+     {
+      "seq": 46,
+      "status": "completed_success",
+      "moved": {
+       "kind": "drone",
+       "step_id": "wrap",
+       "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+       "presence": "drone_exited"
+      },
+      "actor": "fleet",
+      "at": "2026-10-02T14:45:29.224Z"
+     }
+    ]
+   }
+  },
+  "evidence": {
+   "status": 200,
+   "body": {
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "steps": [
+     {
+      "step_id": "implement",
+      "evidence_type": "diff",
+      "claimed": "T1: T1 is done.\nT2: T2 is done.\nT3: T3 is done.\nT4: T4 is done.\nT5: T5 is done.",
+      "shown_by": "T1: task-T1.txt holds it\nT2: task-T2.txt holds it\nT3: task-T3.txt holds it\nT4: task-T4.txt holds it\nT5: task-T5.txt holds it"
+     },
+     {
+      "step_id": "plan",
+      "evidence_type": "plan",
+      "claimed": "The plan is recorded with five tasks.",
+      "shown_by": "the plan recorded with record_plan"
+     },
+     {
+      "step_id": "wrap",
+      "evidence_type": "facts_note",
+      "claimed": "Nothing to do here.",
+      "shown_by": "this step asks nothing"
+     }
+    ]
+   }
+  },
+  "diff": {
+   "status": 200,
+   "body": {
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "work": {
+     "files": [
+      {
+       "path": "task-T1.txt",
+       "change": "added",
+       "outside_plan": false
+      },
+      {
+       "path": "task-T2.txt",
+       "change": "added",
+       "outside_plan": false
+      },
+      {
+       "path": "task-T3.txt",
+       "change": "added",
+       "outside_plan": false
+      },
+      {
+       "path": "task-T4.txt",
+       "change": "added",
+       "outside_plan": false
+      },
+      {
+       "path": "task-T5.txt",
+       "change": "added",
+       "outside_plan": false
+      }
+     ],
+     "measured_whole": true,
+     "plan_declared": false,
+     "patch": "diff --git a/task-T1.txt b/task-T1.txt\nnew file mode 100644\nindex 0000000..6918137\n--- /dev/null\n+++ b/task-T1.txt\n@@ -0,0 +1 @@\n+T1 done\ndiff --git a/task-T2.txt b/task-T2.txt\nnew file mode 100644\nindex 0000000..6c89314\n--- /dev/null\n+++ b/task-T2.txt\n@@ -0,0 +1 @@\n+T2 done\ndiff --git a/task-T3.txt b/task-T3.txt\nnew file mode 100644\nindex 0000000..c20f3cc\n--- /dev/null\n+++ b/task-T3.txt\n@@ -0,0 +1 @@\n+T3 done\ndiff --git a/task-T4.txt b/task-T4.txt\nnew file mode 100644\nindex 0000000..e0b1b42\n--- /dev/null\n+++ b/task-T4.txt\n@@ -0,0 +1 @@\n+T4 done\ndiff --git a/task-T5.txt b/task-T5.txt\nnew file mode 100644\nindex 0000000..d12ba4b\n--- /dev/null\n+++ b/task-T5.txt\n@@ -0,0 +1 @@\n+T5 done\n"
+    }
+   }
+  },
+  "remarks": {
+   "status": 409,
+   "body": {
+    "code": "fleet.not_under_review",
+    "message": "01M3YH62V40012RJWKMGBKX3Q4 is completed_success and is not standing at a human gate. Approve, request changes and reject all answer `awaiting_review` and nothing else",
+    "run_id": "01M3YH5TGJ000A1CB3SJHGH04Q",
+    "fields": {},
+    "chain": [],
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4"
+   }
+  },
+  "drones": {
+   "status": 200,
+   "body": {
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "drones": [
+     {
+      "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+      "step_id": "plan",
+      "state": "done",
+      "since": "2026-10-02T14:44:38.960Z",
+      "ended_at": "2026-10-02T14:44:39.205Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH6357003181EA7Z3RFPD7",
+      "step_id": "implement",
+      "task": "T1",
+      "state": "done",
+      "since": "2026-10-02T14:44:39.220Z",
+      "ended_at": "2026-10-02T14:44:41.446Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH65BA004C7F1Y3K7DF1QE",
+      "step_id": "implement",
+      "task": "T2",
+      "state": "done",
+      "since": "2026-10-02T14:44:41.461Z",
+      "ended_at": "2026-10-02T14:44:43.695Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH67HH005BENSNX7P7P904",
+      "step_id": "implement",
+      "task": "T3",
+      "state": "done",
+      "since": "2026-10-02T14:44:43.702Z",
+      "ended_at": "2026-10-02T14:45:24.477Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH7FCC006F3QQDB1ZM2083",
+      "step_id": "implement",
+      "task": "T4",
+      "state": "done",
+      "since": "2026-10-02T14:45:24.551Z",
+      "ended_at": "2026-10-02T14:45:26.708Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+      "step_id": "implement",
+      "task": "T5",
+      "state": "done",
+      "since": "2026-10-02T14:45:26.724Z",
+      "ended_at": "2026-10-02T14:45:28.983Z",
+      "turns": 0
+     },
+     {
+      "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+      "step_id": "wrap",
+      "state": "done",
+      "since": "2026-10-02T14:45:29.000Z",
+      "ended_at": "2026-10-02T14:45:29.224Z",
+      "turns": 0
+     }
+    ]
+   }
+  }
+ },
+ "workflows": {
+  "status": 200,
+  "body": [
+   {
+    "id": "bug",
+    "name": "bug",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan the change",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 2,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "implement",
+      "label": "Implement",
+      "checks": [
+       {
+        "kind": "every_manifest_check"
+       },
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 4,
+        "gaming_check": true,
+        "gaming_patterns": [
+         "assertion_weakened",
+         "test_scope_narrowed",
+         "tautological_test",
+         "test_skipped",
+         "test_deleted",
+         "check_config_edited"
+        ]
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "handoff",
+      "label": "Review the change",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": true
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Something that is broken: it used to work, or is meant to work, and does not, and what is wanted is the cause found and fixed. Taking a change that already landed back out whole is a revert, and adding or changing what the software does on purpose is a feature."
+   },
+   {
+    "id": "code_review",
+    "name": "code_review",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "read",
+      "label": "Read the diff",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/read.md"
+       },
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "assess",
+      "label": "Assess",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/assess.md"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": false
+     },
+     {
+      "step_id": "deliver",
+      "label": "Deliver the review",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "A pull request somebody wants reviewed: a link to one, where the code is already written and what is wanted is a judgement on it rather than a change to it."
+   },
+   {
+    "id": "design_plan",
+    "name": "design_plan",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "draft",
+      "label": "Draft",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/draft.md"
+       },
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "present",
+      "label": "Present",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": false,
+      "verdict_routing_target": "draft",
+      "iteration_cap": 5
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Working out how something should be built before anybody builds it: a design or plan drafted, then revised with whoever asked until they are content, where the result is a document and no code is written. Trying the idea out in code is a prototype."
+   },
+   {
+    "id": "epic",
+    "name": "epic",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan the wave",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/plan.md"
+       },
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 2,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "human_always",
+      "delivers": false
+     },
+     {
+      "step_id": "dispatch",
+      "label": "Dispatch the wave",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/dispatched.md"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "roll_up",
+      "label": "Roll up the wave",
+      "checks": [
+       {
+        "kind": "artifact_exists",
+        "name": ".armada/artifacts/roll-up.md"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": false,
+      "verdict_routing_target": "plan",
+      "iteration_cap": 5
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Finishing a milestone or an epic: a link to one, or a list of issues somebody wants done as a whole, which is too much for one change and has to be split into several Jobs that run in turn."
+   },
+   {
+    "id": "feature",
+    "name": "feature",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan the change",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 2,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "implement",
+      "label": "Implement",
+      "checks": [
+       {
+        "kind": "every_manifest_check"
+       },
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 4,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "tests",
+      "label": "Write tests",
+      "checks": [
+       {
+        "kind": "every_manifest_check"
+       },
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 1,
+        "gaming_check": true,
+        "gaming_patterns": [
+         "assertion_weakened",
+         "test_scope_narrowed",
+         "tautological_test",
+         "check_config_edited"
+        ]
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "handoff",
+      "label": "Review the change",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": true
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Adding, removing or changing what the software does or shows: a new screen, option or command, a change to how something behaves, or taking away something people could see or use, meant to land and stay. Fixing something broken is a bug, and moving code around while nothing anyone sees changes is a refactor."
+   },
+   {
+    "id": "prototype",
+    "name": "prototype",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "frame",
+      "label": "Frame",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "build",
+      "label": "Build",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": false
+     },
+     {
+      "step_id": "write_up",
+      "label": "Write up",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Trying something out to answer a question: a spike or rough version built to see whether an idea works, shown to whoever asked and written up, then thrown away rather than landed. Something meant to ship is a feature, and a design worked out on paper is a design plan."
+   },
+   {
+    "id": "rate",
+    "name": "rate",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan the change",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "implement",
+      "label": "Implement",
+      "checks": [
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     },
+     {
+      "step_id": "wrap",
+      "label": "Wrap up",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "delivers": false
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "repository"
+   },
+   {
+    "id": "refactor",
+    "name": "refactor",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Scope the refactor",
+      "checks": [
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 1,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "implement",
+      "label": "Restructure",
+      "checks": [
+       {
+        "kind": "every_manifest_check"
+       },
+       {
+        "kind": "diff_nonempty"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 4,
+        "gaming_check": true,
+        "gaming_patterns": [
+         "test_scope_narrowed",
+         "assertion_weakened",
+         "test_skipped",
+         "test_deleted"
+        ]
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "handoff",
+      "label": "Review the change",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": true
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Reorganising code without changing what it does: moving, renaming, splitting or tidying, where nothing anyone can see or use changes -- no screen, no output, no behaviour. A request that adds, removes or changes anything a person sees or can do, however small, is a feature and not a refactor."
+   },
+   {
+    "id": "revert",
+    "name": "revert",
+    "version": 1,
+    "steps": [
+     {
+      "step_id": "revert",
+      "label": "Undo the change",
+      "checks": [
+       {
+        "kind": "every_manifest_check"
+       },
+       {
+        "kind": "diff_nonempty"
+       },
+       {
+        "kind": "plan_recorded"
+       }
+      ],
+      "judge_checks": [
+       {
+        "criteria": 2,
+        "gaming_check": false
+       }
+      ],
+      "advance_gate": "auto_if_judge_passes",
+      "delivers": false
+     },
+     {
+      "step_id": "handoff",
+      "label": "Summarise",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "human_always",
+      "delivers": true
+     }
+    ],
+    "manifest_id": "armada",
+    "source": "armada",
+    "for_requests": "Undoing a change that already landed: the commit or Job the request names, taken back out whole and nothing else with it. Keeping the change and fixing what it broke is a bug."
+   }
+  ]
+ },
+ "manifests": {
+  "status": 200,
+  "body": [
+   {
+    "id": "armada",
+    "repository": "repo",
+    "path": "~/Development/armada/armada.yml",
+    "records_root": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965",
+    "version": 1,
+    "checks": [],
+    "auto_merge": "never",
+    "review_gate": "human_always"
+   }
+  ]
+ },
+ "observe": {
+  "open": false,
+  "messages": [
+   {
+    "message": "opened",
+    "protocol_version": {
+     "major": 23,
+     "minor": 1
+    },
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "live": false,
+    "skipped": 0
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:38.960Z",
+    "step": "plan",
+    "by": "armada",
+    "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 1.\n\n  1. Plan the change — you are here\n     STOP. Submit when this part is done, then wait.\n  2. Implement — not yours — do not do it\n  3. Wrap up — not yours — do not do it\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nSTEP: Plan the change\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nWHAT THIS PART DELIVERS\n\nThis part's product is the Job's plan. Record it with record_plan: an approach in a paragraph, then the tasks it breaks into, in the order they will be done. Recording again replaces the whole plan, so correct one by recording it again. The checks each part must pass run on their own when that part is submitted, so the plan carries no task for running them. Recording does not finish this part — submit_evidence still does.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - plan_recorded\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     30,
+     34,
+     38
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:39.198Z",
+    "step": "plan",
+    "by": "fleet",
+    "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+    "event": "checked",
+    "run": {
+     "attempt": 1,
+     "name": "plan_recorded",
+     "outcome": "passed"
+    }
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:39.200Z",
+    "step": "plan",
+    "by": "fleet",
+    "drone_id": "01M3YH62XA0026RN3TQMBHZTX9",
+    "event": "produced",
+    "files": []
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:39.220Z",
+    "step": "implement",
+    "by": "armada",
+    "drone_id": "01M3YH6357003181EA7Z3RFPD7",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [open] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n  T2 [open] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n  T3 [open] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n  T4 [open] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n  T5 [open] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an agent of its own, and yours is T1: Write file 1. Its line in the plan above says what it touches and what should show it is done. Do T1 and nothing past it: the tasks handed in or done before it are already on the branch you are in, and the open ones after it are each another agent's.\n\nWhen T1 is done, submit it with the evidence submission tool. What you claim, and what shows it, are about T1 alone. That submission is your hand-in, and it ends your work on this Job. The plan's states are kept from it, so you mark nothing yourself.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 2.\n\n  1. Plan the change — done\n  2. Implement — you are here\n     STOP. Submit when this part is done, then wait.\n  3. Wrap up — not yours — do not do it\n\nWhat part 1 produced:\n  \"The plan is recorded with five tasks.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nTHE PART BEFORE THIS ONE\n\nPlan the change passed the checks that gate it, and its work is on the branch you are in. It is settled: it is not yours to do again, to review or to improve on. Start this part from it.\n\nSTEP: Implement\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - diff_nonempty\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     46,
+     62,
+     66,
+     70
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:41.462Z",
+    "step": "implement",
+    "by": "armada",
+    "drone_id": "01M3YH65BA004C7F1Y3K7DF1QE",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [handed_in] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n      shown: task-T1.txt holds it\n  T2 [open] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n  T3 [open] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n  T4 [open] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n  T5 [open] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an agent of its own, and yours is T2: Write file 2. Its line in the plan above says what it touches and what should show it is done. Do T2 and nothing past it: the tasks handed in or done before it are already on the branch you are in, and the open ones after it are each another agent's.\n\nWhen T2 is done, submit it with the evidence submission tool. What you claim, and what shows it, are about T2 alone. That submission is your hand-in, and it ends your work on this Job. The plan's states are kept from it, so you mark nothing yourself.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 2.\n\n  1. Plan the change — done\n  2. Implement — you are here\n     STOP. Submit when this part is done, then wait.\n  3. Wrap up — not yours — do not do it\n\nWhat part 1 produced:\n  \"The plan is recorded with five tasks.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nSTEP: Implement\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - diff_nonempty\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     47,
+     63,
+     67
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:44:43.702Z",
+    "step": "implement",
+    "by": "armada",
+    "drone_id": "01M3YH67HH005BENSNX7P7P904",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [handed_in] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n      shown: task-T1.txt holds it\n  T2 [handed_in] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n      shown: task-T2.txt holds it\n  T3 [open] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n  T4 [open] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n  T5 [open] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an agent of its own, and yours is T3: Write file 3. Its line in the plan above says what it touches and what should show it is done. Do T3 and nothing past it: the tasks handed in or done before it are already on the branch you are in, and the open ones after it are each another agent's.\n\nWhen T3 is done, submit it with the evidence submission tool. What you claim, and what shows it, are about T3 alone. That submission is your hand-in, and it ends your work on this Job. The plan's states are kept from it, so you mark nothing yourself.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 2.\n\n  1. Plan the change — done\n  2. Implement — you are here\n     STOP. Submit when this part is done, then wait.\n  3. Wrap up — not yours — do not do it\n\nWhat part 1 produced:\n  \"The plan is recorded with five tasks.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nSTEP: Implement\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - diff_nonempty\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     48,
+     64,
+     68
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:24.552Z",
+    "step": "implement",
+    "by": "armada",
+    "drone_id": "01M3YH7FCC006F3QQDB1ZM2083",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [handed_in] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n      shown: task-T1.txt holds it\n  T2 [handed_in] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n      shown: task-T2.txt holds it\n  T3 [handed_in] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n      shown: task-T3.txt holds it\n  T4 [open] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n  T5 [open] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an agent of its own, and yours is T4: Write file 4. Its line in the plan above says what it touches and what should show it is done. Do T4 and nothing past it: the tasks handed in or done before it are already on the branch you are in, and the open ones after it are each another agent's.\n\nWhen T4 is done, submit it with the evidence submission tool. What you claim, and what shows it, are about T4 alone. That submission is your hand-in, and it ends your work on this Job. The plan's states are kept from it, so you mark nothing yourself.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 2.\n\n  1. Plan the change — done\n  2. Implement — you are here\n     STOP. Submit when this part is done, then wait.\n  3. Wrap up — not yours — do not do it\n\nWhat part 1 produced:\n  \"The plan is recorded with five tasks.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nSTEP: Implement\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - diff_nonempty\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     49,
+     65,
+     69
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:26.725Z",
+    "step": "implement",
+    "by": "armada",
+    "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [handed_in] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n      shown: task-T1.txt holds it\n  T2 [handed_in] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n      shown: task-T2.txt holds it\n  T3 [handed_in] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n      shown: task-T3.txt holds it\n  T4 [handed_in] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n      shown: task-T4.txt holds it\n  T5 [open] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an agent of its own, and yours is T5: Write file 5. Its line in the plan above says what it touches and what should show it is done. Do T5 and nothing past it: the tasks handed in or done before it are already on the branch you are in, and the open ones after it are each another agent's.\n\nWhen T5 is done, submit it with the evidence submission tool. What you claim, and what shows it, are about T5 alone. That submission is your hand-in, and it ends your work on this Job. The plan's states are kept from it, so you mark nothing yourself.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 2.\n\n  1. Plan the change — done\n  2. Implement — you are here\n     STOP. Submit when this part is done, then wait.\n  3. Wrap up — not yours — do not do it\n\nWhat part 1 produced:\n  \"The plan is recorded with five tasks.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nSTEP: Implement\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.\n\nFINDING OUT WHERE YOU STAND\n\nThese are the checks that gate this part:\n\n  - diff_nonempty\n\nYou can ask for them to be run against your worktree, and you will be told what each one did. A check that fails carries its own output back with the answer — you do not need to run the command yourself or go looking for a log to read it. An ask that names no check runs the whole list. A build or test command run directly is not granted; asking is how you get the same answer.\n\nYou can also name one check off the list above, and the files you changed, and get an answer in seconds rather than minutes. **Asking that way costs you nothing** — only a run of every check counts against the limit below, so ask about one check as often as it is useful. Naming one does not lower the bar you are measured against: every check is run whole when you submit, whatever you asked for before then. Use it when you want to know whether the work holds up rather than guessing. The call comes back at once, and each check's result arrives as a later turn as it finishes, however long they take. The first one that fails stops the rest, and the last turn says the run is over. Wait for them rather than running them yourself.\n\nIt is not a verdict and it advances nothing. A run in which everything passes does not finish this part; the checks are run again when you submit, and that run is the one that decides. Submitting is still the only way to report. You may ask for every check 3 times in this part.",
+    "headings": [
+     6,
+     10,
+     19,
+     50,
+     66,
+     70
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "checks"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:28.965Z",
+    "step": "implement",
+    "by": "fleet",
+    "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+    "event": "checked",
+    "run": {
+     "attempt": 1,
+     "name": "diff_nonempty",
+     "outcome": "passed"
+    }
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:28.968Z",
+    "step": "implement",
+    "by": "fleet",
+    "drone_id": "01M3YH7HHR0070YEZ0FSVTT36G",
+    "event": "produced",
+    "files": [
+     {
+      "path": "task-T1.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T2.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T3.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T4.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T5.txt",
+      "change": "added",
+      "outside_plan": false
+     }
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:29.001Z",
+    "step": "wrap",
+    "by": "armada",
+    "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+    "event": "instructed",
+    "occasion": "opening",
+    "text": "You are working in a git worktree on a branch of your own. You cannot push, open a pull request, or run commands this repository has not declared. You cannot run its checks yourself either — those it does declare, and Fleet runs them for you.\n\nWhen you have finished the work described below, you must report it using the evidence submission tool you have been given. It is the only way to report. Work you do not submit is work no one sees, and nothing moves on.\n\nSubmitting returns \"recorded\". That is a receipt, not a verdict — your work is checked after you submit. A later turn comes only where the part is coming back to you: a check failed and there is another attempt, or what you submitted could not be read. Wait for it rather than submitting again. Every other outcome ends your part where it stands and sends you nothing — work that runs and is refused for what it is goes to a person, and you are not asked about it again.\n\nFILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep between turns — anything you write for yourself rather than for the work goes under .armada/01M3YH62V40012RJWKMGBKX3Q4/, which is this Job's alone. None of it belongs at the repository root, where a file outlives the Job that wrote it with nothing to say that Job is over. Nothing here is asking you to write any of it, and a file this part is asked to deliver is not one of them — that one is named where it is asked for, at the path that is read, and it does not go here.\n\nJOB BRIEF\n\nWrite five small files, one task each\n\nFive small files, each worked by a Drone of its own.\n\nThis is done when:\n  - each of the five files exists\n\nTHE PLAN\n\nApproach: Three small files, one per task\n\nTasks:\n  T1 [done] Write file 1\n      files: task-T1.txt\n      expects: task-T1.txt exists\n      shown: task-T1.txt holds it\n  T2 [done] Write file 2\n      files: task-T2.txt\n      expects: task-T2.txt exists\n      shown: task-T2.txt holds it\n  T3 [done] Write file 3\n      files: task-T3.txt\n      expects: task-T3.txt exists\n      shown: task-T3.txt holds it\n  T4 [done] Write file 4\n      files: task-T4.txt\n      expects: task-T4.txt exists\n      shown: task-T4.txt holds it\n  T5 [done] Write file 5\n      files: task-T5.txt\n      expects: task-T5.txt exists\n      shown: task-T5.txt holds it\n\nRead it before you start. It is not yours to change.\n\nWHERE YOU ARE\n\nThis work runs in 3 parts. You are on part 3.\n\n  1. Plan the change — done\n  2. Implement — done\n  3. Wrap up — you are here\n     STOP. Submit when this part is done, then wait.\n\nWhat part 2 produced:\n  \"T1: T1 is done.\nT2: T2 is done.\nT3: T3 is done.\nT4: T4 is done.\nT5: T5 is done.\"\n\nIts work is on the branch you are in.\n\nThe parts after this one happen after you submit, and doing them yourself does not move the work forward. Leave the branch in a state they can start from.\n\nTHE PART BEFORE THIS ONE\n\nImplement passed the checks that gate it, and its work is on the branch you are in. It is settled: it is not yours to do again, to review or to improve on. Start this part from it.\n\nSTEP: Wrap up\n\nWhat you claim should be what the work now does, not that you finished. An adjacent problem you notice and leave alone goes under Not claimed.",
+    "headings": [
+     6,
+     10,
+     19,
+     47,
+     67,
+     71
+    ],
+    "kinds": [
+     "standing",
+     "about_this_job",
+     "about_this_job",
+     "steps",
+     "about_this_job",
+     "about_this_job"
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:29.211Z",
+    "step": "wrap",
+    "by": "fleet",
+    "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+    "event": "produced",
+    "files": [
+     {
+      "path": "task-T1.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T2.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T3.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T4.txt",
+      "change": "added",
+      "outside_plan": false
+     },
+     {
+      "path": "task-T5.txt",
+      "change": "added",
+      "outside_plan": false
+     }
+    ]
+   },
+   {
+    "message": "row",
+    "ts": "2026-10-02T14:45:29.221Z",
+    "step": "wrap",
+    "by": "armada",
+    "drone_id": "01M3YH7KRX008B2FTXMEGR2RGA",
+    "event": "instructed",
+    "occasion": "outcome",
+    "text": "Wrap up is verified. It passed every check the step declared.\n\nThat was the last part of this task. Nothing further is yours. Stop here."
+   },
+   {
+    "message": "closed",
+    "because": "nothing_writing"
+   }
+  ]
+ },
+ "log": {
+  "open": true,
+  "messages": [
+   {
+    "message": "opened",
+    "protocol_version": {
+     "major": 23,
+     "minor": 1
+    },
+    "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
+    "skipped": 0
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:38.954Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "plan",
+    "drone": "01M3YH62XA0026RN3TQMBHZTX9",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH62XA0026RN3TQMBHZTX9.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:39.204Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "plan",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH62XA0026RN3TQMBHZTX9"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:39.208Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "implement",
+    "drone": "01M3YH6357003181EA7Z3RFPD7",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH6357003181EA7Z3RFPD7.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:39.208Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "plan",
+    "drone": "01M3YH62XA0026RN3TQMBHZTX9",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "3"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:41.445Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "implement",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH6357003181EA7Z3RFPD7"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:41.450Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "implement",
+    "drone": "01M3YH65BA004C7F1Y3K7DF1QE",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH65BA004C7F1Y3K7DF1QE.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:41.450Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "implement",
+    "drone": "01M3YH6357003181EA7Z3RFPD7",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "1"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:43.694Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "implement",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH65BA004C7F1Y3K7DF1QE"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:43.697Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "implement",
+    "drone": "01M3YH67HH005BENSNX7P7P904",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH67HH005BENSNX7P7P904.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:44:43.697Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "implement",
+    "drone": "01M3YH65BA004C7F1Y3K7DF1QE",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "1"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:24.469Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "implement",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH67HH005BENSNX7P7P904"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:24.492Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "implement",
+    "drone": "01M3YH7FCC006F3QQDB1ZM2083",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7FCC006F3QQDB1ZM2083.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:24.493Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "implement",
+    "drone": "01M3YH67HH005BENSNX7P7P904",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "1"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:26.707Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "implement",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH7FCC006F3QQDB1ZM2083"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:26.712Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "implement",
+    "drone": "01M3YH7HHR0070YEZ0FSVTT36G",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7HHR0070YEZ0FSVTT36G.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:26.712Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "implement",
+    "drone": "01M3YH7FCC006F3QQDB1ZM2083",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "1"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:28.981Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "the Drone was ended because its step ended",
+    "step": "implement",
+    "fields": [
+     {
+      "name": "drone_id",
+      "value": "01M3YH7HHR0070YEZ0FSVTT36G"
+     },
+     {
+      "name": "ending",
+      "value": "stopped before a terminating event arrived"
+     },
+     {
+      "name": "signalled",
+      "value": "true"
+     },
+     {
+      "name": "transcript",
+      "value": "read to the end of the pipe"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:28.990Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript opened",
+    "step": "wrap",
+    "drone": "01M3YH7KRX008B2FTXMEGR2RGA",
+    "fields": [
+     {
+      "name": "transcript",
+      "value": "~/Library/Application Support/Armada/repos/56313311e4dc88bb755002b5e0916480bd793965/.armada/transcripts/2-write-five-small-files-one-task-each/01M3YH7KRX008B2FTXMEGR2RGA.jsonl"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:28.990Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "implement",
+    "drone": "01M3YH7HHR0070YEZ0FSVTT36G",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "3"
+     }
+    ]
+   },
+   {
+    "message": "note",
+    "at": "2026-10-02T14:45:29.230Z",
+    "by": "fleet",
+    "level": "info",
+    "msg": "drone transcript closed",
+    "step": "wrap",
+    "drone": "01M3YH7KRX008B2FTXMEGR2RGA",
+    "fields": [
+     {
+      "name": "missed",
+      "value": "0"
+     },
+     {
+      "name": "rows",
+      "value": "3"
+     }
+    ]
+   }
+  ]
+ },
+ "checkOutputs": {},
+ "frames": {}
+}

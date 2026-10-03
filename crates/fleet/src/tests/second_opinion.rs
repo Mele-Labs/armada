@@ -95,6 +95,7 @@ async fn ruled(
         &diff_evidence(),
         None,
         &Lifted::default(),
+        &[],
         crate::gate::Began::At(&Footprint::nothing()),
         &[],
         &work,

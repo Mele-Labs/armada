@@ -63,9 +63,10 @@ pub use job::{
     EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
 };
 pub use job::{
-    Approach, DropReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow,
-    PLAN_RECORDED,
+    Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns,
+    GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused, PlanTask,
+    Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels, WorkPlan,
+    WorkingWindow, PLAN_RECORDED,
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,

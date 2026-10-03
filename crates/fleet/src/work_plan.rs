@@ -101,6 +101,17 @@ impl fmt::Display for NotPlanned {
                  is needed after all, say so in `not_claimed` when you submit; a person \
                  can add it back as a new task. {CARRY_ON}"
             ),
+            NotPlanned::Refused(PlanRefused::GroupsOutOfOrder { named }) => write!(
+                out,
+                "group {named} comes after a higher group. List the tasks group by group, \
+                 in the order the groups run, and call again"
+            ),
+            // A person's act, never a Drone's tool call: here for the match.
+            NotPlanned::Refused(
+                why @ (PlanRefused::NoSuchGroup { .. }
+                | PlanRefused::NotInGroup { .. }
+                | PlanRefused::NotEditable { .. }),
+            ) => write!(out, "{why}. {CARRY_ON}"),
             NotPlanned::NotKept(why) => write!(
                 out,
                 "the change could not be written down ({why}). It is not yours to fix. \
@@ -235,6 +246,23 @@ impl PlanChanged {
         ))
     }
 
+    /// A group's Checks went red and its last Drone goes round for all of it,
+    /// after the red Checks themselves. Spike 022, slice 2.
+    pub fn round(group: core_model::GroupId, plan: &WorkPlan) -> PlanChanged {
+        let tasks: Vec<String> = plan
+            .tasks_in(group)
+            .filter(|task| task.state() != TaskState::Dropped)
+            .map(|task| format!("{} {}", task.id(), task.title()))
+            .collect();
+        PlanChanged(format!(
+            "THE GROUP GOES ROUND\n\nThe Checks above ran at the end of group {group}, \
+             which is these tasks: {}. Fix what they found across all of them, not only \
+             your own, then call submit_evidence once for the group. Every one of them \
+             stays handed in while you do. Do not start a task of a later group.",
+            tasks.join("; ")
+        ))
+    }
+
     /// The turn, exactly as it reaches a Drone.
     pub fn text(&self) -> &str {
         &self.0
@@ -262,6 +290,8 @@ pub(crate) fn receipt_word(change: &PlanChange, plan: &WorkPlan) -> String {
     match change {
         PlanChange::Recorded { .. } => "recorded".to_string(),
         PlanChange::Updated { .. } => "updated".to_string(),
+        PlanChange::Edited { .. } => "edited".to_string(),
+        PlanChange::MovedTask { .. } | PlanChange::MovedGroup { .. } => "moved".to_string(),
         PlanChange::Added { .. } => plan
             .tasks()
             .iter()

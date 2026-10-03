@@ -217,10 +217,10 @@ pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, Job
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
-    DronePresence, EvidenceType, JobStatus, JudgeVerdict, ManifestReach, Origin, QueuedReason,
-    ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState, StudioAuthor,
-    StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState, StudioRelation, TaskState,
-    TopLevelOrigin, Urgency,
+    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, ManifestReach, Origin,
+    QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState,
+    StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
+    StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
 };
 pub use error::{RunId, WireError, WireValue};
 pub use event::{
@@ -272,8 +272,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_line::{
-    LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry, MergeLinePullRequest,
-    MergeLines,
+    LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
+    MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
@@ -353,5 +353,6 @@ pub use work::{
     Submitted, TouchedFile, Work,
 };
 pub use work_plan::{
-    AddTask, ChangedBy, DropTask, JobPlanChanged, PlanTask, TaskCounts, WorkPlan, WorkingWindow,
+    AddTask, ChangedBy, DropTask, EditTask, JobPlanChanged, MovePlan, PlanGroup, PlanGroupRun,
+    PlanTask, RestartTask, SetTiers, TaskCounts, TierModels, WorkPlan, WorkingWindow,
 };

@@ -994,6 +994,15 @@ where
         self.summarised(&job).await
     }
 
+    /// Which model each tier of this Job's tasks runs on. `task_edits` has it.
+    async fn set_tiers(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::SetTiers,
+    ) -> Result<JobSummary, Refusal> {
+        Fleet::set_tiers_by_person(self, job, body).await
+    }
+
     /// A command a person allowed for this Job, taken back.
     async fn remove_allowed_command(
         self: Arc<Self>,
@@ -1024,5 +1033,35 @@ where
     /// A person drops a task, with a reason. `#897`; `work_plan` has it.
     async fn drop_task(self: Arc<Self>, job: JobId, body: DropTask) -> Result<WorkPlan, Refusal> {
         Fleet::drop_task_by_person(self, job, body).await
+    }
+
+    /// Restart this task. `#1656`; `plan_acts` has it.
+    async fn restart_task(
+        self: Arc<Self>,
+        job: JobId,
+        task: String,
+        body: ipc::RestartTask,
+    ) -> Result<JobSummary, Refusal> {
+        let restarted = Fleet::restart_task_by_person(Arc::clone(&self), job, task, body).await?;
+        self.summarised(&restarted).await
+    }
+
+    /// A person moves a task or a group. `#1685`; `plan_acts` has it.
+    async fn move_plan(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::MovePlan,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::move_plan_by_person(self, job, body).await
+    }
+
+    /// Edit this task. `#1657`; `task_edits` has it.
+    async fn edit_task(
+        self: Arc<Self>,
+        job: JobId,
+        task: String,
+        body: ipc::EditTask,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::edit_task_by_person(self, job, task, body).await
     }
 }

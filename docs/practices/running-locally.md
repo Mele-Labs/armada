@@ -770,8 +770,10 @@ request where there is one.
 turn ran. The turn gates again against the new `main`, up to five times, so
 nothing reaches `main` that was not gated against it.
 
-**A turn takes up to four branches in line and gates them together**
-(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red, or
+**A turn takes up to eight branches in line and gates them together**
+(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red turn
+halves how many the next takes and a green one doubles it back, and
+`--status` says how many and why. A red, or
 two of them that clash, splits the batch until each is alone, so a red you are
 told about is your branch's own. A new gate line naming a file only your branch
 touched comes straight to you, and the others are gated again without you.

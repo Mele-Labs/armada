@@ -117,6 +117,11 @@ pub struct Forgotten {
     pub pending_evidence: usize,
     /// Each Drone put on one of the Job's tasks, one row each. Spike 022, 1b.
     pub task_drones: usize,
+    /// Each start and end of a run of one of the plan's groups. Spike 022, 2.
+    pub group_runs: usize,
+    /// The Job's tier map, one row per tier it names, and the model each of
+    /// its Drones ran, one row each. Spike 022, 3.
+    pub models: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -177,6 +182,8 @@ impl Forgotten {
             "job_fix_waiters" | "job_landed_holds" => &mut self.fix_waiters,
             "job_pending_evidence" => &mut self.pending_evidence,
             "job_task_drones" => &mut self.task_drones,
+            "job_group_runs" => &mut self.group_runs,
+            "job_tier_models" | "job_drone_models" => &mut self.models,
             _ => return None,
         })
     }

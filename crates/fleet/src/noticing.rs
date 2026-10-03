@@ -29,7 +29,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Delivery, Landing, Mergeable, RepositoryStanding, UnderReview, Vcs,
+    AgentHarness, Delivery, Landing, Mergeable, Remark, RepositoryStanding, UnderReview, Vcs,
     WhatBecameOfIt, WorkProduct,
 };
 use core_model::{Component, Envelope, FieldValue, JobId, Level, Timestamp};
@@ -231,10 +231,15 @@ where
                 // **The one state in which the second question means
                 // anything**, on the turn the rotation had already reached this
                 // Job — never a loop of its own. `crate::under_review`.
-                let reviewed = self.read_what_is_under_review(&asking.job_id, url).await;
+                let (reviewed, on_lines) =
+                    match self.read_what_is_under_review(&asking.job_id, url).await {
+                        Some((reviewed, on_lines)) => (Some(reviewed), on_lines),
+                        None => (None, None),
+                    };
+                let comments = comments_counted(reviewed.as_ref(), on_lines.as_deref());
                 // **Cached on the same turn that read it**, so `get_job` never
                 // asks the forge itself — see [`Sweep::pr_detail`].
-                self.remembered(&asking.job_id, url, &read, reviewed.as_ref())
+                self.remembered(&asking.job_id, url, &read, reviewed.as_ref(), comments)
                     .await;
                 return Ok(None);
             }
@@ -277,11 +282,15 @@ where
             sweeping.pr_detail.remove(url);
             sweeping.commented.remove(url);
         }
-        self.store()
-            .lock()
-            .await
-            .record_landed(job, &landed)
+        // The settling read names the title too, and it is the last one: a
+        // pull request that merged before the rotation reached it open is
+        // named here or nowhere.
+        let mut store = self.store().lock().await;
+        store
+            .record_pull_request_read(job, read.title.as_deref(), None)
             .map_err(Adrift::Writing)?;
+        store.record_landed(job, &landed).map_err(Adrift::Writing)?;
+        drop(store);
         let repository = match (&landed, read.base.as_deref()) {
             // **Only a merge, and only where the forge named the branch.**
             // What merged is now what everything else builds on — `#337` — and
@@ -373,29 +382,30 @@ where
         url: &str,
         read: &WhatBecameOfIt,
         reviewed: Option<&UnderReview>,
+        comments: Option<u32>,
     ) {
         // **Read after `kept_current`, on the same turn.** Whatever this
         // call's own attempt just wrote is what a person is shown next, not
         // what the record said a moment before it — the reason `#663`'s
         // review panel names a rebase that just happened rather than the one
         // before it.
-        let currency = self
-            .store()
-            .lock()
-            .await
-            .kept_current_for(job_id)
-            .ok()
-            .and_then(|kept| {
-                let onto = kept.onto?;
-                Some(ipc::Currency {
-                    rebased_onto: onto,
-                    rebased_at: kept
-                        .at
-                        .as_ref()
-                        .map_or_else(|| (&self.now()).into(), Into::into),
-                    conflict_files: kept.conflict_files.unwrap_or_default(),
-                })
-            });
+        let mut store = self.store().lock().await;
+        // **Kept, where the reading below is only remembered**, so the title
+        // and the count outlive the merge and a restart. A write that fails
+        // costs one rotation: the next read writes the same two again.
+        let _ = store.record_pull_request_read(job_id, read.title.as_deref(), comments);
+        let currency = store.kept_current_for(job_id).ok().and_then(|kept| {
+            let onto = kept.onto?;
+            Some(ipc::Currency {
+                rebased_onto: onto,
+                rebased_at: kept
+                    .at
+                    .as_ref()
+                    .map_or_else(|| (&self.now()).into(), Into::into),
+                conflict_files: kept.conflict_files.unwrap_or_default(),
+            })
+        });
+        drop(store);
         let detail = ipc::PullRequestDetail {
             number: read.number,
             title: read.title.clone(),
@@ -537,4 +547,15 @@ where
         }));
         Ok(())
     }
+}
+
+/// How many comments the pull request's card shows: the conversation and the
+/// reviews that say something, plus the comments left on lines of the diff.
+///
+/// **`None` unless both answered**, so the last count is kept. Counting only
+/// the half that answered would show a number smaller than the forge's, and
+/// smaller than the one shown a turn before.
+fn comments_counted(reviewed: Option<&UnderReview>, on_lines: Option<&[Remark]>) -> Option<u32> {
+    let counted = reviewed?.remarks.len().saturating_add(on_lines?.len());
+    Some(u32::try_from(counted).unwrap_or(u32::MAX))
 }

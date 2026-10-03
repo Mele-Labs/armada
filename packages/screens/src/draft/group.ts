@@ -119,8 +119,10 @@ export function stepTheGroupsWereMadeAt(whole: JobDetail): string | undefined {
 }
 
 /**
- * The step that works the groups: the one after the step the plan was recorded
- * at, since a plan is written at one step and worked at the next.
+ * The step that works the groups: **the one that declares `drone_per_task`**
+ * (protocol 23.1), and on a Fleet or workflow that names none, the one after
+ * the step the plan was recorded at, since a plan is written at one step and
+ * worked at the next.
  *
  * Absent where the recording step is the last. The Workflow canvas reads it for
  * what a step's card counts, the Plan board for where a boundary's Check runs
@@ -130,6 +132,8 @@ export function stepThatWorksTheGroups(whole: JobDetail): string | undefined {
   const made = stepTheGroupsWereMadeAt(whole);
   if (made === undefined) return undefined;
   const steps = [...whole.steps].sort((a, b) => a.ordinal - b.ordinal);
+  const declared = steps.find((step) => step.drone_per_task === true);
+  if (declared !== undefined) return declared.step_id;
   return steps[steps.findIndex((step) => step.step_id === made) + 1]?.step_id;
 }
 

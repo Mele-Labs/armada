@@ -10,8 +10,8 @@
 //! daemon's — see `crate::answers::undecodable`. Nothing downstream was asked.
 
 use axum::body::Bytes;
-use axum::extract::Query;
 use axum::extract::State;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Extension;
@@ -583,6 +583,76 @@ pub(crate) async fn drop_task<D: Commands>(
     }
 }
 
+/// The task a `restart_task` path names.
+#[derive(serde::Deserialize)]
+pub(crate) struct NamedTask {
+    task_id: String,
+}
+
+/// Restart this task: a fresh Drone on one failed task. **The body is
+/// optional**, `restart_step`'s rule: none is the plain restart, and bytes
+/// that arrive are read as a note. 409 on a task that has not failed. `#1656`.
+pub(crate) async fn restart_task<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    Path(NamedTask { task_id }): Path<NamedTask>,
+    body: Bytes,
+) -> Response {
+    let restart: ipc::RestartTask = if body.is_empty() {
+        ipc::RestartTask::default()
+    } else {
+        match ipc::decode("a task restart", &body) {
+            Ok(restart) => restart,
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        }
+    };
+    match served
+        .shared()
+        .restart_task(job.id(), task_id, restart)
+        .await
+    {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A person moves a task or a group in the Job's plan, by `after`. **The plan
+/// it leaves comes back**, `add_task`'s rule. `#1685`.
+pub(crate) async fn move_plan<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let moving: ipc::MovePlan = match ipc::decode("a plan move", &body) {
+        Ok(moving) => moving,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().move_plan(job.id(), moving).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Edit this task: what a person changed on one task, and only that. **The
+/// plan it leaves comes back**, `move_plan`'s rule. 409 on a task that is not
+/// open or failed, and on a model `list_models` does not offer, as `set_model`
+/// refuses one; 422 on a body changing nothing or a blank title. `#1657`.
+pub(crate) async fn edit_task<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    Path(NamedTask { task_id }): Path<NamedTask>,
+    body: Bytes,
+) -> Response {
+    let edit: ipc::EditTask = match ipc::decode("a task edit", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().edit_task(job.id(), task_id, edit).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Say something to the Drone that is there. **The Job comes back `running`**,
 /// at the same step, with the same Drone — nothing was spawned and nothing was
 /// thrown away.
@@ -730,6 +800,24 @@ pub(crate) async fn set_review_model<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().set_review_model(job.id(), choice).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Set which model each tier of this Job's tasks runs on, the whole map at
+/// once. **The Job comes back unchanged**: the next spawn reads it. Spike 022,
+/// slice 3.
+pub(crate) async fn set_tiers<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let tiers: ipc::SetTiers = match ipc::decode("a tier map", &body) {
+        Ok(tiers) => tiers,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_tiers(job.id(), tiers).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

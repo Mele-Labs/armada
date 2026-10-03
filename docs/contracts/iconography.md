@@ -436,7 +436,10 @@ the parent document.
 
 16px. Text buttons carry no icon — primary and secondary buttons are
 label-only. Icons appear on **ghost and icon-only row actions**, in
-confirmation dialogs, and in toolbars. Per the voice contract an action
+confirmation dialogs, and in toolbars. **One exception, by the owner on 2
+Oct 2026:** Carry on and Send it back on a step the gaming check holds carry
+`thumbs-up` and `thumbs-down`, because the two are read as a pair of
+opposites before their words are. Per the voice contract an action
 keeps its name through the flow, so the glyph must survive both the button
 and the resulting past-tense state. The full mapping (Approve, Reject,
 Dispatch, Kill, Redirect, Redispatch, Pilot, Freeze dispatch) is
@@ -529,7 +532,8 @@ Link and Sketch. Its press opens what the checkout declares, and the node lands
 where the person is looking. The owner moved it there on 2 Oct 2026 from a card
 at the whiteboard's top-right (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`).
 It draws `zap`, and no chevron, because the menu-trigger mark is kept off a
-trigger with no label. While the Studio is read-only it and the three kinds
+trigger with no label. `R` and the command palette's Run row open the same
+menu, and the row draws the same `zap`. While the Studio is read-only it and the three kinds
 beside it are drawn off with their reason rather than hidden, so the rail is the
 same in both modes.
 

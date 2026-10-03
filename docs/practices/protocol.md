@@ -640,11 +640,14 @@ reached a gate yet**, not an empty review — a Job still running, or one that
 finished with no `human_always` step at all, carries nothing here, and so does
 every Job read from a Fleet older than 10.11.
 
-`VerdictSheet` draws `why` and `risks` into the existing "What you asked for"
-and "What proves it" blocks. The Drone's own claims stay their own block,
-labelled "What the Drone says it did" and "What the Drone says it left
-alone" — the pull request leaves them out on purpose, and the label is what
-keeps a Drone's self-report from reading as Fleet's own account.
+`VerdictSheet` draws `risks` as its own card, "What was not checked", less the
+paragraph Fleet opens it with. `why` it no longer draws: Overview's Brief card
+already carries the request, and the record repeated it whole (#1680). The
+Drone's own claims stay their own cards, "What was done" and "What was skipped"
+— the owner's names of 2 Oct 2026, because several Drones now share one Job.
+The pull request leaves them out on purpose; the old labels, "What the Drone
+says it did", were what marked them as a self-report, and the new ones no
+longer say whose account it is.
 
 ## Protocol 10.12: keeping a pull request current, and resolving its conflicts
 
@@ -2289,6 +2292,134 @@ is told, and `docs/concepts/fleet.md`, *A test another Job is fixing*, has why i
 
 **Not on the wire: `draft_fix` gains a required `files`.** It is an MCP tool, not this protocol, and
 its own schema says so. **Store V94** keeps a claim's files and what a landed fix still holds.
+
+## Protocol 23.4: groups, a task that failed, and two acts on them
+
+Spike 022, the wire lock for the new Job, slice 2 (#1763, carrying #1652, #1656 and #1685).
+
+**Optional fields, one new DTO pair and two routes, all additive.** `WorkPlan` gains `groups`,
+each a `PlanGroup` naming its tasks, its `state` (`GroupState`, the registry's eight words) and
+every run as a `PlanGroupRun`: its own number, the step's run it was filed under, its verdict and
+the commit a green run made. `PlanTask` gains `group` and `failed_reason`, `reason` staying a
+drop's alone. `CheckRun` and `Recorded` gain `group` and `group_attempt`, absent where no group's
+gate made the row, which means exactly that and never "unknown" (#1652). `JobPlanChanged` gains
+`group`, on the change a group's verdict made.
+
+**Fleet writes `failed`, and only once a group's retries run out** (answer 9). A red group goes
+round on its own, its tasks staying `handed_in`; the last red run fails every task in the group
+with a reason naming the group and the run. A Judge refusal stops the group for a person, as it
+stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
+
+**Restart this task also answers a done task in a group the Judge refused** (2 Oct 2026), with
+no change to the wire: Bridge reads the group's last run, `verdict.trigger` `gate_failure` over
+tasks still `done`, with the step that run was filed under `stopped`, as Fleet does. **A group the
+Judge only questioned is refused**: its step holds at `awaiting_human` until a person answers.
+
+| Route | Body | Answers | Refused |
+|---|---|---|---|
+| `POST /jobs/:job_id/tasks/:task_id/restart`, `restart_task` | `RestartTask`, an optional `note`; no body is valid | `JobSummary` | 409 `fleet.task_not_failed` on a task that has not failed, except a done one in a group the Judge refused |
+| `POST /jobs/:job_id/plan/move`, `move_plan` | `MovePlan`: `group`, `task?`, `after?` | `WorkPlan` | 409 `fleet.task_in_flight` on a task, or a group holding one, still in its run; 422 `fleet.no_such_group`, `fleet.no_such_task` |
+
+**The bodies are the lock's.** Bridge sent `to`, an index; the wire takes `after`, as `add_task`
+places a task, because an index counted at the drag is stale the moment a Drone adds or drops one.
+`MovePlan` moved from `pending.ts` to `work-plan.ts` with that shape. Bridge's two pending entries
+go with the Bridge half, which draws the groups and answers both acts in the mock.
+
+**`record_plan` takes an optional `group` per task**, a number in the order groups run; a task
+naming none joins the group before it, so a plan recorded without groups is one group, which is
+how every plan before this reads.
+
+**Store V95** keeps each group's runs, the group and run in `job_step_checks`' key so two groups
+gated on one run of a step keep both their rows, and a plan's two moves and a failed task's reason.
+
+## Protocol 23.5: a pull request's title and comment count, after it merges
+
+**Two optional fields on `JobDelivery`, additive.** `pull_request_title` and `pull_request_comments`
+sit beside `pull_request` and are served only where it is. Unlike `pull_request_detail`, which is the
+sweep's live reading and goes away when the pull request settles, both come off the Job's record, so
+a merged Job still has them.
+
+**`pull_request_title`** is written when Fleet opens the pull request, from the title it opened it
+with, and again on every read of the forge, the settling read included, so a title edited on the
+forge replaces it. Absent means no read has named it: a pull request opened before 23.5 and not read
+since.
+
+**`pull_request_comments`** is the count the sweep reads while the pull request is open, matching
+what the forge shows: conversation comments, reviews that say something, and comments on lines of
+the diff. The line comments cost one more forge call on a sweep turn that finds the pull request open,
+the owner's call on 2 Oct 2026; the wire shape did not change, so there was no version bump. A turn
+where either read goes unanswered keeps the last count. **Absent is unknown, never 0**: the pull
+request settled before the rotation reached it open. Opening a new pull request clears it.
+
+**No forge call on a Job read.** Both are written by the sweep and by opening the pull request. **Store V96** keeps
+them, in two `jobs` columns.
+
+## Protocol 23.6: a model per task, and a person's edit to a task
+
+Spike 022, the wire lock for the new Job, slice 3 (#1764, carrying #1657).
+
+**Optional fields, one new DTO pair and two routes, all additive.** `PlanTask` gains `tier`, a
+strict `TaskTier` (`difficult`, `medium`, `easy`), and `model`, a person's pick. `JobDetail` gains
+`tiers`, a `TierModels` of `difficult?`, `medium?` and `easy?`, and `JobDrone` gains `model`, the
+model that Drone was spawned as. **An empty tier is a key left out, never `null`** (answer 8): a
+tier the map leaves out is Armada picking, and the Drone's `model` says what it picked. Each is
+absent where empty, so a 23.5 Bridge connects behind the banner and draws what it drew.
+
+**Every spawn resolves its model in spike 022's order**: a person's pick on the task, then
+`tiers` for the task's tier, then the step's model, then the Job's. `Job::model_spawned_for`
+spells it once. A Drone on no task asks neither of the first two, and still records its model.
+
+| Route | Body | Answers | Refused |
+|---|---|---|---|
+| `POST /jobs/:job_id/tasks/:task_id/edit`, `edit_task` | `EditTask`, only the changed fields | `WorkPlan` | 409 `fleet.task_in_flight` on a task working or handed in, `fleet.task_already_settled` on one done or dropped; 409 on a model `list_models` does not offer, as `set_model` refuses one; 422 on a body changing nothing or a blank title, and `fleet.no_such_task` |
+| `POST /jobs/:job_id/set_tiers`, `set_tiers` | `SetTiers`: `tiers` | `JobSummary` | 409 on any model `list_models` does not offer, keeping nothing |
+
+**The edit's body is the lock's, which is Bridge's.** `EditTask` moved from `pending.ts` to
+`work-plan.ts` unchanged. It reaches an open or a failed task, so it works before the plan's gate
+and after a failure alike, and it is appended as a person's change: `WorkPlan.recorded_by` stays
+the planner, and the history reads the edit after the recording. Bridge's pending entry goes with
+the Bridge half, which answers it in the mock.
+
+**`set_tiers` is a choice the lock did not make.** The spike sources a Job's tiers from *dispatch,
+then approval*, and both are slice 4's bodies; a Job needs a map before then for slice 3's claim
+to be anything but a test, so the map is a Job setting `set_model`'s way, and slice 4 fills it from
+those two as well.
+
+**`record_plan` takes an optional `tier` per task.** It is an MCP tool, not this protocol, and its
+own schema says so. **Store V97** keeps a recorded task's tier, a person's edit, a Job's map and
+the model each Drone ran.
+
+## Protocol 23.7: one Check's log on a merge line
+
+The owner, 2 Oct 2026: a Check in the Checks strip opens its log, live, wherever the strip is
+drawn. A plan group's Checks already had both halves, `observe_check_output` while the gate writes
+a log and `get_check_output` once it has ruled. A merge line's had neither: the runner writes each
+Check to `logs/<entry>/<turn>/<check>.log` under `armada-land/`, and `get_merge_lines` keeps the
+outcome's `logs` off the wire.
+
+**A route, and a socket of its own.** `observe_land_check` is `GET
+/merge_lines/checks/observe?root=&branch=&check=`, an upgrade like `observe_check_output`'s,
+answered before the socket opens. It reads the file the way that one does, a quarter-second behind,
+and ends with `closed`. **An ended Check is served on it too**: it opens, sends what the file holds
+and closes `finished`, so Bridge reads a merge line Check through one socket whether it is running
+or not.
+
+**The three names are the request, and never a path.** Fleet holds the root against the roots it
+serves, reads the branch's outcome for its turn and the Checks that turn has started, and opens only
+`<turn>/<check>.log` where the turn resolves under this line's own `logs/` and the log is not a
+link. Everything else is one refusal. `adapters::land_state::line::check_log` is the rule;
+`crates/fleet/src/tests/land_logs.rs` holds it to a path, `..`, a waiting Check, an unserved root,
+a turn outside `logs/` and a link.
+
+**Additive, so the minor moves.** `LandOutputMessage` is a new message family, `OutputMessage`'s
+three with its own opening: `LandOutputOpened` names the root, the branch and the Check, and carries
+no path, for `get_merge_lines`' redaction. `OutputLines` and `OutputClosed` are reused whole. A
+23.6 Fleet has no such route, so a 23.7 Bridge behind it is refused, which is the skew rule's own
+direction.
+
+**Bridge holds it in main**, `land-following.ts` beside `following.ts`, published as
+`BridgeState.landFollowed`, one at a time. The preload's `followLandCheck` takes the three names
+and main reads only three strings off whatever the window sent.
 
 ## Open questions
 

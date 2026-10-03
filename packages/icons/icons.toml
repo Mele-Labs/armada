@@ -327,7 +327,7 @@
   group = "Pull request state"
   size = "12px"
   status = "Specified"
-  reserved = "A merged pull request's badge, in the Job header and on the Land board's Delivered row, and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
+  reserved = "A merged pull request's badge, in the Job header, on the Land board's Delivered row and on the pull request card in a finished Job's record (#1680), and a merge line branch Preparing to land (`land_state.preparing`), pulsing in `--status-running`. The owner chose it for the second on 2 Oct 2026 over `hammer`, which read as fixing; the hue and the pulse tell the two apart. Never the merge act: Merge is a button at a gate and carries its own word, and a mark for what already happened drawn on the control that does it would say the press had landed. Never a Job state: `completed_success` is `check`, and a Job can complete with nothing merged."
   notes = "Minted 1 Oct 2026, the owner's call: a pull request's state reads as a badge the way a Job's does (*Every badge carries an icon*). It renders `--status-completed-success`, which `check` also renders. A forked join and a tick share no outline at 12px, so rule 4 holds. `git-pull-request` stays the row mark for what the part is. This mark is the state the part settled in, and the two sit on one row without saying the same thing."
 
 [icons.git-pull-request-closed]
@@ -395,7 +395,7 @@
     group = "Canvas rail"
     size = "16px"
     status = "Specified"
-    notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A second context on a glyph carrying no reservation, which is what a `usage` sub-table is for. A chain is what every surface a person has ever used draws a hyperlink as, and a Studio's Link node is an address and nothing else — so the silhouette is already read correctly before the tooltip opens. It is a cross-group collision with the Queued reason above and the contract permits those: that one is a 12px badge glyph in `--status-queued`, this is a 16px control on a canvas, and no surface draws the two together. Refused: `external-link` is Chrome's and means *this press leaves the app*, which placing a node does not; `paperclip` would say attachment, and a Link on a Studio is a node like any other rather than something clipped to one."
+    notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A second context on a glyph carrying no reservation, which is what a `usage` sub-table is for. A chain is what every surface a person has ever used draws a hyperlink as, and a Studio's Link node is an address and nothing else — so the silhouette is already read correctly before the tooltip opens. It is a cross-group collision with the Queued reason above and the contract permits those: that one is a 12px badge glyph in `--status-queued`, this is a 16px control on a canvas, and no surface draws the two together. Refused: `external-link` is Chrome's and means *this press leaves the app*, which placing a node does not; `paperclip` would say attachment, and a Link on a Studio is a node like any other rather than something clipped to one. The palette's Add a link row draws it too, since 2 Oct 2026: the same act, and the owner asked for the rail's glyphs there."
 
 [icons.list-ordered]
   means = "Numbered lines \u2014 things read in an order"
@@ -718,6 +718,22 @@
   reserved = "Wrapping the lines of a reading in a console, the reader's own toggle. Never a layout or alignment control, never a return or a redirect, and never undo."
   notes = "Minted 2 Oct 2026 for the log panel's wrap toggle, on the owner's annotation that `split`, borrowed for it first, \"is not a wrap lines icon\". The glyph is the act itself: a long line turning back under itself. `text-wrap` and not `wrap-text`, which lucide-react keeps only as an alias of it. Against the arrows already in the set, rule 4 holds on outline: `corner-up-right` is a bare turn with no ruled lines, and `undo-2` an open arrow pointing against the reading direction. Refused: `split`, one line becoming two, which is an escalation reason and reads as fanning out rather than wrapping; `align-left`, which says how text is set rather than where a line breaks."
 
+[icons.thumbs-down]
+  means = "A hand with its thumb pointed down — the work is not right"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Send it back on a step the gaming check holds, on its button only. Never a rejection, which is `ban`, never a kill, and never a Judge's refusal."
+  notes = "Minted 2 Oct 2026, the owner's call on the walk of #1672: the two answers to a flag read as agree and disagree before their words do. It breaks the Actions rule that text buttons carry no icon, and only on these two buttons, which are a pair whose whole meaning is the direction of the thumb. Paired with `thumbs-up`; the two differ by orientation alone, which is why they are only ever drawn side by side with their words. Refused: `undo-2`, reserved to taking back a canvas stroke; `x`, a system failure; `ban`, a person's rejection, which ends a Job where this sends work back."
+
+[icons.thumbs-up]
+  means = "A hand with its thumb raised — the work is fine"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
+  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."
+
 [icons.trash-2]
   means = "A bin with its lid lifted clear"
   group = "Node bar"
@@ -808,7 +824,7 @@
   group = "Canvas rail"
   size = "16px"
   status = "Specified"
-  reserved = "Run on a Studio's rail only: the press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
+  reserved = "Run on a Studio only: the rail's press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking, and the command palette's row that opens the same menu. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
   notes = "Minted 2026-10-02, when the owner moved Run off the whiteboard's top-right corner and onto the rail's place group (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`). A bolt is an object standing for its verb, the construction `pin`, `stamp` and `wrench` already use, so P1 is not crossed. Against the rail it joins it collides with nothing: `sticky-note` is a square with a peeled corner, `link` a chain, `shapes` three figures, and the view group's `maximize` four corners; a zigzag is no closed outline at all. It reads against `power`, the node bar's Stop the server, as the start to that stop, which is the pair a person meets on one Run node. Refused: `play`, the obvious mark, because `rocket`'s and `flask-conical`'s rows both refused it as a triangle beside `triangle-alert`, Doctor's, and this row does not reopen that; `circle-play`, since `circle-*` is the Judge's; `square-play`, a third square in a rail that already holds `sticky-note`; `terminal` and `square-terminal`, Pilot's; `rocket`, reserved to sending a node through the proposer, which waits at the approval gate where Run starts at once."
 
 [icons.chevron-down]
@@ -860,7 +876,7 @@
     group = "Chrome"
     size = "12px"
     status = "Specified"
-    reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label, and never a control that expands in place."
+    reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label except in a log panel's head (the usage below), and never a control that expands in place."
     notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as Job detail's Details act draws it."
 
   [[icons.chevron-right.usage]]
@@ -871,6 +887,14 @@
     paired_with = "chevron-left"
     reserved = "Trailing the label of the control that retraces a step the way back undid — the forward half of actions.toml's `history` act, ⌘]. Never leading, never alone without a label."
     notes = "Registered 2026-09-30 by the owner, with chevron-left for the back half, once the Back trail in Job detail had drawn Back as words alone. It is the goes-to usage above read along a trail: forward goes to a place, so it trails its label as goes-to does, and the two cannot be told apart because they mean the same thing. Nothing draws Forward yet; the row is here so the pair is decided together."
+
+  [[icons.chevron-right.usage]]
+    means = "goes to, alone — a log's way on to the record it belongs to"
+    group = "Chrome"
+    size = "16px"
+    status = "Specified"
+    reserved = "An icon-only ghost button in a log panel's head, going to the Record row the log belongs to: a Check's log to that Check's own row. Named by its tooltip, `Open in the Record`. Never in a list row, never beside a label, and never drawn off where there is no row to go to."
+    notes = "Added 2026-10-02, the owner's call on walking the Check log panel: the log leads on to the Check's Record row, as an icon with a tooltip and no word. It is the goes-to usage above with its label moved into the tooltip, which is the one exception to that row's never-alone: a sheet's head carries Close as a word beside it, so a second word there would read as a second way out. Refused: `shield`, the Check's own Record mark, under a rule-4 waiver nothing else inherits; `external-link`, which hands something to the OS rather than going somewhere in Bridge; `list-ordered`, an Outline's."
 
 [icons.chevron-left]
   means = "back — the back half of the history act"

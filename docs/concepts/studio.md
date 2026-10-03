@@ -47,6 +47,9 @@ flowchart LR
 > **Rule.** A Zone rings off part of the board, and what is in it moves with it. A node dropped on a Zone goes in, and one dragged off it comes out. A node inside a frame keeps its place measured from the frame's corner, so moving the frame is one write. A Zone holds any kind but another Zone.
 > Why: the owner, 2 Oct 2026, of a read-in's eighteen loose cards: *"they should get all put into a nice framed region to indicate they all go together. Then I could move them all around."* `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`.
 
+> **Rule.** A kind armed on the rail and pressed inside a Zone goes in that Zone, by the rule a drop is read by: a Zone pressed inside a Zone lands on the board, and a press inside a Cluster lands in the Zone round it, since a Cluster takes nothing it was not grouped from.
+> Why: the owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and puts it in that Zone."* A press that put a node inside a frame's outline without putting it in the frame would draw it in a Zone it does not move with. Until `add_studio_node` names a frame, Bridge's main adds the node where it was pressed and then moves it in, so a move Fleet refuses leaves it on the board at that spot.
+
 > **Rule.** A frame is sized round what it holds and its size is never kept. Deleting a frame leaves what it held where it was on the board.
 > Why: a size kept beside the positions it was worked out from is a second answer that goes stale the first time a node inside moves.
 
@@ -107,7 +110,7 @@ flowchart LR
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why.
+> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. `R` and the command palette's Run open the same menu. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why, `R` does nothing, and the palette's row is dimmed with the same reason.
 > Why: the owner asked why Run sat in a card at the board's top-right rather than on the rail, and chose the rail. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
 
 > **Rule.** While a Studio is read-only, every act on the rail is drawn off, each with a tooltip saying Continue turns it on, and none is hidden.
@@ -181,6 +184,9 @@ flowchart LR
 > **Rule.** Only a person accepts a relation. Helm and a scout may propose one, drawn dashed until accepted.
 > Why: an agent reorganising a person's work is what separates a drawing surface from a record of decisions.
 
+> **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it. Shut, nothing but the dot stands on the line, and the dot sits at the clear point of the line nearest its middle, off any card the line crosses.
+> Why: the owner, 2 Oct 2026: *"The label stops covering the cards it runs between: it moves along its line, or shrinks to a dot that opens on hover."* The card sat at the line's middle and hid the Note under it. Moved alone, the card finds no room on a Zone, where a line out of one column crosses the next column's cards and the gaps between them are narrower than the card; shrunk alone, a dot left at the middle of a line drawn across a card sits on that card's text. A dot needs a step of clear line, which a gap has. `.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`.
+
 > **Rule.** No edge carries colour. Weight and label tell them apart.
 
 > **Rule.** A `Produced` edge is drawn as the frame it ends in where the frame says it: one into a node inside a frame its source also produced, and one from a Note into the Cluster round it. The record keeps every edge.
@@ -235,6 +241,9 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
 > Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
 
+> **Rule.** A read-in draws no Cluster round fewer than two Notes; the Notes it named land loose in the Zone. A read-in whose scout answered with nothing to place lands one Note in its Zone, produced by its Finding, saying *Nothing was found that could be pulled into the studio.* A scout that was stopped or failed lands nothing.
+> Why: grouping by hand refuses a Cluster of one, and a scout naming one Note left a frame round it. Of an empty read-in, the owner, 2 Oct 2026, first: *"there should be a toast notification or something saying nothing was found"*, and then, having walked the toast: *"Hmm i dont like the notification now that I see it. What about a note that extends from finding that just 'Nothing was found that could be pulled into the studio'"*. A stopped or failed scout already says how it ended on its Finding.
+
 > **Rule.** An Epic reads in as one Issue per issue, each carrying that issue's own address, number, title and state, and makes no Issue draft.
 > Why: an Issue draft is Armada's own unfiled text. An issue already on a forge is an Issue node, and dispatching from it is the address's job. The read already answers all three fields, so nothing is left for a later fetch.
 
@@ -259,8 +268,8 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > **Rule.** An Epic takes no scout and leaves no Finding.
 > Why: nothing was learned; a list was copied. A model asked to echo one back is cost spent on a transcription, and a Finding that cost nothing and read nothing says nothing.
 
-> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said.
-> Why: a Studio is read by agents as much as by a person, and a Note carrying an apology is a record of nothing.
+> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said. An answer of the right shape that asks for nothing makes the one Note above, and nothing else.
+> Why: a Studio is read by agents as much as by a person, and a Note carrying a scout's apology or garbled answer is a record of nothing. A well-formed empty answer is a fact about the source. The owner chose, on 2 Oct 2026, to have the board say it rather than leave a Zone holding a Finding alone.
 
 > **Rule.** Nothing promotes itself. A Note never written up is a finished outcome.
 

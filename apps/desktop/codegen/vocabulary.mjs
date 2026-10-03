@@ -318,6 +318,9 @@ for (const [outcome, flag] of advances) {
 const vocabularies = new Map(WANTED.map((name) => [name, []]));
 const gaps = [];
 const glyphs = new Set();
+// What each gaming pattern says happened, for the lead and the card a flag
+// holds a step with. #1672.
+const headlines = [];
 
 for (const [header, table] of verbs) {
   const parts = header.split(".");
@@ -337,6 +340,15 @@ for (const [header, table] of verbs) {
   const icon = table.icon ?? "";
   const token = table.status_token ?? "";
   const hint = table.hint ?? "";
+  // A flag stops a step and the lead names it by what happened, so all nine
+  // carry one or the build stops.
+  if (vocabulary === "gaming_pattern") {
+    const headline = table.headline ?? "";
+    if (headline === "") {
+      throw new Error(`enum-verbs.toml — [verbs.gaming_pattern.${variant}] names no headline`);
+    }
+    headlines.push({ variant, headline });
+  }
   const missing = [];
   if (verb === "") missing.push("verb");
   if (icon === "") missing.push("icon");
@@ -439,6 +451,14 @@ for (const outcome of advances.keys()) {
   }
 }
 
+lines.push("/**");
+lines.push(" * What a gaming flag says happened, in the past tense, for the lead and the card");
+lines.push(" * a flag holds a step with. From `enum-verbs.toml`, beside the verb. #1672.");
+lines.push(" */");
+lines.push("export const GAMING_PATTERN_HEADLINE: Readonly<Record<string, string | undefined>> = {");
+for (const row of headlines) lines.push(`  ${JSON.stringify(row.variant)}: ${JSON.stringify(row.headline)},`);
+lines.push("};");
+lines.push("");
 lines.push("/** Where a Job is in its life, from `job-statuses.toml`. Not a rendering. */");
 lines.push("export type Lifecycle = {");
 lines.push("  /** Whether the Job is over here. */");

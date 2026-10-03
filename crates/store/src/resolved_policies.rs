@@ -109,6 +109,7 @@ impl Store {
                 Ok(Attempted {
                     step_id,
                     attempt,
+                    group: None,
                     at,
                     record: ResolvedPolicies {
                         auto_merge: enum_value(

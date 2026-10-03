@@ -460,3 +460,78 @@ fn a_tasks_scope_keeps_no_blank_paths() {
     assert_eq!(task.scope().len(), 1);
     assert_eq!(task.scope()[0].as_str(), "crates/ipc/src/lib.rs");
 }
+
+fn edited(id: &str, edit: crate::TaskEdit) -> PlanEntry {
+    entry(
+        PlanChange::Edited {
+            task: TaskId::read(id).expect("a task id"),
+            edit,
+        },
+        PlanAuthor::Person,
+    )
+}
+
+/// **A person's edit changes the fields it names and keeps the rest** (#1657),
+/// and is a change after the recording, never a new one.
+#[test]
+fn an_edit_changes_only_what_it_names_and_the_plan_stays_the_planners() {
+    let edit = crate::TaskEdit::new(
+        Some("Stop the reader at the end"),
+        Some("the bound is read in `next`"),
+        Some(&["crates/store/src/read.rs"]),
+        None,
+        None,
+    )
+    .expect("an edit");
+    let plan = WorkPlan::fold(&[recorded(&["one", "two"]), edited("T1", edit)])
+        .expect("a history that replays")
+        .expect("a plan");
+    let t1 = plan.task(TaskId::read("T1").expect("an id")).expect("T1");
+    assert_eq!(t1.title(), "Stop the reader at the end");
+    assert_eq!(t1.note(), "the bound is read in `next`");
+    assert_eq!(t1.scope().len(), 1);
+    assert_eq!(t1.expects(), "", "a field not named is kept");
+    assert_eq!(t1.model(), None);
+    assert_eq!(plan.recorded_by(), &by_step("plan"));
+}
+
+/// Only an open or a failed task: one working or handed in is its Drone's, and
+/// one done or dropped is settled.
+#[test]
+fn an_edit_reaches_only_an_open_or_a_failed_task() {
+    let edit = || crate::TaskEdit::new(Some("again"), None, None, None, None).expect("an edit");
+    for (to, state) in [
+        (TaskUpdate::Working, TaskState::Working),
+        (TaskUpdate::HandedIn, TaskState::HandedIn),
+        (TaskUpdate::Done, TaskState::Done),
+    ] {
+        let refused =
+            WorkPlan::fold(&[recorded(&["one"]), updated("T1", to), edited("T1", edit())]);
+        assert_eq!(
+            refused,
+            Err(PlanRefused::NotEditable {
+                named: TaskId::read("T1").expect("an id"),
+                state
+            })
+        );
+    }
+    let failed = crate::FailReason::new("G1's Checks were red on run 3").expect("a reason");
+    let plan = WorkPlan::fold(&[
+        recorded(&["one"]),
+        updated("T1", TaskUpdate::Failed(failed)),
+        edited("T1", edit()),
+    ])
+    .expect("a failed task is edited")
+    .expect("a plan");
+    assert_eq!(plan.tasks()[0].title(), "again");
+}
+
+#[test]
+fn an_edit_that_changes_nothing_or_blanks_the_title_is_not_one() {
+    assert_eq!(crate::TaskEdit::new(None, None, None, None, None), None);
+    assert_eq!(
+        crate::TaskEdit::new(Some("  "), Some("a note"), None, None, None),
+        None
+    );
+    assert!(crate::TaskEdit::new(None, Some(""), None, None, None).is_some());
+}

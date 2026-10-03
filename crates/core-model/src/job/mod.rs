@@ -43,6 +43,7 @@ mod ids;
 mod judge;
 mod narrowing;
 mod note;
+mod plan_group;
 mod policy;
 mod prerequisite;
 mod record;
@@ -55,6 +56,7 @@ mod status;
 mod step;
 mod step_machine;
 mod stuck;
+mod tiers;
 mod transition;
 mod verdict;
 mod work_plan;
@@ -93,6 +95,7 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
+pub use plan_group::{GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
@@ -110,13 +113,15 @@ pub use step_machine::{
     IllegalStepTransition, StepEdge, StepTarget, ADVANCING_STATUSES, STEP_EDGES,
 };
 pub use stuck::{DroneStanding, Recourse, Refusal, Refusals, Standing, Stuck};
+pub use tiers::{TaskEdit, TaskTier, TierModels};
 pub use transition::{
     CriteriaOwed, Edge, IllegalTransition, PilotReason, Target, TransitionReason, EDGES,
 };
 pub use verdict::GateVerdict;
 pub use work_plan::{
-    Approach, DropReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow,
+    Approach, DropReason, FailReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry,
+    PlanRefused, PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan,
+    WorkingWindow,
 };
 pub use workflow::{
     FrozenWorkflow, ResolvedCheck, ResolvedStep, ARTIFACT_EXISTS, DIFF_NONEMPTY,

@@ -9,11 +9,13 @@
 //!   next task's, asking neither the cap nor headroom (answer 2).
 //! - **The last hand-in fills it once**, with every task's claim, and its Drone
 //!   stays for the outcome, as a step retry is one Drone today.
+//! - **Since slice 2 that is per group**: the group's last hand-in fills it,
+//!   and `crate::grouping` decides what its gate leads to.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, DroneId, Job, JobId, JobStatus, PlanChange, PlanTask, ResolvedStep, Shown, StepId,
-    TaskId, TaskState, TaskUpdate, Timestamp, WorkPlan,
+    Actor, DroneId, GroupRuns, Job, JobId, JobStatus, PlanChange, PlanTask, ResolvedStep, Shown,
+    StepId, TaskId, TaskState, TaskUpdate, Timestamp, WorkPlan,
 };
 use store::{PlanHand, TaskHandIn};
 use verification::{Claimed, NotClaimed, ShownBy, Submission};
@@ -28,12 +30,18 @@ use crate::slots::Slot;
 use crate::work_plan::plan_not_kept;
 use crate::working::Working;
 
-/// The task the next spawn on the step is put on: the first in plan order that
-/// is open, or working under a Drone that is gone. `None` once every task is
-/// handed in, done or dropped, which is when the step's gate fires.
-pub fn next_task(plan: &WorkPlan) -> Option<&PlanTask> {
-    plan.tasks()
-        .iter()
+pub use crate::grouping::{
+    a_group_follows, current_group, failed, group_end, in_flight, restartable, verdict_of,
+    why_it_failed, GroupEnd, NotRestartable,
+};
+
+/// The task the next spawn on the step is put on: the first, **in the group
+/// the step is working**, that is open or working under a Drone that is gone.
+/// `None` once that group's tasks are all handed in, done, failed or dropped,
+/// which is when the group's gate fires.
+pub fn next_task<'p>(plan: &'p WorkPlan, runs: &GroupRuns) -> Option<&'p PlanTask> {
+    let group = current_group(plan, runs)?;
+    plan.tasks_in(group)
         .find(|task| matches!(task.state(), TaskState::Open | TaskState::Working))
 }
 
@@ -82,22 +90,23 @@ pub struct Together {
     pub not_claimed: String,
 }
 
-/// The step's submission once no task is open or working, and `None` until.
+/// The group's submission once none of its tasks is open or working, and
+/// `None` until: its handed-in and failed tasks' claims.
 ///
 /// In plan order, and a task's latest hand-in wins, since a Drone the Checks
 /// sent the work back to hands in again. A handed-in task with no hand-in in
 /// hand is still named, by title and `shown`, so no task is left out.
-pub fn together(plan: &WorkPlan, hand_ins: &[HandIn]) -> Option<Together> {
-    if next_task(plan).is_some() {
+pub fn together(plan: &WorkPlan, runs: &GroupRuns, hand_ins: &[HandIn]) -> Option<Together> {
+    let group = current_group(plan, runs)?;
+    if next_task(plan, runs).is_some() {
         return None;
     }
     let mut claimed = Vec::new();
     let mut shown_by = Vec::new();
     let mut not_claimed = Vec::new();
     for task in plan
-        .tasks()
-        .iter()
-        .filter(|task| task.state() == TaskState::HandedIn)
+        .tasks_in(group)
+        .filter(|task| matches!(task.state(), TaskState::HandedIn | TaskState::Failed))
     {
         let id = task.id();
         match hand_ins.iter().rev().find(|hand_in| hand_in.task == id) {
@@ -167,7 +176,8 @@ where
         let Some(plan) = self.plan_of(job.id()).await? else {
             return Ok(None);
         };
-        let task = next_task(&plan).cloned();
+        let runs = self.group_runs_of(job.id()).await?;
+        let task = next_task(&plan, &runs).cloned();
         Ok(task.map(|task| (plan, task)))
     }
 
@@ -192,6 +202,10 @@ where
             plan
         };
         self.task_moved(job.id(), &plan, task, &at);
+        // Fleet stamps the group's start at its first task's spawn.
+        if let Some(group) = plan.task(task).map(PlanTask::group) {
+            self.group_started(job.id(), step, group).await?;
+        }
         Ok(())
     }
 
@@ -224,7 +238,11 @@ where
             .map_err(NotSubmitted::NotKept)?;
         at_work.task_handed_in();
         self.task_moved(&job, &plan, task, &at);
-        let Some(together) = together(&plan, &hand_ins) else {
+        let runs = self
+            .group_runs_of(&job)
+            .await
+            .map_err(|why| NotSubmitted::NotKept(why.to_string()))?;
+        let Some(together) = together(&plan, &runs, &hand_ins) else {
             return Ok(Recorded);
         };
         let step_call = Call {
@@ -306,8 +324,11 @@ where
         if self.load(&job).await?.status() != JobStatus::Running {
             return Ok(false);
         }
-        let plan = self.plan_of(&job).await?;
-        Ok(plan.as_ref().and_then(next_task).is_some())
+        let Some(plan) = self.plan_of(&job).await? else {
+            return Ok(false);
+        };
+        let runs = self.group_runs_of(&job).await?;
+        Ok(next_task(&plan, &runs).is_some())
     }
 
     /// End a task's Drone that handed in, and put the next task's on the same
@@ -321,6 +342,19 @@ where
         if !self.between_tasks(at_work).await? {
             return Ok(());
         }
+        self.put_next_task_drone(working).await
+    }
+
+    /// End the Drone in this slot and put the next task's on its worktree.
+    /// **The caller has decided a task is owed**: the turn above, or a green
+    /// group's gate in `crate::grouping`.
+    pub(crate) async fn put_next_task_drone(
+        &self,
+        working: &mut Option<Working>,
+    ) -> Result<(), Adrift> {
+        let Some(at_work) = working.as_ref() else {
+            return Ok(());
+        };
         let (job_id, step, _) = at_work.standing();
         let carried = at_work.carried();
         let stood_down = self.stood_down(&job_id, working).await?;
