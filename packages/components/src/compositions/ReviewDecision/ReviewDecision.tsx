@@ -75,7 +75,7 @@ export type ReviewDecisionProps = {
   /** Take one change off the list. Absent leaves the list as it stands. */
   onRemoveChange?: (id: string) => void;
   /**
-   * Ask to merge the pull request and take the work. **The caller confirms**,
+   * Ask to merge the pull request. **The caller confirms**,
    * because this writes into a repository Fleet did not make and Bridge cannot
    * undo it — the same shape as `onReject`, and for the other of the two
    * reasons an answer here is worth a second press.
@@ -185,9 +185,9 @@ export function ReviewDecision({
   changesLabel = "What should change",
   approveNote = "Takes the work as the drone left it.",
   requestChangesNote = "Sends this note to the drone as a turn. It keeps the worktree and the step, and comes back running.",
-  mergeNote = "Merges the pull request on its code host, then takes the work. Armada runs the repository's after-merge checks against what landed; merging it there yourself skips them.",
+  mergeNote = "Merges the pull request on its code host. Armada runs the repository's after-merge checks against what landed; merging it there yourself skips them.",
   rejectNote = "A verdict on the work, and the job ends there. The drone is stopped and nothing resumes it. Its branch stays where the drone left it.",
-  mergeLabel = "Merge and take the work",
+  mergeLabel = "Merge pull request",
   approveLabel = "Approve the work",
   requestChangesLabel = "Request changes",
   rejectLabel = "Reject the work",
@@ -210,7 +210,7 @@ export function ReviewDecision({
   // still drawn. **The answer keeps the label, not only the press** —
   // `pendingLabel` already holds it while the press is out, and the line is
   // drawn on the same face afterwards: a line meaning accepted beside a face
-  // reading `Merge and take the work` names the act that did not go out, at
+  // reading `Merge pull request` names the act that did not go out, at
   // the one moment a person is checking that the right one did. #1117's rule
   // is that the control pressed answers, and what was pressed was the entry.
   const faceOf = (lead: string, behind: DecisionAct, chosen: string) =>

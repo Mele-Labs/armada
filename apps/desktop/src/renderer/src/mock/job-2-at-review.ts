@@ -6,8 +6,13 @@
 // **What is moved back, and only that.** The Job's status and the handoff
 // step's, the step's last attempt left open, and what landing wrote: `ended_at`,
 // `reclaimed_at`, `landed`. The files are pull request #1750's, in the words
-// Fleet's own review spelled them. Fleet sends no pull request detail for this
-// Job, so the card draws no title, and #1750 had no comments.
+// Fleet's own review spelled them.
+//
+// **What 23.5 adds, and only that.** The recording predates protocol 23.5, so
+// `delivery.pull_request_title` and `delivery.pull_request_comments` are put
+// on here: #1750's title as the forge holds it, and its count, which was 0 — no
+// conversation comment and no review with text. `job2AtReviewBefore235` is the
+// recording as served, a pull request no read has named since.
 
 import type { ChangedFile, JobDetail, JobSummary, StepDetail, Submitted } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -48,10 +53,43 @@ function asking(step: StepDetail): StepDetail {
   };
 }
 
-/**
- * Job 2 at its review gate. Every read the recording holds is moved onto it.
- */
+/** #1750's title, as the forge holds it. */
+const TITLE = "Retire guides 8 and 20, add validation that every guide's piece is drawn somewhere";
+
+/** Job 2 at its review gate, as a 23.5 Fleet serves it: its pull request's title and count. */
 export function job2AtReview(): JobFixture {
+  const fixture = job2AtReviewBefore235();
+  if (fixture.watched.state !== "read") return fixture;
+  const { detail } = fixture.watched;
+  const delivery = { ...detail.delivery, pull_request_title: TITLE, pull_request_comments: 0 };
+  return {
+    ...fixture,
+    name: "Job 2, at its review gate, as Fleet served it",
+    watched: { ...fixture.watched, detail: { ...detail, delivery } },
+  };
+}
+
+/**
+ * Job 2 at its review gate with no title kept, but one the rotation's live read
+ * of #1750 holds: a pull request from before 23.5 that is still open.
+ */
+export function job2AtReviewLiveTitle(): JobFixture {
+  const fixture = job2AtReviewBefore235();
+  if (fixture.watched.state !== "read") return fixture;
+  const { detail } = fixture.watched;
+  const delivery = { ...detail.delivery, pull_request_detail: { number: 1750, title: TITLE, reviews: [] } };
+  return {
+    ...fixture,
+    name: "Job 2, at its review gate, its title read live",
+    watched: { ...fixture.watched, detail: { ...detail, delivery } },
+  };
+}
+
+/**
+ * Job 2 at its review gate. Every read the recording holds is moved onto it,
+ * and its delivery is as served: from before 23.5, no title and no count.
+ */
+export function job2AtReviewBefore235(): JobFixture {
   const id = served.job.id;
   const base = recorded("done-worktree-given-back");
   const landed = served as unknown as JobDetail;
@@ -65,7 +103,7 @@ export function job2AtReview(): JobFixture {
   const pullRequest = delivery.pull_request ?? "";
   return {
     ...base,
-    name: "Job 2, at its review gate, as Fleet served it",
+    name: "Job 2, at its review gate, before 23.5",
     job,
     watched: { ...moved(base.watched), detail },
     observed: moved(base.observed),

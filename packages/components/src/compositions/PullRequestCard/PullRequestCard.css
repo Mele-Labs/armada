@@ -1,5 +1,7 @@
 /* A pull request, small: a flat well inside a card, the whole of it a press.
-   --bg-sunken is the ground a well takes on a card; hover steps it up. */
+   --bg-sunken is the ground a well takes on a card. Hover lifts it a hair and
+   lights its edge in the accent, a glow rather than a drop: a shadow inside a
+   card would make it a second card. */
 .armada-pr-card {
   display: flex;
   flex-direction: column;
@@ -12,11 +14,30 @@
   color: var(--fg-default);
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease),
+    translate var(--duration-fast) var(--ease);
 }
 
+/* `color` and `text-decoration` hold against the base `a:hover`, which
+   underlines every line of a link this size. */
 .armada-pr-card:hover {
+  translate: 0 calc(var(--border-width) * -1);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default));
   background: var(--bg-hover);
+  box-shadow:
+    inset 0 var(--border-width) 0 var(--border-highlight),
+    0 0 var(--space-4) 0 color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-pr-card:hover {
+    translate: none;
+  }
 }
 
 .armada-pr-card:focus-visible {
@@ -26,6 +47,22 @@
 
 .armada-pr-card p {
   margin: 0;
+}
+
+/* What it is, before which one: the eyebrow names a pull request, and a
+   settled one's badge sits at its trailing edge. */
+.armada-pr-card__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
 }
 
 .armada-pr-card__head {
@@ -57,8 +94,10 @@
   white-space: nowrap;
 }
 
-/* The state at the trailing edge, so the title takes what is left. */
+/* The state at the eyebrow's trailing edge. Its badge keeps its own case. */
 .armada-pr-card__state {
+  text-transform: none;
+  letter-spacing: normal;
   flex: none;
   margin-inline-start: auto;
 }

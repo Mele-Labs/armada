@@ -93,7 +93,7 @@ function gate(): Sent {
  * alone finds two buttons.
  */
 function confirmMerge() {
-  return page.getByRole("dialog").getByRole("button", { name: "Merge and take the work" });
+  return page.getByRole("dialog").getByRole("button", { name: "Merge pull request" });
 }
 
 /**
@@ -111,7 +111,7 @@ const END_REVIEW = "The other way to end this review";
 test("pressing merge asks rather than merging", async () => {
   const sent = gate();
 
-  await userEvent.click(page.getByRole("button", { name: "Merge and take the work" }));
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
 
   await expect.element(page.getByRole("dialog")).toBeVisible();
   expect(sent.merged, "the press merged").toEqual([]);
@@ -119,7 +119,7 @@ test("pressing merge asks rather than merging", async () => {
 
 test("Enter cancels the merge, because Cancel is what holds focus", async () => {
   const sent = gate();
-  await userEvent.click(page.getByRole("button", { name: "Merge and take the work" }));
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
 
   // The contract's rule, run rather than described: `Enter` fires whatever
   // holds focus, and on a plain confirmation that is Cancel.
@@ -134,7 +134,7 @@ test("Enter cancels the merge, because Cancel is what holds focus", async () => 
 
 test("Esc cancels the merge too", async () => {
   const sent = gate();
-  await userEvent.click(page.getByRole("button", { name: "Merge and take the work" }));
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
 
   await userEvent.keyboard("{Escape}");
 
@@ -144,7 +144,7 @@ test("Esc cancels the merge too", async () => {
 
 test("confirming merges once, and names the job it was asked about", async () => {
   const sent = gate();
-  await userEvent.click(page.getByRole("button", { name: "Merge and take the work" }));
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
 
   // **The half that keeps the three above honest.** A dialog that refused every
   // press would pass all of them, and a refusal is only correct if the
@@ -439,7 +439,7 @@ test("merge is drawn and disabled while the branch conflicts, and the other thre
     />,
   );
 
-  const merge = page.getByRole("button", { name: "Merge and take the work" });
+  const merge = page.getByRole("button", { name: "Merge pull request" });
   await expect.element(merge).toBeDisabled();
   await expect
     .element(page.getByText("This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."))
@@ -484,7 +484,7 @@ test("merge is the primary act again once the branch is no longer conflicted", a
     />,
   );
   await expect
-    .element(page.getByRole("button", { name: "Merge and take the work" }))
+    .element(page.getByRole("button", { name: "Merge pull request" }))
     .not.toBeDisabled();
   await expect
     .element(page.getByText("This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."))

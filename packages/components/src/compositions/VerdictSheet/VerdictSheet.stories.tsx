@@ -109,7 +109,7 @@ export const PullRequestOpen: Story = {
     ],
     note: (
       <>
-        <strong>Merge and take the work</strong> merges this pull request on git.example, then
+        <strong>Merge pull request</strong> merges this pull request on git.example, then
         runs the repository&rsquo;s after-merge Checks on what landed.{" "}
         <strong>Approve the work</strong> takes it without merging — the pull request stays open.{" "}
         <strong>Request changes</strong> sends your note to the Drone, which keeps working on this
