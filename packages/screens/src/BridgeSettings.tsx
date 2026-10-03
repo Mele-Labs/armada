@@ -60,18 +60,17 @@ const WORDS: Record<HelmActionAuthority, string> = { acting: "Acting", read_only
 export function BridgeSettings({ limits, live, health, onSave, onReadGuides }: BridgeSettingsProps) {
   return (
     <div className="armada-screen__pane">
-      <Card>
-        <CardHeader>
-          <CardTitle>Fleet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {limits === null ? (
-            <p>Fleet has not answered yet.</p>
-          ) : (
+      {/* Before Fleet answers there is nothing to draw: no heading over nothing. */}
+      {limits === null ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Fleet</CardTitle>
+          </CardHeader>
+          <CardContent>
             <FleetLimitsFields limits={limits} live={live} onSave={onSave} />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

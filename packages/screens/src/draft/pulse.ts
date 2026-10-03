@@ -23,7 +23,7 @@ export type PulseProcess = {
   memory_bytes: number;
   /** `ps`'s own spelling. Rendered, never parsed. */
   running_for: string;
-  /** A Drone's own process. One row per live Drone carries it (23.9). */
+  /** A Drone's own process. One row per live Drone carries it (23.10). */
   recorded: boolean;
   /** The Drone whose process it is, or whose process started it. `null` where Fleet names none. */
   drone: string | null;

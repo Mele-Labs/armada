@@ -27,10 +27,9 @@ export function filled(
   if (settled === undefined) return { job, detail };
   const title = settled.title;
   // **The request is not thrown away when the title replaces it.** Until a
-  // title lands the row's title *is* the request as it was typed — which is
-  // what `whyNoBrief` says on the page — so the moment the title changes under
-  // somebody, the words they wrote move into the brief, which is where Fleet
-  // puts them when the call answers anyway. Nothing a person typed stops being
+  // title lands the row's title *is* the request as it was typed, so the
+  // moment the title changes under somebody, the words they wrote move into
+  // the brief, which is where Fleet puts them when the call answers anyway. Nothing a person typed stops being
   // on screen because the proposer got further.
   const facts = title === undefined ? detail.facts : (detail.facts ?? job.title);
   const moved: JobSummary = {

@@ -108,11 +108,12 @@ export const Copied: Story = {
   },
 };
 
-/** Fleet was asked and has not answered. */
+/** Fleet was asked and has not answered: **the sheet draws nothing under its head** until it does. */
 export const Reading: Story = {
-  args: { open: true, reading: true },
+  args: { open: true },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Reading the session…");
+    await expect(canvas.queryByRole("status")).toBeNull();
+    await expect(canvas.queryByText(/Reading the session/)).toBeNull();
   },
 };
 

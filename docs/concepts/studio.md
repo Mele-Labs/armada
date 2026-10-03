@@ -48,7 +48,7 @@ flowchart LR
 > Why: the owner, 2 Oct 2026, of a read-in's eighteen loose cards: *"they should get all put into a nice framed region to indicate they all go together. Then I could move them all around."* `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`.
 
 > **Rule.** A kind armed on the rail and pressed inside a Zone goes in that Zone, by the rule a drop is read by: a Zone pressed inside a Zone lands on the board, and a press inside a Cluster lands in the Zone round it, since a Cluster takes nothing it was not grouped from.
-> Why: the owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and puts it in that Zone."* A press that put a node inside a frame's outline without putting it in the frame would draw it in a Zone it does not move with. Until `add_studio_node` names a frame, Bridge's main adds the node where it was pressed and then moves it in, so a move Fleet refuses leaves it on the board at that spot.
+> Why: the owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and puts it in that Zone."* A press that put a node inside a frame's outline without putting it in the frame would draw it in a Zone it does not move with. `add_studio_node` names the frame, so the node is added in it in one write, refused as a move there would be.
 
 > **Rule.** A frame is sized round what it holds and its size is never kept. Deleting a frame leaves what it held where it was on the board.
 > Why: a size kept beside the positions it was worked out from is a second answer that goes stale the first time a node inside moves.

@@ -40,7 +40,7 @@ export function pulseReadingOf(
     processes: view.processes.map((process) => ({
       pid: process.pid,
       command: process.command,
-      // Whose it is: its Drone, where Fleet names one (23.9), else its checkout.
+      // Whose it is: its Drone, where Fleet names one (23.10), else its checkout.
       owner: (process.drone === null ? undefined : places.get(process.drone)) ?? process.owner,
       cpuPercent: process.cpu_percent,
       memoryBytes: process.memory_bytes,
@@ -155,7 +155,7 @@ export function dronePlacesOf(
     const several = (onStep.get(step) ?? 0) > 1;
     places.set(drone, task !== undefined ? `${step} · ${task}` : several ? `${step} · run ${run}` : step);
   }
-  // A Drone beside the Job's kept one is on no history row (23.9): the Drones
+  // A Drone beside the Job's kept one is on no history row (23.10): the Drones
   // listed name its step and task.
   for (const one of listed) {
     if (!places.has(one.drone) && one.task !== undefined) places.set(one.drone, `${one.step} · ${one.task}`);
@@ -185,7 +185,7 @@ function standing(
   const look = examined?.looks.find((one) => one.asked === "worktree");
   if (look?.found === "not_working") return { state: "gone", wrong: true };
   if (look?.found === "cannot_tell") return { state: "could not be read" };
-  // Every live Drone works the Job's one copy (23.9), each a recorded row.
+  // Every live Drone works the Job's one copy (23.10), each a recorded row.
   const drones = Math.max(processes.filter((one) => one.recorded).length, 1);
   if (held === "running") return { state: drones === 1 ? "1 drone working" : `${drones} drones working`, working: true };
   return { state: "no drone working" };
@@ -282,7 +282,7 @@ const CHANGE_TURN_CAP = "Change the turn cap in Settings";
 /**
  * How many Drones are up, and whether that is a fault.
  *
- * **Every live Drone's process is a recorded row** (23.9), so the count is
+ * **Every live Drone's process is a recorded row** (23.10), so the count is
  * those rows; `held` is Fleet's reading of the Job's kept Drone, and `gone`
  * and `replaced` are Fleet believing it is running when it is not — loud at
  * any status, and nought, so the detail is the whole of what tells them apart.

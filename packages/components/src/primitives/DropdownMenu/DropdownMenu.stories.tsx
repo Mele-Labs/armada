@@ -54,6 +54,18 @@ export const RowMenu: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "More" }));
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
 
+    // Focus goes into the menu as it opens, the arrows step and wrap, and Esc
+    // hands focus back to the trigger rather than dropping it on the page.
+    await expect(canvas.getByRole("menuitem", { name: /Open the worktree/ })).toHaveFocus();
+    await userEvent.keyboard("{ArrowUp}");
+    await expect(canvas.getByRole("menuitem", { name: /Kill job/ })).toHaveFocus();
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+    await expect(canvas.getByRole("menuitem", { name: /Copy job ID/ })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.getByRole("button", { name: "More" })).toHaveFocus();
+
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
     await userEvent.click(canvas.getByRole("menuitem", { name: /Copy job ID/ }));
     await expect(args.onSelect).toHaveBeenCalledWith("copy");
     await expect(canvas.queryByRole("menu")).toBeNull();

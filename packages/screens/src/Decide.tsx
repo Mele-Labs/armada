@@ -156,7 +156,8 @@ export type DecideProps = {
 export function DecidedDiff({ diff, jobId }: { diff: Diff; jobId: string }) {
   const mine = diff.state !== "none" && diff.jobId === jobId ? diff : null;
   if (mine === null || mine.state !== "read") {
-    return <p className="text-fg-muted">{whyNoDiff(diff, jobId)}</p>;
+    const why = whyNoDiff(diff, jobId);
+    return why === undefined ? null : <p className="text-fg-muted">{why}</p>;
   }
   return <UnifiedDiff {...diffOf(mine.work)} />;
 }
@@ -336,7 +337,9 @@ export function Decide({
           Drawn only where there is a pull request, which is what the read
           above is opened on. */}
       {pullRequest === undefined ? null : mineRemarks(remarks, job.id) === null ? (
-        <p className="text-fg-muted">{whyNoRemarks(remarks, job.id)}</p>
+        whyNoRemarks(remarks, job.id) === undefined ? null : (
+          <p className="text-fg-muted">{whyNoRemarks(remarks, job.id)}</p>
+        )
       ) : (
         <ReviewComments
           comments={mineRemarks(remarks, job.id) ?? []}

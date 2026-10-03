@@ -114,7 +114,7 @@ export type JobMembersProps = {
   completeWhen: ReactNode;
   /** One segment per member, filled where that member's pull request merged. */
   completeBar?: readonly TaskBarSegment[];
-  /** Why there are no members, where there are none. Said in words. */
+  /** Why there are no members, where there are none. Absent draws nothing. */
   absent?: ReactNode;
   /**
    * The rows and the lines between them, with no card, no head and no foot.
@@ -162,9 +162,9 @@ export function JobMembers({
   onCopied,
 }: JobMembersProps) {
   if (members.length === 0) {
-    return (
+    return absent === undefined ? null : (
       <p className="armada-members__absent" role="note">
-        {absent ?? "No Job lands under this one."}
+        {absent}
       </p>
     );
   }
@@ -277,11 +277,7 @@ function Member({
             {member.title}
           </button>
         )}
-        {address === undefined ? (
-          <span className="armada-members__pr" data-absent="true">
-            No pull request yet
-          </span>
-        ) : (
+        {address === undefined ? null : (
           <a
             href={address}
             className="armada-members__pr"
@@ -317,11 +313,7 @@ function Member({
       </div>
 
       <div className="armada-members__line">
-        {branch === undefined ? (
-          <span className="armada-members__branch" data-absent="true">
-            No worktree yet
-          </span>
-        ) : (
+        {branch === undefined ? null : (
           <button
             type="button"
             className="armada-members__branch"

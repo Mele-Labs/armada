@@ -201,14 +201,13 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
 };
 
 /**
- * Pointed at nothing with exactly one repository set up — the moment the dock
- * reads *Helm is not pointed at a repository. Pick armada to ask about it.*
- * and, until now, gave nobody anything to pick with: the count that governs
- * the control said one repository is nothing to switch between, which is true
- * only while Helm is pointed at it.
+ * Pointed at nothing with exactly one repository set up — the moment that
+ * once gave nobody anything to pick with: the count that governs the control
+ * said one repository is nothing to switch between, which is true only while
+ * Helm is pointed at it.
  *
- * **The switch is the act that sentence names**, so it is drawn here, standing
- * at its own entry with that one repository under it to choose.
+ * **The switch is the way to point it**, so it is drawn here, standing at its
+ * own entry with that one repository under it to choose.
  */
 export const UnpointedWithOneRepository: Story = {
   args: { repositories: [repositories[0]!], onSwitch: fn(), disabled: true },

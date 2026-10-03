@@ -124,12 +124,12 @@ pub struct PlanTask {
     /// The other tasks of its group it may run at the same time as, by id:
     /// the planner's `concurrent_with`, read both ways, less any pair Fleet
     /// ran apart after their edit calls named one file. **Left out where
-    /// empty**, which is a task that runs alone. Since 23.9.
+    /// empty**, which is a task that runs alone. Since 23.10.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub concurrent_with: Vec<String>,
     /// A later task's edit calls named a file this done task's had. **Not a
     /// fault**, and a write through the shell is not seen. Left out where
-    /// false. Since 23.9.
+    /// false. Since 23.10.
     #[serde(default, skip_serializing_if = "is_false")]
     pub touched_after_done: bool,
 }

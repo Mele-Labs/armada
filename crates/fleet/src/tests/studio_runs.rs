@@ -210,6 +210,7 @@ async fn a_run_node_cannot_be_added_by_hand() {
                 .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
+                within: None,
             },
             Redirector::Person,
             None,

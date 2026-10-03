@@ -62,9 +62,9 @@ export const LOOK_FAILED = "Fleet did not answer the look. Nothing here is a fin
 export function whyNoReading(resources: Holds): string | undefined {
   switch (resources.state) {
     case "none":
-      return "Not reading";
     case "reading":
-      return "Reading the machine.";
+      // Not asked yet, or out: nothing yet to say.
+      return undefined;
     case "failed":
       return "Fleet did not answer";
     case "read":

@@ -164,7 +164,8 @@ export function checkoutOutputOf(
     rows: followed.lines.map((text, at) => ({ row: "line" as const, at: followed.fromLine + at, text })),
     region: { says: followed.name, path: followed.path },
     following: followed.ended === undefined,
-    emptyNote: followed.ended === undefined ? "Nothing printed yet." : "Printed nothing.",
+    // Still running and silent so far: nothing to say. Finished and silent is the fact.
+    ...(followed.ended === undefined ? {} : { emptyNote: "Printed nothing." }),
   };
 }
 

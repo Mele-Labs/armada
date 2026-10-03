@@ -196,7 +196,11 @@ function OneJob(props: JobDetailProps) {
   const checkRow =
     checkLog?.stepAttempt === undefined
       ? undefined
-      : checkRowOf(recordOf(props, whole).rows, whole, { name: checkLog.name, stepAttempt: checkLog.stepAttempt });
+      : checkRowOf(recordOf(props, whole).rows, whole, {
+          name: checkLog.name,
+          stepAttempt: checkLog.stepAttempt,
+          ...(checkLog.group === undefined ? {} : { group: checkLog.group }),
+        });
   // Bumped by that way on, so the Record opens on the row even where it is
   // already the destination: it reads which row to open once, as it mounts.
   const [recordVisit, setRecordVisit] = useState(0);

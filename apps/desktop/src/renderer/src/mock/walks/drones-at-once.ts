@@ -1,7 +1,7 @@
 // Two tasks of one group running at once, each by a Drone of its own: spike
-// 022, slice 5 (protocol 23.9). One Drone is stopped or told alone (#1666),
+// 022, slice 5 (protocol 23.10). One Drone is stopped or told alone (#1666),
 // Pulse names each process's Drone and counts both (#1651), and Plan says what
-// running at once leaves unseen. Fixtures match the 23.9 wire.
+// running at once leaves unseen. Fixtures match the 23.10 wire.
 
 import { button, dialog, inside, role, row, tab, text, walk } from "../walk";
 

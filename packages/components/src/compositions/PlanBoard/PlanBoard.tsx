@@ -118,24 +118,29 @@ export function PlanOverlap({ says, paths = [] }: { says: string; paths?: readon
 }
 
 /**
- * Where a group is: `GROUP_STATE`'s glyph and hue beside its word — the list's
- * head and the group's panel both draw this, so the two cannot disagree.
- * Plain text rather than a pill, as before; the hue is the registry's own
- * token, read the way `Badge` reads its stem, so this file never decides
+ * Where a group is: `GROUP_STATE`'s glyph in its hue, **a mark and never a
+ * word**, with a tooltip naming the state (owner, 2 Oct 2026) — Graph's group
+ * card draws the same glyph the same way. The list's head and the group's
+ * panel both draw this, so the two cannot disagree. The hue is the registry's
+ * own token, read the way `Badge` reads its stem, so this file never decides
  * which states are bad.
  */
-export function PlanGroupStateWord({ state, says }: { state: PlanGroupState; says: string }) {
+export function PlanGroupStateMark({ state, says }: { state: PlanGroupState; says: string }) {
   const rendering = GROUP_STATE[state];
   const Icon = rendering?.icon;
+  const named = says.charAt(0).toUpperCase() + says.slice(1);
   return (
-    <span
-      className="armada-plan-board__state"
-      data-state={state}
-      style={rendering?.statusToken ? { color: `var(${rendering.statusToken})` } : undefined}
-    >
-      {Icon ? <Icon size={12} strokeWidth={2} aria-hidden /> : null}
-      {says}
-    </span>
+    <Tooltip asChild label={named}>
+      <span
+        className="armada-plan-board__state"
+        data-state={state}
+        role="img"
+        aria-label={named}
+        style={rendering?.statusToken ? { color: `var(${rendering.statusToken})` } : undefined}
+      >
+        {Icon ? <Icon size={12} strokeWidth={2} aria-hidden /> : null}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -741,7 +746,7 @@ function GroupCard({
         <CardHeader className="armada-plan-board__group-head" {...mover.groupHandle(group)}>
           <PlanGroupName group={group} mover={mover} hint="Drag to move" />
           <PlanGroupShape group={group} />
-          <PlanGroupStateWord state={group.state} says={group.says} />
+          <PlanGroupStateMark state={group.state} says={group.says} />
           <span className="armada-plan-board__group-gap" />
           <span className="armada-plan-board__scope" title={group.scope.root}>
             <span className="armada-plan-board__scope-root">{group.scope.root}</span>

@@ -51,7 +51,7 @@ export type WorkflowTabProps = {
   job: JobSummary;
   /** The Job whole. `null` while the read is in flight, or where it failed. */
   whole: JobWhole | null;
-  /** Why there is no run to draw, where there is none. */
+  /** Why there is no run to draw, where there is none. Absent draws nothing. */
   absent?: string;
   /**
    * The run as far as it is known while this Job's own read is out — the
@@ -237,9 +237,11 @@ export function WorkflowTab({
   if (whole === null || whole.steps.length === 0) {
     return (
       <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.workflow}>
-        <p className="armada-inside__absent" role="note">
-          {absent ?? "This Job's frozen workflow has no steps."}
-        </p>
+        {absent === undefined ? null : (
+          <p className="armada-inside__absent" role="note">
+            {absent}
+          </p>
+        )}
       </div>
     );
   }

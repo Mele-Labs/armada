@@ -219,9 +219,13 @@ export const RowsCarryingWhatTheyAreWorth: Story = {
   },
 };
 
-/** Read, and this repository has always-allowed nothing yet. */
+/** Read, and this repository has always-allowed nothing yet: **no Always allowed group at all**. */
 export const NothingAlwaysAllowed: Story = {
   args: { ...EDITED, groups: GROUPS, onSelect: fn(), onRun: fn(), alwaysAllowed: [] },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText("Always allowed")).toBeNull();
+    await expect(canvas.queryByText(/allowed yet/)).toBeNull();
+  },
 };
 
 // Cut mid-build rather than at a result: a run in flight has not finished, and

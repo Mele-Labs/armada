@@ -61,7 +61,7 @@ Fleet-wide, and the answer no per-Job field could give. `get_job`'s `queued_reas
 
 `occupied` is the roster's own count, which is what admission measures the bound against, and never a count of `running` rows. A Job that escalated on a refusal keeps its Drone alive and idle so a redirect costs no respawn, and it keeps its place in the roster while its status is `escalated`. A status-derived count would read "1 of 2" while Fleet admits nothing.
 
-**Since 23.9 the bound and `occupied` count Drones, not Jobs** (spike 022, slice 5, answer 2): each held Job's kept Drone, from its admission to its end, and each Drone running beside one on a task marked safe to run at once. A Drone beside a kept one asks the bound, the Job's own `drone_cap`, memory and disk, and gives way to a Job waiting to start.
+**Since 23.10 the bound and `occupied` count Drones, not Jobs** (spike 022, slice 5, answer 2): each held Job's kept Drone, from its admission to its end, and each Drone running beside one on a task marked safe to run at once. A Drone beside a kept one asks the bound, the Job's own `drone_cap`, memory and disk, and gives way to a Job waiting to start.
 
 `held_by` carries **one** answer, not a set. `fleet::admitting::Room` asks the bound before it reads the machine so a Fleet at its cap never pays three processes for a reading it would not have acted on, which makes the bound and the machine exclusive: "the cap is spent *and* the disk is full" is not a state this can report. What crosses is what is stopping admission now; the next thing crosses once that clears. Absent means nothing is holding it — not unknown, and not "Fleet did not look", because an unreadable machine admits rather than refuses.
 
@@ -796,7 +796,7 @@ notes = """
 
 **Absent is never empty.** `worktree` absent is a Job with no checkout — one at the approval gate, one already reclaimed — and is a different answer from a checkout that measures nothing. `bytes` absent is a walk that did not finish inside its bound, which is what keeps a 1.0 GB worktree from turning this into the timeout `#428` was.
 
-**Since 23.9 each live Drone's process is listed, and each row names its Drone as `drone_id`**: the kept Drone's tree first, then each Drone running beside it. One row per live Drone carries `recorded`, which is how *Drones running* is counted; `held` is still the kept Drone's reading.
+**Since 23.10 each live Drone's process is listed, and each row names its Drone as `drone_id`**: the kept Drone's tree first, then each Drone running beside it. One row per live Drone carries `recorded`, which is how *Drones running* is counted; `held` is still the kept Drone's reading.
 
 **`logs` says whether a file is being written by whether a process holds it open for writing, never by its mtime** — a Drone paused for ten minutes and a Drone that died read the same off a timestamp (#1648). The processes asked are the Job's tree and Fleet's own, because Fleet appends every transcript and the Job's log from its own process for as long as a Drone's stdout is open. A field on this reading rather than a stream: Pulse polls it, so #1545's bounded-stream note for a live log list does not apply.
 
@@ -996,7 +996,7 @@ notes = """
 
 **Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought.
 
-**A Drone beside a Job's kept one is listed too**, since 23.9: it ran a task marked safe to run at once, and is on no record of moves, so its row is read off its task binding and how it left — `done` where it handed in, `killed` where a person stopped it, `failed` otherwise.
+**A Drone beside a Job's kept one is listed too**, since 23.10: it ran a task marked safe to run at once, and is on no record of moves, so its row is read off its task binding and how it left — `done` where it handed in, `killed` where a person stopped it, `failed` otherwise.
 
 **`task` names the plan task a Drone was put on**, since 23.1, on a step that declares `drone_per_task`, off the binding Fleet keeps at the spawn (`store::TaskDrone`). Absent on a Drone that worked its whole step. A task's Drone that handed its task in and left reads `done`: the next task's Drone ends its tenure on the step, and leaving is what its hand-in asks of it.
 """
@@ -1213,7 +1213,7 @@ Not `get_drone`, which is a snapshot of one Drone over HTTP. This is one Job acr
 
 **The row a Drone ends on is what carries a spend.** It was withheld because the Job's rail was said to state the cost and the turn count; the rail states neither, and no other operation here answers with either — so this is the only place on the wire a Drone's cost appears. A Job that retried has one such row per Drone, and what the Job cost is the sum of them.
 
-**One channel per Job, since 23.9, carries every live Drone's rows** (spike 022, slice 5). It is made at the Job's admission and dropped at its end, every Drone's feed sends into it, so a viewer hears every Drone running at once from whenever it joins. `closed` with `drone_ended` is the channel closing, not one Drone exiting; the quarter-second wait for a step's next Drone went with it.
+**One channel per Job, since 23.10, carries every live Drone's rows** (spike 022, slice 5). It is made at the Job's admission and dropped at its end, every Drone's feed sends into it, so a viewer hears every Drone running at once from whenever it joins. `closed` with `drone_ended` is the channel closing, not one Drone exiting; the quarter-second wait for a step's next Drone went with it.
 
 **Every row names the Drone whose transcript it is in**, as `drone_id`, the id `list_job_drones` names, so a Job with several Drones has rows that can be told apart (#1662). A field on the row rather than a socket per Drone: one Job's rows stay in one order on one clock, which is what this socket is for, and a viewer of one Drone filters. Fleet stamps it from the transcript's file name, `<drone-id>.jsonl`, on the history and on the live rows alike, so an older file is stamped as fully as a new one.
 
@@ -1705,7 +1705,7 @@ description = "Kills a Drone, captures learnings, holds the worktree"
 notes = """
 Intervention Ladder rung 2.
 
-**The Job's kept Drone, and every Drone beside it**, since 23.9: the step they work stops. One Drone of several is `kill_one_drone`.
+**The Job's kept Drone, and every Drone beside it**, since 23.10: the step they work stops. One Drone of several is `kill_one_drone`.
 """
 
 [operations.kill_one_drone]

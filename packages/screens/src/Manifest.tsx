@@ -294,13 +294,11 @@ function SheetView({
       </Alert>
     );
   }
-  // `none` is the frame before the app's own read has begun. It says the same
-  // thing as `reading` rather than drawing three empty groups, which here
-  // would claim the file declares nothing — the one answer on this page
-  // nobody should be given by accident.
-  if (sheet.state !== "read") {
-    return <p className="text-fg-muted">Reading this repository's Manifest.</p>;
-  }
+  // `none` is the frame before the app's own read has begun, and draws what
+  // `reading` draws: nothing. Three empty groups here would claim the file
+  // declares nothing — the one answer on this page nobody should be given by
+  // accident — and a sentence would be filler.
+  if (sheet.state !== "read") return null;
   return <RunPage {...slot} alwaysAllowed={allows.rows} onRemoveAlwaysAllowed={allows.onRemove} />;
 }
 
@@ -312,9 +310,7 @@ function FileView({ file }: { file: ManifestEditing["file"] }) {
       </Alert>
     );
   }
-  if (file.state === "reading") {
-    return <p className="text-fg-muted">Reading the Manifest file.</p>;
-  }
+  if (file.state === "reading") return null;
   return <ManifestFile {...file.props} />;
 }
 
@@ -343,8 +339,6 @@ function FormView({ form, named, onFile }: { form: ManifestForming; named: strin
       </Alert>
     );
   }
-  if (form.state === "reading") {
-    return <p className="text-fg-muted">Reading the Manifest file.</p>;
-  }
+  if (form.state === "reading") return null;
   return <ManifestForm {...form.props} />;
 }

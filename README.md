@@ -18,10 +18,10 @@
 | | |
 |---|---|
 | `armada serve [<path>]` | The daemon. Binds a loopback port, publishes a runtime file, serves the API and turns Jobs until it is signalled |
-| `armada check <name>` | Runs one Check the repository's `armada.yml` declares, and first any Command its `requires` names — so `armada check format` reformats before it reads, exactly as the gate does |
+| `armada check <name>` | Runs one Check the repository's `armada.yml` declares, and first any Command its `requires` names, exactly as the gate does. `armada check format` only reads: a red one says `armada run fmt` |
 | `armada run <name>` | Runs one Command it declares. Checks gate advancement; Commands do not |
 | `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading a Job's gate uses. Needs nothing running |
-| `armada clean [--all] [--force]` | Gives this repository's worktrees, branches and Jobs back, keeping any branch whose work is not merged |
+| `armada clean [--all] [--force]` | **Destructive.** Gives this repository's worktrees, branches and Jobs back, keeping any branch whose work is not merged, and naming each worktree slot a Job still holds. `--force` deletes unmerged branches too, and gives back a completed or kept Job's slot where it is clean and landed. `docs/practices/running-locally.md`, *Clearing up* |
 | `armada worktree lease <branch>` | Leases a warm worktree from the repository's pool, waiting while every slot is held; `release` gives it back once clean and landed, `--status` lists who holds each. `docs/practices/running-locally.md`, *Leasing a worktree* |
 
 What holds today, and how each is known:
@@ -168,8 +168,8 @@ Some of what the gate refuses:
 ### Tests
 
 ```sh
-cargo nextest run --workspace --exclude acceptance   # not `cargo test`
-cargo test -p acceptance                             # the milestone's own claim
+armada check test                                    # not `cargo test`
+armada check acceptance                              # the milestone's own claim
 pnpm bridge-test                                     # the TypeScript half
 ```
 

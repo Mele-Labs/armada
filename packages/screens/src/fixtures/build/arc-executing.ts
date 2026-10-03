@@ -187,7 +187,7 @@ function t5Transcript(): { opened: Turn[]; arriving: Turn[] } {
   };
 }
 
-/** One Drone's process, as `ps` reports it, naming its Drone as 23.9 does. */
+/** One Drone's process, as `ps` reports it, naming its Drone as 23.10 does. */
 function droneProcess(pid: number, ran: string, drone: string | undefined = ARC_DRONES.T5): JobProcess {
   return {
     pid,
@@ -736,7 +736,7 @@ export function doneTouched(): ArcMoment {
 /**
  * Group three's two tasks running at once, each by a Drone of its own (spike
  * 022, slice 5): T5 on the Job's kept Drone and T6 on one beside it, as Fleet
- * serves them at 23.9 — both processes recorded and named, T6 on no history
+ * serves them at 23.10 — both processes recorded and named, T6 on no history
  * row, and both Drones' rows on the Job's one channel.
  */
 export function executingAtOnce(): ArcMoment {

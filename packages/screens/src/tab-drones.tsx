@@ -244,7 +244,7 @@ export function DronesTab({
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),
                 live: open.state === "running",
                 emptyNote: open.transcript === undefined ? (turnsNote ?? TRANSCRIPT_EMPTY) : TRANSCRIPT_EMPTY,
-                // This Drone's own, by its id (#1666, 23.9): the others go on.
+                // This Drone's own, by its id (#1666, 23.10): the others go on.
                 // The header's kill ends the Job instead (owner, 29 Sep 2026).
                 ...(open.state !== "running"
                   ? {}

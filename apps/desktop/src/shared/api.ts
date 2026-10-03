@@ -146,7 +146,7 @@ export type BridgeApi = {
   redispatchJob: (jobId: string) => Promise<Outcome>;
   /**
    * Kill the process. The Job survives, with its worktree held. **`droneId`
-   * names one Drone of several** (`kill_one_drone`, 23.9): the others go on,
+   * names one Drone of several** (`kill_one_drone`, 23.10): the others go on,
    * and one that is not live is refused as `fleet.drone_not_live`. Absent is
    * the Job's kept Drone and every one beside it.
    */
@@ -166,7 +166,7 @@ export type BridgeApi = {
    * until it does, the answer is `bridge.not_implemented`.
    */
   pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
-  /** Run a failed plan task again. #1656, as `pilotTask`. */
+  /** Run a failed plan task again. #1656, served since 23.4. */
   restartTask: (jobId: string, taskId: string) => Promise<Outcome>;
   /**
    * Change a plan task that is open or failed — only the fields `edit`
@@ -175,7 +175,7 @@ export type BridgeApi = {
   editTask: (jobId: string, taskId: string, edit: EditTask) => Promise<Outcome>;
   /**
    * Move a group, or a task into a group, where a person dropped it on the
-   * plan. #1685, as `pilotTask`; the move rides on the debug info.
+   * plan, by the task or group it now follows. #1685, served since 23.4.
    */
   movePlan: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**

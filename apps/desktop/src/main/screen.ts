@@ -143,7 +143,7 @@ export async function takeAgain(port: number, again: Again, screen: Screen): Pro
     jobId !== null && (only === null || jobId === only);
 
   // **Fleet's socket ends when the Job stops writing**, at a person's gate or
-  // its end (one channel per Job since 23.9, every Drone on it; before, each
+  // its end (one channel per Job since 23.10, every Drone on it; before, each
   // Drone's end). So the event that says this Job moved is what reopens the
   // transcript — there is no timer here on purpose: reopening resets the rows
   // and republishes `opening`, so a loop would blank the log on every tick.

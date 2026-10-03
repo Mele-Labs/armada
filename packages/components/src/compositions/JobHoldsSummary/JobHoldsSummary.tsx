@@ -85,7 +85,7 @@ export type HoldsFigures = {
 export type JobHoldsSummaryProps = {
   /** The last thing anyone did on this Job. Absent where nothing has happened yet. */
   latest?: HoldsLine;
-  /** Why there is nothing to show, where there is nothing. */
+  /** Why there is nothing to show, where there is nothing. Absent draws nothing. */
   latestNote?: string;
   /**
    * The reading's figures, or `null` where none has arrived.
@@ -93,7 +93,7 @@ export type JobHoldsSummaryProps = {
    * **`null` is not empty**, and `note` is what says which.
    */
   figures: HoldsFigures | null;
-  /** Why there is no reading, where there is none. */
+  /** Why there is no reading, where there is none. Absent draws nothing. */
   note?: string;
   /** How old the reading is, as a phrase, like `4s`. Formatted by the caller. */
   age?: string;
@@ -133,9 +133,9 @@ export function JobHoldsSummary({ latest, latestNote, figures, note, age, spend,
   ];
   return (
     <section className="armada-holds-summary">
-      {latest === undefined ? <p className="armada-holds-summary__note">{latestNote ?? NOTHING_RECORDED}</p> : null}
+      {latest === undefined && latestNote !== undefined ? <p className="armada-holds-summary__note">{latestNote}</p> : null}
       {rows.length === 0 ? null : <FigureList figures={rows} />}
-      {figures === null ? <p className="armada-holds-summary__note">{note ?? NOTHING_READ_YET}</p> : null}
+      {figures === null && note !== undefined ? <p className="armada-holds-summary__note">{note}</p> : null}
       {/* The instant qualifies the machine figures, which is why it is here
           and not a caption: a process can exit between the reading and this
           screen. Spend and Turns above them are the Job's own and are not what
@@ -148,15 +148,3 @@ export function JobHoldsSummary({ latest, latestNote, figures, note, age, spend,
     </section>
   );
 }
-
-/**
- * What stands in for the tail when nothing has been recorded.
- *
- * **A Job Armada has done nothing to yet is a real answer**, so it is a
- * sentence rather than two empty rows — an empty stream under a heading is how
- * a socket that never opened went unnoticed.
- */
-const NOTHING_RECORDED = "Armada has not recorded anything about this Job yet.";
-
-/** What stands in for the figures when no reading has arrived. */
-const NOTHING_READ_YET = "Not read yet";

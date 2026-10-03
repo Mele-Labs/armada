@@ -140,10 +140,9 @@ pub async fn execute(
     let command = resolve_width(&command, width);
 
     // **A Check's prerequisites run here too**, for this module's own reason: a
-    // Check a person runs is the Check a Drone is measured by. `armada check
-    // format` that skipped `cargo fmt --all` would pass where the gate fails,
-    // or fail where the gate passes, and either way the terminal would be
-    // rehearsing a different question from the one being asked.
+    // Check a person runs is the Check a Drone is measured by. Skipping one
+    // would pass where the gate fails, or fail where the gate passes, and
+    // either way the terminal would be rehearsing a different question.
     //
     // There is no ledger, because there is one Check: `armada check` twice runs
     // the prerequisite twice, which is what a person typing it twice asked for.
@@ -321,9 +320,9 @@ pub struct Ran {
     /// the flag pauses a Drone, and the person typing this is already the one
     /// triggering it.
     pub destructive: bool,
-    /// The Commands that ran first, in order. **Said because they wrote to the
-    /// working tree**: `armada check format` reformats before it reads, and a
-    /// person who was not told that reads the changed files as somebody else's.
+    /// The Commands that ran first, in order. **Said because they may have
+    /// written to the working tree**, and a person who was not told that reads
+    /// the changed files as somebody else's.
     ///
     /// Empty on a Command, which declares no prerequisites, and on a Check that
     /// declares none.

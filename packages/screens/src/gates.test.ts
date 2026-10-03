@@ -202,10 +202,11 @@ describe("a Check's output, as a reading", () => {
     expect(regionOf(short).says).toBe("check:test_suite · 2 lines");
   });
 
-  // Four states and four sentences. One sentence for all of them would tell a
-  // person a Check printed nothing when what is true is that nobody has asked.
-  it("tells a reading nobody asked for from one that came back empty", () => {
-    expect(noteFor(undefined)).not.toBe(noteFor({ state: "fetching" }));
+  // A fact or a failure, and nothing otherwise. Saying a Check printed nothing
+  // when what is true is that nobody has asked would be a false fact.
+  it("says nothing for a reading nobody asked for, and the fact for one that came back empty", () => {
+    expect(noteFor(undefined)).toBeUndefined();
+    expect(noteFor({ state: "fetching" })).toBeUndefined();
     expect(noteFor({ state: "got", output: { ...window, lines: [] } })).toContain("printed nothing");
     expect(noteFor({ state: "absent", note: "gone" })).toBe("gone");
   });

@@ -11,8 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Image, Link as LinkGlyph, Power, Shapes, StickyNote, Trash2, VectorSquare, Zap } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ExternalLink, Image, Power, Trash2 } from "lucide-react";
 import {
   ACTION,
   Alert,
@@ -76,7 +75,7 @@ import type { Drawing } from "./draft/sketch";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
 import { useAddNodeKeys, useRunKey } from "./studio-keys";
-import { useRailRun } from "./studio-run-ask";
+import { useRailAdd, useRailRun } from "./studio-rail-ask";
 import { landingOf, pastedOf } from "./studio-paste";
 import { studioStartEntries, studioStarts, type StudioStart } from "./studio-starting";
 import type { StudioAnswer, StudioRead, StudiosRead } from "./studio-reads";
@@ -102,25 +101,28 @@ const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the lin
  * owner's note of 28 Sep 2026, which asked for a vertical bar of icons in place
  * of the `+ Node` panel and its menu.
  *
- * **The noun is `STUDIO_NODE_KIND`'s and the key is the registry's**, so neither
- * is written down twice; the glyphs are `packages/icons/icons.toml`, group
- * `Canvas rail`.
+ * **The noun is `STUDIO_NODE_KIND`'s; the glyph and the key are the
+ * registry's**, read off `ACTION` as the palette reads them, so the rail and ⌘K
+ * cannot draw two icons for one act. The glyphs are `packages/icons/icons.toml`,
+ * group `Canvas rail`.
  */
-const ADD_BY_HAND: readonly { kind: StudioNodeByHandKind; icon: LucideIcon; shortcut?: string }[] = [
-  { kind: "note", icon: StickyNote, ...bindingOf("add_note") },
-  { kind: "link", icon: LinkGlyph, ...bindingOf("add_link") },
-  { kind: "sketch", icon: Shapes, ...bindingOf("add_sketch") },
-  { kind: "zone", icon: VectorSquare, ...bindingOf("add_zone") },
+const ADD_BY_HAND: readonly ({ kind: StudioNodeByHandKind } & RailFace)[] = [
+  { kind: "note", ...faceOf("add_note") },
+  { kind: "link", ...faceOf("add_link") },
+  { kind: "sketch", ...faceOf("add_sketch") },
+  { kind: "zone", ...faceOf("add_zone") },
 ];
 
-/** One act's binding, or nothing where the registry gives it none. */
-function bindingOf(act: string): { shortcut?: string } {
-  const key = ACTION[act]?.shortcut;
-  return key === undefined ? {} : { shortcut: key };
+type RailFace = Pick<GraphCanvasRailAct, "icon" | "shortcut">;
+
+/** One act's glyph and binding, each only where the registry gives one. */
+function faceOf(act: string): RailFace {
+  const { icon, shortcut } = ACTION[act] ?? {};
+  return { ...(icon == null ? {} : { icon }), ...(shortcut === undefined ? {} : { shortcut }) };
 }
 
-/** Run's binding, as the registry gives it. */
-const RUN_KEY = ACTION.start_studio_run?.shortcut;
+/** Run's glyph and binding, as the registry gives them. */
+const RUN_FACE = faceOf("start_studio_run");
 
 /** What the rail is, and what hovers over what is picked. */
 const RAIL_LABEL = "What you can put on this Studio";
@@ -331,11 +333,8 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
       </Alert>
     );
   }
-  // `none` is the frame before the read is asked for, and says what `reading` says.
-  if (studios.state !== "read") return <p className="text-fg-muted">Reading this repository's Studios.</p>;
-  if (studios.list.studios.length === 0) {
-    return <p className="text-fg-muted">No Studios yet. Start one to keep what you work out before it is a Job.</p>;
-  }
+  // Before the read answers, and with none kept, there is nothing to draw: an empty slot stays empty.
+  if (studios.state !== "read" || studios.list.studios.length === 0) return null;
   return (
     <Table className="armada-studio-list">
       <TableHead>
@@ -443,9 +442,7 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
         <Alert tone="neutral" title="This Studio was deleted">
           Nothing of it is kept.
         </Alert>
-      ) : (
-        <p className="text-fg-muted">Reading this Studio.</p>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -489,6 +486,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     [],
   );
   useAddNodeKeys(open.editable && live, arm);
+  // The palette's Add rows arm a kind as its key does, but never put it away:
+  // a row chosen by name means that kind, whatever was armed before.
+  useRailAdd(addOff(open.editable, live), (kind) => open.editable && live && setArming(kind));
   // Esc puts an armed kind away. A draft's own Esc stops at its field.
   useEffect(() => {
     if (arming === null) return;
@@ -855,13 +855,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               />
             </GraphCanvasNodeBar>
           }
-        >
-          {studio.nodes.length === 0 ? (
-            <Card>
-              <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
-            </Card>
-          ) : null}
-        </StudioWhiteboard>
+        />
       </div>
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside
           its own subtree, so a layer drawn in there is read through the Notes it is about. */}
@@ -963,7 +957,7 @@ function AddRail({
   const kinds: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
-    icon,
+    ...(icon === undefined ? {} : { icon }),
     pressed: armed === kind,
     // Off, the key is dead too, so the tooltip offers no binding beside the reason.
     ...(off === undefined ? (shortcut === undefined ? {} : { shortcut }) : { disabled: true, why: off }),
@@ -972,10 +966,10 @@ function AddRail({
   const run: GraphCanvasRailAct = {
     id: "run",
     name: STUDIO_NODE_KIND.run,
-    icon: Zap,
+    ...(RUN_FACE.icon === undefined ? {} : { icon: RUN_FACE.icon }),
     disabled: !runOn,
     // Off, `R` is dead too, so the tooltip offers no binding beside the reason.
-    ...(why === undefined ? (RUN_KEY === undefined ? {} : { shortcut: RUN_KEY }) : { why }),
+    ...(why === undefined ? (RUN_FACE.shortcut === undefined ? {} : { shortcut: RUN_FACE.shortcut }) : { why }),
     menu: {
       open: running,
       onOpenChange: setRunning,

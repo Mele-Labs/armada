@@ -1,16 +1,15 @@
-// A group of tasks, and the boundary its Checks run at. Draft, for
-// `crates/ipc/src/detail/step.rs`.
+// A group of tasks, and the boundary its Checks run at. Draft, over
+// `WorkPlan.groups` in `crates/ipc/src/work_plan.rs`.
 //
-// Source of truth today: the task's own `state`, and the `StepDetail` of the
-// step that works the tasks — `checks`, `check_runs`, `last_verdict`,
-// `attempts` and `state`. A group is the unit **between** a step and a task,
-// and the wire has no such unit, so this is the draft with the least on the
-// wire under it.
+// Source of truth since 23.4: Fleet's `PlanGroup` — its id, its tasks, its
+// state and each run — with the `StepDetail` of the step that works the tasks
+// for its Checks. A Fleet before that served no group, and the tasks' own
+// states and that step stand in for one.
 //
 // **Checks run at each group's end** (#1530, 21 Sep), which is why the group
 // and not the task is what carries a verdict, a commit and a retry count.
 
-import type { DeclaredCheck, JobDetail, StepDetail } from "@armada/protocol";
+import type { DeclaredCheck, JobDetail, PlanGroup, StepDetail } from "@armada/protocol";
 
 import { derivedGroupId, stepAttemptOf } from "./coord";
 import type { LedgerRow } from "./ledger";
@@ -52,12 +51,9 @@ export type GroupView = {
    */
   cases_at_boundary: string[];
   /**
-   * When the group started and ended.
-   *
-   * **Nothing on the wire times a group** — a step is timed and a group sits
-   * between a step and a task, so both are absent until #1545 decides whether
-   * Fleet records them. A surface says it is not timed rather than drawing a
-   * dash or a zero.
+   * When the group started and ended, as Fleet stamps them since 23.4. Absent
+   * from an older Fleet, and on a group that has not run: a surface says it is
+   * not timed rather than drawing a dash or a zero.
    */
   started_at?: string;
   ended_at?: string;
@@ -67,20 +63,31 @@ export type GroupView = {
   retry_count: number;
   /** The commit the group left, where it left one. */
   commit?: string;
+  /**
+   * The Judge refused its last run after green Checks: `gate_failure` over
+   * tasks none of which failed, with the step that run was filed under
+   * `stopped` — Fleet's own reading. Restart this task then answers each of
+   * its done tasks (owner, 2 Oct 2026). **A group the Judge only questioned
+   * is not one**: its step holds at `awaiting_human` until a person answers.
+   * Absent otherwise.
+   */
+  judge_refused?: true;
 };
 
 /**
- * Today's wire has no groups, so **one task per group, in plan order**.
+ * The plan's groups, **as Fleet serves them since 23.4**: its ids, its state
+ * and its runs. A Fleet before that served none, so **one task per group, in
+ * plan order** — a Job with six tasks draws six groups of one rather than
+ * nothing at all.
  *
- * That is what makes a board built on this render against the real Fleet: a
- * Job with six tasks draws six groups of one rather than nothing at all.
- *
- * **A group is its task's, and its Checks are the step that works the tasks'**
- * — never the step the Job is on. A Job on its plan step is on the step that
- * *writes* the tasks: Job 2 (owner, 1 Oct 2026) drew four groups running and
- * `plan_recorded` at every boundary while nothing had started.
+ * **A group's Checks are the step that works the tasks'** — never the step the
+ * Job is on. A Job on its plan step is on the step that *writes* the tasks:
+ * Job 2 (owner, 1 Oct 2026) drew four groups running and `plan_recorded` at
+ * every boundary while nothing had started.
  */
 export function taskGroupsOf(detail: JobDetail): GroupView[] {
+  const served = detail.work_plan?.groups;
+  if (served !== undefined && served.length > 0) return servedGroupsOf(detail, served);
   const worksAt = stepWorkingTheTasks(detail);
   const attempts = stepAttemptOf(worksAt);
   const commit = detail.delivery?.commit;
@@ -103,6 +110,64 @@ export function taskGroupsOf(detail: JobDetail): GroupView[] {
     if (commit !== undefined) group.commit = commit;
     return group;
   });
+}
+
+/**
+ * Fleet's groups, each holding its own tasks. **A group a move emptied draws
+ * nothing**, so the ordinals count the groups a person can see.
+ */
+function servedGroupsOf(detail: JobDetail, served: readonly PlanGroup[]): GroupView[] {
+  const worksAt = stepWorkingTheTasks(detail);
+  const tasks = taskViewsOf(detail);
+  return served
+    .map((group) => ({ group, own: tasks.filter((task) => group.tasks.includes(task.id)) }))
+    .filter(({ own }) => own.length > 0)
+    .map(({ group, own }, index) => {
+      const scope = [...new Set(own.flatMap((task) => task.scope))];
+      const runs = group.attempts ?? [];
+      const view: GroupView = {
+        id: group.id,
+        ordinal: index + 1,
+        tasks: own,
+        scope,
+        // Its tasks run at once where any names another beside it (23.10).
+        concurrent: own.some((task) => task.concurrent_with.length > 0),
+        state: groupStateServed(group.state),
+        checks_selected: checksReaching(worksAt, scope),
+        cases_at_boundary: [],
+        retry_count: Math.max(0, runs.length - 1),
+      };
+      const verdict = runs.at(-1)?.verdict?.named;
+      const commit = [...runs].reverse().find((run) => run.commit !== undefined)?.commit;
+      if (group.started_at !== undefined) view.started_at = group.started_at;
+      if (group.ended_at !== undefined) view.ended_at = group.ended_at;
+      if (verdict !== undefined) view.verdict = verdict;
+      if (commit !== undefined) view.commit = commit;
+      const last = runs.at(-1);
+      if (
+        last?.ended_at !== undefined &&
+        last.verdict?.trigger === "gate_failure" &&
+        detail.steps.find((step) => step.step_id === last.step_id)?.state === "stopped" &&
+        !own.some((task) => task.state === "failed")
+      )
+        view.judge_refused = true;
+      return view;
+    });
+}
+
+/** A served state, as one of the eight; a word this build lacks reads `pending`. */
+function groupStateServed(state: string): GroupState {
+  const known: readonly GroupState[] = [
+    "pending",
+    "running",
+    "joining",
+    "checking",
+    "passed",
+    "failed",
+    "retrying",
+    "landed",
+  ];
+  return known.find((one) => one === state) ?? "pending";
 }
 
 /**

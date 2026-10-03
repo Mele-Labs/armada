@@ -418,7 +418,7 @@ export class JobCommands {
   // ---------------------------------------------------------------- stopping
   /**
    * Kill the Drone. **The Job survives**, its worktree held for a redispatch.
-   * `droneId` names one Drone of several, encoded as a pid is (23.9, #1666).
+   * `droneId` names one Drone of several, encoded as a pid is (23.10, #1666).
    */
   async killDrone(jobId: string, droneId?: string): Promise<Outcome> {
     if (droneId === undefined) return this.kill(jobId, "kill_drone");
@@ -457,10 +457,10 @@ export class JobCommands {
 
   /**
    * A plan task's own acts, from its panel — a failed task's Pilot and
-   * Restart, and Edit on an open or failed one. **Each is ahead of its
-   * route** — #250 pilots, #1656 restarts, #1657 edits, with the fields it
-   * changed as the body — so the answer is
-   * `bridge.not_implemented` until each ships. Restart shares the step's
+   * Restart, and Edit on an open or failed one. **Pilot and Edit are ahead
+   * of their routes** — #250 pilots, #1657 edits, with the fields it changed
+   * as the body — so the answer is `bridge.not_implemented` until each ships.
+   * Restart is served since 23.4 (#1656), with no body. Restart shares the step's
    * restart lock; Pilot and Edit share the redirect's, since both change what
    * the Job's Drone is doing. The task id is encoded, as a pid is.
    */
@@ -485,7 +485,7 @@ export class JobCommands {
   /**
    * A person's move on the plan, direct rather than asked of the Drone —
    * the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
-   * **Ahead of its route** (#1685), with the move as the body. Edit's lock,
+   * Served since 23.4 (#1685), placed by `after`. Edit's lock,
    * since both change the plan the Drone is held to.
    */
   async movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
@@ -547,7 +547,7 @@ export class JobCommands {
   async redirectDrone(jobId: string, instruction: string, droneId?: string): Promise<Outcome> {
     if (instruction.trim() === "") return { ok: false, why: "empty_instruction" };
     const body: Redirection = { instruction };
-    // One Drone of several by its id, the Job's kept Drone without (23.9).
+    // One Drone of several by its id, the Job's kept Drone without (23.10).
     const to = droneId === undefined ? "redirect" : `drones/${encodeURIComponent(droneId)}/redirect`;
     return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
       ask(port, "POST", route(jobId, to), body),

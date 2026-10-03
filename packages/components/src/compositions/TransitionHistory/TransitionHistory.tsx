@@ -67,9 +67,10 @@ export type TransitionHistoryProps = {
   /**
    * What the region says with no moves at all. **Empty is a real answer** — a
    * Job created and not yet moved has no events, because creation is not a
-   * transition and no row describes it.
+   * transition and no row describes it. Absent draws nothing: an empty slot
+   * stays empty.
    */
-  emptyNote: string;
+  emptyNote?: string;
   /** What the list is, and what it is not. Under it, never inside it. */
   note?: ReactNode;
 };
@@ -81,7 +82,7 @@ function wordFor(presence: string): string {
 
 export function TransitionHistory({ moves, emptyNote, note }: TransitionHistoryProps) {
   if (moves.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-history__empty" role="note">
         {emptyNote}
       </p>

@@ -102,15 +102,29 @@ export function verdictSaid(group: GroupView, failed: readonly string[]): string
 // fact and stays.
 
 /**
- * The run a Check's row in the Record is, where the boundary has run: the
- * latest by that name on the step the groups are worked at, **and only where
- * it came to what the boundary reads**. A step's `check_runs` is one list for
- * every group in it, so a group still waiting would otherwise open an earlier
- * group's run, and a group that passed would open a later group's red.
+ * The run a Check's row in the Record is, where the boundary has run.
+ *
+ * **The group's own latest run, where Fleet records the group** (#1652): a
+ * passed group opens its own, whatever a later group's run of that Check said.
+ * A Fleet before 23.4 named no group, and there it is the latest by that name
+ * on the step, **only where it came to what the boundary reads** — a group
+ * still waiting would otherwise open an earlier group's run, and a group that
+ * passed a later group's red.
  */
-function runOf(step: StepDetail | undefined, name: string, reads: GroupBoundaryCheck["reads"]) {
+function runOf(
+  step: StepDetail | undefined,
+  name: string,
+  reads: GroupBoundaryCheck["reads"],
+  group: GroupView,
+) {
   if (reads !== "passed" && reads !== "failed") return undefined;
   const runs = (step?.check_runs ?? []).filter((one) => one.name === name);
+  const own = runs.filter((one) => one.group === group.id);
+  if (own.length > 0) {
+    const latest = Math.max(...own.map((one) => one.group_attempt ?? 0));
+    return own.find((one) => (one.group_attempt ?? 0) === latest);
+  }
+  if (runs.some((one) => one.group !== undefined)) return undefined;
   const latest = Math.max(0, ...runs.map((one) => one.attempt));
   const run = runs.find((one) => one.attempt === latest);
   return run?.outcome === reads ? run : undefined;
@@ -138,7 +152,14 @@ function logOf(
   const kept = run?.output_path;
   return kept === undefined || run === undefined
     ? undefined
-    : { name, kept: basename(kept), live: false, stepAttempt: run.attempt };
+    : {
+        name,
+        kept: basename(kept),
+        live: false,
+        stepAttempt: run.attempt,
+        // The group's own row on the Record, where Fleet names it (#1652).
+        ...(run.group === undefined ? {} : { group: run.group }),
+      };
 }
 
 /**
@@ -158,7 +179,7 @@ function checkOf(
 ): GroupBoundaryCheck {
   const reads = checkReads(group, name, failed, step);
   // The step's runs are an earlier group's while this one is still checking.
-  const run = group.state === "checking" ? undefined : runOf(step, name, reads);
+  const run = group.state === "checking" ? undefined : runOf(step, name, reads, group);
   const told = reads === "failed" ? run : undefined;
   const log = logOf(group, step, name, run);
   return {

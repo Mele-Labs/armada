@@ -56,6 +56,10 @@ async function at(moment: string, tab: string) {
 const groupCard = (ordinal: number) =>
   page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
+/** A group's state, which its head draws as a mark naming it (owner, 2 Oct 2026). */
+const groupMark = (ordinal: number, named: string) =>
+  groupCard(ordinal).getByRole("img", { name: named, exact: true }).first();
+
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
 
@@ -464,7 +468,7 @@ describe("the plan", () => {
 
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
     await planList("arc/group-failed");
-    await expect.element(groupCard(3)).toHaveTextContent("retrying");
+    await expect.element(groupMark(3, "Retrying")).toBeVisible();
     await expect.element(groupCard(3)).toHaveTextContent("attempt 2");
     await expect.element(groupCard(3)).toHaveTextContent("screens_test");
     await expect.element(groupCard(3)).toHaveTextContent("typecheck");
@@ -475,7 +479,7 @@ describe("the plan", () => {
     await planList("arc/done-touched");
     await expect.element(taskRow("T6")).toHaveTextContent("touched later · T7");
     await expect.element(taskRow("T6").getByText("Done")).toBeInTheDocument();
-    await expect.element(groupCard(3)).toHaveTextContent("passed");
+    await expect.element(groupMark(3, "Passed")).toBeVisible();
     await expect.element(taskRow("T7")).toHaveTextContent("6 turns");
   });
 
@@ -666,7 +670,7 @@ describe("Pulse", () => {
     const processes = page.getByRole("region", { name: "Processes" });
     // Exact: the row's kill names the pid too, in its hidden description.
     await expect.element(processes.getByText("52118", { exact: true })).toBeVisible();
-    // Since 23.9 a process names its Drone (#1651): with several working one
+    // Since 23.10 a process names its Drone (#1651): with several working one
     // copy, the branch would say the same of every row.
     await expect.element(processes.getByText("implement · T5")).toBeVisible();
     await expect
@@ -675,27 +679,33 @@ describe("Pulse", () => {
     await expect.element(page.getByText(/^Updated .* ago$/)).toBeVisible();
   });
 
-  test("arc/executing-concurrent: with no agent running, Pulse says so rather than drawing an empty table", async () => {
+  test("arc/executing-concurrent: with no agent running, Processes draws nothing — no table and no sentence", async () => {
     mount("arc/executing-concurrent");
     await onPulse();
 
-    await expect
-      .element(page.getByText(/Fleet holds no process for this job/))
-      .toBeVisible();
+    const processes = page.getByRole("region", { name: "Processes" });
+    await expect.element(processes).toBeVisible();
+    expect(processes.getByText(/Fleet holds no process for this job/).query()).toBeNull();
     expect(page.getByRole("columnheader", { name: /Process/ }).query()).toBeNull();
   });
 
   // The parent of three landings holds a plan and no checkout of its own, so
-  // every one of Pulse's lists is empty here — which is the state each of them
-  // has its own sentence for. It is also the one moment that proves none of
-  // them draws a bare empty table. Nothing on screen names a shape (#1530).
-  test("members/stacked: the parent says what it holds rather than drawing three empty lists", async () => {
+  // every one of Pulse's lists is empty here. The process table that would not
+  // read is a failure and says so; the two empty lists draw nothing under their
+  // heads — no bare table and no sentence. Nothing on screen names a shape (#1530).
+  test("members/stacked: the parent says what failed, and its two empty lists draw nothing", async () => {
     mount("members/stacked");
     await onPulse();
 
     await expect.element(page.getByText(/the process table would not read/)).toBeVisible();
-    await expect.element(page.getByText("No worktree on disk.")).toBeVisible();
-    await expect.element(page.getByText(/Nothing has been written to this job's logs/)).toBeVisible();
+    const worktrees = page.getByRole("region", { name: "Worktrees" });
+    const logs = page.getByRole("region", { name: "Job logs" });
+    await expect.element(worktrees).toBeVisible();
+    await expect.element(logs).toBeVisible();
+    expect(worktrees.getByRole("list").query()).toBeNull();
+    expect(logs.getByRole("list").query()).toBeNull();
+    expect(page.getByText("No worktree on disk.").query()).toBeNull();
+    expect(page.getByText(/Nothing has been written to this job's logs/).query()).toBeNull();
     expect(document.body.textContent).not.toMatch(/convoy|train/i);
   });
 
@@ -855,7 +865,8 @@ describe("landing", () => {
     // Parked rather than stacked: it targets where the Job lands, which the
     // join says once, and it has opened nothing for anybody to review.
     await expect.element(member(3).getByText(/targets main/)).toBeVisible();
-    await expect.element(member(3).getByText("No pull request yet")).toBeVisible();
+    // No pull request yet draws nothing where one would be: an empty slot stays empty.
+    expect(member(3).getByText("No pull request yet").query()).toBeNull();
   });
 
   test("members/stacked: the parent says it is done when every member has landed, which is not the same as its own pull request merging", async () => {

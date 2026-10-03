@@ -116,7 +116,6 @@ export const FiguresNotYetRead: Story = {
     reading: null,
     figures: FIGURES,
     figuresReading: true,
-    note: "Reading the machine.",
     examined: null,
     onExamine: () => {},
   },
@@ -466,9 +465,9 @@ export const SeveralMembers: Story = {
 };
 
 /**
- * **A Job that has written nothing.** Its own sentence rather than an empty
- * list: a region that vanished when it held nothing would make "no logs yet"
- * and "this build does not draw logs" the same screen.
+ * **A Job that has written nothing.** The card keeps its head, so "no logs
+ * yet" and "this build does not draw logs" are still two screens, and **nothing
+ * is drawn under it** — an empty slot stays empty, never a sentence.
  */
 export const NothingHasBeenWritten: Story = {
   args: {
@@ -477,6 +476,11 @@ export const NothingHasBeenWritten: Story = {
     age: "1s",
     examined: null,
     onExamine: () => {},
+  },
+  play: async ({ canvas }) => {
+    const logs = canvas.getByRole("region", { name: "Job logs" });
+    await expect(within(logs).queryByRole("list")).toBeNull();
+    await expect(within(logs).queryByText(/written/i)).toBeNull();
   },
 };
 

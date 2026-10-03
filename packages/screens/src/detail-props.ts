@@ -121,7 +121,7 @@ export type JobDetailProps = {
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
   /**
    * A group or a task dragged somewhere new on the plan, sent straight to
-   * Fleet. Ahead of its route (#1685), so the answer is `Not implemented`.
+   * Fleet by the task or group it now follows (#1685, served since 23.4).
    */
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
