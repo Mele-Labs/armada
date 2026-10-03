@@ -16,6 +16,7 @@ export * from "./DispatchJob";
 export * from "./JobDetail";
 export * from "./Manifest";
 export * from "./Log";
+export { LandCheckLogSheet } from "./check-log-sheet";
 export * from "./Overrule";
 export * from "./RaiseCap";
 export * from "./RaiseTurnCap";
@@ -31,6 +32,7 @@ export * from "./BridgeSettings";
 // A repository's Studios, and one open on its whiteboard. #1287.
 export * from "./Studios";
 export * from "./studio";
+export { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "./studio-rail-ask";
 export * from "./studio-frames";
 export * from "./studio-clearing";
 export * from "./studio-promotion";

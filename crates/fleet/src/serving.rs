@@ -821,6 +821,26 @@ where
         Ok(crate::merge_lines::answer(self).await)
     }
 
+    /// One Check's log on a served line — [`crate::merge_lines::land_log`].
+    async fn observe_land_check(
+        &self,
+        root: String,
+        branch: String,
+        check: String,
+    ) -> Result<api::LandOutput, Refusal> {
+        let asked = (root.clone(), branch.clone(), check.clone());
+        crate::merge_lines::land_log(self, root, branch, check)
+            .await
+            .ok_or_else(|| {
+                let (root, branch, check) = asked;
+                self.refusal(Adrift::NoSuchLandLog {
+                    root,
+                    branch,
+                    check,
+                })
+            })
+    }
+
     /// What a Job may be spawned as, resolved once by the composition root.
     async fn list_models(&self) -> Result<ModelChoices, Refusal> {
         Ok(self.models().clone())
@@ -919,6 +939,32 @@ where
         let root = std::path::Path::new(served.root());
         Ok(ipc::FilesFound {
             paths: crate::files::search(root, &query),
+        })
+    }
+
+    /// The repository's branches, through the Vcs adapter. #1605.
+    async fn list_branches(
+        &self,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::Branches, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let listed = self
+            .vcs()
+            .branches(served.root(), served.manifest().base())
+            .map_err(|why| {
+                self.refusal(Adrift::BranchesUnread {
+                    job: None,
+                    why: why.to_string(),
+                })
+            })?;
+        Ok(ipc::Branches {
+            branches: listed
+                .into_iter()
+                .map(|branch| ipc::BranchRow {
+                    name: branch.name,
+                    base: branch.base,
+                })
+                .collect(),
         })
     }
 }

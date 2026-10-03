@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { Button } from "../Button/Button";
 
@@ -50,6 +50,14 @@ export type DropdownMenuProps = {
   entries: DropdownMenuEntry[];
   defaultOpen?: boolean;
   /**
+   * Held by the caller, for a menu something besides its trigger opens — a
+   * Studio's Run, which `R` and the palette open as a press on it does (the
+   * owner, 2 Oct 2026). Absent, the menu holds its own. Every close the menu
+   * makes itself is reported to `onOpenChange`.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
    * The trigger is off and the menu does not open — for a menu whose every
    * item sends something, while a send is already out. Disabled is
    * `--fg-subtle` text with hover suppressed, never an opacity, which is the
@@ -72,11 +80,22 @@ export function DropdownMenu({
   align = "end",
   entries,
   defaultOpen = false,
+  open: held,
+  onOpenChange,
   disabled = false,
   onSelect,
   icon: Glyph,
 }: DropdownMenuProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [own, setOwn] = useState(defaultOpen);
+  const open = held ?? own;
+  const setOpen = (next: boolean) => {
+    if (held === undefined) setOwn(next);
+    onOpenChange?.(next);
+  };
+  // The listeners below are added once per opening, so they read the latest
+  // close through this rather than the one in force when they were added.
+  const close = useRef(setOpen);
+  close.current = setOpen;
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -99,14 +118,25 @@ export function DropdownMenu({
     layer.dataset.aligns = Math.abs(at.right - from.right) <= Math.abs(at.left - from.left) ? "end" : "start";
   }, [shown]);
 
-  // Esc closes an overlay, per the global tier.
+  // **Focus goes into the menu as it opens**, onto its first item, so the
+  // arrows and Enter work however it was opened — a press, or a key that is not
+  // the trigger's, which left focus where it was (Run's `R`, the owner, 2 Oct
+  // 2026).
+  useEffect(() => {
+    if (shown) itemsOf(panel.current)[0]?.focus();
+  }, [shown]);
+
+  // Esc closes an overlay, per the global tier, and hands focus back to the
+  // trigger where it was in the menu, rather than dropping it on the page.
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      if (panel.current?.contains(document.activeElement) === true) trigger.current?.focus();
+      close.current(false);
     }
     function onDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) close.current(false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -130,7 +160,7 @@ export function DropdownMenu({
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
           disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(!open)}
         >
           {triggerLabel}
           <Count of={triggerCount} />
@@ -148,7 +178,7 @@ export function DropdownMenu({
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
           disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(!open)}
         >
           <Glyph size={16} strokeWidth={2} aria-hidden />
         </Button>
@@ -156,7 +186,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? (
-        <div ref={panel} className="armada-dropdown-menu__panel" role="menu">
+        <div ref={panel} className="armada-dropdown-menu__panel" role="menu" onKeyDown={moveFocus}>
           {entries.map((entry) => {
             if (entry.kind === "separator") {
               return <div key={entry.id} className="armada-dropdown-menu__separator" role="separator" />;
@@ -200,6 +230,30 @@ export function DropdownMenu({
       ) : null}
     </div>
   );
+}
+
+/** A menu's items, in the order it draws them. */
+function itemsOf(panel: HTMLElement | null): HTMLElement[] {
+  return [...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+}
+
+/** ↑ and ↓ step through the items and wrap; Home and End go to either end. Enter is the item's own. */
+function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>): void {
+  const items = itemsOf(event.currentTarget);
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  const to =
+    event.key === "ArrowDown"
+      ? (at + 1) % items.length
+      : event.key === "ArrowUp"
+        ? (at <= 0 ? items.length : at) - 1
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : null;
+  if (to === null || items.length === 0) return;
+  event.preventDefault();
+  items[to]?.focus();
 }
 
 function Count({ of }: { of: number | undefined }) {

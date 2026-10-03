@@ -13,7 +13,7 @@
 
 use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, EscalationTrigger, FailReason, GroupId, GroupRuns, JobId, PlanChange, ResolvedStep,
+    Actor, EscalationTrigger, FailReason, GroupId, GroupRuns, Job, JobId, PlanChange, ResolvedStep,
     StepId, StepLevelTrigger, StepState, StepVerdict, TaskId, TaskState, TaskUpdate, WorkPlan,
 };
 use store::PlanHand;
@@ -149,15 +149,36 @@ pub enum NotRestartable {
 
 /// Whether Restart this task answers: on a failed task, and on a done task in
 /// a group the Judge refused, which is one press to run that task again.
-pub fn restartable(plan: &WorkPlan, runs: &GroupRuns, task: TaskId) -> Result<(), NotRestartable> {
+pub fn restartable(
+    plan: &WorkPlan,
+    runs: &GroupRuns,
+    job: &Job,
+    task: TaskId,
+) -> Result<(), NotRestartable> {
     let named = plan.task(task).ok_or(NotRestartable::NoSuchTask { task })?;
     match named.state() {
         TaskState::Failed => Ok(()),
-        // `gate_failure` over tasks still done is a Judge refusal and nothing
-        // else: a red last run writes the same trigger but fails every task.
-        TaskState::Done if runs.stopped_on_gate_failure(named.group()) => Ok(()),
+        TaskState::Done if judge_refused(runs, job, named.group()) => Ok(()),
         state => Err(NotRestartable::NotFailed { task, state }),
     }
+}
+
+/// Whether the Judge refused the group's last run after green Checks.
+///
+/// **`gate_failure` over tasks still done, with the step that run was filed
+/// under `stopped`.** A red last run writes the same trigger but fails every
+/// task. A Judge's *question* writes it too, and holds the step at
+/// `awaiting_human` until a person answers: a refusal from him stops it, as a
+/// refusal does, and an agreement advances it (owner, 2 Oct 2026: a question
+/// waits for his answer). The step move is the record that changes when he
+/// answers, so it is the one read rather than a mark on the group's run.
+fn judge_refused(runs: &GroupRuns, job: &Job, group: GroupId) -> bool {
+    runs.stopped_on_gate_failure(group)
+        && runs
+            .attempts(group)
+            .last()
+            .and_then(|run| job.step(&run.step))
+            .is_some_and(|step| step.state() == StepState::Stopped)
 }
 
 /// Whether a person's move may be taken: never of a task, or a group holding

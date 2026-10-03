@@ -316,6 +316,8 @@ export type AddStudioNode = (
 ) & {
   position: StudioPosition;
   produced_by?: string;
+  /** The frame it is added in, `position` from its corner, as a move's. Since 23.9. */
+  within?: string;
 };
 
 /**

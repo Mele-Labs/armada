@@ -600,6 +600,9 @@ impl Store {
     ) -> Result<(), StudioError> {
         let tx = self.writing()?;
         touched(&tx, studio_id, at)?;
+        if let Some(frame) = node.within() {
+            framing::not_a_cluster(&tx, studio_id, node, frame)?;
+        }
         node_kept(&tx, studio_id, node)?;
         produced_edges(&tx, studio_id, node, produced_by, at)?;
         tx.commit().map_err(database("adding a node to a Studio"))

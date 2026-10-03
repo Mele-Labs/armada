@@ -82,6 +82,7 @@ fn draft() -> NewJob {
             criterion_id: CriterionId::new("c1"),
             text: "the reported symptom no longer occurs".into(),
             source: CriterionSource::Check,
+            origin: crate::CriterionOrigin::Unsaid,
         }],
         steps: vec![
             StepSeed {

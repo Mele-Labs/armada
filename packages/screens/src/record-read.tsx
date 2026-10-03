@@ -11,6 +11,7 @@ import { ChevronRight } from "lucide-react";
 import { Button, type JobLedgerRow } from "@armada/components";
 import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
+import type { JobCheckLog } from "./check-log-sheet";
 import { absoluteOf, clock } from "./duration";
 import { rowSays, statusOf } from "./record";
 import type { useCheckOutputs } from "./outputs";
@@ -41,7 +42,8 @@ type RowReadProps = {
   cases: readonly CaseView[];
   onSaid: (sentence: string) => void;
   onOpenStep: (stepId: string) => void;
-  onOpenCheck: (name: string, stepAttempt: number, group?: string) => void;
+  /** Open a boundary Check's log in the log panel, from a task's group. */
+  onOpenCheckLog: (log: JobCheckLog) => void;
   onOpenTask: (taskId: string) => void;
   /** A task's Record row, where it has one — which task lines are pressable. */
   taskRowOf: (taskId: string) => string | undefined;
@@ -68,7 +70,7 @@ export function RowRead({
   cases,
   onSaid,
   onOpenStep,
-  onOpenCheck,
+  onOpenCheckLog,
   onOpenTask,
   taskRowOf: taskRow,
 }: RowReadProps) {
@@ -172,7 +174,7 @@ export function RowRead({
                 groups={groups}
                 cases={cases}
                 detail={detail}
-                onOpenCheck={onOpenCheck}
+                onOpenCheckLog={onOpenCheckLog}
               />
             ) : family === "files" ? null : (
               <RowFields row={row} detail={detail} />

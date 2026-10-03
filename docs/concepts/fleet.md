@@ -288,13 +288,15 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **A forge approval is a person's signal on a diff, and Armada treats it as nothing more.** It is not a Judge verdict, it passes no Check, and it moves no Job — a Job at `awaiting_review` when the reading arrives is at `awaiting_review` after it. The forge's own checks are counted apart from Armada's Checks for the same reason: a Check is named in `armada.yml` and Fleet ran it against a worktree it made, and folding the two together would let a surface say work had been verified that nothing verified. What is written down is a line in the Job's log, and only when the reading changes.
 
-**A comment on a pull request is untrusted input.** It is written by whoever can see the pull request. How many there are reaches the Job's log on the sweep and what they say does not — the road a comment's text travels ends at a file in a Drone's worktree, never at a log and never at a prompt directly. The sweep's own one-call budget reads the pull request's conversation and the note beside each review; a comment left on one line of the diff is a second query, asked only where a person opens the comments or presses on them.
+**A comment on a pull request is untrusted input.** It is written by whoever can see the pull request. How many there are reaches the Job's log on the sweep and what they say does not — the road a comment's text travels ends at a file in a Drone's worktree, never at a log and never at a prompt directly. The sweep's own one-call budget reads the pull request's conversation and the note beside each review. A comment left on one line of the diff is a second query: a person opening the comments or pressing on them reads those comments whole, and the sweep asks it only to count them.
 
-**Since `#661`, a changed reading also wakes Bridge, without a reopen.** The same sweep that decides whether to write the Job's log line also compares a stronger signature — every remark's handle, a hash of its words, and every reviewer's verdict — against what it read the sweep before. Where that changed, Fleet publishes `job.remarks_changed`, naming the Job, and Bridge re-asks `get_remarks` for whichever Job's comments are open on screen. The event carries no comments itself: `get_remarks` already answers what changed, and it also brings in the comments left on individual lines of the diff, which the sweep's own read never asks for. Nothing fires on the first sweep to read a given pull request — a Fleet that just started has no earlier reading to compare against, and firing there would publish one of these for every open pull request it holds the moment it came up.
+**Since `#661`, a changed reading also wakes Bridge, without a reopen.** The same sweep that decides whether to write the Job's log line also compares a stronger signature — every remark's handle, a hash of its words, and every reviewer's verdict, with the comments on lines of the diff read the same way — against what it read the sweep before. Where that changed, Fleet publishes `job.remarks_changed`, naming the Job, and Bridge re-asks `get_remarks` for whichever Job's comments are open on screen. The event carries no comments itself: `get_remarks` already answers what changed, and it also brings in the comments left on individual lines of the diff. A line-comment read that goes unanswered keeps the last answer in the signature, so a silence never wakes Bridge. Nothing fires on the first sweep to read a given pull request — a Fleet that just started has no earlier reading to compare against, and firing there would publish one of these for every open pull request it holds the moment it came up.
 
-**The title and the comment count are kept on the record, so they outlive the merge.** Everything else the sweep reads is remembered only while the pull request is open, and forgotten when it settles or Fleet restarts. The title is written when Fleet opens the pull request, then on every read, the settling read included. The count is what the sweep's own read finds, so a comment on one line of the diff is not in it, and it stops moving when the pull request settles. A pull request that settled before the rotation ever found it open has a title and no count. `get_job` serves both and never asks the forge for either.
+**The title and the comment count are kept on the record, so they outlive the merge.** Everything else the sweep reads is remembered only while the pull request is open, and forgotten when it settles or Fleet restarts. The title is written when Fleet opens the pull request, then on every read, the settling read included. The count is what the forge shows: the conversation, the reviews that say something, and the comments on lines of the diff, which cost the sweep one more forge call on a turn that finds the pull request open. A turn where either read goes unanswered keeps the last count, and the count stops moving when the pull request settles. A pull request that settled before the rotation ever found it open has a title and no count. `get_job` serves both and never asks the forge for either.
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
+
+**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs.
 
 **A person picks which comments a Drone should act on, and it is Fleet asking rather than a Drone.** Not every comment is a change request — some are questions, some are agreement, some are about something else — and a Drone handed all of them tries to satisfy all of them. So the comments are served when somebody asks for them, that person picks, and the ones they picked are written whole into a file in the Drone's worktree — no size a person's choice can be too large for, `#648`. **That is the road a note already travels**, entered a second time rather than built again: a pointer to the file goes onto the record where a person's typed note goes, the Job takes `awaiting_review -> queued`, and the same block reaches the Drone, naming the file, the count and who wrote them.
 
@@ -354,6 +356,7 @@ worktrees a repository leases*.
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
+| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
@@ -392,7 +395,8 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 > work; a person may answer them days later.
 
 > **Rule.** A completed Job holds its slot until a person clears it, from the
-> Board's Clear or by deleting its record. The sweep never gives it back.
+> Board's Clear, by deleting its record, or with `armada clean --force`. The
+> sweep never gives it back.
 > Why: the owner's decision of 2 Oct 2026, so Show again and anything else
 > reading a finished Job's tree keeps working.
 
@@ -402,7 +406,7 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
 | `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
-| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
 > held by another, given back, or gone is escalated as `no_worktree`, naming
@@ -422,7 +426,9 @@ holds its slot, and for any other end only while the pool kept it.
 **Completed Jobs nobody clears can fill the pool.** With every slot held, the
 next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
 --status` names the `done` slots. Clear the finished Jobs on the Board, which
-gives each slot back, or `armada worktree release <path>` one by hand.
+gives each slot back, `armada worktree release <path>` one by hand, or
+`armada clean --force` every one that is clean and landed. A plain `armada
+clean` names them and leaves them.
 
 ## Ports
 

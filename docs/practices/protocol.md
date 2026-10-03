@@ -2312,7 +2312,8 @@ stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
 
 **Restart this task also answers a done task in a group the Judge refused** (2 Oct 2026), with
 no change to the wire: Bridge reads the group's last run, `verdict.trigger` `gate_failure` over
-tasks still `done`, as Fleet does.
+tasks still `done`, with the step that run was filed under `stopped`, as Fleet does. **A group the
+Judge only questioned is refused**: its step holds at `awaiting_human` until a person answers.
 
 | Route | Body | Answers | Refused |
 |---|---|---|---|
@@ -2343,12 +2344,14 @@ with, and again on every read of the forge, the settling read included, so a tit
 forge replaces it. Absent means no read has named it: a pull request opened before 23.5 and not read
 since.
 
-**`pull_request_comments`** is the count the sweep's read finds while the pull request is open:
-conversation comments plus reviews that say something. A comment on one line of the diff is not
-counted, because that is the second query only `get_remarks` asks. **Absent is unknown, never 0**:
-the pull request settled before the rotation reached it open. Opening a new pull request clears it.
+**`pull_request_comments`** is the count the sweep reads while the pull request is open, matching
+what the forge shows: conversation comments, reviews that say something, and comments on lines of
+the diff. The line comments cost one more forge call on a sweep turn that finds the pull request open,
+the owner's call on 2 Oct 2026; the wire shape did not change, so there was no version bump. A turn
+where either read goes unanswered keeps the last count. **Absent is unknown, never 0**: the pull
+request settled before the rotation reached it open. Opening a new pull request clears it.
 
-**No forge call on a Job read.** Both are written on reads Fleet already makes. **Store V96** keeps
+**No forge call on a Job read.** Both are written by the sweep and by opening the pull request. **Store V96** keeps
 them, in two `jobs` columns.
 
 ## Protocol 23.6: a model per task, and a person's edit to a task
@@ -2385,6 +2388,90 @@ those two as well.
 **`record_plan` takes an optional `tier` per task.** It is an MCP tool, not this protocol, and its
 own schema says so. **Store V97** keeps a recorded task's tier, a person's edit, a Job's map and
 the model each Drone ran.
+
+## Protocol 23.7: one Check's log on a merge line
+
+The owner, 2 Oct 2026: a Check in the Checks strip opens its log, live, wherever the strip is
+drawn. A plan group's Checks already had both halves, `observe_check_output` while the gate writes
+a log and `get_check_output` once it has ruled. A merge line's had neither: the runner writes each
+Check to `logs/<entry>/<turn>/<check>.log` under `armada-land/`, and `get_merge_lines` keeps the
+outcome's `logs` off the wire.
+
+**A route, and a socket of its own.** `observe_land_check` is `GET
+/merge_lines/checks/observe?root=&branch=&check=`, an upgrade like `observe_check_output`'s,
+answered before the socket opens. It reads the file the way that one does, a quarter-second behind,
+and ends with `closed`. **An ended Check is served on it too**: it opens, sends what the file holds
+and closes `finished`, so Bridge reads a merge line Check through one socket whether it is running
+or not.
+
+**The three names are the request, and never a path.** Fleet holds the root against the roots it
+serves, reads the branch's outcome for its turn and the Checks that turn has started, and opens only
+`<turn>/<check>.log` where the turn resolves under this line's own `logs/` and the log is not a
+link. Everything else is one refusal. `adapters::land_state::line::check_log` is the rule;
+`crates/fleet/src/tests/land_logs.rs` holds it to a path, `..`, a waiting Check, an unserved root,
+a turn outside `logs/` and a link.
+
+**Additive, so the minor moves.** `LandOutputMessage` is a new message family, `OutputMessage`'s
+three with its own opening: `LandOutputOpened` names the root, the branch and the Check, and carries
+no path, for `get_merge_lines`' redaction. `OutputLines` and `OutputClosed` are reused whole. A
+23.6 Fleet has no such route, so a 23.7 Bridge behind it is refused, which is the skew rule's own
+direction.
+
+**Bridge holds it in main**, `land-following.ts` beside `following.ts`, published as
+`BridgeState.landFollowed`, one at a time. The preload's `followLandCheck` takes the three names
+and main reads only three strings off whatever the window sent.
+
+## Protocol 23.8: the proposal is what runs
+
+Spike 022, slice 4 (#1765, carrying #1641, #1642, #1605, #1581 and #1699's route).
+
+**A body, a route, a read and optional fields, all additive.** `approve_dispatch` takes
+`ApproveDispatch`, the whole proposal as a person left it, and an empty body still approves it as
+it stands, so a 23.7 Bridge approves exactly as before. `edit_job` saves `title?`, `facts?` and
+`criteria?` without the press. `list_branches` reads the repository's branches through git.
+
+| Route | Body | Answers | Refused |
+|---|---|---|---|
+| `POST /jobs/:job_id/approve_dispatch` | `ApproveDispatch`, or nothing | `JobSummary`, `queued` | 409 `fleet.proposal_frozen` past `awaiting_approval`; 422 `fleet.no_such_branch`, 422 `fleet.unacceptable_proposal` |
+| `POST /jobs/:job_id/edit`, `edit_job` | `EditJob` | `JobSummary`, still `awaiting_approval` | As above, and 422 on a body changing nothing |
+| `GET /manifest/branches?manifest_id=`, `list_branches` | — | `Branches` | 422 on a repository not served |
+
+**Read on the wire:** `Criterion.origin`, `{kind: issue, ref, url}`, `{kind: prompt}` or `{kind:
+person}`, absent where nothing says; `Criterion.origin_moved_at`, on an issue's line once the
+issue was edited after Fleet read it; and on `JobDetail`, `landing` (`target?`, `from_ref?`,
+`pr_mode`), `drone_cap`, `policy_overrides` (`auto_merge?`, `review_gate?`, the words
+`armada.yml` writes) and `approved_at`. `JobRequest.settings` carries the dispatch form's
+`workflow_id?`, `tiers?`, `drone_cap?` and `lands?`. Each is absent where empty.
+
+**The lock's bodies, and what slice 4 chose inside them.** `edit_job` takes #1641's criteria
+rather than Bridge's lines, the spike's bodies table. An overridden step keeps deferring on the
+record and the override is laid over the repository's word after the fold, so it wins however the
+rule moves (answer 4) and #1683's record shows the word each gate read; `auto_merge` overridden
+without a person reads `checks-pass`. Only `delivered` completes a Job and only one branch per Job
+is cut, so `branching: group` and the other three `complete_when` values are refused rather than
+kept unread; `land_together` does not cross. `from_ref` cuts the worktree and is what its work is
+measured from; `target` is where the pull request opens. The Drone cap is kept, and slice 5
+enforces it.
+
+**Store V98** keeps a Job's landing, Drone cap, policy overrides and the issue its request linked.
+The issue rotation is a second cursor on the pull-request rotation's interval (answer 5), over
+every Job in flight whose request linked an issue.
+
+## Protocol 23.9: a node is added inside a Zone
+
+The owner, 2 Oct 2026: pressing inside a Zone places the armed kind there and puts it in that Zone.
+Bridge did it in two writes, an `add_node` on the board and a `move_studio_node` into the Zone, and
+a refused move left the node on the board.
+
+**`add_studio_node` takes `within`**, `move_studio_node`'s field: the frame it is added in, with
+`position` measured from that frame's corner, and absent is the board. It is one store write, and
+it refuses what the move refuses, with the move's codes: a frame that does not hold the kind is
+`fleet.studio_frame_cannot_hold`, so a Zone in a Zone is, and so is anything added in a Cluster,
+since a node just made is none of the Notes the Cluster was made of.
+
+**Additive, so the minor moves.** A new optional field on a request. A 23.7 Fleet would drop
+`within` and add the node at the board's origin plus the offset, so a 23.8 Bridge behind it is
+refused, which is the skew rule's own direction.
 
 ## Open questions
 

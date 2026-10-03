@@ -18,6 +18,7 @@ use crate::tests::daemon::{
 };
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
+use crate::tests::under_review::{published, remarks_changed};
 
 type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
@@ -171,5 +172,162 @@ async fn the_comment_count_reads_on_a_finished_job() {
         fleet.vcs().times_asked_what_became_of_it(),
         asked,
         "a Job read asks the forge nothing"
+    );
+}
+
+fn open() -> Landing {
+    Landing::Open {
+        url: String::from(PULL_REQUEST),
+        rendering: Rendering::AsWritten,
+    }
+}
+
+/// One conversation comment, as `gh pr view`'s reduction folds it: the
+/// forge's node id and its address, and no place in the diff.
+fn read_with_one_conversation_comment() -> UnderReview {
+    UnderReview {
+        people: WhatPeopleSaid::NobodyHasLooked,
+        checks: WhatTheForgeRan::NothingRan,
+        remarks: vec![Remark::written(
+            "IC_kwDOAbc123",
+            "somebody",
+            "2026-10-02T10:00:00Z",
+            "why this bound?",
+        )
+        .with_url("https://forge.invalid/armada/pull/1#issuecomment-1")],
+        verdicts: Vec::new(),
+    }
+}
+
+/// One comment on a line of the diff, as the review-comments reduction folds
+/// it: the REST id, its address, and where in the diff it sits.
+fn a_line_comment(id: &str, line: u32, said: &str) -> Remark {
+    Remark::written(id, "a-reviewer", "2026-10-02T10:05:00Z", said)
+        .with_url(format!(
+            "https://forge.invalid/armada/pull/1#discussion_r{id}"
+        ))
+        .with_inline("src/log.rs", line, "@@ -40,3 +40,3 @@ fn read() {")
+}
+
+fn two_line_comments() -> Option<Vec<Remark>> {
+    Some(vec![
+        a_line_comment("2001", 41, "this leaks a file handle"),
+        a_line_comment("2002", 44, "and this one"),
+    ])
+}
+
+/// **The owner's 2 Oct decision**: the card's count includes the comments on
+/// lines of the diff, so it matches what the forge shows. One conversation
+/// comment and two line comments read 3, at one extra forge call on the turn
+/// that found the pull request open.
+#[tokio::test]
+async fn line_comments_on_the_diff_are_in_the_comment_count() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    let job_id = a_finished_job(&fleet, &home).await;
+
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    let asked = fleet.vcs().times_asked_for_inline_remarks();
+    fleet.turn().await.unwrap();
+
+    assert_eq!(
+        fleet.vcs().times_asked_for_inline_remarks(),
+        asked + 1,
+        "one extra forge call on the open turn"
+    );
+    assert_eq!(
+        delivery_of(&fleet, &job_id).await.pull_request_comments,
+        Some(3)
+    );
+    let asked = fleet.vcs().times_asked_for_inline_remarks();
+    delivery_of(&fleet, &job_id).await;
+    assert_eq!(
+        fleet.vcs().times_asked_for_inline_remarks(),
+        asked,
+        "a Job read asks the forge nothing"
+    );
+}
+
+/// A forge that answers the conversation but not the line comments keeps the
+/// last count, rather than showing a smaller number or 0.
+#[tokio::test]
+async fn an_unanswered_line_comment_read_keeps_the_last_count() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    let job_id = a_finished_job(&fleet, &home).await;
+
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+    fleet.vcs().now_inline_remarks(None);
+    fleet.turn().await.unwrap();
+
+    assert_eq!(
+        delivery_of(&fleet, &job_id).await.pull_request_comments,
+        Some(3),
+        "the silence is not a count"
+    );
+}
+
+/// **A new comment on a line of the diff wakes Bridge**, as a new conversation
+/// comment does. The sweep fetches them for the count, so the signature that
+/// decides `job.remarks_changed` reads them too.
+#[tokio::test]
+async fn a_new_line_comment_publishes_job_remarks_changed() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    let job_id = a_finished_job(&fleet, &home).await;
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet
+        .vcs()
+        .now_inline_remarks(Some(vec![a_line_comment("2001", 41, "this leaks")]));
+    fleet.turn().await.unwrap();
+
+    let mut subscription = fleet.events().subscribe();
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let seen = published(&mut subscription).await;
+    assert_eq!(
+        remarks_changed(&seen),
+        vec![&ipc::JobId::from(&job_id)],
+        "the Job whose pull request gained a line comment, named once: {seen:?}"
+    );
+}
+
+/// **A silence is not a change.** A line-comment read that goes unanswered,
+/// then answers what it answered before, wakes Bridge on neither turn.
+#[tokio::test]
+async fn an_unanswered_line_comment_read_publishes_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet_asking_every_turn(&home, Delivering::default());
+    a_finished_job(&fleet, &home).await;
+    fleet.vcs().now_landed(open());
+    fleet
+        .vcs()
+        .now_under_review(read_with_one_conversation_comment());
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let mut subscription = fleet.events().subscribe();
+    fleet.vcs().now_inline_remarks(None);
+    fleet.turn().await.unwrap();
+    fleet.vcs().now_inline_remarks(two_line_comments());
+    fleet.turn().await.unwrap();
+
+    let seen = published(&mut subscription).await;
+    assert!(
+        remarks_changed(&seen).is_empty(),
+        "an unanswered read, then the same answer: {seen:?}"
     );
 }

@@ -26,8 +26,8 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { SketchToKeep } from "@armada/protocol";
+import type { ApproveWave, EditJobAsSent, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -79,13 +79,21 @@ export const watchStudio = (studioId: string | null): void => void window.armada
 export const createStudio = (manifestId: string) => window.armada.createStudio(manifestId);
 // Named, and added to, by a person — #1364. Neither goes through Helm.
 export const renameStudio = (studioId: string, name: string) => window.armada.renameStudio(studioId, name);
-export const addStudioNode = (studioId: string, node: StudioNodeByHand, position: { x: number; y: number }) =>
-  window.armada.addStudioNode(studioId, node, position);
+export const addStudioNode = (
+  studioId: string,
+  node: StudioNodeByHand,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.addStudioNode(studioId, node, position, within);
 export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
 export const addStudioPicture = (studioId: string, bytes: Uint8Array, position: { x: number; y: number }) =>
   window.armada.addStudioPicture(studioId, bytes, position);
-export const addStudioSketch = (studioId: string, drawing: SketchToKeep, position: { x: number; y: number }) =>
-  window.armada.addStudioSketch(studioId, drawing, position);
+export const addStudioSketch = (
+  studioId: string,
+  drawing: SketchToKeep,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.addStudioSketch(studioId, drawing, position, within);
 export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
   window.armada.saveStudioSketch(studioId, nodeId, drawing);
 export const moveStudioNode = (
@@ -127,6 +135,7 @@ export const readBrief = (jobId: string, name: string) => window.armada.readBrie
 export const readComposing = (repository: string) => window.armada.readComposing(repository);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
+export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
 
 export const readFrame = (jobId: string, kept: string) => window.armada.readFrame(jobId, kept);
 /** Where a recording streams from. Composed, not fetched — main answers it. */
@@ -807,7 +816,7 @@ export function useCommands(sending: Sending) {
    * closes only on one that was taken. `Not implemented` names #1699 until
    * Fleet serves the route.
    */
-  async function editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+  async function editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
     const answer = await window.armada.editJob(jobId, edit);
     setOutcome(answer);
     tap(patternFor(answer.ok ? "accepted" : "refused"));

@@ -16,12 +16,13 @@
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
-import type { BriefRead, CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { FollowSocket } from "./following";
+import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
 import { JournalSocket } from "./journal";
 import { JobFocus } from "./job-focus";
@@ -134,6 +135,8 @@ export class FleetConnection {
   private readonly notes: JournalSocket;
   /** One running Check's log, as it is written — a fourth socket. `following.ts`. */
   private readonly follow: FollowSocket;
+  /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
+  private readonly landFollow: LandFollowSocket;
   /** One repository's Helm conversation — a fifth socket, and the only one that sends. `helm.ts`. */
   private readonly helm: HelmConnection;
   /** Not `private`, `commands`' reason: `remarks-poll.ts` (`#667`) reaches `remarksChanged` from `index.ts`. */
@@ -182,6 +185,7 @@ export class FleetConnection {
     this.turns = new ObserveSocket((observed) => this.publish({ observed }));
     this.notes = new JournalSocket((journalled) => this.publish({ journalled }));
     this.follow = new FollowSocket((followed) => this.publish({ followed }));
+    this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
     this.material = new ReviewMaterial((change) => this.publish(change));
     const port = (): number | null => this.connected()?.port ?? null;
     this.helm = new HelmConnection({ publish: (change) => this.publish(change), port });
@@ -385,6 +389,7 @@ export class FleetConnection {
     this.turns.close();
     this.notes.close();
     this.follow.close();
+    this.landFollow.close();
     this.material.close();
     this.reports.close();
     this.held.close();
@@ -468,6 +473,11 @@ export class FleetConnection {
   /** One running Check's log, as it is written, or `null` to stop. Opened by a press. */
   followCheckOutput(jobId: string | null, kept: string | null): void {
     this.follow.open(this.connected()?.port ?? null, jobId, kept);
+  }
+
+  /** One merge line Check's log, running or ended, or `null` to stop. Opened by a press. */
+  followLandCheck(at: LandCheckAt | null): void {
+    this.landFollow.open(this.connected()?.port ?? null, at);
   }
 
   // ------------------------------------------------- one Job's work, reviewed

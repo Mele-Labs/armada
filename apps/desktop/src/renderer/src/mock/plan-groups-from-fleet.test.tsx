@@ -5,6 +5,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { featureJudgeQuestioned } from "./job-groups-fixture";
+import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -38,11 +40,15 @@ test("the red group's task carries the failed mark, and says which group and run
 });
 
 // #1652's own claim: group 3 also ran `test`, red on every run, and group 1's
-// card opens group 1's run, which passed and held nothing back.
+// card opens group 1's run, which passed and held nothing back. The press opens
+// the Check's log, which goes on to the Record (owner, 2 Oct 2026).
+const toTheRecord = () => page.getByRole("dialog", { name: "Check log" }).getByRole("button", { name: "Open in the Record" });
+
 test("pressing test on group one's card opens group one's own run, though group three also ran test", async () => {
   await onThePlanList();
   await boundaryOf(1).getByRole("button", { name: /^Checks/ }).click();
   await boundaryOf(1).getByRole("button", { name: "test, passed" }).click();
+  await toTheRecord().click();
   await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByRole("heading", { name: "test" })).toBeVisible();
   expect(page.getByText("Exited 1 — 2 of 1104 failed").query()).toBeNull();
@@ -52,6 +58,7 @@ test("pressing test on group one's card opens group one's own run, though group 
 test("a red run of test names the group it held back from the record, not by inference", async () => {
   await onThePlanList();
   await boundaryOf(3).getByRole("button", { name: "test, failed" }).click();
+  await toTheRecord().click();
   await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByText("Exited 1 — 2 of 1104 failed")).toBeVisible();
   await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();
@@ -94,6 +101,20 @@ test("a done task in a group that passed offers no Restart", async () => {
   await onThePlanList();
   await taskRow("T1").getByRole("button").first().click();
   const panel = page.getByRole("dialog", { name: "Draw a group's runs on its card" });
+  await expect.element(panel).toBeVisible();
+  expect(panel.getByRole("button", { name: "Restart this task" }).query()).toBeNull();
+});
+
+// The owner's, 2 Oct 2026: a group the Judge only questioned waits for his
+// answer, so its done task offers no Restart.
+test("a done task in a group the Judge only questioned offers no Restart", async () => {
+  await page.viewport(2000, 900);
+  mount(onJob(featureJudgeQuestioned()));
+  await page.getByRole("tab", { name: /^Plan/ }).click();
+  await page.getByRole("tab", { name: "List" }).click();
+  await expect.element(taskRow("T4").getByRole("img", { name: "Done", exact: true })).toBeVisible();
+  await taskRow("T4").getByRole("button").first().click();
+  const panel = page.getByRole("dialog", { name: "Answer restart and move in the mock" });
   await expect.element(panel).toBeVisible();
   expect(panel.getByRole("button", { name: "Restart this task" }).query()).toBeNull();
 });

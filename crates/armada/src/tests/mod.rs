@@ -12,6 +12,7 @@
 
 mod agent;
 mod clean;
+mod clean_slots;
 mod cli;
 mod declared;
 mod kit;

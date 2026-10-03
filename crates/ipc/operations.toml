@@ -921,6 +921,17 @@ Every fault crosses, not the first. `config::LoadError` finds them all, and a pe
 `agent_access` is `Yes` on `get_capacity`'s terms: it is one small answer about Fleet's own state, and a Helm whose dispatch is running against configuration the repository no longer describes should be able to find that out.
 """
 
+[operations.list_branches]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The repository's local branches, the base first, for where a Job starts and lands"
+notes = """
+`GET /manifest/branches?manifest_id=`, #1605, spike 022 slice 4. `Branches`: `branches`, each a `BranchRow` of `name` and `base`, the base first and the rest by name. **Read through git** (`Vcs::branches`), not the floor Bridge composed from the Manifest's base and the worktrees it had seen, so the picker offers what the repository holds. The base is the one a worktree is cut from where nobody says otherwise, the Manifest's `base:` or what the adapter infers, and a declared base the repository lacks marks no branch rather than failing the list.
+
+422 on a repository this Fleet does not serve; a fault where git will not list. `approve_dispatch` refuses a landing branch this list does not hold.
+"""
+
 [operations.search_files]
 kind = "query"
 transport = "HTTP"
@@ -1040,6 +1051,23 @@ A reading of files another process writes. `armada land` keeps its queue and eac
 A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
+"""
+
+[operations.observe_land_check]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One Check's log on a served repository's merge line, by the root, the branch and the Check: what it holds, then what the runner writes next"
+notes = """
+**`observe_check_output`'s shape for a Check no Job owns.** The runner appends each Check of a turn to `logs/<entry>/<turn>/<check>.log` under `armada-land/` as it runs, and this reads that file the way `observe_check_output` reads a Job's: what is there, then what is appended, a quarter-second behind, then `closed` with why. The first message is `LandOutputMessage::Opened`, naming the line rather than a Job; the lines and the end are `OutputLines` and `OutputClosed`. Since 23.7.
+
+**An ended Check is served on the same socket.** It opens, sends what the file holds and closes `finished`, so one reader draws a Check that is running and one that has ended. A Check is still writing while its branch is `gating`, it reads `running` in the outcome, and the outcome still names the turn it was found in.
+
+**The three names are the whole request, and no path is taken.** `root` must be a root this Fleet serves; the branch's outcome names its turn, as the directory its `logs` sit in, and the Checks that turn has started. `check` must be one path component and one of those, not `waiting`. The turn must resolve to exactly `logs/<entry>/<turn>` under this line's own `armada-land/` once links are followed, and a link where the log goes is refused, and read as unreadable if one is planted after. Anything else is one 422, `fleet.unacceptable_proposal`, before the socket opens: Fleet opens nothing it did not find this way.
+
+`get_merge_lines` still keeps the outcome's `logs` off the wire, and so does this: the opening carries the three names and no path.
+
+`agent_access` is `No` for `get_merge_lines`' reason.
 """
 
 [operations.add_repository]
@@ -1496,9 +1524,28 @@ Machine-wide, so no Manifest scopes it. `agent_access` is `No`, `get_kit_servers
 kind = "command"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Releases a Job to spawn"
+description = "Releases a Job to spawn, as the person left its proposal"
 notes = """
 The primary autonomy control.
+
+**Since 23.8 the body is the proposal as the person left it** (#1641, spike 022 slice 4), `ApproveDispatch`: `title?`, `facts?`, `workflow_id?`, `gates?` (`GateChoice`: `step_id`, `checks`, `judge`, `you`, `overridden?`), `criteria?` (`CriterionWritten`: `criterion_id?`, `text`, `source`), `tiers?`, `drone_cap?` and `landing?` (`LandingChoice`: `target?`, `from_ref?`, `branching`, `pr_mode?`, `complete_when`). **An empty body is the proposal as it stands**, which is every Bridge before 23.8 and Helm's press. A field left out keeps what the proposal holds, except `drone_cap`, which is the machine's cap where left out, the body being the whole proposal.
+
+**Kept whole or refused whole, before anything moves.** The title, facts, workflow, each step's gate and the criteria are rewritten on the record, and freeze at this press (#1581); the tier map, the Drone cap, the landing and the policy overrides are kept beside the Job. Then `awaiting_approval -> queued`, as before. A criterion with an id is that line, reworded or not, and keeps its origin and how it is answered; one without is new, minted the next `c<n>`, the person's, and answered by the Judge or a person, never a Check. An overridden step keeps deferring on the record and the override wins at every gate however the repository's rule moves (answer 4): `auto_merge` reads `never` with `you`, else `checks-pass`; `review_gate` reads `human_always` with `you`, else `auto_if_judge_passes` with `judge`. The Drone cap is kept and enforced from slice 5.
+
+409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, any `complete_when` but `delivered`, and a cap of zero. A model `list_models` does not offer is refused as `set_tiers` refuses one.
+"""
+
+[operations.edit_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Save a proposal's title, facts or criteria without releasing it"
+notes = """
+`POST /jobs/:job_id/edit`, #1699's route, spike 022 slice 4. The body is `EditJob`: `title?`, `facts?`, `criteria?`, the fields `approve_dispatch` shares, in its shape (spike 022's bodies table; #1641's criteria win over a list of lines, which would mint new ids at every save and drop each criterion's source and origin). **Only the fields a person changed.** The answer is the Job's summary; `get_job` reads the rest back.
+
+**It does not release the Job.** Refused with 409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`, and 422 on a body changing nothing, a blank title, or a criterion the Job does not hold. Criteria follow `approve_dispatch`'s rule. A new title renames the Job's log with its handle, as the proposer's title does.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason: what a Job is held to is a person's to correct. #1699's wave panel (Edit this Job) reaches it in slice 6.
 """
 
 [operations.ask_person_to_approve]
@@ -1826,6 +1873,19 @@ proposer. What comes back is every Job the request became, all at
 awaiting_approval, exactly as propose_job answers for one — this adds no gate and
 removes none, and the person approves the same proposal at the same place.
 
+**Since 23.8 the request may carry `settings`** (`DispatchSettings`: `workflow_id?`,
+`tiers?`, `drone_cap?`, `lands?`, spike 022 slice 4), each absent where decided
+elsewhere. They are refused before any Job exists where nothing could keep them,
+and laid on every Job the request became once the proposer answers, through the
+approval's own path without the press: `lands` sets the delivering step's gate,
+`you_at_review` a person and `auto` none. A person can still change each at the
+approval gate.
+
+**A request linking an issue** marks every criterion the proposer read as the
+issue's, and keeps the issue on each Job it became for the issue rotation (spike
+022, answer 5): `Criterion.origin` names it and `origin_moved_at` says when it was
+edited after the read.
+
 **The request is a Job before the call goes out** (#1714): a row at `proposing`,
 the request as its title, no workflow and no steps, published as `job.created`.
 The answer moves that same Job to the gate as the head of the plan, under the
@@ -2027,7 +2087,7 @@ notes = """
 
 **A failed task**, which is a task whose group's Checks were still red when the step's retries ran out (answer 9). A task working or handed in is its group's own round to finish, so this is a 409 `fleet.task_not_failed` before the retries run out, as it is on a task open, done or dropped.
 
-**Or a done task in a group the Judge refused**, the owner's decision of 2 Oct 2026: the group's last run ended `gate_failure` over tasks still `done`, which only a Judge refusal after green Checks leaves. The Drone the refusal left idle is ended rather than redirected, so the press is one new agent on that task, and it opens with the refusal as any restarted step does. A suspect or undecided gate writes a trigger of its own and is still refused.
+**Or a done task in a group the Judge refused**, the owner's decision of 2 Oct 2026: the group's last run ended `gate_failure` over tasks still `done`, with the step that run was filed under `stopped`, which only a Judge refusal after green Checks leaves. **A group the Judge only questioned is refused**, the owner's decision of the same day: the question writes `gate_failure` too, but holds the step at `awaiting_human` until a person answers, and a refusal from him stops it as a refusal does. The Drone the refusal left idle is ended rather than redirected, so the press is one new agent on that task, and it opens with the refusal as any restarted step does. A suspect or undecided gate writes a trigger of its own and is still refused.
 
 **The task reopens, then `restart_step`'s own act runs**, so every refusal that act has is this one's too, and a refusal puts the task back to failed as it was. The Drone spawned is put on that task alone; the group's gate waits for it to hand in again and then runs over the whole group. A person's restart does not reset the group's retry budget, as `restart_step` does not reset a step's.
 

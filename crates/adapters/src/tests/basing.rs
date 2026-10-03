@@ -165,3 +165,22 @@ fn a_job_worktree_and_a_base_checkout_do_not_share_a_registration() {
 
     assert_ne!(spec.registration_name(), job.registration_name());
 }
+
+/// The repository's branches, the base first and the rest by name — what a
+/// person picks where a Job starts and lands. #1605, spike 022 slice 4.
+#[test]
+fn the_branches_are_listed_with_the_base_first_and_marked() {
+    let repo = TempRepo::with_a_commit();
+    repo.git(&["branch", "zebra"]);
+    repo.git(&["branch", "release/2.0"]);
+    let listed = GitVcs::new()
+        .branches(&repo.root_str(), None)
+        .expect("listed");
+    let base = listed.first().expect("a base");
+    assert!(base.base, "the base leads: {listed:?}");
+    let rest: Vec<(&str, bool)> = listed[1..]
+        .iter()
+        .map(|branch| (branch.name.as_str(), branch.base))
+        .collect();
+    assert_eq!(rest, [("release/2.0", false), ("zebra", false)]);
+}

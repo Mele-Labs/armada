@@ -193,9 +193,18 @@ export class StudioReads {
    * Put a Note, a Link, a Sketch or a File on a Studio where the person is looking —
    * #1364. **The kind is the narrow one**, so nothing the renderer can ask for
    * is a kind Fleet would refuse as `fleet.studio_node_not_a_persons`.
+   *
+   * `within` is the Zone it was pressed in, `position` from its corner, and Fleet puts it there in
+   * one write — the owner, 2 Oct 2026.
    */
-  async addNode(studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/add_node"), { ...node, position }));
+  async addNode(
+    studioId: string,
+    node: StudioNodeByHand,
+    position: StudioPosition,
+    within: string | null = null,
+  ): Promise<Outcome> {
+    const body = within === null ? { ...node, position } : { ...node, within, position };
+    return this.acted(await this.act(member(studioId, "/add_node"), body));
   }
 
   /** The whole drawing a person left on a Sketch's pad, its new pictures staged — 1 Oct 2026. */

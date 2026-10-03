@@ -506,10 +506,18 @@ where
         by: Redirector,
         within: Option<ManifestId>,
     ) -> Result<ipc::Studio, Refusal> {
+        let frame = add.within.as_ref().map(ipc::StudioNodeId::to_domain);
         let content = match add.content {
             StudioNodeAdded::Picture { staged } => {
                 return self
-                    .picture_added(studio_id, staged, add.position, add.produced_by, by, within)
+                    .picture_added(
+                        studio_id,
+                        staged,
+                        (frame, add.position),
+                        add.produced_by,
+                        by,
+                        within,
+                    )
                     .await
             }
             StudioNodeAdded::Sketch { drawing } => {
@@ -517,7 +525,7 @@ where
                     .sketch_added(
                         studio_id,
                         drawing,
-                        add.position,
+                        (frame, add.position),
                         add.produced_by,
                         by,
                         within,
@@ -566,7 +574,8 @@ where
             add.position.to_domain(),
             at.clone(),
             author(by),
-        );
+        )
+        .placed(frame, add.position.to_domain());
         let produced_by = add
             .produced_by
             .map(|from| (from.to_domain(), StudioEdgeId::carried(self.mint().ulid())));

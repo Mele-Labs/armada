@@ -65,8 +65,11 @@ export type GroupView = {
   commit?: string;
   /**
    * The Judge refused its last run after green Checks: `gate_failure` over
-   * tasks none of which failed, Fleet's own reading. Restart this task then
-   * answers each of its done tasks (owner, 2 Oct 2026). Absent otherwise.
+   * tasks none of which failed, with the step that run was filed under
+   * `stopped` — Fleet's own reading. Restart this task then answers each of
+   * its done tasks (owner, 2 Oct 2026). **A group the Judge only questioned
+   * is not one**: its step holds at `awaiting_human` until a person answers.
+   * Absent otherwise.
    */
   judge_refused?: true;
 };
@@ -143,6 +146,7 @@ function servedGroupsOf(detail: JobDetail, served: readonly PlanGroup[]): GroupV
       if (
         last?.ended_at !== undefined &&
         last.verdict?.trigger === "gate_failure" &&
+        detail.steps.find((step) => step.step_id === last.step_id)?.state === "stopped" &&
         !own.some((task) => task.state === "failed")
       )
         view.judge_refused = true;

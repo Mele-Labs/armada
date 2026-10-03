@@ -281,6 +281,10 @@ impl FakeVcs {
         }
         let leased = self.slots.lease(pool, spec, job_id);
         if let SlotLeased::Took { worktree, .. } = &leased {
+            self.cut_from
+                .lock()
+                .expect("not poisoned")
+                .push(pool.base().to_string());
             if self.branches.lock().expect("not poisoned").insert(branch) {
                 self.created
                     .lock()

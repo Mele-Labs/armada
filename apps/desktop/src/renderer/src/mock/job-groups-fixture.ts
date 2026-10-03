@@ -4,7 +4,7 @@
 // the runs `implement`'s retries allow, so its task reads failed and the step
 // stopped for a person. Every Check run names the group and run it held back.
 
-import type { CheckRun, PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
+import type { CheckOutputRead, CheckRun, PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { featureOnItsPlan } from "./job-detail-fixtures";
@@ -88,11 +88,20 @@ const GROUPS: PlanGroup[] = [
 /** The Checks one run of a group ran: `typecheck` green, and `test` as given. */
 function ranAt(group: string, run: number, stepAttempt: number, test: "passed" | "failed"): CheckRun[] {
   const at = { attempt: stepAttempt, group, group_attempt: run };
+  // Where Fleet keeps each run's log: the step, its run, the group, the Check's place.
+  const kept = (ordinal: number) => `.armada/checks/1-draw-the-plans-groups/implement.${stepAttempt}.${group}.${ordinal}.log`;
   return [
-    { ...at, name: "typecheck", outcome: "passed" },
+    { ...at, name: "typecheck", outcome: "passed", output_path: kept(0) },
     test === "passed"
-      ? { ...at, name: "test", outcome: "passed" }
-      : { ...at, name: "test", outcome: "failed", expected: "exits 0", produced: "exited 1 — 2 of 1104 failed" },
+      ? { ...at, name: "test", outcome: "passed", output_path: kept(1) }
+      : {
+          ...at,
+          name: "test",
+          outcome: "failed",
+          expected: "exits 0",
+          produced: "exited 1 — 2 of 1104 failed",
+          output_path: kept(1),
+        },
   ];
 }
 
@@ -144,7 +153,34 @@ export function featureRunInGroups(): JobFixture {
       groups: GROUPS,
     },
   };
-  return { ...base, job, watched: { ...base.watched, detail } };
+  const checkOutputs = { ...base.checkOutputs, ...keptLogsOf(steps) };
+  return { ...base, job, watched: { ...base.watched, detail }, checkOutputs };
+}
+
+/** What `get_check_output` serves for each kept run, by the basename the log panel asks with. */
+function keptLogsOf(steps: readonly StepDetail[]): Record<string, CheckOutputRead> {
+  const runs = steps.flatMap((step) => step.check_runs ?? []);
+  return Object.fromEntries(
+    runs.flatMap((run) => {
+      if (run.output_path === undefined) return [];
+      const lines =
+        run.outcome === "passed"
+          ? [`$ ${run.name}`, `${run.name}: passed`]
+          : [`$ ${run.name}`, " FAIL  src/plan-board.test.ts", `${run.name}: 2 of 1104 failed`];
+      const kept = run.output_path.split("/").at(-1)!;
+      const output = {
+        attempt: run.attempt,
+        name: run.name,
+        path: run.output_path,
+        lines,
+        from_line: 1,
+        total_lines: lines.length,
+        bytes: lines.join("\n").length,
+        whole: true,
+      };
+      return [[kept, { ok: true, output } as const]];
+    }),
+  );
 }
 
 /**
@@ -191,5 +227,29 @@ export function featureJudgeRefused(): JobFixture {
     tasks: { done: 4, working: 0, open: 0, dropped: 0, failed: 0 },
   };
   const detail = { ...whole, job, steps, work_plan: { ...whole.work_plan!, tasks, groups } };
+  return { ...base, job, watched: { ...base.watched, detail } };
+}
+
+/**
+ * The same refusal asked of a person instead (`when_refused: always_ask`): the
+ * group's run ends `gate_failure` as a refusal's does, but the step holds at
+ * `awaiting_human` and the Job at `awaiting_review` until he answers, so
+ * Restart this task does not answer T4 (owner, 2 Oct 2026).
+ */
+export function featureJudgeQuestioned(): JobFixture {
+  const base = featureJudgeRefused();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const steps: StepDetail[] = whole.steps.map((step) => {
+    if (step.step_id !== "implement") return step;
+    const { last_verdict: _verdict, ...rest } = step;
+    return {
+      ...rest,
+      state: "awaiting_human",
+      attempts: [{ attempt: 1, outcome: "awaiting_human", started_at: AT(1), ended_at: AT(20) }],
+    };
+  });
+  const job = { ...base.job, title: "Draw the plan's groups, the last asked about", status: "awaiting_review" };
+  const detail = { ...whole, job, steps };
   return { ...base, job, watched: { ...base.watched, detail } };
 }

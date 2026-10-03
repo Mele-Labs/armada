@@ -606,6 +606,16 @@ impl fmt::Display for Adrift {
                  its `brief_path`, and one whose `.armada/briefs` directory has since been \
                  reclaimed reaches no file"
             ),
+            Adrift::NoSuchLandLog {
+                root,
+                branch,
+                check,
+            } => write!(
+                out,
+                "no Check named `{check}` has a log for `{branch}` on the merge line in {root}. \
+                 The branch's outcome names its turn and the Checks that turn has started, and \
+                 nothing else is opened"
+            ),
             Adrift::NoSuchManifest { named, held } => write!(
                 out,
                 "no Manifest is named `{named}`. This Fleet holds `{held}`, and `list_manifests` \
@@ -667,6 +677,19 @@ impl fmt::Display for Adrift {
             ),
             Adrift::PlanRefused { job, why } => {
                 write!(out, "{}'s plan refuses this change: {why}", job.as_str())
+            }
+            Adrift::ProposalRefused { job, why } => write!(
+                out,
+                "{}'s proposal was left as it was: {why}",
+                job.as_str()
+            ),
+            Adrift::NoSuchBranch { named, .. } => write!(
+                out,
+                "this repository holds no branch `{named}`, so the work can neither start from \
+                 it nor land in it"
+            ),
+            Adrift::BranchesUnread { why, .. } => {
+                write!(out, "git would not list this repository's branches: {why}")
             }
             Adrift::TaskAlreadySettled { job, named, state } => write!(
                 out,
@@ -788,6 +811,8 @@ impl Adrift {
             | Adrift::SlotLost { job, .. }
             | Adrift::AttachmentUnreadable { job, .. }
             | Adrift::PlanRefused { job, .. }
+            | Adrift::ProposalRefused { job, .. }
+            | Adrift::NoSuchBranch { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
             | Adrift::TaskNotFailed { job, .. }
             | Adrift::TaskInFlight { job, .. }
@@ -797,7 +822,9 @@ impl Adrift {
             | Adrift::NothingToExplain { job, .. }
             | Adrift::NotExplained { job, .. }
             | Adrift::NotServed { job, .. } => Some(job),
-            Adrift::CommandTimedOut { job, .. } => job.as_ref(),
+            Adrift::CommandTimedOut { job, .. } | Adrift::BranchesUnread { job, .. } => {
+                job.as_ref()
+            }
             Adrift::BootRead(_)
             | Adrift::Reading(_)
             | Adrift::Writing(_)
@@ -817,6 +844,7 @@ impl Adrift {
             | Adrift::Unresolvable(_)
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::NoReadingWorktree(_)
@@ -885,6 +913,9 @@ impl Error for Adrift {
             | Adrift::NeverRan { .. }
             | Adrift::NotReplaceable { .. }
             | Adrift::WorkflowWithdrawn { .. }
+            | Adrift::ProposalRefused { .. }
+            | Adrift::NoSuchBranch { .. }
+            | Adrift::BranchesUnread { .. }
             | Adrift::Unnameable
             | Adrift::NoSuchWorkflow { .. }
             | Adrift::NoSuchManifest { .. }
@@ -895,6 +926,7 @@ impl Error for Adrift {
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             // The five resume refusals are refusals rather than faults: a Job
             // that cannot be redirected has nothing underneath saying why, only
             // the state it is in.

@@ -33,6 +33,9 @@ mod amending;
 /// What `ask_person_to_approve` answers with. **Nothing moves**, so the Job's
 /// own facts are drawn again at render time and never frozen here.
 mod approval_ask;
+/// What a person decides about a Job before it runs: the approval body,
+/// `edit_job`, a criterion's origin and the branch list. Spike 022, slice 4.
+mod approving;
 /// How many times a step was worked, and what each run came to. **The record
 /// held it and nothing served it** — see the module.
 mod asking;
@@ -186,6 +189,11 @@ pub use amending::{
     PortDraft,
 };
 pub use approval_ask::AskedApproval;
+pub use approving::{
+    moved_at, ApproveDispatch, BranchRow, Branches, CompleteWhen, CriterionOrigin,
+    CriterionWritten, DispatchSettings, EditJob, GateChoice, LandingChoice, LandingRule,
+    LandingUnit, LandsWhen, PolicyOverrides,
+};
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
@@ -218,7 +226,7 @@ pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
     DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, ManifestReach, Origin,
-    QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState,
+    PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState,
     StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
     StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
 };
@@ -272,8 +280,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_line::{
-    LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry, MergeLinePullRequest,
-    MergeLines,
+    LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
+    MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};

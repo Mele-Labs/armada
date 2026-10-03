@@ -24,9 +24,9 @@ import type { FileReport } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJobAsSent, EditTask, MovePlan } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, Opened } from "@armada/protocol";
+import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -143,7 +143,7 @@ const api: BridgeApi = {
   approveWave: (jobId: string, wave: ApproveWave): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.approveWave, jobId, wave),
 
-  editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
+  editJob: (jobId: string, edit: EditJobAsSent): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
 
   // The disk, never the record — every row this reaches stays on the board,
@@ -305,6 +305,10 @@ const api: BridgeApi = {
   // and its own because it is its own socket.
   followCheckOutput: (jobId: string | null, kept: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.followCheckOutput, jobId, kept),
+
+  // One merge line Check's log, by the line's three names. Read-only like the entry above.
+  followLandCheck: (at: LandCheckAt | null): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.followLandCheck, at),
 
   // One Job's transition history. Read-only like the two above it, and a
   // separate entry because it is a separate operation: a history is not a field
@@ -537,13 +541,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.renameStudio, studioId, name),
   // Four kinds and no more: the type is as narrow as the act, so the surface
   // this bridge gains is a note, a link, a sketch or a file rather than any node.
-  addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position),
+  addStudioNode: (studioId: string, node: StudioNodeByHand, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioNode, studioId, node, position, within),
   pathOfFile: (file: File): string => webUtils.getPathForFile(file),
   addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.addStudioPicture, studioId, bytes, position),
-  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position),
+  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition, within: string | null): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.addStudioSketch, studioId, drawing, position, within),
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveStudioSketch, studioId, nodeId, drawing),
   // `within` is the frame it was put down in, and `null` the board — #1620.

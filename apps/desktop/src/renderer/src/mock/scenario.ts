@@ -44,6 +44,7 @@ import {
 } from "@armada/screens/src/fixtures/build/index";
 import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
+import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
@@ -62,12 +63,14 @@ import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./man
 import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
 import { zoning } from "./studio-read-in";
+import { zoneProposing } from "./studio-zone-proposal";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
-import { job2AtReview } from "./job-2-at-review";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
+import { job2AtReview } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
+import { writingLogs } from "./check-logs-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -464,6 +467,7 @@ export const SCENARIOS: readonly Scenario[] = [
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
   zoning().scenario,
+  zoneProposing().scenario,
   readingNothing().scenario,
   talking(),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
@@ -474,6 +478,14 @@ export const SCENARIOS: readonly Scenario[] = [
   fillingIn(moment("arc", dispatchTyping())),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
+  // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
+  // the merge line's turn, each writing a log as it runs. Not an arc moment, so named here.
+  lined({
+    ...moment("arc", groupChecking()),
+    name: "check-logs",
+    says: "Group three's Checks and the merge line's turn, each writing its log",
+    behaves: writingLogs,
+  }),
   // Several Jobs landing in order, and a wave under one plan. No kind name:
   // the scenario says what it draws (#1530, 22 Sep).
   moment("members", membersStacked()),
@@ -503,11 +515,11 @@ export const SCENARIOS: readonly Scenario[] = [
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
+  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
+  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
-  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
-  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
   // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
   holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
 ];

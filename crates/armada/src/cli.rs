@@ -490,7 +490,7 @@ impl fmt::Display for Usage {
             }
             let shape = match *verb {
                 "serve" => "serve [<path>]".to_string(),
-                "clean" => "clean [--all]".to_string(),
+                "clean" => "clean [--all] [--force]".to_string(),
                 MCP => MCP.to_string(),
                 COVERS => format!("{COVERS} < <paths>"),
                 named => format!("{named} <name>"),
@@ -505,6 +505,18 @@ impl fmt::Display for Usage {
         writeln!(
             out,
             "  it. --force deletes it, and the work on it, along with the rest."
+        )?;
+        writeln!(
+            out,
+            "  It leaves a worktree slot a Job holds, and names it. --force gives back"
+        )?;
+        writeln!(
+            out,
+            "  a completed or kept Job's slot, unless it is dirty or holds unlanded"
+        )?;
+        writeln!(
+            out,
+            "  commits, then deletes its branch. A Job that has not ended keeps its slot."
         )?;
         Ok(())
     }
