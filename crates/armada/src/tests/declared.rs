@@ -214,7 +214,7 @@ async fn this_repositorys_own_checks_and_commands_resolve() {
 }
 
 /// **A bare test function's name runs it**, as its full path does: `test`'s
-/// `one_test` matches the name as the last segment of a path, not the whole.
+/// `one_test` matches the name as whole segments of a path, not the whole path.
 #[test]
 fn this_repositorys_test_runs_one_test_by_its_bare_name() {
     let manifest = config::Manifest::load(&repository().join("armada.yml")).expect("it reads");
@@ -225,9 +225,28 @@ fn this_repositorys_test_runs_one_test_by_its_bare_name() {
     let command = checks_runner::one_test(template, "a_span_holding_one_taken_port_is_not_free")
         .expect("a name runs");
     assert!(
-        command.ends_with("-E test(/(^|::)a_span_holding_one_taken_port_is_not_free$/)"),
+        command.ends_with("-E test(/(^|::)a_span_holding_one_taken_port_is_not_free(::|$)/)"),
         "{command}"
     );
+}
+
+/// **A module's name runs every test under it**, in `test` and `acceptance`
+/// alike: the name ends at a path segment either way, so `clean_slots` or
+/// `tests::servers` reaches the tests beneath it.
+#[test]
+fn this_repositorys_test_runs_a_module_by_its_name() {
+    let manifest = config::Manifest::load(&repository().join("armada.yml")).expect("it reads");
+    for check in ["test", "acceptance"] {
+        let template = manifest
+            .check(check)
+            .and_then(config::Check::one_test)
+            .expect("it declares a one_test");
+        let command = checks_runner::one_test(template, "tests::servers").expect("a name runs");
+        assert!(
+            command.ends_with("-E test(/(^|::)tests::servers(::|$)/)"),
+            "{check}: {command}"
+        );
+    }
 }
 
 /// **A Check takes the machine's slots**, waits while every one is held, and
