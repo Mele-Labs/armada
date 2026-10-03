@@ -656,6 +656,12 @@ function placesOf(props: JobDetailProps, jobId: string) {
   return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks), listed);
 }
 
+/** The Drones Fleet holds at rest on this Job (23.11), by id: held, and not working. */
+function restingOf(props: JobDetailProps, jobId: string): ReadonlySet<string> {
+  const served = props.jobDrones?.state === "read" && props.jobDrones.jobId === jobId ? props.jobDrones.drones.drones : [];
+  return new Set(served.filter((one) => one.state === "running" && one.at_rest_since !== undefined).map((one) => one.drone_id));
+}
+
 /**
  * The Pulse board: the machine reading, the figures over it, and the look.
  *
@@ -675,7 +681,8 @@ function pulseOf(
   const examined = looked?.state === "found" ? looked.examined : null;
   const nothing = nothingToAsk(props.resources);
   return {
-    reading: view === null ? null : pulseReadingOf(view, examined, whole, props.now, placesOf(props, jobId)),
+    reading:
+      view === null ? null : pulseReadingOf(view, examined, whole, props.now, placesOf(props, jobId), restingOf(props, jobId)),
     figures: pulseFiguresOf(view, whole, caps),
     note: whyNoReading(props.resources),
     ...(view === null ? {} : { age: span(view.read_at, props.now) ?? undefined }),

@@ -883,7 +883,7 @@ fn passed_so_far(
 }
 
 /// Whether this answer lets a step through, as the gate would record it.
-fn advances(check: &ResolvedCheck, observed: &Observed) -> bool {
+pub(crate) fn advances(check: &ResolvedCheck, observed: &Observed) -> bool {
     verification::Ran::against(std::slice::from_ref(check), std::slice::from_ref(observed))
         .ok()
         .and_then(|ran| ran.recorded().first().map(|row| row.outcome.advances()))

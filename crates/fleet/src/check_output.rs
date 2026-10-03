@@ -87,7 +87,10 @@ where
             .lock()
             .await
             .record_group_checks(job_id, step, group, &checks, &self.now())
-            .map_err(Adrift::Writing)
+            .map_err(Adrift::Writing)?;
+        // Beside the rows, on every road a ruling is recorded by.
+        self.noted_alone(job_id, step, attempt, ruling);
+        Ok(())
     }
 
     /// Write down what the Judge said, where it said anything.

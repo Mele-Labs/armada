@@ -32,6 +32,8 @@ export function pulseReadingOf(
   whole?: JobWhole | null,
   now?: number,
   places: DronePlaces = new Map(),
+  /** The Drones Fleet holds at rest (`at_rest_since`, 23.11), by id: held, not working. */
+  resting: ReadonlySet<string> = new Set(),
 ): PulseReading {
   const one = view.worktrees.length === 1;
   return {
@@ -52,7 +54,9 @@ export function pulseReadingOf(
       path: worktree.path,
       ...(worktree.bytes === undefined ? {} : { bytes: worktree.bytes }),
       ...sizeAge(worktree.measured_at, now),
-      ...(one ? { ...standing(view.held, examined, view.processes), open: "worktree" as const } : { state: ON_DISK }),
+      ...(one
+        ? { ...standing(view.held, examined, view.processes, resting), open: "worktree" as const }
+        : { state: ON_DISK }),
     })),
     logs: logRowsOf(view.logs, whole ?? null, places),
   };
@@ -181,13 +185,19 @@ function standing(
   held: string,
   examined: JobExamined | null,
   processes: readonly PulseProcess[],
+  resting: ReadonlySet<string>,
 ): Pick<PulseWorktreeRow, "state" | "wrong" | "working"> {
   const look = examined?.looks.find((one) => one.asked === "worktree");
   if (look?.found === "not_working") return { state: "gone", wrong: true };
   if (look?.found === "cannot_tell") return { state: "could not be read" };
-  // Every live Drone works the Job's one copy (23.10), each a recorded row.
-  const drones = Math.max(processes.filter((one) => one.recorded).length, 1);
-  if (held === "running") return { state: drones === 1 ? "1 drone working" : `${drones} drones working`, working: true };
+  // Every live Drone works the Job's one copy (23.10), each a recorded row —
+  // **less the ones at rest**, held at the gate or for a person (23.11).
+  const recorded = processes.filter((one) => one.recorded);
+  const atWork = recorded.filter((one) => one.drone === null || !resting.has(one.drone)).length;
+  const drones = recorded.length > 0 && atWork === 0 ? 0 : Math.max(atWork, 1);
+  if (held === "running" && drones > 0) {
+    return { state: drones === 1 ? "1 drone working" : `${drones} drones working`, working: true };
+  }
   return { state: "no drone working" };
 }
 

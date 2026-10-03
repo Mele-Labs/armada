@@ -37,6 +37,36 @@ export const NotStarted: Story = {
   },
 };
 
+/**
+ * The step at work with its gate running its Checks: the phase track along the
+ * bottom, Drones done, Checks now, the Judge next (owner, 3 Oct 2026, `ouqa`).
+ *
+ * **A `play`, because the track is the card's one loop**: drawn, the sweep
+ * stands down, and the part now is the one thing moving.
+ */
+export const RunningItsChecks: Story = {
+  args: {
+    kind: "step",
+    name: "Implement",
+    activity: "running",
+    said: "running",
+    ordinal: 2,
+    current: true,
+    line: "55m · 1 Drone",
+    track: [
+      { phase: "drone", name: "Drones", label: "Drones done", state: "done" },
+      { phase: "checks", name: "Checks", label: "Checks running", state: "now" },
+      { phase: "judge", name: "Judge", label: "Judge next", state: "next" },
+    ],
+    onOpen: fn(),
+  },
+  parameters: { motion: "on" },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("button", { name: "Implement, running, Checks running" })).toBeVisible();
+    await expect(canvasElement.querySelector(".armada-wf-card__sweep")).toBeNull();
+  },
+};
+
 /** The plan's four groups as the step at work's bar: two passed, one working, one to come. */
 const FOUR_GROUPS = { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" } as const;
 

@@ -25,11 +25,11 @@ import type { ConfirmableAct, HeldAct } from "./Acts";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "./copy";
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf } from "./duration";
-import type { DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
 import {
-  DRONE_SAYS,
+  droneSays,
   droneLabelOf,
   dronesFiltersOf,
   dronesUnder,
@@ -189,7 +189,8 @@ export function DronesTab({
           drone: labelOf(drone),
           where: whereOf(drone),
           state: drone.state,
-          stateSays: DRONE_SAYS[drone.state],
+          stateSays: droneSays(drone),
+          ...(isWorking(drone) || drone.state !== "running" ? {} : { resting: true }),
           ...(drone.model === undefined ? {} : { model: drone.model }),
           spent: spentOf(drone).join(" · "),
           ...(drone.since === undefined
@@ -236,8 +237,8 @@ export function DronesTab({
                     {/* The state is the row's mark, never a word (owner, 2 Oct 2026). */}
                     <StepActivityMark
                       activity={DRONE_ACTIVITY[open.state]}
-                      label={DRONE_SAYS[open.state]}
-                      says={DRONE_SAYS[open.state]}
+                      label={droneSays(open)}
+                      says={droneSays(open)}
                     />{" "}
                     {[...spentOf(open), ranFor(open)].filter((one) => one !== undefined).join(" · ")}
                   </>

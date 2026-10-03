@@ -1,0 +1,78 @@
+/* A running step's parts in order, along the bottom of its card and in its
+   panel's header: done filled, now lit and moving, next hollow. */
+.armada-step-track {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-step-track__item {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-step-track__part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-step-track__part > svg {
+  flex: none;
+}
+
+/* Between two parts. It takes the hue of done once the part after it is reached. */
+.armada-step-track__rule {
+  flex: 1 1 var(--space-3);
+  min-width: var(--space-2);
+  max-width: var(--space-6);
+  height: var(--border-width);
+  background: var(--border-default);
+}
+
+.armada-step-track__rule:is([data-state="done"], [data-state="now"]) {
+  background: var(--fg-muted);
+}
+
+/* Done: the glyph filled, in the muted ink a finished thing takes. */
+.armada-step-track__part[data-state="done"] {
+  color: var(--fg-muted);
+}
+
+.armada-step-track__part[data-state="done"] > svg {
+  fill: currentColor;
+}
+
+/* Now: lit in the step's own hue. */
+.armada-step-track__part[data-state="now"] {
+  color: var(--step-running);
+}
+
+.armada-step-track__part[data-state="now"][data-phase="waiting"] {
+  color: var(--step-waiting);
+}
+
+/* The part now breathes, a person's turn too (owner, 3 Oct). */
+.armada-step-track__part[data-state="now"] > svg {
+  animation: armada-step-track-breathe var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-step-track-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-step-track__part > svg {
+    animation: none;
+  }
+}

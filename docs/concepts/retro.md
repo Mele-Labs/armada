@@ -34,7 +34,7 @@ transcripts and its own log.
 | Row | Read from |
 | --- | --- |
 | `refusals` | A transcript's refused call, joined to the call it answered |
-| `failed_checks` | The gate's runs, checks only a transcript kept, and the Drone's own `run_checks` |
+| `failed_checks` | The gate's runs, checks only a transcript kept, the Drone's own `run_checks`, and each red the gate ran again alone — Fleet's friction, not the Drone's ([Manifest](manifest.md), Confirming a red) |
 | `not_met` | A Judge criterion `not_met`, with expected and produced |
 | `not_done` | What each step's submission said it had not done |
 | `said_after` | What a Drone said in prose right after each submission, and last |
