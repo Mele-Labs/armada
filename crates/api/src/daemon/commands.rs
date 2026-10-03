@@ -127,6 +127,16 @@ pub trait Commands: Send + Sync + 'static {
         edit: ipc::EditJob,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `approve_wave` — an Epic's plan approved with every Job of its wave
+    /// (#1694). Each member is released as edited, and the parent comes back
+    /// `queued`, waiting on them. [`Refusal::IllegalMove`] unless the body
+    /// names exactly the wave Fleet holds at the parent's plan gate.
+    fn approve_wave(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        wave: ipc::ApproveWave,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `kill_drone` — kills a Drone, captures learnings, holds the worktree.
     /// Intervention Ladder rung 2. **The Job survives**: what comes back is the
     /// Job the killed Drone was on, still open, with its worktree held for a

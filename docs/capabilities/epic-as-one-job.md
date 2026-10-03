@@ -180,26 +180,30 @@ from it were all built before anything used any of them;
 `.armada/workflows/epic.json` is the definition that does, and
 `crates/fleet/src/tests/epic.rs` drives it off disk.
 
-**Where the gate sits is the one thing the shape above did not settle.**
-`human_always` is on `plan` and not on `dispatch`, and the placement is forced
-rather than chosen: an `advance_gate` is read *after* a step's Drone has
-submitted, so on the dispatching step it would be a person approving a spend
-that had already happened. On the step before it, approving is what advances
-into the step holding the tool — which is what makes the approval the dispatch.
-`crates/config/tests/shipped.rs` asserts the pair.
+**The gate and the grant are on one step since spike 022's slice 6.** Until
+then `human_always` sat on `plan` and the tool on a `dispatch` step after it,
+because a child entered `queued` and spent at once, so a gate on the step that
+created it would have approved a spend that had happened. Now a child waits at
+`awaiting_approval`, so `plan` both proposes the wave and is the step a person
+answers: they read the Jobs themselves rather than a description of them,
+correct or drop any, and `approve_wave` releases the rest in one press
+(`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`).
+`dispatch` is gone, and the parser refuses the grant on a step a person does
+not answer. `crates/config/tests/shipped.rs` asserts the pair.
 
 | Built | Where |
 |---|---|
 | `dispatch_job`, and `after` naming siblings only | `crates/ipc/src/mcp/dispatch.rs`, `crates/fleet/src/sub_dispatch.rs` |
-| The grant, withheld off the dispatching step | `Grant::DispatchAJob`, `fleet::spawning`'s `toolbelt(job, step)` |
+| The grant, withheld off every step but the one that proposes | `Grant::DispatchAJob`, `fleet::spawning`'s `toolbelt(job, step)` |
 | Depth 1 | `Dispatching::at`, built from `Origin::top_level` |
-| `create_sub_dispatched` reached | `crates/fleet/src/sub_dispatch.rs`, its only call site |
+| `create_proposed_member` reached, stamped with its pass | `crates/fleet/src/sub_dispatch.rs`, its only call site |
+| One press releases the wave, all or nothing | `approve_wave`, `crates/fleet/src/waving.rs` |
 | The parent standing down and coming back | `running -> queued`, `fleet::admitting`, `fleet::readmitting` |
 
 **Exactly one shipped workflow sets `may_dispatch_jobs`**, and
 `crates/config/tests/shipped.rs` asserts that it is the only one — the
 assertion used to be that *none* did, and flipping it was part of shipping this.
-The grant is `epic.json`'s `dispatch` step and nothing else in
+The grant is `epic.json`'s `plan` step and nothing else in
 `.armada/workflows/` has it, which is the property worth holding: the step key
 is carried by the parser and by the frozen record, so any definition could ask
 for it, and a test is what makes a second one a deliberate act rather than a
@@ -213,17 +217,17 @@ holds each is named beside it.
 | Decided | How it is held |
 |---|---|
 | **Recursion is refused outright — depth 1** | `Dispatching::at` is built from `Origin::top_level`, which answers `None` for a sub-dispatched Job. There is no constructor that reaches a grandchild, so there is no bound to keep in step with anything. It matters more under a loop, where rounds repeat |
-| **The two routes do not converge** | Written down in `concepts/fleet.md` beside the approval rule. One route is the gate and the other is the exemption from it; a shared path would put the exemption one refactor away from the rule |
+| **The two routes do not converge** | Written down in `concepts/fleet.md` beside the approval rule. Both now stop at the gate; what differs is that a wave is released in one press of its plan, never Job by Job |
 | **A Drone cannot name the parent, or sequence a stranger** | The tool has no parameter for a parent and refuses `parent_id` by name; an `after` id is looked up in this parent's own children and nowhere else |
-| **A person reads every plan before its Jobs spend** | `human_always` on `plan`, which is the step *before* the one holding the tool. A gate is read after its Drone submits, so the same key on the dispatching step would approve a spend that had happened. `crates/config/tests/shipped.rs` asserts the pair rather than either half |
+| **A person reads every wave before its Jobs spend** | The Jobs wait at `awaiting_approval`, and `human_always` is on `plan`, the step that proposed them. `approve_wave` is refused unless it names exactly the wave held. `crates/config/tests/shipped.rs` asserts the pair, and the parser refuses the grant without the gate |
 
 ## What waiting costs, and who gives up the slot
 
-**A parent that has dispatched gives its Drone back.** The dispatching step
-advances, the Drone stands down, and the Job goes to `queued` — a new edge,
-`running -> queued`, recorded in `job-transitions.toml` for this and nothing
-else. Admission holds it there until every child is terminal, and
-`crate::readmitting` then puts a fresh Drone on the step after the dispatch,
+**A parent that has dispatched gives its Drone back.** Its plan's gate stood
+the Drone down, and `approve_wave` queues the Job standing after the plan.
+Admission holds it there until every child is terminal — and, where it finishes
+on `all_members_landed`, until each finished child's pull request has merged —
+and `crate::readmitting` then puts a fresh Drone on the step after the plan,
 with every child's outcome in its opening brief.
 
 **A parent that kept its slot would be the deadlock `#50` just removed.** The

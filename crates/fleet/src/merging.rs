@@ -235,6 +235,8 @@ where
             number,
             title: None,
             mergeable: Mergeable::Unreadable,
+            // Fleet merged it this moment, so the instant is Fleet's clock.
+            merged_at: Some(self.now().as_str().to_string()),
         })
     }
 

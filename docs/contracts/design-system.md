@@ -320,11 +320,11 @@ names the resource — with ready becoming the null rather than a value.
 label and icon; `awaiting_approval` left grey for amber. See Job.
 
 **The symptom that forced this is a rendering bug, which is why this
-document carries it.** A sub-dispatched Job inherits its parent's
-approval. Under a single four-value field, one out of headroom computed
-as `pre_approved_queued` and never rendered on the Job Board at all.
-Under the current set it enters at `queued` with its reason naming the
-resource, so no combination computes to an unrenderable label.
+document carries it.** A sub-dispatched Job inherited its parent's
+approval before 23.13. Under a single four-value field, one out of
+headroom computed as `pre_approved_queued` and never rendered on the Job
+Board at all. Under the current set a `queued` Job carries its reason
+naming the resource, so no combination computes to an unrenderable label.
 
 > Long-term intent: generate these token names from `core-model`'s Rust
 > enum via the same codegen step that emits the `ipc` TypeScript types,

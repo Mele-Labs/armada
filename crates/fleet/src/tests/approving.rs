@@ -134,6 +134,7 @@ async fn an_approval_keeps_every_field_it_carries_and_releases_the_job() {
             target: Some("release/2.0".to_string()),
             from_ref: Some("reader/bound".to_string()),
             pr_mode: ipc::PrMode::from_wire("draft").expect("a mode"),
+            complete_when: Some(ipc::CompleteWhen::Delivered),
         })
     );
     assert!(detail.approved_at.is_some(), "the press is dated");

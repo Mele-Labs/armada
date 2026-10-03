@@ -10,8 +10,8 @@
 //! status at which what a Job is held to may still move (#1581).
 
 use core_model::{
-    AutoMerge, Branch, IssueSource, Job, JobId, JobStatus, Landing, PolicyOverrides, PrMode,
-    ReviewGate, Timestamp,
+    AutoMerge, Branch, CompleteWhen, IssueSource, Job, JobId, JobStatus, Landing, PolicyOverrides,
+    PrMode, ReviewGate, Timestamp,
 };
 
 use crate::columns;
@@ -109,16 +109,17 @@ impl Store {
     pub fn set_landing(&mut self, job_id: &JobId, landing: &Landing) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO job_landing (job_id, target, from_ref, pr_mode)
-                 VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO job_landing (job_id, target, from_ref, pr_mode, complete_when)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT (job_id) DO UPDATE SET
                      target = excluded.target, from_ref = excluded.from_ref,
-                     pr_mode = excluded.pr_mode",
+                     pr_mode = excluded.pr_mode, complete_when = excluded.complete_when",
                 rusqlite::params![
                     job_id.as_str(),
                     landing.target.as_ref().map(Branch::as_str),
                     landing.from_ref.as_ref().map(Branch::as_str),
                     landing.pr_mode.as_wire(),
+                    landing.complete_when.as_wire(),
                 ],
             )
             .map_err(fault("keeping how a job lands"))
@@ -132,13 +133,15 @@ impl Store {
         let row = self
             .conn
             .query_row(
-                "SELECT target, from_ref, pr_mode FROM job_landing WHERE job_id = ?1",
+                "SELECT target, from_ref, pr_mode, complete_when FROM job_landing
+                 WHERE job_id = ?1",
                 (job_id.as_str(),),
                 |row| {
                     Ok((
                         row.get::<_, Option<String>>(0)?,
                         row.get::<_, Option<String>>(1)?,
                         row.get::<_, String>(2)?,
+                        row.get::<_, Option<String>>(3)?,
                     ))
                 },
             )
@@ -149,11 +152,16 @@ impl Store {
             })
             .map_err(fault(reading))
             .map_err(LoadJobError::Database)?;
-        Ok(row.map(|(target, from_ref, mode)| Landing {
+        Ok(row.map(|(target, from_ref, mode, when)| Landing {
             target: core_model::branch_named(target.as_deref()),
             from_ref: core_model::branch_named(from_ref.as_deref()),
             // The table's check admits nothing else.
             pr_mode: PrMode::from_wire(&mode).unwrap_or_default(),
+            // Null on a row kept before V101, which completed when delivered.
+            complete_when: when
+                .as_deref()
+                .and_then(CompleteWhen::from_wire)
+                .unwrap_or_default(),
         }))
     }
 

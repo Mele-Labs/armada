@@ -137,6 +137,24 @@ pub(crate) async fn edit_job<D: Commands>(
     }
 }
 
+/// Approve an Epic's plan and release every Job of its wave, in one act
+/// (#1694, spike 022 slice 6). **The parent comes back queued**; 409 unless the
+/// body names exactly the wave Fleet holds at the parent's plan gate.
+pub(crate) async fn approve_wave<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let wave: ipc::ApproveWave = match ipc::decode("a wave to release", &body) {
+        Ok(wave) => wave,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().approve_wave(job.id(), wave).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person takes the work. **The counterpart to `approve_dispatch`**, at the
 /// other end of the Job: that is the gate before anything runs, and this is the
 /// decision after it has.

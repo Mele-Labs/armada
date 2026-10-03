@@ -207,6 +207,12 @@ pub struct JobSummary {
     /// [`redispatched_from`]: JobSummary::redispatched_from
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatched_by: Option<JobId>,
+    /// Which pass of its parent's plan proposed it, counted from one: an
+    /// Epic's wave. Since 23.13 (#1692). **Absent beside `dispatched_by`** is a
+    /// child dispatched before 23.13, or one of a split's extras, which no
+    /// pass made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatched_pass: Option<u32>,
     /// Whether this Job's Drone is waiting on an answer from a person.
     ///
     /// # A flag, and deliberately not the question
@@ -256,6 +262,12 @@ pub struct JobSummary {
     /// in `main` or has been sitting unread for a week.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landed: Option<Settled>,
+    /// When its pull request merged, as the forge said. Since 23.13: what a
+    /// parent's members are read as landed by, beside the instant. **Absent
+    /// beside a `merged`** is a merge Fleet noticed before 23.13. Filled by the
+    /// caller that holds the store, for [`landed`](JobSummary::landed)'s reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merged_at: Option<Instant>,
     /// When this Job's worktree and branch were given back while its record
     /// stayed. **Absent is a Job whose disk still stands** — every Job before
     /// a reclaim, and every Job a reclaim has not yet reached.
@@ -327,6 +339,7 @@ impl JobSummary {
             assigned_drone: job.assigned_drone().map(DroneId::from),
             redispatched_from: job.redispatched_from().map(JobId::from),
             dispatched_by: job.dispatched_by().map(|by| JobId::from(&by.job_id)),
+            dispatched_pass: job.dispatched_by().and_then(|by| by.pass),
             reclaimed_at: job.reclaimed_at().map(Instant::from),
             asking,
             // Filled by the caller that has it, and `None` here on purpose:
@@ -336,6 +349,8 @@ impl JobSummary {
             // and a single-Job answer leaves it out, because the alternative
             // is a store read per row on a list that redraws on every event.
             landed: None,
+            // Filled by the caller that holds a store, for `landed`'s reason.
+            merged_at: None,
             // Filled by the caller that holds a store, for `landed`'s reason.
             tasks: None,
         }

@@ -18,7 +18,7 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 
 1. **Pick the milestone.** The tracker's tickets are listed in Bridge, and one of them is the epic.
 2. **Approve one Job.** It is the same approval card as Journey 1, and it is the only approval in this journey.
-3. **Watch it decompose.** Its Drone reads the epic, writes a plan, and dispatches children that appear on the Board already queued.
+3. **Read its wave.** Its Drone reads the epic, writes a plan, and proposes children that appear on the Board waiting for you. You correct or drop any of them, and one press of Approve the plan starts the rest.
 4. **Answer the question it asks.** It arrives where a Job waiting on a person arrives, and the answer goes back into the running Drone.
 5. **Read one report.** The parent converges when its children are done and says what landed.
 
@@ -26,8 +26,8 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 
 | | |
 |---|---|
-| I approve | Once, the parent Job — its brief, its workflow, its acceptance criteria |
-| I do not approve | Each child. A child inherits its parent's approval and enters at `queued` |
+| I approve | The parent Job — its brief, its workflow, its acceptance criteria — and then each wave its plan proposes, in one press |
+| I do not approve | Each child alone. A child waits at `awaiting_approval` and is released with its wave |
 | I still see | Every child on the Board, tagged by origin, gated and judged like any other Job |
 | I can still act | Redirect, Restart Step, Redispatch and Kill, on the parent or on any child |
 

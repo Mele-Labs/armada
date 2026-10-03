@@ -690,6 +690,9 @@ impl fmt::Display for Adrift {
                 "{}'s proposal was left as it was: {why}",
                 job.as_str()
             ),
+            Adrift::WaveRefused { job, why } => {
+                write!(out, "nothing moved on {}: {why}", job.as_str())
+            }
             Adrift::NoSuchBranch { named, .. } => write!(
                 out,
                 "this repository holds no branch `{named}`, so the work can neither start from \
@@ -820,6 +823,7 @@ impl Adrift {
             | Adrift::AttachmentUnreadable { job, .. }
             | Adrift::PlanRefused { job, .. }
             | Adrift::ProposalRefused { job, .. }
+            | Adrift::WaveRefused { job, .. }
             | Adrift::NoSuchBranch { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
             | Adrift::TaskNotFailed { job, .. }
@@ -922,6 +926,7 @@ impl Error for Adrift {
             | Adrift::NotReplaceable { .. }
             | Adrift::WorkflowWithdrawn { .. }
             | Adrift::ProposalRefused { .. }
+            | Adrift::WaveRefused { .. }
             | Adrift::NoSuchBranch { .. }
             | Adrift::BranchesUnread { .. }
             | Adrift::Unnameable

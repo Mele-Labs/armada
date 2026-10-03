@@ -86,19 +86,20 @@ fn every_shipped_workflow_definition_parses() {
 /// one, spelled out, is what makes a *second* step acquiring the ability to
 /// create Jobs a failing test rather than a Drone with an extra tool.
 ///
-/// **Why `epic.dispatch` alone may.** It is the one step in the repository whose
+/// **Why `epic.plan` alone may.** It is the one step in the repository whose
 /// product is other Jobs. Every other shipped step produces a diff, a note or a
 /// document that a person or a Judge reads, and a wrong one costs a refusal; a
 /// wrong dispatch costs Drones that run and spend. What makes it safe to grant
-/// there and nowhere else is that the step before it is `human_always`: the plan
-/// is read and approved, and the approval is what advances into this step. See
-/// the file's own header.
+/// there is that the Jobs it creates wait at `awaiting_approval` and the step
+/// is `human_always`: a person reads every one of them at its gate, and
+/// `approve_wave` releases them together (spike 022, slice 6). See the file's
+/// own header.
 ///
 /// The pair is asserted rather than the flag, because "the epic workflow grants
 /// it" and "the epic workflow's dispatching step grants it" are different
 /// claims, and the second is the one the design makes.
 #[test]
-fn epic_s_dispatch_step_is_the_only_shipped_step_that_may_create_jobs() {
+fn epic_s_plan_is_the_only_shipped_step_that_may_create_jobs() {
     let mut granted: Vec<(String, String)> = Vec::new();
     for (path, text) in shipped() {
         let def = config::WorkflowDef::parse(&path, &text, &roster())
@@ -116,8 +117,8 @@ fn epic_s_dispatch_step_is_the_only_shipped_step_that_may_create_jobs() {
     }
     assert_eq!(
         granted,
-        vec![("epic.json".to_string(), "dispatch".to_string())],
-        "exactly one shipped step creates Jobs, and it is the epic's dispatching step",
+        vec![("epic.json".to_string(), "plan".to_string())],
+        "exactly one shipped step creates Jobs, and it is the epic's plan",
     );
 }
 
@@ -169,40 +170,31 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
     );
 }
 
-/// **The grant is on the step after the one a person answers.** The placement is
-/// the whole of `#215`'s gate decision and it is forced rather than chosen: an
-/// `advance_gate` is read after a step's Drone has submitted, so `human_always`
-/// on the dispatching step itself would be a person approving Jobs that already
-/// exist and are already spending.
+/// **The step that creates the Jobs is the one a person answers.** Since slice
+/// 6 a Job it creates waits at `awaiting_approval`, so the gate is no longer a
+/// person approving a spend that already happened: it is a person reading the
+/// Jobs themselves before any of them runs, and releasing them in one press.
+/// Until slice 6 the grant sat on the step after the gate, because a child
+/// entered `queued` and spent at once.
 ///
 /// Asserted off the file rather than trusted to its header, because the two keys
-/// are one intent written on two steps and nothing else in the workspace pairs
-/// them.
+/// are one intent and the parser now refuses them apart.
 #[test]
-fn the_step_before_the_epic_s_dispatch_is_the_one_a_person_answers() {
+fn the_step_that_creates_the_epic_s_jobs_is_the_one_a_person_answers() {
     let path = root().join(".armada/workflows/epic.json");
     let text = std::fs::read_to_string(&path).expect("a readable definition");
     let def = config::WorkflowDef::parse(&path, &text, &roster())
         .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
-    let steps = def.steps();
-    let at = steps
+    let step = def
+        .steps()
         .iter()
-        .position(|step| step.may_dispatch_jobs())
+        .find(|step| step.may_dispatch_jobs())
         .expect("the epic dispatches somewhere");
-    let before = at
-        .checked_sub(1)
-        .and_then(|earlier| steps.get(earlier))
-        .expect("the dispatching step is not the first");
     assert_eq!(
-        before.advance_gate(),
+        step.advance_gate(),
         config::AdvanceGate::HumanAlways,
-        "the step before the dispatch is `{}`, and a person has to answer it",
-        before.id().as_str(),
-    );
-    assert_eq!(
-        steps[at].advance_gate(),
-        config::AdvanceGate::Auto,
-        "and the dispatching step itself asks nobody, because the answer was given already",
+        "`{}` creates Jobs, and a person has to answer it",
+        step.id().as_str(),
     );
 }
 
@@ -216,10 +208,24 @@ fn a_definition_may_grant_the_dispatch_tool() {
     let text = "version: 1\nworkflow_id: grants\nname: grants\nstructure: linear\n\
                 steps:\n  - id: split\n    label: \"Split\"\n    \
                 evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: true\n    \
-                delivers: false\n    advance_gate: auto\n";
+                delivers: false\n    advance_gate: human_always\n";
     let def = config::WorkflowDef::parse(Path::new("grants.yml"), text, &roster())
         .expect("a definition may say a step creates Jobs");
     assert!(def.steps()[0].may_dispatch_jobs());
+}
+
+/// **A step that creates Jobs and asks nobody is refused.** What it creates
+/// waits for a person at its gate, so a step gated any other way would advance
+/// past Jobs nothing can release.
+#[test]
+fn a_dispatch_grant_on_a_step_nobody_answers_is_refused() {
+    let text = "version: 1\nworkflow_id: grants\nname: grants\nstructure: linear\n\
+                steps:\n  - id: split\n    label: \"Split\"\n    \
+                evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: true\n    \
+                delivers: false\n    advance_gate: auto\n";
+    let refused = config::WorkflowDef::parse(Path::new("grants.yml"), text, &roster())
+        .expect_err("Jobs nobody can release");
+    assert!(refused.to_string().contains("a person"), "{refused}");
 }
 
 /// A value that is not a boolean is refused rather than read as `false`. A step

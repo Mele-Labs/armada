@@ -803,6 +803,12 @@ pub enum Adrift {
         job: JobId,
         why: crate::approving::Refused,
     },
+    /// An act on an Epic's wave, refused whole: nothing moved. Spike 022,
+    /// slice 6. `crate::waving::Refused` says why.
+    WaveRefused {
+        job: JobId,
+        why: crate::waving::Refused,
+    },
     /// A landing named a branch the repository does not hold. Spike 022,
     /// slice 4: a worktree cannot be cut from it, nor a pull request opened
     /// against it.
