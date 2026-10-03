@@ -670,6 +670,17 @@ reached for.
   depends on the reader distinguishing them exactly. An icon here trades
   precision for width. This is the source field only — a criterion verdict
   does carry a glyph, one family per source.
+  **A criterion's origin is a different field again, and it does take a
+  mark** (the owner, 3 Oct 2026). Where the words came from — an issue
+  (`ticket`), the request typed at dispatch (`quote`), a person at the gate
+  (`user-pen`) — is not who will decide the line (the verification source)
+  and not who acted (the actor). The three answer three questions on one row,
+  so the origin's marks never stand in for either: the line keeps saying
+  *The Judge will decide it* in words beside them. `user-pen` sits in the
+  human-figure family under its `actor=human` arm, because a person who wrote
+  a criterion is its actor; that is the one place the two fields touch. An
+  issue edited since Fleet read it adds `diff`, in the caution hue. Group
+  `Criterion origin` in `packages/icons/icons.toml`.
 - **Diff views.** The diff tokens and the `+`/`-` gutter do the whole job.
   No icon.
 - **Empty states.** No large centred icon, no illustration. The parent
@@ -700,7 +711,8 @@ circle-*       Judge criterion verdicts only. circle-check, circle-x and
                circle-minus may not be reused — not for Doctor results, not
                as generic success/failure marks, and circle-minus never for
                disabled, absent or removed
-human figure   human required, or actor=human
+human figure   human required, or actor=human. A person having written a
+               criterion is actor=human: `user-pen`, the owner, 3 Oct 2026
 eye            review
 terminal       Pilot only. The action and the piloted status, which are one
                concept at two points in a flow

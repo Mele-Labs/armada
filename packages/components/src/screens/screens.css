@@ -1310,19 +1310,17 @@
   text-wrap: pretty;
 }
 
+/* Its marks sit on the line with its words, the way the approval panel's
+   origin line holds them. */
 .armada-plan-tab__criterion-origin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
-}
-
-/* The source has moved since the Job froze these words. --notice-caution is
-   the declared token for a condition a person should know about and act on at
-   their own pace, which is exactly an issue edited after approval. */
-.armada-plan-tab__criterion-moved {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--notice-caution);
 }
 
 .armada-plan-tab__acts {

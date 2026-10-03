@@ -426,12 +426,12 @@ export function criteriaRowsOf(criteria: readonly CriterionView[]): ProposalCrit
     const row: ProposalCriterion = {
       id: criterion.criterion_id ?? String(at),
       text: criterion.text,
-      ...(from === undefined ? {} : { origin: from.said }),
+      ...(from === undefined ? {} : { origin: from.kind }),
       ...(from?.issue === undefined ? {} : { issue: from.issue }),
       decidedBy: decidedSaidOf(criterion),
     };
-    // The instant is the issue's own edit and never the freeze — absent is the
-    // ordinary case, where nothing has moved since.
+    // The instant is the issue's own edit and never Fleet's read — absent is
+    // the ordinary case, where nothing has moved since.
     const moved =
       criterion.origin_moved_at === undefined
         ? null

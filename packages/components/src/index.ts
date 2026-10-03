@@ -397,3 +397,7 @@ export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MergeLine/MergeLine";
 export * from "./compositions/PullRequestCard/PullRequestCard";
+// Where a criterion's words came from, and its issue having moved, as marks.
+export * from "./compositions/CriterionOrigin/CriterionOrigin";
+// A field a proposing Job's proposer has not written yet.
+export * from "./compositions/SettlingMark/SettlingMark";
