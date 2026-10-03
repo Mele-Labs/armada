@@ -28,8 +28,12 @@ export type CaptureBarProps = {
   run: string;
   /** Scheme, host and port, drawn in full and never abbreviated. */
   address: string;
-  /** The Studio a Note lands on, by name. */
-  studio: string;
+  /**
+   * The Studio a Note lands on, by name. **`null`: a Job's server, opened to be
+   * walked** — the bar says so, and offers no Capture, since a Note would have
+   * nowhere to land.
+   */
+  studio: string | null;
   /** Whether the Run is still serving. Capture ends with it. */
   serving: boolean;
   /** Whether capture is armed. */
@@ -60,27 +64,31 @@ export function CaptureBar(props: CaptureBarProps) {
         </span>
         <span className="armada-capture-bar__address">{address}</span>
         <span className="armada-capture-bar__aim">
-          {serving ? `Notes land on ${studio}` : "The run ended"}
+          {!serving ? "The run ended" : studio === null ? "Walking a Job's server" : `Notes land on ${studio}`}
         </span>
         <Button variant="ghost" size="sm" disabled={!serving} onClick={props.onReload}>
           Reload
         </Button>
-        <Button
-          variant={armed ? "primary" : "ghost"}
-          size="sm"
-          disabled={!serving}
-          onClick={() => props.onArm(!armed)}
-        >
-          {armed ? "Capturing" : "Capture"}
-        </Button>
-        <KbdChord keys={[...binding]} aria-label={`${binding.join(" ")} turns capturing on`} />
+        {studio === null ? null : (
+          <>
+            <Button
+              variant={armed ? "primary" : "ghost"}
+              size="sm"
+              disabled={!serving}
+              onClick={() => props.onArm(!armed)}
+            >
+              {armed ? "Capturing" : "Capture"}
+            </Button>
+            <KbdChord keys={[...binding]} aria-label={`${binding.join(" ")} turns capturing on`} />
+          </>
+        )}
       </div>
       {hasASecondRow(props) ? (
         <div className="armada-capture-bar__said" role="status">
           {serving ? null : (
             <span className="armada-capture-bar__ended">
-              This run is no longer serving. What is on screen stays; nothing further loads, and
-              capture is closed.
+              This run is no longer serving. What is on screen stays and nothing further loads
+              {studio === null ? "." : ", and capture is closed."}
             </span>
           )}
           {refused === undefined ? null : (

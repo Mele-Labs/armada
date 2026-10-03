@@ -62,6 +62,7 @@ import {
   openPullRequest,
   openFindingIssue,
   openRemarkLink,
+  openCaptureWindow,
   openServerLink,
   openLink,
   observeRun,
@@ -881,6 +882,7 @@ export function App({ draft }: AppProps = {}) {
                     onStartServer: startServer,
                     onStopServer: stopServer,
                     onOpenServerLink: openServerLink,
+                    onWalkInBridge: openCaptureWindow,
                   }}
                 />
               </Boundary>

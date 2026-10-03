@@ -184,6 +184,12 @@ export type RunSheetProps = {
   onStopServer?: (id: string) => void;
   /** Reports a link's URL. Never navigates — the caller hands it to the OS. */
   onOpenLink?: (url: string) => void;
+  /**
+   * Reports the first link's URL, to open in Bridge's own window on that server
+   * rather than the system browser — a prototype walked where it was asked for.
+   * Absent: no **Walk in Bridge**.
+   */
+  onWalkInBridge?: (url: string) => void;
 
   /** What the last run wrote, where it wrote. */
   changed?: {
@@ -214,6 +220,7 @@ export function RunSheet({
   server,
   onStopServer,
   onOpenLink,
+  onWalkInBridge,
 }: RunSheetProps) {
   const selected =
     groups.flatMap((group) => group.entries).find((entry) => entry.id === selectedId) ?? null;
@@ -293,6 +300,7 @@ export function RunSheet({
               status={server}
               onStop={onStopServer}
               onOpenLink={onOpenLink}
+              onWalkInBridge={onWalkInBridge}
             />
           )}
 
@@ -474,11 +482,13 @@ function RunSheetServer({
   status,
   onStop,
   onOpenLink,
+  onWalkInBridge,
 }: {
   id: string;
   status: RunSheetServerStatus;
   onStop?: (id: string) => void;
   onOpenLink?: (url: string) => void;
+  onWalkInBridge?: (url: string) => void;
 }) {
   if (status.phase === "starting") {
     return <p className="armada-run-sheet__server-status">Starting.</p>;
@@ -520,6 +530,11 @@ function RunSheetServer({
           </Button>
         ))}
       </span>
+      {onWalkInBridge === undefined || status.links[0] === undefined ? null : (
+        <Button variant="secondary" size="sm" onClick={() => onWalkInBridge(status.links[0]!.url)}>
+          Walk in Bridge
+        </Button>
+      )}
       {onStop === undefined ? null : (
         <Button variant="secondary" size="sm" onClick={() => onStop(id)}>
           Stop

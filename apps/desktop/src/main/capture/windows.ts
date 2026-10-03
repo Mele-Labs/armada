@@ -44,7 +44,10 @@ export class CaptureWindows {
     url: string,
     studio: { id: string; name: string | null } | null,
   ): CaptureOpened {
-    if (studio === null) return { ok: false, why: "no_studio" };
+    // A Job's server opens with no Studio, to be walked: nothing arms, so no
+    // Note needs somewhere to land. Any other server still needs its Studio.
+    const server = state.servers.servers.find((one) => one.id === serverId);
+    if (studio === null && server?.job_id === undefined) return { ok: false, why: "no_studio" };
     const standing = this.open.get(serverId);
     if (standing !== undefined && standing.open) {
       standing.raise();

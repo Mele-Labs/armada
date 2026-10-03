@@ -72,7 +72,8 @@ export class CaptureWindow {
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
   private readonly pin: Pinned;
-  private readonly studio: { id: string; name: string | null };
+  /** `null`: a Job's server, walked. Nothing arms and nothing is saved. */
+  private readonly studio: { id: string; name: string | null } | null;
   /** How tall the bar is drawn, in CSS pixels, from the tokens the title row is built of. */
   private readonly barHeight: number;
 
@@ -83,7 +84,7 @@ export class CaptureWindow {
   /** The capture a press is holding, which never leaves this process until it lands. */
   private holding: StudioCapture | null = null;
 
-  constructor(pin: Pinned, studio: { id: string; name: string | null }, board: CaptureBoard, barHeight: number) {
+  constructor(pin: Pinned, studio: { id: string; name: string | null } | null, board: CaptureBoard, barHeight: number) {
     this.pin = pin;
     this.studio = studio;
     this.board = board;
@@ -191,7 +192,7 @@ export class CaptureWindow {
   }
 
   arm(on: boolean): CaptureWindowState {
-    this.armed = on && this.serving;
+    this.armed = on && this.serving && this.studio !== null;
     if (!this.armed) this.holding = null;
     this.tell();
     return this.state();
@@ -230,7 +231,7 @@ export class CaptureWindow {
    */
   async save(said: string): Promise<Outcome> {
     const capture = this.holding;
-    if (capture === null) return { ok: false, why: "nothing_held" };
+    if (capture === null || this.studio === null) return { ok: false, why: "nothing_held" };
     // The run ended while the note was being written: the capture would name a
     // port that is no longer the Run's.
     if (!this.serving) return { ok: false, why: "run_ended" };

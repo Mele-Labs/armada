@@ -34,8 +34,12 @@ export type CaptureRefusal = {
 export type CaptureWindowState = {
   /** The Run, as the Note will record it. */
   served: CaptureServed;
-  /** The Studio a Note lands on, decided when the window opened. `null` names an untitled one. */
-  studio: { id: string; name: string | null };
+  /**
+   * The Studio a Note lands on, decided when the window opened. A `null` name
+   * is an untitled one. **`null` whole: a Job's server, walked rather than
+   * captured** — nothing is armed, because there is nowhere for a Note to land.
+   */
+  studio: { id: string; name: string | null } | null;
   /**
    * Whether the Run is still serving. **Capture is refused from the moment it
    * is not**, and the window loads nothing further.

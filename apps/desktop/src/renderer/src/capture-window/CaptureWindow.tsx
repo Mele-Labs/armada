@@ -155,8 +155,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // The page starts below the bar, so a box measured in its viewport is drawn
   // that much lower in this document.
   const lowered = (box: CaptureBox): CaptureBox => ({ ...box, y: box.y + strip() });
-  const studio = state.studio.name ?? UNTITLED_STUDIO;
-  const aim = state.serving ? `Onto ${studio}` : "The run ended — nothing more is captured";
+  const studio = state.studio === null ? null : (state.studio.name ?? UNTITLED_STUDIO);
+  const aim = state.serving ? `Onto ${studio ?? ""}` : "The run ended — nothing more is captured";
 
   return (
     <>
