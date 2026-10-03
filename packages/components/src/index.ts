@@ -397,3 +397,7 @@ export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MergeLine/MergeLine";
 export * from "./compositions/PullRequestCard/PullRequestCard";
+// A Job's retro, and the Lessons page that lists every retro's items. 23.12.
+export * from "./compositions/WhoMark/WhoMark";
+export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/RetroSheet/RetroSheet";

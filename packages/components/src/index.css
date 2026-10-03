@@ -369,6 +369,10 @@
 @import "./compositions/StudioFrame/StudioFrame.css";
 /* A pull request, small: the review gate's The work. #1680. */
 @import "./compositions/PullRequestCard/PullRequestCard.css";
+/* Whose way a retro item got in, the Lessons list and one Job's retro. 23.12. */
+@import "./compositions/WhoMark/WhoMark.css";
+@import "./compositions/LessonList/LessonList.css";
+@import "./compositions/RetroSheet/RetroSheet.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

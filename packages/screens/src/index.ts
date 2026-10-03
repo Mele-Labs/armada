@@ -23,6 +23,8 @@ export * from "./RaiseTurnCap";
 export * from "./Redirect";
 export * from "./Report";
 export * from "./Reports";
+export * from "./Lessons";
+export type { ReadLessons, ReadRetro } from "./retro";
 export * from "./Row";
 export * from "./Taken";
 export * from "./freeze";

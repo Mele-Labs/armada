@@ -1,6 +1,8 @@
 // A Job's retro and the Lessons listing, mirrored by hand from
 // `crates/ipc/src/retro.rs`. Since 23.12. `docs/concepts/retro.md`.
 
+import type { Outcome } from "./reads";
+
 /** Whom one retro item got in the way of. */
 export type Whose = "drone" | "owner" | "fleet";
 
@@ -133,3 +135,14 @@ export type Lesson = {
 export type Lessons = {
   lessons: Lesson[];
 };
+
+/**
+ * What one Job's retro came back as. `BriefRead`'s shape: answered to the
+ * caller rather than published, because nothing on `/events` says a retro
+ * moved — a surface reads it when it opens and again when the window regains
+ * focus.
+ */
+export type RetroRead = { ok: true; retro: JobRetro } | { ok: false; outcome: Outcome };
+
+/** What the Lessons listing came back as. `RetroRead`'s shape and reasons. */
+export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome: Outcome };

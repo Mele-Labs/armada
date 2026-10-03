@@ -1,0 +1,115 @@
+/* One Job's retro on a sheet. The layer is `Sheet`; what lives here is the
+   list of items, the rows each cites, and the owner's notes under them. */
+
+.armada-retro__job {
+  font-family: var(--font-mono);
+}
+
+.armada-retro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-retro__status {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.armada-retro__items,
+.armada-retro__cites {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.armada-retro__items {
+  gap: var(--space-4);
+}
+
+.armada-retro__cites {
+  gap: var(--space-1);
+}
+
+/* The mark leads, on the statement's first line; everything else hangs under
+   the statement rather than under the mark. */
+.armada-retro__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-retro__item > .armada-tooltip {
+  padding-block-start: var(--space-1);
+}
+
+.armada-retro__said {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-retro__statement {
+  margin: 0;
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+/* A cited row: its name, what it came to, and when — one line where it fits,
+   wrapping where it does not. Quieter than the statement it backs. */
+.armada-retro__cite,
+.armada-retro__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-retro__note {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-retro__name {
+  color: var(--fg-default);
+}
+
+.armada-retro__name[data-mono="true"] {
+  font-family: var(--font-mono);
+}
+
+.armada-retro__detail {
+  overflow-wrap: anywhere;
+}
+
+.armada-retro__when {
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+.armada-retro__notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-retro__heading {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  font-weight: var(--weight-medium);
+}

@@ -406,6 +406,14 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     readCheckOutput: async (jobId, kept) =>
       readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
     readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
+    readRetro: async (jobId) => {
+      const retro = scenario.retros?.[jobId];
+      if (retro !== undefined) return { ok: true, retro };
+      return readsOf(jobId) === undefined
+        ? refused(path(jobId, "/retro"))
+        : { ok: true, retro: { job_id: jobId, state: "pending", record: {} } };
+    },
+    readLessons: async () => ({ ok: true, lessons: scenario.lessons ?? [] }),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
     readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.

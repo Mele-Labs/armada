@@ -59,6 +59,7 @@ import type { FoldedReads } from "./mine";
 import type { OpenArtifact, OpenPullRequest } from "./opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
 import type { ReadBrief } from "./pulse-brief";
+import type { ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import type { RunSheetSlice } from "./rehearsal";
 import type { OpenStudioFrom } from "./work";
@@ -266,6 +267,8 @@ export type JobDetailProps = {
   onReadCheckOutput: ReadCheckOutput;
   /** Read one kept brief, for Pulse's log panel. `onReadCheckOutput`'s shape one record over. */
   onReadBrief: ReadBrief;
+  /** Read this Job's retro, for the Record's Retro sheet — on open and on focus. `retro.ts`. */
+  onReadRetro: ReadRetro;
   /**
    * Read one frame a step's harness produced. **`onReadCheckOutput`'s shape one
    * record over** — the bytes come from the process that can reach Fleet, and

@@ -105,6 +105,18 @@ export class Picked {
     }));
   }
 
+  /**
+   * A read Fleet answers across every repository when it names none — `list_lessons`. **Bare on
+   * All**, which is the one place that is right, and the pick's `?manifest_id=` otherwise. `null`
+   * for a repository with no Manifest yet: it has no Jobs, and bare would read everyone's.
+   */
+  narrowed(path: string): string | null {
+    const repository = this.repository;
+    if (repository === null) return path;
+    if (repository.manifest === undefined) return null;
+    return named(path, "manifest_id", repository.manifest.id);
+  }
+
   /** Scan and its proposals, which name a repository by its root — it may have no Manifest. `null` on All. */
   scan(path: string): string | null {
     const repository = this.repository;

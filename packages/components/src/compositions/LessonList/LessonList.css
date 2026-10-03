@@ -1,0 +1,33 @@
+/* The Lessons page's list. No declared widths, the ledger's rule: the mark, the
+   Job and the date take their content by not wrapping, and the statement takes
+   the slack and wraps. */
+.armada-lessons {
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.armada-lessons .armada-table-row:last-child {
+  border-bottom: 0;
+}
+
+.armada-lessons__row {
+  cursor: pointer;
+}
+
+.armada-lessons__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-lessons__who,
+.armada-lessons__job,
+.armada-lessons__when {
+  white-space: nowrap;
+}
+
+.armada-lessons__statement {
+  width: 100%;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}

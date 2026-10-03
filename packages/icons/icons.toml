@@ -788,6 +788,13 @@
   reserved = "Human required, or actor=human."
   notes = "The only human figure in the badge set, and a human being required is exactly the semantics."
 
+  [[icons.user-check.usage]]
+    means = "A retro item that got in the owner's way"
+    group = "Retro"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). Whose way an item got in is a mark with its word on hover, the owner's standing rule; the person's is this glyph because its own reservation is actor=human, which is what `who = owner` says. --fg-muted, never a status hue: the mark says who, not how bad. Tooltip: You."
+
 [icons.waypoints]
   means = "the graph view toggle"
   group = "Graph"
@@ -947,6 +954,13 @@
   reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer, and never Helm, which is `message-square`."
   notes = "Minted 2026-09-29 for [record-kind-marks]. A Drone is an agent process, and this is the literal drawing lucide has of one. The antenna and the side stubs break the outline, which is what separates it at 12px from `file` and `archive`, the rectangles already in the grey set. The contract's *Where the answer is no icon* keeps the Who column in words, and this does not reach it: the Who cell still says Drone, and this mark names the row's family under All alone. Refused: `cpu`, a queued reason's; `terminal`, Pilot's alone; `user-check`, the human figure."
 
+  [[icons.bot.usage]]
+    means = "A retro item that got in a Drone's way"
+    group = "Retro"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). The same drawing of a Drone the Record's kind column uses, for the same reason: it is the literal agent. It names whose way an item got in, never a Drone's state, so the reservation above holds. --fg-muted; tooltip: Drone."
+
 [icons.list-todo]
   means = "Three lines, the top one led by an empty box and the bottom one by a tick"
   group = "Record kind"
@@ -970,6 +984,22 @@
   status = "Specified"
   reserved = "A Check's row in the Record's kind column, under All, and nowhere else. Never a Check result \u2014 shield-check, shield-x, shield-minus and shield-off say those \u2014 never security or permissions, and never a gate drawn anywhere a result shield could draw."
   notes = "Added 2026-09-29, the owner's answer to [record-kind-marks]: the Check's row takes the bare shield, with a written exception. At 12px in --fg-muted this outline is shield-minus and shield-off with their one stroke gone, and both of those draw grey, so rule 4 would refuse it; the owner waived rule 4 for this one mark because it draws only in the Record's kind column, beside the word Check in Who and Passed or Failed in Outcome, and never where a result shield draws. The waiver is this mark's alone and is written in docs/contracts/iconography.md, *The Record's kind marks*. Refused before the owner answered: a glyph from outside the shield family, which would give one source two silhouettes."
+
+[icons.server]
+  means = "Two stacked units, each with a light — a machine that serves"
+  group = "Retro"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A retro item that got in Fleet's way, and nowhere else. Never a server a Studio's Run holds, never a host, a port or a process, and never a Job or Cleanup's held disk, which is `hard-drive`."
+  notes = "Minted 3 Oct 2026 with the Lessons page (`docs/concepts/retro.md`), for `who = fleet`: Armada itself cost the Job something. Fleet is the daemon that serves every Job, and two racked units is the drawing of one. **The objection to expect is `hard-drive`**, Cleanup's rail glyph, a single horizontal vessel with a light; this is two stacked, drawn at 12px in a list rather than at 16px in the rail, so rule 4's collision is across groups and sizes. Refused: `armada-mark`, whose reservation is absolute and keeps it out of a row; `cpu`, the queued reason's, whose row prizes it as unique at 12px; `settings` and `cog`, configuration; `box`, the Job in the Record's kind column. Tooltip: Fleet."
+
+[icons.graduation-cap]
+  means = "A mortarboard — a flat square cap on a band, a tassel off one corner"
+  group = "Navigation"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Lessons surface only. Never a guide, a tutorial or help, which is `book-open`, and never a proposal or a suggestion: nothing on Lessons proposes."
+  notes = "Minted 3 Oct 2026 with the Lessons rail row (`docs/concepts/retro.md`), the eleventh in rail order, under Work. What a person reads there is what got in the way across Jobs, and learning from it is theirs to do. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine; a flat diamond over a band is none of them. Refused: `lightbulb`, which reads as an idea offered, and the page offers none; `book-open`, Guides'; `scroll-text`, a workflow; `history`, a clock face, which the set holds one of by decision."
 
 [conventions.record_kind_mark]
   glyphs = ["box", "file-check", "file-diff", "shield", "scale", "bot", "list-todo", "flask-conical"]

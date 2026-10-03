@@ -105,8 +105,23 @@ left in Bridge's annotation layer with a Job's detail open names that Job as
 `openJobId`; a note that names none is linked to no Job. Fleet never guesses
 a Job from the time a note was left.
 
-**Bridge does not write `openJobId` yet.** Until it does, no annotation is
-linked.
+**Bridge writes the open Job's ULID as `openJobId` when a note is saved.** Job
+detail stamps its Job's id on its own root, and the layer reads the page at the
+save, so a note begun on one Job and saved on another names the second. Job
+detail alone counts as open: a retro read on the Lessons page is not that Job's
+detail, and a note left there names no Job. The key is left out, never null,
+where none is open. `packages/screens/src/open-job.ts`.
+
+## Where Bridge draws it
+
+| Where | What |
+| --- | --- |
+| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All. A row opens its Job's retro |
+| **Retro**, in the head of a Job's Record | The same sheet, on `get_job_retro` |
+
+Both read when they open and again when the window regains focus, because
+nothing on `/events` says a retro was written. Whose way an item got in is a
+mark named by its tooltip, and nothing on either surface acts.
 
 ## Where it is served
 
@@ -122,5 +137,3 @@ The wire shapes are `crates/ipc/src/retro.rs`, and
 
 - **[retro-rewrite]** Whether a person can ask for a failed or skipped retro
   to be written again. Nothing offers it.
-- **[retro-annotation-link]** What Bridge writes as `openJobId`, and on which
-  screens a Job's detail counts as open.

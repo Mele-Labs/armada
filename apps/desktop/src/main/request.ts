@@ -16,6 +16,7 @@ import type {
 } from "@armada/protocol";
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
+import type { JobRetro, Lessons, LessonsRead, RetroRead } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
 import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
@@ -421,6 +422,29 @@ export async function briefOf(port: number, jobId: string, name: string): Promis
   const answer = await ask(port, "GET", `/jobs/${encodeURIComponent(jobId)}/briefs/${encodeURIComponent(name)}`);
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
   return { ok: true, brief: answer.body as BriefContents };
+}
+
+/**
+ * One Job's retro, read into the app: `briefOf`'s shape, on `GET /jobs/:job_id/retro`
+ * (protocol 23.12). Asked when a surface opens it and again on focus, since nothing on `/events`
+ * says a retro was written.
+ */
+export async function retroOf(port: number, jobId: string): Promise<RetroRead> {
+  const answer = await ask(port, "GET", route(jobId, "retro"));
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, retro: answer.body as JobRetro };
+}
+
+/**
+ * The Lessons listing, `GET /lessons` (23.12): every repository on All and the pick's alone on a
+ * pick — `Picked.narrowed`. A repository with no Manifest has no Jobs, so nothing is asked.
+ */
+export async function lessonsOf(port: number, picked: Picked): Promise<LessonsRead> {
+  const path = picked.narrowed("/lessons");
+  if (path === null) return { ok: true, lessons: [] };
+  const answer = await ask(port, "GET", path);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, lessons: (answer.body as Lessons).lessons };
 }
 
 /**
