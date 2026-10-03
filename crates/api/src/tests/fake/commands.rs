@@ -79,8 +79,16 @@ impl Commands for FakeDaemon {
     async fn approve_dispatch(
         self: std::sync::Arc<Self>,
         job_id: JobId,
+        _left: Option<ipc::ApproveDispatch>,
     ) -> Result<JobSummary, Refusal> {
         self.fake_approve_dispatch(job_id).await
+    }
+    async fn edit_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _edit: ipc::EditJob,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
     }
     async fn approve_review(
         self: std::sync::Arc<Self>,

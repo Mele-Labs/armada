@@ -506,7 +506,7 @@ pub struct AddStudioNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub produced_by: Option<StudioNodeId>,
     /// The frame it is added in, measured from whose corner `position` is,
-    /// as [`MoveStudioNode::within`]. **Absent is the board.** Since 23.8.
+    /// as [`MoveStudioNode::within`]. **Absent is the board.** Since 23.9.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub within: Option<StudioNodeId>,
 }

@@ -122,6 +122,9 @@ pub struct Forgotten {
     /// The Job's tier map, one row per tier it names, and the model each of
     /// its Drones ran, one row each. Spike 022, 3.
     pub models: usize,
+    /// How the Job lands, its Drone cap, its policy overrides and the issue
+    /// it came from, one row each at most. Spike 022, 4.
+    pub approval: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -184,6 +187,9 @@ impl Forgotten {
             "job_task_drones" => &mut self.task_drones,
             "job_group_runs" => &mut self.group_runs,
             "job_tier_models" | "job_drone_models" => &mut self.models,
+            "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources" => {
+                &mut self.approval
+            }
             _ => return None,
         })
     }

@@ -346,7 +346,8 @@ where
         self.released_slot(&loaded).await;
         let served = self.served_by(&loaded).ok()?;
         let spec = self.reclaimed_spec(&served, &loaded).ok()?;
-        let reclaimed = adapters::reclaim(&spec, served.manifest().base(), UnmergedWork::Keep)
+        let target = self.target_of(&served, job).await;
+        let reclaimed = adapters::reclaim(&spec, target.as_deref(), UnmergedWork::Keep)
             .inspect_err(|cause| self.noted_unreclaimed(job, &cause.why))
             .ok()?;
         self.noted_reclaimed(job, &reclaimed);

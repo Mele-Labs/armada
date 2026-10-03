@@ -372,8 +372,9 @@ See `../concepts/drone.md`.
 | Layer | State |
 | --- | --- |
 | 1 Baseline | **Frozen at build.** Compiled in, unreachable from config |
-| 2 Kit, 3 Manifest, 4 WorkflowDef | **Frozen at Job creation.** Editing the Kit file mid-Job changes nothing for any Drone of that Job, including the ones it has not spawned yet |
-| 5 Task | **Frozen at Job creation** — `acceptance_criteria[]` especially, or the Judge grades against a list something invented later |
+| 2 Kit, 3 Manifest | **Frozen at Job creation.** Editing the Kit file mid-Job changes nothing for any Drone of that Job, including the ones it has not spawned yet |
+| 4 WorkflowDef | **Frozen at the approval press** (#1581). A person may pick another workflow and set each step's gate until then; no Drone exists before it, so none reads a version that moved |
+| 5 Task | **Frozen at the approval press** — `acceptance_criteria[]` especially, or the Judge grades against a list something invented later. A person corrects the list up to the press and not after; a criterion is appended only at an approved widening, so a citation to "criterion 4" still resolves |
 | 6 Step | Its content changes at each step boundary, because the step does. Its *sources* are frozen with the rest |
 | Allowlist, budget, freeze | **Live** — re-read at every gated checkpoint. Not prompt content; enforcement |
 

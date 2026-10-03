@@ -303,7 +303,7 @@ where
                 .await,
             &judging,
             &Keeping::of(served.records_root(), &job.handle()),
-            self.gating_policies(&served),
+            self.policies_for(&served, &job_id).await,
             &announcing,
             &ports,
             &port_env,

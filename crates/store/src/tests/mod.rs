@@ -278,11 +278,13 @@ pub fn full_new_job(id: &str) -> NewJob {
                 criterion_id: CriterionId::new("c1"),
                 text: "the reported symptom no longer occurs".to_string(),
                 source: CriterionSource::Check,
+                origin: core_model::CriterionOrigin::Unsaid,
             },
             AcceptanceCriterion {
                 criterion_id: CriterionId::new("c2"),
                 text: "a test covers the reported symptom".to_string(),
                 source: CriterionSource::Judge,
+                origin: core_model::CriterionOrigin::Unsaid,
             },
         ],
         steps: vec![
