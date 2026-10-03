@@ -38,7 +38,7 @@ import type {
 import { answerNamed } from "./copy";
 import { dockQuestionsOf } from "./dock-questions";
 import type { JobDraft } from "./draft/held";
-import type { WaveJobView, WaveView } from "./draft/wave";
+import { waveOf, type WaveJobView, type WaveRoundView, type WaveView } from "./draft/wave";
 import type { Outstanding } from "./outstanding";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { Eyebrow } from "./regions";
@@ -87,24 +87,22 @@ export type WaveRegionProps = {
 };
 
 /**
- * The wave to draw — **the moment's own, and nothing derived**.
+ * The wave to draw — the moment's own where it carries one, and otherwise the
+ * Board's rows that **say** they are one.
  *
- * `dispatched_by` is all the wire has, and it is the same field a landing
- * order is read from: a parent whose three Jobs land in turn and a parent
- * whose five wait on each other are indistinguishable through it. Deriving a
- * wave from it drew both regions over the members moments, where the landing
- * band is the right one. So Bridge draws a wave only where something says this
- * Job is one, which today is the mock and after `#1545` is the wire.
- *
- * `waveOf` is the derivation that promotion turns on, kept and tested beside
- * its type. It is not reached from here until the wire can tell the two apart.
+ * `dispatched_by` alone is the same field a landing order is read from: a
+ * parent whose three Jobs land in turn and a parent whose five wait on each
+ * other are indistinguishable through it, and deriving a wave from it drew
+ * both regions over the members moments. Since 23.11 a wave's Jobs carry
+ * `dispatched_pass` and a landing order's do not, so `waveOf` reads only those
+ * (the owner's decision of 22 Sep 2026: a wave is not a landing order).
  */
 export function waveReadingOf(
-  _whole: JobWhole | null,
+  whole: JobWhole | null,
   draft: JobDraft | undefined,
-  _board: readonly JobSummary[],
+  board: readonly JobSummary[],
 ): WaveView | undefined {
-  return draft?.wave;
+  return draft?.wave ?? (whole === null ? undefined : waveOf(whole, board));
 }
 
 /**
@@ -132,6 +130,12 @@ export function loopSaid(whole: JobWhole | null, stripped = false): string | und
   return stripped
     ? `Up to ${String(pass.of)} waves`
     : `Wave ${String(pass.number)} of up to ${String(pass.of)}`;
+}
+
+/** A pass on the strip: `Wave 2 · every surface`, or `Wave 2` where it says nothing. */
+function roundSaid(round: WaveRoundView): string {
+  const named = `Wave ${String(round.round)}`;
+  return round.says === undefined ? named : `${named} · ${round.says}`;
 }
 
 /** What each Job waits on, off the wave's own ids. */
@@ -362,13 +366,13 @@ export function WaveRegion({
             <Tabs
               items={wave.rounds.map((one) => ({
                 id: String(one.round),
-                label: `Wave ${String(one.round)} · ${one.says}`,
+                label: roundSaid(one),
               }))}
               value={String(round)}
               onChange={(id) => setPicked(Number(id) === live ? null : Number(id))}
             />
           ) : wave.rounds[0] === undefined ? null : (
-            <Eyebrow>{`Wave ${String(wave.rounds[0].round)} · ${wave.rounds[0].says}`}</Eyebrow>
+            <Eyebrow>{roundSaid(wave.rounds[0])}</Eyebrow>
           )}
           {loop === undefined ? null : <p className="armada-wave__loop">{loop}</p>}
         </div>

@@ -53,6 +53,11 @@ export type JobDronesRow = {
   state: JobDroneState;
   /** The state, spelled — the mark's tooltip and accessible name. */
   stateSays: string;
+  /**
+   * A `running` Drone Fleet holds at rest — at the gate, or for a person — and
+   * not at work. **Its mark holds still**: what pulses is what is working.
+   */
+  resting?: boolean;
   /** The model it ran on. Absent draws nothing: a Drone Fleet kept none for. */
   model?: ReactNode;
   /** Turns, and cost once it stopped. Absent draws nothing. */
@@ -188,7 +193,7 @@ export function JobDrones({
                         activity={DRONE_ACTIVITY[row.state]}
                         label={row.stateSays}
                         says={row.stateSays}
-                        pulsing={row.state === "running"}
+                        pulsing={row.state === "running" && row.resting !== true}
                       />
                     </TableCell>
                     <TableCell variant="metadata" className="armada-drones__model">

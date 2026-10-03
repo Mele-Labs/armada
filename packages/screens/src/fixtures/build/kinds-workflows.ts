@@ -100,7 +100,6 @@ export function epicWorkflow(): WorkflowSummary {
     step("plan", "Plan the wave", "human_always", {
       judge_checks: [{ criteria: 2, gaming_check: false }],
     }),
-    step("dispatch", "Dispatch the wave", "auto"),
     step("roll_up", "Roll up the wave", "human_always"),
   ]);
 }

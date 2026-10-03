@@ -5,7 +5,7 @@ import type { DroneTurn, JobDroneState, JobDronesFilter, Thought, TurnStep } fro
 import type { ReactNode } from "react";
 import type { JobDetail, Turn } from "@armada/protocol";
 
-import type { DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "./draft/drone";
 import { clock, elapsedSince } from "./duration";
 import { entriesOf, THINKING_TOKENS, type LogRow } from "./story";
 
@@ -19,6 +19,14 @@ export const DRONE_SAYS: Record<JobDroneState, string> = {
   failed: "Failed",
   killed: "Killed",
 };
+
+/** What a `running` Drone Fleet holds at rest says — not working (23.11). */
+const AT_REST = "At rest";
+
+/** A Drone's state in words: `At rest` for a running one between runs, else its state's. */
+export function droneSays(drone: Pick<DroneView, "state" | "at_rest_since">): string {
+  return drone.state === "running" && !isWorking(drone) ? AT_REST : DRONE_SAYS[drone.state];
+}
 
 /**
  * What a task's Drone says in Plan's peek, which reads the draft's per-task
@@ -90,10 +98,8 @@ export function dronesUnder(
         (a.since ?? "").localeCompare(b.since ?? ""),
     );
   if (order === "task") return byTask;
-  return [
-    ...byTask.filter((drone) => drone.state === "running"),
-    ...byTask.filter((drone) => drone.state !== "running"),
-  ];
+  // Working first: a Drone at rest is held, and not at work.
+  return [...byTask.filter(isWorking), ...byTask.filter((drone) => !isWorking(drone))];
 }
 
 /**

@@ -47,7 +47,9 @@ export type CompleteWhen =
  */
 export const COMPLETE_WHEN_SERVED: Readonly<Record<CompleteWhen, boolean>> = {
   pr_merged: false,
-  all_members_landed: false,
+  // Since 23.11 (spike 022, slice 6): a parent finishes when every member's
+  // pull request merged.
+  all_members_landed: true,
   pr_opened: false,
   delivered: true,
 };
