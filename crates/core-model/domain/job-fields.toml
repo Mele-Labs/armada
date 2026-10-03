@@ -19,7 +19,7 @@
 #                    | job_attachments | job_allowed_commands
 #   storage        - Column | Own table | Text on the Job row | Derived — not stored
 #   nullable       - whether null is legal, and where the source qualified it, how
-#   frozen_at      - Creation | Dispatch | Never | N/A. When the value stops moving
+#   frozen_at      - Creation | Approval | Dispatch | Never | N/A. When the value stops moving
 #   purpose        - what the field answers
 #   in_code        - whether an implementation exists, as the source recorded it
 #   open_questions - questions the source left open against this row
@@ -31,22 +31,22 @@ type = "composite key"
 table = "job_steps"
 storage = "Column"
 nullable = "No"
-frozen_at = "Creation"
-purpose = "One row per step of the frozen WorkflowDef, written at Job creation, all not_started."
+frozen_at = "Approval"
+purpose = "One row per step of the frozen WorkflowDef, written when the proposer answers and made again where a person picks another workflow before the approval press, all not_started."
 in_code = "Not yet"
 notes = "`job_steps(job_id, step_id, ordinal, state, last_verdict, assigned_drone, entered_at, updated_at)`. Rows are written at Job creation, not at dispatch — including for Jobs never approved. **`retry_count` and `iteration_count` are not columns** and their own rows say why: both are one read of `job_events` each."
 why = "A Job can sit at `awaiting_approval` for days while the workflow file is edited; writing at creation is what lets \"what you approved is what runs\" hold through that window."
 
 [fields."acceptance_criteria[]"]
-type = "array<{criterion_id, text, source}>, designed for 1–6"
+type = "array<{criterion_id, text, source, origin}>, designed for 1–6"
 table = "jobs"
 storage = "Column"
 nullable = "No"
-frozen_at = "Creation"
+frozen_at = "Approval"
 purpose = "What the Job must satisfy to be done, in the requester's words. Each is judged independently; a criterion verdict never sums onto the step or the Job."
 in_code = "Not yet"
 open_questions = ["May acceptance criteria change when a Job's scope is revised?"]
-notes = "Frozen at creation; appendable only at an approved widening — you may raise the bar, not lower it. The Judge's call count is `criteria × panel_size`, and appending pushes both."
+notes = "Editable until the approval press and frozen at it (#1581, spike 022 slice 4): a person rewords, removes or adds at the foot, a new line minted the next `c<n>` and answered by the Judge or a person. After it, appendable only at an approved widening — you may raise the bar, not lower it. `origin` says where the words came from — `issue`, `prompt`, `person` or `unsaid` — and is not `source`, which is how a criterion is answered. The Judge's call count is `criteria × panel_size`, and appending pushes both."
 why = "Judge citations reference a criterion by its frozen position (\"criterion 4\"), which editable or reorderable criteria would break."
 
 [fields."allowed_commands[]"]
@@ -476,18 +476,18 @@ type = "object — the WorkflowDef, resolved"
 table = "jobs"
 storage = "Column"
 nullable = "No"
-frozen_at = "Creation"
-purpose = "The WorkflowDef this Job follows, as it stood when the Job was created: its steps, their labels, their evidence types and the Checks each declares with the command already lifted out of the Manifest."
+frozen_at = "Approval"
+purpose = "The WorkflowDef this Job follows, as it stood when the Job was approved: its steps, their labels, their evidence types and the Checks each declares with the command already lifted out of the Manifest."
 in_code = "Yes"
-notes = "Written once and never updated. Fleet reads this and never `.armada/workflows/`, so editing a definition changes the next Job rather than a running one. `workflow_id` is read off it rather than stored beside it. The file it came from is not carried: a path on a record outlives the file at it. Which of the three places it came from is — `source`, one of `armada`, `kit` or `repository`, inside the frozen document rather than a column, so no migration moved; a row frozen before #425 has none and reads as `repository`, the only place a workflow could come from then."
-why = "A step that declared two Checks when a person approved the Job still declares two when it runs. A gate that can move under an approved Job makes the approval meaningless — the same discipline `acceptance_criteria` already had, applied to the other thing creation freezes."
+notes = "Written when the proposer answers, rewritten only at `awaiting_approval` — another workflow a person picked, or each step's gate as they set it (spike 022, slice 4) — and never after the press. Fleet reads this and never `.armada/workflows/`, so editing a definition changes the next Job rather than a running one. `workflow_id` is read off it rather than stored beside it. The file it came from is not carried: a path on a record outlives the file at it. Which of the three places it came from is — `source`, one of `armada`, `kit` or `repository`, inside the frozen document rather than a column, so no migration moved; a row frozen before #425 has none and reads as `repository`, the only place a workflow could come from then."
+why = "A step that declared two Checks when a person approved the Job still declares two when it runs. A gate that can move under an approved Job makes the approval meaningless — the same discipline `acceptance_criteria` already had, applied to the other thing the approval press freezes."
 
 [fields.workflow_id]
 type = "id"
 table = "jobs"
 storage = "Derived — not stored"
 nullable = "No"
-frozen_at = "Creation"
+frozen_at = "Approval"
 purpose = "Which WorkflowDef this Job follows."
 in_code = "Yes"
 open_questions = ["Which field names the WorkflowDef a Job follows — task_type or workflow_id?"]

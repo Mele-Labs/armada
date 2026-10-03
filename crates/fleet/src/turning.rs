@@ -142,6 +142,11 @@ pub struct Turned {
     /// one pull request every sweep. Empty on every other turn, which is nearly
     /// all of them.
     pub noticed: Option<Noticed>,
+    /// The Job whose issue somebody edited after Fleet read it, on the turn the
+    /// issue rotation read that they had. At most one a turn, for `noticed`'s
+    /// reason: the rotation asks about one issue an interval. Spike 022,
+    /// answer 5.
+    pub issue_moved: Option<core_model::JobId>,
     /// Jobs escalated because nothing in Fleet was working on them and no
     /// Drone had ever been started. **On the turn for `stranded`'s reason and
     /// the strongest form of it**: the subject is a Job that is in no slot at
@@ -277,6 +282,11 @@ where
         // its reason: this touches no slot and starts nothing, so what it
         // wants is only to run once for the turn rather than once per Drone.
         turned.noticed = self.notice_a_merge().await?;
+        // Beside the merge notice, on its interval and with a cursor of its
+        // own: a Job that came from an issue has no pull request to be in that
+        // rotation by, and sharing its cursor would slow every pull request's
+        // reading by the number of such Jobs (spike 022, answer 5).
+        turned.issue_moved = self.notice_an_issue().await?;
         // **After the notice**, so a Job owed news of a landing read this turn
         // is told on this turn. It takes each slot for one write, the way
         // `crate::work_plan` delivers. #998.

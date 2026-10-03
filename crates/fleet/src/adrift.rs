@@ -790,6 +790,18 @@ pub enum Adrift {
     /// refused by, in `fleet::work_plan::NotPlanned` — this is the same set,
     /// read from a person's act instead. `#897`.
     PlanRefused { job: JobId, why: PlanRefused },
+    /// A person's approval or edit at a Job's gate, refused whole: nothing of
+    /// it was kept. Spike 022, slice 4. `crate::approving::Refused` says why.
+    ProposalRefused {
+        job: JobId,
+        why: crate::approving::Refused,
+    },
+    /// A landing named a branch the repository does not hold. Spike 022,
+    /// slice 4: a worktree cannot be cut from it, nor a pull request opened
+    /// against it.
+    NoSuchBranch { job: JobId, named: String },
+    /// git would not list the repository's branches. Carries its words.
+    BranchesUnread { job: Option<JobId>, why: String },
     /// A person's drop named a task already `done` or already `dropped`.
     ///
     /// **Not the plan's own refusal** — `core_model::WorkPlan::after` would

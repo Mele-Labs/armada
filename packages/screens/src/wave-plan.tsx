@@ -7,7 +7,7 @@
 // press apart.
 
 import { Badge, Button, HoldButton, Input, RowLink, Sheet, Textarea, Tooltip, type SheetBack } from "@armada/components";
-import type { EditJob } from "@armada/protocol";
+import type { EditJobAsSent } from "@armada/protocol";
 import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/vocabulary";
 import { useCallback, useState, type ReactNode } from "react";
 
@@ -119,7 +119,7 @@ function EditJobForm({
 }: {
   job: WaveJobView;
   disabled: boolean;
-  onEdit: (edit: EditJob) => Promise<boolean>;
+  onEdit: (edit: EditJobAsSent) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(job.title);
@@ -128,7 +128,7 @@ function EditJobForm({
   const [saving, setSaving] = useState(false);
 
   const listed = linesOf(expects);
-  const changed: EditJob = {
+  const changed: EditJobAsSent = {
     ...(title.trim() === job.title ? {} : { title: title.trim() }),
     ...(brief.trim() === (job.brief ?? "") ? {} : { brief: brief.trim() }),
     ...(listed.join("\n") === (job.expects ?? []).join("\n") ? {} : { expects: listed }),

@@ -97,11 +97,41 @@ pub(crate) async fn stop_proposal<D: Commands>(
     }
 }
 
+/// Approve, with the proposal as the person left it (#1641, since 23.8).
+/// **An empty body is the proposal as it stands**, which is every Bridge
+/// before 23.8 and Helm's press.
 pub(crate) async fn approve_dispatch<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    body: Bytes,
 ) -> Response {
-    match served.shared().approve_dispatch(job.id()).await {
+    let left = match body.is_empty() {
+        true => None,
+        false => match ipc::decode("an approval", &body) {
+            Ok(left) => Some(left),
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        },
+    };
+    match served.shared().approve_dispatch(job.id(), left).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Save a proposal's words without releasing it (#1699's route, spike 022
+/// slice 4). **The Job comes back as edited**; 409 on a Job past
+/// `awaiting_approval`, 422 on a body that changes nothing or a criterion it
+/// does not hold.
+pub(crate) async fn edit_job<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let edit: ipc::EditJob = match ipc::decode("a job edit", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().edit_job(job.id(), edit).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

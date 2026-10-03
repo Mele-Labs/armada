@@ -678,6 +678,19 @@ impl fmt::Display for Adrift {
             Adrift::PlanRefused { job, why } => {
                 write!(out, "{}'s plan refuses this change: {why}", job.as_str())
             }
+            Adrift::ProposalRefused { job, why } => write!(
+                out,
+                "{}'s proposal was left as it was: {why}",
+                job.as_str()
+            ),
+            Adrift::NoSuchBranch { named, .. } => write!(
+                out,
+                "this repository holds no branch `{named}`, so the work can neither start from \
+                 it nor land in it"
+            ),
+            Adrift::BranchesUnread { why, .. } => {
+                write!(out, "git would not list this repository's branches: {why}")
+            }
             Adrift::TaskAlreadySettled { job, named, state } => write!(
                 out,
                 "{}'s task {named} is already {}, and a person's drop does not repeat a \
@@ -798,6 +811,8 @@ impl Adrift {
             | Adrift::SlotLost { job, .. }
             | Adrift::AttachmentUnreadable { job, .. }
             | Adrift::PlanRefused { job, .. }
+            | Adrift::ProposalRefused { job, .. }
+            | Adrift::NoSuchBranch { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
             | Adrift::TaskNotFailed { job, .. }
             | Adrift::TaskInFlight { job, .. }
@@ -807,7 +822,9 @@ impl Adrift {
             | Adrift::NothingToExplain { job, .. }
             | Adrift::NotExplained { job, .. }
             | Adrift::NotServed { job, .. } => Some(job),
-            Adrift::CommandTimedOut { job, .. } => job.as_ref(),
+            Adrift::CommandTimedOut { job, .. } | Adrift::BranchesUnread { job, .. } => {
+                job.as_ref()
+            }
             Adrift::BootRead(_)
             | Adrift::Reading(_)
             | Adrift::Writing(_)
@@ -896,6 +913,9 @@ impl Error for Adrift {
             | Adrift::NeverRan { .. }
             | Adrift::NotReplaceable { .. }
             | Adrift::WorkflowWithdrawn { .. }
+            | Adrift::ProposalRefused { .. }
+            | Adrift::NoSuchBranch { .. }
+            | Adrift::BranchesUnread { .. }
             | Adrift::Unnameable
             | Adrift::NoSuchWorkflow { .. }
             | Adrift::NoSuchManifest { .. }

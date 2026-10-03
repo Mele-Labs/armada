@@ -156,6 +156,8 @@ pub struct FakeVcs {
     bases: Mutex<BTreeMap<String, bool>>,
     /// Every base checkout this fake has been asked to drop, in order.
     dropped_bases: Mutex<Vec<String>>,
+    /// The branch each lease that took a slot was cut from, in order.
+    cut_from: Mutex<Vec<String>>,
 }
 
 /// The branch's tree, and the one before the last merge into it, numbered.
@@ -382,6 +384,12 @@ impl FakeVcs {
     /// entry**, for the same reason nothing removes a worktree.
     pub fn created(&self) -> Vec<Worktree> {
         self.created.lock().expect("not poisoned").clone()
+    }
+
+    /// The branch each lease that took a slot was cut from, in order: the
+    /// pool's base as the lease was asked. Spike 022, slice 4.
+    pub fn cut_from(&self) -> Vec<String> {
+        self.cut_from.lock().expect("not poisoned").clone()
     }
 
     /// Put a ref at a commit, so a base can be resolved without a repository.
@@ -1052,6 +1060,26 @@ impl Vcs for FakeVcs {
             }
             None => Ok(refs.values().next().cloned()),
         }
+    }
+
+    /// Every ref the fake holds, by name: `declared`, or the first where
+    /// nothing is declared, is the base — `base_commit`'s own reading.
+    fn branches(
+        &self,
+        _repo_root: &str,
+        declared: Option<&str>,
+    ) -> Result<Vec<adapter_traits::BranchListed>, Self::Error> {
+        let refs = self.refs.lock().expect("not poisoned");
+        let base = declared.or_else(|| refs.keys().next().map(String::as_str));
+        let mut listed: Vec<adapter_traits::BranchListed> = refs
+            .keys()
+            .map(|name| adapter_traits::BranchListed {
+                name: name.clone(),
+                base: Some(name.as_str()) == base,
+            })
+            .collect();
+        listed.sort_by_key(|branch| !branch.base);
+        Ok(listed)
     }
 
     /// **Answers the same checkout every time it is asked for one commit**,
