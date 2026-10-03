@@ -9,9 +9,10 @@
 // its approval gate has entered no step and recorded nothing, so the
 // arrangement Overview draws work in has no work to draw.
 //
-// **Nothing here reaches the wire.** `approve_dispatch` takes no body and no
-// field carries a per-Job gate, so a person's changes live in this screen
-// until the press. The shapes are the ones `#1545` promotes.
+// **The press sends what a person moved** (`approve_dispatch`, since 23.8):
+// the screen holds the changes and the header's approval carries them —
+// `approval-held.ts`. Drawn off a moment's draft; a real Job's proposal reads
+// under Overview's lead, `approving.tsx`.
 
 import { JobProposal } from "@armada/components";
 import type { GateBox, ProposalLandingValue } from "@armada/components";
@@ -23,6 +24,8 @@ import type {
 } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
+import { baseBranch } from "./draft/branches";
+import type { BranchView } from "./draft/branches";
 import type { TierModels } from "./draft/proposal";
 import {
   completeChoices,
@@ -47,8 +50,10 @@ export type ProposalTabProps = {
   whole: JobWhole | null;
   /** What this Job is at, and what a person has moved since it arrived. */
   edits: ProposalEdits;
-  /** One change, held by the screen — the whole of what an edit does today. */
+  /** One change, held by the screen until the header's press sends it. */
   onEdits: (edits: ProposalEdits) => void;
+  /** The repository's branches (#1605). `null` is nothing having listed them. */
+  branches: readonly BranchView[] | null;
   /** The models a tier may name. Empty until the connection answers. */
   models: readonly string[];
   /** Every workflow Fleet holds. The picker offers this Job's repository's. */
@@ -68,8 +73,10 @@ export function ProposalTab({
   workflows,
   stale,
   manifest,
+  branches,
 }: ProposalTabProps) {
   const { proposal, landing, criteria } = edits;
+  const base = baseBranch(branches);
   const frozenAt = frozenAtOf(proposal);
   // Frozen is what a handler's absence means, and `stale` freezes the same
   // way: a control that sends nothing while the connection is down would take
@@ -153,14 +160,15 @@ export function ProposalTab({
         models={models}
         {...(proposal.drone_cap === undefined ? {} : { droneCap: proposal.drone_cap })}
         machineCap={proposal.machine_cap}
-        landing={landingValueOf(landing)}
+        landing={landingValueOf(landing, base)}
         {...(open
           ? {
               onLanding: (value: ProposalLandingValue) =>
-                moved({ landing: landingWith(landing, value) }),
+                moved({ landing: landingWith(landing, value, base) }),
             }
           : {})}
         completeChoices={completeChoices()}
+        branches={branches}
         criteria={criteriaRowsOf(criteria)}
         {...(open
           ? {

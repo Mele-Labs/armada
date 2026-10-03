@@ -203,6 +203,13 @@ function sentenceCase(said: string): string {
  * once` read as one number said twice. The cap is the Job's rather than this
  * group's, and Overview carries it as `Drones at once`.
  */
+/**
+ * What running at once cannot see: two tasks whose edit calls named one file
+ * run again in turn, and a write made through the shell names none (answer 10).
+ */
+export const SHELL_UNSEEN =
+  "Two that edit one file run again one after the other; a write through the shell isn't seen";
+
 export function shapeSaid(group: GroupView): string {
   const many = `${group.tasks.length} ${group.tasks.length === 1 ? "task" : "tasks"}`;
   if (group.tasks.length === 1) return `${many}, on its own`;
@@ -226,8 +233,8 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTas
     id: task.id,
     title: task.title,
     mark: markOf(task.state),
-    tier: task.tier,
-    model: task.model,
+    ...(task.tier === undefined ? {} : { tier: task.tier }),
+    ...(task.model === undefined ? {} : { model: task.model }),
     runBy: runBySaid(task),
     ...(turns === undefined ? {} : { turnsSays: turns }),
     ...(cost === undefined ? {} : { costSays: cost }),
@@ -303,6 +310,7 @@ export function groupCardOf(
     says: groupSaid(group.state),
     concurrent: group.concurrent,
     shapeSays: shapeSaid(group),
+    ...(group.concurrent ? { shapeHint: SHELL_UNSEEN } : {}),
     scope: scopeRootOf(group.scope),
     tasks: group.tasks.map((task) => taskRowOf(task, touchedBy)),
     boundary: boundaryOf(group, cases, whole, step, onOpenCheckLog),

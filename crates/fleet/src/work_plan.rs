@@ -106,6 +106,11 @@ impl fmt::Display for NotPlanned {
                 "group {named} comes after a higher group. List the tasks group by group, \
                  in the order the groups run, and call again"
             ),
+            NotPlanned::Refused(PlanRefused::NotBeside { task, named }) => write!(
+                out,
+                "task {task} names {named} in `concurrent_with`, and only the number of \
+                 another task in its own group can be there. Correct the list and call again"
+            ),
             // A person's act, never a Drone's tool call: here for the match.
             NotPlanned::Refused(
                 why @ (PlanRefused::NoSuchGroup { .. }

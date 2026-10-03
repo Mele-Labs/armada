@@ -8,10 +8,10 @@ import { Input } from "../../primitives/Input/Input";
  * A branch field that offers the repository's branches and still takes a name
  * typed by hand.
  *
- * **Typed as well as picked, because the list is a floor.** Nothing on the
- * wire lists a repository's refs — `packages/screens/src/draft/branches.ts`
- * says what fills it and what it leaves out — so a picker that refused
- * everything it had not seen would refuse most of a real repository.
+ * **Typed as well as picked.** The list is the repository's own where
+ * `list_branches` is read (#1605, the approval) and a floor where it is not
+ * (the composer, `packages/screens/src/draft/branches.ts`); where the work
+ * lands may be a branch nobody has cut yet either way.
  *
  * **`offerNew` is the one difference between the two fields it draws.** Where
  * the work starts has to exist already; where it lands may not, and naming a
@@ -39,6 +39,11 @@ export type BranchPickerProps = {
   /** A name matching nothing is a branch to make. Off, it is just a name. */
   offerNew?: boolean;
   disabled?: boolean;
+  /**
+   * The field sits in a row that already says `label`, so it names the field
+   * to a screen reader and draws no label of its own — `ProposalField`'s rows.
+   */
+  labelledByRow?: boolean;
 };
 
 /** What a row says about a branch nothing has cut yet. */
@@ -54,7 +59,9 @@ export function BranchPicker({
   branches,
   offerNew = false,
   disabled = false,
+  labelledByRow = false,
 }: BranchPickerProps) {
+  const labelled = labelledByRow ? { "aria-label": label } : { label };
   const listId = useId();
   const optionId = (index: number): string => `${listId}-${index}`;
   const [open, setOpen] = useState(false);
@@ -66,7 +73,7 @@ export function BranchPicker({
   if (branches === null) {
     return (
       <Input
-        label={label}
+        {...labelled}
         mono
         value={value}
         disabled={disabled}
@@ -133,7 +140,7 @@ export function BranchPicker({
   return (
     <div className="armada-branch">
       <Input
-        label={label}
+        {...labelled}
         mono
         value={value}
         disabled={disabled}
@@ -158,7 +165,7 @@ export function BranchPicker({
       {!open ? null : (
         <div className="armada-branch__list" id={listId} role="listbox" aria-label={label}>
           {rows === 0 ? (
-            <p className="armada-branch__empty">{`No branch Armada has met matches “${value}”.`}</p>
+            <p className="armada-branch__empty">{`No branch matches “${value}”.`}</p>
           ) : (
             <>
               {matches.map((branch, index) => (

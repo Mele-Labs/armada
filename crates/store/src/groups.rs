@@ -158,6 +158,11 @@ impl Store {
         moved: &GroupMove,
         event_seq: Option<i64>,
     ) -> Result<(), WriteError> {
+        // A pair run apart is kept in a table of its own, slice 5: this one's
+        // `kind` is a run's start or its end and nothing else.
+        if let GroupMove::Apart(apart) = moved {
+            return self.record_apart(job_id, apart);
+        }
         let seq: i64 = self
             .conn
             .query_row(
@@ -205,6 +210,7 @@ impl Store {
                 },
                 commit.as_deref(),
             ),
+            GroupMove::Apart(_) => unreachable!("kept above"),
         };
         self.conn
             .execute(
@@ -242,6 +248,8 @@ impl Store {
                 group_move,
             )
             .map_err(LoadJobError::Unreadable)?;
+        let mut moves = moves;
+        moves.extend(self.apart_moves(job_id).map_err(LoadJobError::Unreadable)?);
         Ok(GroupRuns::fold(&moves))
     }
 

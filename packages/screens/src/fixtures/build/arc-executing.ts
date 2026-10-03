@@ -187,8 +187,8 @@ function t5Transcript(): { opened: Turn[]; arriving: Turn[] } {
   };
 }
 
-/** One Drone's process, as `ps` reports it. */
-function droneProcess(pid: number, ran: string): JobProcess {
+/** One Drone's process, as `ps` reports it, naming its Drone as 23.10 does. */
+function droneProcess(pid: number, ran: string, drone: string | undefined = ARC_DRONES.T5): JobProcess {
   return {
     pid,
     command: "node",
@@ -196,7 +196,13 @@ function droneProcess(pid: number, ran: string): JobProcess {
     memory_bytes: 486_539_264,
     running_for: ran,
     recorded: true,
+    ...(drone === undefined ? {} : { drone_id: drone }),
   };
+}
+
+/** One row of T6's transcript, stamped with its Drone, on the Job's one channel. */
+function byT6(row: Turn): Turn {
+  return { ...row, drone_id: ARC_DRONES.T6 ?? "T6" };
 }
 
 /** Everything the Job is holding, with a process per Drone that is up. */
@@ -212,6 +218,7 @@ function pulse(readAt: string, processes: JobProcess[]): PulseView {
       memory_bytes: one.memory_bytes,
       running_for: one.running_for,
       recorded: one.recorded,
+      drone: one.drone_id ?? null,
       // Concurrent tasks share one checkout, so every process here is placed
       // in the Job's own worktree. A second worktree is what a member would
       // bring, and `implement` has none.
@@ -722,6 +729,56 @@ export function doneTouched(): ArcMoment {
       ],
       drones: arcDrones(groups),
       pulse: pulse("2026-09-22T11:05:00.000Z", [droneProcess(53_402, "02:55")]),
+    },
+  };
+}
+
+/**
+ * Group three's two tasks running at once, each by a Drone of its own (spike
+ * 022, slice 5): T5 on the Job's kept Drone and T6 on one beside it, as Fleet
+ * serves them at 23.10 — both processes recorded and named, T6 on no history
+ * row, and both Drones' rows on the Job's one channel.
+ */
+export function executingAtOnce(): ArcMoment {
+  let groups = throughGroupTwo();
+  groups = withGroup(groups, "g3", { state: "running" });
+  groups = withTask(groups, "T5", { state: "working", turns: 14, drone_id: ARC_DRONES.T5 });
+  groups = withTask(groups, "T6", { state: "working", turns: 9, drone_id: ARC_DRONES.T6 });
+  const processes = [droneProcess(52_118, "06:12"), droneProcess(52_204, "05:40", ARC_DRONES.T6)];
+  const t5 = t5Transcript();
+  return {
+    name: "executingAtOnce",
+    says: "Implement — group three's two tasks running at once, each by a Drone of its own",
+    fixtures: [
+      executing({
+        says: "running — two tasks of group three at the same time",
+        groups,
+        step: implementStep(allPassed(checkNames(BRIDGE_CHECKS)), "2026-09-22T10:20:00Z"),
+        processes,
+        logs: [...sequentialLogs(), transcript("T6", 288_410, true)],
+        history: sequentialHistory(),
+        transcript: {
+          opened: [
+            ...t5.opened,
+            byT6(said("implement", "2026-09-22T10:16:30Z", "Reading the row press to open the Job.")),
+          ],
+          arriving: [
+            ...t5.arriving,
+            byT6(called("implement", "2026-09-22T10:20:40Z", "call_t6_edit", "Edit", "packages/screens/src/running-press.tsx +6 -1")),
+          ],
+        },
+      }),
+    ],
+    opens: ARC_JOB_ID,
+    draft: {
+      groups,
+      cases: arcCases(),
+      criteria: arcCriterionViews(),
+      proposal: arcApproved(),
+      landing: ARC_LANDING,
+      record: recordThroughGroupTwo(),
+      drones: arcDrones(groups),
+      pulse: pulse("2026-09-22T10:20:00.000Z", processes),
     },
   };
 }

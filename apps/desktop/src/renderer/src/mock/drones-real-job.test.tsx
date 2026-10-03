@@ -30,7 +30,7 @@ describe("the Drones of Job 2, as Fleet served them on its plan step", () => {
     await expect.element(page.getByRole("button", { name: "This Job's Drone" }).last()).toBeVisible();
     const [only, ...more] = rows();
     expect(more).toEqual([]);
-    const [drone, where, state, , ranFor] = only ?? [];
+    const [drone, where, state, , , ranFor] = only ?? [];
     expect([drone, where]).toEqual(["This Job's Drone", "Plan the change"]);
     // A mark, named Running to a screen reader and on hover — never a word drawn.
     expect(state).toContain("Running");
