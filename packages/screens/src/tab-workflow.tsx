@@ -34,10 +34,10 @@ import type { Render } from "./render";
 import { StepActs } from "./StepActs";
 import { refusedOn } from "./refused-on";
 import { TAB_LABEL } from "./detail-tabs";
-import type { DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
-import { DRONE_SAYS, droneLabelOf } from "./tab-drones-read";
+import { droneLabelOf, droneSays } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
@@ -288,7 +288,7 @@ export function WorkflowTab({
   const openStepId = whole.steps.find((step) => stepNodeId(step.step_id) === open)?.step_id;
   const here = drones
     .filter((one) => one.step === openStepId)
-    .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
+    .sort((a, b) => Number(isWorking(b)) - Number(isWorking(a)));
   const ranFor = (one: DroneView): string | undefined =>
     one.ended_at !== undefined
       ? elapsedSince(one.since, one.ended_at)
@@ -387,7 +387,7 @@ export function WorkflowTab({
             // The Drones tab's own mark for the state, named on hover — a
             // mark, never a word (owner, 2 Oct 2026).
             activity: DRONE_ACTIVITY[one.state],
-            said: DRONE_SAYS[one.state],
+            said: droneSays(one),
             says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),
           })),
           ...(onOpenDrone === undefined ? {} : { onOpen: onOpenDrone }),

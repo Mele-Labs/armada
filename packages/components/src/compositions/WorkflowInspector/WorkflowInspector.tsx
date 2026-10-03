@@ -5,7 +5,7 @@ import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/Ho
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
-import { StepPhaseMark, type StepPhase } from "../StepPhaseMark/StepPhaseMark";
+import { StepPhaseTrack, type StepPhasePart } from "../StepPhaseTrack/StepPhaseTrack";
 
 /**
  * One step or group of a Job's workflow, read whole — what it is doing, the
@@ -147,10 +147,10 @@ export type WorkflowInspectorProps = {
    */
   stopped?: { why?: React.ReactNode; acts?: React.ReactNode };
   /**
-   * Which part of the running step it is in, on the state pill beside its word
-   * — the step card's own mark, so the card and its panel say it together.
+   * The running step's parts in order, in the header under the state pill — the
+   * step card's own track, so the card and its panel say it together.
    */
-  phase?: { phase: StepPhase; label: string };
+  track?: readonly StepPhasePart[];
   redirect?: WorkflowInspectorRedirect;
   /**
    * Every Drone that worked this step, running or not, each one a press away
@@ -253,7 +253,7 @@ export function WorkflowInspector({
   failure,
   asks,
   stopped,
-  phase,
+  track,
   redirect,
   running,
   stop,
@@ -265,7 +265,16 @@ export function WorkflowInspector({
       <span className="armada-wf-inspector__state" data-activity={state.activity}>
         <StepActivityMark activity={state.activity} label={state.said} />
         <span>{state.said}</span>
-        {phase === undefined ? null : <StepPhaseMark phase={phase.phase} label={phase.label} />}
+      </span>
+    );
+  // The pill and, on a step at work, its track under it: the header says both.
+  const subtitle =
+    track === undefined ? (
+      pill
+    ) : (
+      <span className="armada-wf-inspector__header-track">
+        {pill}
+        <StepPhaseTrack parts={track} />
       </span>
     );
   const regions = (
@@ -450,7 +459,7 @@ export function WorkflowInspector({
         floating
         floor={sheet.floor ?? false}
         title={name}
-        {...(pill === null ? {} : { subtitle: pill })}
+        {...(subtitle === null ? {} : { subtitle })}
         {...(eyebrow === undefined ? {} : { leading: <span className="armada-wf-inspector__leading">{eyebrow}</span> })}
         back={sheet.back}
         closeLabel="Close"
@@ -474,7 +483,7 @@ export function WorkflowInspector({
         <div className="armada-wf-inspector__titles">
           {eyebrow === undefined ? null : <p className="armada-wf-inspector__eyebrow">{eyebrow}</p>}
           <h3 className="armada-wf-inspector__name">{name}</h3>
-          {pill}
+          {subtitle}
           {doing === undefined ? null : <p className="armada-wf-inspector__doing">{doing}</p>}
         </div>
         {onClose === undefined ? null : (

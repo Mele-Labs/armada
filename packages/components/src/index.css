@@ -370,6 +370,9 @@
 /* A pull request, small: the review gate's The work. #1680. */
 @import "./compositions/PullRequestCard/PullRequestCard.css";
 
+/* A running step's parts in order, on its card and in its panel. */
+@import "./compositions/StepPhaseTrack/StepPhaseTrack.css";
+
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */
 .armada-helm-dock {
@@ -378,4 +381,3 @@
   gap: var(--space-3);
   min-width: 0;
 }
-@import "./compositions/StepPhaseMark/StepPhaseMark.css";

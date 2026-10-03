@@ -5,7 +5,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
-import { StepPhaseMark, type StepPhase } from "../StepPhaseMark/StepPhaseMark";
+import { StepPhaseTrack, type StepPhasePart } from "../StepPhaseTrack/StepPhaseTrack";
 
 /**
  * One node of a Job's graphs — a step, a group inside a plan, or a task
@@ -91,11 +91,11 @@ export type WorkflowStepCardProps = {
    */
   bar?: { groups: readonly TaskBarSegment[]; label: string };
   /**
-   * Which part of the running step it is in — a Drone, the gate's Checks, the
-   * Judge, or a person — as a mark beside the step's own, named by its tooltip
-   * (owner's annotation of 3 Oct 2026, `ouqa`). Absent on a step not running.
+   * The running step's parts in order, along the card's bottom edge — done,
+   * now, next (owner, 3 Oct 2026, `ouqa`). **Drawn, it is the card's one loop**
+   * and the sweep stands down. Absent on a step neither running nor waiting.
    */
-  phase?: { phase: StepPhase; label: string };
+  track?: readonly StepPhasePart[];
 };
 
 export function WorkflowStepCard({
@@ -114,7 +114,7 @@ export function WorkflowStepCard({
   onOpen,
   needs = [],
   bar,
-  phase,
+  track,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -156,7 +156,7 @@ export function WorkflowStepCard({
       {/* The bar, drawn before the head so it lands on the card's own top edge
           rather than inside its content box. Nothing to read: the mark and the
           word beside it already say running. */}
-      {working ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
+      {working && track === undefined ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
       <span className="armada-wf-card__head">
         {mark === undefined ? (
           <StepActivityMark
@@ -172,7 +172,6 @@ export function WorkflowStepCard({
         ) : (
           <OwnMark mark={mark} label={said} says={`${name}, ${said}`} />
         )}
-        {phase === undefined ? null : <StepPhaseMark phase={phase.phase} label={phase.label} />}
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
@@ -202,12 +201,18 @@ export function WorkflowStepCard({
           {gate}
         </span>
       )}
+      {track === undefined ? null : (
+        <span className="armada-wf-card__track">
+          <StepPhaseTrack parts={track} />
+        </span>
+      )}
     </>
   );
 
-  // The phase is in the card's own name too: a button's contents are
-  // presentational, so a mark inside it reaches a screen reader no other way.
-  const named = phase === undefined ? `${name}, ${said}` : `${name}, ${said}, ${phase.label}`;
+  // The part now is in the card's own name too: a button's contents are
+  // presentational, so the track inside it reaches a screen reader no other way.
+  const nowSaid = track?.find((part) => part.state === "now")?.label;
+  const named = nowSaid === undefined ? `${name}, ${said}` : `${name}, ${said}, ${nowSaid}`;
   const attributes = {
     className: "armada-wf-card",
     "data-kind": kind,
