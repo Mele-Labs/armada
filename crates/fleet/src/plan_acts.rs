@@ -110,7 +110,8 @@ where
     ) -> Result<Job, Adrift> {
         let plan = self.planned(job).await?;
         let runs = self.group_runs_of(job).await?;
-        if let Err(why) = restartable(&plan, &runs, task) {
+        let held = self.load(job).await?;
+        if let Err(why) = restartable(&plan, &runs, &held, task) {
             return Err(match why {
                 NotRestartable::NoSuchTask { task } => Adrift::PlanRefused {
                     job: job.clone(),
@@ -169,7 +170,7 @@ where
     }
 
     /// Keep a person's change, and say so on `job.plan_changed`.
-    async fn changed_by_person(
+    pub(crate) async fn changed_by_person(
         &self,
         job: &JobId,
         change: &PlanChange,

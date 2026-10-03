@@ -858,9 +858,9 @@ peer_polarity = "Lower is stricter"
 owner = "Fleet"
 read_by = "verification"
 notes = """
-The most of the file `armada.yml`'s `standing_rules` names that one brief carries, a Judge's or a Drone's. Over it, `verification::Standing::read` cuts at the last whole line that fits and the brief says the file was cut, at what size, and that the rest is not shown — neither reader is handed part of a repository's rules without being told. `STANDING_RULES` in `crates/verification/src/standing.rs`.
+The most of the file `armada.yml`'s `standing_rules` names that one Judge brief carries. Over it, `verification::Standing::read` cuts at the last whole line that fits and the brief says the file was cut, at what size, and that the rest is not shown — a Judge is never handed part of a repository's rules without being told. `STANDING_RULES` in `crates/verification/src/standing.rs`.
 
-**One bound for both readers, and named for neither.** It was `judge-brief-standing-rules-cap` until 1 Oct 2026, when the Drone's opening brief began carrying the same file from the same read. Two bounds would let a Drone be told less of the rules than its Judge measures the work against, or more, and the point of telling the Drone is that the two read the same text.
+**The Judge is its only reader.** It was `judge-brief-standing-rules-cap` until 1 Oct 2026, when the Drone's opening brief began carrying the same file; that block was removed on 2 Oct 2026, because a Drone reads the repository itself (owner, 2 Oct 2026).
 
 **A judgement, not a measurement.** The text rides every Judge call, times `panel_size`, beside a brief already carrying the request, the Check tails and often the whole diff, so it must stay a small part of one. Four kibibytes is roughly a thousand tokens and nearly three times `docs/instructions/every-change.md`, the file Armada's own `armada.yml` names. It is a list of what every change carries, and a file that needs more is a contract to point at rather than to paste.
 """

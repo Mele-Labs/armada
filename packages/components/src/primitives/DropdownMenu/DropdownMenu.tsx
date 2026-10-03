@@ -50,6 +50,14 @@ export type DropdownMenuProps = {
   entries: DropdownMenuEntry[];
   defaultOpen?: boolean;
   /**
+   * Held by the caller, for a menu something besides its trigger opens — a
+   * Studio's Run, which `R` and the palette open as a press on it does (the
+   * owner, 2 Oct 2026). Absent, the menu holds its own. Every close the menu
+   * makes itself is reported to `onOpenChange`.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
    * The trigger is off and the menu does not open — for a menu whose every
    * item sends something, while a send is already out. Disabled is
    * `--fg-subtle` text with hover suppressed, never an opacity, which is the
@@ -72,11 +80,22 @@ export function DropdownMenu({
   align = "end",
   entries,
   defaultOpen = false,
+  open: held,
+  onOpenChange,
   disabled = false,
   onSelect,
   icon: Glyph,
 }: DropdownMenuProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [own, setOwn] = useState(defaultOpen);
+  const open = held ?? own;
+  const setOpen = (next: boolean) => {
+    if (held === undefined) setOwn(next);
+    onOpenChange?.(next);
+  };
+  // The listeners below are added once per opening, so they read the latest
+  // close through this rather than the one in force when they were added.
+  const close = useRef(setOpen);
+  close.current = setOpen;
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -103,10 +122,10 @@ export function DropdownMenu({
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") close.current(false);
     }
     function onDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) close.current(false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -130,7 +149,7 @@ export function DropdownMenu({
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
           disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(!open)}
         >
           {triggerLabel}
           <Count of={triggerCount} />
@@ -148,7 +167,7 @@ export function DropdownMenu({
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
           disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(!open)}
         >
           <Glyph size={16} strokeWidth={2} aria-hidden />
         </Button>

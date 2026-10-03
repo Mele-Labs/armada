@@ -41,7 +41,7 @@ export type LandsWhen = "auto" | "you_at_review";
 export type DispatchSettingsView = {
   /** Which workflow to run, where a person overrode the proposer's read. */
   workflow_id?: string;
-  /** Which model each tier runs on. `null` inside it is Auto — the harness chooses. */
+  /** Which model each tier runs on. `null` inside it is a tier left out: Armada picks. */
   tiers?: TierModels;
   /** How many Drones this Job may run at once, inside the machine's own cap. */
   drone_cap?: number;

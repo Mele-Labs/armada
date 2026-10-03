@@ -77,6 +77,9 @@ pub struct FakeDaemon {
     /// The one running Check's log `observe_check_output` resolves, by the
     /// name it answers to. Planted by a test, whose reader it drives.
     pub live: Mutex<Option<(String, crate::LiveOutput)>>,
+    /// The one merge line Check's log `observe_land_check` resolves, by the
+    /// root, branch and Check it answers to. Planted by a test, `live`'s way.
+    pub land: Mutex<Option<crate::LandOutput>>,
     /// The limits in force, which the fake's own saves change.
     limits: Mutex<ipc::FleetLimits>,
     /// The preferences in force, which the fake's own saves change.
@@ -134,6 +137,7 @@ impl FakeDaemon {
             servers: Mutex::new(Vec::new()),
             mute: Mutex::new(false),
             live: Mutex::new(None),
+            land: Mutex::new(None),
             limits: Mutex::new(shapes::limits()),
             preferences: Mutex::new(shapes::preferences()),
             repository_allowed: Mutex::new(Vec::new()),
