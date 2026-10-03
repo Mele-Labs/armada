@@ -332,7 +332,10 @@ where
             .group_runs_of(job.id())
             .await
             .map_err(|why| self.refusal(why))?;
-        detail.work_plan = plan.as_ref().map(|plan| ipc::WorkPlan::of(plan, &runs));
+        detail.work_plan = match plan.as_ref() {
+            Some(plan) => Some(self.served_plan(job.id(), plan, &runs).await),
+            None => None,
+        };
         let reviewed = self
             .store()
             .lock()

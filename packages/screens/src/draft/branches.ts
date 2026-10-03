@@ -1,6 +1,7 @@
 // What branches a repository has. Draft, for `crates/ipc/src/refs.rs`.
 //
-// Source of truth today: nothing lists them. `ManifestDeclared.base` and
+// Source of truth since 23.8: `list_branches`, read by `branchesFrom` below.
+// Before it, and still in the composer: nothing lists them. `ManifestDeclared.base` and
 // `WorktreeHeld.branch` are the only branch names Bridge ever sees, so the
 // derivation below is a floor and never the repository's own list — which is
 // why the field reading it still takes a name typed by hand.
@@ -9,7 +10,7 @@
 // and both fields draw as the plain ones they were. That is `landing.ts`'s
 // gap one field over, and it closes with the same read.
 
-import type { ManifestDeclared, WorktreeHeld } from "@armada/protocol";
+import type { Branches, ManifestDeclared, WorktreeHeld } from "@armada/protocol";
 
 /** One branch a dispatch may start from or land in. */
 export type BranchView = {
@@ -75,4 +76,14 @@ export function branchesOf(
  */
 export function baseBranch(branches: BranchesAnswer): string | null {
   return branches?.find((one) => one.base)?.name ?? null;
+}
+
+/**
+ * The repository's own list, as `list_branches` answers it (#1605, since
+ * 23.8): read through git by Fleet, the base first. **This replaces the floor
+ * above wherever the read is made**; `branchesOf` stays for the composer,
+ * whose two refs reach no field on the wire yet.
+ */
+export function branchesFrom(answer: Branches): BranchView[] {
+  return answer.branches.map((row) => ({ name: row.name, base: row.base }));
 }

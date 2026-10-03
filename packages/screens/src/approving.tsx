@@ -1,67 +1,185 @@
 // What a Job at its dispatch gate is being approved for, read under Overview's
-// lead: what counts as done, what its workflow promises, and how each step
-// gates.
+// lead: its title, what counts as done, how each step gates, and where it lands.
 //
-// **Read-only, and off what Fleet already sends** — the owner, 1 Oct 2026. He
-// approved Job 1 from the lead on his own Fleet with the request, the
-// workflow's name and the title in front of him, and nothing else: the
-// proposer had picked `refactor`, which promises nothing visible changes, for
-// a visible change, and the Judge refused the plan. The editable proposal
-// (`ProposalTab`) draws only off a draft, and no real Fleet serves one until
-// #1545.
+// **Under the lead, the owner's 1 Oct 2026 arrangement.** He approved Job 1
+// with the title and the workflow's name in front of him and nothing else, and
+// the Judge refused the plan the proposer had picked a wrong workflow for.
 //
-// **The proposal's own pieces, with no handler passed**, which is what freezes
-// each of them — so the words at this gate and the words the editable proposal
-// draws are one spelling, as `frozen-at-approval.tsx` keeps them for Settings.
+// **Yours to change until the press, since 23.8.** `approve_dispatch` takes
+// the proposal as the person left it (#1641), so each region takes its handler
+// and the press sends what moved — `approvalOf`. The proposal's own pieces, so
+// the words here and on `ProposalTab` are one spelling.
 
-import { ProposalDoneWhen, ProposalGates } from "@armada/components";
-import type { JobDetail as JobWhole, ManifestSummary, WorkflowSummary } from "@armada/protocol";
-
-import { criterionViewsOf } from "./draft/criterion";
-import { gateViewOf } from "./draft/proposal";
 import {
+  Input,
+  ProposalDoneWhen,
+  ProposalField,
+  ProposalFields,
+  ProposalGates,
+  ProposalLanding,
+} from "@armada/components";
+import type { GateBox, ProposalLandingValue } from "@armada/components";
+import type {
+  JobDetail as JobWhole,
+  ManifestSummary,
+  WorkflowSummary,
+} from "@armada/protocol";
+
+import { baseBranch } from "./draft/branches";
+import type { BranchView } from "./draft/branches";
+import {
+  completeChoices,
+  criteriaAdded,
   criteriaRowsOf,
+  criteriaWith,
+  criteriaWithout,
   gateRowsOf,
+  gatesWith,
+  landingValueOf,
+  landingWith,
+  proposalOnWorkflow,
   repositorySaysOf,
+  stepsDeclaredOf,
   workflowChoicesOf,
 } from "./tab-proposal-read";
+import type { ProposalEdits } from "./tab-proposal-read";
 
 export type ApprovingProps = {
   whole: JobWhole;
+  /** What this Job is at, and what a person has moved since it arrived. */
+  edits: ProposalEdits;
+  /** One change, held by the screen until the press. Absent draws every region read. */
+  onEdits?: (edits: ProposalEdits) => void;
   /** Every workflow Fleet holds, for the name this Job's id is declared under. */
   workflows: readonly WorkflowSummary[];
   /** This Job's repository, for the policy a gate defers to. */
   manifest?: ManifestSummary | undefined;
+  /** The repository's branches (#1605). `null` is nothing having listed them. */
+  branches: readonly BranchView[] | null;
 };
 
 /**
- * **Each step's gate is `gateViewOf` on the Job's own frozen step**, the same
- * read `proposalViewOf` makes — which also wants the machine's limits, and
- * nothing here draws them.
- *
- * **No criteria draws no region**, rather than a sentence saying so.
+ * **No criteria draws no region where nothing may be added**, rather than a
+ * sentence saying so; while the proposal is open, the region is where a line
+ * is added.
  */
-export function Approving({ whole, workflows, manifest }: ApprovingProps) {
-  const criteria = criteriaRowsOf(criterionViewsOf(whole));
-  // **The catalogue as it is now, not as it froze at dispatch** — `JobDetail`
-  // carries no promise of its own. A Job waiting to be approved has run
-  // nothing the two could disagree about. Rows are per Manifest, so the id
-  // alone could name another repository's workflow of the same id.
+export function Approving({
+  whole,
+  edits,
+  onEdits,
+  workflows,
+  manifest,
+  branches,
+}: ApprovingProps) {
+  const { proposal, landing, criteria } = edits;
+  const moved =
+    onEdits === undefined
+      ? undefined
+      : (change: Partial<ProposalEdits>) => onEdits({ ...edits, ...change });
+  const base = baseBranch(branches);
+  // **The catalogue as it is now** — `JobDetail` carries no promise of its
+  // own. Rows are per Manifest, so the id alone could name another
+  // repository's workflow of the same id.
   const forRequests = workflows.find(
-    (one) => one.id === whole.job.workflow_id && one.manifest_id === whole.job.owner_manifest_id,
+    (one) =>
+      one.id === proposal.workflow_id &&
+      one.manifest_id === whole.job.owner_manifest_id,
   )?.for_requests;
   return (
     <section
       className="armada-overview-board__approving armada-glass"
       aria-label="What you are approving"
     >
-      {criteria.length === 0 ? null : <ProposalDoneWhen criteria={criteria} />}
-      <ProposalGates
-        workflow={whole.job.workflow_id}
-        workflowChoices={workflowChoicesOf(workflows, whole.job.owner_manifest_id)}
-        {...(forRequests === undefined ? {} : { forRequests })}
-        steps={gateRowsOf(whole.steps.map(gateViewOf), whole, undefined, repositorySaysOf(manifest))}
-      />
+      <div className="armada-overview-board__approving-column">
+        <ProposalFields>
+          <ProposalField label="Title" bare={moved !== undefined}>
+            {moved === undefined ? (
+              proposal.title
+            ) : (
+              <Input
+                aria-label="Title"
+                value={proposal.title}
+                onChange={(event) =>
+                  moved({
+                    proposal: { ...proposal, title: event.target.value },
+                  })
+                }
+              />
+            )}
+          </ProposalField>
+        </ProposalFields>
+        {criteria.length === 0 && moved === undefined ? null : (
+          <ProposalDoneWhen
+            criteria={criteriaRowsOf(criteria)}
+            {...(moved === undefined
+              ? {}
+              : {
+                  onCriterion: (at: number, text: string) =>
+                    moved({ criteria: criteriaWith(criteria, at, text) }),
+                  onAdd: () => moved({ criteria: criteriaAdded(criteria) }),
+                  onRemove: (at: number) =>
+                    moved({ criteria: criteriaWithout(criteria, at) }),
+                })}
+          />
+        )}
+      </div>
+      <div className="armada-overview-board__approving-column">
+        <ProposalGates
+          workflow={proposal.workflow_id}
+          workflowChoices={workflowChoicesOf(
+            workflows,
+            whole.job.owner_manifest_id,
+          )}
+          {...(forRequests === undefined ? {} : { forRequests })}
+          steps={gateRowsOf(
+            proposal.gates,
+            whole,
+            stepsDeclaredOf(workflows, proposal.workflow_id),
+            repositorySaysOf(manifest),
+          )}
+          {...(moved === undefined
+            ? {}
+            : {
+                // Another workflow rebuilds every gate, because a gate belongs to
+                // a step — `proposalOnWorkflow` says why.
+                onWorkflow: (workflowId: string) =>
+                  moved({
+                    proposal: proposalOnWorkflow(
+                      proposal,
+                      workflows,
+                      workflowId,
+                    ),
+                  }),
+                onGate: (stepId: string, box: GateBox, ticked: boolean) =>
+                  moved({
+                    proposal: {
+                      ...proposal,
+                      gates: gatesWith(proposal.gates, stepId, {
+                        [box]: ticked,
+                      }),
+                    },
+                  }),
+                onOverride: (stepId: string, overridden: boolean) =>
+                  moved({
+                    proposal: {
+                      ...proposal,
+                      gates: gatesWith(proposal.gates, stepId, { overridden }),
+                    },
+                  }),
+              })}
+        />
+        <ProposalLanding
+          landing={landingValueOf(landing, base)}
+          {...(moved === undefined
+            ? {}
+            : {
+                onLanding: (value: ProposalLandingValue) =>
+                  moved({ landing: landingWith(landing, value, base) }),
+              })}
+          completeChoices={completeChoices()}
+          branches={branches}
+        />
+      </div>
     </section>
   );
 }

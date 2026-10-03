@@ -40,7 +40,7 @@ export type PlanTabProps = PlanReviewProps & {
    */
   wave: WaveRegionProps;
   /** Held, never pressed. What Drop from the wave sends, on that Job. */
-  onActHeld: (act: HeldAct, jobId: string) => void;
+  onActHeld: (act: HeldAct, jobId: string, droneId?: string) => void;
   /** Hold the patch's read open while this destination is — Overview's own call. */
   onReadDiff?: (jobId: string | null) => void;
   /**

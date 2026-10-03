@@ -1,5 +1,6 @@
 // What a mock Fleet does with a person's own acts on a plan: add and drop
-// (`#897`), and since 23.4 restart (`#1656`) and move (`#1685`).
+// (`#897`), since 23.4 restart (`#1656`) and move (`#1685`), and since 23.6
+// Edit this task (`#1657`).
 //
 // **Both halves of what a board draws move together**: the Job's `work_plan`,
 // which is what Fleet answers with, and the moment's draft groups, which is
@@ -7,7 +8,7 @@
 // first). One of them alone would leave the screen unchanged on one kind of
 // scenario or the other.
 
-import type { AddTask, DropTask, MovePlan, PlanTask, StepDetail, WorkPlan } from "@armada/protocol";
+import type { AddTask, DropTask, EditTask, MovePlan, PlanTask, StepDetail, WorkPlan } from "@armada/protocol";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { TaskView } from "@armada/screens/src/draft/task";
 
@@ -189,6 +190,46 @@ export function groupsMoving(groups: readonly GroupView[], move: MovePlan): Grou
     }
     return { ...group, tasks };
   });
+}
+
+/** Fleet's rule for an edit: an open or a failed task, and nothing else. */
+const EDITABLE: readonly string[] = ["open", "failed"];
+
+/**
+ * Edit this task (#1657), as Fleet keeps one: the fields sent, trimmed, over
+ * the task's own, and `undefined` where the task is not open or failed — in
+ * the plan, or in the draft groups an arc moment draws instead.
+ */
+export function planEditing(plan: WorkPlan, taskId: string, edit: EditTask, editableInDraft = false): WorkPlan | undefined {
+  const was = plan.tasks.find((task) => task.id === taskId);
+  if (!editableInDraft && (was === undefined || !EDITABLE.includes(was.state))) return undefined;
+  return { ...plan, tasks: plan.tasks.map((task) => (task.id === taskId ? edited(task, edit) : task)) };
+}
+
+/** The groups with the same edit on the same task, as `planEditing` has it. */
+export function groupsEditing(groups: readonly GroupView[], taskId: string, edit: EditTask): GroupView[] {
+  return groups.map((group) => ({
+    ...group,
+    tasks: group.tasks.map((task) => (task.id === taskId ? edited(task, edit) : task)),
+  }));
+}
+
+/** One task with an edit's fields over its own. A field emptied is left out, as Fleet serves it. */
+function edited<T extends { title: string; note?: string; scope?: string[]; expects?: string; model?: string }>(
+  task: T,
+  edit: EditTask,
+): T {
+  const next: T = { ...task };
+  if (edit.title !== undefined) next.title = edit.title.trim();
+  if (edit.scope !== undefined) next.scope = edit.scope.map((path) => path.trim()).filter((path) => path !== "");
+  if (edit.model !== undefined) next.model = edit.model;
+  for (const key of ["note", "expects"] as const) {
+    const sent = edit[key];
+    if (sent === undefined) continue;
+    if (sent.trim() === "") delete next[key];
+    else next[key] = sent.trim();
+  }
+  return next;
 }
 
 /** The groups with `drop.task` dropped, for the reason given. */

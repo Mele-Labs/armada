@@ -38,7 +38,7 @@ Groups exist because a parallel schedule cannot be derived. Intersecting the tas
 | `state` | Task | `open`, `working`, `handed_in`, `done`, `failed`, `dropped`. The wire carries all six since protocol 22.0; Fleet writes `handed_in` since 23.1 and `failed` since 23.4 |
 | `group` | Task | The group it runs in, `G1` and on, minted by Fleet at the recording and never renumbered by a move. The planner numbers groups with `record_plan`'s `group`; a task naming none joins the one before it, so a plan naming none is one group |
 | `reason` | Task | Required when `state` is `dropped` |
-| `concurrent_with` | Task | Which tasks in its group may run at the same time, declared by the planner. *Not yet built* |
+| `concurrent_with` | Task | Which tasks in its group may run at the same time, declared by the planner and read both ways. A pair whose edit calls once named one file is run apart for the rest of the plan. Since spike 022's slice 5 |
 
 **`scope` is a list because the step after the planning one reads it.** It
 was prose inside `note` until `#1421`, and a step handed prose went looking
@@ -94,7 +94,7 @@ them is still on the branch, so the plan does not reset with the step.
 | --- | --- |
 | The step is entered, or a task's Drone handed in | Puts a Drone on the first task, in the group being worked, that is `open`, or `working` under a Drone that is gone, and marks it `working`. Its brief names the task and says the hand-in ends it |
 | That Drone calls `submit_evidence` | Keeps the hand-in as the task's, marks it `handed_in`, answers `recorded`, and puts nothing in the step's evidence inbox |
-| The next turn | Ends that Drone and spawns the next task's on the same worktree. No gate runs, and the cap and headroom are not asked: the Job keeps its one agent (answer 2) |
+| The first turn after that Drone comes to rest | Ends it and spawns the next task's on the same worktree. No gate runs, and the cap and headroom are not asked: the Job keeps its one agent (answer 2). It waits for the rest because the Drone's turns and cost arrive on its last line; one that has not rested within the report grace is ended without them |
 | No task of the group is open or working | Puts one submission in the inbox carrying each of the group's claims, labelled `T1: …`. The step's Checks and Judge run at the group's end |
 | The group's Checks pass | Marks its `handed_in` and `failed` tasks `done`, and *Groups* below says what follows |
 
@@ -133,11 +133,15 @@ them is still on the branch, so the plan does not reset with the step.
 
 ## Tasks that may run at once are declared, never inferred
 
-**Not yet built.** The planning Drone names which tasks in a group may run at the same time. It is a declaration because it cannot be a derivation: intersecting declared paths finds the write-write edges and none of the read edges, and a planner that has just written the plan knows both.
+**Built in spike 022's slice 5.** The planning Drone names which tasks in a group may run at the same time, as `concurrent_with` on `record_plan`. It is a declaration because it cannot be a derivation: intersecting declared paths finds the write-write edges and none of the read edges, and a planner that has just written the plan knows both.
 
 **They share the Job's one worktree.** Two Drones writing different files in one checkout do not collide. What needs care is anything that *reads* the tree, which is the group boundary the design already has: the concurrent tasks join, then the Checks run on a still tree, then the group commits once. Tasks that ran at once cannot each have their own commit.
 
-**The cost is an undeclared write.** Two writes to one file neither task declared are last-write-wins and silent, and `scope_diff_check` finds the drift after the fact — which is enough when tasks run in order and is not enough when they run together. Nothing yet catches it.
+**Every running Job keeps one Drone, and its extra Drones wait their turn** (answer 2). The Job's kept Drone holds its place from admission to its end. A Drone beside it, on a task safe beside every task being worked, asks the machine's cap, which counts Drones, the Job's own Drone cap inside it, memory and the repository's disk, and gives way to a Job waiting to start. Refused, it waits a turn. A Drone beside the kept one that leaves without handing in, or that a person stops, puts its task back to `open` for the kept Drone, and none is started beside it again for that task.
+
+**An undeclared write is caught at the join, off the Drones' edit calls** (answers 6 and 10). Each task Drone's edit calls are kept at its first hand-in. When the group's last task is in, two tasks whose Drones ran at the same time and named one file go back to `open` and are run apart for the rest of the plan, so the group does not reach its gate and does not commit; they run again one after the other. **A write through the shell — `sed`, a formatter, a code generator — names no file and is not seen.**
+
+**A later task coming back to a done task's file is said, not refused.** Where a later group's task's edit calls named a file a done task's had, that task reads `touched_after_done`.
 
 ## A task's cost appears when its agent stops
 

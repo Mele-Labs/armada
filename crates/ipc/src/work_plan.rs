@@ -121,6 +121,21 @@ pub struct PlanTask {
     /// task no change ever marked working. Since 14.5.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub working_windows: Vec<WorkingWindow>,
+    /// The other tasks of its group it may run at the same time as, by id:
+    /// the planner's `concurrent_with`, read both ways, less any pair Fleet
+    /// ran apart after their edit calls named one file. **Left out where
+    /// empty**, which is a task that runs alone. Since 23.10.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concurrent_with: Vec<String>,
+    /// A later task's edit calls named a file this done task's had. **Not a
+    /// fault**, and a write through the shell is not seen. Left out where
+    /// false. Since 23.10.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub touched_after_done: bool,
+}
+
+fn is_false(flag: &bool) -> bool {
+    !*flag
 }
 
 /// From the change that marked a task `working` to the change that moved it
@@ -443,6 +458,12 @@ impl WorkPlan {
                             left: window.left.as_ref().map(Instant::from),
                         })
                         .collect(),
+                    concurrent_with: runs
+                        .beside(plan, task.id())
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect(),
+                    touched_after_done: false,
                 })
                 .collect(),
             groups: plan

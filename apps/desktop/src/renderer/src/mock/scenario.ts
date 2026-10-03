@@ -57,6 +57,7 @@ import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 import { NOTHING_YET } from "../../../shared/bridge";
 import { brokenOnMain, FIX_TITLE, heldByTheGamingCheck, withBreakages } from "./job-detail-fixtures";
 import { connected } from "./moment";
+import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -69,6 +70,7 @@ import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { featureAfterAgreeing } from "./job-detail-refusal";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
+import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 import { writingLogs } from "./check-logs-fleet";
 
@@ -548,6 +550,11 @@ export const SCENARIOS: readonly Scenario[] = [
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
+  // A Job at its gate whose criteria were read from an issue that has moved
+  // since, as Fleet serves it at 23.8, with its repository's branches (#1765).
+  holding("real/proposal-from-an-issue", proposalFromAnIssue().name, [proposalFromAnIssue()], {
+    opens: proposalFromAnIssue().job.id,
+  }),
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
   // A Judge refusal he agreed with: the step stopped and the Job escalated,
@@ -555,6 +562,8 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
     opens: featureAfterAgreeing().job.id,
   }),
+  // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
+  holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

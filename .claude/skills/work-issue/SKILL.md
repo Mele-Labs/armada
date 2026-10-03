@@ -202,6 +202,18 @@ scripts/land --status    # poll in short foreground calls
 **A red turn comes back to you.** Read the logs it names, fix on the branch,
 then preflight and land again.
 
+**Read the gate's verdict before you join the line, and never chain `land`
+after it with `;`.** Confirmed 2 Oct 2026: `verify-foundations …; git push &&
+… scripts/land` queued a branch the gate had just called RED on a vendor
+literal. That took two re-preflights to replace it. Make the gate a guard:
+`if`, or `|| exit`.
+
+**Watch a branch with `armada land --status <branch>` and its `<branch>:`
+line.** The bare `scripts/land --status`, run outside that branch's worktree,
+lists the line as numbered entries. A watcher grepping `^<branch>` there finds
+nothing. Confirmed 2 Oct 2026: one reported three queued branches as out of the
+line, and two more expired silently while all three were still gating.
+
 **The line exists because a branch's Checks measure a `main` that moves.** The
 gate reads the merged tree, and a branch and `main` can each sit under a limit
 that the two together cross. Confirmed 2026-09-12: #730 passed

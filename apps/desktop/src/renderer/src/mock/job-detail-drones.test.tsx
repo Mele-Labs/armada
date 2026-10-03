@@ -2,8 +2,8 @@
 // ways to them. The owner's notes of 29 Sep: *Implement takes me to the step
 // panel on the workflow tab, T5 takes me to the task panel on the plan tab.*
 
-import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { expect, test, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 import { motion, mount, unmountAfterEach } from "./testing";
 
@@ -86,4 +86,27 @@ test("pressing the task in a Drone's sheet lands on Plan with that task's sheet 
   await expect.element(sheet).toHaveTextContent("T5");
   await expect.element(sheet).toHaveTextContent("Draw what is running, in four lists");
   await expect.element(sheet).toHaveTextContent("Drone on T5");
+});
+
+// #1666: with two tasks running at once, a Drone's sheet stops or tells that
+// Drone alone — the act carries its id, never the Job's.
+test("a Drone's own sheet sends its message and its kill to that Drone, by id", async () => {
+  mount("arc/executing-at-once");
+  const redirect = vi.spyOn(window.armada, "redirectDrone");
+  const kill = vi.spyOn(window.armada, "killDrone");
+  await page.getByRole("tab", { name: /^Drones/ }).last().click();
+  await page.getByRole("button", { name: "Drone on T6" }).last().click();
+  const sheet = page.getByRole("dialog", { name: "Drone on T6" }).last();
+  await expect.element(sheet).toBeVisible();
+  await Promise.all(sheet.element().getAnimations().map((one) => one.finished));
+
+  await sheet.getByRole("textbox").click();
+  await userEvent.keyboard("Stop at the last row");
+  await sheet.getByRole("button", { name: "Send" }).click();
+  await expect.poll(() => redirect.mock.calls.at(-1)?.[2]).toBe("01M2D5HKQP001DRONE0000T6");
+
+  // Reduced motion offers the kill as a press and a confirmation.
+  await sheet.getByRole("button", { name: "Kill drone" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Kill drone" }).last().click();
+  await expect.poll(() => kill.mock.calls.at(-1)?.[1]).toBe("01M2D5HKQP001DRONE0000T6");
 });

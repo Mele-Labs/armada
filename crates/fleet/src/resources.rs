@@ -140,6 +140,17 @@ where
                 Ok(Holder::Held(_)) => (ipc::Held::Running, self.below(process.pid).await),
             },
         };
+        let kept = recorded
+            .as_ref()
+            .map(|process| ipc::DroneId::from(&process.drone_id));
+        let mut processes: Vec<ipc::JobProcess> = processes
+            .into_iter()
+            .map(|row| ipc::JobProcess {
+                drone_id: kept.clone(),
+                ..row
+            })
+            .collect();
+        processes.extend(self.crew_processes(job.id()).await);
         let records_root = self.served_by(job)?.records_root().to_string();
         let tree: Vec<u32> = processes.iter().map(|process| process.pid).collect();
         Ok(ipc::JobResources {
@@ -158,6 +169,61 @@ where
     /// One `ps` over the whole table rather than a walk per generation: the
     /// tree is built here from parent ids, so the number of processes Armada
     /// spawns has no bearing on the number of children Fleet does.
+    /// Each Drone beside the kept one, and what it started, each row naming it.
+    async fn crew_processes(&self, job: &JobId) -> Vec<ipc::JobProcess> {
+        let crew: Vec<(core_model::DroneId, u32)> = self
+            .crew_at_work()
+            .into_iter()
+            .filter(|(of, _, _)| of == job)
+            .map(|(_, drone, pid)| (drone, pid))
+            .collect();
+        if crew.is_empty() {
+            return Vec::new();
+        }
+        let Some(said) = table().await else {
+            return Vec::new();
+        };
+        crew.iter()
+            .flat_map(|(drone, pid)| {
+                descended(&said, *pid)
+                    .into_iter()
+                    .map(move |row| ipc::JobProcess {
+                        drone_id: Some(drone.into()),
+                        ..row
+                    })
+            })
+            .collect()
+    }
+
+    /// Where `pid` is one of this Job's Drones beside the kept one, or under
+    /// one: the Drone, and whether it is the Drone's own process, with every
+    /// pid under `pid`, `pid` first.
+    pub(crate) async fn beside_under(
+        &self,
+        job: &JobId,
+        pid: u32,
+    ) -> Option<(core_model::DroneId, bool, Vec<u32>)> {
+        let crew: Vec<(core_model::DroneId, u32)> = self
+            .crew_at_work()
+            .into_iter()
+            .filter(|(of, _, _)| of == job)
+            .map(|(_, drone, root)| (drone, root))
+            .collect();
+        if crew.is_empty() {
+            return None;
+        }
+        let said = table().await?;
+        crew.into_iter().find_map(|(drone, root)| {
+            descended(&said, root)
+                .iter()
+                .any(|one| one.pid == pid)
+                .then(|| {
+                    let under = descended(&said, pid).iter().map(|one| one.pid).collect();
+                    (drone, root == pid, under)
+                })
+        })
+    }
+
     async fn below(&self, root: u32) -> Vec<ipc::JobProcess> {
         // A process table that will not read is an empty list beside a `held`
         // that says the pid is alive, which is the one shape a surface must
@@ -327,6 +393,7 @@ pub(crate) fn descended(said: &str, root: u32) -> Vec<ipc::JobProcess> {
             memory_bytes: row.resident * 1024,
             running_for: row.running_for.clone(),
             recorded: row.pid == root,
+            drone_id: None,
         });
         // A process reparented to itself, or a table read mid-fork, could
         // otherwise walk forever. Nothing already taken is queued again.

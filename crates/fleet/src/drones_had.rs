@@ -84,6 +84,23 @@ pub(crate) fn drones_had(events: &[RecordedEvent]) -> Vec<Had> {
         .collect()
 }
 
+/// A Drone beside a kept one, off its task binding and how it left.
+fn beside(bound: &store::TaskDrone) -> Had {
+    let state = match &bound.left {
+        None => DroneState::Running,
+        Some((_, store::ExtraEnded::Done)) => DroneState::Done,
+        Some((_, store::ExtraEnded::Killed)) => DroneState::Killed,
+        Some((_, store::ExtraEnded::Failed)) => DroneState::Failed,
+    };
+    Had {
+        drone: bound.drone_id.clone(),
+        step: bound.step_id.clone(),
+        state,
+        spawned_at: bound.spawned_at.clone(),
+        left_at: bound.left.as_ref().map(|(at, _)| at.clone()),
+    }
+}
+
 /// How a Drone that has left ended.
 ///
 /// **`done` is asked first**: a Job killed after its last Drone reached a
@@ -132,28 +149,56 @@ fn ended_as(events: &[RecordedEvent], spawned: usize, exit: usize, step: &StepId
     }
 }
 
-/// Turns summed and the last cost, off one Drone's own transcript, or `None`
-/// where it has no terminating line. `crate::allowance::spent`'s fold, over the
-/// file rather than the slot, because reading the slot waits behind a Check.
-async fn spent_so_far(records_root: &str, handle: &str, drone: &DroneId) -> Option<(u64, u64)> {
-    let file = fs::File::open(transcript_of(records_root, handle, drone))
-        .await
-        .ok()?;
+/// What one Drone's transcript says it has done so far.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SoFar {
+    /// Turns summed and the last cost, `crate::allowance::spent`'s fold.
+    /// **`None` where it has no terminating line**, never nought.
+    pub spent: Option<(u64, u64)>,
+    /// When its last run ended, where no run has started since: a Drone Fleet
+    /// is holding at rest, for the gate or for a person.
+    pub at_rest_since: Option<ipc::Instant>,
+}
+
+/// [`SoFar`], folded over a transcript's rows in the order they were written.
+///
+/// **A run is woken by a start or by Fleet speaking into it**, never by a
+/// row Fleet writes beside it: a Check's outcome or a produced file comes
+/// after the end and is not the Drone working.
+pub(crate) fn so_far(rows: impl IntoIterator<Item = TranscriptRow>) -> SoFar {
+    rows.into_iter().fold(SoFar::default(), |mut so_far, row| {
+        match row.saw {
+            Saw::Ended {
+                turns, cost_micros, ..
+            } => {
+                let (summed, _) = so_far.spent.unwrap_or((0, 0));
+                so_far.spent = Some((summed + u64::from(turns), cost_micros));
+                so_far.at_rest_since = Some(row.ts);
+            }
+            Saw::Started { .. } | Saw::Instructed { .. } => {
+                so_far.at_rest_since = None;
+            }
+            _ => {}
+        }
+        so_far
+    })
+}
+
+/// [`so_far`] off one Drone's own transcript file, rather than off its slot,
+/// because reading the slot waits behind a Check. A row that will not decode
+/// is skipped; a file that will not open has said nothing.
+async fn read_so_far(records_root: &str, handle: &str, drone: &DroneId) -> SoFar {
+    let Ok(file) = fs::File::open(transcript_of(records_root, handle, drone)).await else {
+        return SoFar::default();
+    };
     let mut lines = BufReader::new(file).lines();
-    let mut spent = None;
+    let mut rows = Vec::new();
     while let Ok(Some(line)) = lines.next_line().await {
-        let Ok(row) = ipc::decode::<TranscriptRow>("a transcript row", line.as_bytes()) else {
-            continue;
-        };
-        if let Saw::Ended {
-            turns, cost_micros, ..
-        } = row.saw
-        {
-            let (summed, _) = spent.unwrap_or((0, 0));
-            spent = Some((summed + u64::from(turns), cost_micros));
+        if let Ok(row) = ipc::decode::<TranscriptRow>("a transcript row", line.as_bytes()) {
+            rows.push(row);
         }
     }
-    spent
+    so_far(rows)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -168,7 +213,8 @@ where
 {
     /// `list_job_drones`. A stopped Drone carries its spend row, the figure
     /// the Job's spend is summed from; a running one has no row yet, or one
-    /// that trails it, so it carries its transcript's.
+    /// that trails it, so it carries its transcript's, and says off the same
+    /// read whether it is resting.
     pub(crate) async fn job_drones(&self, job_id: ipc::JobId) -> Result<JobDrones, Refusal> {
         let job = self
             .load(&job_id.to_domain())
@@ -191,23 +237,33 @@ where
             (events, spends, on_tasks, models)
         };
         let mut drones = Vec::new();
-        for had in drones_had(&events) {
+        let mut had_all = drones_had(&events);
+        // A Drone beside the kept one is on no record of moves: `store::crew`.
+        had_all.extend(on_tasks.iter().filter(|bound| bound.extra).map(beside));
+        had_all.sort_by(|a, b| a.spawned_at.as_str().cmp(b.spawned_at.as_str()));
+        for had in had_all {
             let on_task = on_tasks.iter().find(|bound| bound.drone_id == had.drone);
             let had = match on_task {
                 Some(bound) => had.on_task(bound),
                 None => had,
             };
-            let (turns, cost_micros) = match had.state {
+            let (turns, cost_micros, at_rest_since) = match had.state {
                 DroneState::Running => {
                     let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
-                    match spent_so_far(served.records_root(), &job.handle(), &had.drone).await {
-                        Some((turns, cost)) => (Some(turns), Some(cost)),
-                        None => (None, None),
-                    }
+                    let read = read_so_far(served.records_root(), &job.handle(), &had.drone).await;
+                    let (turns, cost) = read.spent.unzip();
+                    (turns, cost, read.at_rest_since)
                 }
+                // A row's cost is set by the first terminating line and its
+                // turns are summed from nought, so a row with no cost saw no
+                // terminating line and its nought is no count at all.
                 _ => match spends.iter().find(|(drone, _)| *drone == had.drone) {
-                    Some((_, spend)) => (Some(spend.turns), spend.cost_micros),
-                    None => (None, None),
+                    Some((_, spend)) => (
+                        spend.cost_micros.map(|_| spend.turns),
+                        spend.cost_micros,
+                        None,
+                    ),
+                    None => (None, None, None),
                 },
             };
             drones.push(JobDrone {
@@ -221,6 +277,7 @@ where
                 state: had.state,
                 since: (&had.spawned_at).into(),
                 ended_at: had.left_at.as_ref().map(Into::into),
+                at_rest_since,
                 turns,
                 cost_micros,
             });

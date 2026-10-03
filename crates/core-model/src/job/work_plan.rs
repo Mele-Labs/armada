@@ -244,6 +244,11 @@ pub struct NewTask {
     /// How hard the planner thought it was, on a recording. `None` is the
     /// planner leaving it to Armada, the same as a tier the map leaves out.
     tier: Option<TaskTier>,
+    /// Which tasks of its group the planner said may run at the same time as
+    /// this one, by their place in the recording: `2` is the second task, so
+    /// `T2`. Spike 022, slice 5. **Declared, never inferred**:
+    /// `docs/concepts/plan.md` says why a schedule cannot be derived.
+    beside: Vec<NonZeroU32>,
 }
 
 impl NewTask {
@@ -264,6 +269,7 @@ impl NewTask {
             expects: String::from(expects.trim()),
             group: None,
             tier: None,
+            beside: Vec::new(),
         })
     }
 
@@ -278,6 +284,21 @@ impl NewTask {
     /// The same task, at the planner's `tier`.
     pub fn at_tier(self, tier: Option<TaskTier>) -> NewTask {
         NewTask { tier, ..self }
+    }
+
+    /// The same task, safe to run beside the tasks at these places in the
+    /// recording. Zero names no task and is left out.
+    pub fn beside(self, places: &[u32]) -> NewTask {
+        let mut beside: Vec<NonZeroU32> =
+            places.iter().filter_map(|n| NonZeroU32::new(*n)).collect();
+        beside.sort_unstable();
+        beside.dedup();
+        NewTask { beside, ..self }
+    }
+
+    /// The places in the recording of the tasks this one may run beside.
+    pub fn runs_beside(&self) -> Vec<u32> {
+        self.beside.iter().map(|n| n.get()).collect()
     }
 
     /// How hard the planner thought it was, where it said.
@@ -432,6 +453,13 @@ pub enum PlanRefused {
     GroupsOutOfOrder {
         named: u32,
     },
+    /// A recorded task names a task to run beside that is itself, past the
+    /// end of the recording, or in another group: tasks run at once only
+    /// inside one group.
+    NotBeside {
+        task: TaskId,
+        named: u32,
+    },
     /// An edit to a task that is not `open` or `failed`: one working or handed
     /// in is its Drone's, and one done or dropped is settled.
     NotEditable {
@@ -458,6 +486,11 @@ impl fmt::Display for PlanRefused {
             PlanRefused::NotInGroup { named, group } => {
                 write!(out, "task {named} is not in group {group} to move after")
             }
+            PlanRefused::NotBeside { task, named } => write!(
+                out,
+                "task {task} names task {named} to run beside, and only another task of its own \
+                 group can be"
+            ),
             PlanRefused::GroupsOutOfOrder { named } => write!(
                 out,
                 "group {named} comes after a higher group: list the tasks group by group"
@@ -783,6 +816,17 @@ impl WorkPlan {
             let id = TaskId(NonZeroU32::MIN.saturating_add(n - 1));
             planned.push(PlanTask::new(id, groups[groups.len() - 1], task));
         }
+        for task in &planned {
+            for named in task.task.runs_beside() {
+                let other = planned.get(named as usize - 1);
+                if named == task.id.number() || other.is_none_or(|o| o.group != task.group) {
+                    return Err(PlanRefused::NotBeside {
+                        task: task.id,
+                        named,
+                    });
+                }
+            }
+        }
         Ok(WorkPlan {
             approach: approach.clone(),
             recorded_by: entry.by.clone(),
@@ -833,6 +877,19 @@ impl WorkPlan {
     /// Every group, in the order they run.
     pub fn groups(&self) -> &[GroupId] {
         &self.groups
+    }
+
+    /// Whether the planner said `a` and `b` may run at the same time: either
+    /// named the other at the recording, and a move has not since put them in
+    /// different groups. **Symmetric**, so naming it once is enough.
+    pub fn runs_with(&self, a: TaskId, b: TaskId) -> bool {
+        let (Some(one), Some(other)) = (self.task(a), self.task(b)) else {
+            return false;
+        };
+        a != b
+            && one.group == other.group
+            && (one.task.runs_beside().contains(&b.number())
+                || other.task.runs_beside().contains(&a.number()))
     }
 
     /// One group's tasks, in plan order.

@@ -10,7 +10,7 @@
 // `jobMembersOf` reads — and how one member's work reaches the next is the
 // draft's `MemberLink`, which nothing on the wire says at all.
 
-import type { CommandInFlight, JudgeQuestion, StepDetail } from "@armada/protocol";
+import type { CommandInFlight, Criterion, JudgeQuestion, StepDetail } from "@armada/protocol";
 
 import type { JobMembersView, LandingRule, MemberView } from "../../draft";
 import type { Outstanding } from "../../outstanding";
@@ -368,6 +368,15 @@ type WaveChild = {
 };
 
 /**
+ * What a child expects, as `JobDetail.acceptance_criteria` carries it: one
+ * criterion a line, minted `c1`, `c2` as Fleet mints them, and answered by the
+ * Judge, which reads words it was handed.
+ */
+function criteriaOf(expects: readonly string[]): Criterion[] {
+  return expects.map((text, at) => ({ criterion_id: `c${at + 1}`, text, source: "judge" }));
+}
+
+/**
  * What the two passes dispatched, and which waits on which.
  *
  * **The order is the work's own.** The seam refuses first; the two surfaces
@@ -578,8 +587,8 @@ export function epicWave(): ArcMoment {
           round: child.round,
           waits_on: child.waits,
           ...(child.landed === undefined ? {} : { landed: child.landed }),
-          brief: child.brief,
-          expects: child.expects,
+          facts: child.brief,
+          criteria: criteriaOf(child.expects),
           ...(child.cost_micros === undefined ? {} : { cost_micros: child.cost_micros }),
           ...(child.tasks === undefined ? {} : { tasks: child.tasks }),
         })),
@@ -687,8 +696,8 @@ export function epicPlanReview(): ArcMoment {
           round: child.round,
           waits_on: child.waits,
           ...(child.landed === undefined ? {} : { landed: child.landed }),
-          brief: child.brief,
-          expects: child.expects,
+          facts: child.brief,
+          criteria: criteriaOf(child.expects),
           ...(child.cost_micros === undefined ? {} : { cost_micros: child.cost_micros }),
           ...(child.tasks === undefined ? {} : { tasks: child.tasks }),
         })),

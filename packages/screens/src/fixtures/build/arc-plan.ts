@@ -52,7 +52,7 @@ function task(
   group: string,
   title: string,
   scope: string[],
-  tier: TaskView["tier"],
+  tier: NonNullable<TaskView["tier"]>,
   cases: string[],
   expects: string,
 ): TaskView {

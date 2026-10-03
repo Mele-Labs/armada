@@ -53,6 +53,8 @@ export type JobDronesRow = {
   state: JobDroneState;
   /** The state, spelled — the mark's tooltip and accessible name. */
   stateSays: string;
+  /** The model it ran on. Absent draws nothing: a Drone Fleet kept none for. */
+  model?: ReactNode;
   /** Turns, and cost once it stopped. Absent draws nothing. */
   spent?: ReactNode;
   /** How long it has run — to now while it runs, to its end once stopped. */
@@ -146,6 +148,7 @@ export function JobDrones({
                   <TableHeaderCell>Drone</TableHeaderCell>
                   <TableHeaderCell>Where</TableHeaderCell>
                   <TableHeaderCell>State</TableHeaderCell>
+                  <TableHeaderCell>Model</TableHeaderCell>
                   <TableHeaderCell>Spent</TableHeaderCell>
                   <TableHeaderCell>Run time</TableHeaderCell>
                 </TableRow>
@@ -187,6 +190,9 @@ export function JobDrones({
                         says={row.stateSays}
                         pulsing={row.state === "running"}
                       />
+                    </TableCell>
+                    <TableCell variant="metadata" className="armada-drones__model">
+                      {row.model}
                     </TableCell>
                     <TableCell variant="metadata" className="armada-drones__spent">
                       {row.spent}

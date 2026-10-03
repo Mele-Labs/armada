@@ -705,7 +705,9 @@ Absent is the ordinary case, and every Job read from a Fleet older than 11.3.
 `answer_judge` is a new route and `Commands` method, taking `ipc::JudgeAnswered`
 — `answer` (`agree`, `disagree_once` or `disagree_always`) and an optional
 `note` that rides along for the record. `agree` fails the step exactly as it
-would have without this design; either disagree advances it, and
+would have without this design — since 2 Oct 2026 it sends the step back to a
+Drone with the Judge's finding instead, by `restart_step`'s road, with no
+change to the wire; either disagree advances it, and
 `disagree_always` also stands the criterion down for the repository, so no
 later Job is asked about it either. Refused with a 409 where the Job is not
 holding a question open.
@@ -2472,6 +2474,61 @@ since a node just made is none of the Notes the Cluster was made of.
 **Additive, so the minor moves.** A new optional field on a request. A 23.7 Fleet would drop
 `within` and add the node at the board's origin plus the offset, so a 23.8 Bridge behind it is
 refused, which is the skew rule's own direction.
+
+## Protocol 23.10: several Drones at once, and one of them addressed
+
+Spike 022, slice 5 (#1766, carrying #1666, #1651 and #1648's remaining half).
+
+**Two routes and optional fields, all additive.** `PlanTask` gains `concurrent_with`, the other
+tasks of its group it may run at the same time as, read both ways and less any pair Fleet ran
+apart, and `touched_after_done`. `JobProcess` gains `drone_id`, and `recorded` now marks one row
+per live Drone rather than one per Job, which is how *Drones running* is counted. Each is absent
+where empty or false, so a 23.9 Bridge connects behind the banner and draws one Drone.
+
+| Route | Body | Answers | Refused |
+|---|---|---|---|
+| `POST /jobs/:job_id/drones/:drone_id/kill`, `kill_one_drone` | — | `JobSummary` | 409 `fleet.drone_not_live`, with `drone_id` on its own field |
+| `POST /jobs/:job_id/drones/:drone_id/redirect`, `redirect_one_drone` | `Redirection`, `redirect_drone`'s | `JobSummary` | 409 `fleet.drone_not_live`; 422 on a blank instruction |
+
+**The kept Drone is the Job-wide act.** A Job keeps one Drone from admission to its end (answer
+2); naming it is `kill_drone` or `redirect_drone`, and `kill_drone` now ends every Drone beside it
+too, since the step they work stops. A Drone beside it is stopped alone, its task back to `open`
+for the kept Drone, or told in its own session with the Job unmoved.
+
+**The machine's cap counts Drones.** `get_capacity`'s `occupied` and the bound behind it count
+each held Job's kept Drone and each Drone beside one; the Job's `drone_cap` from 23.8 sits inside
+it, and a Drone beside a kept one gives way to a Job waiting to start.
+
+**A Drone beside the kept one is announced, and is on no record of moves.** `drone.spawned` and
+`drone.exited` carry its id with the Job as it stands, whose `assigned_drone` stays the kept one;
+`list_job_drones` lists it off its task binding. **`observe_job` is one channel per Job**, made at
+admission and dropped at the Job's end, so `closed` with `drone_ended` means the Job stopped
+writing rather than one Drone exiting.
+
+**`record_plan` takes an optional `concurrent_with` per task**, the places in the list of tasks
+that may run beside it, refused where one is the task itself or in another group. It is an MCP
+tool, not this protocol. **Store V99** keeps it, each Drone beside a kept one and how it left, each
+task Drone's edit calls, and the pairs run apart. Overlap is read from edit calls only (answer
+10): a shell write is not seen.
+
+## Protocol 23.11: a Drone resting at the gate, and turns nobody counted
+
+Job 3 on 3 Oct. Its last task's Drone submitted and ended its run, and `list_job_drones` read it
+`running` for the seven minutes the step's Checks ran, so Bridge drew a Drone working while the
+Checks were. Its three task Drones before it read `turns: 0` with no cost, each having made 6 to 12
+calls: Fleet ended each within a quarter-second of its hand-in, before its terminating line.
+
+**`JobDrone.at_rest_since`, optional and additive, so the minor moves.** When a `running` Drone's
+last run ended, off its transcript's last terminating line with no run started or turn sent after
+it; absent while it works and on a Drone that has left. `running` still means Fleet holds it — at
+rest at the gate it is the Drone a red Check goes back to — so a fifth `DroneState` would have
+been a major move for a Bridge matching on the states it knows, and the field says the same thing. A 23.10 Bridge
+connects behind the banner and draws it working, as before.
+
+**`turns` is absent on a stopped Drone whose row saw no terminating line**, where it read `0`. The
+wire type is unchanged, and absent was already the field's word for none seen. Fleet now lets a
+task's Drone that handed in come to rest before ending it, within `StepNorms::report_grace`, so
+its row carries the harness's turns and cost; one that does not rest in that time reads absent.
 
 ## Open questions
 

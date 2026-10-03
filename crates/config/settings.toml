@@ -115,6 +115,8 @@ notes = """
 
 **It bounds Drones and never approvals.** Every Job-level dispatch is still approved explicitly and one by one; this decides how many approved Jobs run together.
 
+**It counts Drones, not Jobs**, since spike 022's slice 5 (answer 2): each running Job's kept Drone, from its admission to its end, and each Drone running beside one on a task marked safe to run at once. A Job's own Drone cap, set at its approval, sits inside it. A Drone beside a kept one gives way to a Job waiting to start; the kept one is never asked again.
+
 **Changed while Fleet runs.** Bridge saves it through `save_limits` (1 to 8); the store keeps it across restarts and the next admission turn applies it. A lower number stops nothing already running — new starts wait until enough finish.
 
 Where nothing is saved, `crates/armada/src/serve.rs` supplies it as `PROVISIONAL_CONCURRENCY` and carries the argument for the number. It ships at two: the attribution beneath it was measured at five, and what is unbuilt above two is write-scope reservation.

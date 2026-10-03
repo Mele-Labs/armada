@@ -152,6 +152,17 @@ pub trait AgentHarness {
     /// **One line can be more than one event.** A turn carrying two tool calls
     /// is two, and answering with only the first would drop work the Drone did.
     fn read(&self, line: &str) -> alloc::vec::Vec<DroneEvent>;
+
+    /// The file an edit call named, where `event` is one: a call this harness
+    /// knows changes a file by naming it. `None` for every other event.
+    ///
+    /// **A shell call is never one, and cannot be.** A shell line may write a
+    /// file or only read one, and nothing in the stream says which, so a
+    /// `sed -i` or a formatter's write goes unseen here — spike 022's answer
+    /// 10, and the plan says so to the person. Which tool names edit is the
+    /// harness's vocabulary, so the question is asked of it rather than
+    /// answered from a list of names anywhere else.
+    fn edited(&self, event: &DroneEvent) -> Option<alloc::string::String>;
 }
 
 /// Version control, as Fleet uses it.

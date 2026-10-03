@@ -148,6 +148,26 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `kill_one_drone` — stops one of the Job's live Drones, by its id. The
+    /// Job's kept Drone is [`Commands::kill_drone`]; one beside it ends alone
+    /// and the Job goes on. Refused with a 409 where the Drone is not live.
+    fn kill_one_drone(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `redirect_one_drone` — a person's words to one of the Job's live
+    /// Drones, by its id: [`Commands::redirect_drone`] for the kept one, and
+    /// a turn into its own session for one beside it. 409 where it is not live.
+    fn redirect_one_drone(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+        instruction: Redirection,
+        by: Redirector,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `kill_process` — ends one process the Job holds, and everything under
     /// it. Fleet reads the Job's process tree at the act and refuses a pid
     /// that is not in it, so the pid names a process and never grants one.

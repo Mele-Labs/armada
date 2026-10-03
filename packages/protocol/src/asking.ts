@@ -33,8 +33,8 @@ export type JudgeQuestion = {
 /**
  * A person's answer to a `JudgeQuestion`. Since protocol 11.1.
  *
- * `agree` fails the step exactly as it would where the criterion is marked
- * `refuse`. `disagree_once` advances the step, and the next job's gate asks
+ * `agree` sends the step back to a drone carrying the judge's finding, by
+ * `restart_step`'s road, and the job lands `queued`. `disagree_once` advances the step, and the next job's gate asks
  * about the same criterion again. `disagree_always` advances it and also
  * stands the criterion down for the repository, so no later job is asked
  * about it either.

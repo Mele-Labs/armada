@@ -1,4 +1,6 @@
-//! How many Jobs Fleet works at once, and where each one's Drone is held.
+//! How many Drones Fleet works at once, and where each one is held: a Job's
+//! kept Drone in the Job's slot, and each Drone beside it in a slot of its own
+//! (spike 022, slice 5).
 //!
 //! **The bound is configured, not computed.** [`Concurrency`] is handed in by
 //! the composition root as the shipped number, replaced by a saved one at
@@ -27,12 +29,14 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use core_model::JobId;
+use core_model::{DroneId, JobId};
 use tokio::sync::Mutex;
 
 use crate::working::Working;
 
-/// How many Jobs Fleet may be working at one time.
+/// How many Drones Fleet may be working at one time. **Drones, not Jobs**,
+/// since slice 5: a Job's kept Drone counts from its admission to its end,
+/// and each Drone it runs beside that one counts while it runs.
 ///
 /// **No `Default`**, for the reason [`Liveness`](crate::Liveness) has none: the
 /// number is a decision somebody made and wrote down, and a type that supplies
@@ -70,13 +74,23 @@ pub(crate) type Slot = Arc<Mutex<Option<Working>>>;
 pub(crate) struct Slots {
     cap: Concurrency,
     held: BTreeMap<JobId, Slot>,
+    /// Each Job's Drones beside its kept one, each in a slot of its own so one
+    /// Drone's tool call never waits behind another's.
+    crew: BTreeMap<JobId, BTreeMap<DroneId, Slot>>,
+    /// Each held Job's one transcript channel, made at its admission and
+    /// dropped when the Job leaves the roster.
+    channels: BTreeMap<JobId, api::Channel>,
+    turns: api::Turns,
 }
 
 impl Slots {
-    pub(crate) fn bounded_by(cap: Concurrency) -> Slots {
+    pub(crate) fn bounded_by(cap: Concurrency, turns: api::Turns) -> Slots {
         Slots {
             cap,
             held: BTreeMap::new(),
+            crew: BTreeMap::new(),
+            channels: BTreeMap::new(),
+            turns,
         }
     }
 
@@ -91,19 +105,33 @@ impl Slots {
     /// worked whatever it holds, and a sweep that waited for it would be the
     /// roster blocking on a Check.
     fn sweep(&mut self) {
-        self.held.retain(|_, slot| match slot.try_lock() {
+        let kept = |slot: &Slot| match slot.try_lock() {
             Ok(held) => held.is_some(),
             Err(_) => true,
-        });
+        };
+        self.held.retain(|_, slot| kept(slot));
+        for crew in self.crew.values_mut() {
+            crew.retain(|_, slot| kept(slot));
+        }
+        self.crew.retain(|_, crew| !crew.is_empty());
+        let held = &self.held;
+        self.channels.retain(|job, _| held.contains_key(job));
     }
 
-    /// How many Jobs are being worked.
+    /// How many Drones are being worked: one per held Job, its kept Drone,
+    /// and each Drone beside one.
     pub(crate) fn count(&mut self) -> usize {
         self.sweep();
-        self.held.len()
+        self.held.len() + self.crew.values().map(BTreeMap::len).sum::<usize>()
     }
 
-    /// How many Jobs may be worked at once. `settings.concurrency-cap`.
+    /// How many Drones this Job is working, its kept one included.
+    pub(crate) fn of_job(&mut self, job: &JobId) -> usize {
+        self.sweep();
+        usize::from(self.held.contains_key(job)) + self.crew.get(job).map_or(0, BTreeMap::len)
+    }
+
+    /// How many Drones may be worked at once. `settings.concurrency-cap`.
     ///
     /// **Read beside [`Slots::count`] and never on its own.** "2 of 2" is one
     /// fact and a bound with no occupancy beside it says nothing about whether
@@ -119,7 +147,7 @@ impl Slots {
         self.cap = cap;
     }
 
-    /// Whether another Job may be admitted. **The predicate `admit_next` opens
+    /// Whether another Drone may start. **The predicate `admit_next` opens
     /// with, and the one `queued_reason` answers `waiting_on_resources` from.**
     /// One answer, not two — a Board saying a Job is blocked while Fleet is
     /// starting it is what a second predicate here would produce.
@@ -157,11 +185,49 @@ impl Slots {
     /// nothing counts against the bound while the dispatch that will fill it
     /// runs, which is right: the Job has been taken out of the queue.
     pub(crate) fn opened_for(&mut self, job: &JobId) -> Slot {
+        if !self.channels.contains_key(job) {
+            let channel = self.turns.opening(&ipc::JobId::from(job));
+            self.channels.insert(job.clone(), channel);
+        }
         Arc::clone(
             self.held
                 .entry(job.clone())
                 .or_insert_with(|| Arc::new(Mutex::new(None))),
         )
+    }
+
+    /// A slot for one more Drone beside this Job's kept one.
+    pub(crate) fn joined(&mut self, job: &JobId, drone: &DroneId) -> Slot {
+        Arc::clone(
+            self.crew
+                .entry(job.clone())
+                .or_default()
+                .entry(drone.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(None))),
+        )
+    }
+
+    /// The slot of a Drone beside this Job's kept one, where it is one.
+    pub(crate) fn crew_slot(&self, job: &JobId, drone: &DroneId) -> Option<Slot> {
+        self.crew.get(job)?.get(drone).map(Arc::clone)
+    }
+
+    /// Every Drone beside this Job's kept one, cloned out for a turn to walk.
+    pub(crate) fn crew_of(&mut self, job: &JobId) -> Vec<(DroneId, Slot)> {
+        self.sweep();
+        self.crew.get(job).map_or_else(Vec::new, |crew| {
+            crew.iter()
+                .map(|(drone, slot)| (drone.clone(), Arc::clone(slot)))
+                .collect()
+        })
+    }
+
+    /// Forget a slot beside a Job's kept one, whatever it holds: a spawn that
+    /// did not start.
+    pub(crate) fn left(&mut self, job: &JobId, drone: &DroneId) {
+        if let Some(crew) = self.crew.get_mut(job) {
+            crew.remove(drone);
+        }
     }
 
     /// Forget this Job's slot outright, whatever it holds.
@@ -170,5 +236,6 @@ impl Slots {
     /// bound spent on a Job with no Drone.
     pub(crate) fn closed(&mut self, job: &JobId) {
         self.held.remove(job);
+        self.channels.remove(job);
     }
 }
