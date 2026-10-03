@@ -249,6 +249,15 @@ fn this_repositorys_test_runs_a_module_by_its_name() {
     }
 }
 
+/// **`format` only reads.** A `requires: [fmt]` once made it rewrite the tree
+/// and then pass on what it had just written; `armada.yml` says why.
+#[test]
+fn this_repositorys_format_check_formats_nothing_first() {
+    let manifest = config::Manifest::load(&repository().join("armada.yml")).expect("it reads");
+    let format = manifest.check("format").expect("`format` is a Check");
+    assert!(format.requires().is_empty());
+}
+
 /// **A Check takes the machine's slots**, waits while every one is held, and
 /// tells what it starts that it holds one, so a Check inside it does not wait
 /// on its own parent.
