@@ -47,6 +47,7 @@ import { money, onlyCurrentAttempt, pullRequestNumber, settledBadgeOf } from "./
 import { elapsedSince } from "./duration";
 import { sitting } from "./held";
 import { checkRow, judgeRow, saidOf, iconOf } from "./checks";
+import { proofSummaryOf } from "./proof-summary";
 import { Decide } from "./Decide";
 import { PlanReview, type PlanReviewProps } from "./plan-review";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
@@ -173,7 +174,7 @@ export function provesItNoteOf(step: StepDetail, render: Render): string | undef
 }
 
 /** What proves the work, one list per step that measured anything, in workflow order. */
-export type Proof = { label: string; rows: CheckRunRow[] }[];
+export type Proof = { label: string; state: StepDetail["state"]; rows: CheckRunRow[] }[];
 
 /**
  * What proves the work: **every step's Checks and Judge, not the waiting
@@ -196,6 +197,7 @@ export function proofOf(
       const mine = step.step_id === open.step_id;
       return {
         label: step.label,
+        state: step.state,
         rows: provesItOf(step, criteria, now, mine ? undecided : undefined, mine ? reason : undefined),
       };
     })
@@ -521,7 +523,9 @@ export function verdictOf({
     cameBack: cameBackOf(claim),
     ...(never === true && kept.length > 0 ? { deliverable: kept[0]?.opening } : {}),
     ...(block === undefined ? {} : { pullRequest: block }),
-    provesIt: proof.map((one) => <CheckRuns key={one.label} label={one.label} rows={one.rows} />),
+    provesIt: proof.map((one) => (
+      <CheckRuns key={one.label} label={one.label} rows={one.rows} summary={proofSummaryOf(one.state, one.rows)} />
+    )),
     ...(note === undefined ? {} : { provesItNote: note }),
     ...(risksOf(whole) === undefined ? {} : { risks: risksOf(whole) }),
     leftAlone: leftAloneOf(claim),

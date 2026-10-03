@@ -111,6 +111,11 @@
   margin-block-end: var(--space-4);
 }
 
+/* The flex gap already spaces what follows the columns. */
+.armada-verdict__cards > :last-child {
+  margin-block-end: 0;
+}
+
 /* The figures, read and never edited: a name and its value on one row, no box
    round the value. The owner, 2 Oct 2026, on a boxed value: *"I dont like that
    these look like text fields I can edit."* */

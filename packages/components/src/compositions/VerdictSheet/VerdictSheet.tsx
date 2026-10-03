@@ -118,11 +118,6 @@ export function VerdictSheet({
           )}
         </DestinationCard>
 
-        <DestinationCard label="What proves it">
-          {provesIt}
-          {provesItNote === undefined ? null : <p className="armada-verdict__said">{provesItNote}</p>}
-        </DestinationCard>
-
         {risks === undefined ? null : (
           <DestinationCard label="What was not checked">
             <Said text={risks} />
@@ -138,6 +133,13 @@ export function VerdictSheet({
           <Said text={leftAlone} />
         </DestinationCard>
       </div>
+
+      {/* Under the two columns, at full width: one row per step, each opening
+          to its Checks (owner, 3 Oct 2026 — it was one long column). */}
+      <DestinationCard label="What proves it">
+        {provesIt}
+        {provesItNote === undefined ? null : <p className="armada-verdict__said">{provesItNote}</p>}
+      </DestinationCard>
 
       {note === undefined ? null : <p className="armada-verdict__said">{note}</p>}
 

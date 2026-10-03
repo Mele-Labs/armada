@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { conceptSaid } from "../../concepts";
+import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -128,6 +130,21 @@ export type CheckRunsProps = {
    * sentence here would have the app promise a panel nobody built.
    */
   openSaid?: ReactNode;
+  /**
+   * The list folded to one row: `label`, what it came to, and a short reading
+   * — `21 Checks passed · Judge: 2 of 2 criteria met`. The rows open from it,
+   * so nothing is lost (owner, 3 Oct 2026, on the record's one long column).
+   * Absent draws the list open, as it always was.
+   */
+  summary?: CheckRunsSummary;
+};
+
+/** What a folded list says on its one row. */
+export type CheckRunsSummary = {
+  /** What the list came to, as a badge. Absent where it has not settled. */
+  outcome?: { status: string; icon: LucideIcon; label: string };
+  /** The counts, in one line. */
+  reading: ReactNode;
 };
 
 /** Row marks are 12px at strokeWidth 2, like every mark below Job level. */
@@ -141,11 +158,99 @@ export function CheckRuns({
   label,
   note,
   openSaid = "Click to read this output in the viewer",
+  summary,
 }: CheckRunsProps) {
   // The list's own name is the vocabulary's word, so what a Check is comes from
   // where that is written and not from here.
   const named = label === undefined ? undefined : conceptSaid(label);
   const heading = <span className="armada-check-runs__label">{label}</span>;
+  const list = (
+    <ul className="armada-check-runs__list">
+      {rows.map((row) => {
+        const open = row.id === openId;
+        return (
+          <li
+            className="armada-check-runs__row"
+            key={row.id}
+            data-named={row.named}
+            data-open={open ? "true" : undefined}
+          >
+            <span className="armada-check-runs__mark">
+              {row.icon ? <row.icon size={ROW_ICON} strokeWidth={ROW_STROKE} aria-hidden /> : null}
+            </span>
+            <span className="armada-check-runs__says">{row.says}</span>
+            {row.result === undefined ? null : (
+              <span className="armada-check-runs__result">{row.result}</span>
+            )}
+            {/* The id, and the control that opens the output, on one line
+                under the finding. A long file name takes this line's room
+                and never the finding's. */}
+            <span className="armada-check-runs__foot">
+              <span
+                className="armada-check-runs__id"
+                data-name={row.identifierIsAName ? "true" : undefined}
+              >
+                {row.identifier}
+              </span>
+              {/* No control at all where there is nothing to show: a
+                  disabled one would be a target that refuses. */}
+              {row.output === undefined && row.onRunHere === undefined ? null : (
+                <span className="armada-check-runs__output-group">
+                  {row.output === undefined ? null : (
+                    // `aria-pressed` carries the selection, which the
+                    // stylesheet alone told nobody who was not looking at it.
+                    <Tooltip asChild label={openSaid}>
+                      <button
+                        type="button"
+                        className="armada-check-runs__output"
+                        aria-pressed={open}
+                        onClick={() => onOpen?.(row.id)}
+                      >
+                        {row.output}
+                      </button>
+                    </Tooltip>
+                  )}
+                  {row.onRunHere === undefined ? null : (
+                    <Button variant="ghost" size="sm" ground="card" onClick={row.onRunHere}>
+                      Run it here
+                    </Button>
+                  )}
+                </span>
+              )}
+            </span>
+            {row.detail === undefined ? null : (
+              <span className="armada-check-runs__detail">{row.detail}</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+  if (summary !== undefined) {
+    // **The row is the press**: a native disclosure, so the keyboard and a
+    // screen reader get it for nothing.
+    return (
+      <details className="armada-check-runs" data-folded="true">
+        <summary className="armada-check-runs__summary">
+          <ChevronRight
+            className="armada-check-runs__chevron"
+            size={ROW_ICON}
+            strokeWidth={ROW_STROKE}
+            aria-hidden
+          />
+          {heading}
+          {summary.outcome === undefined ? null : (
+            <Badge status={summary.outcome.status} icon={summary.outcome.icon}>
+              {summary.outcome.label}
+            </Badge>
+          )}
+          <span className="armada-check-runs__reading">{summary.reading}</span>
+        </summary>
+        {note ? <span className="armada-check-runs__note">{note}</span> : null}
+        {list}
+      </details>
+    );
+  }
   return (
     <div className="armada-check-runs">
       {label === undefined && note === undefined ? null : (
@@ -160,66 +265,7 @@ export function CheckRuns({
           {note ? <span className="armada-check-runs__note">{note}</span> : null}
         </div>
       )}
-      <ul className="armada-check-runs__list">
-        {rows.map((row) => {
-          const open = row.id === openId;
-          return (
-            <li
-              className="armada-check-runs__row"
-              key={row.id}
-              data-named={row.named}
-              data-open={open ? "true" : undefined}
-            >
-              <span className="armada-check-runs__mark">
-                {row.icon ? <row.icon size={ROW_ICON} strokeWidth={ROW_STROKE} aria-hidden /> : null}
-              </span>
-              <span className="armada-check-runs__says">{row.says}</span>
-              {row.result === undefined ? null : (
-                <span className="armada-check-runs__result">{row.result}</span>
-              )}
-              {/* The id, and the control that opens the output, on one line
-                  under the finding. A long file name takes this line's room
-                  and never the finding's. */}
-              <span className="armada-check-runs__foot">
-                <span
-                  className="armada-check-runs__id"
-                  data-name={row.identifierIsAName ? "true" : undefined}
-                >
-                  {row.identifier}
-                </span>
-                {/* No control at all where there is nothing to show: a
-                    disabled one would be a target that refuses. */}
-                {row.output === undefined && row.onRunHere === undefined ? null : (
-                  <span className="armada-check-runs__output-group">
-                    {row.output === undefined ? null : (
-                      // `aria-pressed` carries the selection, which the
-                      // stylesheet alone told nobody who was not looking at it.
-                      <Tooltip asChild label={openSaid}>
-                        <button
-                          type="button"
-                          className="armada-check-runs__output"
-                          aria-pressed={open}
-                          onClick={() => onOpen?.(row.id)}
-                        >
-                          {row.output}
-                        </button>
-                      </Tooltip>
-                    )}
-                    {row.onRunHere === undefined ? null : (
-                      <Button variant="ghost" size="sm" ground="card" onClick={row.onRunHere}>
-                        Run it here
-                      </Button>
-                    )}
-                  </span>
-                )}
-              </span>
-              {row.detail === undefined ? null : (
-                <span className="armada-check-runs__detail">{row.detail}</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {list}
     </div>
   );
 }
