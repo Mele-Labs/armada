@@ -32,10 +32,9 @@
 //! [`leasing`](mod@leasing) is `armada worktree`, the pool of warm
 //! worktrees agents lease.
 //!
-//! [`land`](mod@land) is `armada land`, ported from `scripts/land` in
-//! stages — state on disk, the gate's pure comparisons, and now the two
-//! reused worktrees, the turn lock and the detached runner. **Not yet a
-//! verb**: `cli` does not dispatch to it.
+//! [`land`](mod@land) is `armada land`, the merge line: the queue on disk,
+//! the gate, the turn lock and the detached runner. `scripts/land` is a
+//! shim over it.
 
 pub mod agent;
 pub mod clean;

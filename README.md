@@ -168,8 +168,8 @@ Some of what the gate refuses:
 ### Tests
 
 ```sh
-cargo nextest run --workspace --exclude acceptance   # not `cargo test`
-cargo test -p acceptance                             # the milestone's own claim
+armada check test                                    # not `cargo test`
+armada check acceptance                              # the milestone's own claim
 pnpm bridge-test                                     # the TypeScript half
 ```
 
