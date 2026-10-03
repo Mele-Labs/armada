@@ -1,14 +1,13 @@
 //! One Job creating other Jobs, and the three ways it may not.
 //!
-//! **No shipped workflow grants this yet**, and that is deliberate: the shape
-//! that will is a loop, and the loop keys are still refused as deferred. So
-//! every fixture here declares `may_dispatch_jobs` itself, and
-//! `crates/config/tests/shipped.rs` asserts that nothing in
-//! `.armada/workflows/` does.
+//! Every fixture here declares `may_dispatch_jobs` itself, so the mechanics are
+//! proved apart from the one shipped definition that grants it; `tests::epic`
+//! drives that one.
 //!
 //! The fixture's dispatching step is its **first**, so a Job that is approved
-//! is a Job whose Drone may dispatch. Where a person stands relative to it is
-//! the workflow's business and not this module's.
+//! is a Job whose Drone may dispatch. **A person answers it**, because since
+//! slice 6 what it creates waits for `approve_wave` at that gate, and the
+//! parser refuses the grant on any other.
 
 use core_model::{JobId, JobStatus, Origin};
 use ipc::mcp::DispatchJob;
@@ -34,7 +33,7 @@ fn a_dispatching_workflow() -> config::ResolvedWorkflow {
         "version: 1\nworkflow_id: fixture-dispatcher\nname: fixture-dispatcher\n\
          structure: linear\nsteps:\n  - id: split\n    label: \"Split\"\n    \
          evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: true\n    \
-         delivers: false\n    advance_gate: auto\n  - id: after\n    label: \"After\"\n    \
+         delivers: false\n    advance_gate: human_always\n  - id: after\n    label: \"After\"\n    \
          evidence: {submitted: {type: facts_note}}\n    delivers: true\n    advance_gate: auto\n",
     )
 }
@@ -82,6 +81,22 @@ async fn dispatching(home: &TempDir) -> (Fixture, JobId) {
     (fleet, id)
 }
 
+/// The parent's step is reported and held at its gate, and a person releases
+/// the wave it proposed: `approve_wave`, naming every Job of it.
+async fn released(fleet: &Fixture, parent: &JobId, wave: &[&JobId]) {
+    submitted_by_the_one(fleet, note_evidence())
+        .await
+        .expect("the parent's evidence is taken");
+    fleet.turn().await.expect("the gate holds it for a person");
+    let body = ipc::ApproveWave {
+        jobs: wave.iter().map(|job| ipc::JobId::from(*job)).collect(),
+    };
+    fleet
+        .approve_wave(parent, &body)
+        .await
+        .expect("the wave is released");
+}
+
 fn asking(title: &str, after: &[&str]) -> DispatchJob {
     DispatchJob {
         title: title.to_string(),
@@ -92,10 +107,10 @@ fn asking(title: &str, after: &[&str]) -> DispatchJob {
     }
 }
 
-/// **The exemption, working.** A child enters at `queued`, names its parent and
-/// the step that made it, and nobody approved it.
+/// **No exemption since slice 6.** A child waits at its gate, naming its
+/// parent, the step that made it and the pass, until its wave is released.
 #[tokio::test]
-async fn a_dispatched_child_enters_queued_naming_the_step_that_made_it() {
+async fn a_dispatched_child_waits_at_its_gate_naming_the_step_and_the_pass_that_made_it() {
     let home = TempDir::new();
     let (fleet, parent) = dispatching(&home).await;
 
@@ -105,14 +120,19 @@ async fn a_dispatched_child_enters_queued_naming_the_step_that_made_it() {
         .expect("the child is created");
 
     let child = fleet.load(&child).await.expect("the child reads back");
-    assert_eq!(child.status(), JobStatus::Queued);
+    assert_eq!(child.status(), JobStatus::AwaitingApproval);
     assert_eq!(child.origin(), Origin::SubDispatched);
     let by = child.dispatched_by().expect("a child names its parent");
     assert_eq!(&by.job_id, &parent);
     assert_eq!(
         by.step_id.as_ref().map(|step| step.as_str()),
         Some("split"),
-        "the step is half of `DispatchOrigin`, and it is what a later step reads back"
+        "the step is part of `DispatchOrigin`, and it is what a later step reads back"
+    );
+    assert_eq!(
+        by.pass,
+        Some(1),
+        "the first pass over the step that made it"
     );
 }
 
@@ -224,14 +244,11 @@ async fn a_sub_dispatched_job_running_on_a_dispatching_step_still_cannot_dispatc
         .expect("a child on the same workflow is a legal thing to create");
     worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
 
-    // The parent's step advances, it gives up its slot, and the next turn puts
-    // a Drone on the child — which is the whole arrangement this refusal has to
-    // survive.
-    submitted_by_the_one(&fleet, note_evidence())
-        .await
-        .expect("the parent's evidence is taken");
-    fleet.turn().await.expect("the turn runs");
-    fleet.turn().await.expect("and admits the child");
+    // The parent's wave is released, it gives up its slot, and the next turn
+    // puts a Drone on the child — which is the whole arrangement this refusal
+    // has to survive.
+    released(&fleet, &parent, &[&child]).await;
+    fleet.turn().await.expect("the turn admits the child");
 
     let standing = fleet.load(&child).await.expect("the child reads back");
     assert_eq!(standing.status(), JobStatus::Running);
@@ -266,9 +283,7 @@ async fn a_parent_waiting_for_its_children_gives_up_its_slot() {
         .expect("the child is created");
     worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
 
-    submitted_by_the_one(&fleet, note_evidence())
-        .await
-        .expect("the evidence is taken");
+    released(&fleet, &parent, &[&child]).await;
     fleet.turn().await.expect("the turn runs");
 
     let standing = fleet.load(&parent).await.expect("the parent reads back");
@@ -302,9 +317,7 @@ async fn a_waiting_parent_reads_as_blocked_and_as_nobody_having_put_it_back() {
         .await
         .expect("the child is created");
     worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
-    submitted_by_the_one(&fleet, note_evidence())
-        .await
-        .expect("the evidence is taken");
+    released(&fleet, &parent, &[&child]).await;
     fleet.turn().await.expect("the turn runs");
 
     let summary = fleet
@@ -338,12 +351,9 @@ async fn the_parent_comes_back_on_the_next_step_once_its_children_are_done() {
         .expect("the child is created");
     worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
 
-    // The parent dispatches and stands down; the child is admitted and works
-    // its one step; the parent is admitted again.
-    submitted_by_the_one(&fleet, note_evidence())
-        .await
-        .expect("the parent's evidence is taken");
-    fleet.turn().await.expect("the parent stands down");
+    // The parent's wave is released and it stands down; the child is admitted
+    // and works its one step; the parent is admitted again.
+    released(&fleet, &parent, &[&child]).await;
     fleet.turn().await.expect("the child is admitted");
     submitted_by_the_one(&fleet, note_evidence())
         .await

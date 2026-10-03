@@ -67,6 +67,8 @@ where
         job_id: &JobId,
         body: &ipc::ApproveDispatch,
     ) -> Result<Job, Adrift> {
+        // Before the proposal is kept, so a refused press keeps nothing.
+        self.not_alone(&self.load(job_id).await?)?;
         let job = self.kept_as_left(job_id, body, APPROVED).await?;
         self.approve(job.id()).await
     }

@@ -193,7 +193,7 @@ pub use amending::{
 };
 pub use approval_ask::AskedApproval;
 pub use approving::{
-    moved_at, ApproveDispatch, BranchRow, Branches, CompleteWhen, CriterionOrigin,
+    moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
     CriterionWritten, DispatchSettings, EditJob, GateChoice, LandingChoice, LandingRule,
     LandingUnit, LandsWhen, PolicyOverrides,
 };

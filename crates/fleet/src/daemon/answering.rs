@@ -364,6 +364,8 @@ where
                 to: JobStatus::Queued,
             }));
         }
+        // One Job of an Epic's wave is released with the wave, by its plan.
+        self.not_alone(&job)?;
         self.move_job(&job, Target::Queued, Actor::Human).await
     }
 

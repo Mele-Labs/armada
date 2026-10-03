@@ -496,6 +496,12 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/edit",
     },
+    // An Epic's plan approved with every Job of its wave, in one act (#1694).
+    Route {
+        operation: "approve_wave",
+        method: "POST",
+        path: "/jobs/:job_id/approve_wave",
+    },
     // The three answers at a human gate, and three routes rather than one with
     // a decision in the body: each does something different to the Job, and one
     // route taking any of them would be a body that means three things. The

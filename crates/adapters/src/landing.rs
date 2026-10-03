@@ -46,15 +46,20 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
     // already has. The address is not among them — it is the argument, so
     // asking for it back would be asking the forge to confirm what was just
     // handed to it.
+    //
+    // `mergedAt` is null until it merges, and a blank field refuses the whole
+    // line, so it crosses as `-` until then.
     let Some(said) = asked(
         in_repo,
         pull_request,
-        "number,title,state,mergeable,baseRefName,baseRefOid,headRefOid",
-        "[.number, .title, .state, .mergeable, .baseRefName, .baseRefOid, .headRefOid] | @tsv",
+        "number,title,state,mergeable,baseRefName,baseRefOid,headRefOid,mergedAt",
+        "[.number, .title, .state, .mergeable, .baseRefName, .baseRefOid, .headRefOid, \
+         (.mergedAt // \"-\")] | @tsv",
     ) else {
         return WhatBecameOfIt::unknown();
     };
-    let Some([number, title, state, mergeable, base, pinned, head]) = fields::<7>(&said) else {
+    let Some([number, title, state, mergeable, base, pinned, head, merged]) = fields::<8>(&said)
+    else {
         return WhatBecameOfIt::unknown();
     };
     let url = pull_request.to_string();
@@ -84,7 +89,14 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
             // build has no other name for is the same silence.
             _ => Mergeable::Unreadable,
         },
+        merged_at: merged_at(state, merged),
     }
+}
+
+/// When a pull request merged, off the forge's own field: only a merged one
+/// has an instant, and `-` is the null [`read`] asked to be spelled.
+pub(crate) fn merged_at(state: &str, said: &str) -> Option<String> {
+    (state == "MERGED" && said != "-").then(|| said.to_string())
 }
 
 /// Merge a pull request Armada opened.

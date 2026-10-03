@@ -74,6 +74,21 @@ export type LandingRule = {
   from_ref?: string;
   /** `ready` or `draft`. */
   pr_mode: string;
+  /**
+   * What finishes the Job: `delivered` or `all_members_landed`. Since 23.13;
+   * absent from a Fleet before it, whose Jobs finished delivered.
+   */
+  complete_when?: string;
+};
+
+/**
+ * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan
+ * gate: every Job of the proposed wave, each at `awaiting_approval` and
+ * dispatched by the Epic, released together. Since 23.13. **Refused unless it
+ * names exactly the wave Fleet holds**, so a person releases what they read.
+ */
+export type ApproveWave = {
+  jobs: readonly string[];
 };
 
 /** What this Job's approval said in place of the repository, in `armada.yml`'s words. */

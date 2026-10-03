@@ -401,8 +401,7 @@
 /* A combination Fleet cannot act on yet. `--status-awaiting-review` is the one
    hue status.css gives "needs you, not urgent", which is exactly what this is:
    nothing is broken and nobody has to do anything now. */
-.armada-proposal__unmeant,
-.armada-proposal__moved {
+.armada-proposal__unmeant {
   min-width: 0;
   margin: 0;
   color: var(--status-awaiting-review);
@@ -498,6 +497,15 @@
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
+}
+
+/* An issue's mark, its reference and the issue having moved, as one group on
+   the origin line, so a wrap never strands the mark from its reference. */
+.armada-proposal__criterion-from {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 /* The reference the words came from. Mono, because it is a value a person

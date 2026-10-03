@@ -386,6 +386,8 @@ function OneJob(props: JobDetailProps) {
                     workflows={props.workflows}
                     manifest={manifest}
                     branches={held.branches}
+                    models={props.models?.models ?? []}
+                    machineCap={props.machineCap ?? null}
                   />
                 ),
               })}

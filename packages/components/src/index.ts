@@ -361,6 +361,7 @@ export * from "./compositions/JobProposal/ProposalDoneWhen";
 export * from "./compositions/JobProposal/ProposalFields";
 export * from "./compositions/JobProposal/ProposalGates";
 export * from "./compositions/JobProposal/ProposalLanding";
+export * from "./compositions/JobProposal/ProposalTiers";
 // The picture a person draws beside a prompt, on the one graph surface. #1547.
 export * from "./compositions/SketchPad/SketchPad";
 // A pad's drawing, read-only at the size it is given: a Studio Sketch on the board.
@@ -398,3 +399,7 @@ export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MergeLine/MergeLine";
 export * from "./compositions/PullRequestCard/PullRequestCard";
+// Where a criterion's words came from, and its issue having moved, as marks.
+export * from "./compositions/CriterionOrigin/CriterionOrigin";
+// A field a proposing Job's proposer has not written yet.
+export * from "./compositions/SettlingMark/SettlingMark";

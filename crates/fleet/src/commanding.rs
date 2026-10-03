@@ -176,6 +176,21 @@ where
         self.summarised(&job).await
     }
 
+    /// Approve an Epic's plan and release its wave. `waving` has it.
+    async fn approve_wave(
+        self: Arc<Self>,
+        job_id: JobId,
+        wave: ipc::ApproveWave,
+    ) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { Fleet::approve_wave(&fleet, &job_id.to_domain(), &wave).await }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// The person takes the work, and the Job goes on or is finished.
     /// **Included even though the last step's answer commits and delivers the
     /// branch inside it.** [`CommandBudget`] is sized to cover an ordinary

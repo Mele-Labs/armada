@@ -103,9 +103,10 @@ pub enum LandingUnit {
     Group,
 }
 
-/// What has to happen before a Job counts as finished. **Only `delivered` is
-/// honoured from 23.8** (`landing.ts`, `COMPLETE_WHEN_SERVED`); the approval
-/// refuses the other three rather than keeping a setting nothing reads.
+/// What has to happen before a Job counts as finished. **`delivered` is
+/// honoured from 23.8 and `all_members_landed` from 23.13** (`landing.ts`,
+/// `COMPLETE_WHEN_SERVED`); the approval refuses the other two rather than
+/// keeping a setting nothing reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CompleteWhen {
@@ -149,6 +150,10 @@ pub struct LandingRule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ref: Option<String>,
     pub pr_mode: crate::PrMode,
+    /// What finishes the Job. Since 23.13, when `all_members_landed` became one
+    /// Fleet runs; absent is a Fleet before it, whose Jobs finished delivered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complete_when: Option<CompleteWhen>,
 }
 
 impl From<&core_model::Landing> for LandingRule {
@@ -157,8 +162,28 @@ impl From<&core_model::Landing> for LandingRule {
             target: landing.target.as_ref().map(|b| b.as_str().to_string()),
             from_ref: landing.from_ref.as_ref().map(|b| b.as_str().to_string()),
             pr_mode: landing.pr_mode.into(),
+            complete_when: Some(CompleteWhen::from(landing.complete_when)),
         }
     }
+}
+
+impl From<core_model::CompleteWhen> for CompleteWhen {
+    fn from(when: core_model::CompleteWhen) -> CompleteWhen {
+        match when {
+            core_model::CompleteWhen::Delivered => CompleteWhen::Delivered,
+            core_model::CompleteWhen::AllMembersLanded => CompleteWhen::AllMembersLanded,
+        }
+    }
+}
+
+/// What Approve the plan sends at an Epic's plan gate (#1694): **every Job of
+/// the wave it releases**, by id. Refused unless it names exactly the wave
+/// Fleet holds — each Job its plan proposed that is still at
+/// `awaiting_approval` — so a person releases what they read, all of it or
+/// none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApproveWave {
+    pub jobs: Vec<crate::JobId>,
 }
 
 /// What this Job's approval said in place of the repository's policies, on

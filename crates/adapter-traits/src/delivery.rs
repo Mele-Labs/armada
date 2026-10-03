@@ -219,6 +219,11 @@ pub struct WhatBecameOfIt {
     /// [`Mergeable::Unreadable`] is that word carried rather than collapsed
     /// into a conflict nobody has found yet.
     pub mergeable: Mergeable,
+    /// When it merged, as the forge says, RFC 3339. **`None` on anything but
+    /// [`Landing::Merged`]**, and on a forge that named no instant: a parent
+    /// Job's members are read as landed off the merge, and when it happened is
+    /// what a person reads beside it (spike 022, slice 6).
+    pub merged_at: Option<String>,
 }
 
 impl WhatBecameOfIt {
@@ -233,6 +238,7 @@ impl WhatBecameOfIt {
             number: None,
             title: None,
             mergeable: Mergeable::Unreadable,
+            merged_at: None,
         }
     }
 }

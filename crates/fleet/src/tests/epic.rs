@@ -1,26 +1,26 @@
 //! The workflow whose product is other Jobs, driven off the file that ships.
 //!
-//! **This is `#215`'s claim as close as a test reaches it**: a person approves
-//! one Job naming a milestone, and the work of that milestone is dispatched and
-//! gated without them approving each piece. What a test cannot reach is the
-//! merge and a Drone deciding anything — the pieces here are asked for by the
-//! fixture rather than decided by a model, which is `bug_job.rs`'s own division
-//! and for the same reason.
+//! **This is `#215`'s claim as slice 6 left it**: a person approves one Job
+//! naming a milestone, its plan proposes a wave of real Jobs, and one press at
+//! the plan's gate releases all of them. What a test cannot reach is the merge
+//! and a Drone deciding anything — the pieces here are asked for by the fixture
+//! rather than decided by a model, which is `bug_job.rs`'s own division and for
+//! the same reason.
 //!
 //! **Read off disk rather than restated**, exactly as `tests::looping` reads
 //! `design-plan.json`. Every mechanic underneath was already proved against
-//! fixtures in `tests::sub_dispatch` and `tests::looping`; what had never been
-//! asserted is that the definition a person actually dispatches wires them
-//! together — the grant on the step after the gate, the stand-down, the return,
-//! and the loop coming round.
+//! fixtures in `tests::sub_dispatch` and `tests::looping`; what is asserted here
+//! is that the definition a person actually dispatches wires them together —
+//! the grant on the step a person answers, the press, the stand-down, the
+//! return, and the loop coming round to propose the next wave.
 //!
 //! # Why the fixture writes the artifacts
 //!
-//! All three steps declare `artifact_exists`, and the check reads the file's
-//! size. A fake Drone writes nothing, so the worktree is seeded before each
-//! gate. That is the same seam `tests::looping::wrote_the_plan` uses and it is
-//! not a weakening: what the check proves is that Fleet opens the declared path,
-//! and a test in which nothing is ever written proves it by never running it.
+//! Both steps declare `artifact_exists`, and the check reads the file's size. A
+//! fake Drone writes nothing, so the worktree is seeded before each gate. That
+//! is the same seam `tests::looping::wrote_the_plan` uses and it is not a
+//! weakening: what the check proves is that Fleet opens the declared path, and
+//! a test in which nothing is ever written proves it by never running it.
 
 use core_model::{
     Approach, EvidenceType, JobId, JobStatus, NewTask, Origin, PlanChange, StepId, StepState,
@@ -32,7 +32,7 @@ use verification::{Claimed, NotClaimed, ShownBy};
 use crate::daemon::Fleet;
 use crate::evidence::Call;
 use crate::resume::Redirection;
-use crate::tests::admitted::{dispatched, started};
+use crate::tests::admitted::dispatched;
 use crate::tests::daemon::{a_proposal_for, fittings, manifest, worktree_directory};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
@@ -49,7 +49,7 @@ type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 ///
 /// The roster is the adapter's, because `plan` names a Judge model and a
 /// definition naming a model the adapter does not offer is refused at parse.
-fn epic() -> config::ResolvedWorkflow {
+pub(super) fn epic() -> config::ResolvedWorkflow {
     let path =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.armada/workflows/epic.json");
     let text = std::fs::read_to_string(&path).expect("the shipped definition is there");
@@ -62,7 +62,7 @@ fn epic() -> config::ResolvedWorkflow {
 
 /// A one-step workflow the children run under, so that a wave needs nothing of
 /// the epic's own definition.
-fn a_piece() -> config::ResolvedWorkflow {
+pub(super) fn a_piece() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         "version: 1\nworkflow_id: fixture-piece\nname: fixture-piece\n\
@@ -79,7 +79,7 @@ fn a_piece() -> config::ResolvedWorkflow {
 /// **The Judge answers rather than failing**, which the default fittings' Judge
 /// does not: `plan` carries two criteria, so a Fleet that left the Judge cold
 /// would stop at the first gate for a reason that is not this workflow's.
-fn a_fleet_running_epics(home: &TempDir) -> Fixture {
+pub(super) fn a_fleet_running_epics(home: &TempDir) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["docs/plan.md"]));
     fittings.starting().workflows = [epic(), a_piece()]
         .into_iter()
@@ -89,22 +89,18 @@ fn a_fleet_running_epics(home: &TempDir) -> Fixture {
     Fleet::assembled(fittings)
 }
 
-fn planning() -> StepId {
+pub(super) fn planning() -> StepId {
     StepId::new("plan")
 }
 
-fn dispatching() -> StepId {
-    StepId::new("dispatch")
-}
-
-fn rolling_up() -> StepId {
+pub(super) fn rolling_up() -> StepId {
     StepId::new("roll_up")
 }
 
 /// A file at a path inside a Job's worktree, with something in it — which is
 /// the whole of what `artifact_exists` reads. Before the Job's first dispatch,
 /// the slot that dispatch will lease.
-fn wrote(home: &TempDir, job: &core_model::Job, at: &str, text: &str) {
+pub(super) fn wrote(home: &TempDir, job: &core_model::Job, at: &str, text: &str) {
     let spec = crate::tests::daemon::spec_held(home, job).expect("a legal spec");
     let tree = match spec.slot() {
         Some(_) => std::path::PathBuf::from(spec.worktree_path()),
@@ -115,7 +111,7 @@ fn wrote(home: &TempDir, job: &core_model::Job, at: &str, text: &str) {
     std::fs::write(&path, text).expect("the artifact is written");
 }
 
-fn document(claim: &'static str) -> Call<'static> {
+pub(super) fn document(claim: &'static str) -> Call<'static> {
     Call {
         evidence_type: EvidenceType::Document,
         claimed: Claimed(claim),
@@ -125,7 +121,7 @@ fn document(claim: &'static str) -> Call<'static> {
     }
 }
 
-fn note(claim: &'static str) -> Call<'static> {
+pub(super) fn note(claim: &'static str) -> Call<'static> {
     Call {
         evidence_type: EvidenceType::FactsNote,
         claimed: Claimed(claim),
@@ -135,7 +131,7 @@ fn note(claim: &'static str) -> Call<'static> {
     }
 }
 
-fn asking(title: &str) -> DispatchJob {
+pub(super) fn asking(title: &str) -> DispatchJob {
     DispatchJob {
         title: title.to_string(),
         workflow: "fixture-piece".to_string(),
@@ -145,13 +141,13 @@ fn asking(title: &str) -> DispatchJob {
     }
 }
 
-fn said(words: &str) -> Redirection {
+pub(super) fn said(words: &str) -> Redirection {
     Redirection::saying(words).expect("a note with something in it")
 }
 
 /// A Job on the epic, approved, with a Drone on `plan` and a plan in its
 /// worktree.
-async fn planning_a_wave(home: &TempDir) -> (Fixture, JobId) {
+pub(super) async fn planning_a_wave(home: &TempDir) -> (Fixture, JobId) {
     let fleet = a_fleet_running_epics(home);
     let job = fleet
         .propose(a_proposal_for("run the Throughput milestone", "epic"))
@@ -181,7 +177,7 @@ fn a_wave_plan() -> PlanChange {
 
 /// The plan is recorded, submitted, and the Job stands at the gate a person
 /// answers.
-async fn presented_the_plan(fleet: &Fixture, job: &JobId) {
+pub(super) async fn presented_the_plan(fleet: &Fixture, job: &JobId) {
     fleet
         .change_plan(job, &a_wave_plan())
         .await
@@ -192,23 +188,39 @@ async fn presented_the_plan(fleet: &Fixture, job: &JobId) {
     fleet.turn().await.expect("the plan's gate runs");
 }
 
-/// **The approval queues and the turn dispatches.** A person answers `plan`,
-/// and what that advances into is the step holding the tool — put there by
-/// admission rather than by the approval, since `#456`.
-async fn approved_the_plan(fleet: &Fixture, job: &JobId, home: &TempDir) {
+/// **The press.** A person answers `plan` by naming every Job it proposed, and
+/// the parent stands after it, waiting on them, holding no slot.
+pub(super) async fn released_the_wave(fleet: &Fixture, job: &JobId, wave: &[&JobId]) {
+    let body = ipc::ApproveWave {
+        jobs: wave.iter().map(|one| ipc::JobId::from(*one)).collect(),
+    };
     fleet
-        .approve_review(job)
+        .approve_wave(job, &body)
         .await
-        .expect("a person approves the plan");
-    started(fleet, job)
+        .expect("a person approves the plan and its wave");
+}
+
+/// One child of the wave proposed, the plan presented, and the wave released.
+pub(super) async fn a_wave_of_one(fleet: &Fixture, job: &JobId, home: &TempDir) -> JobId {
+    let child = fleet
+        .sub_dispatch(job, &asking("port the parser"))
         .await
-        .expect("the turn puts a Drone on the dispatching step");
-    wrote(
-        home,
-        &fleet.load(job).await.expect("the Job"),
-        ".armada/artifacts/dispatched.md",
-        "# Dispatched\n\nOne Job.\n",
-    );
+        .expect("the plan proposes it");
+    worktree_directory(home, &fleet.load(&child).await.expect("the child"));
+    presented_the_plan(fleet, job).await;
+    released_the_wave(fleet, job, &[&child]).await;
+    child
+}
+
+/// The released child admitted, worked and finished, and the parent admitted
+/// again on the step after the plan.
+pub(super) async fn the_wave_ran(fleet: &Fixture) {
+    fleet.turn().await.expect("the child is admitted");
+    submitted_by_the_one(fleet, note("The piece is done."))
+        .await
+        .expect("the child reports");
+    fleet.turn().await.expect("the child finishes");
+    fleet.turn().await.expect("the parent is admitted again");
 }
 
 /// **The definition a person dispatches loads.** Parsing is not resolving and
@@ -226,127 +238,125 @@ fn the_shipped_epic_parses_resolves_and_freezes() {
         .collect();
     assert_eq!(
         ids,
-        vec!["plan", "dispatch", "roll_up"],
-        "plan, dispatch, roll up — and `roll_up` is the issue's name for it",
+        vec!["plan", "roll_up"],
+        "plan, which proposes the wave a person releases, and roll up",
     );
 }
 
-/// **The grant is held on one step and withheld on the two around it**, and it
-/// is asserted through the call rather than through the toolbelt: a refusal at
-/// the call is what a Drone that reached for it anyway would get, and the
-/// allowlist and the refusal are built from the same expression.
+/// **The grant is on the step a person answers, and withheld after it.** The
+/// plan's Drone proposes; what it proposes waits at its gate, stamped with the
+/// pass, and `roll_up` may create nothing.
 #[tokio::test]
-async fn only_the_dispatching_step_may_create_jobs() {
+async fn the_plan_proposes_the_wave_and_the_roll_up_may_create_nothing() {
     let home = TempDir::new();
     let (fleet, job) = planning_a_wave(&home).await;
 
-    let refused = fleet.sub_dispatch(&job, &asking("too early")).await;
+    let child = fleet
+        .sub_dispatch(&job, &asking("port the parser"))
+        .await
+        .expect("the planning step proposes Jobs");
+    let proposed = fleet.load(&child).await.expect("the child reads back");
+    assert_eq!(proposed.status(), JobStatus::AwaitingApproval);
+    assert_eq!(proposed.origin(), Origin::SubDispatched);
+    let by = proposed.dispatched_by().expect("a child names its parent");
+    assert_eq!(by.step_id.as_ref().map(StepId::as_str), Some("plan"));
+    assert_eq!(by.pass, Some(1));
+
+    worktree_directory(&home, &proposed);
+    presented_the_plan(&fleet, &job).await;
+    released_the_wave(&fleet, &job, &[&child]).await;
+    the_wave_ran(&fleet).await;
+    let standing = fleet.load(&job).await.expect("the Job reads back");
+    assert_eq!(standing.current_step_id(), Some(&rolling_up()));
+
+    let refused = fleet.sub_dispatch(&job, &asking("too late")).await;
     assert!(
         refused.is_err(),
-        "the planning step has no tool and no call: {refused:?}",
-    );
-
-    presented_the_plan(&fleet, &job).await;
-    approved_the_plan(&fleet, &job, &home).await;
-    let standing = fleet.load(&job).await.expect("the Job reads back");
-    assert_eq!(standing.current_step_id(), Some(&dispatching()));
-
-    let child = fleet
-        .sub_dispatch(&job, &asking("port the parser"))
-        .await
-        .expect("the dispatching step creates Jobs");
-    let child = fleet.load(&child).await.expect("the child reads back");
-    assert_eq!(child.status(), JobStatus::Queued);
-    assert_eq!(child.origin(), Origin::SubDispatched);
-    assert_eq!(
-        child
-            .dispatched_by()
-            .expect("a child names its parent")
-            .step_id
-            .as_ref()
-            .map(|step| step.as_str()),
-        Some("dispatch"),
+        "the roll-up has no tool and no call: {refused:?}",
     );
 }
 
-/// **The whole claim in one run.** One approval, a wave dispatched on it, the
-/// parent standing down rather than holding a slot its children need, and a
-/// fresh Drone on `roll_up` once they are done — with nobody having approved
-/// the child.
+/// **The whole claim in one run.** The wave is proposed and read at the gate,
+/// approving the plan alone is refused while it waits, one press releases it,
+/// the parent stands down rather than holding a slot its children need, and a
+/// fresh Drone is on `roll_up` once they are done.
 #[tokio::test]
-async fn one_approval_dispatches_a_wave_and_the_parent_returns_to_roll_it_up() {
+async fn one_press_releases_the_wave_and_the_parent_returns_to_roll_it_up() {
     let home = TempDir::new();
     let (fleet, job) = planning_a_wave(&home).await;
-    presented_the_plan(&fleet, &job).await;
-    approved_the_plan(&fleet, &job, &home).await;
-
     let child = fleet
         .sub_dispatch(&job, &asking("port the parser"))
         .await
-        .expect("the wave leaves");
+        .expect("the wave is proposed");
     worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
+    presented_the_plan(&fleet, &job).await;
 
-    submitted_by_the_one(&fleet, note("One Job created."))
-        .await
-        .expect("the dispatch is reported");
-    fleet.turn().await.expect("the parent stands down");
+    let held = fleet.load(&job).await.expect("the parent reads back");
+    assert_eq!(held.status(), JobStatus::AwaitingReview);
+    assert_eq!(held.current_step_id(), Some(&planning()));
+    let alone = fleet.approve_review(&job).await;
+    assert!(
+        alone.is_err_and(|why| why.to_string().contains("approve the wave")),
+        "approving the plan alone would leave its Jobs waiting",
+    );
+    let partial = fleet
+        .approve_wave(&job, &ipc::ApproveWave { jobs: Vec::new() })
+        .await;
+    assert!(
+        partial.is_err(),
+        "a press that names none of the wave releases none of it"
+    );
+    assert_eq!(
+        fleet.load(&child).await.expect("the child").status(),
+        JobStatus::AwaitingApproval,
+        "and nothing moved"
+    );
 
+    released_the_wave(&fleet, &job, &[&child]).await;
+    assert_eq!(
+        fleet.load(&child).await.expect("the child").status(),
+        JobStatus::Queued,
+        "released by the one press, with nobody approving it alone"
+    );
     let waiting = fleet.load(&job).await.expect("the parent reads back");
     assert_eq!(
         waiting.status(),
         JobStatus::Queued,
-        "a parent waiting on the Jobs it created is queued, not running",
+        "a parent waiting on the Jobs it proposed is queued, not running",
+    );
+    assert_eq!(
+        waiting.current_step_id(),
+        Some(&planning()),
+        "standing after its plan"
     );
     assert!(
         !fleet.working_on().await.contains(&job),
         "and it is holding no slot, which is what makes the wait not a deadlock",
     );
 
-    fleet.turn().await.expect("the child is admitted");
-    submitted_by_the_one(&fleet, note("The piece is done."))
-        .await
-        .expect("the child reports");
-    fleet.turn().await.expect("the child finishes");
-    fleet.turn().await.expect("the parent is admitted again");
-
+    the_wave_ran(&fleet).await;
     let back = fleet.load(&job).await.expect("the parent reads back");
     assert_eq!(back.status(), JobStatus::Running);
     assert_eq!(
         back.current_step_id(),
         Some(&rolling_up()),
-        "the step after the one that dispatched, which is where the report is written",
+        "the step after the one that proposed, which is where the report is written",
     );
 }
 
 /// **The loop closes on the shipped file.** A person reading the roll-up asks
-/// for another wave, and the Job re-enters `plan` — which is what makes a
-/// milestone plan a hypothesis rather than a slate written at the start.
+/// for another wave, the Job re-enters `plan`, and what it proposes there is
+/// stamped as the second pass.
 ///
 /// The cap is five and this spends one of them, so what is asserted here is the
 /// return; `tests::looping::two_passes_and_then_the_cap_is_spent` is where the
 /// arithmetic is pinned.
 #[tokio::test]
-async fn a_roll_up_that_asks_for_another_wave_re_enters_the_plan() {
+async fn a_roll_up_that_asks_for_another_wave_re_enters_the_plan_and_proposes_wave_two() {
     let home = TempDir::new();
     let (fleet, job) = planning_a_wave(&home).await;
-    presented_the_plan(&fleet, &job).await;
-    approved_the_plan(&fleet, &job, &home).await;
-
-    let child = fleet
-        .sub_dispatch(&job, &asking("port the parser"))
-        .await
-        .expect("the wave leaves");
-    worktree_directory(&home, &fleet.load(&child).await.expect("the child"));
-    submitted_by_the_one(&fleet, note("One Job created."))
-        .await
-        .expect("the dispatch is reported");
-    fleet.turn().await.expect("the parent stands down");
-    fleet.turn().await.expect("the child is admitted");
-    submitted_by_the_one(&fleet, note("The piece is done."))
-        .await
-        .expect("the child reports");
-    fleet.turn().await.expect("the child finishes");
-    fleet.turn().await.expect("the parent is admitted again");
+    a_wave_of_one(&fleet, &job, &home).await;
+    the_wave_ran(&fleet).await;
 
     wrote(
         &home,
@@ -373,53 +383,49 @@ async fn a_roll_up_that_asks_for_another_wave_re_enters_the_plan() {
     assert_eq!(
         round.current_step_id(),
         Some(&planning()),
-        "the loop returns to the step that plans, not to the step that dispatched",
+        "the loop returns to the step that plans and proposes",
     );
     assert_eq!(
         round.step(&planning()).map(|step| step.state()),
         Some(StepState::Running),
     );
+
+    let next = fleet
+        .sub_dispatch(&job, &asking("take the next two"))
+        .await
+        .expect("the second pass proposes");
+    let next = fleet.load(&next).await.expect("it reads back");
+    assert_eq!(next.status(), JobStatus::AwaitingApproval);
+    assert_eq!(
+        next.dispatched_by().and_then(|by| by.pass),
+        Some(2),
+        "the wave a person reads it in"
+    );
 }
 
-/// **The plan step is told what its file becomes**, which is the one thing it
-/// cannot find out for itself. A step definition has no field for prose, so
-/// this block is `fleet::terms`' and it is keyed off the *next* step's grant —
-/// the assertion is here rather than in `tests::terms` because the fixture
-/// workflow there declares no dispatching step and could not raise it.
+/// **The plan step is told that what it names becomes Jobs a person reads.**
+/// A step definition has no field for prose, so this block is `fleet::terms`'
+/// and it is keyed off the step's grant.
 ///
 /// **The two reasons a piece waits are both named.** Only one of them survives
 /// leaving the plan as a dependency edge; the other is held apart by the
 /// drawing and by nothing else in Fleet, so a plan that does not tell them
 /// apart is one whose reader cannot either.
 #[test]
-fn the_step_before_the_dispatch_is_told_that_what_it_writes_becomes_jobs() {
+fn the_plan_is_told_that_what_it_proposes_waits_for_a_person() {
     let turn = turn_at(&planning());
-    assert!(turn.contains("WHAT THIS PART DECIDES"), "{turn}");
+    assert!(turn.contains("WHAT THIS PART PROPOSES"), "{turn}");
     assert!(
         turn.contains("its own worktree, its own agent and its own spend"),
         "the cost of a piece is the half a plan is written without: {turn}",
     );
     assert!(
-        turn.contains("Draw them as well as describing them"),
-        "the drawing is what is approved: {turn}",
+        turn.contains("before approving") || turn.contains("approving them together"),
+        "nothing runs until a person approves the wave: {turn}",
     );
     assert!(
         turn.contains("would write the same files"),
         "a sequencing edge is not a dependency edge: {turn}",
-    );
-}
-
-/// **The dispatching step is told the plan is the authority.** The tool's own
-/// description says what one call does to the world; what it cannot say is that
-/// the decision was already made and read, and that this part is not where it
-/// is made again.
-#[test]
-fn the_dispatching_step_is_told_it_is_carrying_out_a_decision() {
-    let turn = turn_at(&dispatching());
-    assert!(turn.contains("WHAT THIS PART CREATES"), "{turn}");
-    assert!(
-        turn.contains("nothing it does not name"),
-        "inventing work is the failure this workflow is watched for: {turn}",
     );
     assert!(
         !turn.contains("WHAT THIS PART DECIDES"),
@@ -427,13 +433,13 @@ fn the_dispatching_step_is_told_it_is_carrying_out_a_decision() {
     );
 }
 
-/// The step after the dispatch gets neither, because it creates nothing and
-/// nothing after it does. **Every other step of every other workflow is this
+/// The roll-up gets neither, because it creates nothing and nothing after it
+/// does. **Every other step of every other workflow is this
 /// case**, which is why the block is conditional at all.
 #[test]
-fn the_step_after_the_dispatch_is_told_nothing_about_creating_jobs() {
+fn the_roll_up_is_told_nothing_about_creating_jobs() {
     let turn = turn_at(&rolling_up());
-    assert!(!turn.contains("WHAT THIS PART CREATES"), "{turn}");
+    assert!(!turn.contains("WHAT THIS PART PROPOSES"), "{turn}");
     assert!(!turn.contains("WHAT THIS PART DECIDES"), "{turn}");
 }
 

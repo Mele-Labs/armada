@@ -146,6 +146,7 @@ fn a_splits_extras_wait_at_the_gate_naming_the_head() {
         Some(&DispatchOrigin {
             job_id: head.id().clone(),
             step_id: None,
+            pass: None,
         })
     );
 }

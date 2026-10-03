@@ -4,38 +4,35 @@
 # `bug.json` beside this file what every definition here holds to.
 #
 # **This is the only definition that ships with `may_dispatch_jobs`**, on
-# `dispatch` alone. `crates/config/tests/shipped.rs` asserts that pair and says
+# `plan` alone. `crates/config/tests/shipped.rs` asserts that pair and says
 # why that step alone may have it.
 #
-# **`human_always` is on `plan` and not on `dispatch`, and the placement is
-# forced.** A gate is read after its step's Drone submits, so the same key on
-# the dispatching step would be a person approving a spend that had already
-# happened. On the step before it, the approval is what advances into the step
-# holding the tool -- so approving the plan is what dispatches the wave.
+# **`plan` proposes the wave and a person answers it, on one step.** Since
+# spike 022's slice 6 a Job `dispatch_job` creates waits at
+# `awaiting_approval`: it is real, and it runs nothing until `approve_wave`
+# releases the whole wave at this step's `human_always` gate. So the person
+# reads the Jobs themselves rather than a description of them, corrects or
+# drops any of them, and one press starts the rest
+# (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`).
+# The `dispatch` step that used to carry the plan out after the gate is gone:
+# there is nothing left to carry out once the Jobs exist.
 #
-# **`dispatch` carries no Judge, and that is a decision.** A refusal there
-# arrives after the Jobs exist and cannot un-create them; all it could do is
-# stop the step that reports on them. The place to refuse a bad split is `plan`,
-# which is where both criteria are: one asks whether the split is drawn, the
-# other whether each piece carries what `dispatch_job` will be asked for -- a
-# brief and a bar.
-#
-# **`dispatch` writes a file too**, though its real product is Jobs no
-# mechanical check can read. What the file gives is the parent's own record of
-# the wave it created, at a path a person and the next Drone can open. A step
-# whose only gate was "it submitted something" would be the weakest gate in the
-# repository on the most consequential act in it.
+# **The Judge's refusal at `plan` now arrives after the Jobs exist**, and
+# costs nothing: they have not run, and a retried `plan` withdraws what its
+# last attempt proposed before proposing again (`fleet::waving`). Both
+# criteria stay: one asks whether the split is drawn, the other whether each
+# piece carries what `dispatch_job` is asked for -- a brief and a bar.
 #
 # **What the Drone is told about any of this is `fleet::terms`', not this
 # file's.** A step definition has no field for prose. `Splitting` in
 # `crates/fleet/src/terms.rs` is the block, and it is keyed off
-# `may_dispatch_jobs` on this step or the next one rather than off this
-# workflow's name.
+# `may_dispatch_jobs` on this step rather than off this workflow's name.
 #
 # **`plan` records the plan, `#1006`.** It keeps its split, `plan.md`, and
-# `dispatch` and `roll_up` both follow. `plan` is also where the loop returns,
-# so a second pass records again — `WorkPlan::after` replaces a `Recorded`
-# change whole, which is what keeps a second split from reading as two plans.
+# `roll_up` follows it. `plan` is also where the loop returns, so a second
+# pass records again — `WorkPlan::after` replaces a `Recorded` change whole,
+# which is what keeps a second split from reading as two plans — and proposes
+# the next wave, stamped with its pass.
 {
   "version": 1,
   "workflow_id": "epic",
@@ -47,6 +44,7 @@
       "id": "plan",
       "label": "Plan the wave",
       "records_plan": true,
+      "may_dispatch_jobs": true,
       "evidence": {
         "submitted": { "type": "document" }
       },
@@ -77,23 +75,6 @@
       ],
       "delivers": false,
       "advance_gate": "human_always"
-    },
-    {
-      "id": "dispatch",
-      "label": "Dispatch the wave",
-      "follows_plan": true,
-      "evidence": {
-        "submitted": { "type": "facts_note" }
-      },
-      "may_dispatch_jobs": true,
-      "mechanical_checks": [
-        {
-          "type": "artifact_exists",
-          "target": ".armada/artifacts/dispatched.md"
-        }
-      ],
-      "delivers": false,
-      "advance_gate": "auto"
     },
     {
       "id": "roll_up",

@@ -193,9 +193,9 @@ version = 1
 sample = "../../../.armada/workflows/epic.json"
 status = "Shipped"
 structure = "loop"
-steps = 3
-gate_profile = "A person reads the plan and nothing else. `plan` is human_always, `dispatch` is auto, `roll_up` is human_always and is where the loop turns."
-what_it_exercises = "The only workflow whose product is other Jobs. Sole holder of `may_dispatch_jobs`, and the only place a step's gate is placed by what the step *after* it may do."
+steps = 2
+gate_profile = "A person reads each wave's plan and the Jobs it proposed, and releases them in one press. `plan` is human_always and proposes the wave; `roll_up` is human_always and is where the loop turns."
+what_it_exercises = "The only workflow whose product is other Jobs. Sole holder of `may_dispatch_jobs`, on the step a person answers: what it proposes waits at `awaiting_approval` for `approve_wave` (spike 022, slice 6)."
 notes = """
 Designed here rather than carried across, so this row records the decision instead of restating one. #215, and `docs/capabilities/epic-as-one-job.md` is the reasoning at length.
 
