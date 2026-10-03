@@ -49,6 +49,7 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
             continue;
         }
 
+        size::uses(&state, env.batch);
         let batch = &line[..line.len().min(size::current(&state, env.batch))];
         if let Some(went) = take_turn(repo, &state, env, batch) {
             size::after(&state, env.batch, went);

@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { Button } from "../Button/Button";
 
@@ -118,11 +118,22 @@ export function DropdownMenu({
     layer.dataset.aligns = Math.abs(at.right - from.right) <= Math.abs(at.left - from.left) ? "end" : "start";
   }, [shown]);
 
-  // Esc closes an overlay, per the global tier.
+  // **Focus goes into the menu as it opens**, onto its first item, so the
+  // arrows and Enter work however it was opened — a press, or a key that is not
+  // the trigger's, which left focus where it was (Run's `R`, the owner, 2 Oct
+  // 2026).
+  useEffect(() => {
+    if (shown) itemsOf(panel.current)[0]?.focus();
+  }, [shown]);
+
+  // Esc closes an overlay, per the global tier, and hands focus back to the
+  // trigger where it was in the menu, rather than dropping it on the page.
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") close.current(false);
+      if (event.key !== "Escape") return;
+      if (panel.current?.contains(document.activeElement) === true) trigger.current?.focus();
+      close.current(false);
     }
     function onDown(event: MouseEvent) {
       if (!root.current?.contains(event.target as Node)) close.current(false);
@@ -175,7 +186,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? (
-        <div ref={panel} className="armada-dropdown-menu__panel" role="menu">
+        <div ref={panel} className="armada-dropdown-menu__panel" role="menu" onKeyDown={moveFocus}>
           {entries.map((entry) => {
             if (entry.kind === "separator") {
               return <div key={entry.id} className="armada-dropdown-menu__separator" role="separator" />;
@@ -219,6 +230,30 @@ export function DropdownMenu({
       ) : null}
     </div>
   );
+}
+
+/** A menu's items, in the order it draws them. */
+function itemsOf(panel: HTMLElement | null): HTMLElement[] {
+  return [...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+}
+
+/** ↑ and ↓ step through the items and wrap; Home and End go to either end. Enter is the item's own. */
+function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>): void {
+  const items = itemsOf(event.currentTarget);
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  const to =
+    event.key === "ArrowDown"
+      ? (at + 1) % items.length
+      : event.key === "ArrowUp"
+        ? (at <= 0 ? items.length : at) - 1
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : null;
+  if (to === null || items.length === 0) return;
+  event.preventDefault();
+  items[to]?.focus();
 }
 
 function Count({ of }: { of: number | undefined }) {

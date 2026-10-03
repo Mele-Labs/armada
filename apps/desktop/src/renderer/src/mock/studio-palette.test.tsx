@@ -108,3 +108,74 @@ test("while read-only, R opens nothing and the palette's Run is off with the rai
   await new Promise((resolve) => setTimeout(resolve, 200));
   expect(runMenu().query()).toBeNull();
 });
+
+// The palette's Add rows arm their kind on the rail, as `N`, `V`, `S` and `Z` do — the owner, 2 Oct
+// 2026. They said "the Studio's own + Node control", a control the rail replaced, and Add a zone
+// was drawn on and did nothing.
+
+const KINDS = [
+  ["note", "Note"],
+  ["link", "Link"],
+  ["sketch", "Sketch"],
+  ["zone", "Zone"],
+] as const;
+
+test("the palette's Add rows arm their kind on the rail, Zone among them", async () => {
+  open(studying().scenario);
+  await openTheStudio();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  for (const [kind, noun] of KINDS) {
+    const list = await palette();
+    const option = list.getByRole("option", { name: new RegExp(`^Add a ${kind}`) });
+    await expect.element(option).not.toHaveAttribute("aria-disabled", "true");
+    await option.click();
+    await expect
+      .element(rail().getByRole("button", { name: `Add a ${noun}`, exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+  }
+});
+
+test("while read-only, the palette's Add rows are off with the rail's reason", async () => {
+  open(studying().scenario);
+  await openTheStudio();
+
+  const list = await palette();
+  for (const [kind, noun] of KINDS) {
+    const option = list.getByRole("option", { name: new RegExp(`^Add a ${kind}`) });
+    await expect.element(option).toHaveAttribute("aria-disabled", "true");
+    await expect.element(option).toHaveTextContent("Continue this Studio to add to it.");
+    // Pressed anyway: a dimmed row is drawn to say why, and choosing it arms nothing.
+    await option.click({ force: true });
+    await expect
+      .element(rail().getByRole("button", { name: `Add a ${noun}`, exact: true }))
+      .toHaveAttribute("aria-pressed", "false");
+  }
+});
+
+/** The words of the menu item focus is on, or `null` where focus is not on one. */
+const focusedItem = () =>
+  document.activeElement?.getAttribute("role") === "menuitem" ? document.activeElement.textContent : null;
+
+test("R and the palette's Run put focus in the menu, so ↓ and Enter start a run", async () => {
+  const app = open(studying().scenario);
+  await openTheStudio();
+  await page.getByRole("button", { name: "Continue" }).click();
+  const startStudioRun = vi.spyOn(app.api, "startStudioRun");
+
+  await userEvent.keyboard("R");
+  await expect.element(runMenu()).toBeVisible();
+  await expect.poll(focusedItem).not.toBeNull();
+  const first = focusedItem();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.poll(focusedItem).not.toBe(first);
+  const second = focusedItem();
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => startStudioRun.mock.calls.length).toBe(1);
+  expect(startStudioRun.mock.calls[0]![1]).toBe(second);
+
+  const list = await palette();
+  await list.getByRole("option", { name: /^Run\b/ }).click();
+  await expect.element(runMenu()).toBeVisible();
+  await expect.poll(focusedItem).toBe(first);
+});

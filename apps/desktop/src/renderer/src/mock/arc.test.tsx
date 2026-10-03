@@ -56,6 +56,10 @@ async function at(moment: string, tab: string) {
 const groupCard = (ordinal: number) =>
   page.getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
+/** A group's state, which its head draws as a mark naming it (owner, 2 Oct 2026). */
+const groupMark = (ordinal: number, named: string) =>
+  groupCard(ordinal).getByRole("img", { name: named, exact: true }).first();
+
 /** One task's row, by the name the board gives it. */
 const taskRow = (id: string) => page.getByRole("listitem", { name: new RegExp(`^${id} `) });
 
@@ -464,7 +468,7 @@ describe("the plan", () => {
 
   test("arc/group-failed: the Plan tab draws group three's failure with the one Check that failed named, and the six that passed beside it", async () => {
     await planList("arc/group-failed");
-    await expect.element(groupCard(3)).toHaveTextContent("retrying");
+    await expect.element(groupMark(3, "Retrying")).toBeVisible();
     await expect.element(groupCard(3)).toHaveTextContent("attempt 2");
     await expect.element(groupCard(3)).toHaveTextContent("screens_test");
     await expect.element(groupCard(3)).toHaveTextContent("typecheck");
@@ -475,7 +479,7 @@ describe("the plan", () => {
     await planList("arc/done-touched");
     await expect.element(taskRow("T6")).toHaveTextContent("touched later · T7");
     await expect.element(taskRow("T6").getByText("Done")).toBeInTheDocument();
-    await expect.element(groupCard(3)).toHaveTextContent("passed");
+    await expect.element(groupMark(3, "Passed")).toBeVisible();
     await expect.element(taskRow("T7")).toHaveTextContent("6 turns");
   });
 

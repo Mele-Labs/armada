@@ -18,11 +18,10 @@ import { basename, sentenceCase } from "./record-fields";
 /**
  * The group whose boundary a failed Check's run held back.
  *
- * **`failedChecksOf`'s own attribution, the one the boundary card draws**, and
- * no second rule: a run does not name its group on the wire, so it is the group
- * carrying a failure that runs this Check, read off the working step's latest
- * attempt. A run on any other step or attempt is not the one that attribution
- * reads, so it names no group.
+ * **The group the run names, where Fleet records it** (#1652). A Fleet before
+ * 23.4 named none, and there it is `failedChecksOf`'s own attribution, the one
+ * the boundary card draws: the group carrying a failure that runs this Check,
+ * read off the working step's latest attempt.
  */
 function groupHeldBy(
   detail: JobWhole,
@@ -30,6 +29,7 @@ function groupHeldBy(
   step: JobWhole["steps"][number],
   run: JobWhole["steps"][number]["check_runs"][number],
 ): GroupView | undefined {
+  if (run.group !== undefined) return groups.find((group) => group.id === run.group);
   if (step.step_id !== detail.job.current_step_id) return undefined;
   const latest = Math.max(0, ...step.check_runs.map((one) => one.attempt));
   if (run.attempt !== latest) return undefined;

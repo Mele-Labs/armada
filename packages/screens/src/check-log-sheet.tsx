@@ -33,6 +33,11 @@ export type JobCheckLog = {
    * to that run's own Record row. Absent on a live log: no row is written until the gate rules.
    */
   stepAttempt?: number;
+  /**
+   * The group whose run it is, where Fleet names one (#1652): two groups gated on one run of a
+   * step each have a row for the same Check, and this decides which the Record opens.
+   */
+  group?: string;
 };
 
 /** What the way on to a Check's own Record row says, as its tooltip and its name. */
