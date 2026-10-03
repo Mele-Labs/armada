@@ -248,7 +248,7 @@ export function Decide({
               mergeNote:
                 frozen.length > 0
                   ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
-                  : `Merges the pull request on ${host}, then takes the work. Armada runs the ` +
+                  : `Merges the pull request on ${host}. Armada runs the ` +
                     `repository's after-merge checks against what landed; merging it on ${host} ` +
                     "yourself skips them.",
               approveNote: "Takes the work without merging — the pull request stays open.",
@@ -301,7 +301,7 @@ export function Decide({
         open={asking === "merge"}
         tone="neutral"
         title={merge.title}
-        confirmLabel="Merge and take the work"
+        confirmLabel="Merge pull request"
         onCancel={() => setAsking(null)}
         onConfirm={() => {
           setAsking(null);
