@@ -53,7 +53,7 @@ function asking(step: StepDetail): StepDetail {
   };
 }
 
-/** #1750's title, as GitHub holds it. */
+/** #1750's title, as the forge holds it. */
 const TITLE = "Retire guides 8 and 20, add validation that every guide's piece is drawn somewhere";
 
 /** Job 2 at its review gate, as a 23.5 Fleet serves it: its pull request's title and count. */
