@@ -43,6 +43,37 @@ impl PrMode {
     }
 }
 
+/// What has to happen before a Job counts as finished. **Only the two Fleet
+/// honours**: `pr_merged` and `pr_opened` are refused at the approval (spike
+/// 022, `landing.ts`'s `COMPLETE_WHEN_SERVED`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum CompleteWhen {
+    /// Its last step is done, as every Job before slice 6 was.
+    #[default]
+    Delivered,
+    /// Every Job it holds has had its pull request merged. Slice 6.
+    AllMembersLanded,
+}
+
+impl CompleteWhen {
+    pub const ALL: &'static [CompleteWhen] =
+        &[CompleteWhen::Delivered, CompleteWhen::AllMembersLanded];
+
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            CompleteWhen::Delivered => "delivered",
+            CompleteWhen::AllMembersLanded => "all_members_landed",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<CompleteWhen> {
+        CompleteWhen::ALL
+            .iter()
+            .copied()
+            .find(|when| when.as_wire() == value)
+    }
+}
+
 /// How one Job's work reaches the repository, as approved.
 ///
 /// **`None` on either branch is the Manifest's base**, which is not a branch
@@ -50,9 +81,9 @@ impl PrMode {
 /// one, and a value copied in here would freeze a guess.
 ///
 /// **Only what Fleet honours is here.** One branch and one pull request per
-/// Job, done when delivered, are the only values slice 4 runs, so they are not
-/// fields: the approval refuses any other (spike 022, `landing.ts`), and a
-/// field holding the one legal value would be a setting nothing reads.
+/// Job is the only unit slice 4 runs, so it is not a field: the approval
+/// refuses any other (spike 022, `landing.ts`), and a field holding the one
+/// legal value would be a setting nothing reads.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Landing {
     /// The branch the pull request is opened against.
@@ -61,6 +92,7 @@ pub struct Landing {
     /// starts from an unmerged branch or lands in a long-lived one.
     pub from_ref: Option<Branch>,
     pub pr_mode: PrMode,
+    pub complete_when: CompleteWhen,
 }
 
 impl Landing {

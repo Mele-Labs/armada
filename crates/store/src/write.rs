@@ -57,10 +57,12 @@ impl Store {
                      dependencies, dispatched_by_job_id, dispatched_by_step_id,
                      redispatched_from, subject_kind, subject_ref, facts, scope_revisions,
                      write_targets_known, created_at, branch, workflow, redirect_waiting,
-                     cost_cap_micros, turn_cap, proposal_id, number, when_blocked
+                     cost_cap_micros, turn_cap, proposal_id, number, when_blocked,
+                     dispatched_by_pass
                  ) VALUES (
                      ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29
+                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29,
+                     ?30
                  )",
                 rusqlite::params![
                     job.id().as_str(),
@@ -126,6 +128,9 @@ impl Store {
                     // setting existed, and is never the value a new Job gets.
                     // A person changes it after, through `set_when_blocked`.
                     WhenBlocked::AskMe.as_wire(),
+                    // The wave that made a member, beside the two columns
+                    // `dispatched_by` already has. V100.
+                    job.dispatched_by().and_then(|by| by.pass),
                 ],
             )
             .map_err(fault("writing the job row"))

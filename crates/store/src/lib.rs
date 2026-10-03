@@ -137,6 +137,9 @@ mod studio;
 mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
+/// An Epic's waves: the pass on a member, when its pull request merged, and
+/// what finishes a Job. Spike 022, slice 6.
+mod waves;
 /// A Job's plan and its tasks, kept as every change made to them. Not
 /// [`plan`](mod@plan), which is a step's declared scope.
 mod work_plan;

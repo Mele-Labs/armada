@@ -38,8 +38,8 @@ pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
 };
 pub use job::{
-    branch_named, criterion_numbered, next_criterion_number, CriterionOrigin, IssueSource, Landing,
-    NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
+    branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
+    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
 };
 pub use job::{collisions, under};
 pub use job::{

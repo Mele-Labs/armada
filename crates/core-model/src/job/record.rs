@@ -224,10 +224,25 @@ impl Job {
         Job::create(new, origin.into(), None, JobStatus::AwaitingApproval, at)
     }
 
-    /// A Job spawned by a step of another Job. Enters at `queued`, already
-    /// approved as part of its parent.
+    /// A Job spawned by a step of another Job before slice 6. Entered at
+    /// `queued`, already approved as part of its parent; kept so a store
+    /// holding one still rebuilds it.
     pub fn create_sub_dispatched(new: NewJob, by: DispatchOrigin, at: Timestamp) -> Job {
         Job::create(new, Origin::SubDispatched, Some(by), JobStatus::Queued, at)
+    }
+
+    /// One Job of an Epic's wave, proposed by a step of its parent. **Enters at
+    /// `awaiting_approval`**: a person reads, corrects or drops it, and one
+    /// press of the parent's plan releases the wave
+    /// (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`).
+    pub fn create_proposed_member(new: NewJob, by: DispatchOrigin, at: Timestamp) -> Job {
+        Job::create(
+            new,
+            Origin::SubDispatched,
+            Some(by),
+            JobStatus::AwaitingApproval,
+            at,
+        )
     }
 
     /// The one place a `Job` is built, and the one place other than

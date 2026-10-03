@@ -670,6 +670,8 @@ fn dispatched_by(row: &Row<'_>) -> Result<Option<DispatchOrigin>, RowError> {
             job_id: JobId::carried(Ulid::carried(job_id)),
             // Null on one of a split's extras, which no step dispatched.
             step_id: step_id.map(StepId::new),
+            // Null on every child made before V100, and on a split's extra.
+            pass: maybe_number(row, "dispatched_by_pass")?,
         })),
         (None, None) => Ok(None),
         _ => Err(RowError::MalformedColumn {
@@ -697,6 +699,7 @@ fn constructed(
             Some(DispatchOrigin {
                 job_id: head,
                 step_id: None,
+                ..
             }),
         ) => Ok(Job::create_split(new, head, top_level, created_at)),
         // `dispatched_by` wins where the two disagree, and the top-level
@@ -706,6 +709,11 @@ fn constructed(
             column: "dispatched_by",
             value: by.job_id.as_str().to_string(),
         }),
+        // A pass is a wave's member, which entered `awaiting_approval`; a
+        // child made before V100 has none and entered `queued`.
+        (None, Some(by)) if by.step_id.is_some() && by.pass.is_some() => {
+            Ok(Job::create_proposed_member(new, by, created_at))
+        }
         (None, Some(by)) if by.step_id.is_some() => {
             Ok(Job::create_sub_dispatched(new, by, created_at))
         }
