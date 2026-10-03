@@ -458,6 +458,15 @@ impl FakeVcs {
         self.delivery.lock().expect("not poisoned").landed = landed;
     }
 
+    /// Say the pull request merged, and when, as the forge would.
+    ///
+    /// `&self` for [`now_landed`](FakeVcs::now_landed)'s reason.
+    pub fn now_merged_at(&self, landed: Landing, at: &str) {
+        let mut delivery = self.delivery.lock().expect("not poisoned");
+        delivery.landed = landed;
+        delivery.merged_at = Some(at.to_string());
+    }
+
     /// Say what the forge says about the open pull request: who has looked at
     /// it, what ran against it, what anybody wrote.
     ///

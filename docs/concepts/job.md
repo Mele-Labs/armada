@@ -82,7 +82,7 @@ The full set of Job statuses — each with its meaning, its reason values and wh
 
 ## Transitions
 
-A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent. A Job dispatched from a request enters at `proposing`, before either.
+A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `awaiting_approval` too, one Job of its parent's wave, and is released with the wave by `approve_wave`; one made before 23.11 entered at `queued`. A Job dispatched from a request enters at `proposing`, before either.
 
 ### Reading the request is a status, and approval is what locks
 

@@ -492,8 +492,20 @@ pub(super) fn read(
             },
         ));
     }
+    // **A step that creates Jobs is one a person answers.** What it creates
+    // waits at `awaiting_approval` for `approve_wave` at this step's gate
+    // (spike 022, slice 6), so any other gate would leave them unreleasable.
+    let proposes_unanswered = may_dispatch_jobs == Some(true)
+        && advance_gate.is_some_and(|gate| gate != AdvanceGate::HumanAlways);
+    if proposes_unanswered {
+        out.push(Refusal::new(&gate_key, Fault::ProposesWithoutAPerson));
+    }
     table.close(STEP_KEYS, out);
-    if disagrees || (judged && evidence_type.is_none()) || (is_plan_step && !has_plan_recorded) {
+    if disagrees
+        || proposes_unanswered
+        || (judged && evidence_type.is_none())
+        || (is_plan_step && !has_plan_recorded)
+    {
         return None;
     }
     let Looping {

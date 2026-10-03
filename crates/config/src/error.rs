@@ -299,6 +299,11 @@ pub enum Fault {
     /// step recording the plan is not done until Fleet's own record says so,
     /// and nothing else in `mechanical_checks` reads it.
     PlanStepWithoutPlanRecorded,
+    /// **`may_dispatch_jobs: true` on a step a person does not answer.** Since
+    /// spike 022's slice 6 the Jobs such a step creates wait at
+    /// `awaiting_approval` until a person releases them at its gate, so a step
+    /// gated any other way would advance past Jobs nobody can release.
+    ProposesWithoutAPerson,
     /// **`follows_plan: true` with no step at or before it that records the
     /// plan.** Covers both ways that can still be true: on a step strictly
     /// before the one that records the plan, or in a workflow that declares
@@ -581,6 +586,12 @@ impl fmt::Display for Fault {
                  product is not `plan` and it declares no `records_plan`. The \
                  check reads Fleet's own record of the plan, and only the step \
                  that records one has one to read"
+            ),
+            Fault::ProposesWithoutAPerson => write!(
+                f,
+                "is not `human_always`, and this step may create Jobs. The Jobs it \
+                 creates wait until a person approves them at its gate, so a person \
+                 has to answer it"
             ),
             Fault::PlanStepWithoutPlanRecorded => write!(
                 f,

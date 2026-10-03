@@ -1540,7 +1540,7 @@ The primary autonomy control.
 
 **Kept whole or refused whole, before anything moves.** The title, facts, workflow, each step's gate and the criteria are rewritten on the record, and freeze at this press (#1581); the tier map, the Drone cap, the landing and the policy overrides are kept beside the Job. Then `awaiting_approval -> queued`, as before. A criterion with an id is that line, reworded or not, and keeps its origin and how it is answered; one without is new, minted the next `c<n>`, the person's, and answered by the Judge or a person, never a Check. An overridden step keeps deferring on the record and the override wins at every gate however the repository's rule moves (answer 4): `auto_merge` reads `never` with `you`, else `checks-pass`; `review_gate` reads `human_always` with `you`, else `auto_if_judge_passes` with `judge`. The Drone cap is kept and enforced from slice 5.
 
-409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, any `complete_when` but `delivered`, and a cap of zero. A model `list_models` does not offer is refused as `set_tiers` refuses one.
+409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.11), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
 """
 
 [operations.edit_job]
@@ -1554,6 +1554,21 @@ notes = """
 **It does not release the Job.** Refused with 409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`, and 422 on a body changing nothing, a blank title, or a criterion the Job does not hold. Criteria follow `approve_dispatch`'s rule. A new title renames the Job's log with its handle, as the proposer's title does.
 
 `agent_access` is `Helm only`, `approve_dispatch`'s reason: what a Job is held to is a person's to correct. #1699's wave panel (Edit this Job) reaches it in slice 6.
+"""
+
+[operations.approve_wave]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Approves an Epic's plan and releases every Job of its wave, in one act"
+notes = """
+`POST /jobs/:job_id/approve_wave`, on the Epic's own id: #1694, spike 022 slice 6, since 23.11. The body is `ApproveWave`: `jobs`, every Job of the wave by id. **One act**: each member takes `awaiting_approval -> queued` as a person's act, as `edit_job` left it, and the Epic's plan step advances and the Epic is queued without the step after it being entered, so it waits on its members. The answer is the Epic's summary.
+
+**All or nothing.** 409 `fleet.wave_refused` unless the Epic is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there: every Job that step proposed still at `awaiting_approval`. A member dropped before the press (`kill_job`) is not in the wave, and naming it refuses the press; leaving one out refuses it too. 409 `fleet.not_under_review` off the gate. Nothing moves on a refusal.
+
+The same code refuses the acts that would cut across it: `approve_review` on a plan holding a wave, `approve_dispatch` on one member, and the last approval of an Epic with `complete_when: all_members_landed` while a member's pull request has not merged.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason: releasing Jobs to spawn is a person's act, which Helm may take once asked.
 """
 
 [operations.ask_person_to_approve]

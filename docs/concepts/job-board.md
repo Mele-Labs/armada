@@ -259,9 +259,9 @@ A Job drafted by a Drone does too. It carries no `dispatched_by`, which would ma
 
 It carries no `dispatched_by`, linking back through `subject` instead, which is why it is the one origin Fleet does not write from that field.
 
-### A sub-dispatched Job is approved with its parent
+### A sub-dispatched Job is approved with its wave
 
-**A sub-dispatched Job is already approved as part of its parent.** It is created at `queued` rather than `awaiting_approval`, never at a status that would put it in front of you for a decision, and it renders here at whatever status it holds. See Job status on the Board above.
+**A sub-dispatched Job waits at `awaiting_approval` until its wave is released.** Its parent's plan proposed it, and one press of that plan's gate releases every Job of the wave together; it is never approved on its own. Before 23.11 a child entered `queued`, approved as part of its parent. It renders here at whatever status it holds. See Job status on the Board above.
 
 ### Origin is display-only
 

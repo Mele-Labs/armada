@@ -111,11 +111,11 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 | | Job proposer | Sub-dispatch |
 |---|---|---|
 | Who asks | A person describing work | The Drone of an approved Job, on its dispatching step |
-| What comes back | Top-level Jobs at `awaiting_approval` | Children at `queued` |
-| Who approves | A person, **each Job in turn** | A person, **once, on the plan** — before any child exists |
-| What was read | The request, as it was typed | An artifact under `.armada/artifacts/`, written by a Drone that read the epic |
+| What comes back | Top-level Jobs at `awaiting_approval` | Children at `awaiting_approval`, stamped with the pass that proposed them |
+| Who approves | A person, **each Job in turn** | A person, **once, on the plan**, with every child it proposed — `approve_wave` |
+| What was read | The request, as it was typed | The children themselves, and the plan under `.armada/artifacts/` they came from |
 
-**One path is the gate and the other is the exemption from it.** The approval gate is the primary control on Fleet's autonomy; the sub-dispatched case is the one thing that gets past it, and it gets past because a person already approved the split the children came out of. A shared path would put the exemption one refactor away from the rule, and the thing that keeps them apart is that they reach different constructors — `create_top_level` enters at `awaiting_approval` and `create_sub_dispatched` enters at `queued`, and neither takes a status.
+**Neither path gets past the gate any more.** Until spike 022's slice 6 the sub-dispatched case was the one exemption from it: a child entered `queued` because a person had approved the plan it came out of. Now a child waits at `awaiting_approval` like any proposal, and what differs is the act that releases it: one press of the parent's plan releases the whole wave, and a child is never approved alone (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`). They still reach different constructors — `create_top_level` and `create_proposed_member` — and neither takes a status.
 
 **The saving that would have justified converging them is not there.** What the two share is drafting a proposal into a Job, and they already share it: both go through the same refusals for a blank title, a workflow nothing holds and a Manifest that is not this one. What differs is everything about who decided and what they read.
 

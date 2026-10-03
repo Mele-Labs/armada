@@ -28,21 +28,13 @@ export const PENDING_ROUTES: readonly PendingRoute[] = [
   // Served since 23.6, with `EditTask` moved to `work-plan.ts`. Deleted with
   // the mock answering it, which a person walks first: the Bridge half of #1764.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
+  // Served since 23.11, with `ApproveWave` moved to `approving.ts`. Deleted
+  // with the mock answering it, which a person walks first: slice 6's Bridge half.
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
   // Served since 23.8 with the lock's body, `EditJob` in `approving.ts`.
   // Deleted with Edit this Job sending it, which is #1699's rest (slice 6).
   { method: "POST", path: "/jobs/{job_id}/edit", act: "edit_job", issue: 1699 },
 ];
-
-/**
- * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan
- * gate: every Job of the proposed wave, each at `awaiting_approval` and
- * dispatched by the Epic, released together. Fleet has not agreed a body yet,
- * so this is what Bridge sends and the debug info carries.
- */
-export type ApproveWave = {
-  jobs: readonly string[];
-};
 
 /**
  * What Edit this Job sends to `edit_job` (#1699), on a Job of an Epic's
