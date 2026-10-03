@@ -6,12 +6,25 @@
 // is asking you sits at its top, so a line in Needs you and its answer are one
 // press apart.
 
-import { Badge, Button, HoldButton, Input, RowLink, Sheet, Textarea, Tooltip, type SheetBack } from "@armada/components";
-import type { EditJobAsSent } from "@armada/protocol";
+import {
+  Badge,
+  Button,
+  HoldButton,
+  Input,
+  ProposalDoneWhen,
+  RowLink,
+  Sheet,
+  Textarea,
+  Tooltip,
+  type SheetBack,
+} from "@armada/components";
+import type { EditJob } from "@armada/protocol";
 import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/vocabulary";
 import { useCallback, useState, type ReactNode } from "react";
 
+import { criterionViewOf, criterionWrittenOf, type CriterionView } from "./draft/criterion";
 import type { WaveJobView, WaveView } from "./draft/wave";
+import { criteriaAdded, criteriaMoved, criteriaRowsOf, criteriaWith, criteriaWithout } from "./tab-proposal-read";
 import { JobAnswer, WaveRegion, blocksOf, waitsOf, type WaveRegionProps } from "./tab-wave";
 import { waveSpentSaid } from "./wave";
 
@@ -97,19 +110,20 @@ function Related({
   );
 }
 
-/** One line each, blank lines and stray spaces dropped. */
-function linesOf(text: string): string[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
+/** What a Job of the wave expects, as the proposal's own rows read it. */
+function expectsOf(job: WaveJobView): CriterionView[] {
+  return (job.criteria ?? []).map((one) => criterionViewOf(one, ""));
 }
 
 /**
  * Edit this Job: title, brief and what it expects, filled from the Job as the
- * panel draws it — Edit this task's form, on the fields a proposed Job has.
- * **Cancel restores** by unmounting, so the next Edit starts from the Job
+ * panel draws it, and saved through `edit_job` (since 23.8) without releasing
+ * it. **Cancel restores** by unmounting, so the next Edit starts from the Job
  * again. Save sends only what differs, and is off until something does.
+ *
+ * **Brief and Expects only where the panel holds them.** `edit_job` replaces
+ * the request and the criteria whole, so a field opened empty over words the
+ * panel never read would save over them.
  */
 function EditJobForm({
   job,
@@ -119,19 +133,21 @@ function EditJobForm({
 }: {
   job: WaveJobView;
   disabled: boolean;
-  onEdit: (edit: EditJobAsSent) => Promise<boolean>;
+  onEdit: (edit: EditJob) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(job.title);
-  const [brief, setBrief] = useState(job.brief ?? "");
-  const [expects, setExpects] = useState((job.expects ?? []).join("\n"));
+  const [facts, setFacts] = useState(job.facts ?? "");
+  const [was] = useState(() => expectsOf(job));
+  const [criteria, setCriteria] = useState(was);
   const [saving, setSaving] = useState(false);
 
-  const listed = linesOf(expects);
-  const changed: EditJobAsSent = {
+  const changed: EditJob = {
     ...(title.trim() === job.title ? {} : { title: title.trim() }),
-    ...(brief.trim() === (job.brief ?? "") ? {} : { brief: brief.trim() }),
-    ...(listed.join("\n") === (job.expects ?? []).join("\n") ? {} : { expects: listed }),
+    ...(job.facts === undefined || facts.trim() === job.facts ? {} : { facts: facts.trim() }),
+    ...(job.criteria === undefined || !criteriaMoved(criteria, was)
+      ? {}
+      : { criteria: criteria.filter((one) => one.text.trim() !== "").map(criterionWrittenOf) }),
   };
   const untitled = title.trim() === "";
   const same = Object.keys(changed).length === 0;
@@ -154,14 +170,17 @@ function EditJobForm({
         disabled={saving}
         onChange={(event) => setTitle(event.target.value)}
       />
-      <Textarea label="Brief" rows={4} value={brief} disabled={saving} onChange={(event) => setBrief(event.target.value)} />
-      <Textarea
-        label="Expects"
-        rows={3}
-        value={expects}
-        disabled={saving}
-        onChange={(event) => setExpects(event.target.value)}
-      />
+      {job.facts === undefined ? null : (
+        <Textarea label="Brief" rows={4} value={facts} disabled={saving} onChange={(event) => setFacts(event.target.value)} />
+      )}
+      {job.criteria === undefined ? null : (
+        <ProposalDoneWhen
+          criteria={criteriaRowsOf(criteria)}
+          onCriterion={(at, text) => setCriteria(criteriaWith(criteria, at, text))}
+          onAdd={() => setCriteria(criteriaAdded(criteria))}
+          onRemove={(at) => setCriteria(criteriaWithout(criteria, at))}
+        />
+      )}
       <div className="armada-task-sheet__drop-acts">
         <Button variant="secondary" size="sm" ground="sunken" disabled={saving} onClick={onClose}>
           Cancel
@@ -245,12 +264,12 @@ function JobSheet({
           onAnswerJudge={region.onAnswerJudge}
           onAnswerCommand={region.onAnswerCommand}
         />
-        {job.brief === undefined ? null : <Field label="Brief">{job.brief}</Field>}
-        {job.expects === undefined || job.expects.length === 0 ? null : (
+        {job.facts === undefined ? null : <Field label="Brief">{job.facts}</Field>}
+        {job.criteria === undefined || job.criteria.length === 0 ? null : (
           <Field label="Expects">
             <ul className="armada-wave__expects">
-              {job.expects.map((one) => (
-                <li key={one}>{one}</li>
+              {job.criteria.map((one) => (
+                <li key={one.criterion_id}>{one.text}</li>
               ))}
             </ul>
           </Field>

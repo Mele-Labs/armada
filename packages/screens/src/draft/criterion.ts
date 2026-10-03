@@ -3,7 +3,8 @@
 //
 // Source of truth today: `Criterion` on `JobDetail.acceptance_criteria` —
 // `criterion_id`, `text` and `source`, where `source` is a `CriterionSource`
-// (`check`, `judge` or `attested`, `crates/core-model/src/job/fields.rs`).
+// (`check`, `judge` or `attested`, `crates/core-model/src/job/fields.rs`), and
+// since 23.8 `origin` and `origin_moved_at` (#1642).
 //
 // **`verified_by`, never a second `source`** (#1532, 22 Sep). The wire's
 // `source` already means *how this criterion is answered*, and using the same
@@ -11,7 +12,12 @@
 // row. So the wire's field is renamed on the way in, and the new fact gets a
 // name of its own.
 
-import type { Criterion, JobDetail } from "@armada/protocol";
+import type {
+  Criterion,
+  CriterionOrigin as WireOrigin,
+  CriterionWritten,
+  JobDetail,
+} from "@armada/protocol";
 
 /** How a criterion is answered. The wire's `CriterionSource`, renamed. */
 export type VerifiedBy = "check" | "judge" | "attested";
@@ -22,11 +28,11 @@ export type VerifiedBy = "check" | "judge" | "attested";
  * `issue` carries the reference so a surface can say the issue has moved since
  * the Job froze its words — the Job keeps what it froze (#1530, 22 Sep).
  *
- * **`url` is the forge address of that issue, and nothing serves it yet.** A
- * reference reads as `armada/1162`, which the owner could not tell from a
- * branch or a path (`u7y9`, 28 Sep), so a surface that has an address opens
- * the issue and one that has none draws the reference as the text it is.
- * Fleet carries no address on a criterion today, so nothing sets this.
+ * **`url` is the forge address of that issue**, served on `Criterion.origin`
+ * since 23.8 and the only address Bridge's main process opens. A reference
+ * reads as `armada/1162`, which the owner could not tell from a branch or a
+ * path (`u7y9`, 28 Sep), so a surface that has an address opens the issue and
+ * one that has none draws the reference as the text it is.
  */
 export type CriterionOrigin =
   | { origin: "issue"; ref: string; url?: string }
@@ -63,18 +69,56 @@ const A_PERSON_ASKED: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Today's wire carries the text, the id and how it is verified, and says
- * nothing about where the words came from — so a criterion derives from the
- * Job's own `origin`: `prompt` where a person dispatched it, and `unsaid`
- * everywhere else. It read *From your prompt* on a Job Fleet found itself
- * (owner, 1 Oct 2026, `#1748` row 17).
+ * One criterion as the wire carries it.
+ *
+ * **Where the words came from is Fleet's since 23.8** (`Criterion.origin`).
+ * A criterion that says nothing — a Job kept before 23.8, or one no person
+ * dispatched — derives from the Job's own `origin`: `prompt` where a person
+ * dispatched it, and `unsaid` everywhere else. It read *From your prompt* on a
+ * Job Fleet found itself (owner, 1 Oct 2026, `#1748` row 17).
  */
 export function criterionViewOf(criterion: Criterion, jobOrigin: string): CriterionView {
-  return {
+  const view: CriterionView = {
     criterion_id: criterion.criterion_id,
     text: criterion.text,
     verified_by: verifiedByOf(criterion.source),
-    origin: { origin: A_PERSON_ASKED.has(jobOrigin) ? "prompt" : "unsaid" },
+    origin: originOf(criterion.origin) ?? { origin: A_PERSON_ASKED.has(jobOrigin) ? "prompt" : "unsaid" },
+  };
+  if (criterion.origin_moved_at !== undefined) view.origin_moved_at = criterion.origin_moved_at;
+  return view;
+}
+
+/**
+ * The wire's origin in the draft's spelling, or `undefined` where it names
+ * none. An `issue` with no reference is nothing a surface could name, and a
+ * `kind` no Bridge knows reads as nothing rather than as a guess.
+ */
+function originOf(origin: WireOrigin | undefined): CriterionOrigin | undefined {
+  switch (origin?.kind) {
+    case "issue":
+      if (origin.ref === undefined) return undefined;
+      return origin.url === undefined
+        ? { origin: "issue", ref: origin.ref }
+        : { origin: "issue", ref: origin.ref, url: origin.url };
+    case "prompt":
+      return { origin: "prompt" };
+    case "person":
+      return { origin: "person" };
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * One criterion as the approval and `edit_job` take it back (`CriterionWritten`,
+ * #1641): its id where it has one, so a reworded line is still that line and
+ * keeps its origin, and how it is answered.
+ */
+export function criterionWrittenOf(criterion: CriterionView): CriterionWritten {
+  return {
+    ...(criterion.criterion_id === undefined ? {} : { criterion_id: criterion.criterion_id }),
+    text: criterion.text.trim(),
+    source: criterion.verified_by,
   };
 }
 

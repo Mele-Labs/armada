@@ -25,7 +25,8 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveWave, CapRaise, ChosenAnswer, EditJobAsSent, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead } from "@armada/protocol";
+import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -351,6 +352,23 @@ export class JobCommands {
     return answer.ok === true ? (answer.body as FilesFound).paths : [];
   }
 
+  /**
+   * One repository's branches, the base first — `list_branches`, #1605. Read
+   * through git by Fleet, so the two branch fields offer what the repository
+   * holds rather than the names Bridge happened to have met.
+   *
+   * **A refusal comes back rather than raising**: the field still takes a name
+   * typed by hand, so a list that could not be read is a picker with nothing
+   * to offer, not a failure to announce.
+   */
+  async listBranches(manifestId: string): Promise<BranchesRead> {
+    const port = this.board.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "GET", this.board.picked.manifestNamed("/manifest/branches", manifestId));
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, branches: answer.body as Branches };
+  }
+
   // ------------------------------------------------------------ dispatching
   /**
    * Release a Job to spawn. Approving twice does not spawn twice.
@@ -361,8 +379,12 @@ export class JobCommands {
    * refreshes nothing is how it was written; both are left exactly as they
    * were, because a reduction that changes what an act does to the board is
    * not a reduction.
+   *
+   * **`approval` is the proposal as the person left it** (#1641, since 23.8),
+   * and absent is the proposal as it stands — no body at all, which is what
+   * every approval sent before 23.8 and what Helm's press still sends.
    */
-  async approveDispatch(jobId: string): Promise<Outcome> {
+  async approveDispatch(jobId: string, approval?: ApproveDispatch): Promise<Outcome> {
     if (this.approving.has(jobId)) return { ok: false, why: "already_approving" };
     const port = this.board.port();
     if (port === null) return { ok: false, why: "not_connected" };
@@ -370,7 +392,7 @@ export class JobCommands {
     this.approving.add(jobId);
     this.board.publish({ approving: [...this.approving] });
     try {
-      const answer = await ask(port, "POST", route(jobId, "approve_dispatch"));
+      const answer = await ask(port, "POST", route(jobId, "approve_dispatch"), approval);
       if (answer.ok !== true) return answer.outcome;
       this.board.fold(answer.body as JobSummary);
       return { ok: true };
@@ -923,12 +945,12 @@ export class JobCommands {
   }
 
   /**
-   * Edit one Job of an Epic's proposed wave before the wave is approved —
-   * the same decision record. **Ahead of its route** (#1699), with only the
+   * Save a Job's title, request or criteria while it waits at its approval
+   * gate, without releasing it — `edit_job`, served since 23.8, with only the
    * fields a person changed as the body. The review's lock, as `approveWave`,
    * since it is an answer at the same gate.
    */
-  async editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
+  async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
     );

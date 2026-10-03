@@ -59,12 +59,13 @@ test("pressing the lead's Approve dispatch approves, as the header's does", asyn
   const api = await opened();
   const approveDispatch = vi.spyOn(api, "approveDispatch");
   await lead().getByRole("button", { name: "Approve dispatch" }).click();
-  expect(approveDispatch).toHaveBeenCalledWith(JOB_ID);
+  // Nothing moved on the proposal, so it is approved as it stands: no body.
+  expect(approveDispatch).toHaveBeenCalledWith(JOB_ID, undefined);
 });
 
 test("pressing the header's Approve dispatch sends the same thing", async () => {
   const api = await opened();
   const approveDispatch = vi.spyOn(api, "approveDispatch");
   await header().getByRole("button", { name: "Approve dispatch" }).click();
-  expect(approveDispatch).toHaveBeenCalledWith(JOB_ID);
+  expect(approveDispatch).toHaveBeenCalledWith(JOB_ID, undefined);
 });

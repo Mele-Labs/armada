@@ -8,7 +8,8 @@ import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { AddTask, ApproveWave, DropTask, EditJobAsSent, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { ApproveDispatch } from "@armada/protocol";
 import type {
   Artifact,
   CommandAnswer,
@@ -475,8 +476,11 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
     connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
-  ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string) =>
-    connection?.commands.approveDispatch(jobId),
+  ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string, approval?: ApproveDispatch) =>
+    connection?.commands.approveDispatch(jobId, approval),
+  );
+  ipcMain.handle(CHANNELS.listBranches, (_event, manifestId: string) =>
+    connection?.commands.listBranches(manifestId),
   );
   ipcMain.handle(CHANNELS.redispatchJob, (_event, jobId: string) =>
     connection?.commands.redispatchJob(jobId),
@@ -516,8 +520,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.approveWave, (_event, jobId: string, wave: ApproveWave) =>
     connection?.commands.approveWave(jobId, wave),
   );
-  // One Job of an Epic's proposed wave, edited before the wave is approved — #1699.
-  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJobAsSent) =>
+  // A Job at its approval gate, its words saved without releasing it — `edit_job`.
+  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
     connection?.commands.editJob(jobId, edit),
   );
   // The disk rather than the record, and the one act here `armada clean` could

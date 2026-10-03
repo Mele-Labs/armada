@@ -2,36 +2,46 @@
 //
 // **The reading is here and the open state is `tab-proposal.tsx`**, which is
 // how every other destination is arranged. What is unusual is that this one is
-// also *editable*: nothing on this screen is on the wire — `approve_dispatch`
-// takes no body and a proposal in flight is not a Job — so a person's changes
-// live in the screen until the press, and these functions are the join between
-// the draft's shapes and the control's own.
+// also *editable*: a person's changes are held by the screen until the press,
+// and the press sends them — `approve_dispatch` takes the proposal as the
+// person left it since 23.8 (#1641). These functions are the join between the
+// draft's shapes, the controls' own and that body.
 
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
 import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
 import type {
+  ApproveDispatch,
+  GateChoice,
   JobDetail as JobWhole,
+  LandingChoice,
   ManifestSummary,
+  TierModels as WireTiers,
   WorkflowStep,
   WorkflowSummary,
 } from "@armada/protocol";
 
-import { criterionWritten, decidedSaidOf, originSaidOf } from "./draft/criterion";
+import {
+  criterionViewsOf,
+  criterionWritten,
+  criterionWrittenOf,
+  decidedSaidOf,
+  originSaidOf,
+} from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
 import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
-import { gateReadingOf, gatesForSteps, unmeantOf } from "./draft/proposal";
-import type { GateView, ProposalView, RepositorySays } from "./draft/proposal";
+import { gateReadingOf, gatesForSteps, proposalViewOf, unmeantOf } from "./draft/proposal";
+import type { GateView, ProposalView, RepositorySays, TierModels } from "./draft/proposal";
 import { absoluteOf } from "./duration";
 
 /**
  * Everything on the classifying screen a person may still move.
  *
  * **Held as the draft's own shapes, not the controls'.** These are what
- * `#1545` promotes onto the wire, so holding the edits in them is what makes
- * the screen's state the thing that will one day be sent — rather than a
- * second vocabulary that has to be translated back at the press.
+ * `#1545` promoted onto the wire, so the screen's state is the thing sent at
+ * the press — `approvalOf` is the one translation, rather than a second
+ * vocabulary threaded through every control.
  */
 export type ProposalEdits = {
   proposal: ProposalView;
@@ -40,8 +50,8 @@ export type ProposalEdits = {
 };
 
 /**
- * What the screen opens on, or `undefined` where this Job is not at a
- * proposal at all — which is every Job against a real Fleet today.
+ * What the screen opens on off a moment's draft, or `undefined` where the
+ * moment carries no proposal. A real Job's is `proposalEditsOfWhole`.
  */
 export function proposalEditsOf(draft: JobDraft | undefined): ProposalEdits | undefined {
   if (draft?.proposal === undefined) return undefined;
@@ -59,6 +69,159 @@ export function proposalEditsOf(draft: JobDraft | undefined): ProposalEdits | un
       land_together: [],
     },
     criteria: draft.criteria ?? [],
+  };
+}
+
+/**
+ * What a Job at its approval gate, or approved, is held to, as Fleet serves it
+ * since 23.8 — the same shapes a moment's draft carries, so one screen draws
+ * both and one press sends either.
+ *
+ * **A landing Fleet holds nothing for is the base, both ways**: absent
+ * `target` and `from_ref` are the Manifest's base, which is not a branch name
+ * to print — `landingValueOf` fills the field from the branch list instead.
+ */
+export function proposalEditsOfWhole(whole: JobWhole, machineCap: number | null): ProposalEdits {
+  const proposal = proposalViewOf(whole, machineCap);
+  return {
+    proposal,
+    landing: {
+      target: whole.landing?.target ?? null,
+      from_ref: proposal.from_ref,
+      prs: "job",
+      branching: "job",
+      pr_mode: proposal.pr_mode,
+      // Only `delivered` completes a Job, and the approval refuses the rest.
+      complete_when: "delivered",
+      land_together: [],
+    },
+    criteria: criterionViewsOf(whole),
+  };
+}
+
+/**
+ * The approval body: what a person moved since `before`, and nothing else —
+ * `undefined` where nothing moved, which approves the proposal as it stands.
+ *
+ * **Only what moved, because a field left out is the proposal as it stands**
+ * (`ApproveDispatch`). A gate is sent only where its boxes differ from what
+ * its step declares — on a new workflow, what that workflow declares — so a
+ * step nobody touched keeps the gate Fleet would have read anyway.
+ *
+ * **Except the Drone cap, which is sent whenever there is one**: Fleet reads a
+ * cap left out as the machine's, so leaving out a cap the Job already holds
+ * would take it off.
+ *
+ * **Criteria go whole, or not at all.** A line with an id is that line
+ * reworded or not and keeps its origin; one without is new. A line left blank
+ * is dropped rather than sent as a criterion with no words.
+ */
+export function approvalOf(
+  edits: ProposalEdits,
+  before: ProposalEdits,
+  workflows: readonly WorkflowSummary[],
+): ApproveDispatch | undefined {
+  const { proposal, landing, criteria } = edits;
+  const body: ApproveDispatch = {};
+  if (proposal.title.trim() !== before.proposal.title.trim()) body.title = proposal.title.trim();
+  if ((proposal.asked ?? "") !== (before.proposal.asked ?? "")) body.facts = proposal.asked ?? "";
+  const moved = proposal.workflow_id !== before.proposal.workflow_id;
+  if (moved) body.workflow_id = proposal.workflow_id;
+  const declared = moved
+    ? gatesForSteps(workflows.find((one) => one.id === proposal.workflow_id)?.steps ?? [])
+    : before.proposal.gates;
+  const gates = proposal.gates
+    .filter((gate) => gateMoved(gate, declared.find((one) => one.step_id === gate.step_id)))
+    .map(gateChoiceOf);
+  if (gates.length > 0) body.gates = gates;
+  if (criteriaMoved(criteria, before.criteria)) {
+    body.criteria = criteria.filter((one) => one.text.trim() !== "").map(criterionWrittenOf);
+  }
+  if (TIERS.some((tier) => proposal.tiers[tier] !== before.proposal.tiers[tier])) {
+    body.tiers = wireTiersOf(proposal.tiers);
+  }
+  if (proposal.drone_cap !== undefined) body.drone_cap = proposal.drone_cap;
+  if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing);
+  return Object.keys(body).length === 0 ? undefined : body;
+}
+
+/** The three tiers, in the map's own order. */
+const TIERS = ["difficult", "medium", "easy"] as const;
+
+/** A tier left out is Armada picking: the draft's `null` is the wire's absent key. */
+function wireTiersOf(tiers: TierModels): WireTiers {
+  const wire: WireTiers = {};
+  for (const tier of TIERS) {
+    const model = tiers[tier];
+    if (model !== null) wire[tier] = model;
+  }
+  return wire;
+}
+
+/** Whether a step's boxes differ from what it declares. A step nothing declares is a person's. */
+function gateMoved(gate: GateView, declared: GateView | undefined): boolean {
+  if (declared === undefined) return true;
+  return (
+    gate.checks !== declared.checks ||
+    gate.judge !== declared.judge ||
+    gate.you !== declared.you ||
+    (gate.overridden === true) !== (declared.overridden === true)
+  );
+}
+
+/** One step's gate as the approval sets it. `overridden` only where it is, which is Fleet's default. */
+function gateChoiceOf(gate: GateView): GateChoice {
+  return {
+    step_id: gate.step_id,
+    checks: gate.checks,
+    judge: gate.judge,
+    you: gate.you,
+    ...(gate.overridden === true ? { overridden: true } : {}),
+  };
+}
+
+/**
+ * Whether the criteria a person left differ from what the Job holds — a line
+ * added, taken off, reworded, or moved. Blank lines are compared as dropped,
+ * since they are never sent.
+ */
+export function criteriaMoved(
+  after: readonly CriterionView[],
+  before: readonly CriterionView[],
+): boolean {
+  const kept = after.filter((one) => one.text.trim() !== "");
+  return (
+    kept.length !== before.length ||
+    kept.some((one, at) => {
+      const was = before[at];
+      return (
+        was === undefined ||
+        one.criterion_id !== was.criterion_id ||
+        one.text.trim() !== was.text.trim() ||
+        one.verified_by !== was.verified_by
+      );
+    })
+  );
+}
+
+function landingMoved(after: LandingRule, before: LandingRule): boolean {
+  return (
+    after.target !== before.target ||
+    after.from_ref !== before.from_ref ||
+    after.branching !== before.branching ||
+    after.pr_mode !== before.pr_mode ||
+    after.complete_when !== before.complete_when
+  );
+}
+
+/** The landing as the approval sets it. A `null` ref is left out, which is the Manifest's base. */
+function landingChoiceOf(landing: LandingRule): LandingChoice {
+  return {
+    ...(landing.target === null ? {} : { target: landing.target }),
+    ...(landing.from_ref === null ? {} : { from_ref: landing.from_ref }),
+    branching: landing.branching,
+    pr_mode: landing.pr_mode,
+    complete_when: landing.complete_when,
   };
 }
 
@@ -212,11 +375,16 @@ export function completeChoices(): CompleteChoice[] {
   }));
 }
 
-/** The landing rule as the controls hold it. `null` is drawn as empty, never as a name. */
-export function landingValueOf(landing: LandingRule): ProposalLandingValue {
+/**
+ * The landing rule as the controls hold it.
+ *
+ * **`null` is the base, drawn by its name where the branch list says which
+ * branch that is** (#1605), and empty where nothing has said.
+ */
+export function landingValueOf(landing: LandingRule, base: string | null = null): ProposalLandingValue {
   return {
-    target: landing.target ?? "",
-    from: landing.from_ref ?? "",
+    target: landing.target ?? base ?? "",
+    from: landing.from_ref ?? base ?? "",
     branching: landing.branching,
     completeWhen: landing.complete_when,
     prMode: landing.pr_mode,
@@ -229,15 +397,22 @@ export function landingValueOf(landing: LandingRule): ProposalLandingValue {
  * **An emptied field is `null` and not `""`.** `null` is the Manifest naming
  * no base, which is a state `amending.ts` already spells that way; an empty
  * string would be a branch with no name.
+ *
+ * **A field left on the base it was drawn with stays `null`**, so a press
+ * that moved nothing sends nothing: `landingValueOf` drew the base's name
+ * where the rule held none.
  */
 export function landingWith(
   landing: LandingRule,
   moved: ProposalLandingValue,
+  base: string | null = null,
 ): LandingRule {
+  const refOf = (typed: string, was: string | null): string | null =>
+    typed === "" || (was === null && typed === base) ? null : typed;
   return {
     ...landing,
-    target: moved.target === "" ? null : moved.target,
-    from_ref: moved.from === "" ? null : moved.from,
+    target: refOf(moved.target, landing.target),
+    from_ref: refOf(moved.from, landing.from_ref),
     branching: moved.branching,
     complete_when: moved.completeWhen as CompleteWhen,
     pr_mode: moved.prMode,
