@@ -1,4 +1,4 @@
-//! A Job's retro and the Lessons listing. Since 23.11. `docs/concepts/retro.md`.
+//! A Job's retro and the Lessons listing. Since 23.12. `docs/concepts/retro.md`.
 //!
 //! **A seventh surface, for [`Studios`](super::Studios)' reason.** Both reads
 //! are about what a Job's record says once it is over, and neither is a fact

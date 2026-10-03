@@ -116,7 +116,7 @@ linked.
 | `list_lessons` | `GET /lessons?manifest_id=&most=` | Items across Jobs, newest retro first |
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
-`docs/practices/protocol.md` *Protocol 23.11* has the change.
+`docs/practices/protocol.md` *Protocol 23.12* has the change.
 
 ## Open questions
 

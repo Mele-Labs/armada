@@ -143,7 +143,7 @@ export function route(jobId: string, operation: string): string {
   return `/jobs/${encodeURIComponent(jobId)}/${operation}`;
 }
 
-/** Bridge names itself on every request, so Fleet tells a press here from an agent's (23.11). */
+/** Bridge names itself on every request, so Fleet tells a press here from an agent's (23.12). */
 export const CALLER = { "x-armada-caller": "bridge" } as const;
 
 /** A Manifest-scoped call on a repository with no `armada.yml` yet — `Picked.manifest` answered `null`. */

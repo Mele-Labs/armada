@@ -754,7 +754,7 @@ Not the turn stream either. `observe_job` renders what a Drone said; this render
 
 Helm may reach it for the reason it may reach the other queries: reading what happened is not doing anything about it. What that costs is the tokens `get_events_since` names — a long history stays in the session for the rest of it — so it is asked about one Job rather than swept.
 
-**A row a request made carries `via`** since 23.11: `bridge`, `helm`, `door` or `http`, the door it came through. A person's act that came through any door but Bridge is signed `helm`, because an agent made the request and Fleet cannot see the person behind it. `docs/concepts/retro.md`.
+**A row a request made carries `via`** since 23.12: `bridge`, `helm`, `door` or `http`, the door it came through. A person's act that came through any door but Bridge is signed `helm`, because an agent made the request and Fleet cannot see the person behind it. `docs/concepts/retro.md`.
 """
 
 [operations.get_job_retro]
@@ -763,7 +763,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "What got in the way while one Job ran, whose way, and the record rows that show it"
 notes = """
-Since 23.11. `docs/concepts/retro.md` is the concept.
+Since 23.12. `docs/concepts/retro.md` is the concept.
 
 **Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`.
 
@@ -780,7 +780,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, one sentence and the record rows that show it"
 notes = """
-Since 23.11. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
+Since 23.12. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
 
 **Nothing here is filed, proposed or put into a brief.** It is read, and a person decides what each item is worth. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves.
 """
@@ -1024,7 +1024,9 @@ notes = """
 
 **`killed` is a person ending it, and `failed` is not.** A Drone is `killed` where the next move after its exit is its step stopping under `drone_killed` or the Job going to `killed`, the two orders `kill_drone` and `kill_job` write. It is `done` where its step passed its advance gate or reached a person's gate while it was the one on it, and `failed` where it left without either. A kill that lands while evidence is waiting stops no step, so it reads by what the gate then does.
 
-**Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought.
+**Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought. So is a stopped Drone whose row saw none, since 23.11: it read `turns: 0` before. A task's Drone that handed in is let come to rest before Fleet ends it, within the report grace, so its terminating line is on its row.
+
+**`running` is a Drone Fleet still holds, and `at_rest_since` says whether it is working.** Since 23.11. A Drone that submitted and ended its run stays on its step while the gate's Checks run, as the Drone a red Check is handed back to, and an escalated Job keeps an idle one. `at_rest_since` is when its last run ended, off its transcript's last terminating line with no run started or turn sent after it; absent while it works and on a Drone that has left. A new field and not a fifth state, so a Bridge that matches on the four reads on unchanged.
 
 **A Drone beside a Job's kept one is listed too**, since 23.10: it ran a task marked safe to run at once, and is on no record of moves, so its row is read off its task binding and how it left — `done` where it handed in, `killed` where a person stopped it, `failed` otherwise.
 

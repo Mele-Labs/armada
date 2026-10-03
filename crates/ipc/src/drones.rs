@@ -76,6 +76,10 @@ pub struct DroneDetail {
 /// Drone that left without its step passing, on its own. `done` is one whose
 /// step passed its advance gate, or reached a person's gate, while it was the
 /// one on it — or, on a Drone put on a task, one that handed its task in.
+///
+/// **`running` is a Drone Fleet still holds, working or not.** One resting
+/// at the gate is still on its step, as the Drone a red Check is handed back
+/// to; [`JobDrone::at_rest_since`] is what tells the two apart.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DroneState {
@@ -110,10 +114,21 @@ pub struct JobDrone {
     /// When it left, off `drone_exited`. **Absent while it runs.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
+    /// When its last run ended, on a `running` Drone Fleet is still holding:
+    /// for the gate's answer while its step's Checks run, or for a person.
+    /// **Absent while it is working**, which is a run started and not yet
+    /// ended, and on a Drone that has left. Off its transcript's last
+    /// terminating line with no run started after it. Since 23.11.
+    ///
+    /// `running` alone named both, so a Drone resting at the gate was drawn
+    /// as one still working while it was the Checks that were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at_rest_since: Option<Instant>,
     /// How many turns it has taken, summed across every terminating line of
     /// its session. **Absent where none has been seen**: a running Drone in its
     /// first invocation has taken turns the harness has not counted yet, and
-    /// nought would say otherwise.
+    /// nought would say otherwise. So is a stopped one that left before its
+    /// first terminating line, since 23.11, which read nought before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turns: Option<u64>,
     /// What it has cost, in millionths of a dollar, as of its last terminating

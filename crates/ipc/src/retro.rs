@@ -1,6 +1,6 @@
 //! A Job's retro: what got in the way while it ran, and the record it was read
 //! from. `get_job_retro` answers one Job's and `list_lessons` every item across
-//! Jobs, newest first. Since 23.11. `docs/concepts/retro.md`.
+//! Jobs, newest first. Since 23.12. `docs/concepts/retro.md`.
 //!
 //! **The record is assembled on every read and never stored.** Each row is a
 //! fact already on the Job's record, so a read made after the Job ended says
@@ -198,7 +198,7 @@ pub struct RecordAct {
     pub cite: String,
     pub at: Instant,
     pub actor: Actor,
-    /// The door it came through. Absent on a move older than 23.11.
+    /// The door it came through. Absent on a move older than 23.12.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub via: Option<Via>,
     /// What moved, in a few words: `status queued`, `step plan running`.

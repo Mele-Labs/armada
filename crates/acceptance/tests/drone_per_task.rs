@@ -463,6 +463,7 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
         state: ipc::DroneState::Done,
         since: (&at(10)).into(),
         ended_at: Some((&at(20)).into()),
+        at_rest_since: None,
         turns: None,
         cost_micros: None,
     };
@@ -838,6 +839,7 @@ fn each_task_runs_on_the_model_its_tier_or_its_person_picked_and_its_drone_says_
         state: ipc::DroneState::Done,
         since: (&at(10)).into(),
         ended_at: Some((&at(20)).into()),
+        at_rest_since: None,
         turns: None,
         cost_micros: None,
     };

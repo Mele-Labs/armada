@@ -1,4 +1,4 @@
-//! `get_job_retro` and `list_lessons`. Since 23.11. `docs/concepts/retro.md`.
+//! `get_job_retro` and `list_lessons`. Since 23.12. `docs/concepts/retro.md`.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;

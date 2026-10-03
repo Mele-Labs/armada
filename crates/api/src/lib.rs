@@ -76,7 +76,7 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
-/// A Job's retro and the Lessons listing. Since 23.11.
+/// A Job's retro and the Lessons listing. Since 23.12.
 mod retros;
 mod routes;
 mod scoped;

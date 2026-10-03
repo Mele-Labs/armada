@@ -144,7 +144,7 @@ mod repositories;
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
 /// A Job's retro and the record it was read from, and the Lessons listing.
-/// Since 23.11.
+/// Since 23.12.
 mod retro;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.

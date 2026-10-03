@@ -42,6 +42,7 @@ mod checks;
 mod checks_at_once;
 mod cloning;
 mod code_review;
+mod coming_to_rest;
 mod concurrency;
 mod confidence;
 mod conflict_resolution;

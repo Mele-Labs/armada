@@ -1,5 +1,5 @@
 // A Job's retro and the Lessons listing, mirrored by hand from
-// `crates/ipc/src/retro.rs`. Since 23.11. `docs/concepts/retro.md`.
+// `crates/ipc/src/retro.rs`. Since 23.12. `docs/concepts/retro.md`.
 
 /** Whom one retro item got in the way of. */
 export type Whose = "drone" | "owner" | "fleet";
