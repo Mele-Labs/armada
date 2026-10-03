@@ -169,8 +169,8 @@ where
         // Bound again to its task, or its hand-in would land as the step's.
         if let Some((task, handed_in)) = on_task {
             taken.on_task(task);
-            if handed_in {
-                taken.task_handed_in();
+            if let Some(at) = handed_in {
+                taken.task_handed_in(at);
             }
         }
         // The first thing written through the new handle, so the row lands in

@@ -385,14 +385,17 @@ steps:
     (resolved, armada_yml)
 }
 
-/// Norms no fixture trips. A step's turn count, its wall clock and the grace
-/// after a forced report are all put out of reach, so every test but
-/// `converging`'s own behaves exactly as it did before the chain existed.
-pub const UNTRIPPABLE: StepNorms = StepNorms::of(
-    u32::MAX,
-    Duration::from_secs(86_400),
-    Duration::from_secs(86_400),
-);
+/// Norms no fixture trips. A step's turn count and its wall clock are put out
+/// of reach, so every test but `converging`'s own behaves exactly as it did
+/// before the chain existed, and the forced report the grace bounds is never
+/// asked for.
+///
+/// **The grace is nought, for the one other reader it has**: a task's Drone
+/// is let come to rest after its hand-in for that long, and a fixture Drone
+/// never comes to rest. Nought replaces it on the turn after its hand-in, as
+/// before Fleet waited; `crate::tests::coming_to_rest` plants a grace.
+pub const UNTRIPPABLE: StepNorms =
+    StepNorms::of(u32::MAX, Duration::from_secs(86_400), Duration::ZERO);
 
 /// A silence threshold no fixture reaches, for the same reason: every test but
 /// `silence`'s own has a Drone that says nothing for the whole of a short run,

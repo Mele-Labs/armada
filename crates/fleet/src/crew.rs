@@ -312,7 +312,8 @@ where
     }
 
     /// One Job's Drones beside its kept one, this turn: each that handed in
-    /// or left is ended, and every one is ended once the Job is not running.
+    /// and came to rest, or left, is ended, and every one is ended once the
+    /// Job is not running.
     pub(crate) async fn crew_turn(&self, job_id: &JobId) -> Result<(), Adrift> {
         let crew = self.slots().lock().await.crew_of(job_id);
         if crew.is_empty() {
@@ -324,7 +325,11 @@ where
             let Some(at_work) = working.as_ref() else {
                 continue;
             };
+            let grace = self.norms().report_grace();
             let how = if at_work.has_handed_in() {
+                if running && !at_work.settled(&self.now(), grace) {
+                    continue;
+                }
                 ExtraEnded::Done
             } else if !running {
                 ExtraEnded::Failed
