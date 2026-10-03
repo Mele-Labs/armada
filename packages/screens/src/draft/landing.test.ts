@@ -50,8 +50,11 @@ describe("which completion rules Fleet can answer", () => {
     expect(COMPLETE_WHEN_SERVED.pr_merged).toBe(false);
   });
 
-  it("does not serve the two that need members or an opened pull request", () => {
-    expect(COMPLETE_WHEN_SERVED.all_members_landed).toBe(false);
+  it("serves a parent finishing on its members' merges, since 23.11", () => {
+    expect(COMPLETE_WHEN_SERVED.all_members_landed).toBe(true);
+  });
+
+  it("does not serve pr_opened: nothing tells it from delivered", () => {
     expect(COMPLETE_WHEN_SERVED.pr_opened).toBe(false);
   });
 });

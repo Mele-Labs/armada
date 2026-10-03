@@ -49,9 +49,9 @@ export type MemberView = {
    */
   landed: boolean;
   /**
-   * When it landed. **Absent today for every member**: the wire says *whether*
-   * a pull request settled (`JobDelivery.landed`) and never when, and a Job's
-   * own `ended_at` is a different instant.
+   * When it landed: the row's `merged_at`, the forge's own instant (23.11).
+   * **Absent beside a merge Fleet noticed before 23.11**, and never a Job's
+   * own `ended_at`, which is a different instant.
    */
   landed_at?: string;
   /** The branch its work sits on. Absent until a worktree exists. */
@@ -114,6 +114,10 @@ export function jobMembersOf(
         status: row.status,
         ...(at === 0 ? {} : { link: DERIVED_LINK }),
         landed: row.landed === "merged" || read?.delivery?.landed === "merged",
+        // When it merged, as the forge said (23.11).
+        ...((row.merged_at ?? read?.delivery?.merged_at) === undefined
+          ? {}
+          : { landed_at: (row.merged_at ?? read?.delivery?.merged_at)! }),
         ...(row.branch === undefined ? {} : { branch: row.branch }),
         ...(read?.delivery?.pull_request === undefined
           ? {}

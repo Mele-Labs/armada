@@ -17,7 +17,6 @@
 import { expect, test, describe, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { issueLink } from "@armada/protocol";
 
 import {
   GUIDE_ALWAYS_LOOKS,
@@ -1044,13 +1043,8 @@ describe("the wave", () => {
 
   // The owner's, 30 Sep 2026: the split being approved is drawn, as real Jobs
   // at awaiting approval, and one Approve the plan releases every one of them.
-  // Fleet has no route for that yet, so it says so, naming #1694 and the Jobs.
-  test("epic/plan-review: the gate draws the proposed wave, and Approve the plan asks Fleet to release it all, which is not built", async () => {
-    const written: string[] = [];
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
-    });
+  // `approve_wave` is served since 23.11 (#1694).
+  test("epic/plan-review: the gate draws the proposed wave, and Approve the plan releases all of it", async () => {
     const app = mount("epic/plan-review");
     const approveWave = vi.spyOn(app.api, "approveWave");
     await page.getByRole("tab", { name: /^Plan/ }).click();
@@ -1074,13 +1068,10 @@ describe("the wave", () => {
     await expect.poll(() => approveWave.mock.calls.length).toBe(1);
     const [, sent] = approveWave.mock.calls[0]!;
     expect(sent.jobs).toHaveLength(proposed.length);
-    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Copy debug info" }).click();
-    await expect.poll(() => written).toHaveLength(1);
-    expect(written[0]).toContain("bridge.not_implemented");
-    expect(written[0]).toContain(issueLink(1694));
-    expect(written[0]).toContain("POST /jobs/{job_id}/approve_wave");
-    for (const id of sent.jobs) expect(written[0]).toContain(id);
+    // Released together: every Job of the wave leaves its gate on the one press.
+    for (const title of proposed) {
+      await expect.element(waveCard(title)).toHaveAccessibleName(`${title}, queued`);
+    }
   });
 
   // The owner's, 30 Sep 2026: a proposed Job is edited in its own panel,
@@ -1148,7 +1139,7 @@ describe("one Job per workflow kind", () => {
     ["kind/refactor", 3],
     ["kind/design-plan", 2],
     ["kind/code-review", 3],
-    ["kind/epic", 3],
+    ["kind/epic", 2],
   ] as const)("%s draws the steps its own workflow file declares", async ([name, count]) => {
     const steps = await stepsOf(name);
     expect(steps, `${name} declares ${String(count)} steps`).toHaveLength(count);

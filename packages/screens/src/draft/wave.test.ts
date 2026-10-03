@@ -30,45 +30,54 @@ function parent(): JobDetail {
   };
 }
 
-describe("the wave a Job dispatched", () => {
-  it("is every row the Job dispatched, and nothing else", () => {
+/** A row one pass of the parent's plan proposed, as Fleet serves it since 23.11. */
+function proposed(id: string, pass: number, over: Partial<JobSummary> = {}): JobSummary {
+  return row({ id, origin: "sub_dispatched", dispatched_by: "parent", dispatched_pass: pass, ...over });
+}
+
+describe("the wave a Job proposed", () => {
+  it("is every row the Job's plan proposed, and nothing else", () => {
     const wave = waveOf(parent(), [
-      row({ id: "a", origin: "sub_dispatched", dispatched_by: "parent" }),
-      row({ id: "b", origin: "sub_dispatched", dispatched_by: "somebody-else" }),
-      row({ id: "c", origin: "sub_dispatched", dispatched_by: "parent" }),
+      proposed("a", 1),
+      proposed("b", 1, { dispatched_by: "somebody-else" }),
+      proposed("c", 1),
     ]);
     expect(wave?.jobs.map((one) => one.job)).toEqual(["a", "c"]);
   });
 
+  // A landing order's members carry no pass, and they are the members band's
+  // to draw: a wave is not a landing order.
+  it("leaves out a row with no pass, which is a member of a landing order", () => {
+    expect(
+      waveOf(parent(), [row({ id: "a", origin: "sub_dispatched", dispatched_by: "parent" })]),
+    ).toBeUndefined();
+  });
+
   // Absent, never an empty graph: an empty one reads as Jobs that failed to
-  // load, which is a different sentence from a Job that dispatched none.
-  it("is absent where the Job dispatched nothing", () => {
+  // load, which is a different sentence from a Job that proposed none.
+  it("is absent where the Job proposed nothing", () => {
     expect(waveOf(parent(), [row({ id: "a" })])).toBeUndefined();
   });
 
   it("carries each Job's status and where its pull request settled", () => {
-    const wave = waveOf(parent(), [
-      row({ id: "a", origin: "sub_dispatched", dispatched_by: "parent", status: "completed_success", landed: "merged" }),
-    ]);
+    const wave = waveOf(parent(), [proposed("a", 1, { status: "completed_success", landed: "merged" })]);
     expect(wave?.jobs[0]).toMatchObject({ status: "completed_success", landed: "merged" });
   });
 
-  // Nothing on the wire records the order, and an invented one would be a
-  // graph saying something Fleet never said.
-  it("leaves the waiting order empty, because the wire carries none", () => {
-    const wave = waveOf(parent(), [
-      row({ id: "a", origin: "sub_dispatched", dispatched_by: "parent" }),
-      row({ id: "b", origin: "sub_dispatched", dispatched_by: "parent" }),
-    ]);
+  // The order is on each child's own detail, which no row carries, and an
+  // invented one would be a graph saying something Fleet never said.
+  it("leaves the waiting order empty, because the rows carry none", () => {
+    const wave = waveOf(parent(), [proposed("a", 1), proposed("b", 1)]);
     expect(wave?.jobs.every((one) => one.waits_on.length === 0)).toBe(true);
   });
 
-  it("reads as one pass, because a Board row does not say which it came from", () => {
-    const wave = waveOf(parent(), [
-      row({ id: "a", origin: "sub_dispatched", dispatched_by: "parent" }),
-    ]);
+  // Fleet stamps no per-pass line yet, so the strip names each wave alone.
+  it("reads one pass for each the rows were proposed on, the latest live", () => {
+    const wave = waveOf(parent(), [proposed("a", 1), proposed("b", 2), proposed("c", 2)]);
     expect(wave?.rounds).toEqual([
-      { round: 1, says: "Carry the error contract through every surface", live: true },
+      { round: 1, live: false },
+      { round: 2, live: true },
     ]);
+    expect(wave?.jobs.map((one) => one.round)).toEqual([1, 2, 2]);
   });
 });
