@@ -1722,7 +1722,8 @@
   grid-area: shape;
 }
 
-.armada-overview-board__groups li > .armada-badge {
+/* The state is Plan's own mark (`PlanGroupStateMark`), at the trailing edge. */
+.armada-overview-board__groups li > .armada-plan-board__state {
   grid-area: state;
   justify-self: end;
 }

@@ -48,7 +48,7 @@ where
         &self,
         studio_id: ipc::StudioId,
         drawn: SketchDrawn,
-        position: StudioPosition,
+        (frame_in, position): (Option<StudioNodeId>, StudioPosition),
         produced_by: Option<ipc::StudioNodeId>,
         by: Redirector,
         within: Option<ManifestId>,
@@ -69,7 +69,8 @@ where
             position.to_domain(),
             at.clone(),
             author(by),
-        );
+        )
+        .placed(frame_in, position.to_domain());
         let produced_by =
             produced_by.map(|from| (from.to_domain(), StudioEdgeId::carried(self.mint().ulid())));
         let written = self

@@ -470,7 +470,13 @@ function checkRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
       : undefined;
     return {
       at: atOf(step, run.attempt),
-      coord: { step: step.step_id, step_attempt: run.attempt },
+      coord: {
+        step: step.step_id,
+        step_attempt: run.attempt,
+        // The group whose gate ran it, where Fleet records one (#1652).
+        ...(run.group === undefined ? {} : { group: run.group }),
+        ...(run.group_attempt === undefined ? {} : { group_attempt: run.group_attempt }),
+      },
       actor: "check" as const,
       kind: "checked",
       what: run.name,

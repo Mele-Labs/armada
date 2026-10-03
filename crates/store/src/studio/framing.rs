@@ -84,6 +84,24 @@ pub(super) fn fits(
     }
 }
 
+/// Refuse a node being added in a Cluster, as the move would: a node just
+/// made is none of the Notes a Cluster was made of. A read-in's Notes are
+/// written with their Cluster, and do not come through here.
+pub(super) fn not_a_cluster(
+    tx: &Transaction<'_>,
+    studio_id: &StudioId,
+    node: &StudioNode,
+    frame: &StudioNodeId,
+) -> Result<(), StudioError> {
+    match kind_of(tx, studio_id, frame)? {
+        Some(StudioNodeKind::Cluster) => Err(StudioError::NotItsCluster {
+            node_id: node.id().as_str().to_string(),
+            cluster: frame.as_str().to_string(),
+        }),
+        _ => Ok(()),
+    }
+}
+
 /// Lift everything the nodes being removed hold onto whatever held each of
 /// them, keeping where it sits on the board. **Innermost first**, so a Note in
 /// a Cluster in a Zone that are all going ends up on the board, not in a
