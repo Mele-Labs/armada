@@ -465,7 +465,7 @@ where
             Level::Info,
             Component::Fleet,
             self.run().clone(),
-            "the drone asked a question and is waiting for an answer",
+            crate::retro::lines::A_DRONE_ASKS,
         )
         .in_job(job.as_ulid().clone())
         .at_step(step.as_str())
@@ -490,7 +490,7 @@ where
             Level::Info,
             Component::Fleet,
             self.run().clone(),
-            "a person answered the drone's question",
+            crate::retro::lines::A_PERSON_ANSWERS_A_DRONE,
         )
         .in_job(job.as_ulid().clone())
         .at_step(step.as_str())

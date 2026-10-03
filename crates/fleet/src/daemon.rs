@@ -251,6 +251,9 @@ pub struct Fleet<H, V, W> {
     /// one is taken when a Job's branch is touched and released when it has
     /// been.
     merge_end: Mutex<()>,
+    /// Whether a Job's retro is being written. Never written down, for
+    /// `proving`'s reason — `crate::retro`.
+    reflecting: crate::retro::Reflecting,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

@@ -753,6 +753,36 @@ Not on `get_job`. A detail view is fetched to draw a summary, on every open of a
 Not the turn stream either. `observe_job` renders what a Drone said; this renders what Armada did. A Job that went wrong usually needs both, side by side rather than merged.
 
 Helm may reach it for the reason it may reach the other queries: reading what happened is not doing anything about it. What that costs is the tokens `get_events_since` names — a long history stays in the session for the rest of it — so it is asked about one Job rather than swept.
+
+**A row a request made carries `via`** since 23.11: `bridge`, `helm`, `door` or `http`, the door it came through. A person's act that came through any door but Bridge is signed `helm`, because an agent made the request and Fleet cannot see the person behind it. `docs/concepts/retro.md`.
+"""
+
+[operations.get_job_retro]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What got in the way while one Job ran, whose way, and the record rows that show it"
+notes = """
+Since 23.11. `docs/concepts/retro.md` is the concept.
+
+**Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`.
+
+`state` is `pending` until a Job has ended and its retro is written, then `written`, `failed` or `skipped`. A failed retro is not tried again, and a Job that ended before Fleet wrote retros is `skipped`.
+
+`annotations` are notes the owner left in Bridge while this Job's detail was open, linked by the `openJobId` a note carries. A note without one is linked to nothing.
+
+Its own route rather than a field on `get_job`, for `get_job_events`' reason: the record reads every transcript the Job has, and `get_job` is read on every open.
+"""
+
+[operations.list_lessons]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, one sentence and the record rows that show it"
+notes = """
+Since 23.11. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
+
+**Nothing here is filed, proposed or put into a brief.** It is read, and a person decides what each item is worth. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves.
 """
 
 [operations.get_job_log]

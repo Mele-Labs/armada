@@ -2651,6 +2651,9 @@ read plausibly under a different job has failed.
   verdict worth anything.
 - **Check log** what a Check wrote to stdout and stderr. Never the
   Check output, the Check results.
+- **Retro** what got in the way while one Job ran, written once it ends.
+  Never the post-mortem, the review — a review is of the change. What the
+  retros' items make together is **Lessons**, the page that lists them.
 
 **Claude is a model name, never an actor.** Write "Drone 4 stalled", not
 "Claude stalled". The word appears only where a model is selected or

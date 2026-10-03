@@ -68,7 +68,8 @@ pub const CHECKS_TOOL: &str = "run_checks";
 /// decoder names these keys to put a call's argument on a row, and it was
 /// blind to all three for as long as it carried its own copy of the list — a
 /// rename here has to break that reader rather than silently empty it.
-pub const EVIDENCE_FIELDS: &[&str] = &["claimed", "shown_by", "not_claimed", "review"];
+pub const EVIDENCE_FIELDS: &[&str] =
+    &["claimed", "shown_by", "not_claimed", "in_the_way", "review"];
 /// The one field the scope tool takes. Public for [`EVIDENCE_FIELDS`]' reason.
 pub const SCOPE_FIELDS: &[&str] = &["context_paths"];
 /// The one field the Checks tool takes. Public for [`EVIDENCE_FIELDS`]' reason,
@@ -130,6 +131,10 @@ pub struct SubmitEvidence {
     /// here either. A Drone that left nothing behind has answered; a Drone
     /// that omitted the field has not, and is refused by name.
     pub not_claimed: String,
+    /// What got in the Drone's way, in a line. **Optional, unlike
+    /// `not_claimed`**, and never evidence: the gate and the Judge never read
+    /// it. It is kept for the Job's retro — `docs/concepts/retro.md`.
+    pub in_the_way: Option<String>,
     /// Present only where the step asks for a review. #903.
     pub review: Option<super::reviewing::SubmittedReview>,
 }
@@ -388,6 +393,7 @@ pub(crate) fn submission(arguments: &Map<String, Value>) -> Result<SubmitEvidenc
         claimed: text(arguments, "claimed")?,
         shown_by: text(arguments, "shown_by")?,
         not_claimed: text(arguments, "not_claimed")?,
+        in_the_way: optional_text(arguments, "in_the_way")?,
         review: super::reviewing::review(arguments)?,
     })
 }
@@ -594,6 +600,24 @@ pub(super) fn filled(
     Ok(said)
 }
 
+/// Text that may be left out. Absent, null and blank are all nothing said.
+fn optional_text(
+    arguments: &Map<String, Value>,
+    field: &'static str,
+) -> Result<Option<String>, NotAnArgument> {
+    match arguments.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => Ok(Some(
+            value
+                .as_str()
+                .ok_or(NotAnArgument::NotText { field })?
+                .trim()
+                .to_string(),
+        )
+        .filter(|said| !said.is_empty())),
+    }
+}
+
 /// One text field. `pub(super)` for [`closed`]'s reason.
 pub(super) fn text(
     arguments: &Map<String, Value>,
@@ -774,6 +798,13 @@ fn evidence_tool() -> Value {
                         "Everything the claim does not assert: the gap you left \
                          and the side effect you caused. Empty is a legal answer; \
                          omitting it is not.",
+                },
+                "in_the_way": {
+                    "type": "string",
+                    "description":
+                        "One line: what got in your way on this part, if anything \
+                         did. Leave it out if nothing did. It is read when the Job \
+                         is looked back on, and never when your work is checked.",
                 },
                 "review": super::reviewing::review_property(),
             },

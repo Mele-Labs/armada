@@ -441,6 +441,9 @@ where
                 Ok(turned) => fleet.probed(&turned),
                 Err(why) => adrift(why),
             }
+            // After the turn, with the `Arc` only this loop holds: an ended
+            // Job's retro is written on a task of its own. `crate::retro`.
+            crate::retro::reflected(&fleet);
         }
     });
     Turning {

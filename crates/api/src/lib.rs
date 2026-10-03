@@ -25,6 +25,8 @@
 //! [`SERVED`]. See `mcp`.
 
 /// A form's edits to `armada.yml`, as edits rather than as a file.
+/// Which door a request came through, named before a handler sees it.
+mod acting;
 mod amending;
 mod answers;
 /// The four reads that narrow the Board rather than drawing it.
@@ -74,6 +76,8 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
+/// A Job's retro and the Lessons listing. Since 23.11.
+mod retros;
 mod routes;
 mod scoped;
 /// Everything a handler is given. **Next door to the table**, which is what
@@ -90,10 +94,11 @@ mod watching_run;
 #[cfg(test)]
 mod tests;
 
+pub use acting::{carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Commands, Conversations, Daemon, FramePart, FrameSpan, HelmReach,
-    PermissionAnswer, Queries, Redirector, Refusal, Studios, Tools,
+    PermissionAnswer, Queries, Redirector, Refusal, Retros, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};
