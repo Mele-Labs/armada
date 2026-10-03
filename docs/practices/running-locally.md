@@ -263,7 +263,8 @@ where the column is at its rail, with the scenario in its tooltip. Pressing it
 opens the list over the content, and only then: type to narrow it, which is a
 fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
 what is left, Enter takes the top row and Esc gives up. Every row is a link to
-this page on `?scenario=`, which is the reload that puts the window on it.
+this page on `?scenario=`, which is the reload that puts the window on it. Every
+walk follows the scenarios, under *Walks*, as a link on `?walk=`.
 
 | Scenario | What the window holds |
 |---|---|
@@ -388,9 +389,10 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 
 | | |
 |---|---|
-| **The link** | `?walk=<name>` on a running mock, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
+| **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
 | **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **Inside Bridge** | On a Job's run sheet, start `mock` and press **Walk in Bridge**: the Job's own worktree, served in Bridge's window, with the picker to choose a walk. How a Prototype Job is looked at, at Build |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
 
 **A walk stops on the step whose target never came.** After five seconds its

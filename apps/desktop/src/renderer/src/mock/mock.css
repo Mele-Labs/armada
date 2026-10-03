@@ -107,6 +107,17 @@
   outline-offset: var(--focus-ring-offset);
 }
 
+/* The walks follow the scenarios under their own label, `Picker.tsx`'s
+   `WALK_ROWS`, so a walk's camelCase name is not read as a scenario. */
+.armada-mock-picker__group {
+  flex: none;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+}
+
 /* What the query matched, so a subsequence hit reads as one rather than as a
    row that turned up for no reason. */
 .armada-mock-picker__hit {

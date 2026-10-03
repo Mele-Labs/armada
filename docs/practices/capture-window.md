@@ -47,6 +47,13 @@ around `nodeIntegration: false`.
 > **Rule.** The Studio is the Run's own, decided when the window opens. Capture
 > here has nothing to aim.
 
+> **Rule.** A Job's server opens from its run sheet with no Studio, to be
+> walked. The bar says so and offers no Capture, and main arms nothing. A
+> server with no Job still needs its Studio.
+> Why: a Prototype Job stops at Build for a person to look, and the look
+> belongs inside Bridge rather than the system browser. A Note made up a
+> Studio to land on would be a Note about work nobody asked to keep.
+
 > **Rule.** `webSecurity` stays on, and Bridge neither adds a header to the
 > page's response nor removes one. A page's own CSP is not rewritten to make it
 > render.

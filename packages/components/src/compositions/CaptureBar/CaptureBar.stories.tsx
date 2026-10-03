@@ -37,6 +37,19 @@ export const Serving: Story = {
   },
 };
 
+/**
+ * A Job's server, opened from its run sheet to be walked: no Studio, so the bar
+ * says what it is and offers no Capture — a Note would have nowhere to land.
+ */
+export const Walking: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Walking a Job's server")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Capture" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Reload" })).toBeEnabled();
+  },
+};
+
 /** Armed: a press on the page points rather than acts. */
 export const Capturing: Story = {
   args: { armed: true },
