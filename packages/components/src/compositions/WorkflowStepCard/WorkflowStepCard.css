@@ -178,6 +178,13 @@ button.armada-wf-card:hover {
   color: var(--fg-subtle);
 }
 
+/* The running step's parts, along the card's bottom edge, over a hairline. */
+.armada-wf-card__track {
+  display: block;
+  padding-block-start: var(--space-2);
+  border-block-start: var(--border-width) solid var(--border-subtle);
+}
+
 /* The board's second row: how long, then where it has got to. One line that
    clips, so every step card on the spine is the same height and an edge lands
    where the placement says. The running step's line takes the running hue, as

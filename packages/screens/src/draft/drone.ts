@@ -28,6 +28,12 @@ export type DroneView = {
   since?: string;
   /** When it stopped. Absent while it runs. */
   ended_at?: string;
+  /**
+   * When its last run ended, on a `running` Drone Fleet still holds — at the
+   * gate while its Checks run, or for a person. **Absent while it works.**
+   * `JobDrone.at_rest_since`, since 23.11.
+   */
+  at_rest_since?: string;
   /** Turns taken so far. **Absent where none has been counted**, never nought. */
   turns?: number;
   /**
@@ -54,6 +60,15 @@ export type DroneView = {
  * while the list was unread, or was a step behind the event that spawned it
  * (owner, 1 Oct 2026: Job 2's tab was empty while its plan step worked).
  */
+/**
+ * A Drone at work: `running`, and not at rest. **`running` alone names both**
+ * — a Drone resting at the gate while its Checks run is still held — which is
+ * what the owner read as a Drone still working on 3 Oct 2026.
+ */
+export function isWorking(drone: Pick<DroneView, "state" | "at_rest_since">): boolean {
+  return drone.state === "running" && drone.at_rest_since === undefined;
+}
+
 export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, turns?: readonly Turn[]): DroneView[] {
   const rowsOf = (id: string) => (turns === undefined ? {} : { transcript: turns.filter((row) => row.drone_id === id) });
   const views = (listed?.drones ?? []).map((one): DroneView => ({
@@ -64,6 +79,7 @@ export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, t
     since: one.since,
     ...(one.model === undefined ? {} : { model: one.model }),
     ...(one.ended_at === undefined ? {} : { ended_at: one.ended_at }),
+    ...(one.at_rest_since === undefined ? {} : { at_rest_since: one.at_rest_since }),
     ...(one.turns === undefined ? {} : { turns: one.turns }),
     ...(one.cost_micros === undefined ? {} : { cost_micros: one.cost_micros }),
     ...rowsOf(one.drone_id),

@@ -49,10 +49,13 @@ describe("every shipped workflow draws", () => {
       // Evenly means the same air between two cards, whatever each draws: a
       // card leaves out a row it has nothing for (owner, 30 Sep 2026), so the
       // step to the next one is its rows' height plus one constant.
+      // A running step's phase track is one row more, of its own height.
       const ROW = 28;
+      const TRACK = 36;
       const rows = (card: (typeof spine)[number]["card"]) =>
         (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
-      const air = ys.slice(1).map((y, at) => y - ys[at]! - rows(spine[at]!.card) * ROW);
+      const high = (card: (typeof spine)[number]["card"]) => rows(card) * ROW + (card.track === undefined ? 0 : TRACK);
+      const air = ys.slice(1).map((y, at) => y - ys[at]! - high(spine[at]!.card));
       expect(new Set(air).size).toBeLessThanOrEqual(1);
     });
 

@@ -641,6 +641,14 @@
   status = "Proposed"
   notes = "Within the shield reservation — the family means gates and checks. Its counterpart shield-x is already spoken for as failed a check."
 
+[icons.shield-ellipsis]
+  means = "A pointed-base pentagon with three dots inside — the Check family's outline, its answer not in yet"
+  group = "Step phase"
+  size = "12px"
+  status = "Specified"
+  reserved = "The Checks part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: filled once done, lit while the gate runs them, hollow while to come. Never a Check's result, which shield-check, shield-x, shield-minus and shield-off say, and never a loading indicator anywhere else."
+  notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`; proposed the same day for his annotation `ouqa` (\"I had no idea it was running checks\"). It was first a mark on the state pill, which he found too easy to miss, and is now a part of the phase track he drew, named by its tooltip, `Checks running`. Within the shield reservation, so the family still reads as gates and checks; the dots are the one interior mark, and they say *not answered yet* the way a typing indicator does. **The objection to expect is rule 3**, since at 12px the dots are interior detail: the shield outline carries *a Check* and the dots only *still going*, which the pulse says too. Refused: bare `shield`, the Record's kind mark under a rule-4 waiver that is its alone; `shield-check`, a result; `circle-dot`, which is a Drone working and the track's Drones part; `loader` and `loader-circle`, a spinner, which iconography refuses as a progress indicator with no object."
+
 [icons.shield-minus]
   means = "A pointed-base pentagon with a minus inside"
   group = "Step and Verdict"
@@ -978,6 +986,14 @@
   status = "Specified"
   reserved = "A Record row the Judge produced: a criterion answered, a pattern flagged. Never a verdict, which is circle-check, circle-x and circle-minus; never a comparison or a diff; never a person deciding."
   notes = "Minted 2026-09-29 for [record-kind-marks]. A Judge weighs work against criteria, and a balance is that act. It carries no verdict: circle-* says what the Judge concluded and stays the only family that does, so the mark says who produced the row and the Outcome column says what it came to. Refused: a bare `circle`, a ring that at 12px is circle-dot and circle-dashed with their one distinguishing element gone; `gavel`, which `signpost`'s row already refused as reading judgement, and which says a ruling was struck rather than weighed."
+
+  [[icons.scale.usage]]
+    means = "The Judge reading a running step's work — a call out now"
+    group = "Step phase"
+    size = "12px"
+    status = "Specified"
+    reserved = "The Judge part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: lit while `judging` is present and named `Judge reading`, filled once done, hollow while to come. Never a verdict, which circle-check, circle-x and circle-minus say."
+    notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`, which widens the Record-kind reservation above to this one use; proposed the same day for his annotation `ouqa`. The row above already says a balance is the act of a Judge weighing work against criteria; this is that act while it is under way rather than the Record row it leaves. Refused: `circle-ellipsis`, since `circle-*` is the verdict family and an ellipsis in a ring is `circle-dot` at 12px; `eye`, reserved to Review; `scan-line`, the proposer reading a request."
 
 [icons.bot]
   means = "A robot's head \u2014 a rounded box with an antenna and a stub either side"

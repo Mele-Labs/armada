@@ -42,9 +42,19 @@ export type JobDrone = {
   /** When it left, off `drone_exited`. **Absent while it runs.** */
   ended_at?: string;
   /**
+   * When its last run ended, on a `running` Drone Fleet is still holding — for
+   * the gate's answer while its step's Checks run, or for a person. **Absent
+   * while it is working**, and on a Drone that has left. Since 23.11.
+   *
+   * `running` alone named both, so a Drone resting at the gate was drawn as one
+   * still working while it was the Checks that were.
+   */
+  at_rest_since?: string;
+  /**
    * Turns taken, summed across its session's terminating lines. **Absent where
    * none has been seen**, never nought: a running Drone in its first invocation
-   * has taken turns nothing has counted yet.
+   * has taken turns nothing has counted yet, and since 23.11 neither has a
+   * stopped one that left before its first terminating line.
    */
   turns?: number;
   /**

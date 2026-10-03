@@ -215,6 +215,14 @@
   font-weight: var(--weight-heading);
 }
 
+/* The pill, and the running step's track under it. */
+.armada-wf-inspector__header-track {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
 /* Its state, as the board's pill: the mark and the word on the state's own
    tint. The hue is the step machine's, never chosen here. */
 .armada-wf-inspector__state {
