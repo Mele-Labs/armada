@@ -123,7 +123,8 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   const first = open(fleet.scenario);
 
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
-  await expect.element(page.getByText("No Studios yet.", { exact: false })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "New Studio" })).toBeVisible();
+  expect(page.getByText("No Studios yet.", { exact: false }).query()).toBeNull();
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
   // Started, so the person's own: no Continue to press.
@@ -612,11 +613,13 @@ test("a proposed relation is answered on its own edge, and no queue sits in the 
   await expect.element(page.getByText("same as", { exact: true })).toBeVisible();
 });
 
-test("a scenario keeping no Studios draws the empty state, not a read failure", async () => {
+test("a scenario keeping no Studios draws no list and no sentence, and not a read failure", async () => {
   open("empty-store");
   await openStudios();
 
-  await expect.element(page.getByText("No Studios yet.", { exact: false })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "New Studio" })).toBeVisible();
+  expect(page.getByRole("table").query()).toBeNull();
+  expect(page.getByText("No Studios yet.", { exact: false }).query()).toBeNull();
   expect(page.getByText(FAILED).query()).toBeNull();
 });
 
@@ -1099,7 +1102,8 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
   // One write: the Studio is empty, and every edge went with the nodes.
   await expect.poll(() => fleet.studios()[0]!.nodes).toEqual([]);
   expect(fleet.studios()[0]!.edges).toEqual([]);
-  await expect.element(page.getByText("Nothing on this Studio yet.", { exact: false })).toBeVisible();
+  // An empty Studio draws an empty whiteboard: no sentence stands in for the nodes.
+  expect(page.getByText("Nothing on this Studio yet.", { exact: false }).query()).toBeNull();
 });
 
 /**

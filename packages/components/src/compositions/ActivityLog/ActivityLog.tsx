@@ -101,7 +101,7 @@ export type ActivityLogProps = {
    * shape as a cut payload, one level up. Absent where every entry is here.
    */
   cut?: ReactNode;
-  /** What an empty log says. Never a blank: a blank reads as a failed render. */
+  /** What an empty log says. Absent draws nothing: an empty slot stays empty. */
   emptyNote?: ReactNode;
   /** Which entry is open on mount. After that the log holds its own. */
   openId?: string;
@@ -139,7 +139,7 @@ export function ActivityLog({
   entries,
   maxLines = MAX_LINES,
   cut,
-  emptyNote = "Nothing recorded yet",
+  emptyNote,
   openId,
 }: ActivityLogProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() =>
@@ -156,7 +156,7 @@ export function ActivityLog({
   }, []);
 
   if (entries.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-activity__empty" role="note">
         {emptyNote}
       </p>

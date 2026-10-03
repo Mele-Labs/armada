@@ -142,11 +142,10 @@ reading a person keeps beside the run.
 same word the strip's Plan tab uses, and a surface can ask whether the region
 is drawn at all without matching a word the tab also spells.
 
-**Before a plan is recorded, the region still draws — quietly.** When the
-workflow declares the step that will record it, and that step has not run
-yet, the region shows one muted line naming it: "No plan yet — Plan the
-change records it." No task bar, no figure, no approach and no `Add task`
-until the plan exists — adding a task needs a plan to add it to.
+**Before a plan is recorded, the region draws nothing.** No sentence stands in
+for the plan that is not there yet — an empty slot stays empty — and no task
+bar, no figure, no approach and no `Add task` until the plan exists: adding a
+task needs a plan to add it to.
 
 Once a plan is recorded:
 

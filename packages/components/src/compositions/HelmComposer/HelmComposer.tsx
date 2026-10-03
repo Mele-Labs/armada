@@ -87,10 +87,8 @@ export function HelmComposer({
    * Somewhere to point Helm that it is not pointed at already. **Pointed at a
    * repository, one repository is nothing to switch between**, which is all
    * this used to say. Pointed at nothing, that one repository is somewhere to
-   * go, and the dock says so in words — *Helm is not pointed at a repository.
-   * Pick armada to ask about it.* — so the control it names has to be here to
-   * pick with. With none set up there is still nothing to draw either way, and
-   * the dock's own sentence carries that moment on its own.
+   * go, so the switch is drawn to pick it with. With none set up there is
+   * nothing to switch to, and the line below says so.
    */
   const somewhere = current === undefined ? repositories.length > 0 : repositories.length > 1;
   const switching = onSwitch !== undefined && somewhere;

@@ -39,6 +39,18 @@ export const Plain: Story = {
   },
 };
 
+/** Holding nothing: **the head alone**, and no empty body under it. */
+export const HoldingNothing: Story = {
+  args: { label: "Plan", onOpen: fn(), children: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const card = canvas.getByRole("region", { name: "Plan" });
+    await expect(card).toHaveTextContent(/^Plan$/);
+    // No body under the head: the one structural fact no role carries.
+    await expect(card.children).toHaveLength(1);
+  },
+};
+
 /** A `?` beside the name, and a figure and an act at the trailing edge. */
 export const WithTrailing: Story = {
   args: {

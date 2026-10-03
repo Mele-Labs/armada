@@ -95,10 +95,13 @@ const FULL: KitSetupRead = {
   ],
 };
 
-/** Nothing read yet. Not an empty setup — nobody has asked one. */
+/** Nothing read yet. Not an empty setup — nobody has asked one — and **nothing is drawn**. */
 export const Reading: Story = {
   name: "Reading",
   args: { setup: undefined },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };
 
 /**
@@ -147,12 +150,13 @@ export const SomethingWillNotRead: Story = {
   },
 };
 
-/** A machine where the harness has never run. Said, rather than drawn empty. */
+/** A machine where the harness has never run: the head and where it looked, and **no sentence under it**. */
 export const NothingThereYet: Story = {
   name: "Nothing there yet",
   args: { setup: { ...FULL, present: false, kinds: [] } },
   play: async ({ canvasElement }) => {
     const kit = within(canvasElement);
-    await expect(kit.getByText(/Nothing is there yet/)).toBeVisible();
+    await expect(kit.getByRole("heading", { name: "What you already have" })).toBeVisible();
+    await expect(kit.queryByText(/Nothing is there yet/)).toBeNull();
   },
 };

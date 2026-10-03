@@ -66,9 +66,10 @@ export type UnifiedDiffProps = {
   /**
    * What the region says with no patch. **Three different silences** — a Job
    * with no worktree, a Drone that changed nothing, and a read that failed —
-   * so the caller supplies the sentence rather than sharing one here.
+   * so the caller supplies the sentence rather than sharing one here. Absent
+   * draws nothing, for the silence that is neither a fact nor a failure.
    */
-  emptyNote: string;
+  emptyNote?: string;
   /**
    * What was left undrawn, where the patch was longer than the bound. **Loud,
    * and it names where the rest is**: a decision taken on a diff that quietly
@@ -94,7 +95,7 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied }: UnifiedDi
   );
 
   if (files.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-diff__empty" role="note">
         {emptyNote}
       </p>

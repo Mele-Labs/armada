@@ -234,7 +234,6 @@ export function RecordTab({
           kindMarks={filter === "all"}
           floor={floor}
           back={trail?.back}
-          emptyNote={EMPTY[filter]}
           {...(open === undefined ? {} : { inspectorTitle: titleOf(open) })}
           {...(open === undefined || openDrawn === undefined
             ? {}
@@ -269,15 +268,3 @@ export function RecordTab({
 
 const ANY_STEP = "Any step";
 
-/** What each filter says when it holds nothing. Never one sentence for nine. */
-const EMPTY: Record<RecordFilter, string> = {
-  all: "Nothing has happened on this Job yet.",
-  job: "Nothing about the Job itself has been recorded yet.",
-  evidence: "No Drone has submitted evidence on this Job.",
-  files: "Nothing has written a file on this Job yet.",
-  checks: "No Check has run on this Job yet.",
-  judges: "No Judge has answered on this Job yet.",
-  drones: "No Drone has opened a step on this Job yet.",
-  tasks: "No task on this Job has moved yet.",
-  tests: "No case has been run on this Job yet.",
-};

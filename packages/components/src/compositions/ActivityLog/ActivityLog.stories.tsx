@@ -198,10 +198,13 @@ export const TheStreamCut: Story = {
 
 /**
  * A step nothing has been recorded against. Ordinary, and never an error — a
- * Drone that has just started has done nothing yet.
+ * Drone that has just started has done nothing yet — so **nothing is drawn**.
  */
 export const NothingYet: Story = {
   args: { entries: [] },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };
 
 // The wire's own sentence for a turn that reached the Drone on the input

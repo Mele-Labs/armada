@@ -169,15 +169,13 @@ export function weighs(bytes: number): string {
 /**
  * What a reading with nothing in it says, per state.
  *
- * **Four sentences and none of them is an empty frame.** A Check that printed
- * nothing, a read in flight, a read that came back with nothing to read, and a
- * read that could not be taken are four different things to know, and a surface
- * with one sentence for all of them says a Check printed nothing when what is
- * true is that nobody has asked yet.
+ * **A fact or a failure, and otherwise nothing.** A Check that printed
+ * nothing and a read that could not be taken are two different things to know.
+ * Before the read is asked for, and while it is out, there is nothing true to
+ * say, so the slot stays empty rather than holding a sentence.
  */
-export function noteFor(held: OutputState | undefined): string {
-  if (held === undefined) return NOT_ASKED;
-  if (held.state === "fetching") return READING;
+export function noteFor(held: OutputState | undefined): string | undefined {
+  if (held === undefined || held.state === "fetching") return undefined;
   if (held.state === "absent") return held.note;
   return PRINTED_NOTHING;
 }
@@ -262,11 +260,15 @@ export function liveRegionOf(reading: FollowedLog, kept: string): ConsoleRegion 
   return { says: `${reading.name} · ${where}`, path: reading.path };
 }
 
-/** What a followed log with no lines says, per state. */
-export function liveNoteFor(reading: FollowedLog, kept: string): string {
+/**
+ * What a followed log with no lines says, per state: a failure, or a finished
+ * Check that printed nothing. Opening, and still running with nothing printed
+ * so far, say nothing.
+ */
+export function liveNoteFor(reading: FollowedLog, kept: string): string | undefined {
   if (reading.state === "failed" && reading.kept === kept) return NOT_ANSWERED_LIVE;
-  if (reading.state !== "following" || reading.kept !== kept) return OPENING_LIVE;
-  if (reading.ended === undefined) return NOTHING_PRINTED_YET;
+  if (reading.state !== "following" || reading.kept !== kept) return undefined;
+  if (reading.ended === undefined) return undefined;
   if (reading.ended === "finished") return PRINTED_NOTHING;
   if (reading.ended === "unreadable") return UNREADABLE_LIVE;
   return CLOSED_LIVE;
@@ -284,12 +286,6 @@ export function followFailedNote(failed: boolean, ended: string | undefined): st
   return undefined;
 }
 
-/** The socket is opening. */
-const OPENING_LIVE = "Opening this Check's log…";
-
-/** Following, and the Check has printed nothing so far. */
-const NOTHING_PRINTED_YET = "This Check has printed nothing yet.";
-
 /** Fleet said it could not read the file. */
 const UNREADABLE_LIVE = "Fleet could not read this Check's log.";
 
@@ -298,12 +294,6 @@ const CLOSED_LIVE = "The connection to this Check's log closed.";
 
 /** Fleet did not answer the ask to follow it. */
 const NOT_ANSWERED_LIVE = "Fleet did not answer for this Check's log.";
-
-/** Before the chapter is opened. Nothing has been asked for. */
-const NOT_ASKED = "Open this chapter to read what the Check printed.";
-
-/** The read is in flight. */
-const READING = "Reading the output…";
 
 /** The file is there and empty — a Check that exited without printing. */
 const PRINTED_NOTHING = "This Check printed nothing.";

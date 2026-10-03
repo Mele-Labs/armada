@@ -23,12 +23,12 @@ import type {
 import { said } from "./copy";
 import { span } from "./duration";
 
-/** Drift as the panel draws it. A read that has not answered says so. */
+/** Drift as the panel draws it. A read that has not answered says nothing; one that failed says so. */
 export function driftPanelOf(read: ManifestDriftRead): DriftPanelProps {
   switch (read.state) {
     case "none":
     case "reading":
-      return { note: "Reading whether this checkout still has what armada.yml names." };
+      return {};
     case "failed":
       return { note: `Drift could not be read. ${said(read.outcome)}` };
     case "read":

@@ -41,58 +41,53 @@ function talking(replying: boolean): Scenario {
 /** The sentence that stood for every unpointed state, and was true in one of them. */
 const ONCE_SAID = "No repository has a Manifest yet for Helm to answer about.";
 
-test("repositories set up and Helm pointed at none: the dock counts them, and the switch that points it is there", async () => {
+/** The empty thread draws no sentence of any kind: an empty slot stays empty. */
+function threadSaysNothing(): void {
+  expect(page.getByText(ONCE_SAID).query()).toBeNull();
+  expect(page.getByText(/Helm is not pointed at a repository/).query()).toBeNull();
+  expect(page.getByText(/for Helm to answer about/).query()).toBeNull();
+  expect(page.getByText("Ask Helm about this repository.").query()).toBeNull();
+}
+
+test("repositories set up and Helm pointed at none: the thread says nothing, and the switch that points it is there", async () => {
   // Two of this scenario's repositories are set up, and nothing has pointed Helm at either.
   mount("every-state");
   await openHelm();
 
-  await expect
-    .element(page.getByText("Helm is not pointed at a repository. 2 are set up, so pick one to ask about it."))
-    .toBeVisible();
-  expect(page.getByText(ONCE_SAID).query()).toBeNull();
-  // The act the sentence names is the dock's own switch, under the thread it is written in.
   const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
   await expect.element(switcher).toBeVisible();
-  // And the switch agrees with the sentence: it stands at an entry of its own,
-  // not at whichever repository is listed first. It read *armada* here — a
-  // `<select>` whose value matches no option displays the first one — so the
-  // dock said Helm was pointed at nothing while the control said armada.
+  threadSaysNothing();
+  // The switch stands at an entry of its own, not at whichever repository is
+  // listed first. It read *armada* here — a `<select>` whose value matches no
+  // option displays the first one — so the dock said Helm was pointed at
+  // nothing while the control said armada.
   await expect.element(switcher).toHaveDisplayValue("Choose a repository");
 });
 
-test("one repository set up and Helm pointed at none: the dock names it, and there is a switch to pick it with", async () => {
+test("one repository set up and Helm pointed at none: the thread says nothing, and there is a switch to pick it with", async () => {
   // `empty-store` is one repository set up, no Job yet, and nothing pointing Helm at it —
-  // the moment the sentence named an act with no control under it, because the composer
-  // counted the repositories and one is nothing to switch between.
+  // the moment the composer once counted the repositories and offered no switch, because
+  // one is nothing to switch between.
   mount("empty-store");
   await openHelm();
 
-  await expect
-    .element(page.getByText("Helm is not pointed at a repository. Pick armada to ask about it."))
-    .toBeVisible();
   const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
   await expect.element(switcher).toBeVisible();
-  // Standing at its own entry, with the repository the sentence names under it to pick.
+  threadSaysNothing();
+  // Standing at its own entry, with the one repository under it to pick.
   await expect.element(switcher).toHaveDisplayValue("Choose a repository");
   await expect.element(page.getByRole("option", { name: "armada" })).toBeInTheDocument();
 });
 
-test("nothing set up: the dock says so in the words the rail and Setup use, and names the way out", async () => {
+test("nothing set up: the thread says nothing, and there is no switch to offer", async () => {
   // `nothing-set-up` is two repositories served and neither of them set up.
   mount("nothing-set-up");
   await openHelm();
 
-  await expect
-    .element(
-      page.getByText("Nothing is set up yet for Helm to answer about. Set up a repository, and Helm answers for it."),
-    )
-    .toBeVisible();
-  // Neither the old sentence nor the pointed-at-none one, which would be false here.
-  expect(page.getByText(ONCE_SAID).query()).toBeNull();
-  expect(page.getByText(/Helm is not pointed at a repository/).query()).toBeNull();
-  // And no switch, though the dock hands the composer its handler in every state: pointing
-  // Helm at nothing is a reason to offer a repository, not a reason to offer none. The
-  // sentence above is the whole of what this moment has to say.
+  // The composer's own line is the one thing said: there is nothing to point Helm at.
+  await expect.element(page.getByText("No repository to ask yet")).toBeVisible();
+  threadSaysNothing();
+  // And no switch, though the dock hands the composer its handler in every state.
   expect(page.getByRole("combobox", { name: /^Point Helm at a/ }).query()).toBeNull();
 });
 

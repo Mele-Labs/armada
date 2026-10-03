@@ -42,8 +42,8 @@ export function Log({
   region,
 }: {
   rows: LogRow[];
-  /** What an empty log says. Never a blank: a blank reads as a failed render. */
-  emptyNote: string;
+  /** What an empty log says. Absent draws nothing: an empty slot stays empty. */
+  emptyNote?: string;
   /**
    * Which log this is, where the story draws more than one. Two logs over one
    * stream hold the same rows, and a reader who opened a row in chapter one has
@@ -54,7 +54,7 @@ export function Log({
   const [open, setOpen] = useState<string | null>(null);
 
   if (rows.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="text-2xs text-fg-muted" role="note">
         {emptyNote}
       </p>

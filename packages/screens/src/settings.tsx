@@ -150,7 +150,8 @@ export function SettingsPanel({
   const currentRefused = whole?.when_refused;
   const nothing = whyNothingToChange(job, whole);
   if (nothing !== undefined || whole === null || current === undefined) {
-    return <p className="armada-settings-tab__note">{nothing ?? NOT_READ_YET}</p>;
+    // Not read yet says nothing: an empty slot stays empty.
+    return nothing === undefined ? null : <p className="armada-settings-tab__note">{nothing}</p>;
   }
 
   const tell = (row: Row, says: ReactNode, took: (next: JobWhole) => boolean) =>
@@ -307,9 +308,6 @@ const OVER = "This job has finished, so there is nothing left for a change to re
 const FLEET_DOES_NOT_SAY =
   "This Fleet does not report what this job does with a command it wasn't given, so nothing " +
   "here can be drawn without guessing at it.";
-
-/** The detail has not arrived. Not a state, just not yet. */
-const NOT_READ_YET = "Reading this job's settings…";
 
 /** Why every control is off, where the reading is not live. */
 const NOT_LIVE = "This job is not live, so nothing can be changed.";

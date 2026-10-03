@@ -71,8 +71,8 @@ export type JobDroneReading = {
   turns: DroneTurn[];
   /** The Drone is still writing, so the transcript opens at its tail. */
   live: boolean;
-  /** What the transcript says with no rows. */
-  emptyNote: string;
+  /** What the transcript says with no rows. Absent draws nothing. */
+  emptyNote?: string;
   /** The redirect box, where this Drone can be reached. */
   footer?: ReactNode;
   /** In the head beside Close: the kill, where this Drone can be ended. */
@@ -90,6 +90,7 @@ export type JobDronesProps = {
   onOpenRow?: (rowId: string | null) => void;
   /** The open Drone. Absent while none is. */
   reading?: JobDroneReading;
+  /** What the table says with no rows. Absent draws nothing: an empty slot stays empty. */
   emptyNote?: ReactNode;
   /** The window is at `--window-floor`, where the sheet goes flush. */
   floor?: boolean;
@@ -106,7 +107,7 @@ export function JobDrones({
   openRow = null,
   onOpenRow,
   reading,
-  emptyNote = "No Drone under this filter",
+  emptyNote,
   floor = false,
   back,
 }: JobDronesProps) {
@@ -132,9 +133,11 @@ export function JobDrones({
         </div>
 
         {rows.length === 0 ? (
-          <p className="armada-drones__note" role="note">
-            {emptyNote}
-          </p>
+          emptyNote === undefined ? null : (
+            <p className="armada-drones__note" role="note">
+              {emptyNote}
+            </p>
+          )
         ) : (
           <div className="armada-drones__scroll">
             <Table className="armada-drones__table">
@@ -221,7 +224,7 @@ export function JobDrones({
           <DroneTurns
             key={reading.title}
             turns={reading.turns}
-            emptyNote={reading.emptyNote}
+            {...(reading.emptyNote === undefined ? {} : { emptyNote: reading.emptyNote })}
             live={reading.live}
             steps={false}
           />
