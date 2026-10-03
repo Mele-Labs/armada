@@ -316,6 +316,20 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/jobs/:job_id/events",
     },
+    // What got in the way while the Job ran, and the record it was read from.
+    // `docs/concepts/retro.md`.
+    Route {
+        operation: "get_job_retro",
+        method: "GET",
+        path: "/jobs/:job_id/retro",
+    },
+    // Every retro's items across Jobs, for the Lessons page. Not under
+    // `/jobs`: an item is about a Job and the list is about none of them.
+    Route {
+        operation: "list_lessons",
+        method: "GET",
+        path: "/lessons",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the

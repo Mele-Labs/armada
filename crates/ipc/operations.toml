@@ -753,6 +753,36 @@ Not on `get_job`. A detail view is fetched to draw a summary, on every open of a
 Not the turn stream either. `observe_job` renders what a Drone said; this renders what Armada did. A Job that went wrong usually needs both, side by side rather than merged.
 
 Helm may reach it for the reason it may reach the other queries: reading what happened is not doing anything about it. What that costs is the tokens `get_events_since` names — a long history stays in the session for the rest of it — so it is asked about one Job rather than swept.
+
+**A row a request made carries `via`** since 23.12: `bridge`, `helm`, `door` or `http`, the door it came through. A person's act that came through any door but Bridge is signed `helm`, because an agent made the request and Fleet cannot see the person behind it. `docs/concepts/retro.md`.
+"""
+
+[operations.get_job_retro]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What got in the way while one Job ran, whose way, and the record rows that show it"
+notes = """
+Since 23.12. `docs/concepts/retro.md` is the concept.
+
+**Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`.
+
+`state` is `pending` until a Job has ended and its retro is written, then `written`, `failed` or `skipped`. A failed retro is not tried again, and a Job that ended before Fleet wrote retros is `skipped`.
+
+`annotations` are notes the owner left in Bridge while this Job's detail was open, linked by the `openJobId` a note carries. A note without one is linked to nothing.
+
+Its own route rather than a field on `get_job`, for `get_job_events`' reason: the record reads every transcript the Job has, and `get_job` is read on every open.
+"""
+
+[operations.list_lessons]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, one sentence and the record rows that show it"
+notes = """
+Since 23.12. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
+
+**Nothing here is filed, proposed or put into a brief.** It is read, and a person decides what each item is worth. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves.
 """
 
 [operations.get_job_log]
@@ -994,7 +1024,9 @@ notes = """
 
 **`killed` is a person ending it, and `failed` is not.** A Drone is `killed` where the next move after its exit is its step stopping under `drone_killed` or the Job going to `killed`, the two orders `kill_drone` and `kill_job` write. It is `done` where its step passed its advance gate or reached a person's gate while it was the one on it, and `failed` where it left without either. A kill that lands while evidence is waiting stops no step, so it reads by what the gate then does.
 
-**Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought.
+**Cost and turns, and when each arrives.** A stopped Drone carries its row. A running one carries what its transcript's terminating lines add up to: turns summed and cost the last figure, `fleet::allowance::spent`'s fold. A Drone still in its first invocation has no terminating line yet and carries neither; that is absent, never nought. So is a stopped Drone whose row saw none, since 23.11: it read `turns: 0` before. A task's Drone that handed in is let come to rest before Fleet ends it, within the report grace, so its terminating line is on its row.
+
+**`running` is a Drone Fleet still holds, and `at_rest_since` says whether it is working.** Since 23.11. A Drone that submitted and ended its run stays on its step while the gate's Checks run, as the Drone a red Check is handed back to, and an escalated Job keeps an idle one. `at_rest_since` is when its last run ended, off its transcript's last terminating line with no run started or turn sent after it; absent while it works and on a Drone that has left. A new field and not a fifth state, so a Bridge that matches on the four reads on unchanged.
 
 **A Drone beside a Job's kept one is listed too**, since 23.10: it ran a task marked safe to run at once, and is on no record of moves, so its row is read off its task binding and how it left — `done` where it handed in, `killed` where a person stopped it, `failed` otherwise.
 
@@ -1540,7 +1572,7 @@ The primary autonomy control.
 
 **Kept whole or refused whole, before anything moves.** The title, facts, workflow, each step's gate and the criteria are rewritten on the record, and freeze at this press (#1581); the tier map, the Drone cap, the landing and the policy overrides are kept beside the Job. Then `awaiting_approval -> queued`, as before. A criterion with an id is that line, reworded or not, and keeps its origin and how it is answered; one without is new, minted the next `c<n>`, the person's, and answered by the Judge or a person, never a Check. An overridden step keeps deferring on the record and the override wins at every gate however the repository's rule moves (answer 4): `auto_merge` reads `never` with `you`, else `checks-pass`; `review_gate` reads `human_always` with `you`, else `auto_if_judge_passes` with `judge`. The Drone cap is kept and enforced from slice 5.
 
-409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.11), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
+409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.13), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
 """
 
 [operations.edit_job]
@@ -1562,7 +1594,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Approves an Epic's plan and releases every Job of its wave, in one act"
 notes = """
-`POST /jobs/:job_id/approve_wave`, on the Epic's own id: #1694, spike 022 slice 6, since 23.11. The body is `ApproveWave`: `jobs`, every Job of the wave by id. **One act**: each member takes `awaiting_approval -> queued` as a person's act, as `edit_job` left it, and the Epic's plan step advances and the Epic is queued without the step after it being entered, so it waits on its members. The answer is the Epic's summary.
+`POST /jobs/:job_id/approve_wave`, on the Epic's own id: #1694, spike 022 slice 6, since 23.13. The body is `ApproveWave`: `jobs`, every Job of the wave by id. **One act**: each member takes `awaiting_approval -> queued` as a person's act, as `edit_job` left it, and the Epic's plan step advances and the Epic is queued without the step after it being entered, so it waits on its members. The answer is the Epic's summary.
 
 **All or nothing.** 409 `fleet.wave_refused` unless the Epic is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there: every Job that step proposed still at `awaiting_approval`. A member dropped before the press (`kill_job`) is not in the wave, and naming it refuses the press; leaving one out refuses it too. 409 `fleet.not_under_review` off the gate. Nothing moves on a refusal.
 

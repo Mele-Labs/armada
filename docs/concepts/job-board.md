@@ -261,7 +261,7 @@ It carries no `dispatched_by`, linking back through `subject` instead, which is 
 
 ### A sub-dispatched Job is approved with its wave
 
-**A sub-dispatched Job waits at `awaiting_approval` until its wave is released.** Its parent's plan proposed it, and one press of that plan's gate releases every Job of the wave together; it is never approved on its own. Before 23.11 a child entered `queued`, approved as part of its parent. It renders here at whatever status it holds. See Job status on the Board above.
+**A sub-dispatched Job waits at `awaiting_approval` until its wave is released.** Its parent's plan proposed it, and one press of that plan's gate releases every Job of the wave together; it is never approved on its own. Before 23.13 a child entered `queued`, approved as part of its parent. It renders here at whatever status it holds. See Job status on the Board above.
 
 ### Origin is display-only
 

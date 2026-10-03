@@ -305,7 +305,7 @@ where
                 self.noted_permission(
                     &job,
                     &step,
-                    "the drone reached for a command it was not granted, and a person is being asked",
+                    crate::retro::lines::A_COMMAND_ASKS,
                     &[("call", asked.call.clone()), ("command", what.clone())],
                 );
                 self.publish_waiting(&job, &step, Some(drawn), Actor::Drone);
@@ -690,7 +690,7 @@ where
         self.noted_permission(
             job_id,
             &step,
-            "a person answered a command the drone was waiting on",
+            crate::retro::lines::A_PERSON_ANSWERS_A_COMMAND,
             &[
                 ("call", call.to_string()),
                 ("answer", said(answer).to_string()),

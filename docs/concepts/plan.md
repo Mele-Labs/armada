@@ -94,7 +94,7 @@ them is still on the branch, so the plan does not reset with the step.
 | --- | --- |
 | The step is entered, or a task's Drone handed in | Puts a Drone on the first task, in the group being worked, that is `open`, or `working` under a Drone that is gone, and marks it `working`. Its brief names the task and says the hand-in ends it |
 | That Drone calls `submit_evidence` | Keeps the hand-in as the task's, marks it `handed_in`, answers `recorded`, and puts nothing in the step's evidence inbox |
-| The next turn | Ends that Drone and spawns the next task's on the same worktree. No gate runs, and the cap and headroom are not asked: the Job keeps its one agent (answer 2) |
+| The first turn after that Drone comes to rest | Ends it and spawns the next task's on the same worktree. No gate runs, and the cap and headroom are not asked: the Job keeps its one agent (answer 2). It waits for the rest because the Drone's turns and cost arrive on its last line; one that has not rested within the report grace is ended without them |
 | No task of the group is open or working | Puts one submission in the inbox carrying each of the group's claims, labelled `T1: …`. The step's Checks and Judge run at the group's end |
 | The group's Checks pass | Marks its `handed_in` and `failed` tasks `done`, and *Groups* below says what follows |
 

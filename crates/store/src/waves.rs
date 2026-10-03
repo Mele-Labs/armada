@@ -4,12 +4,12 @@
 //!
 //! **The pass is the third column of `DispatchOrigin`**, beside the two
 //! `crate::read` already rebuilds it from, so a member carries its wave on its
-//! own row. Null on every child made before V100, which entered `queued`; a
+//! own row. Null on every child made before V101, which entered `queued`; a
 //! member with a pass entered `awaiting_approval`, and the rebuild reads that
 //! off the column rather than off the log.
 //!
 //! **The merge's instant is the forge's**, read on the same call that said it
-//! merged. Null on a pull request settled before V100, and on one that closed.
+//! merged. Null on a pull request settled before V101, and on one that closed.
 
 use std::collections::BTreeMap;
 
@@ -18,10 +18,10 @@ use core_model::{JobId, Timestamp, Ulid};
 use crate::error::{fault, LoadJobError, WriteError};
 use crate::open::Store;
 
-/// Version 100 — the pass that made a member, when its pull request merged,
+/// Version 101 — the pass that made a member, when its pull request merged,
 /// and what finishes a Job. Nothing is backfilled: a null is a row written
 /// before this, which reads as it did then.
-pub(crate) const V100: &str = r#"
+pub(crate) const V101: &str = r#"
 ALTER TABLE jobs ADD COLUMN dispatched_by_pass INTEGER
     CHECK (dispatched_by_pass IS NULL OR dispatched_by_pass > 0);
 

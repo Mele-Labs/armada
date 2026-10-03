@@ -106,7 +106,7 @@ where
         self.noted_asking(
             job.id(),
             step,
-            "a judge criterion refused, and a person is being asked rather than the step stopping",
+            crate::retro::lines::A_JUDGE_ASKS,
             question.criterion_id.as_str(),
         );
         Ok(())
@@ -366,11 +366,8 @@ fn finding(open: &store::OpenJudgeQuestion, note: Option<&str>) -> String {
 
 fn answered(answer: JudgeAnswer) -> &'static str {
     match answer {
-        JudgeAnswer::Agree => "a person agreed with a judge's refusal",
-        JudgeAnswer::DisagreeOnce => "a person disagreed with a judge's refusal, for this step",
-        JudgeAnswer::DisagreeAlways => {
-            "a person disagreed with a judge's refusal, and this repository stops being asked \
-             about that criterion"
-        }
+        JudgeAnswer::Agree => crate::retro::lines::A_PERSON_AGREES,
+        JudgeAnswer::DisagreeOnce => crate::retro::lines::A_PERSON_DISAGREES_ONCE,
+        JudgeAnswer::DisagreeAlways => crate::retro::lines::A_PERSON_DISAGREES_ALWAYS,
     }
 }

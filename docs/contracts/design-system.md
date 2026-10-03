@@ -321,7 +321,7 @@ label and icon; `awaiting_approval` left grey for amber. See Job.
 
 **The symptom that forced this is a rendering bug, which is why this
 document carries it.** A sub-dispatched Job inherited its parent's
-approval before 23.11. Under a single four-value field, one out of
+approval before 23.13. Under a single four-value field, one out of
 headroom computed as `pre_approved_queued` and never rendered on the Job
 Board at all. Under the current set a `queued` Job carries its reason
 naming the resource, so no combination computes to an unrenderable label.
@@ -2651,6 +2651,9 @@ read plausibly under a different job has failed.
   verdict worth anything.
 - **Check log** what a Check wrote to stdout and stderr. Never the
   Check output, the Check results.
+- **Retro** what got in the way while one Job ran, written once it ends.
+  Never the post-mortem, the review — a review is of the change. What the
+  retros' items make together is **Lessons**, the page that lists them.
 
 **Claude is a model name, never an actor.** Write "Drone 4 stalled", not
 "Claude stalled". The word appears only where a model is selected or

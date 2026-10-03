@@ -332,7 +332,7 @@ impl Job {
             return Err(IllegalTransition::OnlyAnAnswerCrosses);
         }
         if crate::job::transition::a_persons_edge(self.status, to.status())
-            && !matches!(by, Actor::Human)
+            && !matches!(by, Actor::Human | Actor::Helm)
         {
             return Err(IllegalTransition::NotAPersonsAct {
                 from: self.status,

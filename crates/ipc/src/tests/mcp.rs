@@ -96,6 +96,37 @@ fn an_empty_not_claimed_reads_and_an_absent_one_refuses() {
     ));
 }
 
+/// **What got in the way is optional**, unlike `not_claimed`: absent and blank
+/// are both nothing said, and a line is carried as written.
+#[test]
+fn what_got_in_the_way_is_optional_and_carried_when_said() {
+    use crate::mcp::{read, Incoming};
+
+    let said = read(
+        br#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"submit_evidence",
+            "arguments":{"claimed":"c","shown_by":"s","not_claimed":"",
+                         "in_the_way":"the dry run log was cut at 200 lines"}}}"#,
+    );
+    assert!(matches!(
+        said,
+        Incoming::Submit { ref submission, .. }
+            if submission.in_the_way.as_deref() == Some("the dry run log was cut at 200 lines")
+    ));
+
+    for arguments in [
+        r#"{"claimed":"c","shown_by":"s","not_claimed":""}"#,
+        r#"{"claimed":"c","shown_by":"s","not_claimed":"","in_the_way":"  "}"#,
+    ] {
+        let body = format!(
+            r#"{{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{{"name":"submit_evidence","arguments":{arguments}}}}}"#
+        );
+        assert!(matches!(
+            read(body.as_bytes()),
+            Incoming::Submit { ref submission, .. } if submission.in_the_way.is_none()
+        ));
+    }
+}
+
 /// The transcript row's bytes are the file's bytes, both ways. `flatten` over
 /// an internally tagged enum is the one shape here serde could get wrong, and
 /// the file `#102` already writes is what a round trip has to agree with.

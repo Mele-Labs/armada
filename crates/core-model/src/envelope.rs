@@ -161,9 +161,10 @@ impl Component {
 /// dispatch, escalation, admission — stay `Fleet`; a redirect, a drafted Job or
 /// anything else Helm does on a person's behalf is `Helm`, so the three-way
 /// separation `docs/concepts/helm.md` requires (Drone evidence, a person's act,
-/// Helm's act) survives a Job's record. Nothing sets it yet — telling a Helm
-/// caller apart at the agent door is a later change — but the value exists so
-/// that change is additive rather than a migration.
+/// Helm's act) survives a Job's record. **A person's act that reached Fleet by
+/// any door but Bridge is signed `Helm` too**, because an agent made the
+/// request and Fleet cannot see the person behind it — [`Via`](crate::Via)
+/// says which door, and `docs/concepts/retro.md` why.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Actor {
     Human,

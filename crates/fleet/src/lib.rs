@@ -233,6 +233,8 @@ mod rerunning;
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;
 pub mod resume;
+/// A Job's retro: what got in the way while it ran. `docs/concepts/retro.md`.
+mod retro;
 mod reuse;
 mod review;
 mod review_term;

@@ -25,7 +25,7 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
-  // Served since 23.11, with `ApproveWave` moved to `approving.ts`. Deleted
+  // Served since 23.13, with `ApproveWave` moved to `approving.ts`. Deleted
   // with the mock answering it, which a person walks first: slice 6's Bridge half.
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
 ];

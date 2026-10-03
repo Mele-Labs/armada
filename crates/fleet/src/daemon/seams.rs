@@ -60,6 +60,10 @@ where
     pub(crate) fn store(&self) -> &Mutex<Store> {
         &self.store
     }
+    /// Whether a retro is being written — `crate::retro`.
+    pub(crate) fn reflecting(&self) -> &crate::retro::Reflecting {
+        &self.reflecting
+    }
     pub(crate) fn harness(&self) -> &Arc<H> {
         &self.harness
     }
