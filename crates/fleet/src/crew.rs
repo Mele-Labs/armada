@@ -1,5 +1,5 @@
 //! A Job's Drones beside the one it keeps: spike 022, slice 5, answer 2.
-//! `docs/concepts/plan.md`, *Tasks that run at once*, has the whole of it.
+//! `docs/concepts/plan.md`, *Tasks that may run at once*, has the whole of it.
 //!
 //! The kept Drone holds the Job's slot from admission to its end and is never
 //! asked for again. A Drone beside it asks the machine's cap (which counts

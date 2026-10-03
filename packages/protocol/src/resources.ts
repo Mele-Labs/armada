@@ -52,8 +52,13 @@ export type JobProcess = {
   memory_bytes: number;
   /** How long it has been running, in `ps`'s spelling. Rendered, never parsed. */
   running_for: string;
-  /** The process Fleet wrote down. At most one row carries it. */
+  /**
+   * A Drone's own process, rather than something it started. One row per
+   * live Drone carries it, so *Drones running* is how many do. Since 23.9.
+   */
   recorded: boolean;
+  /** The Drone whose process this is, or whose process started it. Since 23.9. */
+  drone_id?: string;
 };
 
 /** The Job's checkout, and what it has taken. */
@@ -79,7 +84,8 @@ export type JobResources = {
   read_at: string;
   held: Held;
   /**
-   * The recorded process and everything descended from it, that one first.
+   * Each live Drone's process and everything descended from it, the kept
+   * Drone's first, then each Drone beside it. Since 23.9.
    *
    * **Empty is loud.** `held` of `running` with nothing here is a process that
    * answered a liveness probe and holds nothing.

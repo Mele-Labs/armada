@@ -1,5 +1,5 @@
 //! Which task wrote which file, read off its Drone's edit calls. Spike 022,
-//! slice 5, answers 6 and 10; `docs/concepts/plan.md`, *Tasks that run at once*.
+//! slice 5, answers 6 and 10; `docs/concepts/plan.md`, *Tasks that may run at once*.
 //!
 //! Each task Drone's edit calls are kept at its first hand-in. At a group's
 //! join, two tasks whose Drones ran at the same time and named one path are an
