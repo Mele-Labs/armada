@@ -943,6 +943,7 @@ export function useCommands(sending: Sending) {
     movePlan,
     approveWave,
     editJob,
+    listBranches,
     decide,
     refresh,
   };

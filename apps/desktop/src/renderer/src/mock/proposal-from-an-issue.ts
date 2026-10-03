@@ -14,10 +14,10 @@ import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { refactorAtApproval } from "./job-detail-fixtures";
 
 /** The issue the request linked, as `IssueAddress` reads it and the forge addresses it. */
-const ISSUE = { kind: "issue", ref: "armada#1162", url: "https://github.com/NickMele/armada/issues/1162" };
+const ISSUE = { kind: "issue", ref: "armada#1162", url: "https://example.invalid/armada/issues/1162" };
 
 /** When the issue was edited, after Fleet read it at the proposal. */
-export const ISSUE_MOVED_AT = "2026-10-02T15:41:09Z";
+const ISSUE_MOVED_AT = "2026-10-02T15:41:09Z";
 
 const CRITERIA: Criterion[] = [
   {
@@ -61,7 +61,7 @@ export function proposalFromAnIssue(): JobFixture {
     job,
     facts:
       "Retire guide 8 and add a validation rule so a guide without drawn pieces cannot ship. " +
-      "https://github.com/NickMele/armada/issues/1162",
+      "https://example.invalid/armada/issues/1162",
     acceptance_criteria: CRITERIA,
   };
   return {

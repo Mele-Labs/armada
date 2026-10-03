@@ -8,7 +8,7 @@ import { sampleDetail, sampleStep } from "./draft/sample";
 import { approvalOf, landingValueOf, landingWith, proposalEditsOfWhole } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
 
-const ISSUE = { kind: "issue", ref: "armada#1162", url: "https://github.com/NickMele/armada/issues/1162" };
+const ISSUE = { kind: "issue", ref: "armada#1162", url: "https://example.invalid/armada/issues/1162" };
 
 function atGate(over: Partial<JobDetail> = {}): JobDetail {
   const detail = sampleDetail({
