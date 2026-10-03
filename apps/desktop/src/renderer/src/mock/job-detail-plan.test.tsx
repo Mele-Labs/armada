@@ -274,12 +274,8 @@ test("Propose a change on a group sends the planning Drone an instruction naming
   expect(instruction).toContain("refuse it and say what that reason is");
 });
 
-test("Edit this task opens filled from the task, and Save says the route is not built, naming #1657 and what changed", async () => {
-  const written: string[] = [];
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
-  });
+// Served since 23.6 (#1657): the fields changed are kept on the task.
+test("Edit this task opens filled from the task, and Save keeps what changed on it", async () => {
   const { panel } = await groupThreeOnTheGraph();
   await panel.getByRole("listitem", { name: /^T6 / }).getByRole("button").click();
   const task = page.getByRole("dialog", { name: "Open a Drone's Job from its row" });
@@ -296,19 +292,8 @@ test("Edit this task opens filled from the task, and Save says the route is not 
   await expect.element(save).toBeDisabled();
   await userEvent.selectOptions(task.getByLabelText("Model"), "haiku");
   await save.click();
-  await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
-  // Nothing was done, so what was typed stays.
-  await expect.element(task.getByLabelText("Model")).toHaveValue("haiku");
-  // The failure pops up over the panel, so it is copied with the panel open.
-  await page.getByRole("button", { name: "Copy debug info" }).click();
-  await expect.poll(() => written).toHaveLength(1);
-  await expect.element(task).toBeVisible();
-  const pasted = written[0]!;
-  expect(pasted).toContain("bridge.not_implemented");
-  expect(pasted).toContain(issueLink(1657));
-  expect(pasted).toContain("POST /jobs/{job_id}/tasks/{task_id}/edit");
-  expect(pasted).toContain("T6");
-  expect(pasted).toContain("haiku");
+  await expect.element(task.getByText("medium · haiku")).toBeVisible();
+  expect(page.getByText("Not implemented", { exact: true }).query()).toBeNull();
 });
 
 // The owner's, 1 Oct 2026: a press that failed pops up as a toast over

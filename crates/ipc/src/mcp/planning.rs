@@ -23,8 +23,16 @@ pub const UPDATE_TASK_TOOL: &str = "update_task";
 pub const RECORD_PLAN_FIELDS: &[&str] = &["approach", "tasks"];
 /// The fields of one entry of `record_plan`'s `tasks`. `group` may be left
 /// out, and is the group of the task before it; `tier` may be, and is Armada
-/// picking the model.
-pub const TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "group", "tier"];
+/// picking the model; `concurrent_with` may be, and the task runs alone.
+pub const TASK_FIELDS: &[&str] = &[
+    "title",
+    "note",
+    "scope",
+    "expects",
+    "group",
+    "tier",
+    "concurrent_with",
+];
 pub const ADD_TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "after"];
 pub const UPDATE_TASK_FIELDS: &[&str] = &["task", "state", "reason", "shown"];
 
@@ -50,6 +58,8 @@ pub enum PlanArgument {
     NotAGroup,
     /// A task's `tier` that is not one of the three.
     NotATier,
+    /// A task's `concurrent_with` that is not a list of task numbers.
+    NotBeside,
 }
 
 impl fmt::Display for PlanArgument {
@@ -72,6 +82,11 @@ impl fmt::Display for PlanArgument {
                 "`group` is not a whole number of 1 or more. Number the groups 1, 2 and so \
                  on in the order they run, or leave `group` out to keep a task in the group \
                  of the task before it",
+            ),
+            PlanArgument::NotBeside => out.write_str(
+                "`concurrent_with` is a list of the numbers of other tasks in the same group, \
+                 1 for the first task you list, 2 for the second. Leave it out where the task \
+                 runs alone",
             ),
             PlanArgument::NotATier => out.write_str(
                 "`tier` is one of `difficult`, `medium` or `easy`. Leave it out where you \
@@ -149,7 +164,23 @@ fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument>
                     .ok_or(NotAnArgument::Planning(PlanArgument::NotATier))?,
             ),
         };
-        tasks.push(task(entry)?.in_group(group).at_tier(tier));
+        let beside = match entry.get("concurrent_with") {
+            None => Vec::new(),
+            Some(listed) => listed
+                .as_array()
+                .and_then(|listed| {
+                    listed
+                        .iter()
+                        .map(|n| {
+                            n.as_u64()
+                                .and_then(|n| u32::try_from(n).ok())
+                                .filter(|n| *n > 0)
+                        })
+                        .collect::<Option<Vec<u32>>>()
+                })
+                .ok_or(NotAnArgument::Planning(PlanArgument::NotBeside))?,
+        };
+        tasks.push(task(entry)?.in_group(group).at_tier(tier).beside(&beside));
     }
     Ok(PlanChange::Recorded { approach, tasks })
 }
@@ -223,8 +254,9 @@ pub(super) fn record_plan_tool() -> Value {
         "description":
             "Record the plan for this Job: the approach in a paragraph, and the \
              tasks it breaks into in the order they will be done, in groups. Each \
-             group's tasks are done one after another and its Checks run once they \
-             all are, so a group is tasks that only make sense checked together. \
+             group's tasks are done one after another, save those you mark as safe \
+             to do at the same time, and its Checks run once they all are, so a \
+             group is tasks that only make sense checked together. \
              Fleet keeps it, and the parts after this one work from it and keep \
              each task's state current. Tasks are named T1, T2 and so on in the \
              order you give them. Calling it again replaces the whole plan, so \
@@ -283,6 +315,17 @@ pub(super) fn record_plan_tool() -> Value {
                                     the part doing it runs on: difficult for a task that needs \
                                     the most careful reasoning, easy for a mechanical one. \
                                     Leave it out where you cannot say, and Armada picks.",
+                            },
+                            "concurrent_with": {
+                                "type": "array",
+                                "items": { "type": "integer", "minimum": 1 },
+                                "description": "Other tasks in the same group that may be \
+                                    done at the same time as this one, by their place in this \
+                                    list: 1 for the first task. Tasks done at once share one \
+                                    copy of the repository, so name only tasks that change \
+                                    different files and do not need each other's work. Two \
+                                    that edit one file anyway are done again one after the \
+                                    other. Leave it out to do this task on its own.",
                             },
                         },
                         "required": ["title", "note", "scope", "expects"],

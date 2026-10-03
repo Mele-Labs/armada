@@ -212,7 +212,22 @@ impl AgentHarness for FakeHarness {
             }],
         }
     }
+
+    /// A call to [`EDITS`] names the file in its detail. **Not the real
+    /// harness's tool names**, which are `adapters`' vocabulary: a test that
+    /// scripts an edit call scripts one of these.
+    fn edited(&self, event: &DroneEvent) -> Option<String> {
+        match event {
+            DroneEvent::Called { tool, detail, .. } if tool == EDITS => {
+                Some(String::from(detail.shown()))
+            }
+            _ => None,
+        }
+    }
 }
+
+/// The tool [`FakeHarness::edited`] reads as an edit call.
+pub const EDITS: &str = "edits_a_file";
 
 /// The fake's refusal. One variant, because a test only needs the seam to fail,
 /// not to fail in a particular way.

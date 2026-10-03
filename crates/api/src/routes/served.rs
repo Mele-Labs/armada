@@ -715,6 +715,17 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/processes/kill",
     },
+    // One Drone of a Job, by its id, where a Job runs several at once. #1666.
+    Route {
+        operation: "kill_one_drone",
+        method: "POST",
+        path: "/jobs/:job_id/drones/:drone_id/kill",
+    },
+    Route {
+        operation: "redirect_one_drone",
+        method: "POST",
+        path: "/jobs/:job_id/drones/:drone_id/redirect",
+    },
     // Real deletion, and the only route on this table that is: every other
     // command moves a Job further, and this removes the row.
     Route {

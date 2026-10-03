@@ -19,11 +19,13 @@ import { keeping } from "./studio-fleet";
 import {
   groupsAdding,
   groupsDropping,
+  groupsEditing,
   groupsMoving,
   groupsRestarting,
   nextTaskId,
   planAdding,
   planDropping,
+  planEditing,
   planMoving,
   planRestarting,
 } from "./plan-fleet";
@@ -154,7 +156,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // takes no second reading, so the row stays where Fleet's would drop.
     killProcess: async () => OK,
     killProcesses: async () => OK,
-    // A failed task's acts, #250 and #1657 — not served by Fleet yet, so
+    // A failed task's Pilot, #250 — not served by Fleet yet, so
     // answered as Fleet's router answers a route it has none for: a bare 404,
     // through the parser main's `ask` uses.
     pilotTask: async (jobId, taskId) =>
@@ -173,8 +175,20 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       );
       return answer.ok ? OK : answer.outcome;
     },
-    editTask: async (jobId, taskId, edit) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
+    // Served since 23.6 (#1657): the fields sent, over the task's own.
+    editTask: async (jobId, taskId, edit) => {
+      const editableInDraft =
+        draft?.groups?.some((group) =>
+          group.tasks.some((task) => task.id === taskId && (task.state === "open" || task.state === "failed")),
+        ) ?? false;
+      const answer = editPlan(
+        jobId,
+        `/tasks/${taskId}/edit`,
+        (was) => planEditing(was, taskId, edit, editableInDraft),
+        (was) => groupsEditing(was, taskId, edit),
+      );
+      return answer.ok ? OK : answer.outcome;
+    },
     // A drop on the plan, served since 23.4 (#1685): placed by `after`.
     movePlan: async (jobId, move) => {
       const answer = editPlan(

@@ -318,7 +318,10 @@ where
     ///
     /// `short_on_volume` is this pass's own — Jobs already found short of
     /// their repository's disk, so a Job skipped once is not handed back.
-    async fn next_queued(&self, short_on_volume: &[JobId]) -> Result<Option<Job>, Adrift> {
+    pub(crate) async fn next_queued(
+        &self,
+        short_on_volume: &[JobId],
+    ) -> Result<Option<Job>, Adrift> {
         let (loaded, _) = self.every_job().await?;
         let standing: BTreeMap<JobId, JobStatus> = loaded
             .jobs

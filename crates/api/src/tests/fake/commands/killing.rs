@@ -6,7 +6,7 @@
 //! have offered it. Anything else is Fleet's 409, with its code and the pid on
 //! its own field, so a caller is proved against the refusal it will meet.
 
-use ipc::{JobId, JobSummary, WireError, WireValue};
+use ipc::{DroneId, JobId, JobSummary, WireError, WireValue};
 
 use super::super::FakeDaemon;
 use crate::tests::shapes;
@@ -38,6 +38,38 @@ impl FakeDaemon {
             ));
         };
         if process.recorded {
+            job.assigned_drone = None;
+        }
+        Ok(job.clone())
+    }
+
+    /// One Drone by its id: the fake holds one, the Job's `assigned_drone`,
+    /// and any other id is Fleet's 409 with the id on its own field.
+    pub(super) async fn fake_one_drone(
+        &self,
+        job_id: JobId,
+        drone_id: DroneId,
+        ends: bool,
+    ) -> Result<JobSummary, Refusal> {
+        let mut jobs = self.jobs.lock().expect("not poisoned");
+        let Some(job) = jobs.iter_mut().find(|job| job.id == job_id) else {
+            return Err(self.no_such_job(&job_id));
+        };
+        if job.assigned_drone.as_ref() != Some(&drone_id) {
+            return Err(Refusal::IllegalMove(
+                WireError::raised(
+                    "fleet.drone_not_live",
+                    format!(
+                        "Drone {} is not one of the Job's live Drones",
+                        drone_id.as_str()
+                    ),
+                    run_id(),
+                )
+                .about_job(job_id)
+                .with_field("drone_id", WireValue::Str(drone_id.as_str().to_string())),
+            ));
+        }
+        if ends {
             job.assigned_drone = None;
         }
         Ok(job.clone())

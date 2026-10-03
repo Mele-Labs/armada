@@ -68,6 +68,7 @@ import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
+import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 import { writingLogs } from "./check-logs-fleet";
 
@@ -549,6 +550,8 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
+  // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
+  holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */
