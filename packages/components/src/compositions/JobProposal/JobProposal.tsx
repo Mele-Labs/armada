@@ -12,6 +12,7 @@ import { ProposalField, ProposalFieldNote, ProposalFields } from "./ProposalFiel
 import { ProposalGates } from "./ProposalGates";
 import type { GateBox, ProposalGateRow, WorkflowChoice } from "./ProposalGates";
 import { ProposalLanding } from "./ProposalLanding";
+import type { BranchOption } from "../BranchPicker/BranchPicker";
 import type { CompleteChoice, ProposalLandingValue } from "./ProposalLanding";
 
 export type { ProposalCriterion } from "./ProposalDoneWhen";
@@ -79,6 +80,8 @@ export type JobProposalProps = {
   landing: ProposalLandingValue;
   onLanding?: (landing: ProposalLandingValue) => void;
   completeChoices: readonly CompleteChoice[];
+  /** The repository's branches, for How it lands to offer. Absent takes a typed name. */
+  branches?: readonly BranchOption[] | null;
   criteria: readonly ProposalCriterion[];
   onCriterion?: (at: number, text: string) => void;
   /** One more line, appended empty for somebody to write. */
@@ -126,6 +129,7 @@ export function JobProposal({
   landing,
   onLanding,
   completeChoices,
+  branches,
   criteria,
   onCriterion,
   onAddCriterion,
@@ -257,6 +261,7 @@ export function JobProposal({
           landing={landing}
           {...(onLanding === undefined ? {} : { onLanding })}
           completeChoices={completeChoices}
+          {...(branches === undefined ? {} : { branches })}
         />
       </section>
     </div>

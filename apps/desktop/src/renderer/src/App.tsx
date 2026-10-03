@@ -101,6 +101,7 @@ import {
   explainCommand,
   readCheckOutput,
   readBrief,
+  listBranches,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -843,7 +844,8 @@ export function App({ draft }: AppProps = {}) {
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob}
                   onShowAgain={showAgain}
-                  onApprove={(jobId) => void commands.approve(jobId)}
+                  onApprove={(jobId, approval) => void commands.approve(jobId, approval)}
+                  onListBranches={listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
                   onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}

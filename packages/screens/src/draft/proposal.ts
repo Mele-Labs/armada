@@ -2,8 +2,9 @@
 // `crates/ipc/src/detail.rs` and `crates/ipc/src/limits.rs`.
 //
 // Source of truth today: `JobDetail` at `awaiting_approval`, `StepDetail`'s
-// `advance_gate`, `checks`, `judge_checks` and `overridden`, `JobSummary.model`,
-// and `LimitValues.concurrency` — "Drones at once", `settings.concurrency-cap`.
+// `advance_gate`, `checks`, `judge_checks` and `overridden`, and since 23.8
+// `JobDetail.tiers`, `drone_cap`, `landing` and `approved_at`; and
+// `LimitValues.concurrency` — "Drones at once", `settings.concurrency-cap`.
 //
 // **Classifying is the same status as #1159's `proposing`** (#1530, 21 Sep),
 // and the workflow and the gates lock at **approval**, not at creation. So this
@@ -18,7 +19,6 @@ import type {
   DeclaredCheck,
   DeclaredJudge,
   JobDetail,
-  LimitValues,
   WorkflowStep,
 } from "@armada/protocol";
 
@@ -114,14 +114,13 @@ export type ProposalView = {
    */
   drone_cap?: number;
   /**
-   * How many the machine allows, across every Job.
+   * How many the machine allows, across every Job. `null` before Fleet said.
    *
    * **This is `LimitValues.concurrency`, and nothing on the wire is called
-   * `machine_cap`.** The unit is the open question: `concurrency` is
-   * documented as Drones at once and Fleet runs one Drone per Job, so Jobs and
-   * Drones are the same count today. #1530 leaves recounting it in Drones open.
+   * `machine_cap`.** Spike 022 recounts it in Drones in slice 5 with no change
+   * of shape.
    */
-  machine_cap: number;
+  machine_cap: number | null;
   /** Where the work starts. See `LandingRule.from_ref`. */
   from_ref: string | null;
   pr_mode: PrMode;
@@ -130,40 +129,33 @@ export type ProposalView = {
 };
 
 /**
- * A Job at its approval gate, as the classifying screen draws it.
+ * A Job at its approval gate, or approved, as Fleet serves it since 23.8.
  *
  * **`notes_for_planner` is not here.** It was dropped on 22 Sep 2026 — what
  * you want to say goes in the prompt.
  */
-export function proposalViewOf(
-  detail: JobDetail,
-  limits: LimitValues,
-  fromRef: string | null = null,
-): ProposalView {
+export function proposalViewOf(detail: JobDetail, machineCap: number | null): ProposalView {
   const view: ProposalView = {
     status: detail.job.status,
     title: detail.job.title,
     workflow_id: detail.job.workflow_id,
     gates: detail.steps.map(gateViewOf),
     fleet_always_looks: true,
-    // Per-tier models are the draft's own. Today one model is resolved for the
-    // whole Job, and every task runs on it — so all three tiers name it rather
-    // than reading `null`, which would say the harness was choosing.
+    // A tier the map leaves out is Armada picking (spike 022, answer 8), which
+    // is the draft's `null`.
     tiers: {
-      difficult: detail.job.model,
-      medium: detail.job.model,
-      easy: detail.job.model,
+      difficult: detail.tiers?.difficult ?? null,
+      medium: detail.tiers?.medium ?? null,
+      easy: detail.tiers?.easy ?? null,
     },
-    machine_cap: limits.concurrency,
-    from_ref: fromRef,
-    pr_mode: "ready",
+    machine_cap: machineCap,
+    // Absent is the Manifest's base, which is not a branch name to print.
+    from_ref: detail.landing?.from_ref ?? null,
+    pr_mode: detail.landing?.pr_mode === "draft" ? "draft" : "ready",
   };
-  if (detail.facts !== undefined) {
-    view.asked = detail.facts;
-  }
-  if (detail.job.started_at !== undefined) {
-    view.approved_at = detail.job.started_at;
-  }
+  if (detail.facts !== undefined) view.asked = detail.facts;
+  if (detail.drone_cap !== undefined) view.drone_cap = detail.drone_cap;
+  if (detail.approved_at !== undefined) view.approved_at = detail.approved_at;
   return view;
 }
 
@@ -298,6 +290,20 @@ export function gateReadingOf(gate: GateView, says: RepositorySays = {}): GateRe
             "Editing the Manifest changes it, for this Job as well.",
     };
   }
+  if (gate.repository_decides !== undefined) {
+    // Overridden: the step keeps deferring on the record and the override wins
+    // at every gate, however the repository's rule moves (spike 022, answer 4).
+    const policy = gate.repository_decides;
+    const means = policyMeans(policy, overrideWordOf(policy, gate));
+    // The boxes are the gate again (#1548), and the sentence says what they
+    // stand in for.
+    if (means !== undefined) {
+      return {
+        advance_gate: gate.you ? "human_always" : gate.judge ? "auto_if_judge_passes" : "auto",
+        does: `Overridden for this Job: ${means}, however the repository's ${policy} moves.`,
+      };
+    }
+  }
   if (gate.you) {
     return {
       advance_gate: "human_always",
@@ -324,6 +330,19 @@ export function gateReadingOf(gate: GateView, says: RepositorySays = {}): GateRe
 }
 
 /**
+ * The word an override stands in for the repository's, as Fleet lays it over
+ * the fold (`approve_dispatch`, 23.8): `auto_merge` reads `never` with a person
+ * ticked and `checks-pass` without one (owner, 2 Oct 2026); `review_gate` reads
+ * `human_always` with a person and `auto_if_judge_passes` with the Judge.
+ * `undefined` is a combination Fleet resolves to no word.
+ */
+function overrideWordOf(policy: RepositoryDecides, gate: GateView): string | undefined {
+  if (policy === "auto_merge") return gate.you ? "never" : "checks-pass";
+  if (gate.you) return "human_always";
+  return gate.judge ? "auto_if_judge_passes" : undefined;
+}
+
+/**
  * What this combination asks for that Fleet has nothing to do, or `undefined`
  * where it is an ordinary gate.
  *
@@ -333,15 +352,6 @@ export function gateReadingOf(gate: GateView, says: RepositorySays = {}): GateRe
  * the combination reads, on the wire, exactly like one that does.
  */
 export function unmeantOf(gate: GateView, declared: Declared): string | undefined {
-  if (gate.repository_decides !== undefined && gate.overridden === true) {
-    // `ManifestRuleReviewGate` is frozen unresolved on purpose, because the
-    // policy is live and may move mid-Job. An override is the first per-Job
-    // answer that would resolve it at approval, and nothing says which wins.
-    return (
-      "Nothing carries a per-Job override yet, and nothing says which wins if the repository's " +
-      `${gate.repository_decides} moves after you approve.`
-    );
-  }
   if (gate.checks && !declared.checks) {
     return "This step declares no Check, so asking for Checks runs nothing until the workflow declares one.";
   }

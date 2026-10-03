@@ -36,7 +36,6 @@ import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { OverviewBoard } from "./OverviewBoard";
-import { Approving } from "./approving";
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
 
@@ -127,6 +126,12 @@ export type OverviewTabProps = JobDetailProps & {
    * drift apart from the header's.
    */
   headerActs: ReactNode;
+  /**
+   * What the approval approves, `approving.tsx`, drawn under the lead while it
+   * offers the approval. **The screen's**, which holds what a person moved on
+   * it until the header's press sends it.
+   */
+  approval?: ReactNode;
   /**
    * What a plan at the review gate takes that only the screen holds: a Drone
    * opened from a task's peek, the task to land on, and the way back —
@@ -695,13 +700,9 @@ export function OverviewTab(props: OverviewTabProps) {
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.
-      {...(lead.approves !== true || waiting !== undefined || whole === null
+      {...(lead.approves !== true || waiting !== undefined || props.approval === undefined
         ? {}
-        : {
-            approving: (
-              <Approving whole={whole} workflows={props.workflows} manifest={manifest} />
-            ),
-          })}
+        : { approving: props.approval })}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }
         : {

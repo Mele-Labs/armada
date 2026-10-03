@@ -163,7 +163,7 @@ export const StartingFromSomethingUnlisted: Story = {
     await userEvent.click(field);
 
     await expect(canvas.queryByRole("option")).toBeNull();
-    await expect(canvas.getByText(/No branch Armada has met matches/)).toBeVisible();
+    await expect(canvas.getByText(/No branch in this repository matches/)).toBeVisible();
     // Nothing takes the value away: the field is still what was typed.
     await expect(field).toHaveValue("release/16");
   },
