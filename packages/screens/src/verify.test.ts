@@ -82,9 +82,9 @@ describe("drift", () => {
     ]);
   });
 
-  it("says it is reading before Fleet has answered, rather than drawing no rows", () => {
-    expect(driftPanelOf({ state: "none" }).rows).toBeUndefined();
-    expect(driftPanelOf({ state: "reading" }).note).toMatch(/Reading/);
+  it("says nothing before Fleet has answered, and draws no rows", () => {
+    expect(driftPanelOf({ state: "none" })).toEqual({});
+    expect(driftPanelOf({ state: "reading" })).toEqual({});
   });
 });
 

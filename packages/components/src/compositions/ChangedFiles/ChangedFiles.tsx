@@ -78,9 +78,10 @@ export type ChangedFilesProps = {
   /**
    * What the region says with no files. **Empty is a real answer** — a Drone
    * that has changed nothing yet — and it is not the same sentence as a Job
-   * whose footprint nothing serves, so the caller supplies it.
+   * whose footprint nothing serves, so the caller supplies it. Absent draws
+   * nothing.
    */
-  emptyNote: string;
+  emptyNote?: string;
   /** Where the reading came from, and when. Under the list, never inside it. */
   note?: ReactNode;
   /** A clipboard write is silent, so the surface confirms it with a toast. */
@@ -178,7 +179,7 @@ export function ChangedFiles({ files, emptyNote, note, onCopied }: ChangedFilesP
   );
 
   if (files.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-files__empty" role="note">
         {emptyNote}
       </p>

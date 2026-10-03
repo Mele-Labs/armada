@@ -134,9 +134,12 @@ export const TheKindsThatAreNotAnEdit: Story = {
   },
 };
 
-/** A drone that has written nothing so far. Ordinary, and never an error. */
+/** A drone that has written nothing so far. Ordinary, and never an error: **nothing is drawn**. */
 export const NothingChangedYet: Story = {
-  args: { files: [], emptyNote: NOTHING_YET },
+  args: { files: [] },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };
 
 /**

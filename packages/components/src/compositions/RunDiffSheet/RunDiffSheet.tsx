@@ -133,9 +133,8 @@ function Body({
   reading: RunDiffReading;
   onCopied?: (value: string) => void;
 }) {
-  if (reading.state === "reading") {
-    return <p className="armada-run-diff-sheet__said">Reading this run's diff.</p>;
-  }
+  // Before the read answers there is nothing yet to say.
+  if (reading.state === "reading") return null;
   if (reading.state === "failed") {
     return <p className="armada-run-diff-sheet__said">{reading.saying}</p>;
   }

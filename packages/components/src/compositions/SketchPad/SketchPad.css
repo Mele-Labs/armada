@@ -76,28 +76,6 @@
   touch-action: none;
 }
 
-/* Centred on the pad rather than in a corner, because on an empty pad it is
-   the only thing to read. It takes no pointer: the canvas under it pans.
-
-   It clears the rail on the leading side — the rail's own panel margin either
-   side of an icon-only `sm` button — because an empty pad is exactly when both
-   are on screen at once and the sentence ran under the icons. */
-.armada-sketch-pad__empty {
-  position: absolute;
-  inset-inline-start: calc(
-    var(--space-3) + var(--space-1) * 2 + var(--h-control-sm) + var(--space-4)
-  );
-  inset-inline-end: var(--space-6);
-  top: 50%;
-  transform: translateY(-50%);
-  margin: 0;
-  text-align: center;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-subtle);
-  pointer-events: none;
-}
-
 /* Where the picture came from. A fact about the sketch, set back under it. */
 /* Where the picture was made, and the node it was made from. The two are set
    the way the attachment chip sets its own provenance, so the line under the

@@ -113,13 +113,6 @@
   color: var(--status-awaiting-review);
 }
 
-.armada-confidence__empty {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-}
-
 .armada-confidence__tests {
   display: flex;
   flex-direction: column;

@@ -99,9 +99,8 @@ const KIND_NONE: Record<KitSetupKindWord, string> = {
 };
 
 export function KitSetup({ setup }: KitSetupProps) {
-  if (setup === undefined) {
-    return <p className="armada-kit-setup__reading">Reading what you already have.</p>;
-  }
+  // Before the read answers there is nothing yet to say.
+  if (setup === undefined) return null;
   return (
     <section className="armada-kit-setup" aria-label="What you already have">
       <header className="armada-kit-setup__head">
@@ -111,13 +110,6 @@ export function KitSetup({ setup }: KitSetupProps) {
           <span className="armada-kit-setup__home">{setup.home}</span>
         </p>
       </header>
-
-      {setup.present ? null : (
-        <p className="armada-kit-setup__reading">
-          Nothing is there yet. Armada reads this each time you open Kit, so whatever you set up
-          next shows up here.
-        </p>
-      )}
 
       {setup.kinds.map((kind) => (
         <Kind key={kind.kind} home={setup.home} {...kind} />

@@ -446,8 +446,8 @@ on a loaded machine it takes longer than the same Check run by `scripts/land`.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough
-(`a_span_holding_one_taken_port_is_not_free`), and a path from any module down
-works too; for a vitest Check, any part of the test's name, quotes and
+(`a_span_holding_one_taken_port_is_not_free`), a path from any module down
+works too, and a module's name (`tests::servers`) runs every test under it; for a vitest Check, any part of the test's name, quotes and
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 

@@ -39,7 +39,7 @@ export function FileDiff({ paths, diff, jobId }: { paths: readonly string[]; dif
   return (
     <section className="armada-ledger__read-section">
       <Eyebrow>{JOB_DIFF}</Eyebrow>
-      <UnifiedDiff files={files} emptyNote="" {...(cut === undefined ? {} : { cut })} />
+      <UnifiedDiff files={files} {...(cut === undefined ? {} : { cut })} />
     </section>
   );
 }

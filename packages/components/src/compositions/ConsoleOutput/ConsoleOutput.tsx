@@ -133,7 +133,10 @@ export type ConsoleOutputProps = {
    * it — beside the moving edge, which is the part being watched.
    */
   following?: boolean;
-  /** What a reading with nothing in it says. Never an empty frame. */
+  /**
+   * What a reading with nothing in it says, where that is a fact or a failure.
+   * Absent draws no frame at all: an empty slot stays empty.
+   */
   emptyNote?: ReactNode;
   /**
    * Break a line longer than the column instead of scrolling it sideways.
@@ -150,6 +153,10 @@ export function ConsoleOutput({
   emptyNote,
   wrap = false,
 }: ConsoleOutputProps) {
+  // Nothing to say and nothing to name: no well drawn round nothing.
+  if (rows.length === 0 && emptyNote === undefined && region === undefined && tools === undefined) {
+    return null;
+  }
   const bar = region === undefined ? null : <Region region={region} />;
   return (
     <div
@@ -160,7 +167,7 @@ export function ConsoleOutput({
       {tools === undefined ? null : <Tools tools={tools} />}
       {following ? null : bar}
       {rows.length === 0 ? (
-        <p className="armada-console__empty">{emptyNote}</p>
+        emptyNote === undefined ? null : <p className="armada-console__empty">{emptyNote}</p>
       ) : (
         <ol className="armada-console__rows">
           {rows.map((row) =>

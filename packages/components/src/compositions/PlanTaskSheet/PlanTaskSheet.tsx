@@ -443,7 +443,7 @@ export function PlanTaskSheet({
               <Evidence
                 said="The work showed"
                 of={shown}
-                absent={state === "done" ? "Nothing was recorded." : "Not yet."}
+                {...(state === "done" ? { absent: "Nothing was recorded." } : {})}
               />
             </dl>
           </TaskField>
@@ -765,8 +765,10 @@ function FilePath({
   );
 }
 
-function Evidence({ said, of, absent }: { said: string; of?: string; absent: string }) {
+function Evidence({ said, of, absent }: { said: string; of?: string; absent?: string }) {
   const empty = of === undefined || of === "";
+  // Nothing shown and nothing to say of it: no label over nothing.
+  if (empty && absent === undefined) return null;
   return (
     <div className="armada-task-sheet__row">
       <dt>{said}</dt>

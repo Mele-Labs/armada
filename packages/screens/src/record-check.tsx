@@ -109,23 +109,20 @@ export function CheckRunRead({
         </div>
       )}
 
-      <section className="armada-ledger__read-section">
-        <Eyebrow>Output</Eyebrow>
-        {/* Fetched when the row opens and never with the Record — a test
-            runner's whole output is what the split keeps off the
-            published state. */}
-        {name === undefined ? (
-          <p className="armada-ledger__note">This Check kept no output.</p>
-        ) : held === undefined || held.state === "fetching" ? (
-          <p className="armada-ledger__note">Reading what it printed</p>
-        ) : (
+      {/* Fetched when the row opens and never with the Record — a test
+          runner's whole output is what the split keeps off the published
+          state. **No section while there is nothing to draw in it**: no
+          output kept, or the read still out, leaves no heading over nothing. */}
+      {name === undefined || held === undefined || held.state === "fetching" ? null : (
+        <section className="armada-ledger__read-section">
+          <Eyebrow>Output</Eyebrow>
           <ConsoleOutput
             rows={held.state === "got" ? rowsOf(held.output) : []}
             {...(held.state === "got" ? { region: regionOf(held.output) } : {})}
             emptyNote={noteFor(held)}
           />
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Only where the run held its step: one that passed stopped
           nothing, and the eyebrow already reaches the step. Under the
