@@ -15,7 +15,7 @@ use std::time::Duration;
 use api::{Next, Subscription};
 use core_model::{
     EscalationTrigger, JobId, JobStatus, StepId, StepLevelTrigger, StepState, StepVerdict,
-    TransitionReason, WhenRefused,
+    WhenRefused,
 };
 use ipc::{Event, JudgeAnswer};
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Gate, Sketch};
@@ -201,30 +201,50 @@ async fn the_question_is_stamped_before_the_move_to_awaiting_review_is() {
     );
 }
 
-/// **Agree fails against the code this fixes.** `awaiting_review ->
-/// escalated` belongs to `interrupted` alone, so the direct move the old
-/// `Agree` arm made was `fleet.illegal_move` on every press.
+/// **Agreeing sends the step back to a Drone, carrying the Judge's finding.**
+/// The owner's decision of 2 Oct 2026: he pressed Agree expecting another pass
+/// and found the Job stopped. The answer takes `restart_step`'s road — the step
+/// stops where the refusal left it, the Job is queued, and the finding waits in
+/// `redirect_waiting` for the next Drone's opening brief.
 #[tokio::test]
-async fn agreeing_escalates_the_job_through_running_and_strands_nothing() {
+async fn agreeing_queues_the_step_again_with_the_finding_waiting() {
     let home = TempDir::new();
     let (fleet, job_id, asked_at) = asking_a_question(&home).await;
 
     let answered = fleet
-        .answer_judge(&job_id, JudgeAnswer::Agree, Some(asked_at), None)
+        .answer_judge(
+            &job_id,
+            JudgeAnswer::Agree,
+            Some(asked_at),
+            Some("check the empty log too".to_string()),
+        )
         .await
-        .expect("agreeing takes the declared route through `running`");
+        .expect("agreeing takes the restart road");
 
-    assert_eq!(answered.status(), JobStatus::Escalated);
+    assert_eq!(answered.status(), JobStatus::Queued);
+    let current = answered.current_step().expect("a step to go back to");
+    assert_eq!(current.step_id(), &StepId::new(IMPLEMENT));
+    assert_eq!(current.state(), StepState::Stopped);
     assert_eq!(
-        fleet.last_reason(&job_id).await.unwrap(),
-        Some(TransitionReason::Escalation(EscalationTrigger::GateFailure))
-    );
-    let step = answered.step(&StepId::new(IMPLEMENT)).expect("the row");
-    assert_eq!(step.state(), StepState::Stopped);
-    assert_eq!(
-        step.last_verdict(),
+        current.last_verdict(),
         StepLevelTrigger::of(EscalationTrigger::GateFailure).map(StepVerdict::Failed)
     );
+    let waiting = fleet
+        .load(&job_id)
+        .await
+        .unwrap()
+        .redirect_waiting()
+        .map(|note| note.text().to_string())
+        .expect("the finding waits for the next Drone");
+    for part in [
+        CRITERION,
+        "the loop stops at n",
+        "the loop stops at n - 1",
+        "the last row is dropped",
+        "check the empty log too",
+    ] {
+        assert!(waiting.contains(part), "{part:?} missing from {waiting:?}");
+    }
     assert!(
         fleet.judge_question_of(&job_id).await.is_none(),
         "answered once — nothing left for the screen to keep offering"
@@ -309,7 +329,7 @@ async fn answering_with_no_asked_at_trusts_whatever_is_open() {
         .await
         .expect("an absent asked_at answers the question genuinely open");
 
-    assert_eq!(answered.status(), JobStatus::Escalated);
+    assert_eq!(answered.status(), JobStatus::Queued);
 }
 
 /// **A killed Job is asking nobody anything.** `answer_judge` refuses every

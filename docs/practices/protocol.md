@@ -705,7 +705,9 @@ Absent is the ordinary case, and every Job read from a Fleet older than 11.3.
 `answer_judge` is a new route and `Commands` method, taking `ipc::JudgeAnswered`
 — `answer` (`agree`, `disagree_once` or `disagree_always`) and an optional
 `note` that rides along for the record. `agree` fails the step exactly as it
-would have without this design; either disagree advances it, and
+would have without this design — since 2 Oct 2026 it sends the step back to a
+Drone with the Judge's finding instead, by `restart_step`'s road, with no
+change to the wire; either disagree advances it, and
 `disagree_always` also stands the criterion down for the repository, so no
 later Job is asked about it either. Refused with a 409 where the Job is not
 holding a question open.
