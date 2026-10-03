@@ -38,6 +38,7 @@ import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
 import { useApproval } from "./approval-held";
+import { baseBranch } from "./draft/branches";
 import { Approving } from "./approving";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
@@ -488,6 +489,7 @@ function OneJob(props: JobDetailProps) {
               <FrozenAtApproval
                 landing={held.frozen.landing}
                 proposal={held.frozen.proposal}
+                base={baseBranch(held.branches)}
                 whole={whole}
                 manifest={manifest}
               />

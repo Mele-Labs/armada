@@ -57,6 +57,7 @@ import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 import { NOTHING_YET } from "../../../shared/bridge";
 import { heldByTheGamingCheck } from "./job-detail-fixtures";
 import { connected } from "./moment";
+import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -519,6 +520,11 @@ export const SCENARIOS: readonly Scenario[] = [
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
+  // A Job at its gate whose criteria were read from an issue that has moved
+  // since, as Fleet serves it at 23.8, with its repository's branches (#1765).
+  holding("real/proposal-from-an-issue", proposalFromAnIssue().name, [proposalFromAnIssue()], {
+    opens: proposalFromAnIssue().job.id,
+  }),
 ];
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */

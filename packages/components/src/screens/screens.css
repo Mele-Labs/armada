@@ -1547,6 +1547,15 @@
   border-radius: var(--radius-lg);
 }
 
+/* The words on one side and the settings on the other, as the whole proposal
+   reads them, so a short region never holds its row open beside a long one. */
+.armada-overview-board__approving-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .armada-overview-board__approving .armada-proposal__done-when {
   padding: 0;
   border: 0;

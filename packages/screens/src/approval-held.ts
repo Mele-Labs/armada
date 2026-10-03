@@ -27,7 +27,7 @@ export type ApprovalHeld = {
   frozen: ProposalEdits | undefined;
   /** The body the press sends: what moved, or `undefined` where nothing did. */
   approval: () => ApproveDispatch | undefined;
-  /** The repository's branches, read once the proposal is open. `null` before. */
+  /** The repository's branches, read once there is a proposal or a frozen one. `null` before. */
   branches: readonly BranchView[] | null;
 };
 
@@ -51,11 +51,13 @@ export function useApproval({
   const approved = whole?.approved_at !== undefined;
   const before = approved ? undefined : (drafted ?? (atGate ? fromWhole : undefined));
   const open = before !== undefined && before.proposal.approved_at === undefined;
+  // Read after the press too: a ref Fleet froze as absent is the base, by name.
+  const reading = open || approved;
 
   const [branches, setBranches] = useState<readonly BranchView[] | null>(null);
   const manifestId = whole?.job.owner_manifest_id;
   useEffect(() => {
-    if (!open || manifestId === undefined || onListBranches === undefined) return;
+    if (!reading || manifestId === undefined || onListBranches === undefined) return;
     let current = true;
     void onListBranches(manifestId).then((answer) => {
       if (current && answer !== null) setBranches(branchesFrom(answer));
@@ -63,7 +65,7 @@ export function useApproval({
     return () => {
       current = false;
     };
-  }, [open, manifestId, onListBranches]);
+  }, [reading, manifestId, onListBranches]);
 
   const edits = before === undefined ? undefined : (moved ?? before);
   return {

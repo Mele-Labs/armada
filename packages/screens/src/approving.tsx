@@ -19,7 +19,11 @@ import {
   ProposalLanding,
 } from "@armada/components";
 import type { GateBox, ProposalLandingValue } from "@armada/components";
-import type { JobDetail as JobWhole, ManifestSummary, WorkflowSummary } from "@armada/protocol";
+import type {
+  JobDetail as JobWhole,
+  ManifestSummary,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 import { baseBranch } from "./draft/branches";
 import type { BranchView } from "./draft/branches";
@@ -59,80 +63,123 @@ export type ApprovingProps = {
  * sentence saying so; while the proposal is open, the region is where a line
  * is added.
  */
-export function Approving({ whole, edits, onEdits, workflows, manifest, branches }: ApprovingProps) {
+export function Approving({
+  whole,
+  edits,
+  onEdits,
+  workflows,
+  manifest,
+  branches,
+}: ApprovingProps) {
   const { proposal, landing, criteria } = edits;
   const moved =
-    onEdits === undefined ? undefined : (change: Partial<ProposalEdits>) => onEdits({ ...edits, ...change });
+    onEdits === undefined
+      ? undefined
+      : (change: Partial<ProposalEdits>) => onEdits({ ...edits, ...change });
   const base = baseBranch(branches);
   // **The catalogue as it is now** — `JobDetail` carries no promise of its
   // own. Rows are per Manifest, so the id alone could name another
   // repository's workflow of the same id.
   const forRequests = workflows.find(
-    (one) => one.id === proposal.workflow_id && one.manifest_id === whole.job.owner_manifest_id,
+    (one) =>
+      one.id === proposal.workflow_id &&
+      one.manifest_id === whole.job.owner_manifest_id,
   )?.for_requests;
   return (
     <section
       className="armada-overview-board__approving armada-glass"
       aria-label="What you are approving"
     >
-      <ProposalFields>
-        <ProposalField label="Title" bare={moved !== undefined}>
-          {moved === undefined ? (
-            proposal.title
-          ) : (
-            <Input
-              aria-label="Title"
-              value={proposal.title}
-              onChange={(event) => moved({ proposal: { ...proposal, title: event.target.value } })}
-            />
+      <div className="armada-overview-board__approving-column">
+        <ProposalFields>
+          <ProposalField label="Title" bare={moved !== undefined}>
+            {moved === undefined ? (
+              proposal.title
+            ) : (
+              <Input
+                aria-label="Title"
+                value={proposal.title}
+                onChange={(event) =>
+                  moved({
+                    proposal: { ...proposal, title: event.target.value },
+                  })
+                }
+              />
+            )}
+          </ProposalField>
+        </ProposalFields>
+        {criteria.length === 0 && moved === undefined ? null : (
+          <ProposalDoneWhen
+            criteria={criteriaRowsOf(criteria)}
+            {...(moved === undefined
+              ? {}
+              : {
+                  onCriterion: (at: number, text: string) =>
+                    moved({ criteria: criteriaWith(criteria, at, text) }),
+                  onAdd: () => moved({ criteria: criteriaAdded(criteria) }),
+                  onRemove: (at: number) =>
+                    moved({ criteria: criteriaWithout(criteria, at) }),
+                })}
+          />
+        )}
+      </div>
+      <div className="armada-overview-board__approving-column">
+        <ProposalGates
+          workflow={proposal.workflow_id}
+          workflowChoices={workflowChoicesOf(
+            workflows,
+            whole.job.owner_manifest_id,
           )}
-        </ProposalField>
-      </ProposalFields>
-      {criteria.length === 0 && moved === undefined ? null : (
-        <ProposalDoneWhen
-          criteria={criteriaRowsOf(criteria)}
+          {...(forRequests === undefined ? {} : { forRequests })}
+          steps={gateRowsOf(
+            proposal.gates,
+            whole,
+            stepsDeclaredOf(workflows, proposal.workflow_id),
+            repositorySaysOf(manifest),
+          )}
           {...(moved === undefined
             ? {}
             : {
-                onCriterion: (at: number, text: string) => moved({ criteria: criteriaWith(criteria, at, text) }),
-                onAdd: () => moved({ criteria: criteriaAdded(criteria) }),
-                onRemove: (at: number) => moved({ criteria: criteriaWithout(criteria, at) }),
+                // Another workflow rebuilds every gate, because a gate belongs to
+                // a step — `proposalOnWorkflow` says why.
+                onWorkflow: (workflowId: string) =>
+                  moved({
+                    proposal: proposalOnWorkflow(
+                      proposal,
+                      workflows,
+                      workflowId,
+                    ),
+                  }),
+                onGate: (stepId: string, box: GateBox, ticked: boolean) =>
+                  moved({
+                    proposal: {
+                      ...proposal,
+                      gates: gatesWith(proposal.gates, stepId, {
+                        [box]: ticked,
+                      }),
+                    },
+                  }),
+                onOverride: (stepId: string, overridden: boolean) =>
+                  moved({
+                    proposal: {
+                      ...proposal,
+                      gates: gatesWith(proposal.gates, stepId, { overridden }),
+                    },
+                  }),
               })}
         />
-      )}
-      <ProposalGates
-        workflow={proposal.workflow_id}
-        workflowChoices={workflowChoicesOf(workflows, whole.job.owner_manifest_id)}
-        {...(forRequests === undefined ? {} : { forRequests })}
-        steps={gateRowsOf(
-          proposal.gates,
-          whole,
-          stepsDeclaredOf(workflows, proposal.workflow_id),
-          repositorySaysOf(manifest),
-        )}
-        {...(moved === undefined
-          ? {}
-          : {
-              // Another workflow rebuilds every gate, because a gate belongs to
-              // a step — `proposalOnWorkflow` says why.
-              onWorkflow: (workflowId: string) =>
-                moved({ proposal: proposalOnWorkflow(proposal, workflows, workflowId) }),
-              onGate: (stepId: string, box: GateBox, ticked: boolean) =>
-                moved({ proposal: { ...proposal, gates: gatesWith(proposal.gates, stepId, { [box]: ticked }) } }),
-              onOverride: (stepId: string, overridden: boolean) =>
-                moved({ proposal: { ...proposal, gates: gatesWith(proposal.gates, stepId, { overridden }) } }),
-            })}
-      />
-      <ProposalLanding
-        landing={landingValueOf(landing, base)}
-        {...(moved === undefined
-          ? {}
-          : {
-              onLanding: (value: ProposalLandingValue) => moved({ landing: landingWith(landing, value, base) }),
-            })}
-        completeChoices={completeChoices()}
-        branches={branches}
-      />
+        <ProposalLanding
+          landing={landingValueOf(landing, base)}
+          {...(moved === undefined
+            ? {}
+            : {
+                onLanding: (value: ProposalLandingValue) =>
+                  moved({ landing: landingWith(landing, value, base) }),
+              })}
+          completeChoices={completeChoices()}
+          branches={branches}
+        />
+      </div>
     </section>
   );
 }
