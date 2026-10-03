@@ -174,6 +174,13 @@
   align-items: stretch;
 }
 
+/* What may be done about a stopped step: a row of buttons, wrapping. */
+.armada-wf-inspector__stopped-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* Why the boundary stopped, and what the next Drone is given. */
 .armada-wf-inspector__failed {
   font-size: var(--text-xs);
