@@ -547,6 +547,9 @@ fn describe(name: &str) -> String {
             "The cursor your last call answered with, as `upto`. Nought is the whole stream",
         ),
         "q" => String::from("What a person has typed so far. Empty matches everything"),
+        "lands_in" => {
+            String::from("Where each fix lands: `armada`, `kit` or `manifest`. Absent is all three")
+        }
         other => format!("The `{other}` this route names"),
     }
 }

@@ -2,7 +2,7 @@
 //! a listing of nothing. **What it records is the door each read came
 //! through**, which is the transport's to name and what the tests here ask.
 
-use ipc::{JobId, JobRetro, Lessons, ManifestId, RetroRecord, RetroState};
+use ipc::{JobId, JobRetro, LandsIn, Lessons, ManifestId, RetroRecord, RetroState};
 
 use super::FakeDaemon;
 use crate::{Refusal, Retros};
@@ -37,6 +37,7 @@ impl Retros for FakeDaemon {
     async fn list_lessons(
         &self,
         _manifest_id: Option<ManifestId>,
+        _lands_in: Option<LandsIn>,
         _most: u32,
     ) -> Result<Lessons, Refusal> {
         self.read_via
