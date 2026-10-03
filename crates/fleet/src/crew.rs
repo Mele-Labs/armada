@@ -95,9 +95,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Put a Drone beside each held Job's kept one wherever a task may run at
-    /// once and there is room. **After admission**, so a Job waiting to start
-    /// has had its turn at the room first.
+    /// A Drone beside each held Job's kept one, where a task may run at once
+    /// and there is room. **After admission**, so a waiting Job is asked first.
     pub(crate) async fn crew_next(&self) -> Result<Vec<DroneId>, Adrift> {
         let held = self.slots().lock().await.working_on();
         let mut started = Vec::new();
@@ -120,10 +119,8 @@ where
         Ok(started)
     }
 
-    /// The task a Drone beside this Job's kept one would take, where one is
-    /// owed: the Job running a step that works a Drone per task, its kept
-    /// Drone on a task, its group not at its gate, and a task safe beside
-    /// every one being worked.
+    /// The task a Drone beside the kept one would take: the kept Drone on a
+    /// task, the group short of its gate, and a task safe beside every one.
     async fn beside_owed(
         &self,
         job_id: &JobId,
@@ -370,7 +367,7 @@ where
         let task = at_work.task();
         let step = at_work.standing().1;
         self.drone_parted(job_id, drone);
-        let stood_down = self.stood_down_paying(at_work).await?;
+        self.stood_down_paying(at_work).await?;
         let at = self.now();
         self.store()
             .lock()
@@ -381,15 +378,13 @@ where
             self.left_for_kept(job_id, task);
             self.reopened(job_id, &step, task).await?;
         }
-        drop(stood_down);
         let job = self.load(job_id).await?;
         self.published_beside(&job, &step, drone, false).await
     }
 
-    /// At boot: a Drone beside a kept one that a Fleet before this left
-    /// running is ended, where `holder_of` finds it at its recorded start, and
-    /// its task goes back to `open`. **Never adopted**: the kept Drone is the
-    /// Job's, and its task waits for that one.
+    /// At boot: a Drone beside a kept one an earlier Fleet left running is
+    /// ended where `holder_of` finds it at its recorded start, and its task
+    /// goes back to `open`. **Never adopted**: its task waits for the kept one.
     pub(crate) async fn crew_left_behind(&self, jobs: &[Job]) {
         for job in jobs.iter().filter(|job| !job.status().is_terminal()) {
             let Ok(bound) = self.store().lock().await.task_drones(job.id()) else {
@@ -455,9 +450,8 @@ where
         Ok(())
     }
 
-    /// `drone.spawned` or `drone.exited` for a Drone beside the kept one.
-    /// **Not on the Job's record of moves**, which holds one Drone a step:
-    /// `store::crew` is where it is written.
+    /// `drone.spawned` or `drone.exited` for a Drone beside the kept one, which
+    /// is on no record of moves (one Drone a step): `store::crew` keeps it.
     async fn published_beside(
         &self,
         job: &Job,

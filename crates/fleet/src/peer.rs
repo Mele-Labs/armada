@@ -63,11 +63,8 @@ impl std::error::Error for NotACaller {}
 /// puts a row in, the departure takes it out — so the two cannot drift without
 /// a departure having gone unrecorded, which `crate::boundary` already refuses
 /// to let happen quietly.
-///
-/// **A Job's kept Drone, and each Drone beside it** (spike 022, slice 5): a
-/// call from one beside the kept Drone is placed on its Job *and* named, so
-/// its tool calls reach its own slot.
 #[derive(Debug, Default)]
+/// A Job's kept Drone, and each beside it (slice 5), whose calls are named.
 pub struct Drones {
     kept: BTreeMap<JobId, u32>,
     crew: BTreeMap<DroneId, (JobId, u32)>,

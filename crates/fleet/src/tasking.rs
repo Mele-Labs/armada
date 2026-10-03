@@ -9,11 +9,8 @@
 //!   next task's, asking neither the cap nor headroom (answer 2).
 //! - **The last hand-in fills it once**, with every task's claim, and its Drone
 //!   stays for the outcome, as a step retry is one Drone today.
-//! - **Since slice 2 that is per group**: the group's last hand-in fills it,
-//!   and `crate::grouping` decides what its gate leads to.
-//! - **Since slice 5 tasks marked safe together run at once**, beside the
-//!   kept Drone (`crate::crew`), and the join reads their edit calls first
-//!   (`crate::edit_calls`).
+//! - **Since slice 2 that is per group**, and `crate::grouping` decides what
+//!   its gate leads to; since slice 5 some run at once (`crate::crew`).
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
