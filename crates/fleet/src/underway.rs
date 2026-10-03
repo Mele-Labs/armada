@@ -20,8 +20,10 @@
 //! until the ruling does. So the entry stands across the Judge's calls and is
 //! lowered only when the caller drops the writer — after `recorded_checks`.
 //!
-//! **Over 500 lines**: a Drone's own run (#1062) is a second writer, and both
-//! share one lock and one token rule that a split would put in two places.
+//! **Over 500 lines**: a Drone's own run (#1062) is a second writer, and a
+//! red's run alone (`crate::confirming`) tells the gate's entry under its
+//! token; all three share one lock and one token rule that a split would put
+//! in two places.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -204,6 +206,21 @@ struct Bound {
     /// Each command that ran to an exit code, and how long it took. `None`
     /// where the run's durations are not the Checks' own, as a narrowed run's.
     timed: Option<Mutex<Vec<(String, Duration)>>>,
+    /// Set where this writer tells a red's run alone on the gate's own rows.
+    again: Option<Again>,
+}
+
+/// A red's run alone, said on the step's rows the gate's run put up, so the
+/// row reads running rather than a red about to be overturned.
+/// `crate::confirming`.
+struct Again {
+    /// The step's slot for each Check of the run alone, by its position there.
+    slots: Vec<usize>,
+    /// Whether a finish is said. Not where one test runs alone: what it comes
+    /// to is that test's, not the Check's.
+    finishes: bool,
+    /// Each slot's row as the gate's run left it, for [`Announcing::red_stands`].
+    before: Mutex<Vec<(usize, ipc::CheckUnderway)>>,
 }
 
 impl Announcing {
@@ -232,6 +249,7 @@ impl Announcing {
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: None,
             timed: Some(Mutex::new(Vec::new())),
+            again: None,
         }))
     }
 
@@ -261,12 +279,118 @@ impl Announcing {
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: Some(hearing),
             timed: whole.then(|| Mutex::new(Vec::new())),
+            again: None,
         }))
     }
 
     /// A writer with no slot, no stream and no files under it.
     pub fn nowhere() -> Announcing {
         Announcing(None)
+    }
+
+    /// A writer for a run alone of the Checks at `slots` in this gate's step,
+    /// saying each on that slot's row. `finishes` is whether it says what each
+    /// came to: not for one test run alone. Nowhere where this is nowhere.
+    pub(crate) fn again_on(&self, slots: Vec<usize>, finishes: bool) -> Announcing {
+        let Some(bound) = self.0.as_ref() else {
+            return Announcing::nowhere();
+        };
+        Announcing(Some(Bound {
+            job: bound.job.clone(),
+            step: bound.step.clone(),
+            attempt: bound.attempt,
+            underway: bound.underway.clone(),
+            events: bound.events.clone(),
+            clock: bound.clock.clone(),
+            logs: bound.logs.clone(),
+            whose: bound.whose,
+            token: bound.token,
+            hearing: None,
+            timed: None,
+            again: Some(Again {
+                slots,
+                finishes,
+                before: Mutex::new(Vec::new()),
+            }),
+        }))
+    }
+
+    /// The red stands: each row this writer touched reads what the gate's run
+    /// left it reading.
+    pub(crate) fn red_stands(&self) {
+        let Some(bound) = self.0.as_ref() else { return };
+        let Some(again) = bound.again.as_ref() else {
+            return;
+        };
+        let before = again
+            .before
+            .lock()
+            .map(|before| before.clone())
+            .unwrap_or_default();
+        for (slot, row) in before {
+            self.moved(bound, slot, |held, file| {
+                *held = row;
+                if let Some(file) = file {
+                    *file = None;
+                }
+            });
+        }
+    }
+
+    /// The step's slot for the Check at `at` of this run.
+    fn slot(bound: &Bound, at: usize) -> usize {
+        bound
+            .again
+            .as_ref()
+            .and_then(|again| again.slots.get(at).copied())
+            .unwrap_or(at)
+    }
+
+    /// A run alone begins: each of its rows reads as it would at the gate's
+    /// own start, over what the gate's run left there, which is kept.
+    fn began_again(
+        &self,
+        bound: &Bound,
+        again: &Again,
+        checks: &[ResolvedCheck],
+        settled: &[Option<&Observed>],
+    ) {
+        let attempt = bound.attempt.number();
+        let checking = {
+            let Ok(mut held) = bound.underway.0.lock() else {
+                return;
+            };
+            let Some(running) = held
+                .whose_mut(bound.whose)
+                .get_mut(&bound.job)
+                .filter(|running| running.token == bound.token)
+            else {
+                return;
+            };
+            let Ok(mut before) = again.before.lock() else {
+                return;
+            };
+            for ((check, known), slot) in checks.iter().zip(settled).zip(&again.slots) {
+                let Some(row) = running.checks.checks.get_mut(*slot) else {
+                    continue;
+                };
+                if !before.iter().any(|(had, _)| had == slot) {
+                    before.push((*slot, row.clone()));
+                }
+                let known = known.filter(|_| again.finishes);
+                row.started_at = None;
+                row.took_ms = known.map(|_| 0);
+                row.ran = known.and_then(|observed| self::row(attempt, check, observed));
+                row.output_path = None;
+                row.stopped_by = None;
+                row.waiting_behind = None;
+                if let Some(file) = running.files.get_mut(*slot) {
+                    *file = None;
+                }
+            }
+            running.checks.clone()
+        };
+        published(bound, Some(checking));
     }
 
     /// The gate is starting its Checks. `settled` is what is already known of
@@ -279,6 +403,9 @@ impl Announcing {
         let Some(bound) = self.0.as_ref() else { return };
         if checks.is_empty() {
             return;
+        }
+        if let Some(again) = bound.again.as_ref() {
+            return self.began_again(bound, again, checks, settled);
         }
         let attempt = bound.attempt.number();
         let entries = checks
@@ -320,6 +447,7 @@ impl Announcing {
     pub(crate) fn log_for(&self, at: usize) -> Option<PathBuf> {
         let bound = self.0.as_ref()?;
         let (records_root, handle) = bound.logs.as_ref()?;
+        let at = Self::slot(bound, at);
         let (file, _) =
             crate::check_output::live_file(records_root, handle, &bound.step, bound.attempt, at)?;
         Some(file)
@@ -329,6 +457,7 @@ impl Announcing {
     /// one.
     pub(crate) fn started(&self, at: usize, log: Option<&Path>) {
         let Some(bound) = self.0.as_ref() else { return };
+        let at = Self::slot(bound, at);
         let path = log.and_then(|file| {
             let (records_root, handle) = bound.logs.as_ref()?;
             crate::check_output::live_file(records_root, handle, &bound.step, bound.attempt, at)
@@ -363,7 +492,19 @@ impl Announcing {
                 return;
             };
             let mut moved = false;
-            for check in running.checks.checks.iter_mut() {
+            let ours = |at: &usize| {
+                bound
+                    .again
+                    .as_ref()
+                    .is_none_or(|again| again.slots.contains(at))
+            };
+            for (_, check) in running
+                .checks
+                .checks
+                .iter_mut()
+                .enumerate()
+                .filter(|(at, _)| ours(at))
+            {
                 if check.started_at.is_none()
                     && check.ran.is_none()
                     && check.waiting_behind != behind
@@ -394,6 +535,10 @@ impl Announcing {
                 timed.push((check.label().to_string(), took));
             }
         }
+        if bound.again.as_ref().is_some_and(|again| !again.finishes) {
+            return;
+        }
+        let at = Self::slot(bound, at);
         let ran = row(bound.attempt.number(), check, observed);
         self.moved(bound, at, |held, _| {
             held.took_ms = Some(took.as_millis() as u64);
@@ -412,6 +557,10 @@ impl Announcing {
         because: &str,
     ) {
         let Some(bound) = self.0.as_ref() else { return };
+        if bound.again.as_ref().is_some_and(|again| !again.finishes) {
+            return;
+        }
+        let at = Self::slot(bound, at);
         let ran = row(bound.attempt.number(), check, observed).map(|run| ipc::CheckRun {
             produced: Some(stopped_by(because)),
             ..run
@@ -504,6 +653,10 @@ impl Drop for Announcing {
     /// reaching a Check published nothing going up.
     fn drop(&mut self) {
         let Some(bound) = self.0.as_ref() else { return };
+        // A run alone's writer tells the gate's entry and never owns it.
+        if bound.again.is_some() {
+            return;
+        }
         let was = bound.underway.0.lock().ok().and_then(|mut held| {
             let entries = held.whose_mut(bound.whose);
             let mine = entries

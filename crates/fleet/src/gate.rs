@@ -301,6 +301,7 @@ where
             env: port_env,
             holding_handoff: at.holds_handoff(),
             attempt: at.attempt(),
+            announcing,
         },
     )
     .await;
