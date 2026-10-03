@@ -110,9 +110,9 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
     title: task.title,
     scope: task.scope ?? [],
     state: stateOf(task),
-    touched_after_done: false,
+    touched_after_done: task.touched_after_done === true,
     group: coord.group ?? "",
-    concurrent_with: [],
+    concurrent_with: task.concurrent_with ?? [],
     tier: "medium",
     model: detail.job.model,
     treatment: ownDrone ? "own_drone" : "step_drone",
@@ -123,7 +123,10 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
   if (task.expects !== undefined) view.expects = task.expects;
   if (task.shown !== undefined) view.shown = task.shown;
   if (task.reason !== undefined) view.reason = task.reason;
-  if (task.state === "working" && detail.job.assigned_drone !== undefined) {
+  // The Job's kept Drone is a working task's only where one task is working:
+  // with several at once (23.9) which Drone is whose is `list_job_drones`'.
+  const working = (detail.work_plan?.tasks ?? []).filter((one) => one.state === "working").length;
+  if (task.state === "working" && working <= 1 && detail.job.assigned_drone !== undefined) {
     view.drone_id = detail.job.assigned_drone;
   }
   return view;

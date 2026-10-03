@@ -19,7 +19,7 @@ import {
  * are not a constant, and #1647 has the dialog name the process.
  */
 export type Confirming =
-  | { act: ConfirmableAct; jobId: string }
+  | { act: ConfirmableAct; jobId: string; droneId?: string }
   | { act: "kill_process"; jobId: string; pid: number; command: string }
   | { act: "kill_processes"; jobId: string; count: number };
 

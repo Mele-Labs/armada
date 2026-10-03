@@ -23,8 +23,10 @@ export type PulseProcess = {
   memory_bytes: number;
   /** `ps`'s own spelling. Rendered, never parsed. */
   running_for: string;
-  /** The process Fleet wrote down. At most one row carries it. */
+  /** A Drone's own process. One row per live Drone carries it (23.9). */
   recorded: boolean;
+  /** The Drone whose process it is, or whose process started it. `null` where Fleet names none. */
+  drone: string | null;
   /**
    * The worktree it belongs to, by branch. **`null` is a process Fleet cannot
    * place** — with one worktree per Job that never happens; with several it is
@@ -118,6 +120,7 @@ function pulseProcessOf(process: JobProcess, owner: string | null): PulseProcess
     memory_bytes: process.memory_bytes,
     running_for: process.running_for,
     recorded: process.recorded,
+    drone: process.drone_id ?? null,
     owner,
   };
 }

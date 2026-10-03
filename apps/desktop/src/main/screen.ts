@@ -142,12 +142,14 @@ export async function takeAgain(port: number, again: Again, screen: Screen): Pro
   const mine = (jobId: string | null): jobId is string =>
     jobId !== null && (only === null || jobId === only);
 
-  // **A step advancing is a new Drone, and Fleet's socket ended with the last
-  // one.** So the event that says this Job moved is what reopens the transcript
-  // — there is no timer here on purpose: reopening resets the rows and
-  // republishes `opening`, so a loop would blank the log on every tick. Only
-  // where the socket is down; reopening a working one restarts the transcript
-  // from the top, and a resync arrives after every dropped event too. #324.
+  // **Fleet's socket ends when the Job stops writing**, at a person's gate or
+  // its end (one channel per Job since 23.9, every Drone on it; before, each
+  // Drone's end). So the event that says this Job moved is what reopens the
+  // transcript — there is no timer here on purpose: reopening resets the rows
+  // and republishes `opening`, so a loop would blank the log on every tick.
+  // Only where the socket is down; reopening a working one restarts the
+  // transcript from the top, and a resync arrives after every dropped event
+  // too. #324.
   const observing = screen.observing;
   if (mine(observing) && !screen.turns.attached()) screen.turns.open(port, observing);
   // The log socket does not end when a step advances — nothing about a Job's

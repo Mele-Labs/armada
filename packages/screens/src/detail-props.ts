@@ -105,14 +105,14 @@ export type JobDetailProps = {
   /** What Fleet said to the last act on this Job, so the control that sent it answers. */
   answered?: ActAnswer | undefined;
   /** Ask for a confirmation. Nothing destructive is one press from here. */
-  onAct: (act: ConfirmableAct, jobId: string) => void;
+  onAct: (act: ConfirmableAct, jobId: string, droneId?: string) => void;
   /**
    * Kill, straight through. **The hold on the header's own kill was the
    * confirmation**, so this sends where `onAct` asks.
    */
-  onActHeld: (act: HeldAct, jobId: string) => void;
+  onActHeld: (act: HeldAct, jobId: string, droneId?: string) => void;
   /** Send a redirect straight through — its own dialog is the confirmation. */
-  onRedirect: (jobId: string, instruction: string) => void;
+  onRedirect: (jobId: string, instruction: string, droneId?: string) => void;
   /**
    * A failed plan task's Pilot or Restart, or Edit this task on an open or
    * failed one with what it changed, pressed on its panel. Each is ahead of

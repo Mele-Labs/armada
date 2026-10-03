@@ -483,8 +483,10 @@ void app.whenReady().then(() => {
   );
   // Two channels, because they are two acts: one ends a process and one ends
   // the unit of work. Collapsing them here would make the difference a flag.
-  ipcMain.handle(CHANNELS.killDrone, (_event, jobId: string) =>
-    connection?.commands.killDrone(jobId),
+  // A Drone id is read as a string or not at all: the window names a Drone and
+  // Fleet decides whether it is live.
+  ipcMain.handle(CHANNELS.killDrone, (_event, jobId: string, droneId?: unknown) =>
+    connection?.commands.killDrone(jobId, typeof droneId === "string" ? droneId : undefined),
   );
   ipcMain.handle(CHANNELS.killJob, (_event, jobId: string) =>
     connection?.commands.killJob(jobId),
@@ -623,8 +625,14 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.removeAllowedCommand, (_event, jobId: string, run: string) =>
     connection?.commands.removeAllowedCommand(jobId, run),
   );
-  ipcMain.handle(CHANNELS.redirectDrone, (_event, jobId: string, instruction: string) =>
-    connection?.commands.redirectDrone(jobId, instruction),
+  ipcMain.handle(
+    CHANNELS.redirectDrone,
+    (_event, jobId: string, instruction: string, droneId?: unknown) =>
+      connection?.commands.redirectDrone(
+        jobId,
+        instruction,
+        typeof droneId === "string" ? droneId : undefined,
+      ),
   );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),

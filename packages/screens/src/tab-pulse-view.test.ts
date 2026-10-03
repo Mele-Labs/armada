@@ -29,6 +29,7 @@ function view(over: Partial<PulseView> = {}): PulseView {
         memory_bytes: 184_000_000,
         running_for: "04:12",
         recorded: true,
+        drone: null,
         owner: BRANCH,
       },
     ],
@@ -266,6 +267,33 @@ describe("where each Drone worked", () => {
 
   it("names nothing where the Job's history is not in hand", () => {
     expect(dronePlacesOf(undefined).size).toBe(0);
+  });
+
+  it("names a Drone beside the kept one off the Drones listed, as no history row does (23.9)", () => {
+    const places = dronePlacesOf([spawned(1, "implement", "01Y")], [], [{ drone: "01Z", step: "implement", task: "T6" }]);
+
+    expect(places.get("01Z")).toBe("implement · T6");
+  });
+});
+
+describe("a Job running several Drones at once (23.9)", () => {
+  const two = view({
+    processes: [
+      { pid: 41, command: "node", cpu_percent: 1, memory_bytes: 1, running_for: "01:00", recorded: true, drone: "01Y", owner: BRANCH },
+      { pid: 42, command: "node", cpu_percent: 1, memory_bytes: 1, running_for: "00:40", recorded: true, drone: "01Z", owner: BRANCH },
+      { pid: 43, command: "cargo", cpu_percent: 1, memory_bytes: 1, running_for: "00:10", recorded: false, drone: "01Z", owner: BRANCH },
+    ],
+  });
+
+  it("counts every live Drone, one recorded row each", () => {
+    expect(pulseFiguresOf(two, null).find((one) => one.label === "Drones running")?.value).toBe("2");
+  });
+
+  it("names each process by the Drone it belongs to", () => {
+    const places = new Map([["01Y", "implement · T5"], ["01Z", "implement · T6"]]);
+    const owners = pulseReadingOf(two, null, null, undefined, places).processes.map((one) => one.owner);
+
+    expect(owners).toEqual(["implement · T5", "implement · T6", "implement · T6"]);
   });
 });
 

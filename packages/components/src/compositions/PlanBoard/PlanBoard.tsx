@@ -154,6 +154,8 @@ export type PlanBoardGroup = {
   concurrent: boolean;
   /** What the drawing says to somebody who cannot see it — `2 tasks, one after another`. */
   shapeSays: string;
+  /** What the shape leaves out, after it on hover: a concurrent group's blind spot. */
+  shapeHint?: string;
   scope: PlanBoardScope;
   tasks: readonly PlanBoardTask[];
   /** Every other group that claims a file this one does. Empty draws nothing. */
@@ -695,7 +697,15 @@ export function PlanGroupName({
  * in the list's head and the panel's alike.
  */
 export function PlanGroupShape({ group }: { group: PlanBoardGroup }) {
-  return <GroupShape tasks={group.tasks.length} concurrent={group.concurrent} label={group.shapeSays} />;
+  // Named on hover, as every bare mark is: at the same time, it is what a
+  // shell write leaves unseen (spike 022, answer 10).
+  return (
+    <Tooltip asChild label={group.shapeHint === undefined ? group.shapeSays : `${group.shapeSays}. ${group.shapeHint}`}>
+      <span className="armada-plan-board__shape">
+        <GroupShape tasks={group.tasks.length} concurrent={group.concurrent} label={group.shapeSays} />
+      </span>
+    </Tooltip>
+  );
 }
 
 function GroupCard({

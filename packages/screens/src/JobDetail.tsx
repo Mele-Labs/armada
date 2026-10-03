@@ -616,7 +616,12 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
  */
 function placesOf(props: JobDetailProps, jobId: string) {
   const history = props.history?.state === "read" && props.history.jobId === jobId ? props.history.moves : undefined;
-  return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks));
+  const served = props.jobDrones?.state === "read" && props.jobDrones.jobId === jobId ? props.jobDrones.drones.drones : [];
+  const listed = [
+    ...served.map((one) => ({ drone: one.drone_id, step: one.step_id, task: one.task })),
+    ...(props.draft?.drones ?? []).map((one) => ({ drone: one.id, step: one.step, task: one.task })),
+  ];
+  return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks), listed);
 }
 
 /**
