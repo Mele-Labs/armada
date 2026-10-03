@@ -84,6 +84,8 @@ where
         // [`mod@crate::naming`] and `crate::transcript::migrating`.
         self.names().learn_all(&loaded.jobs);
         self.cut_from_learned(&loaded.jobs).await;
+        // Before any slot is filled: what ran beside a kept Drone is ended.
+        self.crew_left_behind(&loaded.jobs).await;
         let mut reconciled = Reconciled {
             repaired: loaded.repaired.len(),
             unreadable,
@@ -467,13 +469,28 @@ where
     /// guess: a caller Fleet cannot place is one whose work it must not credit
     /// to anybody.
     pub fn caller_of(&self, caller: &api::Caller) -> Result<JobId, NotACaller> {
-        attributed(
-            caller,
-            self.host.port,
-            &self.held_drones().each(),
-            self.peers.as_ref(),
-        )
-        .ok_or(NotACaller)
+        self.placed_drone(caller).map(|(job, _)| job)
+    }
+
+    /// [`caller_of`](Fleet::caller_of), and the Drone where it is one beside
+    /// the Job's kept Drone: `None` is the kept one. Spike 022, slice 5.
+    pub(crate) fn placed_drone(
+        &self,
+        caller: &api::Caller,
+    ) -> Result<(JobId, Option<core_model::DroneId>), NotACaller> {
+        let drones = self.held_drones();
+        if let Some(job) = attributed(caller, self.host.port, &drones.each(), self.peers.as_ref()) {
+            return Ok((job, None));
+        }
+        // The same port pair `attributed` matches, asked of each Drone beside
+        // a kept one.
+        let from = caller.port().ok_or(NotACaller)?;
+        drones
+            .crew()
+            .into_iter()
+            .find(|(_, _, pid)| self.peers.holds(*pid, from, self.host.port))
+            .map(|(job, drone, _)| (job, Some(drone)))
+            .ok_or(NotACaller)
     }
 
     /// Whether a Helm session this Fleet is hosting holds this call's
@@ -497,6 +514,46 @@ where
     /// `assigned_drone` is cleared, so the index and the record go together.
     pub(crate) fn drone_gone(&self, job: &JobId) {
         self.held_drones().left(job);
+    }
+
+    /// A Drone started beside this Job's kept one, as this process.
+    pub(crate) fn drone_joined(&self, job: &JobId, drone: &core_model::DroneId, pid: u32) {
+        self.held_drones().joined(job, drone, pid);
+    }
+
+    /// A Drone beside this Job's kept one has gone.
+    pub(crate) fn drone_parted(&self, job: &JobId, drone: &core_model::DroneId) {
+        self.held_drones().parted(job, drone);
+    }
+
+    /// This Drone is on this task, until it goes.
+    pub(crate) fn drone_on_task(
+        &self,
+        job: &JobId,
+        drone: &core_model::DroneId,
+        task: core_model::TaskId,
+    ) {
+        self.held_drones().on_task(job, drone, task);
+    }
+
+    /// This task waits for the Job's kept Drone, not one beside it.
+    pub(crate) fn left_for_kept(&self, job: &JobId, task: core_model::TaskId) {
+        self.held_drones().leave_for_kept(job, task);
+    }
+
+    /// Whether this task waits for the Job's kept Drone.
+    pub(crate) fn left_for_the_kept(&self, job: &JobId, task: core_model::TaskId) -> bool {
+        self.held_drones().left_for_kept(job, task)
+    }
+
+    /// Every task a live Drone of this Job is on.
+    pub(crate) fn live_tasks(&self, job: &JobId) -> Vec<core_model::TaskId> {
+        self.held_drones().live_tasks(job)
+    }
+
+    /// Every Drone beside a kept one, as Job, Drone and pid.
+    pub(crate) fn crew_at_work(&self) -> Vec<(JobId, core_model::DroneId, u32)> {
+        self.held_drones().crew()
     }
 
     fn held_drones(&self) -> std::sync::MutexGuard<'_, Drones> {

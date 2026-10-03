@@ -21,6 +21,7 @@ use crate::job::attempt::{Attempt, Spent};
 use crate::job::escalation::{EscalationTrigger, StepLevelTrigger};
 use crate::job::ids::StepId;
 use crate::job::step::StepVerdict;
+use crate::job::work_plan::TaskId;
 
 /// A group's stable name within one plan: `G1`, `G2`, … in the order minted.
 /// **Minted by Fleet when the plan is recorded**, and never renumbered by a
@@ -62,7 +63,7 @@ impl fmt::Display for GroupId {
 }
 
 /// Where a group is. The registry's eight words (`group_state` in
-/// `domain/enum-verbs.toml`), of which Fleet writes five: `joining` waits for
+/// `domain/enum-verbs.toml`), of which Fleet writes six: `joining` waits for
 /// tasks that run at once (slice 5), and `checking` and `landed` are drawn from
 /// the step's own `checking` and the delivery rather than written here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,6 +136,23 @@ pub enum GroupMove {
         commit: Option<String>,
         at: Timestamp,
     },
+    /// Two tasks that ran at once named one path in their edit calls, so the
+    /// group did not reach its gate and the two run again one after the other.
+    /// Spike 022, slice 5, answer 6.
+    Apart(Apart),
+}
+
+/// Two tasks of a group that ran at once and edited one file, and the files.
+/// **For the life of the plan**: once a pair lost a write to each other, the
+/// planner's word that they are safe together is not taken again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Apart {
+    pub group: GroupId,
+    /// The lower id first.
+    pub tasks: (TaskId, TaskId),
+    /// Every path both tasks' edit calls named, repository-relative.
+    pub paths: Vec<String>,
+    pub at: Timestamp,
 }
 
 /// One run of one group, as the record leaves it.
@@ -161,6 +179,7 @@ pub struct GroupEnded {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GroupRuns {
     attempts: Vec<GroupAttempt>,
+    apart: Vec<Apart>,
 }
 
 impl GroupRuns {
@@ -169,8 +188,10 @@ impl GroupRuns {
     /// start it closes, and the only way to reach one is a store edited by hand.
     pub fn fold(moves: &[GroupMove]) -> GroupRuns {
         let mut attempts: Vec<GroupAttempt> = Vec::new();
+        let mut apart: Vec<Apart> = Vec::new();
         for moved in moves {
             match moved {
+                GroupMove::Apart(pair) => apart.push(pair.clone()),
                 GroupMove::Started {
                     group,
                     run,
@@ -206,7 +227,31 @@ impl GroupRuns {
                 }
             }
         }
-        GroupRuns { attempts }
+        GroupRuns { attempts, apart }
+    }
+
+    /// Every pair run apart, oldest first.
+    pub fn apart(&self) -> &[Apart] {
+        &self.apart
+    }
+
+    /// Whether `a` and `b` may run at the same time: the planner said so, and
+    /// they have not since been run apart.
+    pub fn together(&self, plan: &crate::WorkPlan, a: TaskId, b: TaskId) -> bool {
+        plan.runs_with(a, b)
+            && !self
+                .apart
+                .iter()
+                .any(|pair| pair.tasks == (a.min(b), a.max(b)))
+    }
+
+    /// Every task `task` may run beside, in plan order.
+    pub fn beside(&self, plan: &crate::WorkPlan, task: TaskId) -> Vec<TaskId> {
+        plan.tasks()
+            .iter()
+            .map(|other| other.id())
+            .filter(|other| self.together(plan, task, *other))
+            .collect()
     }
 
     /// Every run of one group, oldest first.
@@ -314,8 +359,14 @@ impl GroupRuns {
         let any_working = tasks.clone().any(|s| s == TaskState::Working);
         let any_open = tasks.any(|s| s == TaskState::Open);
         let open = self.open_attempt(group);
+        // A task in that ran at once with one still working: the group waits
+        // for its join (slice 5).
+        let of = |state| plan.tasks_in(group).filter(move |t| t.state() == state);
+        let joining = of(TaskState::HandedIn)
+            .any(|done| of(TaskState::Working).any(|w| self.together(plan, done.id(), w.id())));
         match (open, self.last(group)) {
             (Some(open), _) if open.run > 1 => GroupState::Retrying,
+            (Some(_), _) if joining => GroupState::Joining,
             (Some(_), _) => GroupState::Running,
             (None, _) if any_working => GroupState::Running,
             (None, Some(last)) => match last.ended.as_ref().map(|ended| ended.verdict) {

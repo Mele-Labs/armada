@@ -4,8 +4,8 @@
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
 //! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task,
 //! 2's red group going round on its own before its tasks fail, 3's model per
-//! task, 4's proposal running as a person approved it, and 6's Epic wave
-//! (`drone_per_task/waves.rs`).
+//! task, 4's proposal running as a person approved it, 5's tasks at once, in
+//! [`at_once`], and 6's Epic wave, in [`waves`].
 //!
 //! | Not proved here | Why not |
 //! |---|---|
@@ -22,7 +22,10 @@
 // The bench is shared with every other milestone's test and none uses all of it.
 #[allow(dead_code)]
 mod bench;
-// Slice 6, in a module of its own: this file is near the size the gate refuses.
+/// Slice 5's claim, in a module of its own for the line limit.
+#[path = "drone_per_task/at_once.rs"]
+mod at_once;
+/// Slice 6's claim, in a module of its own for the same reason.
 #[path = "drone_per_task/waves.rs"]
 mod waves;
 

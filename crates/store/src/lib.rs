@@ -43,6 +43,8 @@ mod breakages;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
 mod checked;
 mod columns;
+/// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
+mod crew;
 /// The Drone pointer, where it now lives: one column per step.
 mod delivery;
 mod drift;
@@ -152,6 +154,7 @@ mod tests;
 
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
+pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use drift::ScopeDrift;
 pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};

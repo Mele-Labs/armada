@@ -173,6 +173,12 @@ impl FakeDaemon {
         self.turns.feeding(job_id)
     }
 
+    /// The Job's channel, as Fleet's roster holds it from admission to the
+    /// Job's end. Dropping it, with no Drone feeding, ends the watching.
+    pub fn admitted(&self, job_id: &JobId) -> crate::Channel {
+        self.turns.opening(job_id)
+    }
+
     fn fault(&self, message: &str) -> Refusal {
         Refusal::Fault(ipc::WireError::raised("fake.mute", message, run_id()))
     }

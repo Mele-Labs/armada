@@ -100,7 +100,7 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
-pub use plan_group::{GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
+pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};

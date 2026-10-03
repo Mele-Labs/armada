@@ -390,6 +390,13 @@ pub enum Adrift {
     /// have kept, and the record would say a person injected context into a
     /// session that did not exist.
     NoDroneToRedirect { job: JobId },
+    /// A message or a stop named a Drone that is not one of the Job's live
+    /// Drones: it has gone, or it was never this Job's. Refused rather than
+    /// sent to another (#1666).
+    DroneNotLive {
+        job: JobId,
+        drone: core_model::DroneId,
+    },
     /// A kill named a pid that is not in the Job's process tree as Fleet read
     /// it at the act: it exited since the screen was drawn, its number went to
     /// something else, or it was never the Job's. `#1647`.

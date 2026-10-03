@@ -24,6 +24,7 @@ mod amending;
 mod approving;
 mod asked;
 mod asking;
+mod at_once;
 mod attachments;
 mod attribution;
 mod auto_merging;

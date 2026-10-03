@@ -420,7 +420,7 @@ where
     /// **A Drone put on a task asks two things first** (spike 022, slice 3): a
     /// person's pick on the task, then the Job's tier map for the task's tier.
     /// `Job::model_spawned_for` spells the order.
-    async fn spawn_config(
+    pub(crate) async fn spawn_config(
         &self,
         job: &Job,
         step: &StepId,
