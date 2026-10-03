@@ -41,6 +41,8 @@ export type FrozenAtApprovalProps = {
   whole: JobWhole | null;
   /** This Job's repository, for the policy a frozen gate still defers to. */
   manifest?: ManifestSummary | undefined;
+  /** The repository's base by name, which a ref Fleet froze as absent is (#1605). */
+  base?: string | null;
 };
 
 /** What the instant in the card's head is, for a reader who only sees a date. */
@@ -62,6 +64,7 @@ export function FrozenAtApproval({
   proposal,
   whole,
   manifest,
+  base = null,
 }: FrozenAtApprovalProps) {
   const tiers: TierModels = proposal.tiers;
   // The instant, which the proposal's own heading carried while Overview drew
@@ -87,7 +90,7 @@ export function FrozenAtApproval({
           workflowChoices={[]}
           steps={gateRowsOf(proposal.gates, whole, undefined, repositorySaysOf(manifest))}
         />
-        <ProposalLanding landing={landingValueOf(landing)} completeChoices={completeChoices()} />
+        <ProposalLanding landing={landingValueOf(landing, base)} completeChoices={completeChoices()} />
         <div className="armada-proposal__region">
           <div className="armada-proposal__heading-row">
             <h3 className="armada-proposal__heading">Model per tier</h3>

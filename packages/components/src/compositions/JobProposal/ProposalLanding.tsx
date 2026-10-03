@@ -1,5 +1,6 @@
-import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
+import { BranchPicker } from "../BranchPicker/BranchPicker";
+import type { BranchOption } from "../BranchPicker/BranchPicker";
 import { ProposalField, ProposalFields } from "./ProposalFields";
 
 /**
@@ -48,6 +49,12 @@ export type ProposalLandingProps = {
   /** Absent draws every value frozen, which is what approval does to them. */
   onLanding?: (landing: ProposalLandingValue) => void;
   completeChoices: readonly CompleteChoice[];
+  /**
+   * The repository's branches, for the two branch fields to offer (#1605).
+   * `null` or absent is nothing having listed them, and each field takes a
+   * name typed by hand.
+   */
+  branches?: readonly BranchOption[] | null;
 };
 
 /** What each branching unit is called where it is read rather than chosen. */
@@ -61,7 +68,12 @@ const PR_MODE: Record<ProposalLandingValue["prMode"], string> = {
   draft: "Parked as a draft",
 };
 
-export function ProposalLanding({ landing, onLanding, completeChoices }: ProposalLandingProps) {
+export function ProposalLanding({
+  landing,
+  onLanding,
+  completeChoices,
+  branches = null,
+}: ProposalLandingProps) {
   const moved = (change: Partial<ProposalLandingValue>): void =>
     onLanding?.({ ...landing, ...change });
   const chosen = completeChoices.find((one) => one.value === landing.completeWhen);
@@ -72,11 +84,14 @@ export function ProposalLanding({ landing, onLanding, completeChoices }: Proposa
       <ProposalFields>
         <ProposalField label="Base branch" bare={open}>
           {open ? (
-            <Input
-              aria-label="Base branch"
+            // The dispatch composer's own picker, so a branch is named the same
+            // way wherever Armada asks for one (#1605).
+            <BranchPicker
+              label="Base branch"
+              labelledByRow
               value={landing.from}
-              mono
-              onChange={(event) => moved({ from: event.target.value })}
+              onValue={(from) => moved({ from })}
+              branches={branches}
             />
           ) : landing.from === "" ? (
             "The Manifest names no base"
@@ -86,11 +101,13 @@ export function ProposalLanding({ landing, onLanding, completeChoices }: Proposa
         </ProposalField>
         <ProposalField label="Lands in" bare={open}>
           {open ? (
-            <Input
-              aria-label="Lands in"
+            <BranchPicker
+              label="Lands in"
+              labelledByRow
               value={landing.target}
-              mono
-              onChange={(event) => moved({ target: event.target.value })}
+              onValue={(target) => moved({ target })}
+              branches={branches}
+              offerNew
             />
           ) : landing.target === "" ? (
             "The Manifest names no base"

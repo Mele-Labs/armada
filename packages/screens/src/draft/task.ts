@@ -64,12 +64,14 @@ export type TaskView = {
    * map** (30 Sep 2026), so the tier no longer decides it alone. On the wire a
    * task with no tier leaves `PlanTask.tier` out, which is Armada picking.
    */
-  tier: TaskTier;
+  tier?: TaskTier;
   /**
-   * A person's pick, `PlanTask.model`, which beats the map. The model a
-   * Drone actually ran is on its `JobDrone.model`, not here.
+   * The model it runs on as far as the plan says: a person's pick,
+   * `PlanTask.model`, else the Job's map for its tier. **Absent is Armada
+   * picking**, and the slot stays empty. The model a Drone actually ran is on
+   * its `JobDrone.model`, not here.
    */
-  model: string;
+  model?: string;
   treatment: TaskTreatment;
   /** The Drone on it, where one is. Absent on a task nothing has run. */
   drone_id?: string;
@@ -97,8 +99,7 @@ export type TaskView = {
 };
 
 /**
- * Today's wire holds no groups, so every task is the Job's model and its own
- * group of one. **`own_drone` where a step declares `drone_per_task`** (23.1):
+ * Today's wire holds no groups, so every task is its own group of one. **`own_drone` where a step declares `drone_per_task`** (23.1):
  * that step's working Drone is the working task's own, so `assigned_drone` is
  * it. Elsewhere every task is `step_drone`.
  */
@@ -110,21 +111,26 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
     title: task.title,
     scope: task.scope ?? [],
     state: stateOf(task),
-    touched_after_done: false,
+    touched_after_done: task.touched_after_done === true,
     group: coord.group ?? "",
-    concurrent_with: [],
-    tier: "medium",
-    model: detail.job.model,
+    concurrent_with: task.concurrent_with ?? [],
     treatment: ownDrone ? "own_drone" : "step_drone",
     cases: [],
     coord,
   };
+  const tier = tierOf(task);
+  if (tier !== undefined) view.tier = tier;
+  const model = task.model ?? (tier === undefined ? undefined : detail.tiers?.[tier]);
+  if (model !== undefined) view.model = model;
   if (task.note !== undefined) view.note = task.note;
   if (task.expects !== undefined) view.expects = task.expects;
   if (task.shown !== undefined) view.shown = task.shown;
   if (task.reason !== undefined) view.reason = task.reason;
   if (task.failed_reason !== undefined) view.failed_reason = task.failed_reason;
-  if (task.state === "working" && detail.job.assigned_drone !== undefined) {
+  // The Job's kept Drone is a working task's only where one task is working:
+  // with several at once (23.10) which Drone is whose is `list_job_drones`'.
+  const working = (detail.work_plan?.tasks ?? []).filter((one) => one.state === "working").length;
+  if (task.state === "working" && working <= 1 && detail.job.assigned_drone !== undefined) {
     view.drone_id = detail.job.assigned_drone;
   }
   return view;
@@ -133,6 +139,18 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
 /** Every task of a Job's plan, in plan order. Empty where no plan was recorded. */
 export function taskViewsOf(detail: JobDetail): TaskView[] {
   return (detail.work_plan?.tasks ?? []).map((task) => taskViewOf(detail, task));
+}
+
+// The wire's three, and anything else as no tier: Armada picking, not a guess.
+function tierOf(task: PlanTask): TaskTier | undefined {
+  switch (task.tier) {
+    case "difficult":
+    case "medium":
+    case "easy":
+      return task.tier;
+    default:
+      return undefined;
+  }
 }
 
 // The wire's six are carried through as themselves, and anything unrecognised

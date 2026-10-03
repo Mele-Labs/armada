@@ -1,18 +1,10 @@
 // Four gate states per step, and the line the ticks cannot turn off.
 
-import type { LimitValues } from "@armada/protocol";
 import { describe, expect, it } from "vitest";
 
 import { gateReadingOf, gateViewOf, proposalViewOf, unmeantOf } from "./proposal";
 import type { GateView } from "./proposal";
 import { sampleDetail, sampleStep } from "./sample";
-
-const limits: LimitValues = {
-  concurrency: 4,
-  memory_spare_percent: 20,
-  disk_floor_gib: 10,
-  checks_at_once: 4,
-};
 
 describe("what gates one step", () => {
   it("reads auto as the Checks deciding and nobody looking", () => {
@@ -70,52 +62,60 @@ describe("what gates one step", () => {
 
 describe("the line no tick turns off", () => {
   it("is always true, so a screen cannot draw a step as unwatched", () => {
-    const view = proposalViewOf(sampleDetail(), limits);
+    const view = proposalViewOf(sampleDetail(), 4);
 
     expect(view.fleet_always_looks).toBe(true);
   });
 });
 
 describe("what locks at approval", () => {
-  it("gives every tier the Job's one model, since no tier map is served", () => {
+  it("reads a tier the map leaves out as Armada picking", () => {
     const detail = sampleDetail();
-    detail.job.model = "opus";
+    detail.tiers = { difficult: "opus" };
 
-    expect(proposalViewOf(detail, limits).tiers).toEqual({
+    expect(proposalViewOf(detail, 4).tiers).toEqual({
       difficult: "opus",
-      medium: "opus",
-      easy: "opus",
+      medium: null,
+      easy: null,
     });
   });
 
-  it("takes the machine's cap from the concurrency limit", () => {
-    expect(proposalViewOf(sampleDetail(), limits).machine_cap).toBe(4);
+  it("takes the machine's cap as given, and null before Fleet said", () => {
+    expect(proposalViewOf(sampleDetail(), 4).machine_cap).toBe(4);
+    expect(proposalViewOf(sampleDetail(), null).machine_cap).toBeNull();
   });
 
-  it("caps this Job's Drones at nothing, because nothing serves a per-Job cap", () => {
-    expect(proposalViewOf(sampleDetail(), limits).drone_cap).toBeUndefined();
+  it("caps this Job's Drones where Fleet kept a cap, and leaves it out where none", () => {
+    const capped = sampleDetail();
+    capped.drone_cap = 2;
+
+    expect(proposalViewOf(capped, 4).drone_cap).toBe(2);
+    expect(proposalViewOf(sampleDetail(), 4).drone_cap).toBeUndefined();
   });
 
-  it("offers a ready pull request and no from-ref unless one is given", () => {
-    const view = proposalViewOf(sampleDetail(), limits);
+  it("reads where it starts and how its pull request opens off the landing", () => {
+    const landed = sampleDetail();
+    landed.landing = { from_ref: "release/2.4", pr_mode: "draft" };
 
-    expect(view.pr_mode).toBe("ready");
-    expect(view.from_ref).toBeNull();
-    expect(proposalViewOf(sampleDetail(), limits, "main").from_ref).toBe("main");
+    expect(proposalViewOf(landed, 4)).toMatchObject({ from_ref: "release/2.4", pr_mode: "draft" });
+    // Absent is the Manifest's base, which is not a branch name to print.
+    expect(proposalViewOf(sampleDetail(), 4)).toMatchObject({ from_ref: null, pr_mode: "ready" });
   });
 
   it("carries no notes for the planner, which was dropped", () => {
-    const view = proposalViewOf(sampleDetail(), limits);
+    const view = proposalViewOf(sampleDetail(), 4);
 
     expect("notes_for_planner" in view).toBe(false);
   });
 
-  it("dates the approval from when the Job started, and leaves it out before", () => {
+  it("dates the approval from approved_at, never from when the Job started", () => {
+    const approved = sampleDetail();
+    approved.approved_at = "2026-09-22T09:02:00Z";
     const started = sampleDetail();
-    started.job.started_at = "2026-09-22T09:02:00Z";
+    started.job.started_at = "2026-09-22T09:05:00Z";
 
-    expect(proposalViewOf(started, limits).approved_at).toBe("2026-09-22T09:02:00Z");
-    expect(proposalViewOf(sampleDetail(), limits).approved_at).toBeUndefined();
+    expect(proposalViewOf(approved, 4).approved_at).toBe("2026-09-22T09:02:00Z");
+    expect(proposalViewOf(started, 4).approved_at).toBeUndefined();
   });
 
   it("gives one gate per step of the frozen workflow", () => {
@@ -123,7 +123,7 @@ describe("what locks at approval", () => {
       steps: [sampleStep({ step_id: "plan" }), sampleStep({ step_id: "implement" })],
     });
 
-    expect(proposalViewOf(detail, limits).gates.map((gate) => gate.step_id)).toEqual([
+    expect(proposalViewOf(detail, 4).gates.map((gate) => gate.step_id)).toEqual([
       "plan",
       "implement",
     ]);
@@ -232,6 +232,21 @@ describe("what a combination of the boxes is on the wire", () => {
 
     expect(reading.advance_gate).toBe("human_always");
   });
+
+  // Fleet lays the override over the repository's word (23.8): `auto_merge`
+  // with nobody ticked reads `checks-pass` (owner, 2 Oct 2026), and either way
+  // the override outlives a change to the repository's rule.
+  it("says what an override stands in for, and that it holds however the rule moves", () => {
+    const merge = gateReadingOf(boxes({ repository_decides: "auto_merge", overridden: true }));
+    const review = gateReadingOf(
+      boxes({ judge: true, repository_decides: "review_gate", overridden: true }),
+    );
+
+    expect(merge.does).toBe(
+      "Overridden for this Job: Fleet merges once the forge's checks pass, however the repository's auto_merge moves.",
+    );
+    expect(review.does).toContain("the checks decide, unless the Judge objects");
+  });
 });
 
 
@@ -257,15 +272,11 @@ describe("what a tick asks for that Fleet cannot do", () => {
     );
   });
 
-  // `manifest_rule:review_gate` is frozen unresolved because the policy is
-  // live. An override is the first per-Job answer that would resolve it at
-  // approval, and nothing says which wins if the repository's rule moves.
-  it("names the override as carrying no answer to what wins later", () => {
-    const said = unmeantOf(
-      boxes({ you: true, repository_decides: "review_gate", overridden: true }),
-      declared,
-    );
-
-    expect(said).toContain("which wins");
+  // Since 23.8 an override holds for the life of the Job (spike 022, answer
+  // 4), so it is an answer and asks for nothing Fleet cannot do.
+  it("reads an override as an ordinary gate", () => {
+    expect(
+      unmeantOf(boxes({ you: true, repository_decides: "review_gate", overridden: true }), declared),
+    ).toBeUndefined();
   });
 });
