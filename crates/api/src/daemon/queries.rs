@@ -835,9 +835,37 @@ pub trait Queries: Send + Sync + 'static {
     /// a line that will not read is left out, `get_capacity`'s reasoning.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
 
+    /// `observe_land_check` — one Check's log on a served repository's merge
+    /// line, by the root, the branch and the Check.
+    ///
+    /// **It answers before the socket opens**, for [`Queries::observe_job`]'s
+    /// reason, and the three names are all it takes: the file is found from
+    /// the branch's outcome, never from a path the caller sent.
+    ///
+    /// [`Refusal::Unacceptable`] where the root is not served, the branch has
+    /// no outcome, or the Check is not one its turn has started.
+    fn observe_land_check(
+        &self,
+        root: String,
+        branch: String,
+        check: String,
+    ) -> impl Future<Output = Result<crate::LandOutput, Refusal>> + Send;
+
     fn search_files(
         &self,
         query: String,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
+
+    /// `list_branches` — the repository's local branches, the base first
+    /// (#1605, spike 022 slice 4). What a Job may start from and land in, read
+    /// through git rather than composed from the worktrees Bridge has seen.
+    ///
+    /// `manifest_id` names the repository, absent being the one Fleet was
+    /// started in. [`Refusal::Unacceptable`] on a repository this Fleet does
+    /// not serve.
+    fn list_branches(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::Branches, Refusal>> + Send;
 }

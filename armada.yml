@@ -563,7 +563,7 @@ drone:
 
 # What this repository requires of every change, read into every Judge brief
 # so that fixing the prose a change made wrong is not refused as scope
-# expansion, and into every Drone's opening brief so the work carries it. Read
+# expansion. A Drone is not handed it: it reads the repository itself. Read
 # from this checkout, never a Job's worktree, and cut at the
 # `standing-rules-cap` setting. docs/concepts/manifest.md, *What every change
 # here carries*.

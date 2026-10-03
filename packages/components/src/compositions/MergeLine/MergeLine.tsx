@@ -75,6 +75,11 @@ export type MergeLineProps = {
   onOpenChange: (open: boolean) => void;
   /** Hands the pull request's address to whatever opens addresses on this machine. */
   onOpenPullRequest: (url: string) => void;
+  /**
+   * Open one Check's log, by the branch whose turn runs it. Absent, no Check is pressable. A
+   * Check still waiting has no log, so it never is.
+   */
+  onOpenCheck?: (branch: string, check: string) => void;
   /** On the outer `<section>`, so a press elsewhere can scroll to it. */
   id?: string;
 };
@@ -95,7 +100,8 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, open, onOpenChange, onOpenPullRequest, id } = props;
+  const { name, line, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
+  const acts = { onOpenPullRequest, ...(onOpenCheck === undefined ? {} : { onOpenCheck }) };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
   const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
     (one) => one.entries.length > 0,
@@ -135,7 +141,7 @@ export function MergeLine(props: MergeLineProps) {
             <ol className="armada-merge-line__list" aria-label="In line">
               {batched(line).map((run) =>
                 run.length === 1 ? (
-                  <Entry key={run[0]!.branch} entry={run[0]!} onOpenPullRequest={onOpenPullRequest} />
+                  <Entry key={run[0]!.branch} entry={run[0]!} {...acts} />
                 ) : (
                   <li key={run[0]!.branch} className="armada-merge-line__batch">
                     <Tooltip label="Batch" decorative asChild>
@@ -143,7 +149,7 @@ export function MergeLine(props: MergeLineProps) {
                     </Tooltip>
                     <ol className="armada-merge-line__list" aria-label="Batch">
                       {run.map((entry) => (
-                        <Entry key={entry.branch} entry={entry} onOpenPullRequest={onOpenPullRequest} />
+                        <Entry key={entry.branch} entry={entry} {...acts} />
                       ))}
                     </ol>
                   </li>
@@ -157,7 +163,7 @@ export function MergeLine(props: MergeLineProps) {
               <h3 className="armada-merge-line__subheading">{one.heading}</h3>
               <ul className="armada-merge-line__list" aria-label={one.heading}>
                 {one.entries.map((entry) => (
-                  <Entry key={entry.branch} entry={entry} onOpenPullRequest={onOpenPullRequest} />
+                  <Entry key={entry.branch} entry={entry} {...acts} />
                 ))}
               </ul>
             </Fragment>
@@ -199,9 +205,11 @@ function batched(line: readonly MergeLineEntry[]): MergeLineEntry[][] {
 function Entry({
   entry,
   onOpenPullRequest,
+  onOpenCheck,
 }: {
   entry: MergeLineEntry;
   onOpenPullRequest: (url: string) => void;
+  onOpenCheck?: (branch: string, check: string) => void;
 }) {
   const reading = LAND_STATE[entry.state];
   const Icon = reading?.icon ?? null;
@@ -249,7 +257,7 @@ function Entry({
         )}
       </span>
       <span className="armada-merge-line__detail">
-        <Detail entry={entry} />
+        <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
       </span>
     </li>
   );
@@ -264,12 +272,14 @@ const READS: Record<MergeLineCheck["state"], GroupBoundaryCheckReads> = {
   timed_out: "failed",
 };
 
-function boundaryCheck(check: MergeLineCheck): GroupBoundaryCheck {
+/** A Check of the turn, opening its log where it has one: every one but a Check still waiting. */
+function boundaryCheck(check: MergeLineCheck, onOpen: ((check: string) => void) | undefined): GroupBoundaryCheck {
   const timedOut = CHECK_OUTCOME.timed_out?.verb;
   return {
     name: check.name,
     reads: READS[check.state],
     ...(check.state === "timed_out" && typeof timedOut === "string" ? { result: timedOut } : {}),
+    ...(onOpen === undefined || check.state === "waiting" ? {} : { onOpen: () => onOpen(check.name) }),
   };
 }
 
@@ -277,10 +287,17 @@ function boundaryCheck(check: MergeLineCheck): GroupBoundaryCheck {
  * What the row says after its name: the runner's words and its Checks in a turn, the facts once off
  * the line. **The Checks are the plan's boundary strip**, not a second drawing of the same thing.
  */
-function Detail({ entry }: { entry: MergeLineEntry }) {
+function Detail({
+  entry,
+  onOpenCheck,
+}: {
+  entry: MergeLineEntry;
+  onOpenCheck?: (branch: string, check: string) => void;
+}) {
+  const onOpen = onOpenCheck === undefined ? undefined : (check: string) => onOpenCheck(entry.branch, check);
   const strip =
     entry.checks === undefined || entry.checks.length === 0 ? null : (
-      <GroupBoundary checks={entry.checks.map(boundaryCheck)} />
+      <GroupBoundary checks={entry.checks.map((check) => boundaryCheck(check, onOpen))} />
     );
   if (LIVE.has(entry.state)) {
     return (

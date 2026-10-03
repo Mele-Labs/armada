@@ -68,7 +68,11 @@ export type GateView = {
   overridden?: boolean;
 };
 
-/** Which model each tier runs on. `null` is Auto — the harness chooses. */
+/**
+ * Which model each tier runs on. `null` is the draft's spelling of a tier left
+ * out, which on the wire (`TierModels`, 23.6) is a key left out: **Armada
+ * picks, and the Drone's row says which model it ran** (spike 022, answer 8).
+ */
 export type TierModels = Readonly<Record<TaskTier, string | null>>;
 
 /** A Job being classified, with everything that locks at approval. */

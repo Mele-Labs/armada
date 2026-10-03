@@ -42,8 +42,10 @@ use crate::daemon::Fleet;
 /// have to be tellable apart on the record rather than by guessing from
 /// `origin`.
 pub(crate) enum StatedBy {
-    /// The Job proposer, and what it said about the scope it chose.
-    TheProposer(String),
+    /// The Job proposer, and what it said about the scope it chose — and
+    /// whether the request it read linked an issue it read too, which is
+    /// where its criteria came from (#1642).
+    TheProposer { said: String, read_an_issue: bool },
     /// Somebody who filled the form in directly, through Bridge or their own
     /// agent's door session.
     APerson,
@@ -67,7 +69,7 @@ pub(crate) enum StatedBy {
 impl StatedBy {
     fn actor(&self) -> Actor {
         match self {
-            StatedBy::TheProposer(_) | StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } => {
+            StatedBy::TheProposer { .. } | StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } => {
                 Actor::Fleet
             }
             StatedBy::APerson => Actor::Human,
@@ -75,9 +77,28 @@ impl StatedBy {
         }
     }
 
+    /// Where a criterion this drafted came from (#1642). **The proposer read a
+    /// person's request**, so its lines are the prompt's; `crate::proposal`
+    /// marks them the issue's where the request linked one it read. A form a
+    /// person or Helm filled in is the person's. A Job the machine stated
+    /// says nothing, rather than an origin invented for it.
+    fn words_from(&self) -> core_model::CriterionOrigin {
+        match self {
+            StatedBy::TheProposer {
+                read_an_issue: true,
+                ..
+            } => core_model::CriterionOrigin::Issue,
+            StatedBy::TheProposer { .. } => core_model::CriterionOrigin::Prompt,
+            StatedBy::APerson | StatedBy::AHelmSession => core_model::CriterionOrigin::Person,
+            StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } => {
+                core_model::CriterionOrigin::Unsaid
+            }
+        }
+    }
+
     fn rationale(&self) -> String {
         match self {
-            StatedBy::TheProposer(said) => said.clone(),
+            StatedBy::TheProposer { said, .. } => said.clone(),
             StatedBy::APerson => String::from("hand-entered at the dispatch form"),
             StatedBy::AHelmSession => {
                 String::from("hand-entered at the dispatch form, through a Helm session")
@@ -165,6 +186,7 @@ where
                     criterion_id: CriterionId::new(format!("c{}", position + 1)),
                     text: criterion.text,
                     source: criterion.source.domain(),
+                    origin: stated.words_from(),
                 })
                 .collect(),
             steps,

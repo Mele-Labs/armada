@@ -6,15 +6,18 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import type { RepositorySummary } from "@armada/protocol";
+import { useState } from "react";
+
+import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
-import { mergeLineViews, type MergeLineView } from "@armada/screens";
-import { Boundary, SURFACE } from "@armada/shell";
+import { LandCheckLogSheet, mergeLineViews, type MergeLineView } from "@armada/screens";
+import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import { followLandCheck } from "./commands";
 import { usePanelOpen } from "./panel-open";
 
-type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds">;
+type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">;
 
 function viewsOf({ mergeLines, repository, holds }: Lined): readonly MergeLineView[] {
   const repositories: readonly RepositorySummary[] = holds.repositories ?? [];
@@ -26,19 +29,46 @@ export function hiddenSurfaces(state: Lined): readonly string[] {
   return viewsOf(state).length === 0 ? [SURFACE.mergeLine] : [];
 }
 
-/** A panel for each line there is. */
+/**
+ * A panel for each line there is, and the log panel a Check on any of them opens in: **one, held
+ * here**, so a second press replaces the first rather than stacking a panel per line.
+ */
 export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink: (address: string) => void }) {
+  const [reading, setReading] = useState<LandCheckAt | null>(null);
+  const floor = useAtFloor();
   return (
     <>
       {viewsOf(state).map((view) => (
-        <OneLine key={view.root} view={view} onOpenLink={onOpenLink} />
+        <OneLine
+          key={view.root}
+          view={view}
+          onOpenLink={onOpenLink}
+          onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
+        />
       ))}
+      {reading === null ? null : (
+        <LandCheckLogSheet
+          at={reading}
+          followed={state.landFollowed}
+          onFollow={followLandCheck}
+          floor={floor}
+          onClose={() => setReading(null)}
+        />
+      )}
     </>
   );
 }
 
 /** One repository's panel, folded on its own. */
-function OneLine({ view, onOpenLink }: { view: MergeLineView; onOpenLink: (address: string) => void }) {
+function OneLine({
+  view,
+  onOpenLink,
+  onOpenCheck,
+}: {
+  view: MergeLineView;
+  onOpenLink: (address: string) => void;
+  onOpenCheck: (branch: string, check: string) => void;
+}) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
   return (
     <MergeLine
@@ -49,6 +79,7 @@ function OneLine({ view, onOpenLink }: { view: MergeLineView; onOpenLink: (addre
       open={open}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
+      onOpenCheck={onOpenCheck}
     />
   );
 }

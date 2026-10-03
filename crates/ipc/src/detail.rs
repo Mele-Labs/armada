@@ -255,6 +255,31 @@ pub struct JobDetail {
     /// no choice. `set_review_model` moves it, like `set_model` moves `model_override`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_model_override: Option<String>,
+    /// Which model each tier of this Job's tasks runs on. **Since 23.6.** Left
+    /// out where the map names no tier, which is Armada picking for every
+    /// tier. `set_tiers` moves it. Filled after [`JobDetail::of`], like
+    /// `model_override`.
+    #[serde(default, skip_serializing_if = "crate::TierModels::is_empty")]
+    pub tiers: crate::TierModels,
+    /// How many Drones this Job may run at once, inside the machine's cap.
+    /// **Since 23.8**, kept at dispatch or approval and enforced from slice 5.
+    /// Absent is the machine's cap holding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone_cap: Option<u32>,
+    /// How this Job lands, frozen at approval. **Since 23.8.** Absent is a Job
+    /// approved before it or with no body: cut from the base, landing in it,
+    /// ready.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing: Option<crate::LandingRule>,
+    /// What this Job's approval said in place of the repository's policies.
+    /// **Since 23.8**; holds for the life of the Job (spike 022, answer 4).
+    /// Absent is the repository deciding at every gate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_overrides: Option<crate::PolicyOverrides>,
+    /// When a person approved this Job. **Since 23.8.** Absent on a Job not
+    /// yet approved, and on one that never needed approving.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approved_at: Option<Instant>,
     /// The label of the step that writes Armada's review. **Since 13.33**, #903. Absent on a
     /// workflow with no review step, where there is no review model to choose.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -738,6 +763,13 @@ impl JobDetail {
             repository_allowed_commands: Vec::new(),
             model_override: None,
             review_model_override: None,
+            tiers: crate::TierModels::default(),
+            // The four below are settings beside the record, filled after
+            // this by `fleet::serving`, as `tiers` is.
+            drone_cap: None,
+            landing: None,
+            policy_overrides: None,
+            approved_at: None,
             review_step: None,
             review,
             confidence: None,
@@ -774,15 +806,56 @@ pub struct Criterion {
     pub criterion_id: CriterionId,
     pub text: String,
     pub source: CriterionSource,
+    /// Where the words came from (#1642). **Since 23.8**; absent is nothing
+    /// saying, which every criterion kept before it reads as.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::CriterionOrigin>,
+    /// When the issue these words came from was last edited, **where that is
+    /// after Fleet read it**. Since 23.8. Absent is the ordinary case, and it
+    /// never dates the freeze: the Job keeps the words it froze.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_moved_at: Option<Instant>,
 }
 
-impl From<&core_model::AcceptanceCriterion> for Criterion {
-    fn from(criterion: &core_model::AcceptanceCriterion) -> Criterion {
+impl Criterion {
+    /// One criterion, with its Job's issue where its words came from one. **An
+    /// issue origin with no issue on the Job reads as nothing saying**, rather
+    /// than an issue nobody can open.
+    pub fn of(
+        criterion: &core_model::AcceptanceCriterion,
+        issue: Option<&core_model::IssueSource>,
+    ) -> Criterion {
+        let (origin, origin_moved_at) = match (criterion.origin, issue) {
+            (core_model::CriterionOrigin::Issue, Some(issue)) => (
+                Some(crate::CriterionOrigin::Issue {
+                    reference: issue.reference.clone(),
+                    url: issue.url.clone(),
+                }),
+                crate::moved_at(Some(issue)),
+            ),
+            (core_model::CriterionOrigin::Prompt, _) => {
+                (Some(crate::CriterionOrigin::Prompt), None)
+            }
+            (core_model::CriterionOrigin::Person, _) => {
+                (Some(crate::CriterionOrigin::Person), None)
+            }
+            (core_model::CriterionOrigin::Issue, None)
+            | (core_model::CriterionOrigin::Unsaid, _) => (None, None),
+        };
         Criterion {
             criterion_id: (&criterion.criterion_id).into(),
             text: criterion.text.clone(),
             source: criterion.source.into(),
+            origin,
+            origin_moved_at,
         }
+    }
+}
+
+impl From<&core_model::AcceptanceCriterion> for Criterion {
+    /// With no issue in hand: [`Criterion::of`] is how `get_job` serves one.
+    fn from(criterion: &core_model::AcceptanceCriterion) -> Criterion {
+        Criterion::of(criterion, None)
     }
 }
 
@@ -868,11 +941,11 @@ pub struct JobDelivery {
     /// Written when Fleet opens the pull request and again on every read of
     /// it, so a title a person edited on the forge replaces the one Armada
     /// opened it with. Absent is no read has named it: a pull request opened
-    /// by an Armada before 23.5 that has not been read since.
+    /// by an Armada before 23.6 that has not been read since.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request_title: Option<String>,
     /// How many comments the pull request carries, as Fleet's rotation last
-    /// counted them while it was open, **kept after it settles**. Since 23.5.
+    /// counted them while it was open, **kept after it settles**. Since 23.6.
     ///
     /// Conversation comments and reviews that say something; a comment on a
     /// line of the diff is not counted. **Absent is unknown, never zero**: a

@@ -50,6 +50,11 @@ const NOT_SERVED: &str = "fleet.repository_not_served";
 const UNKNOWN_PREFERENCE: &str = "fleet.unknown_preference";
 /// A proposal that decoded and names something that cannot produce a Drone.
 const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
+/// An approval body or `edit_job` on a Job past `awaiting_approval`. A 409:
+/// what it runs froze at the press (spike 022, slice 4).
+const PROPOSAL_FROZEN: &str = "fleet.proposal_frozen";
+/// A landing naming a branch the repository does not hold. A 422.
+const NO_SUCH_BRANCH: &str = "fleet.no_such_branch";
 /// The request was read and no workflow fits. **A refusal about the request**,
 /// and the reason it has a code of its own: a caller reading `UNACCEPTABLE`
 /// cannot tell it from a proposal naming a workflow that does not exist.
@@ -423,6 +428,30 @@ where
             Adrift::NotServed { job, .. } => Refusal::Unacceptable(
                 WireError::raised(NOT_SERVED, said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
+            // Spike 022, slice 4. **A frozen proposal is a 409**: the Job is
+            // past the one status at which it may be edited, which is where
+            // it stands and not what was asked. Every other refusal is about
+            // the body, a 422, with the reason in the message.
+            Adrift::ProposalRefused {
+                job,
+                why: crate::approving::Refused::Frozen(status),
+            } => Refusal::IllegalMove(
+                WireError::raised(PROPOSAL_FROZEN, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("status", WireValue::Str(status.as_wire().to_string())),
+            ),
+            Adrift::ProposalRefused { job, .. } => Refusal::Unacceptable(
+                WireError::raised(UNACCEPTABLE, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::NoSuchBranch { job, named } => Refusal::Unacceptable(
+                WireError::raised(NO_SUCH_BRANCH, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("branch", WireValue::Str(named.clone())),
+            ),
+            Adrift::BranchesUnread { .. } => {
+                Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
+            }
             // A person's add or drop, refused by the plan itself. `NoPlan` is
             // its own code; the other two both name a task the plan does not
             // hold, one field naming which.
@@ -432,6 +461,27 @@ where
             } => Refusal::Unacceptable(
                 WireError::raised(NO_PLAN, said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
+            // An edit to a task that is not open or failed (#1657): a 409 in
+            // the words the other acts on a task already use, the state saying
+            // which — one in its Drone's hands is in flight, one done or
+            // dropped is settled.
+            Adrift::PlanRefused {
+                job,
+                why: core_model::PlanRefused::NotEditable { named, state },
+            } => {
+                let code = match state {
+                    core_model::TaskState::Working | core_model::TaskState::HandedIn => {
+                        TASK_IN_FLIGHT
+                    }
+                    _ => TASK_ALREADY_SETTLED,
+                };
+                Refusal::IllegalMove(
+                    WireError::raised(code, said, self.run_id())
+                        .about_job(ipc::JobId::from(job))
+                        .with_field("task", WireValue::Str(named.to_string()))
+                        .with_field("state", WireValue::Str(state.as_wire().to_string())),
+                )
+            }
             Adrift::PlanRefused {
                 job,
                 why: core_model::PlanRefused::NoSuchGroup { named },
@@ -501,6 +551,7 @@ where
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }
             | Adrift::NoSuchBrief { .. }
+            | Adrift::NoSuchLandLog { .. }
             | Adrift::Modelless
             | Adrift::NothingToPropose
             | Adrift::AttachmentUnreadable { .. } => {

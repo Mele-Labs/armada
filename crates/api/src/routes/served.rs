@@ -186,6 +186,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines",
     },
+    // One Check's log on that line, as it is written. Named by the line's own
+    // three words in the query, never by a path: a root is a path itself.
+    Route {
+        operation: "observe_land_check",
+        method: "GET",
+        path: "/merge_lines/checks/observe",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",
@@ -245,6 +252,12 @@ const ROUTES: &[Route] = &[
         operation: "search_files",
         method: "GET",
         path: "/manifest/files",
+    },
+    // What a Job may start from and land in: #1605, spike 022 slice 4.
+    Route {
+        operation: "list_branches",
+        method: "GET",
+        path: "/manifest/branches",
     },
     // A rule a person always-allowed for the repository is Fleet's own, kept
     // per Manifest rather than any one Job's — `#836`. The remove spells the
@@ -462,6 +475,12 @@ const ROUTES: &[Route] = &[
         operation: "approve_dispatch",
         method: "POST",
         path: "/jobs/:job_id/approve_dispatch",
+    },
+    // A proposal's words, saved without releasing it: the route of #1699.
+    Route {
+        operation: "edit_job",
+        method: "POST",
+        path: "/jobs/:job_id/edit",
     },
     // The three answers at a human gate, and three routes rather than one with
     // a decision in the body: each does something different to the Job, and one
@@ -747,6 +766,12 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/plan/move",
     },
+    // A person changes one task: spike 022 slice 3, `#1657`.
+    Route {
+        operation: "edit_task",
+        method: "POST",
+        path: "/jobs/:job_id/tasks/:task_id/edit",
+    },
     // The two acts that resume a step without redispatching. Two routes and
     // not one with a mode: which applies is decided by whether the Job holds a
     // Drone, and a caller that asked for the wrong one is told which is right
@@ -800,6 +825,11 @@ const ROUTES: &[Route] = &[
         operation: "set_review_model",
         method: "POST",
         path: "/jobs/:job_id/set_review_model",
+    },
+    Route {
+        operation: "set_tiers",
+        method: "POST",
+        path: "/jobs/:job_id/set_tiers",
     },
     Route {
         operation: "remove_allowed_command",

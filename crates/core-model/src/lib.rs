@@ -37,6 +37,10 @@ mod studio;
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
 };
+pub use job::{
+    branch_named, criterion_numbered, next_criterion_number, CriterionOrigin, IssueSource, Landing,
+    NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
+};
 pub use job::{collisions, under};
 pub use job::{
     handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AdvanceGate, AllowedCommand,
@@ -65,7 +69,8 @@ pub use job::{
 pub use job::{
     Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns,
     GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused, PlanTask,
-    Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan, WorkingWindow, PLAN_RECORDED,
+    Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels, WorkPlan,
+    WorkingWindow, PLAN_RECORDED,
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,

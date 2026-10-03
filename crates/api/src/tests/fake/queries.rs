@@ -816,6 +816,25 @@ impl Queries for FakeDaemon {
         Ok(ipc::MergeLines::default())
     }
 
+    async fn observe_land_check(
+        &self,
+        root: String,
+        branch: String,
+        check: String,
+    ) -> Result<crate::LandOutput, Refusal> {
+        let planted = self.land.lock().expect("not poisoned").clone();
+        match planted {
+            Some(land) if land.root == root && land.branch == branch && land.name == check => {
+                Ok(land)
+            }
+            _ => Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.unacceptable",
+                format!("no Check named `{check}` has a log for `{branch}`"),
+                run_id(),
+            ))),
+        }
+    }
+
     async fn search_files(
         &self,
         query: String,
@@ -823,6 +842,24 @@ impl Queries for FakeDaemon {
     ) -> Result<FilesFound, Refusal> {
         Ok(FilesFound {
             paths: shapes::files_found(&query),
+        })
+    }
+
+    async fn list_branches(
+        &self,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::Branches, Refusal> {
+        Ok(ipc::Branches {
+            branches: vec![
+                ipc::BranchRow {
+                    name: "main".to_string(),
+                    base: true,
+                },
+                ipc::BranchRow {
+                    name: "release/2.0".to_string(),
+                    base: false,
+                },
+            ],
         })
     }
 }

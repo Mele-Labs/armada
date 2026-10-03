@@ -291,7 +291,7 @@ async fn a_forge_that_would_not_answer_writes_nothing_and_forgets_nothing() {
 /// Everything this subscription has waiting, in order. `crate::tests::proposing`'s
 /// own helper, one file over: drained after the fact, and it stops at the
 /// first pause rather than at a count.
-async fn published(subscription: &mut api::Subscription) -> Vec<ipc::Event> {
+pub(crate) async fn published(subscription: &mut api::Subscription) -> Vec<ipc::Event> {
     let mut seen = Vec::new();
     while let Ok(Some(api::Next::Send(delivered))) =
         tokio::time::timeout(std::time::Duration::from_millis(200), subscription.next()).await
@@ -302,7 +302,7 @@ async fn published(subscription: &mut api::Subscription) -> Vec<ipc::Event> {
 }
 
 /// Every `job.remarks_changed` a subscription saw, by the Job it named.
-fn remarks_changed(seen: &[ipc::Event]) -> Vec<&ipc::JobId> {
+pub(crate) fn remarks_changed(seen: &[ipc::Event]) -> Vec<&ipc::JobId> {
     seen.iter()
         .filter_map(|event| match event {
             ipc::Event::JobRemarksChanged(changed) => Some(&changed.job_id),

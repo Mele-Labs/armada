@@ -314,13 +314,13 @@ export function App({ draft }: AppProps = {}) {
   useSurfaceKeys(goTo);
 
   // What this repository's Manifest declares, held open while the surface that
-  // draws it is showing **or the palette is up**. The palette lists one row
-  // per Check and Command off the same reading, so a read scoped to the
-  // surface alone would leave those rows missing everywhere a person would
-  // think to look for them.
+  // draws it is showing, **the palette is up** or a Studio is open, whose Run
+  // starts from it. Closing the palette over a Studio dropped the read and took
+  // that Run off (2 Oct 2026), so the one wish here names all three.
+  const studyingOne = studying && openStudio !== null;
   useEffect(() => {
-    watchCheckoutRunSheet(manifesting || palette.open);
-  }, [manifesting, palette.open]);
+    watchCheckoutRunSheet(manifesting || palette.open || studyingOne);
+  }, [manifesting, palette.open, studyingOne]);
 
   // Drift is the surface's own free read on opening, and the palette lists
   // nothing off it. Verify is not here: it is only ever pressed.

@@ -56,6 +56,7 @@ pub(super) fn a_job() -> Job {
                 criterion_id: CriterionId::new("c1"),
                 text: "the log reader stops one line later".into(),
                 source: CriterionSource::Check,
+                origin: core_model::CriterionOrigin::Unsaid,
             }],
             steps: vec![
                 StepSeed {

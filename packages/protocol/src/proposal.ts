@@ -14,6 +14,7 @@
 // every check green.
 
 import type { AttachmentRef, JobSummary } from "./protocol";
+import type { DispatchSettings } from "./approving";
 
 /**
  * What a person described, before anything has decided what it is. The request
@@ -49,6 +50,11 @@ export type JobRequest = {
    * that is decided.
    */
   attachments?: AttachmentRef[];
+  /**
+   * What a person set before dispatching. Since 23.8; absent is each decided
+   * elsewhere, and each still changes at the approval gate.
+   */
+  settings?: DispatchSettings;
 };
 
 /**

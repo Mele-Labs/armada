@@ -137,6 +137,7 @@ async fn a_request_carries_the_origin_of_whoever_sent_it() {
             request: A_REQUEST.to_string(),
             client_ref: None,
             attachments: Vec::new(),
+            settings: None,
         };
 
         let plan =

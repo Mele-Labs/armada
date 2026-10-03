@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronLeft, CornerUpRight, Eye, FileDiff, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Stamp, Terminal, VectorSquare, X } from "lucide-react";
+import { ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -509,8 +509,8 @@ export const ACTIONS: readonly Action[] = [
     kind: "Action",
     tier: "Contextual",
     verb: "Add a note",
-    icon: null,
-    iconAbsent: "undecided",
+    icon: StickyNote,
+    iconAbsent: null,
     shortcut: "N",
     scope: "open studio",
     destructive: false,
@@ -522,8 +522,8 @@ export const ACTIONS: readonly Action[] = [
     kind: "Action",
     tier: "Contextual",
     verb: "Add a link",
-    icon: null,
-    iconAbsent: "undecided",
+    icon: Link,
+    iconAbsent: null,
     shortcut: "V",
     scope: "open studio",
     destructive: false,
@@ -535,8 +535,8 @@ export const ACTIONS: readonly Action[] = [
     kind: "Action",
     tier: "Contextual",
     verb: "Add a sketch",
-    icon: null,
-    iconAbsent: "undecided",
+    icon: Shapes,
+    iconAbsent: null,
     shortcut: "S",
     scope: "open studio",
     destructive: false,
@@ -551,6 +551,19 @@ export const ACTIONS: readonly Action[] = [
     icon: VectorSquare,
     iconAbsent: null,
     shortcut: "Z",
+    scope: "open studio",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "start_studio_run",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Run",
+    icon: Zap,
+    iconAbsent: null,
+    shortcut: "R",
     scope: "open studio",
     destructive: false,
     confirms: false,

@@ -33,6 +33,9 @@
 /// How a Job meets a command its Drone was not granted, and what a person
 /// allowed it.
 mod allowing;
+/// What a person decides at a Job's approval gate, and the issue it came from.
+/// Spike 022, slice 4.
+mod approval;
 mod asking;
 mod attempt;
 /// A test broken on main, and the Job drafted to fix it. #999.
@@ -71,6 +74,8 @@ mod manifest_snapshot;
 mod migrations;
 /// The model a person chose for a Job's later steps.
 mod model_override;
+/// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
+mod model_per_task;
 /// The note a boundary is holding, and the column it waits in.
 mod note;
 mod numbering;
