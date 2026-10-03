@@ -19,6 +19,7 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
             Recorded {
                 group: None,
                 group_attempt: None,
+                via: Some(crate::Via::from_wire("http").expect("a door")),
                 seq: 1,
                 status: crate::JobStatus::from_wire("awaiting_approval").expect("a status"),
                 moved: Movement::Status(StatusMoved {
@@ -31,6 +32,7 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
             Recorded {
                 group: None,
                 group_attempt: None,
+                via: None,
                 seq: 2,
                 status: crate::JobStatus::from_wire("running").expect("a status"),
                 moved: Movement::Drone(DroneMoved {
@@ -44,6 +46,7 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
             Recorded {
                 group: None,
                 group_attempt: None,
+                via: None,
                 seq: 3,
                 status: crate::JobStatus::from_wire("running").expect("a status"),
                 moved: Movement::Step(StepMoved {
@@ -64,6 +67,11 @@ fn a_history_carries_all_three_shapes_and_names_each_one() {
     assert!(
         json.contains(r#""presence":"drone_spawned""#),
         "the registry's own spelling, not a second one: {json}"
+    );
+    assert_eq!(
+        json.matches(r#""via":"http""#).count(),
+        1,
+        "the door on the one row a request made, and absent on Fleet's own: {json}"
     );
     assert!(
         !json.contains(r#""reason":null"#),

@@ -93,6 +93,11 @@ on the Job. It is told no plan tool, because it is given none: Fleet marks the
 task. Spike 022, slice 1b, where `task_brief` moved from slice 3. Wording in
 section 5, *A task's Drone*.
 
+**Asked, in one line, what got in its way**, by the `in_the_way` field of the
+evidence tool and its description alone: the prompt says nothing more about
+it. It is optional and never evidence, and it feeds the Job's
+[retro](../concepts/retro.md).
+
 **Never told:** secrets, other Jobs' context or evidence, anything from a
 Manifest outside its own Job's set, the operator's own MCP servers.
 

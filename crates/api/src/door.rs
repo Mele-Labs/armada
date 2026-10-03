@@ -47,7 +47,11 @@ const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
 /// **Two rows, and they are the route table's own fact.** A path segment is
 /// visible in the path and a query is not, so this is the one thing about a
 /// route the door cannot read off [`SERVED`].
-const QUERIES: &[(&str, &[&str])] = &[("search_files", &["q"]), ("get_events_since", &["since"])];
+const QUERIES: &[(&str, &[&str])] = &[
+    ("search_files", &["q"]),
+    ("get_events_since", &["since"]),
+    ("list_lessons", &["most"]),
+];
 
 /// Every tool this door offers: the inventory's `agent_access` column, joined
 /// to the route table.
@@ -64,6 +68,11 @@ pub fn offered() -> Vec<Shape> {
 /// else. **An extension, never a header**: bytes on the wire cannot carry one.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct HelmCalled;
+
+/// Set on every call the door makes, Helm's or not, so the move it leads to
+/// says it came through the door. [`HelmCalled`]'s reason for an extension.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DoorCalled;
 
 fn shaped<'a>(rows: impl Iterator<Item = &'a Reachable>) -> Vec<Shape> {
     rows.map(|row| {
@@ -132,6 +141,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "stop_checkout_run",
     "undo_checkout_run",
     "start_checkout_verify",
+    "list_lessons",
 ];
 
 /// Set on every call the door makes, so a `:job_id` resolves inside the
@@ -306,6 +316,7 @@ impl<D: Queries> Doorway<D> {
         if by_helm {
             request.extensions_mut().insert(HelmCalled);
         }
+        request.extensions_mut().insert(DoorCalled);
         request
             .extensions_mut()
             .insert(Scoped(ManifestId::carried(scope.named())));

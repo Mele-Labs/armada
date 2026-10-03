@@ -28,6 +28,7 @@ mod admitting;
 mod commands;
 mod conversing;
 mod queries;
+mod retros;
 mod studios;
 mod tools;
 
@@ -35,6 +36,7 @@ pub use admitting::{offerable, Admitting, HelmReach, Redirector};
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use queries::{FramePart, FrameSpan, Queries};
+pub use retros::Retros;
 pub use studios::Studios;
 pub use tools::{PermissionAnswer, Tools};
 
@@ -71,10 +73,13 @@ use ipc::WireError;
 ///
 /// [`Admitting`] answers for a caller rather than for a Job or a message, and
 /// its module says why the answer is placed rather than asked for. [`Studios`]
-/// is a sixth, for a reason its own module gives.
-pub trait Daemon: Queries + Commands + Tools + Conversations + Admitting + Studios {}
+/// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
+pub trait Daemon:
+    Queries + Commands + Tools + Conversations + Admitting + Studios + Retros
+{
+}
 
-impl<D: Queries + Commands + Tools + Conversations + Admitting + Studios> Daemon for D {}
+impl<D: Queries + Commands + Tools + Conversations + Admitting + Studios + Retros> Daemon for D {}
 
 /// A request the daemon would not serve.
 ///

@@ -114,6 +114,8 @@ mod resolved_policies;
 mod resolving;
 mod retain;
 mod retrace;
+/// A Job's retro, the door each move came through and a Drone's notes. V100.
+mod retro;
 mod reuse;
 /// The review Fleet composed at a Job's gate — the one builder's text, kept
 /// beside the Job rather than only in the pull request it may also carry.
@@ -174,6 +176,7 @@ pub use read::{Loaded, RowIdentity, StatusRepair, UnreadableRow};
 pub use report::Report;
 pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
+pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
