@@ -30,18 +30,21 @@ const ROWS: LessonRow[] = [
     id: "3-0",
     ...JOB_3,
     who: "fleet",
+    landsIn: "armada",
     statement: "The gate failed out_of_bounds on armada.yml, a line that came in with an upstream commit.",
   },
   {
     id: "3-1",
     ...JOB_3,
     who: "drone",
+    landsIn: "manifest",
     statement: "The Drone handed in without ever seeing screens_test pass.",
   },
   {
     id: "3-2",
     ...JOB_3,
     who: "owner",
+    landsIn: "kit",
     statement: "The step waited 19 minutes on a command you were asked to allow.",
   },
   {
@@ -65,8 +68,17 @@ export const Listed: Story = {
   args: { rows: ROWS },
   play: async ({ canvas, args }) => {
     // A bare mark, named as an image and on hover, and by no word in the row.
+    // Where the fix lands sits beside whose way; Job 2's item predates it and has none.
     const marks = canvas.getAllByRole("img").map((one) => one.getAttribute("aria-label"));
-    await expect(marks).toEqual(["Fleet", "Drone", "You", "You"]);
+    await expect(marks).toEqual([
+      "Fleet",
+      "Lands in Armada",
+      "Drone",
+      "Lands in the Manifest",
+      "You",
+      "Lands in Kit",
+      "You",
+    ]);
     await userEvent.click(canvas.getByText(/handed in without ever seeing/));
     await expect(args.onOpen).toHaveBeenCalledWith("01K6Q3JOB3");
     // The keyboard reaches a row and opens it the same way.

@@ -2,11 +2,12 @@
 // Retro sheet. The Job is `featureAfterAgreeing`'s — the plan refused on
 // `addresses_the_request` and the refusal agreed with — under Job 3's handle.
 //
-// **The retro is in Job 3's shape, written by hand**: an out_of_bounds failure
-// on armada.yml blamed on an upstream commit, the Judge's `not_met`, the owner
-// agreeing and then restarting, Helm's acts through `curl`, a command he was
-// asked to allow, and a Drone saying it never saw its test pass. The words are
-// stand-ins for what the retro call wrote; the shape is `crates/ipc/src/retro.rs`.
+// **The retro is in Job 3's shape, written by hand**, each item where its fix
+// lands (owner, 3 Oct 2026). Armada: the gate measured from local main, red
+// ruled without confirming, Helm's acts through `curl`. Kit: the command T4 had
+// to ask to allow. Manifest: desktop_test's fixed 15 s timeouts, and a docs
+// edit setting off every Rust test. Job 2's retro predates `lands_in`. The words
+// are stand-ins for what the retro call wrote; the shape is `crates/ipc/src/retro.rs`.
 
 import type { JobRetro, Lesson } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -41,33 +42,40 @@ export function job3Retro(jobId: string): JobRetro {
     items: [
       {
         who: "fleet",
-        statement: "The gate failed out_of_bounds on armada.yml, a line that came in with an upstream commit.",
+        lands_in: "armada",
+        statement:
+          "The gate measured the diff from local main, so out_of_bounds on armada.yml blamed this Job for an upstream commit.",
         evidence: ["check:1"],
       },
       {
         who: "drone",
-        statement: "The plan was refused on addresses_the_request for a documentation task nobody asked for.",
-        evidence: ["not_met:1"],
+        lands_in: "armada",
+        statement: "The Judge ruled addresses_the_request red without confirming what the request asked for.",
+        evidence: ["not_met:1", "act:1", "restart:1"],
       },
       {
         who: "owner",
-        statement: "You agreed with the refusal, then restarted the step.",
-        evidence: ["act:1", "restart:1"],
-      },
-      {
-        who: "owner",
+        lands_in: "armada",
         statement: "Helm restarted the step and re-ran the Checks with curl, so neither reads as your press.",
         evidence: ["act:2", "act:3"],
       },
       {
         who: "owner",
-        statement: "The step waited 19 minutes on a command you were asked to allow.",
+        lands_in: "kit",
+        statement: "T4 had to ask you to allow a vitest command, and the step waited 19 minutes for the answer.",
         evidence: ["asked:1", "waited:1"],
       },
       {
         who: "drone",
-        statement: "The Drone handed in without ever seeing screens_test pass.",
+        lands_in: "manifest",
+        statement: "desktop_test's fixed 15 s timeouts ran out under load, so the Drone never saw it pass.",
         evidence: ["said:1", "note:1"],
+      },
+      {
+        who: "owner",
+        lands_in: "manifest",
+        statement: "A docs edit set off every Rust test.",
+        evidence: ["check:2"],
       },
     ],
     record: {
@@ -81,6 +89,15 @@ export function job3Retro(jobId: string): JobRetro {
           run: "gate",
           expected: "Only the paths the plan names change",
           produced: "armada.yml changed; the line came in with 4e1c2a9 on main",
+        },
+        {
+          cite: "check:2",
+          at: "2026-10-02T21:31:00.000Z",
+          step: "implement",
+          attempt: 2,
+          name: "rust_test",
+          run: "gate",
+          produced: "every Rust test ran for a change to docs/concepts/retro.md alone",
         },
       ],
       not_met: [
@@ -133,11 +150,11 @@ export function job3Retro(jobId: string): JobRetro {
           cite: "said:1",
           at: "2026-10-02T21:40:00.000Z",
           step: "implement",
-          said: "I never saw screens_test pass locally; the run was cut off before it finished.",
+          said: "I never saw desktop_test pass; its 15 s timeouts ran out before the tests did.",
         },
       ],
       notes: [
-        { cite: "note:1", at: "2026-10-02T21:39:00.000Z", step: "implement", said: "screens_test timed out under load." },
+        { cite: "note:1", at: "2026-10-02T21:39:00.000Z", step: "implement", said: "desktop_test timed out under load." },
       ],
     },
     annotations: [

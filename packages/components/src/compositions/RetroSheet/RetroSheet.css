@@ -44,7 +44,12 @@
   min-width: 0;
 }
 
-.armada-retro__item > .armada-tooltip {
+/* Whose way, then where the fix lands, on the statement's first line. */
+.armada-retro__marks {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
   padding-block-start: var(--space-1);
 }
 

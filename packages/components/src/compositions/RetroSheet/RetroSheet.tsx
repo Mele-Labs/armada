@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
+import { LandsMark, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, type Who } from "../WhoMark/WhoMark";
 
 /** One row of the Job's record an item cites, resolved from its `cite`. */
@@ -22,6 +23,8 @@ export type RetroCite = {
 /** One thing that got in the way. */
 export type RetroSheetItem = {
   who: Who;
+  /** Where its fix lands. Absent on an item stored before that was written. */
+  landsIn?: Lands;
   statement: string;
   /** The rows the record holds for it. A cite the record does not hold is left out. */
   cites: readonly RetroCite[];
@@ -111,7 +114,10 @@ function Body({
         <ol className="armada-retro__items">
           {items.map((item, at) => (
             <li key={at} className="armada-retro__item">
-              <WhoMark who={item.who} />
+              <span className="armada-retro__marks">
+                <WhoMark who={item.who} />
+                {item.landsIn === undefined ? null : <LandsMark lands={item.landsIn} />}
+              </span>
               <div className="armada-retro__said">
                 <p className="armada-retro__statement">{item.statement}</p>
                 {item.cites.length === 0 ? null : (

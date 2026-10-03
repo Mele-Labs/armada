@@ -32,6 +32,7 @@ type Story = StoryObj<typeof RetroSheet>;
 const ITEMS: RetroSheetItem[] = [
   {
     who: "fleet",
+    landsIn: "armada",
     statement: "The gate failed out_of_bounds on armada.yml, a line that came in with an upstream commit.",
     cites: [
       {
@@ -97,6 +98,8 @@ export const Written: Story = {
     await expect(buttons.map((one) => one.textContent)).toEqual([expect.stringContaining("Close")]);
     await expect(canvas.getByText("out_of_bounds")).toBeVisible();
     await expect(canvas.getByRole("region", { name: "Notes" })).toBeVisible();
+    // Where the fix lands, beside whose way, on the item that says.
+    await expect(canvas.getByRole("img", { name: "Lands in Armada" })).toBeVisible();
   },
 };
 

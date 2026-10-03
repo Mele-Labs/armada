@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type {
   JobRetro,
+  LandsIn,
   Lesson,
   LessonsRead,
   RecordAct,
@@ -125,6 +126,7 @@ export function itemsOf(retro: JobRetro): RetroSheetItem[] {
   const rows = rowsOf(retro.record);
   return (retro.items ?? []).map((item) => ({
     who: item.who,
+    ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
     statement: item.statement,
     cites: item.evidence.flatMap((cite) => {
       const row = rows.get(cite);
@@ -169,6 +171,7 @@ export function lessonRowsOf(lessons: readonly Lesson[]): LessonRow[] {
       id: `${lesson.job_id}:${at}`,
       jobId: lesson.job_id,
       who: lesson.who,
+      ...(lesson.lands_in === undefined ? {} : { landsIn: lesson.lands_in }),
       statement: lesson.statement,
       job: jobOf(lesson.handle),
       jobExact: lesson.handle,
@@ -176,6 +179,31 @@ export function lessonRowsOf(lessons: readonly Lesson[]): LessonRow[] {
       whenExact: lesson.at,
     };
   });
+}
+
+/** The Lessons page's filter: every item, or those whose fix lands in one place. */
+export type LessonsTab = "all" | LandsIn;
+
+/** The tabs, in the order the owner named them (3 Oct 2026). No counts: hard rule 7. */
+export const LESSONS_TABS: readonly { id: LessonsTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "armada", label: "Armada" },
+  { id: "kit", label: "Kit" },
+  { id: "manifest", label: "Manifest" },
+];
+
+/** A remembered tab read back. Anything not a tab — nothing stored, an old value — is All. */
+export function lessonsTabNamed(value: string | null): LessonsTab {
+  return LESSONS_TABS.find((one) => one.id === value)?.id ?? "all";
+}
+
+/**
+ * The rows under one tab, still newest first. **Filtered here rather than
+ * with `?lands_in=`**: the page holds one read, so a tab press asks Fleet for
+ * nothing. A row stored before `lands_in` was written is under All alone.
+ */
+export function underTab(rows: readonly LessonRow[], tab: LessonsTab): LessonRow[] {
+  return tab === "all" ? [...rows] : rows.filter((row) => row.landsIn === tab);
 }
 
 /**

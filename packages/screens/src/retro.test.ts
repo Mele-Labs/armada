@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { JobRetro, Lesson } from "@armada/protocol";
 
 import { absoluteOf } from "./duration";
-import { itemsOf, lessonRowsOf, notesOf, statusOf } from "./retro";
+import { itemsOf, lessonRowsOf, lessonsTabNamed, notesOf, statusOf, underTab, type LessonsTab } from "./retro";
 
 const AT = "2026-10-02T21:12:00.000Z";
 
@@ -108,4 +108,49 @@ it("lists each retro item against its Job by number, with the handle on hover", 
       whenExact: AT,
     },
   ]);
+});
+
+describe("where a retro item's fix lands", () => {
+  const landed: JobRetro = {
+    job_id: "j",
+    state: "written",
+    record: {},
+    items: [
+      { who: "fleet", statement: "A", evidence: [], lands_in: "armada" },
+      { who: "owner", statement: "B", evidence: [] },
+    ],
+  };
+
+  it("rides each item, and is left out of one stored before it was written", () => {
+    expect(itemsOf(landed).map((one) => one.landsIn)).toEqual(["armada", undefined]);
+    expect("landsIn" in (itemsOf(landed)[1] ?? {})).toBe(false);
+  });
+
+  it("rides each lesson row the same way", () => {
+    const lessons: Lesson[] = [
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "kit" },
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [] },
+    ];
+    expect(lessonRowsOf(lessons).map((one) => one.landsIn)).toEqual(["kit", undefined]);
+  });
+
+  it("narrows the retro lessons to one place, and keeps a row with none under All alone", () => {
+    const rows = lessonRowsOf([
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "armada" },
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [], lands_in: "kit" },
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "C", evidence: [], lands_in: "manifest" },
+      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "D", evidence: [] },
+    ]);
+    const said = (tab: LessonsTab) => underTab(rows, tab).map((one) => one.statement);
+    expect(said("all")).toEqual(["A", "B", "C", "D"]);
+    expect(said("armada")).toEqual(["A"]);
+    expect(said("kit")).toEqual(["B"]);
+    expect(said("manifest")).toEqual(["C"]);
+  });
+
+  it("reads a remembered retro lessons tab back, and anything else as All", () => {
+    expect(lessonsTabNamed("kit")).toBe("kit");
+    expect(lessonsTabNamed("everything")).toBe("all");
+    expect(lessonsTabNamed(null)).toBe("all");
+  });
 });

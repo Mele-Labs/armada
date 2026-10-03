@@ -99,6 +99,13 @@
   reserved = "The Kit surface only. Never a Job, a workspace, a package or an export, and never a generic settings or configuration glyph — that is `settings`, and a Manifest is `file-cog`."
   notes = "Added 2026-09-18 with Kit's rail row (#1275), after the owner settled that Settings keeps the cog, and confirmed by him the same day. Kit is the tool set a person brings from machine to machine — skills, MCP servers, plugins, agent files, commands — and a case with a handle is that object rather than a second way of drawing configuration. The only Navigation glyph with a handle standing above its body: clipboard-list is an upright board with a clip on it, presentation a board on legs, layout-dashboard a grid of panes, hard-drive a horizontal vessel, and bell, stethoscope, file-cog and settings are each an outline with something drawn on or inside it. Nothing else here breaks its own top edge, which is what tells it apart at 16px and would at 12. Refused before it was proposed: `package` and `archive` are both lidded boxes and `archive`'s own row claims that outline as unique in the badge set; `backpack` carries straps and pockets, which is the interior detail rule 3 refuses; `puzzle` reads as one extension rather than a set, and would be the wrong promise on a surface that is to hold skills and commands too; `wrench` is reserved to job_status.awaiting_repair by its own row, which names settings as the collision that reservation exists to refuse."
 
+  [[icons.briefcase.usage]]
+    means = "A retro item whose fix lands in the Kit"
+    group = "Retro"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in`, `docs/concepts/retro.md`), the owner's three places. Kit is the tool set a person brings — Skills, MCP, sub-agents, the allowlist, models — and this is Kit's own glyph, so the mark says the fix lands on that surface's subject rather than borrowing it for a second meaning. 12px, --fg-muted, beside the who mark. Tooltip: Lands in Kit."
+
 [icons.check]
   means = "A bare checkmark"
   group = "Job state"
@@ -244,6 +251,13 @@
     means = "Manifest"
     group = "Git and config"
     size = "12px"
+
+  [[icons.file-cog.usage]]
+    means = "A retro item whose fix lands in the Manifest"
+    group = "Retro"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in = manifest`): the repository the Job worked on, its armada.yml Checks, its tests and its code, which the owner named Manifest. The Manifest's own glyph, so the tab and the mark say one word. `folder-git-2`, the repository, was the first candidate and is refused only because its component name carries a vendor literal the gate refuses outside adapters. 12px, --fg-muted. Tooltip: Lands in the Manifest."
 
 [icons.file]
   means = "A log — the plain page outline"
@@ -1056,6 +1070,14 @@
   status = "Proposed"
   reserved = "The Lessons surface only. Never a guide, a tutorial or help, which is `book-open`, and never a proposal or a suggestion: nothing on Lessons proposes."
   notes = "Minted 3 Oct 2026 with the Lessons rail row (`docs/concepts/retro.md`), the eleventh in rail order, under Work. What a person reads there is what got in the way across Jobs, and learning from it is theirs to do. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine; a flat diamond over a band is none of them. Refused: `lightbulb`, which reads as an idea offered, and the page offers none; `book-open`, Guides'; `scroll-text`, a workflow; `history`, a clock face, which the set holds one of by decision."
+
+[icons.app-window]
+  means = "A window with its title bar — an application"
+  group = "Retro"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A retro item whose fix lands in Armada itself, Fleet or Bridge, and nowhere else. Never a window, a sheet or a surface of Bridge's, and never Fleet as whose way an item got in, which is `server`."
+  notes = "Minted 3 Oct 2026 with where a retro item's fix lands (`lands_in = armada`), the owner's three places. Armada is the product, and an application window is the plainest drawing of one. **The objection to expect is that Fleet has no window**: the place is Fleet or Bridge, and a mark for the product had to cover both. Refused: `armada-mark`, whose reservation is absolute and keeps it out of rows; `server`, already whose way for Fleet, which would draw one glyph twice on a row saying two things; `wrench`, reserved to awaiting_repair; `settings`, configuration. Tooltip: Lands in Armada."
 
 [conventions.record_kind_mark]
   glyphs = ["box", "file-check", "file-diff", "shield", "scale", "bot", "list-todo", "flask-conical"]

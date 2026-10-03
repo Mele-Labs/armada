@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 
 import { Table, TableBody, TableCell, TableRow } from "../../primitives/Table/Table";
+import { LandsMark, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, type Who } from "../WhoMark/WhoMark";
 
 /** One item of one Job's retro, as the Lessons page lists it. */
@@ -9,6 +10,8 @@ export type LessonRow = {
   id: string;
   jobId: string;
   who: Who;
+  /** Where its fix lands. Absent on an item stored before that was written. */
+  landsIn?: Lands;
   statement: string;
   /** The Job, as a person reads it — `Job 3`. Its handle rides the cell's title. */
   job: string;
@@ -60,7 +63,10 @@ export function LessonList({ rows, openJob = null, onOpen }: LessonListProps) {
               }}
             >
               <TableCell className="armada-lessons__who">
-                <WhoMark who={row.who} />
+                <span className="armada-lessons__marks">
+                  <WhoMark who={row.who} />
+                  {row.landsIn === undefined ? null : <LandsMark lands={row.landsIn} />}
+                </span>
               </TableCell>
               <TableCell variant="primary" className="armada-lessons__statement">
                 {row.statement}

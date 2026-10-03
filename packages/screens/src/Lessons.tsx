@@ -7,15 +7,18 @@
 
 import { useState } from "react";
 
-import { Alert, LessonList, RetroSheet } from "@armada/components";
+import { Alert, LessonList, RetroSheet, Tabs } from "@armada/components";
 
 import { said } from "./copy";
 import {
   itemsOf,
+  LESSONS_TABS,
   lessonRowsOf,
   notesOf,
   statusOf,
+  underTab,
   useReadOnFocus,
+  type LessonsTab,
   type ReadLessons,
   type ReadRetro,
 } from "./retro";
@@ -30,12 +33,20 @@ export type LessonsProps = {
   repository: string | null;
   /** The window is at `--window-floor`. */
   floor: boolean;
+  /**
+   * Which place the list is narrowed to, and the press that moves it. **The
+   * host's**, so it can be remembered for the viewer; absent is All.
+   */
+  tab?: LessonsTab;
+  onTab?: (tab: LessonsTab) => void;
 };
 
-export function Lessons({ onReadLessons, onReadRetro, repository, floor }: LessonsProps) {
+export function Lessons({ onReadLessons, onReadRetro, repository, floor, tab, onTab }: LessonsProps) {
+  const [held, setHeld] = useState<LessonsTab>("all");
+  const showing = tab ?? held;
   const read = useReadOnFocus(onReadLessons, repository ?? "");
   const [open, setOpen] = useState<{ jobId: string; job: string } | null>(null);
-  const rows = read?.ok === true ? lessonRowsOf(read.lessons) : [];
+  const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing);
 
   return (
     <div className="armada-screen__overview">
@@ -44,15 +55,27 @@ export function Lessons({ onReadLessons, onReadRetro, repository, floor }: Lesso
           {said(read.outcome)}
         </Alert>
       ) : (
-        // Before the read answers, and with nothing written, nothing is drawn.
-        <LessonList
-          rows={rows}
-          openJob={open?.jobId ?? null}
-          onOpen={(jobId) => {
-            const row = rows.find((one) => one.jobId === jobId);
-            setOpen({ jobId, job: row?.job ?? jobId });
-          }}
-        />
+        <>
+          {/* Where the fix lands, one place a tab. No count on any of them. */}
+          <Tabs
+            items={[...LESSONS_TABS]}
+            value={showing}
+            onChange={(id) => {
+              const next = id as LessonsTab;
+              setHeld(next);
+              onTab?.(next);
+            }}
+          />
+          {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
+          <LessonList
+            rows={rows}
+            openJob={open?.jobId ?? null}
+            onOpen={(jobId) => {
+              const row = rows.find((one) => one.jobId === jobId);
+              setOpen({ jobId, job: row?.job ?? jobId });
+            }}
+          />
+        </>
       )}
       {open === null ? null : (
         <JobRetroSheet

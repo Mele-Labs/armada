@@ -14,6 +14,7 @@ const REMEMBERED = [
   "armada.bridge.guide-list-width",
   "armada.bridge.left-collapsed",
   "armada.bridge.left-width",
+  "armada.bridge.lessons-tab",
   "armada.bridge.panels-open",
   "armada.bridge.plan-view",
   "armada.bridge.sheet-width",

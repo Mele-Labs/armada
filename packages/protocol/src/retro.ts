@@ -9,11 +9,20 @@ export type Whose = "drone" | "owner" | "fleet";
 /** Where a Job's retro stands. */
 export type RetroState = "pending" | "written" | "failed" | "skipped";
 
+/**
+ * Where an item's fix lands: Armada itself (Fleet or Bridge), the Kit (Skills,
+ * MCP, sub-agents, the allowlist, models), or the Manifest's repository (its
+ * Checks, tests and code). Exactly one per item.
+ */
+export type LandsIn = "armada" | "kit" | "manifest";
+
 /** One thing that got in the way. `evidence` names rows of the record by `cite`. */
 export type RetroItem = {
   who: Whose;
   statement: string;
   evidence: string[];
+  /** Absent only on a retro stored before `lands_in` was written. */
+  lands_in?: LandsIn;
 };
 
 /** A tool call the Drone was refused, with what it tried. */
@@ -129,9 +138,11 @@ export type Lesson = {
   who: Whose;
   statement: string;
   evidence: string[];
+  /** Absent only on a retro stored before `lands_in` was written. */
+  lands_in?: LandsIn;
 };
 
-/** `list_lessons`: `GET /lessons?manifest_id=&most=`, newest retro first. */
+/** `list_lessons`: `GET /lessons?manifest_id=&most=&lands_in=`, newest retro first. */
 export type Lessons = {
   lessons: Lesson[];
 };

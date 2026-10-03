@@ -7,6 +7,7 @@ import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { readLessons, readRetro } from "./commands";
+import { useLessonsTab } from "./remembered-views";
 
 export function LessonsSurface({
   repository,
@@ -18,6 +19,8 @@ export function LessonsSurface({
   onCopied: (value: string) => void;
 }) {
   const floor = useAtFloor();
+  // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
+  const [tab, setTab] = useLessonsTab();
   return (
     <Boundary region="Lessons" bridge={bridge} onCopied={onCopied}>
       {/* Keyed by the pick, because main narrows the read to it. */}
@@ -27,6 +30,8 @@ export function LessonsSurface({
         onReadRetro={readRetro}
         repository={repository}
         floor={floor}
+        tab={tab}
+        onTab={setTab}
       />
     </Boundary>
   );

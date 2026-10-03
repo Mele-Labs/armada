@@ -116,12 +116,13 @@ where none is open. `packages/screens/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All. A row opens its Job's retro |
+| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. A row opens its Job's retro |
 | **Retro**, in the head of a Job's Record | The same sheet, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
-nothing on `/events` says a retro was written. Whose way an item got in is a
-mark named by its tooltip, and nothing on either surface acts.
+nothing on `/events` says a retro was written. Whose way an item got in, and
+where its fix lands, are marks named by their tooltips, and nothing on either
+surface acts.
 
 ## Where it is served
 
