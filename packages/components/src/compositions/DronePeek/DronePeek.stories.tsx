@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn } from "storybook/test";
 import type { DroneTurn } from "../DroneTurns/DroneTurns";
 import { DronePeek } from "./DronePeek";
 
@@ -47,7 +47,6 @@ export const Running: Story = {
     ranFor: "2m 11s",
     turns: TURNS,
     live: true,
-    emptyNote: "This Drone has written nothing yet.",
     onOpen: fn(),
     message: MESSAGE,
   },
@@ -65,7 +64,10 @@ export const Failed: Story = {
   },
 };
 
-/** Nothing written yet, and no box: the caller had no Drone to reach. */
+/**
+ * Nothing written yet, and no box: the caller had no Drone to reach. **The
+ * transcript draws nothing** — an empty slot stays empty, never a sentence.
+ */
 export const NothingWritten: Story = {
   args: {
     title: "Drone on T7",
@@ -73,7 +75,11 @@ export const NothingWritten: Story = {
     stateSays: "Running",
     turns: [],
     live: true,
-    emptyNote: "This Drone has written nothing yet.",
     onOpen: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Drone on T7")).toBeVisible();
+    await expect(canvas.queryByRole("note")).toBeNull();
+    await expect(canvas.queryByText(/nothing/i)).toBeNull();
   },
 };

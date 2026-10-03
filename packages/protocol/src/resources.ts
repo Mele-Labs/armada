@@ -54,10 +54,10 @@ export type JobProcess = {
   running_for: string;
   /**
    * A Drone's own process, rather than something it started. One row per
-   * live Drone carries it, so *Drones running* is how many do. Since 23.9.
+   * live Drone carries it, so *Drones running* is how many do. Since 23.10.
    */
   recorded: boolean;
-  /** The Drone whose process this is, or whose process started it. Since 23.9. */
+  /** The Drone whose process this is, or whose process started it. Since 23.10. */
   drone_id?: string;
 };
 
@@ -85,7 +85,7 @@ export type JobResources = {
   held: Held;
   /**
    * Each live Drone's process and everything descended from it, the kept
-   * Drone's first, then each Drone beside it. Since 23.9.
+   * Drone's first, then each Drone beside it. Since 23.10.
    *
    * **Empty is loud.** `held` of `running` with nothing here is a process that
    * answered a liveness probe and holds nothing.

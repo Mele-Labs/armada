@@ -16,7 +16,17 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
-import { groupsAdding, groupsDropping, nextTaskId, planAdding, planDropping } from "./plan-fleet";
+import {
+  groupsAdding,
+  groupsDropping,
+  groupsMoving,
+  groupsRestarting,
+  nextTaskId,
+  planAdding,
+  planDropping,
+  planMoving,
+  planRestarting,
+} from "./plan-fleet";
 
 const OK: Outcome = { ok: true };
 
@@ -144,18 +154,37 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // takes no second reading, so the row stays where Fleet's would drop.
     killProcess: async () => OK,
     killProcesses: async () => OK,
-    // A failed task's acts, #250, #1656 and #1657 — not served by Fleet yet, so
+    // A failed task's acts, #250 and #1657 — not served by Fleet yet, so
     // answered as Fleet's router answers a route it has none for: a bare 404,
     // through the parser main's `ask` uses.
     pilotTask: async (jobId, taskId) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/pilot`) }),
-    restartTask: async (jobId, taskId) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/restart`) }),
+    // Served since 23.4 (#1656): the failed task is worked again.
+    restartTask: async (jobId, taskId) => {
+      const failedInDraft =
+        draft?.groups?.some((group) => group.tasks.some((task) => task.id === taskId && task.state === "failed")) ??
+        false;
+      const answer = editPlan(
+        jobId,
+        `/tasks/${taskId}/restart`,
+        (was) =>
+          planRestarting(was, taskId, failedInDraft, state.watched.state === "read" ? state.watched.detail.steps : []),
+        (was) => groupsRestarting(was, taskId),
+      );
+      return answer.ok ? OK : answer.outcome;
+    },
     editTask: async (jobId, taskId, edit) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
-    // A drop on the plan, #1685 — answered as the edit is.
-    movePlan: async (jobId, move) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, "/plan/move"), sent: sentOf(move) }),
+    // A drop on the plan, served since 23.4 (#1685): placed by `after`.
+    movePlan: async (jobId, move) => {
+      const answer = editPlan(
+        jobId,
+        "/plan/move",
+        (was) => planMoving(was, move),
+        (was) => groupsMoving(was, move),
+      );
+      return answer.ok ? OK : answer.outcome;
+    },
     // An Epic's plan approved with its wave, #1694 — answered as the move is.
     approveWave: async (jobId, wave) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, "/approve_wave"), sent: sentOf(wave) }),

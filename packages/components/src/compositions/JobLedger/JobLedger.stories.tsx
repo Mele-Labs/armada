@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { Box, FileCheck, FileDiff, ListTodo, Scale, Shield } from "lucide-react";
 import { useState } from "react";
 import { JobLedger, type JobLedgerRow } from "./JobLedger";
@@ -233,14 +233,22 @@ export const OneFamilyNoMarks: Story = {
   },
 };
 
-/** A filter that holds nothing. Never a bare menu over an empty frame. */
+/**
+ * A filter that holds nothing. **The menu stays and nothing is drawn under
+ * it**: no table, no sentence — an empty slot stays empty.
+ */
 export const NothingUnderThisFilter: Story = {
   args: {
     rows: [],
     filters: FILTERS,
     filter: "evidence",
     onFilter: () => undefined,
-    emptyNote: "No Drone has submitted evidence on this Job.",
+  },
+  play: async ({ canvas }) => {
+    const list = canvas.getByRole("region", { name: "What the Record holds" });
+    await expect(within(list).getByRole("button")).toBeVisible();
+    await expect(within(list).queryByRole("table")).toBeNull();
+    await expect(within(list).queryByRole("note")).toBeNull();
   },
 };
 

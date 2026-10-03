@@ -560,7 +560,7 @@ pub struct Closed {
 #[serde(rename_all = "snake_case")]
 pub enum Silence {
     /// The Job stopped writing: every Drone it had has finished and its
-    /// channel closed (since 23.9; before, the one Drone writing had). The
+    /// channel closed (since 23.10; before, the one Drone writing had). The
     /// history is complete.
     DroneEnded,
     /// Nothing was writing when this opened, so the history is all there is.

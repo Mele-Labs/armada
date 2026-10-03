@@ -13,7 +13,6 @@
 // 2026, in the decisions register.
 
 import {
-  Badge,
   Button,
   DestinationCard,
   FigureList,
@@ -22,14 +21,14 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  PlanGroupStateMark,
   Prose,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
@@ -64,10 +63,12 @@ export type OverviewPlan = {
     concurrent: boolean;
     /** What the drawing says to somebody who cannot see it. */
     shapeLabel: string;
-    /** The state's word, its status stem and its glyph, all `GROUP_STATE`'s. */
+    /**
+     * Where it stands, drawn as Plan's views draw it: `GROUP_STATE`'s glyph
+     * with a tooltip naming `said`, never a word (owner, 2 Oct 2026).
+     */
+    state: PlanGroupState;
     said: string;
-    status: string;
-    icon: LucideIcon;
   }[];
 };
 
@@ -93,6 +94,7 @@ export type OverviewBoardProps = {
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
   plan?: OverviewPlan;
+  /** The `*Absent` sentences: a fact or a failure. Absent draws nothing. */
   planAbsent?: string;
   pulse: Figure[];
   pulseAbsent?: string;
@@ -169,7 +171,7 @@ export function OverviewBoard({
           {brief === undefined && reading ? (
             <JobBriefSkeleton />
           ) : brief === undefined ? (
-            <p className="armada-overview-board__brief">{briefAbsent ?? "No brief was written."}</p>
+            briefAbsent === undefined ? null : <p className="armada-overview-board__brief">{briefAbsent}</p>
           ) : (
             // **The requester's words as the structure they carry.** An issue
             // body Fleet pastes in has headings, code and paragraphs, and drawn
@@ -190,9 +192,11 @@ export function OverviewBoard({
             // The canvas's own frame, empty, at the height the run lands at.
             <div className="armada-overview-board__canvas" role="status" aria-label="Reading the run" aria-busy />
           ) : workflow === undefined ? (
-            <p className="armada-inside__absent" role="note">
-              {workflowAbsent ?? "This Job's frozen workflow has no steps."}
-            </p>
+            workflowAbsent === undefined ? null : (
+              <p className="armada-inside__absent" role="note">
+                {workflowAbsent}
+              </p>
+            )
           ) : (
             <div className="armada-overview-board__canvas">
               <WorkflowCanvas
@@ -213,9 +217,11 @@ export function OverviewBoard({
           {plan === undefined && reading ? (
             <SkeletonText />
           ) : plan === undefined ? (
-            <p className="armada-inside__absent" role="note">
-              {planAbsent ?? "No plan has been recorded."}
-            </p>
+            planAbsent === undefined ? null : (
+              <p className="armada-inside__absent" role="note">
+                {planAbsent}
+              </p>
+            )
           ) : (
             <>
               {/* **What is being worked, then the plan's shape** — the owner
@@ -254,9 +260,7 @@ export function OverviewBoard({
                       concurrent={group.concurrent}
                       label={group.shapeLabel}
                     />
-                    <Badge status={group.status} icon={group.icon}>
-                      {group.said}
-                    </Badge>
+                    <PlanGroupStateMark state={group.state} says={group.said} />
                   </li>
                 ))}
               </ul>
@@ -270,9 +274,11 @@ export function OverviewBoard({
           {reading ? (
             <SkeletonText />
           ) : pulse.length === 0 ? (
-            <p className="armada-inside__absent" role="note">
-              {pulseAbsent ?? "Nothing has been read from this machine yet."}
-            </p>
+            pulseAbsent === undefined ? null : (
+              <p className="armada-inside__absent" role="note">
+                {pulseAbsent}
+              </p>
+            )
           ) : (
             <FigureList figures={pulse} column="fit" />
           )}

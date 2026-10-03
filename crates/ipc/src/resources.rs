@@ -74,11 +74,11 @@ pub struct JobProcess {
     pub running_for: String,
     /// Whether this is a process Fleet recorded, a Drone itself, rather than
     /// something descended from one. **One row per live Drone carries
-    /// `true`** — since 23.9 a Job may run several at once, and *Drones
+    /// `true`** — since 23.10 a Job may run several at once, and *Drones
     /// running* is how many rows do.
     pub recorded: bool,
     /// The Drone whose process this is, or whose process started it. Absent
-    /// from a Fleet older than 23.9, and where Fleet recorded the process
+    /// from a Fleet older than 23.10, and where Fleet recorded the process
     /// under no Drone it can name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drone_id: Option<DroneId>,

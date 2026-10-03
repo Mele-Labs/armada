@@ -356,6 +356,7 @@ worktrees a repository leases*.
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
+| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
@@ -394,7 +395,8 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 > work; a person may answer them days later.
 
 > **Rule.** A completed Job holds its slot until a person clears it, from the
-> Board's Clear or by deleting its record. The sweep never gives it back.
+> Board's Clear, by deleting its record, or with `armada clean --force`. The
+> sweep never gives it back.
 > Why: the owner's decision of 2 Oct 2026, so Show again and anything else
 > reading a finished Job's tree keeps working.
 
@@ -404,7 +406,7 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
 | `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
-| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
 > held by another, given back, or gone is escalated as `no_worktree`, naming
@@ -424,7 +426,9 @@ holds its slot, and for any other end only while the pool kept it.
 **Completed Jobs nobody clears can fill the pool.** With every slot held, the
 next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
 --status` names the `done` slots. Clear the finished Jobs on the Board, which
-gives each slot back, or `armada worktree release <path>` one by hand.
+gives each slot back, `armada worktree release <path>` one by hand, or
+`armada clean --force` every one that is clean and landed. A plain `armada
+clean` names them and leaves them.
 
 ## Ports
 

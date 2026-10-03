@@ -274,8 +274,10 @@ test("a refused checkout cancels that row's forget, in the same act", async () =
 test("what fleet takes on its own is drawn, and offers nothing", async () => {
   opened([held({ job_id: "a", job_title: "Already safe" })]);
 
-  await expect.element(page.getByText("Nothing is waiting on you")).toBeInTheDocument();
   await expect.element(page.getByText("Already safe")).toBeInTheDocument();
+  // Nothing waiting on a person draws nothing: no card and no sentence.
+  expect(page.getByText("Waiting on you").query()).toBeNull();
+  expect(page.getByText("Nothing is waiting on you").query()).toBeNull();
   expect(page.getByRole("checkbox").elements()).toHaveLength(0);
 });
 

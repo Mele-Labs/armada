@@ -19,7 +19,7 @@ use std::path::Path;
 
 use adapters::{BranchGone, WorktreeGone};
 
-use crate::clean::{Cleaned, FileGone, RecordOutcome};
+use crate::clean::{Cleaned, FileGone, Holding, RecordOutcome};
 use crate::declared::{Ended, Ran, Reached};
 
 /// How `armada check --changed` says what it narrowed to, and how
@@ -54,8 +54,8 @@ pub fn ran(ran: &Ran, verb: &str) {
     match &ran.test {
         Some(test) if ran.matched_nothing() => println!(
             "{} has no test named `{test}`. Name it as the runner prints it: a Rust test by \
-             its function name or a path ending in it (`servers::a_span_holding_one_taken_port_is_not_free`), \
-             a vitest test by any part of its name",
+             its function name, a path ending in it (`servers::a_span_holding_one_taken_port_is_not_free`) \
+             or a module above it (`tests::servers`), a vitest test by any part of its name",
             ran.name
         ),
         Some(test) => match checks_runner::one_test_count(&ran.attempt.output) {
@@ -141,6 +141,7 @@ pub fn cleaned(cleaned: &Cleaned) {
         && cleaned.unclaimed.is_empty()
         && cleaned.unreadable.is_empty()
         && cleaned.uncommitted.is_empty()
+        && cleaned.held.is_empty()
         && cleaned.bases.is_empty()
     {
         println!("\nno Jobs and no worktrees — there was nothing to give back");
@@ -149,6 +150,7 @@ pub fn cleaned(cleaned: &Cleaned) {
     // on. The uncommitted work first: it is the only thing here that exists
     // nowhere else at all.
     work_kept(cleaned);
+    slots_held(cleaned);
     branches_left(cleaned);
     for fault in &cleaned.faults {
         eprintln!("  {fault}");
@@ -180,6 +182,39 @@ fn work_kept(cleaned: &Cleaned) {
         "Commit or discard them there, then run this again. `armada clean \
          --force` removes them instead, and what is in them with them."
     );
+}
+
+/// The pool slots Jobs still hold, by which Job and why.
+///
+/// **Each with its own way out**, because the four reasons have different ones
+/// and the wrong one is a person waiting on a Job that will never let go.
+fn slots_held(cleaned: &Cleaned) {
+    if cleaned.held.is_empty() {
+        return;
+    }
+    println!("\nthese worktree slots are still held, and their branches and Jobs with them:");
+    for held in &cleaned.held {
+        println!("  slot-{} — {} — {}", held.slot, held.job_id, held.title);
+        println!("    {}", held.path);
+        println!("    {}", holding(&held.why));
+    }
+}
+
+fn holding(why: &Holding) -> String {
+    match why {
+        Holding::Live => String::from(
+            "its Job has not ended, so it is the Job's work in progress and nothing here touches it",
+        ),
+        Holding::Completed => String::from(
+            "its Job completed and holds it until cleared. Clear the Job on the Board, \
+             or `armada clean --force` gives it back",
+        ),
+        Holding::Kept(why) => format!(
+            "its Job ended and the slot was kept: {why}. Once that is fixed, \
+             `armada clean --force` gives it back"
+        ),
+        Holding::Refused(why) => format!("not given back: {why}"),
+    }
 }
 
 /// The branches that are still there, and what to do about each.

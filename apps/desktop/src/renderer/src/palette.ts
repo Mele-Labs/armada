@@ -34,10 +34,14 @@
 // are not: nothing serves an attestation, nothing pilots a job, and observing
 // is automatic on an open Job rather than an act.
 
+import type { StudioNodeByHandKind } from "@armada/components";
 import type { PaletteChoice } from "@armada/shell";
 
 /** What the palette says when the act needs a Job and none is under the cursor. */
 const NO_JOB = "no job focused";
+
+/** What the palette says when the act is on a Studio's rail and no Studio is open. */
+const NO_STUDIO = "open a Studio first";
 
 /** What the palette says when the act reads from or sends to Fleet and nothing is connected. */
 export const FLEET_DOWN = "Fleet is not connected";
@@ -75,6 +79,8 @@ export function dormantIn(where: {
    * no Studio's rail drawn — `@armada/screens`' `useStudioRunOff`.
    */
   studioRun?: string | null;
+  /** The same for the rail's four Add kinds — `useStudioAddOff`. */
+  studioAdd?: string | null;
 }): Readonly<Record<string, string | undefined>> {
   const noJob = !where.reading && where.cursor === null ? NO_JOB : undefined;
   return {
@@ -113,15 +119,14 @@ export function dormantIn(where: {
     open_stage: "the phase strip",
     move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 
-    // The Studio's own control, for the reason above it: `Studios` holds which
-    // kind is being written, and `App` has no handle to it. A wiring gap,
-    // written as one — the keys `N`, `V` and `S` reach all three.
-    add_note: "the Studio's own + Node control",
-    add_link: "the Studio's own + Node control",
-    add_sketch: "the Studio's own + Node control",
-    // Run on the rail, which this row opens as `R` does — 2 Oct 2026. Off for
-    // the rail's own reason, so the two say one thing.
-    start_studio_run: where.studioRun === null ? "open a Studio first" : where.studioRun,
+    // The rail's Note, Link, Sketch and Zone, which these rows arm as their
+    // keys do, and Run, which its row opens as `R` does — 2 Oct 2026. Each is
+    // off for the rail's own reason, so the two say one thing.
+    add_note: where.studioAdd === null ? NO_STUDIO : where.studioAdd,
+    add_link: where.studioAdd === null ? NO_STUDIO : where.studioAdd,
+    add_sketch: where.studioAdd === null ? NO_STUDIO : where.studioAdd,
+    add_zone: where.studioAdd === null ? NO_STUDIO : where.studioAdd,
+    start_studio_run: where.studioRun === null ? NO_STUDIO : where.studioRun,
 
     // Global acts with no surface behind them. The rail carries the Job Board
     // and nothing else — four disabled rows would be a promise Armada does not
@@ -192,6 +197,16 @@ export type PaletteHands = {
   board: (id: string) => void;
   /** Open the open Studio's Run menu on its rail, as a press on Run does. */
   studioRun: () => void;
+  /** Arm a kind on the open Studio's rail, as its key does. */
+  studioAdd: (kind: StudioNodeByHandKind) => void;
+};
+
+/** The palette's Add rows, by the kind each arms on the rail. */
+const ADD_ROW: Readonly<Record<string, StudioNodeByHandKind>> = {
+  add_note: "note",
+  add_link: "link",
+  add_sketch: "sketch",
+  add_zone: "zone",
 };
 
 /**
@@ -251,6 +266,12 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
       return;
     case "start_studio_run":
       hands.studioRun();
+      return;
+    case "add_note":
+    case "add_link":
+    case "add_sketch":
+    case "add_zone":
+      hands.studioAdd(ADD_ROW[id]!);
       return;
     case "restart_step":
     case "redispatch":

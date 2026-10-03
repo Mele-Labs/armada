@@ -205,14 +205,9 @@ test("a group's panel on the graph offers Remove and Propose a change, as its ca
 });
 
 // The owner's, 30 Sep 2026: *edits to the plan should just be made directly
-// through fleet*. A move is a drop, or ⌥↑ / ⌥↓ on the focused row; Fleet has
-// no route for it yet, so it says so, and the plan stays as it was.
-test("⌥↓ on a task row sends the move to Fleet, which says it is not built, naming #1685 and the move, and the order stays", async () => {
-  const written: string[] = [];
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
-  });
+// through fleet*. A move is a drop, or ⌥↑ / ⌥↓ on the focused row, sent by the
+// task it now comes after (#1685, served since 23.4), and the plan redraws.
+test("⌥↓ on a task row sends the move to Fleet by the task it now follows, and the plan redraws in the new order", async () => {
   const app = mount("arc/plan-review");
   const movePlan = vi.spyOn(app.api, "movePlan");
   await onThePlanList();
@@ -221,17 +216,12 @@ test("⌥↓ on a task row sends the move to Fleet, which says it is not built, 
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
   await expect.poll(() => movePlan.mock.calls.length).toBe(1);
   expect(movePlan).toHaveBeenCalledWith(ARC_JOB_ID, { group: "g2", task: "T3", after: "T4" });
-  await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
-  const second = page.getByRole("list", { name: "Group 2 tasks" }).element();
-  expect([...second.children].map((one) => one.getAttribute("aria-label")?.split(" ")[0])).toEqual(["T3", "T4"]);
-  await page.getByRole("button", { name: "Copy debug info" }).click();
-  await expect.poll(() => written).toHaveLength(1);
-  const pasted = written[0]!;
-  expect(pasted).toContain("bridge.not_implemented");
-  expect(pasted).toContain(issueLink(1685));
-  expect(pasted).toContain("POST /jobs/{job_id}/plan/move");
-  expect(pasted).toContain("T3");
-  expect(pasted).toContain("g2");
+  const order = () =>
+    [...page.getByRole("list", { name: "Group 2 tasks" }).element().children].map(
+      (one) => one.getAttribute("aria-label")?.split(" ")[0],
+    );
+  await expect.poll(order).toEqual(["T4", "T3"]);
+  expect(page.getByText("Not implemented", { exact: true }).query()).toBeNull();
 });
 
 test("Remove on a group asks one reason in place and drops each of its tasks with it", async () => {
@@ -324,7 +314,18 @@ test("Edit this task opens filled from the task, and Save says the route is not 
 // The owner's, 1 Oct 2026: a press that failed pops up as a toast over
 // everything on the screen, panels and their dim included, and its acts are
 // pressable where it appears.
-test("Restart this task with its panel open pops the failure up over the panel, and Copy debug info there leaves the panel open", async () => {
+// Served since 23.4 (#1656): the failed task is worked again, and its mark says so.
+test("Restart this task on a failed task works it again, and its mark reads working", async () => {
+  mount("arc/group-failed");
+  const task = await panelOf("T6", "Open a Drone's Job from its row");
+  await task.getByRole("button", { name: "Restart this task" }).click();
+  await userEvent.keyboard("{Escape}");
+  const row = page.getByRole("listitem", { name: /^T6 / });
+  await expect.element(row.getByRole("img", { name: "Working", exact: true })).toBeVisible();
+  expect(page.getByText("Not implemented", { exact: true }).query()).toBeNull();
+});
+
+test("Pilot with its panel open pops the failure up over the panel, and Copy debug info there leaves the panel open", async () => {
   const written: string[] = [];
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -332,7 +333,7 @@ test("Restart this task with its panel open pops the failure up over the panel, 
   });
   mount("arc/group-failed");
   const task = await panelOf("T6", "Open a Drone's Job from its row");
-  await task.getByRole("button", { name: "Restart this task" }).click();
+  await task.getByRole("button", { name: "Pilot", exact: true }).click();
   const failure = page.getByRole("alert").filter({ hasText: "Not implemented" });
   await expect.element(failure).toBeVisible();
   // Not drawn inside the panel: over it.
@@ -340,8 +341,8 @@ test("Restart this task with its panel open pops the failure up over the panel, 
   await failure.getByRole("button", { name: "Copy debug info" }).click();
   await expect.poll(() => written).toHaveLength(1);
   expect(written[0]).toContain("bridge.not_implemented");
-  expect(written[0]).toContain(issueLink(1656));
-  expect(written[0]).toContain("POST /jobs/{job_id}/tasks/{task_id}/restart");
+  expect(written[0]).toContain(issueLink(250));
+  expect(written[0]).toContain("POST /jobs/{job_id}/tasks/{task_id}/pilot");
   await expect.element(task).toBeVisible();
   // A failure stays until it is dismissed. Esc from inside it dismisses it and
   // leaves the panel; Esc from anywhere else is the panel's again.
@@ -391,11 +392,12 @@ test("a refused Add task says nothing was sent, and keeps the title typed", asyn
 
 // The one claim that is Overview's own: a Job whose workflow records no plan
 // draws a Plan card that says so, rather than a card of nothing.
-test("a Job with no plan draws a Plan card that says why", async () => {
+test("a Job with no plan draws a Plan card with nothing in it: no sentence stands in", async () => {
   await opened(running());
   const card = page.getByRole("region", { name: "Plan" });
   await expect.element(card).toBeVisible();
-  await expect.element(card.getByRole("note")).toBeVisible();
+  await expect.poll(() => card.getByRole("status").elements().length).toBe(0);
+  expect(card.getByRole("note").query()).toBeNull();
 });
 
 test("Job settings: the sixth destination, and a choice sends this Job's id and the wire's word", async () => {

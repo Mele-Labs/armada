@@ -438,7 +438,7 @@ checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
 ```
 
 Rules that follow:
@@ -449,8 +449,8 @@ Rules that follow:
   or an apostrophe in it is spelled so the splitter hands it back whole, so a
   Drone cannot write its way out of it; a blank name runs nothing. Every
   runner shipped reads a regex here: `vitest -t`, and nextest's `test(/…/)`,
-  which this repository anchors at a path segment so a bare function name
-  runs.
+  which this repository anchors at path segments so a bare function name
+  or a module's name runs.
 - **Absent means nothing can be confirmed.** A Check with no `one_test` is
   refused by name when a Drone reports a test under it, and nothing is drafted.
 - **A run against main gates nothing.** A test that fails there drafts a Job

@@ -290,9 +290,7 @@ function CheckSheet({
       jobId={job.handle}
       onClose={onClose}
     >
-      {read === undefined ? (
-        <ConsoleOutput rows={[]} emptyNote={NOTHING_TO_READ} />
-      ) : read.kind === "live" ? (
+      {read === undefined ? null : read.kind === "live" ? (
         <LiveCheckOutput kept={read.kept} following={following} />
       ) : (
         <KeptCheckOutput kept={read.kept} outputs={outputs} />
@@ -341,9 +339,6 @@ function LiveCheckOutput({ kept, following }: { kept: string; following: Followi
     />
   );
 }
-
-/** A Check named for the sheet that no longer has anything behind it. */
-const NOTHING_TO_READ = "This Check has nothing recorded to read.";
 
 /**
  * Whether the missing reading is a worktree that was given back.

@@ -129,13 +129,14 @@ checks:
     # Drone's `draft_fix` drafts anything. The whole run's exclusion stays, so a
     # test this Check never runs cannot be named. #999.
     #
-    # **The name is matched as the last segments of a test's path**, so
+    # **The name is matched as whole segments of a test's path**, so
     # `armada check test a_span_holding_one_taken_port_is_not_free` runs the
     # same test `tests::servers::a_span_holding_one_taken_port_is_not_free`
-    # does. `{}` arrives regex-escaped; a bare name in several modules runs
+    # does, and `servers` or `tests::servers` runs every test under that
+    # module. `{}` arrives regex-escaped; a name that matches several runs
     # each, and the count is said.
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
     # Everything `build` reads, and the Bridge tree with it. **`xtask`'s own
     # tests read `apps/` and `packages/`** — the error-code rule collects
     # declarations from both, and the vocabulary rules read the generated
@@ -171,7 +172,7 @@ checks:
     # ask for, unlike `build` and `test` above which narrow to whichever
     # workspace member changed.
     one_test:
-      run: cargo nextest run -p acceptance -E test(/(^|::){}$/)
+      run: cargo nextest run -p acceptance -E test(/(^|::){}(::|$)/)
     # Everything the suite compiles from, and no further, so a Bridge-only
     # change does not pay for it. It is the only run of the suite on the merge
     # line: `verify-foundations` checks each test exists and leaves passing

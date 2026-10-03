@@ -98,7 +98,7 @@ export type HelmThreadProps = {
   rows: HelmThreadRow[];
   /** A reply is on its way. Draws the working line after the last row. */
   replying?: boolean;
-  /** What an empty, unstarted thread says. Never a blank. */
+  /** What an empty, unstarted thread says. Absent draws nothing: an empty slot stays empty. */
   emptyNote?: ReactNode;
   /** Fleet unreachable, or the socket failed. Drawn above the rows, never in place of them. */
   notice?: ReactNode;
@@ -107,7 +107,7 @@ export type HelmThreadProps = {
 export function HelmThread({
   rows,
   replying = false,
-  emptyNote = "Ask Helm about this repository.",
+  emptyNote,
   notice,
 }: HelmThreadProps) {
   return (
@@ -118,9 +118,11 @@ export function HelmThread({
         </p>
       )}
       {rows.length === 0 && !replying ? (
-        <p className="armada-helm-thread__empty" role="note">
-          {emptyNote}
-        </p>
+        emptyNote === undefined ? null : (
+          <p className="armada-helm-thread__empty" role="note">
+            {emptyNote}
+          </p>
+        )
       ) : (
         <ol className="armada-helm-thread__rows">
           {rows.map((row) => (
