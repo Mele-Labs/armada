@@ -62,8 +62,8 @@ import {
   openPullRequest,
   openFindingIssue,
   openRemarkLink,
-  openCaptureWindow,
   openServerLink,
+  runSheetServers,
   openLink,
   observeRun,
   observeCheckoutRun,
@@ -879,10 +879,7 @@ export function App({ draft }: AppProps = {}) {
                     onUndoRun: undoRun,
                     onListRuns: listRuns,
                     onGetRunOutput: getRunOutput,
-                    onStartServer: startServer,
-                    onStopServer: stopServer,
-                    onOpenServerLink: openServerLink,
-                    onWalkInBridge: openCaptureWindow,
+                    ...runSheetServers,
                   }}
                 />
               </Boundary>
