@@ -56,8 +56,8 @@
   color: var(--step-waiting);
 }
 
-/* A machine at it moves; a person's turn holds still. */
-.armada-step-track__part[data-state="now"]:not([data-phase="waiting"]) > svg {
+/* The part now breathes, a person's turn too (owner, 3 Oct). */
+.armada-step-track__part[data-state="now"] > svg {
   animation: armada-step-track-breathe var(--duration-pulse) var(--ease) infinite;
 }
 

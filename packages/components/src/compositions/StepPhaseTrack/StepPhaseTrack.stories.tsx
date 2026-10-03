@@ -71,7 +71,7 @@ export const JudgeNow: Story = {
   },
 };
 
-/** A person's gate holding the step at its end. Nothing moves. */
+/** A person's gate holding the step at its end. Their part breathes. */
 export const WaitingOnYou: Story = {
   args: {
     parts: [
@@ -79,5 +79,11 @@ export const WaitingOnYou: Story = {
       part("checks", "Checks", "done", "Checks done"),
       part("waiting", "You", "now", "Waiting on you"),
     ],
+  },
+  play: async ({ canvasElement }) => {
+    const moving = [...canvasElement.querySelectorAll(".armada-step-track__part")].filter(
+      (one) => one.getAnimations({ subtree: true }).length > 0,
+    );
+    await expect(moving.map((one) => one.getAttribute("aria-label"))).toEqual(["Waiting on you"]);
   },
 };
