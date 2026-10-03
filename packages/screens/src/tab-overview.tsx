@@ -35,6 +35,7 @@ import type { JobCheckLog } from "./check-log-sheet";
 import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
+import { StepActs } from "./StepActs";
 import { OverviewBoard } from "./OverviewBoard";
 import { Approving } from "./approving";
 import type { DetailTab } from "./detail-tabs";
@@ -681,6 +682,33 @@ export function OverviewTab(props: OverviewTabProps) {
       </Button>
     );
 
+  // **The stopped step's own recovery, beside the lead that says it stopped.**
+  // Run Checks again, Restart step, Ask again, Override verdict and Redirect —
+  // whichever `stuck.recourse` offers. The reframe of 29 Sep 2026 took these
+  // off Overview with the step panel and mounted them nowhere, so a Job at
+  // `awaiting_repair` read *Out of retries* with nothing to press. Under the
+  // lead's own rule: where something is already answered under the lead — a
+  // flag held, a Judge's refusal — its block carries the acts and these stay off.
+  const stepActs =
+    render !== "stopped" || waiting !== undefined ? undefined : (
+      <StepActs
+        job={job}
+        whole={whole}
+        opens={opensRecords}
+        render={render}
+        acting={acting}
+        actingAct={actingAct}
+        answered={props.answered}
+        rerunningChecks={props.rerunningChecks}
+        stale={stale}
+        onAct={props.onAct}
+        onRedirect={onRedirect}
+        onOverrule={props.onOverrule}
+        onRerun={props.onRerun}
+        onRerunChecks={props.onRerunChecks}
+      />
+    );
+
   // **The lead, a strip, and a card per destination.** The arrangement
   // `InsideAJob` drew here — the run tree, the plan well, the pointers and the
   // step inspector — was the Job's detail rather than its state, which is what
@@ -695,7 +723,15 @@ export function OverviewTab(props: OverviewTabProps) {
       // the Board row's to say at once (owner, 1 Oct 2026).
       lead={{
         ...lead,
-        act: leadAct,
+        act:
+          stepActs === undefined ? (
+            leadAct
+          ) : (
+            <>
+              {stepActs}
+              {leadAct}
+            </>
+          ),
         reading: lead.quiet === true && stillReading(watched, job.id),
         // The fix's title opens that Job, where the shell can open one. #1673.
         ...(lead.fix === undefined

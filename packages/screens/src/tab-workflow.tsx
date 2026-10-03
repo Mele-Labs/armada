@@ -29,7 +29,10 @@ import { useEffect, useState } from "react";
 import type { Diff, JobDetail as JobWhole, JobSummary, JudgeAnswer } from "@armada/protocol";
 
 import type { ConfirmableAct, HeldAct } from "./Acts";
-import type { ActingAct } from "./pending";
+import type { ActAnswer, ActingAct } from "./pending";
+import type { Render } from "./render";
+import { StepActs } from "./StepActs";
+import { refusedOn } from "./refused-on";
 import { TAB_LABEL } from "./detail-tabs";
 import type { DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
@@ -102,6 +105,15 @@ export type WorkflowTabProps = {
   onAct: (act: ConfirmableAct, jobId: string) => void;
   onActHeld: (act: HeldAct, jobId: string) => void;
   /**
+   * What a stopped step's panel offers, as Overview's lead does: `StepActs`,
+   * off Fleet's `stuck.recourse`, with the same handlers.
+   */
+  render: Render;
+  rerunningChecks: boolean;
+  answered?: ActAnswer | undefined;
+  onRerun: (jobId: string) => void;
+  onRerunChecks: (jobId: string) => void;
+  /**
    * Where the plan link in a step's panel goes: the Plan tab. **The screen's,
    * not this tab's** — `JobDetail.tsx` owns which destination is open, and a tab that moved it
    * itself would be a second place the strip can be driven from.
@@ -149,6 +161,11 @@ export function WorkflowTab({
   onRedirect,
   onAct,
   onActHeld,
+  render,
+  rerunningChecks,
+  answered,
+  onRerun,
+  onRerunChecks,
   onOpenPlan,
   onOpenDrone,
   trail,
@@ -283,10 +300,45 @@ export function WorkflowTab({
   // Sheet Record, Drones and Plan draw theirs in, over the work area and
   // dimming it (owner, 29 and 30 Sep 2026), with the way back in its head after
   // a jump here. So a second step is read by closing this one first.
+  // **The step Fleet's stop names, and nothing already asking on it.** A
+  // question or a held flag carries its own answers in `asks`; otherwise the
+  // panel says why it stopped and offers what Overview's lead does.
+  const stoppedHere =
+    render === "stopped" &&
+    openedStep !== undefined &&
+    whole.stuck?.step_id === openedStep.step_id &&
+    !judgeAskedOn(whole, openedStep) &&
+    !flagHeld;
+  const why = stoppedHere ? refusedOn(openedStep, whole.acceptance_criteria) : undefined;
   const layer =
     reading === undefined ? null : (
       <WorkflowInspector
         {...reading}
+        {...(!stoppedHere
+          ? {}
+          : {
+              stopped: {
+                ...(why === undefined ? {} : { why }),
+                acts: (
+                  <StepActs
+                    job={job}
+                    whole={whole}
+                    opens={opens}
+                    render={render}
+                    acting={acting}
+                    actingAct={actingAct}
+                    answered={answered}
+                    rerunningChecks={rerunningChecks}
+                    stale={stale}
+                    onAct={onAct}
+                    onRedirect={onRedirect}
+                    onOverrule={onOverrule}
+                    onRerun={onRerun}
+                    onRerunChecks={onRerunChecks}
+                  />
+                ),
+              },
+            })}
         {...(judgeAskedOn(whole, openedStep)
           ? {
               asks: (

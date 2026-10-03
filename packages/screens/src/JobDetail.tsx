@@ -402,6 +402,11 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
+          render={render}
+          rerunningChecks={props.rerunningChecks}
+          answered={props.answered}
+          onRerun={props.onRerun}
+          onRerunChecks={props.onRerunChecks}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).

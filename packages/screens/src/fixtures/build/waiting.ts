@@ -126,7 +126,7 @@ export function awaitingRepair(): JobFixture {
   const whole = detail(theJob, steps, {
     stuck: stuck({
       step_id: "regression_verify",
-      recourse: ["restart_step", "redispatch_job"],
+      recourse: ["rerun_checks", "restart_step", "redispatch_job"],
       worktree_on_disk: true,
       drone_unheard: false,
     }),

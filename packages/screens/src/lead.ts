@@ -465,6 +465,18 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     };
   }
   const refused = over ? undefined : refusals(step, whole?.acceptance_criteria ?? []);
+  // **A stopped step has no question open.** The owner agreed with a refusal on
+  // his Job 3, 2 Oct 2026, and the lead went on offering `Answer it` over
+  // *do not start until you answer*. The refusal is still why it stopped; what
+  // can be done is Fleet's `stuck.recourse`, drawn as `StepActs` in the act's
+  // place by `tab-overview.tsx`.
+  if (refused !== undefined && step?.state === "stopped") {
+    return {
+      said: `A Judge refused ${refused.count} of ${refused.of} ${refused.of === 1 ? "criterion" : "criteria"}`,
+      because: refused.said,
+      tone: "completed-failed",
+    };
+  }
   if (refused !== undefined) {
     return {
       said: `A Judge refused ${refused.count} of ${refused.of} ${refused.of === 1 ? "criterion" : "criteria"}`,
@@ -510,8 +522,9 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     }
     // **Nothing is being approved here.** A step spent its gate-failure retry
     // budget and the work is unfinished — `job-statuses.toml`, `awaiting_repair`
-    // — which read as a sign-off under a badge saying *Needs repair*. No act:
-    // Fleet does not serve the status, so there is nothing to build against.
+    // — which read as a sign-off under a badge saying *Needs repair*. **No act
+    // of the lead's own**: Fleet's `stuck.recourse` says what can be done to the
+    // step, and `tab-overview.tsx` draws those as `StepActs` in this act's place.
     const spent = checkThatFailed(step);
     if (step?.state === "stopped" && spent !== undefined) {
       const fix = fixedElsewhere(job, whole, spent);
