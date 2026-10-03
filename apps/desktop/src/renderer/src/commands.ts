@@ -464,13 +464,13 @@ export function useCommands(sending: Sending) {
    * and it is collected by the dialog that confirms — which is the render's, so
    * putting the dialog away and reading what it holds is the render's too.
    */
-  async function act(act: ConfirmableAct, jobId: string, note?: string): Promise<void> {
+  async function act(act: ConfirmableAct, jobId: string, note?: string, droneId?: string): Promise<void> {
     return acted(jobId, act, async () => {
       const answer =
         act === "redispatch"
           ? await window.armada.redispatchJob(jobId)
           : act === "kill_drone"
-            ? await window.armada.killDrone(jobId)
+            ? await (droneId === undefined ? window.armada.killDrone(jobId) : window.armada.killDrone(jobId, droneId))
             : act === "restart_step"
               ? await window.armada.restartStep(jobId, note)
               : act === "reclaim_worktree"
@@ -538,9 +538,13 @@ export function useCommands(sending: Sending) {
    * instruction already was the confirmation, so there is nothing left to
    * confirm here, only to send.
    */
-  async function redirect(jobId: string, instruction: string): Promise<void> {
+  async function redirect(jobId: string, instruction: string, droneId?: string): Promise<void> {
     return acted(jobId, "redirect", async () => {
-      heard(jobId, "redirect", await window.armada.redirectDrone(jobId, instruction));
+      const answer =
+        droneId === undefined
+          ? await window.armada.redirectDrone(jobId, instruction)
+          : await window.armada.redirectDrone(jobId, instruction, droneId);
+      heard(jobId, "redirect", answer);
     });
   }
 

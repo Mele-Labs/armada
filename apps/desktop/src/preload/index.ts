@@ -121,8 +121,8 @@ const api: BridgeApi = {
   redispatchJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.redispatchJob, jobId),
 
-  killDrone: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.killDrone, jobId),
+  killDrone: (jobId: string, droneId?: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.killDrone, jobId, droneId),
 
   killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
 
@@ -180,8 +180,8 @@ const api: BridgeApi = {
   forgetJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.forgetJob, jobId),
 
-  redirectDrone: (jobId: string, instruction: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.redirectDrone, jobId, instruction),
+  redirectDrone: (jobId: string, instruction: string, droneId?: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.redirectDrone, jobId, instruction, droneId),
   answerQuestion: (
     jobId: string,
     questionId: string,

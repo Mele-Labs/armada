@@ -21,6 +21,7 @@ import {
 } from "@armada/components";
 
 import type { GroupState, GroupView } from "./draft/group";
+import { SHELL_UNSEEN } from "./plan-board";
 import type { TaskState, TaskView } from "./draft/task";
 
 /**
@@ -79,9 +80,9 @@ const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
 /** One group's card. Its registry row's glyph, hue and verb — what the list says. */
 function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
   const row = GROUP_STATE[group.state];
-  const facts = [{ value: plural(group.tasks.length, "task") }];
+  const facts: { value: string; hint?: string }[] = [{ value: plural(group.tasks.length, "task") }];
   if (group.checks_selected.length > 0) facts.push({ value: plural(group.checks_selected.length, "check") });
-  if (group.concurrent) facts.push({ value: "at the same time" });
+  if (group.concurrent) facts.push({ value: "at the same time", hint: SHELL_UNSEEN });
   if (group.retry_count > 0) facts.push({ value: `run again ${plural(group.retry_count, "time")}` });
   return {
     kind: "group",

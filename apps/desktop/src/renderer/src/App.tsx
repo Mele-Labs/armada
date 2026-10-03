@@ -40,7 +40,7 @@ import { BridgeSettings } from "@armada/screens";
 import { Kit } from "@armada/screens";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { ConfirmAct, type Confirming } from "./ConfirmAct";
+import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview";
@@ -479,7 +479,7 @@ export function App({ draft }: AppProps = {}) {
     if (what.act === "kill_process") return void commands.killProcess(what.jobId, what.pid);
     if (what.act === "kill_processes") return void commands.killProcess(what.jobId);
     const note = what.act === "restart_step" ? restartNote : undefined;
-    void commands.act(what.act, what.jobId, note);
+    void commands.act(what.act, what.jobId, note, "droneId" in what ? what.droneId : undefined);
   }
 
   /**
@@ -802,10 +802,10 @@ export function App({ draft }: AppProps = {}) {
                     diff: state.diff,
                     remarks: state.remarks,
                   }}
-                  onAct={(what, jobId) => setConfirming({ act: what, jobId })}
+                  onAct={(what, jobId, droneId) => setConfirming(aJobAct(what, jobId, droneId))}
                   // Held on the header, so already confirmed: it sends what the dialog's own confirm sends.
-                  onActHeld={(what, jobId) => void commands.act(what, jobId)}
-                  onRedirect={(jobId, instruction) => void commands.redirect(jobId, instruction)}
+                  onActHeld={(what, jobId, droneId) => void commands.act(what, jobId, undefined, droneId)}
+                  onRedirect={(jobId, said, droneId) => void commands.redirect(jobId, said, droneId)}
                   onAnswer={(jobId, questionId, chose) =>
                     void commands.answer(jobId, questionId, chose)
                   }

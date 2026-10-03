@@ -156,8 +156,13 @@ export type BridgeApi = {
    * `redispatched_from`, whose id comes back on the outcome.
    */
   redispatchJob: (jobId: string) => Promise<Outcome>;
-  /** Kill the process. The Job survives, with its worktree held. */
-  killDrone: (jobId: string) => Promise<Outcome>;
+  /**
+   * Kill the process. The Job survives, with its worktree held. **`droneId`
+   * names one Drone of several** (`kill_one_drone`, 23.10): the others go on,
+   * and one that is not live is refused as `fleet.drone_not_live`. Absent is
+   * the Job's kept Drone and every one beside it.
+   */
+  killDrone: (jobId: string, droneId?: string) => Promise<Outcome>;
   /** End the Job at `killed`. Terminal, and nothing resumes it. */
   killJob: (jobId: string) => Promise<Outcome>;
   /**
@@ -248,7 +253,7 @@ export type BridgeApi = {
    * is gone, naming `restartStep` as the act that applies. Nothing is
    * spawned; the Job comes back `running` with the same session.
    */
-  redirectDrone: (jobId: string, instruction: string) => Promise<Outcome>;
+  redirectDrone: (jobId: string, instruction: string, droneId?: string) => Promise<Outcome>;
   /**
    * Answer the question the job's drone asked, by picking one of the labels it
    * offered.
