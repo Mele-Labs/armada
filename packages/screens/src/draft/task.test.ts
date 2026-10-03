@@ -65,12 +65,27 @@ describe("what the derivation fills in where the wire says nothing", () => {
     expect(taskViewOf(detail, sampleTask()).treatment).toBe("own_drone");
   });
 
-  it("takes the model from the Job, since no tier map is served", () => {
+  // Spike 022, slice 3: the wire's tier and a person's pick, never the Job's model guessed in.
+  it("takes the tier off the wire, and the model a person picked over the map's for that tier", () => {
+    const detail = sampleDetail();
+    detail.job.model = "sonnet";
+    detail.tiers = { difficult: "opus" };
+
+    const tiered = taskViewOf(detail, sampleTask({ tier: "difficult" }));
+    expect([tiered.tier, tiered.model]).toEqual(["difficult", "opus"]);
+    const picked = taskViewOf(detail, sampleTask({ tier: "difficult", model: "haiku" }));
+    expect(picked.model).toBe("haiku");
+  });
+
+  it("names no model where the map leaves the tier out, or the task has none: Armada picks", () => {
     const detail = sampleDetail();
     detail.job.model = "opus";
+    detail.tiers = { difficult: "opus" };
 
-    expect(taskViewOf(detail, sampleTask()).model).toBe("opus");
-    expect(taskViewOf(detail, sampleTask()).tier).toBe("medium");
+    const easy = taskViewOf(detail, sampleTask({ tier: "easy" }));
+    expect([easy.tier, easy.model]).toEqual(["easy", undefined]);
+    const none = taskViewOf(detail, sampleTask());
+    expect([none.tier, none.model]).toEqual([undefined, undefined]);
   });
 
   it("names the Job's Drone only on the task that is working", () => {

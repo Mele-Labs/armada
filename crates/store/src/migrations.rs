@@ -127,6 +127,7 @@ pub const MIGRATIONS: &[&str] = &[
     crate::pull_request_kept::V96,
     crate::model_per_task::V97,
     crate::approval::V98,
+    crate::crew::V99,
 ];
 
 /// Every table whose rows belong to one Job, asked of the file rather than

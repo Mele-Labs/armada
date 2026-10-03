@@ -122,6 +122,17 @@ export type PlanTask = {
    * Absent on a task nobody marked working — and on a Fleet before 14.5.
    */
   working_windows?: WorkingWindow[];
+  /**
+   * The other tasks of its group it may run at the same time as, by id: the
+   * planner's `concurrent_with` read both ways, less a pair Fleet ran apart
+   * after their edit calls named one file. Absent where it runs alone. Since 23.10.
+   */
+  concurrent_with?: string[];
+  /**
+   * A later group's task edited a file this done task had. Not a fault; a
+   * write through the shell is not seen. Absent where false. Since 23.10.
+   */
+  touched_after_done?: boolean;
 };
 
 /**

@@ -14,7 +14,9 @@
 //!
 //! **Each one converts and maps, and decides nothing.** The binding — which
 //! Job, which step, whether the caller was allowed to ask — is made under the
-//! slot lock by the `Fleet` method each of these calls.
+//! slot lock by the `Fleet` method each of these calls. A Drone beside the
+//! Job's kept one is named to it with `crate::crew::as_caller`, so the slot is
+//! that Drone's own.
 //!
 //! **These were six delegating signatures until #434.** Moving the bodies here
 //! left the trait's own methods behind in `serving`, forwarding a call each.
@@ -30,6 +32,7 @@ use ipc::mcp::{
     Receipt, RequestScope, ServerReport, SubmitEvidence,
 };
 
+use crate::crew::as_caller;
 use crate::daemon::Fleet;
 use crate::wire::told;
 
@@ -49,8 +52,11 @@ where
     /// `Fleet::caller_of` reads the connection, and a caller it cannot place is
     /// told so as a tool error the Drone can read rather than as a 4xx it can
     /// only retry.
-    pub(crate) fn placed(&self, caller: &api::Caller) -> Result<core_model::JobId, NotRecorded> {
-        self.caller_of(caller).map_err(|why| NotRecorded {
+    pub(crate) fn placed(
+        &self,
+        caller: &api::Caller,
+    ) -> Result<(core_model::JobId, Option<core_model::DroneId>), NotRecorded> {
+        self.placed_drone(caller).map_err(|why| NotRecorded {
             because: why.to_string(),
         })
     }
@@ -71,7 +77,7 @@ where
     /// like every other call it cannot place — as a deny, which fails closed.
     async fn permission(&self, caller: api::Caller, asked: PermissionAsked) -> PermissionAnswer {
         match self.placed(&caller) {
-            Ok(job) => Fleet::permission(self, &job, &asked).await,
+            Ok((job, drone)) => as_caller(drone, Fleet::permission(self, &job, &asked)).await,
             Err(why) => PermissionAnswer::Deny(why.because),
         }
     }
@@ -86,8 +92,8 @@ where
         caller: api::Caller,
         asking: AskQuestion,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        Fleet::ask_question(self, &job, asking).await?;
+        let (job, drone) = self.placed(&caller)?;
+        as_caller(drone, Fleet::ask_question(self, &job, asking)).await?;
         Ok(Receipt {
             word: "asked".to_string(),
         })
@@ -100,8 +106,8 @@ where
         caller: api::Caller,
         note: ipc::mcp::LeaveNote,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        Fleet::leave_note(self, &job, &note).await?;
+        let (job, drone) = self.placed(&caller)?;
+        as_caller(drone, Fleet::leave_note(self, &job, &note)).await?;
         Ok(Receipt {
             word: "left".to_string(),
         })
@@ -116,8 +122,8 @@ where
         caller: api::Caller,
         fix: ipc::mcp::DraftFix,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        let answer = Fleet::draft_fix(&self, &job, fix).await?;
+        let (job, drone) = self.placed(&caller)?;
+        let answer = as_caller(drone, Fleet::draft_fix(&self, &job, fix)).await?;
         Ok(Receipt {
             word: answer.word(),
         })
@@ -133,8 +139,8 @@ where
         caller: api::Caller,
         submission: SubmitEvidence,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        match self.record_evidence(&job, &submission).await {
+        let (job, drone) = self.placed(&caller)?;
+        match as_caller(drone, self.record_evidence(&job, &submission)).await {
             Ok(recorded) => Ok(Receipt {
                 word: recorded.word().to_string(),
             }),
@@ -151,8 +157,8 @@ where
         caller: api::Caller,
         declaration: DeclareScope,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        let declared = Fleet::declare_scope(self, &job, &declaration).await?;
+        let (job, drone) = self.placed(&caller)?;
+        let declared = as_caller(drone, Fleet::declare_scope(self, &job, &declaration)).await?;
         Ok(Receipt {
             word: declared.word().to_string(),
         })
@@ -166,8 +172,8 @@ where
         caller: api::Caller,
         request: RequestScope,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        let widened = Fleet::request_scope(self, &job, &request).await?;
+        let (job, drone) = self.placed(&caller)?;
+        let widened = as_caller(drone, Fleet::request_scope(self, &job, &request)).await?;
         Ok(Receipt {
             word: widened.word().to_string(),
         })
@@ -186,8 +192,8 @@ where
         caller: api::Caller,
         ask: ipc::mcp::ChecksAsk,
     ) -> Result<ChecksStarted, NotRecorded> {
-        let job = self.placed(&caller)?;
-        Fleet::run_checks(&self, &job, ask).await?;
+        let (job, drone) = self.placed(&caller)?;
+        as_caller(drone, Fleet::run_checks(&self, &job, ask)).await?;
         Ok(ChecksStarted)
     }
 
@@ -202,8 +208,8 @@ where
         caller: api::Caller,
         dispatch: DispatchJob,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        match Fleet::sub_dispatch(self, &job, &dispatch).await {
+        let (job, drone) = self.placed(&caller)?;
+        match as_caller(drone, Fleet::sub_dispatch(self, &job, &dispatch)).await {
             // The minted id, and nothing else. A Drone needs it to name this
             // Job in a later call's `after`, and it needs nothing else — the
             // Job's state is not knowable yet and a receipt implying it were
@@ -224,7 +230,7 @@ where
         caller: api::Caller,
         name: String,
     ) -> Result<ServerReport, NotRecorded> {
-        let job = self.placed(&caller)?;
+        let (job, _) = self.placed(&caller)?;
         let record = self.load(&job).await.map_err(|why| NotRecorded {
             because: why.to_string(),
         })?;
@@ -242,8 +248,8 @@ where
         caller: api::Caller,
         call: PlanCall,
     ) -> Result<Receipt, NotRecorded> {
-        let job = self.placed(&caller)?;
-        let plan = Fleet::change_plan(self, &job, &call.change).await?;
+        let (job, drone) = self.placed(&caller)?;
+        let plan = as_caller(drone, Fleet::change_plan(self, &job, &call.change)).await?;
         Ok(Receipt {
             word: crate::work_plan::receipt_word(&call.change, &plan),
         })

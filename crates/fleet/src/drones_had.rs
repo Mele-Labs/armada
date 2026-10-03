@@ -84,6 +84,23 @@ pub(crate) fn drones_had(events: &[RecordedEvent]) -> Vec<Had> {
         .collect()
 }
 
+/// A Drone beside a kept one, off its task binding and how it left.
+fn beside(bound: &store::TaskDrone) -> Had {
+    let state = match &bound.left {
+        None => DroneState::Running,
+        Some((_, store::ExtraEnded::Done)) => DroneState::Done,
+        Some((_, store::ExtraEnded::Killed)) => DroneState::Killed,
+        Some((_, store::ExtraEnded::Failed)) => DroneState::Failed,
+    };
+    Had {
+        drone: bound.drone_id.clone(),
+        step: bound.step_id.clone(),
+        state,
+        spawned_at: bound.spawned_at.clone(),
+        left_at: bound.left.as_ref().map(|(at, _)| at.clone()),
+    }
+}
+
 /// How a Drone that has left ended.
 ///
 /// **`done` is asked first**: a Job killed after its last Drone reached a
@@ -191,7 +208,11 @@ where
             (events, spends, on_tasks, models)
         };
         let mut drones = Vec::new();
-        for had in drones_had(&events) {
+        let mut had_all = drones_had(&events);
+        // A Drone beside the kept one is on no record of moves: `store::crew`.
+        had_all.extend(on_tasks.iter().filter(|bound| bound.extra).map(beside));
+        had_all.sort_by(|a, b| a.spawned_at.as_str().cmp(b.spawned_at.as_str()));
+        for had in had_all {
             let on_task = on_tasks.iter().find(|bound| bound.drone_id == had.drone);
             let had = match on_task {
                 Some(bound) => had.on_task(bound),

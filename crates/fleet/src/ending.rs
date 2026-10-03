@@ -44,6 +44,7 @@ use crate::group::end_the_process;
 use crate::permitting::{Refusing, Waiting};
 use crate::resources::Tree;
 use crate::working::{StoodDown, Working};
+use store::ExtraEnded;
 
 /// A kill named a pid the Job's tree did not hold when Fleet read it at the
 /// act. Declared beside the act, the contract's form for a code.
@@ -72,6 +73,9 @@ where
     /// is waiting and something is already queued that will rule on it.
     /// [`Fleet::stopped_by_hand`] is the move, and `#313` is what it cost.
     pub async fn kill_drone(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        // Every Drone beside the kept one first, and outside its slot: the
+        // step they work stops with it. Slice 5.
+        self.end_the_crew(job_id, ExtraEnded::Killed).await;
         if let Some(slot) = self.slot_of(job_id).await {
             let mut working = slot.lock().await;
             if working.as_ref().is_some_and(|at_work| at_work.is(job_id)) {
@@ -132,6 +136,17 @@ where
     /// descendants go with it, as [`kill_processes`](Fleet::kill_processes)
     /// says, since every process of the Job is under that one.
     pub async fn kill_process(&self, job_id: &JobId, pid: u32) -> Result<Job, Adrift> {
+        // A Drone beside the kept one is that Drone stopped alone; a process
+        // under one is that process. Slice 5.
+        if let Some((drone, own, under)) = self.beside_under(job_id, pid).await {
+            if own {
+                return self.kill_one_drone(job_id, &drone).await;
+            }
+            for pid in under.iter().rev().filter_map(|pid| NonZeroU32::new(*pid)) {
+                end_the_process(pid);
+            }
+            return self.load(job_id).await;
+        }
         let tree = self.tree_now(job_id).await?;
         match tree.as_ref().map(|tree| (tree, tree.under(pid))) {
             Some((tree, under)) if !under.is_empty() => self.ended(job_id, tree, &under).await,
@@ -212,6 +227,7 @@ where
     /// under them — which is why it cannot be spelled as
     /// [`kill_drone`](Fleet::kill_drone).
     pub async fn kill_job(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        self.end_the_crew(job_id, ExtraEnded::Killed).await;
         if let Some(slot) = self.slot_of(job_id).await {
             let mut working = slot.lock().await;
             if working.as_ref().is_some_and(|at_work| at_work.is(job_id)) {

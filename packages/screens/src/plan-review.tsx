@@ -468,6 +468,7 @@ export function usePlanReview({
               label: droneOfTask(whole, { ...open, drone_id: one.id })?.label ?? `Drone on ${open.id}`,
               state: one.state,
               stateSays: DRONE_SAYS[one.state],
+              ...(one.model === undefined ? {} : { model: one.model }),
               ...(spent === "" ? {} : { spent }),
               ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(one.id) }),
             };

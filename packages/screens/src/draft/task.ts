@@ -64,12 +64,14 @@ export type TaskView = {
    * map** (30 Sep 2026), so the tier no longer decides it alone. On the wire a
    * task with no tier leaves `PlanTask.tier` out, which is Armada picking.
    */
-  tier: TaskTier;
+  tier?: TaskTier;
   /**
-   * A person's pick, `PlanTask.model`, which beats the map. The model a
-   * Drone actually ran is on its `JobDrone.model`, not here.
+   * The model it runs on as far as the plan says: a person's pick,
+   * `PlanTask.model`, else the Job's map for its tier. **Absent is Armada
+   * picking**, and the slot stays empty. The model a Drone actually ran is on
+   * its `JobDrone.model`, not here.
    */
-  model: string;
+  model?: string;
   treatment: TaskTreatment;
   /** The Drone on it, where one is. Absent on a task nothing has run. */
   drone_id?: string;
@@ -97,8 +99,7 @@ export type TaskView = {
 };
 
 /**
- * Today's wire holds no groups, so every task is the Job's model and its own
- * group of one. **`own_drone` where a step declares `drone_per_task`** (23.1):
+ * Today's wire holds no groups, so every task is its own group of one. **`own_drone` where a step declares `drone_per_task`** (23.1):
  * that step's working Drone is the working task's own, so `assigned_drone` is
  * it. Elsewhere every task is `step_drone`.
  */
@@ -113,12 +114,14 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
     touched_after_done: false,
     group: coord.group ?? "",
     concurrent_with: [],
-    tier: "medium",
-    model: detail.job.model,
     treatment: ownDrone ? "own_drone" : "step_drone",
     cases: [],
     coord,
   };
+  const tier = tierOf(task);
+  if (tier !== undefined) view.tier = tier;
+  const model = task.model ?? (tier === undefined ? undefined : detail.tiers?.[tier]);
+  if (model !== undefined) view.model = model;
   if (task.note !== undefined) view.note = task.note;
   if (task.expects !== undefined) view.expects = task.expects;
   if (task.shown !== undefined) view.shown = task.shown;
@@ -133,6 +136,18 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
 /** Every task of a Job's plan, in plan order. Empty where no plan was recorded. */
 export function taskViewsOf(detail: JobDetail): TaskView[] {
   return (detail.work_plan?.tasks ?? []).map((task) => taskViewOf(detail, task));
+}
+
+// The wire's three, and anything else as no tier: Armada picking, not a guess.
+function tierOf(task: PlanTask): TaskTier | undefined {
+  switch (task.tier) {
+    case "difficult":
+    case "medium":
+    case "easy":
+      return task.tier;
+    default:
+      return undefined;
+  }
 }
 
 // The wire's six are carried through as themselves, and anything unrecognised

@@ -138,7 +138,7 @@ specified, open in Armada Decisions.
 | Persistence | SQLite, WAL mode | Concurrent Drone writes need queryability and safe concurrency. Drone counts stay low, so contention is not expected |
 | Transport | WebSocket + HTTP (JSON), **axum** | WS for the event stream, HTTP for queries and commands, **one listener** — verified, no second port. Allows a future non-Electron client, and better than gRPC would have: every language speaks HTTP and WS without codegen. gRPC and `tonic` were rejected on measured cost — see the `api` row in the Armada Crates database |
 | Agent harness | Claude Code CLI, headless, `--strict-mcp-config` | Reuses built-in tool handling and permissions instead of reimplementing an agent loop. **Output is structured and parses** — measured against 2.1.241, with the transcript pinned as the format-drift reference. Denials appear as their own events rather than as prose. The PTY-wrap fallback is retired |
-| VCS | git2, one worktree per Drone | Worktree confinement is the real safety boundary |
+| VCS | git2, one worktree per Job, shared by the Job's Drones | Worktree confinement is the real safety boundary. Tasks running at once share their Job's one copy (spike 022, answer 6); a copy per Drone was rejected on disk |
 | Secrets | macOS Keychain, brokered by Fleet | A Drone never holds a secret directly |
 | Observability | Structured JSON logs per Job, local | No cloud tracing. Logging stays fully local |
 
@@ -562,7 +562,7 @@ quotes. Treat the allowlist as blast-radius reduction, never as a sandbox.
 
 | Mechanism | Guards against | Enforced by |
 | --- | --- | --- |
-| One worktree per Drone | Cross-Job interference, escape from the intended repo | Filesystem. Isolated branch, merged via PR, governed by the per-Manifest auto-merge setting |
+| One worktree per Job | Cross-Job interference, escape from the intended repo | Filesystem. Isolated branch, merged via PR, governed by the per-Manifest auto-merge setting. **Drones of one Job share it** where its tasks run at once; two that edited one file are caught at their group's join, off their edit calls, and run again one after the other. A write through the shell is not seen (spike 022, answers 6 and 10) |
 | Drone-facing VCS type with no push method | A Drone pushing | Type system, not a runtime check |
 | `Secret<T>` with no Debug, Display or Serialize | Credentials in logs. `format!("{:?}", s)` fails to compile | Type system. Cascades to any struct embedding one |
 | `Redactor` | A subprocess echoing a credential into its own stderr, where it is a plain String and the type system is out of the picture | Scrubs three sinks: per-Job JSON log, JSONL audit log, WS event stream |
