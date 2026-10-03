@@ -843,7 +843,7 @@ export function App({ draft }: AppProps = {}) {
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob}
                   onShowAgain={showAgain}
-                  onApprove={(jobId) => void commands.approve(jobId)}
+                  onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
                   onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}

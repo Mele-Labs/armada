@@ -351,7 +351,14 @@ describe("every per-repository call", () => {
           .filter(({ line }) => routes.test(line) && !line.trim().startsWith("*") && !line.trim().startsWith("//"))
           .filter(
             ({ line }) =>
-              !["picked.manifest(", "picked.manifestOf(", "picked.scan(", "picked.checkout(", "picked.each("].some(
+              ![
+                "picked.manifest(",
+                "picked.manifestOf(",
+                "picked.manifestNamed(",
+                "picked.scan(",
+                "picked.checkout(",
+                "picked.each(",
+              ].some(
                 (built) => line.includes(built),
               ),
           ),

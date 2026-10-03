@@ -1,15 +1,16 @@
 // What a Job is being approved for, through `App`, **on a Fleet that serves no
-// draft** — every real one until #1545. The owner approved his Job 1 from
-// Overview's lead on 1 Oct 2026 with the request, the workflow's name and the
-// title in front of him and nothing else; the proposer had picked `refactor`
-// for a visible change, and the Judge refused the plan for it. What counts as
-// done, what the workflow promises and how each step gates now read under the
-// lead, while it waits.
+// draft**. The owner approved his Job 1 from Overview's lead on 1 Oct 2026 with
+// the request, the workflow's name and the title in front of him and nothing
+// else; the proposer had picked `refactor` for a visible change, and the Judge
+// refused the plan for it. What counts as done, what the workflow promises and
+// how each step gates now read under the lead, while it waits — and since
+// 23.8 each is a person's to change before the press.
 
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { REFACTOR_FOR_REQUESTS, refactorAtApproval, withRow } from "./job-detail-fixtures";
+import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 
@@ -22,32 +23,38 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   await expect.element(page.getByRole("heading", { name: "Waiting for your approval" })).toBeVisible();
 
   const done = approving().getByRole("region", { name: "Done when" });
-  await expect.element(done.getByText("Guide 8 is removed from the catalogue")).toBeVisible();
+  await expect.element(done.getByRole("textbox", { name: "Criterion 1" })).toHaveValue(
+    "Guide 8 is removed from the catalogue",
+  );
   await expect
-    .element(done.getByText("A validation rule prevents guides without drawn pieces"))
-    .toBeVisible();
+    .element(done.getByRole("textbox", { name: "Criterion 2" }))
+    .toHaveValue("A validation rule prevents guides without drawn pieces");
 
   // Who decides each step, read off its frozen `advance_gate`: Checks and the
   // Judge on the two that do the work, a person on the one that hands it over.
   const workflow = approving().getByRole("region", { name: "Workflow" });
-  await expect.element(workflow.getByText("refactor", { exact: true })).toBeVisible();
-  const judged = "Checks · JudgeIts Checks have to pass and the Judge has to decline to refuse them.";
+  await expect.element(workflow.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
+  for (const step of ["Scope the refactor", "Restructure"]) {
+    await expect.element(workflow.getByRole("checkbox", { name: `Checks on ${step}` })).toBeChecked();
+    await expect.element(workflow.getByRole("checkbox", { name: `Judge on ${step}` })).toBeChecked();
+    await expect.element(workflow.getByRole("checkbox", { name: `You on ${step}` })).not.toBeChecked();
+  }
   await expect
     .element(workflow.getByRole("listitem", { name: "Scope the refactor" }))
-    .toHaveTextContent(judged);
-  await expect
-    .element(workflow.getByRole("listitem", { name: "Restructure" }))
-    .toHaveTextContent(judged);
+    .toHaveTextContent("Its Checks have to pass and the Judge has to decline to refuse them.");
+  await expect.element(workflow.getByRole("checkbox", { name: "You on Review the change" })).toBeChecked();
   await expect
     .element(workflow.getByRole("listitem", { name: "Review the change" }))
-    .toHaveTextContent(/^Review the changeYouIt holds at awaiting review for you to answer/);
+    .toHaveTextContent("It holds at awaiting review for you to answer");
   // The registry's word for the status, never its id (`#1748` row 16).
   await expect.element(workflow.getByText(/awaiting_review/)).not.toBeInTheDocument();
 
-  // Read, never moved: editing waits for #1545.
-  expect(approving().getByRole("checkbox").all()).toHaveLength(0);
-  expect(approving().getByRole("textbox").all()).toHaveLength(0);
-  expect(approving().getByRole("combobox").all()).toHaveLength(0);
+  // Yours to change until the press: `approve_dispatch` carries it since 23.8.
+  await expect.element(approving().getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
+    "Retire guide 8 and add guide validation rule",
+  );
+  // No branch list read for this Job, so the field takes a typed name.
+  await expect.element(approving().getByRole("textbox", { name: "Lands in" })).toBeVisible();
 
   // Between the lead and the Brief.
   const lead = document.querySelector(".armada-lead");
@@ -87,6 +94,32 @@ test("a workflow that declares no promise draws nothing under its name", async (
     }),
   );
   const workflow = approving().getByRole("region", { name: "Workflow" });
-  await expect.element(workflow.getByText("refactor", { exact: true })).toBeVisible();
+  await expect.element(workflow.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
   expect(document.querySelector(".armada-proposal__workflow-promise")).toBeNull();
+});
+
+// Spike 022, slice 4: what a person changes under the lead is what the Job
+// runs. The press sends what moved, and the Job read back carries it.
+test("what a person moved under the lead is what the press sends, and what the Job carries", async () => {
+  const app = mount(onJob(proposalFromAnIssue()));
+  const approveDispatch = vi.spyOn(app.api, "approveDispatch");
+  await approving().getByRole("textbox", { name: "Title", exact: true }).fill("Retire guide 8");
+  await approving().getByRole("textbox", { name: "Criterion 2" }).fill("A rule refuses a guide with no pieces");
+  await approving().getByRole("checkbox", { name: "You on Restructure" }).click();
+  await approving().getByRole("combobox", { name: "Lands in" }).fill("release/2026-10");
+  await page.getByRole("button", { name: "Approve dispatch" }).last().click();
+
+  await expect.poll(() => approveDispatch.mock.calls.length).toBe(1);
+  expect(approveDispatch.mock.calls[0]![1]).toEqual({
+    title: "Retire guide 8",
+    gates: [{ step_id: "implement", checks: true, judge: true, you: true }],
+    criteria: [
+      { criterion_id: "c1", text: "Guide 8 is removed from the catalogue", source: "judge" },
+      { criterion_id: "c2", text: "A rule refuses a guide with no pieces", source: "judge" },
+      { criterion_id: "c3", text: "The guide catalogue still opens on guide 1", source: "judge" },
+    ],
+    landing: { target: "release/2026-10", branching: "job", pr_mode: "ready", complete_when: "delivered" },
+  });
+  await expect.element(page.getByRole("heading", { name: "Retire guide 8", exact: true })).toBeVisible();
+  expect(approving().all()).toHaveLength(0);
 });

@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { ApproveWave, EditJobAsSent, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
@@ -131,6 +131,11 @@ export const watchPulse = (jobId: string | null): void => void window.armada.wat
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
+/** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
+export const listBranches = async (manifestId: string) => {
+  const read = await window.armada.listBranches(manifestId);
+  return read.ok ? read.branches : null;
+};
 /** New job's own reads for the repository its ask answered, on All — #959. */
 export const readComposing = (repository: string) => window.armada.readComposing(repository);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
@@ -389,8 +394,8 @@ export function useCommands(sending: Sending) {
     }
   }
 
-  async function approve(jobId: string): Promise<Outcome> {
-    const answer = await window.armada.approveDispatch(jobId);
+  async function approve(jobId: string, approval?: ApproveDispatch): Promise<Outcome> {
+    const answer = await window.armada.approveDispatch(jobId, approval);
     setOutcome(answer);
     took(jobId, "approve", answer);
     return answer;
@@ -813,10 +818,9 @@ export function useCommands(sending: Sending) {
   /**
    * Edit one Job of an Epic's proposed wave, from its panel. `movePlan`'s
    * reason: the answer is drawn where every command's is, and the panel's form
-   * closes only on one that was taken. `Not implemented` names #1699 until
-   * Fleet serves the route.
+   * closes only on one that was taken. `edit_job`, served since 23.8.
    */
-  async function editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
+  async function editJob(jobId: string, edit: EditJob): Promise<Outcome> {
     const answer = await window.armada.editJob(jobId, edit);
     setOutcome(answer);
     tap(patternFor(answer.ok ? "accepted" : "refused"));
@@ -939,6 +943,7 @@ export function useCommands(sending: Sending) {
     movePlan,
     approveWave,
     editJob,
+    listBranches,
     decide,
     refresh,
   };

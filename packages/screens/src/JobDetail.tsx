@@ -37,7 +37,9 @@ import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
-import { proposalEditsOf } from "./tab-proposal-read";
+import { useApproval } from "./approval-held";
+import { baseBranch } from "./draft/branches";
+import { Approving } from "./approving";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
@@ -152,12 +154,6 @@ function OneJob(props: JobDetailProps) {
   // `budget_hold` offers one control or the other, never both.
   const [raisingTurns, setRaisingTurns] = useState(false);
 
-  // What a person has moved on the proposal, before anything is approved.
-  // **Held by the screen rather than by the tab**, so reading the Record and
-  // coming back does not throw away a retyped title — nothing here has been
-  // sent, so this window is the only place it exists.
-  const [edits, setEdits] = useState(() => proposalEditsOf(props.draft));
-
   // Which sheet is up and what it is reading — `Sheets.tsx`'s `SheetReading`.
   // **Held here and not on the tab**, because the header opens one: Settings
   // is a menu entry on a header that no destination owns. Overview is what
@@ -176,6 +172,15 @@ function OneJob(props: JobDetailProps) {
   // defers to this repository's policies.
   const manifest = props.manifests.find((one) => one.id === job.owner_manifest_id);
   const render = renderFor(job);
+  // What a person has moved on the proposal, before anything is approved.
+  // **Held by the screen rather than by the tab**, so reading the Record and
+  // coming back does not throw away a retyped title; the header's press sends it.
+  const held = useApproval({
+    draft: props.draft,
+    whole,
+    workflows: props.workflows,
+    onListBranches: props.onListBranches,
+  });
 
   // Whether the inspector has a column of its own, and whether a folded sheet
   // goes flush. Both are tokens read off the document — a media feature value
@@ -275,7 +280,7 @@ function OneJob(props: JobDetailProps) {
     onReporting: setReporting,
     onAct: props.onAct,
     onActHeld: props.onActHeld,
-    onApprove: props.onApprove,
+    onApprove: (jobId: string) => props.onApprove(jobId, held.approval()),
     onReport: props.onReport,
     onRaiseCap: props.onRaiseCap,
     raising,
@@ -316,7 +321,7 @@ function OneJob(props: JobDetailProps) {
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
       <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
-      {tab === "overview" && edits !== undefined && edits.proposal.approved_at === undefined ? (
+      {tab === "overview" && held.drafted && held.edits !== undefined && held.edits.proposal.approved_at === undefined ? (
         // A Job at its approval gate: the proposal is what Overview has to
         // draw, because no step has run and approving it is the one thing
         // waiting. **And no wave**: a Job not approved has dispatched nothing.
@@ -328,8 +333,9 @@ function OneJob(props: JobDetailProps) {
         <ProposalTab
           job={job}
           whole={whole}
-          edits={edits}
-          onEdits={setEdits}
+          edits={held.edits}
+          onEdits={held.onEdits}
+          branches={held.branches}
           models={props.models?.models ?? []}
           workflows={props.workflows}
           stale={props.stale}
@@ -369,6 +375,20 @@ function OneJob(props: JobDetailProps) {
           onOpenCheckLog={setCheckLog}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
+          {...(!held.atGate || held.edits === undefined || whole === null
+            ? {}
+            : {
+                approval: (
+                  <Approving
+                    whole={whole}
+                    edits={held.edits}
+                    {...(props.stale ? {} : { onEdits: held.onEdits })}
+                    workflows={props.workflows}
+                    manifest={manifest}
+                    branches={held.branches}
+                  />
+                ),
+              })}
           {...(opensTask === undefined ? {} : { opensTask })}
           onOpenDrone={(droneId) => {
             trail.push("overview");
@@ -465,10 +485,11 @@ function OneJob(props: JobDetailProps) {
           // What froze at approval, above the settings still open. A frozen
           // setup is settings — the owner's 29 September call.
           frozen={
-            edits === undefined || edits.proposal.approved_at === undefined ? undefined : (
+            held.frozen === undefined ? undefined : (
               <FrozenAtApproval
-                landing={edits.landing}
-                proposal={edits.proposal}
+                landing={held.frozen.landing}
+                proposal={held.frozen.proposal}
+                base={baseBranch(held.branches)}
                 whole={whole}
                 manifest={manifest}
               />

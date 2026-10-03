@@ -11,7 +11,9 @@ import type {
   EditTask,
   MovePlan,
   ApproveWave,
-  EditJobAsSent,
+  EditJob,
+  ApproveDispatch,
+  BranchesRead,
   Artifact,
   CaptureOpened,
   CheckOutputRead,
@@ -137,7 +139,17 @@ export type BridgeApi = {
    * to hear about.
    */
   searchFiles: (query: string) => Promise<string[]>;
-  approveDispatch: (jobId: string) => Promise<Outcome>;
+  /**
+   * Release a Job at its approval gate, with the proposal as the person left
+   * it (`approve_dispatch`, since 23.8). **Absent is the proposal as it
+   * stands**, which is Helm's press and every approval nobody edited.
+   */
+  approveDispatch: (jobId: string, approval?: ApproveDispatch) => Promise<Outcome>;
+  /**
+   * The repository's branches, the base first (`list_branches`, #1605), for
+   * the two branch fields to offer.
+   */
+  listBranches: (manifestId: string) => Promise<BranchesRead>;
   /**
    * Kill the failed Job and mint its replacement. **Nothing resumes** — the
    * Job it is called on ends at `killed` and a new one is created carrying
@@ -179,10 +191,11 @@ export type BridgeApi = {
    */
   approveWave: (jobId: string, wave: ApproveWave) => Promise<Outcome>;
   /**
-   * Edit one Job of an Epic's proposed wave, still at `awaiting_approval`.
-   * #1699, as `approveWave`; the edit rides on the debug info.
+   * Save a Job's title, request or criteria while it waits at
+   * `awaiting_approval`, without releasing it — `edit_job`, since 23.8. Only
+   * the fields a person changed.
    */
-  editJob: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
+  editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the
