@@ -4,7 +4,8 @@
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
 //! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task,
 //! 2's red group going round on its own before its tasks fail, 3's model per
-//! task, and 4's proposal running as a person approved it.
+//! task, 4's proposal running as a person approved it, and 5's tasks at
+//! once, in [`at_once`].
 //!
 //! | Not proved here | Why not |
 //! |---|---|
@@ -21,6 +22,10 @@
 // The bench is shared with every other milestone's test and none uses all of it.
 #[allow(dead_code)]
 mod bench;
+
+/// Slice 5's claim, in a module of its own for the line limit.
+#[path = "drone_per_task/at_once.rs"]
+mod at_once;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
 use core_model::{AdvanceGate, AutoMerge, CriterionOrigin, CriterionSource, ReviewGate, Timestamp};

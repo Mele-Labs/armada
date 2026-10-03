@@ -495,6 +495,7 @@ pub fn resources(job_id: JobId) -> JobResources {
             memory_bytes: 402_653_184,
             running_for: "06:12".to_string(),
             recorded: true,
+            drone_id: None,
         }],
         worktree: Some(ipc::WorktreeOnDisk {
             path: "/repo/.armada/worktrees/01JOB".to_string(),

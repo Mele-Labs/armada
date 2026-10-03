@@ -336,6 +336,27 @@ where
         question_id: &str,
         chose: &str,
     ) -> Result<Told, NotAnswered> {
+        // Whichever of the Job's live Drones asked it: slice 5.
+        let mut answered = Err(NotAnswered::NothingIsAsking {
+            job: job_id.clone(),
+        });
+        for drone in self.each_live(job_id).await {
+            answered =
+                crate::crew::as_caller(drone, self.answer_question_of(job_id, question_id, chose))
+                    .await;
+            if !matches!(answered, Err(NotAnswered::NothingIsAsking { .. })) {
+                break;
+            }
+        }
+        answered
+    }
+
+    async fn answer_question_of(
+        &self,
+        job_id: &JobId,
+        question_id: &str,
+        chose: &str,
+    ) -> Result<Told, NotAnswered> {
         let Some(slot) = self.slot_of(job_id).await else {
             return Err(NotAnswered::NothingIsAsking {
                 job: job_id.clone(),
@@ -417,13 +438,22 @@ where
     ///
     /// `None` where nothing is outstanding and where the slot holds another Job.
     pub(crate) async fn question_awaited(&self, job: &JobId) -> Option<ipc::QuestionInFlight> {
-        let slot = self.slot_of(job).await?;
-        let working = slot.lock().await;
-        working
-            .as_ref()
-            .filter(|at_work| at_work.is(job))
-            .and_then(|at_work| at_work.asked())
-            .map(Question::in_flight)
+        for drone in self.each_live(job).await {
+            let slot = crate::crew::as_caller(drone, self.slot_of(job)).await;
+            let Some(slot) = slot else {
+                continue;
+            };
+            let working = slot.lock().await;
+            let asked = working
+                .as_ref()
+                .filter(|at_work| at_work.is(job))
+                .and_then(|at_work| at_work.asked())
+                .map(Question::in_flight);
+            if asked.is_some() {
+                return asked;
+            }
+        }
+        None
     }
 
     /// Write the question into the Job's own log. **Fields, never an

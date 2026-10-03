@@ -42,6 +42,8 @@ const STATUS_CHANGED: &str = "fleet.status_changed";
 /// A Job another repository owns, named by a caller scoped to one. A 404.
 pub(crate) const JOB_ELSEWHERE: &str = "fleet.job_in_another_repository";
 const ILLEGAL_MOVE: &str = "fleet.illegal_move";
+/// A message or a stop named a Drone that is not live. #1666.
+const DRONE_NOT_LIVE: &str = "fleet.drone_not_live";
 const FAULT: &str = "fleet.fault";
 /// A Job whose repository this Fleet does not serve. A 422.
 const NOT_SERVED: &str = "fleet.repository_not_served";
@@ -382,6 +384,11 @@ where
             // there or its worktree gone, the same two acts refusing the
             // other's precondition. `NotTheJudges` and `CheckDidNotPass` are
             // an override's; the rest are a gate re-run's.
+            Adrift::DroneNotLive { job, drone } => Refusal::IllegalMove(
+                WireError::raised(DRONE_NOT_LIVE, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("drone_id", ipc::WireValue::Str(drone.as_str().to_string())),
+            ),
             Adrift::NotResumable { job, .. }
             | Adrift::NoStepStopped { job }
             | Adrift::NoDroneToRedirect { job }

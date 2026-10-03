@@ -492,13 +492,21 @@ where
     /// The command this Job's Drone is waiting on a person to allow, for
     /// `get_job`. `None` where nothing waits.
     pub(crate) async fn command_awaited(&self, job: &JobId) -> Option<ipc::CommandInFlight> {
-        let slot = self.slot_of(job).await?;
-        let working = slot.lock().await;
-        working
-            .as_ref()
-            .filter(|at_work| at_work.is(job))
-            .and_then(|at_work| at_work.permission())
-            .map(in_flight)
+        for drone in self.each_live(job).await {
+            let Some(slot) = crate::crew::as_caller(drone, self.slot_of(job)).await else {
+                continue;
+            };
+            let working = slot.lock().await;
+            let waiting = working
+                .as_ref()
+                .filter(|at_work| at_work.is(job))
+                .and_then(|at_work| at_work.permission())
+                .map(in_flight);
+            if waiting.is_some() {
+                return waiting;
+            }
+        }
+        None
     }
 
     /// This Job's setting, for `get_job`. **Refuse and hold where the store
@@ -620,8 +628,12 @@ where
         // are tried in order and only one of them consumes it, and a signature
         // that returned the answer to try the second with would be a bool with
         // a value smuggled through it.
-        if self.answer_waiting(job_id, call, answered.clone()).await? {
-            return Ok(());
+        // Whichever of the Job's live Drones is waiting on it: slice 5.
+        for drone in self.each_live(job_id).await {
+            let waiting = self.answer_waiting(job_id, call, answered.clone());
+            if crate::crew::as_caller(drone, waiting).await? {
+                return Ok(());
+            }
         }
         self.answer_refused(job_id, call, answered).await
     }
