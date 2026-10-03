@@ -127,6 +127,9 @@ pub struct Forgotten {
     /// How the Job lands, its Drone cap, its policy overrides and the issue
     /// it came from, one row each at most. Spike 022, 4.
     pub approval: usize,
+    /// The Job's retro and its items, its Drones' notes on what got in their
+    /// way, and the door each of its moves came through. `docs/concepts/retro.md`.
+    pub retros: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -191,6 +194,9 @@ impl Forgotten {
             "job_tier_models" | "job_drone_models" => &mut self.models,
             "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources" => {
                 &mut self.approval
+            }
+            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
+                &mut self.retros
             }
             _ => return None,
         })

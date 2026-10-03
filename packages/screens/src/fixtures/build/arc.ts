@@ -29,6 +29,7 @@ import { plannedMoment, planReview, planRevisionRefused } from "./arc-planning";
 import {
   doneTouched,
   everyTaskState,
+  executingAtOnce,
   executingConcurrent,
   executingSequential,
   groupFailed,
@@ -72,6 +73,7 @@ export const ARC_MOMENTS: readonly ArcMoment[] = [
   planReview(),
   planRevisionRefused(),
   executingSequential(),
+  executingAtOnce(),
   executingConcurrent(),
   groupFailed(),
   doneTouched(),

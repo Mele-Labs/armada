@@ -24,6 +24,13 @@ describe("the wire fields a task carries through", () => {
     expect(view.note).toBe("not the place paths go");
   });
 
+  it("carries what runs beside it and whether a later task came back to it (23.10)", () => {
+    const view = taskViewOf(sampleDetail(), sampleTask({ concurrent_with: ["T6"], touched_after_done: true }));
+
+    expect(view.concurrent_with).toEqual(["T6"]);
+    expect(view.touched_after_done).toBe(true);
+  });
+
   it("leaves a field the wire omitted omitted, rather than blank", () => {
     const view = taskViewOf(sampleDetail(), sampleTask());
 

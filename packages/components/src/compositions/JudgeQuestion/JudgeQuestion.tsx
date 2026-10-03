@@ -22,7 +22,7 @@ const UNDERWAY: Record<JudgeAnswer, string> = {
 export const JUDGE_ANSWER: Record<JudgeAnswer, { label: string; means: string }> = {
   agree: {
     label: "Agree with the refusal",
-    means: "The step fails, as it would where the criterion is marked refuse.",
+    means: "The step goes back to a Drone with the Judge's finding.",
   },
   disagree_once: {
     label: "Disagree, just this step",
@@ -57,9 +57,10 @@ const ANSWERS: readonly [JudgeAnswer, "primary" | "secondary"][] = [
  *
  * **One press is the whole answer.** There is no radio-then-send here, unlike
  * `DroneQuestion`: three presses, three outcomes, and a note that rides along
- * without gating any of them. Agreeing fails the step exactly as it would if
- * the criterion were marked `refuse`; either disagreement advances it, and
- * "always" also stands the criterion down for the repository.
+ * without gating any of them. Agreeing sends the step back to a Drone with the
+ * Judge's finding and the note, the way a restart with a note does; either
+ * disagreement advances it, and "always" also stands the criterion down for
+ * the repository.
  *
  * **Nothing here times out.** An unanswered question holds — the same cost an
  * open human gate already has — so there is no countdown and no default.

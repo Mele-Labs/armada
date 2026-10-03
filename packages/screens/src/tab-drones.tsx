@@ -71,11 +71,11 @@ export type DronesTabProps = {
   /** An act on this Job is out, and which — the kill marks its own press. */
   acting: boolean;
   actingAct?: ActingAct | undefined;
-  onRedirect: (jobId: string, instruction: string) => void;
+  onRedirect: (jobId: string, instruction: string, droneId?: string) => void;
   /** The kill's ask, where a hold is not offered. */
-  onAct: (act: ConfirmableAct, jobId: string) => void;
+  onAct: (act: ConfirmableAct, jobId: string, droneId?: string) => void;
   /** The kill, held. */
-  onActHeld: (act: HeldAct, jobId: string) => void;
+  onActHeld: (act: HeldAct, jobId: string, droneId?: string) => void;
   /** Workflow, with this step's panel open. The strip is `JobDetail.tsx`'s. */
   onOpenStep: (stepId: string) => void;
   /** Plan, with this task's sheet open. */
@@ -245,10 +245,8 @@ export function DronesTab({
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),
                 live: open.state === "running",
                 emptyNote: open.transcript === undefined ? (turnsNote ?? TRANSCRIPT_EMPTY) : TRANSCRIPT_EMPTY,
-                // Mocked against this Drone, as the Plan task sheet is: Fleet
-                // redirects the Job, not one Drone (#1536). The kill is too:
-                // Fleet ends the Job's one Drone. The header's kill ends the
-                // Job instead (owner, 29 Sep 2026).
+                // This Drone's own, by its id (#1666, 23.10): the others go on.
+                // The header's kill ends the Job instead (owner, 29 Sep 2026).
                 ...(open.state !== "running"
                   ? {}
                   : {
@@ -258,8 +256,8 @@ export function DronesTab({
                           description={HOLD_SAID.kill_drone}
                           disabled={stale || steering.act === undefined || (acting && actingAct !== "kill_drone")}
                           pending={acting && actingAct === "kill_drone"}
-                          onAsk={() => onAct("kill_drone", job.id)}
-                          onCommit={() => onActHeld("kill_drone", job.id)}
+                          onAsk={() => onAct("kill_drone", job.id, open.id)}
+                          onCommit={() => onActHeld("kill_drone", job.id, open.id)}
                         >
                           {HOLD_LABEL.kill_drone}
                         </HoldButton>
@@ -269,7 +267,7 @@ export function DronesTab({
                           value={instruction}
                           onChange={setInstruction}
                           onSend={() => {
-                            onRedirect(job.id, instruction);
+                            onRedirect(job.id, instruction, open.id);
                             setInstruction("");
                           }}
                           disabled={stale || steering.act === undefined}

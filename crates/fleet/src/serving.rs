@@ -368,7 +368,7 @@ where
     async fn get_job_events(&self, job_id: JobId) -> Result<JobHistory, Refusal> {
         let id = job_id.to_domain();
         self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let (events, coords) = {
+        let (events, coords, vias) = {
             let store = self.store().lock().await;
             let events = store
                 .events_for(&id)
@@ -376,13 +376,23 @@ where
             let coords = store
                 .group_coords(&id)
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            (events, coords)
+            let vias = store
+                .vias_for(&id)
+                .map_err(|cause| self.refusal(Adrift::Reading(LoadJobError::Unreadable(cause))))?;
+            (events, coords, vias)
         };
         Ok(JobHistory {
             job_id,
             moves: events
                 .iter()
-                .map(|event| recorded(event, &coords))
+                .map(|event| ipc::Recorded {
+                    // The door a request came through, kept beside the row.
+                    via: vias
+                        .iter()
+                        .find(|(seq, _)| *seq == event.seq())
+                        .map(|(_, via)| (*via).into()),
+                    ..recorded(event, &coords)
+                })
                 .collect(),
         })
     }

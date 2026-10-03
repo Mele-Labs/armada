@@ -26,6 +26,7 @@ use verification::OutcomeTurn;
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::resume::{Ending, Redirection};
 use crate::ruling::Ruling;
 
 /// The wire's [`ipc::WhenRefused`], from the domain's. Beside
@@ -105,7 +106,7 @@ where
         self.noted_asking(
             job.id(),
             step,
-            "a judge criterion refused, and a person is being asked rather than the step stopping",
+            crate::retro::lines::A_JUDGE_ASKS,
             question.criterion_id.as_str(),
         );
         Ok(())
@@ -134,10 +135,18 @@ where
 
     /// A person's answer to the question this Job is holding open.
     ///
-    /// **Agree fails the step exactly as it does where a criterion is marked
-    /// `refuse`**, walked through `running`: `awaiting_review -> escalated` is
+    /// **Agree sends the step back to a Drone, carrying the Judge's finding**
+    /// — the owner's decision of 2 Oct 2026; until then it stopped the Job.
+    /// The step stops as it would where the criterion is marked `refuse`,
+    /// walked through `running` (`awaiting_review -> escalated` is
     /// `interrupted`'s edge alone, so this takes the same two declared edges
-    /// `reviewing::Fleet::loop_is_spent` already walks off the same gate.
+    /// `reviewing::Fleet::loop_is_spent` walks off the same gate), and then
+    /// takes `restart_step`'s road with the finding as its note: the Job is
+    /// queued and the next Drone opens on it. **No retry budget is read** —
+    /// a person's press is not a retry, and `restart_step` never reads one.
+    /// [`Ending::Any`], since the Drone a question leaves idle is not one a
+    /// person asked to keep. Where the restart is refused, the Job stays
+    /// `escalated` with the restart offered, which is what Agree used to do.
     /// **Disagree advances it**: `awaiting_human -> advanced`, the edge a
     /// person approving a review gate walks, and the Job goes on to the next
     /// step or completes.
@@ -184,7 +193,7 @@ where
                 });
             }
         }
-        let step = StepId::new(open.step_id);
+        let step = StepId::new(open.step_id.clone());
         let job = match answer {
             JudgeAnswer::Agree => {
                 let trigger = StepLevelTrigger::of(EscalationTrigger::GateFailure)
@@ -198,7 +207,25 @@ where
                     Target::Escalated(EscalationTrigger::GateFailure),
                     Actor::Human,
                 )
-                .await?
+                .await?;
+                let finding = Redirection::saying(&finding(&open, note.as_deref()))
+                    .expect("a finding always names its criterion");
+                match self
+                    .restart_step_ending(job_id, Some(&finding), Ending::Any)
+                    .await
+                {
+                    Ok(job) => job,
+                    // The answer landed — the step stopped — so the question
+                    // is not left open over a Job that can no longer serve it.
+                    Err(refused) => {
+                        self.store()
+                            .lock()
+                            .await
+                            .clear_judge_question(job_id)
+                            .map_err(Adrift::Writing)?;
+                        return Err(refused);
+                    }
+                }
             }
             JudgeAnswer::DisagreeOnce | JudgeAnswer::DisagreeAlways => {
                 let slot = self.slot_for(job_id).await;
@@ -318,13 +345,29 @@ where
     }
 }
 
+/// What the next Drone is told where a person agreed with a refusal: the
+/// Judge's own three fields, and the person's note where they wrote one.
+/// `crossing::Redirected` frames it.
+fn finding(open: &store::OpenJudgeQuestion, note: Option<&str>) -> String {
+    let mut said = format!(
+        "The Judge refused this step on `{}` and a person agreed: {}\nExpected: {}\nFound: \
+         {}\nWhat that does: {}",
+        open.criterion_id.as_str(),
+        open.question,
+        open.expected,
+        open.produced,
+        open.consequence,
+    );
+    if let Some(note) = note.map(str::trim).filter(|note| !note.is_empty()) {
+        said.push_str(&format!("\nTheir note: {note}"));
+    }
+    said
+}
+
 fn answered(answer: JudgeAnswer) -> &'static str {
     match answer {
-        JudgeAnswer::Agree => "a person agreed with a judge's refusal",
-        JudgeAnswer::DisagreeOnce => "a person disagreed with a judge's refusal, for this step",
-        JudgeAnswer::DisagreeAlways => {
-            "a person disagreed with a judge's refusal, and this repository stops being asked \
-             about that criterion"
-        }
+        JudgeAnswer::Agree => crate::retro::lines::A_PERSON_AGREES,
+        JudgeAnswer::DisagreeOnce => crate::retro::lines::A_PERSON_DISAGREES_ONCE,
+        JudgeAnswer::DisagreeAlways => crate::retro::lines::A_PERSON_DISAGREES_ALWAYS,
     }
 }

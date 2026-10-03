@@ -575,6 +575,12 @@ fn a_job_held_for_repair_reaches_running_only_as_a_persons_act() {
         )
         .expect("a person may");
     assert_eq!(rerun.job.status(), JobStatus::Running);
+    // **A person's act that reached Fleet through an agent is signed Helm**
+    // (`docs/concepts/retro.md`), and it is still not Fleet acting alone.
+    let by_helm = held
+        .transition(Target::Running, Actor::Helm, at("2026-08-26T10:05:00.000Z"))
+        .expect("an agent asked by a person may too");
+    assert_eq!(by_helm.job.status(), JobStatus::Running);
 }
 
 /// **A step that was never entered does not hold the Job open.** The guard says

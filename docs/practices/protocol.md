@@ -705,7 +705,9 @@ Absent is the ordinary case, and every Job read from a Fleet older than 11.3.
 `answer_judge` is a new route and `Commands` method, taking `ipc::JudgeAnswered`
 — `answer` (`agree`, `disagree_once` or `disagree_always`) and an optional
 `note` that rides along for the record. `agree` fails the step exactly as it
-would have without this design; either disagree advances it, and
+would have without this design — since 2 Oct 2026 it sends the step back to a
+Drone with the Judge's finding instead, by `restart_step`'s road, with no
+change to the wire; either disagree advances it, and
 `disagree_always` also stands the criterion down for the repository, so no
 later Job is asked about it either. Refused with a 409 where the Job is not
 holding a question open.
@@ -2508,6 +2510,46 @@ that may run beside it, refused where one is the task itself or in another group
 tool, not this protocol. **Store V99** keeps it, each Drone beside a kept one and how it left, each
 task Drone's edit calls, and the pairs run apart. Overlap is read from edit calls only (answer
 10): a shell write is not seen.
+
+## Protocol 23.11: a Drone resting at the gate, and turns nobody counted
+
+Job 3 on 3 Oct. Its last task's Drone submitted and ended its run, and `list_job_drones` read it
+`running` for the seven minutes the step's Checks ran, so Bridge drew a Drone working while the
+Checks were. Its three task Drones before it read `turns: 0` with no cost, each having made 6 to 12
+calls: Fleet ended each within a quarter-second of its hand-in, before its terminating line.
+
+**`JobDrone.at_rest_since`, optional and additive, so the minor moves.** When a `running` Drone's
+last run ended, off its transcript's last terminating line with no run started or turn sent after
+it; absent while it works and on a Drone that has left. `running` still means Fleet holds it — at
+rest at the gate it is the Drone a red Check goes back to — so a fifth `DroneState` would have
+been a major move for a Bridge matching on the states it knows, and the field says the same thing. A 23.10 Bridge
+connects behind the banner and draws it working, as before.
+
+**`turns` is absent on a stopped Drone whose row saw no terminating line**, where it read `0`. The
+wire type is unchanged, and absent was already the field's word for none seen. Fleet now lets a
+task's Drone that handed in come to rest before ending it, within `StepNorms::report_grace`, so
+its row carries the harness's turns and cost; one that does not rest in that time reads absent.
+
+## Protocol 23.12: a Job's retro, and who acted
+
+The owner, 3 Oct 2026: every Job reflects when it ends. `../concepts/retro.md` is the concept.
+
+**Two routes, one optional field, two enums, all additive.** `Recorded` gains `via`, the door the
+request that made a move came through, absent on a move Fleet made on its own. Bridge sends
+`x-armada-caller: bridge` on every request, and Fleet reads a request without it as not Bridge's.
+
+| Route | Answers |
+| --- | --- |
+| `GET /jobs/:job_id/retro`, `get_job_retro` | `JobRetro`: `state`, `items`, `record`, `annotations` |
+| `GET /lessons?manifest_id=&most=`, `list_lessons` | `Lessons`: items across Jobs, newest retro first |
+
+**A person's act from any door but Bridge is signed `helm`.** `actor` keeps its set: an agent made
+the request and Fleet cannot see the person behind it. A Bridge before 23.12 sends no header, so
+behind a 23.12 Fleet its presses read `helm` with `via: http` until it is rebuilt.
+
+**`submit_evidence` takes an optional `in_the_way`.** It is an MCP tool, not this protocol, and its
+own schema says so. **Store V100** keeps each move's door, a Drone's notes and the retro, and marks
+every Job already ended `skipped`.
 
 ## Open questions
 

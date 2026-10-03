@@ -68,6 +68,7 @@ import { zoneProposing } from "./studio-zone-proposal";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
+import { featureAfterAgreeing } from "./job-detail-refusal";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
@@ -561,6 +562,11 @@ export const SCENARIOS: readonly Scenario[] = [
   }),
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
+  // A Judge refusal he agreed with: the step stopped and the Job escalated,
+  // with Fleet's recourse in the lead and the step panel (Job 3, 2 Oct 2026).
+  holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
+    opens: featureAfterAgreeing().job.id,
+  }),
   // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
   holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
 ];

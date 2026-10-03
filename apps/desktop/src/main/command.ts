@@ -438,9 +438,15 @@ export class JobCommands {
   }
 
   // ---------------------------------------------------------------- stopping
-  /** Kill the Drone. **The Job survives**, its worktree held for a redispatch. */
-  async killDrone(jobId: string): Promise<Outcome> {
-    return this.kill(jobId, "kill_drone");
+  /**
+   * Kill the Drone. **The Job survives**, its worktree held for a redispatch.
+   * `droneId` names one Drone of several, encoded as a pid is (23.10, #1666).
+   */
+  async killDrone(jobId: string, droneId?: string): Promise<Outcome> {
+    if (droneId === undefined) return this.kill(jobId, "kill_drone");
+    return this.act(jobId, this.killing, "already_killing", (port) =>
+      ask(port, "POST", route(jobId, `drones/${encodeURIComponent(droneId)}/kill`)),
+    );
   }
 
   /**
@@ -560,11 +566,13 @@ export class JobCommands {
    * and nothing was thrown away. Blank is refused before the request is
    * sent, matching the 422 Fleet would give it.
    */
-  async redirectDrone(jobId: string, instruction: string): Promise<Outcome> {
+  async redirectDrone(jobId: string, instruction: string, droneId?: string): Promise<Outcome> {
     if (instruction.trim() === "") return { ok: false, why: "empty_instruction" };
     const body: Redirection = { instruction };
+    // One Drone of several by its id, the Job's kept Drone without (23.10).
+    const to = droneId === undefined ? "redirect" : `drones/${encodeURIComponent(droneId)}/redirect`;
     return this.act(jobId, this.redirecting, "already_redirecting", (port) =>
-      ask(port, "POST", route(jobId, "redirect"), body),
+      ask(port, "POST", route(jobId, to), body),
     );
   }
 

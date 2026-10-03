@@ -59,7 +59,7 @@ fn task(id: &str) -> TaskId {
     TaskId::read(id).expect("a task id")
 }
 
-type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
 async fn states(fleet: &Fixture, job: &JobId) -> Vec<TaskState> {
     fleet
@@ -73,7 +73,7 @@ async fn states(fleet: &Fixture, job: &JobId) -> Vec<TaskState> {
         .collect()
 }
 
-async fn on_implement(fleet: &Fixture, job: &JobId) -> Option<core_model::DroneId> {
+pub(crate) async fn on_implement(fleet: &Fixture, job: &JobId) -> Option<core_model::DroneId> {
     fleet
         .load(job)
         .await
@@ -85,7 +85,19 @@ async fn on_implement(fleet: &Fixture, job: &JobId) -> Option<core_model::DroneI
 
 /// A Job at `implement`, its plan recorded with three tasks.
 async fn at_implement(home: &TempDir) -> (Fixture, JobId) {
-    let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/read.rs"]));
+    at_implement_over(
+        home,
+        fittings(home, FakeWorkProduct::changed(&["src/read.rs"])),
+    )
+    .await
+}
+
+/// [`at_implement`], over fittings a case planted: a Drone that comes to rest,
+/// or a grace it has to come to rest in. `crate::tests::coming_to_rest`.
+pub(crate) async fn at_implement_over(
+    home: &TempDir,
+    mut fittings: crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>,
+) -> (Fixture, JobId) {
     fittings.starting().workflows = one(a_drone_per_task());
     let fleet = Fleet::assembled(fittings);
     let job = fleet

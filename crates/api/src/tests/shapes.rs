@@ -383,6 +383,7 @@ pub fn history(job_id: JobId, at: JobStatus) -> JobHistory {
         moves: vec![Recorded {
             group: None,
             group_attempt: None,
+            via: None,
             seq: 1,
             status: status("awaiting_approval"),
             moved: Movement::Status(StatusMoved {
@@ -825,6 +826,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 state: DroneState::Killed,
                 since: Instant::carried("2026-09-11T08:00:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:20:00Z")),
+                at_rest_since: None,
                 turns: Some(7),
                 cost_micros: Some(146_473),
             },
@@ -836,6 +838,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 state: DroneState::Done,
                 since: Instant::carried("2026-09-11T08:21:00Z"),
                 ended_at: Some(Instant::carried("2026-09-11T08:55:00Z")),
+                at_rest_since: None,
                 turns: Some(12),
                 cost_micros: Some(388_120),
             },
@@ -847,6 +850,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 state: DroneState::Running,
                 since: Instant::carried("2026-09-11T09:00:00Z"),
                 ended_at: None,
+                at_rest_since: None,
                 turns: Some(3),
                 cost_micros: Some(41_002),
             },

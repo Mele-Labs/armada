@@ -460,7 +460,9 @@ impl core::error::Error for IllegalTransition {}
 /// Whether only a person may take this edge.
 ///
 /// `awaiting_repair -> running` is `rerun_checks` and nothing else: Fleet
-/// running a held Job's Checks again on its own would be a loop.
+/// running a held Job's Checks again on its own would be a loop. `Helm` may
+/// take it as well as `Human`: it is a person's act that reached Fleet through
+/// an agent, and still not Fleet's.
 pub(crate) fn a_persons_edge(from: JobStatus, to: JobStatus) -> bool {
     from == AwaitingRepair && to == Running
 }

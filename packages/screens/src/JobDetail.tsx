@@ -424,6 +424,11 @@ function OneJob(props: JobDetailProps) {
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
+          render={render}
+          rerunningChecks={props.rerunningChecks}
+          answered={props.answered}
+          onRerun={props.onRerun}
+          onRerunChecks={props.onRerunChecks}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).
@@ -643,7 +648,12 @@ function recordOf(props: JobDetailProps, whole: JobWhole | null) {
  */
 function placesOf(props: JobDetailProps, jobId: string) {
   const history = props.history?.state === "read" && props.history.jobId === jobId ? props.history.moves : undefined;
-  return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks));
+  const served = props.jobDrones?.state === "read" && props.jobDrones.jobId === jobId ? props.jobDrones.drones.drones : [];
+  const listed = [
+    ...served.map((one) => ({ drone: one.drone_id, step: one.step_id, task: one.task })),
+    ...(props.draft?.drones ?? []).map((one) => ({ drone: one.id, step: one.step, task: one.task })),
+  ];
+  return dronePlacesOf(history, (props.draft?.groups ?? []).flatMap((group) => group.tasks), listed);
 }
 
 /**

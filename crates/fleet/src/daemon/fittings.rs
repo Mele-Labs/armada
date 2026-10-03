@@ -399,6 +399,7 @@ where
             drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,
             merge_end: Mutex::new(()),
+            reflecting: crate::retro::Reflecting::default(),
             run,
         }
     }

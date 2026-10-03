@@ -109,7 +109,7 @@ export type PlanReviewProps = {
    * act. Ahead of its route (#1694). Absent, the gate approves as any plan's.
    */
   onApproveWave?: (jobId: string, jobs: readonly string[]) => void;
-  onRedirect: (jobId: string, instruction: string) => void;
+  onRedirect: (jobId: string, instruction: string, droneId?: string) => void;
   /**
    * A failed task's Pilot or Restart, and Edit this task with what it
    * changed. **The buttons are drawn without it**, so the owner can read
@@ -121,8 +121,8 @@ export type PlanReviewProps = {
    * stop**: the host that hands these through is the one with a confirmation
    * to ask with.
    */
-  onAct?: (act: ConfirmableAct, jobId: string) => void;
-  onActHeld?: (act: HeldAct, jobId: string) => void;
+  onAct?: (act: ConfirmableAct, jobId: string, droneId?: string) => void;
+  onActHeld?: (act: HeldAct, jobId: string, droneId?: string) => void;
   /**
    * Every model the app knows — `list_models` — which Edit this task picks
    * from (owner, 30 Sep 2026). Absent offers the task's own model alone.
@@ -505,10 +505,7 @@ export function usePlanReview({
     open !== undefined && (hasOwnDrone(open) || (open.treatment === "own_drone" && own !== undefined));
   const doing = open === undefined ? undefined : doingOfTask(open);
   const lastEdit = ownDrone ? lastEditOf(own?.transcript) : undefined;
-  // **The stop is mocked**: Fleet has no act that ends one task's Drone
-  // (#1666, slice 5), so this sends the Job's `kill_drone`, as the Drones
-  // sheet's per-Drone kill already does. With one Drone per Job, that is the
-  // same Drone.
+  // **The stop is this task's Drone's alone**, by its id (#1666, 23.10).
   const stop =
     !ownDrone || own?.state !== "running" || onAct === undefined || onActHeld === undefined
       ? undefined
@@ -518,8 +515,8 @@ export function usePlanReview({
           description: TASK_STOP.said,
           disabled: stale || steering.act === undefined || (acting && actingAct !== "kill_drone"),
           pending: acting && actingAct === "kill_drone",
-          onAsk: () => onAct("kill_drone", job.id),
-          onCommit: () => onActHeld("kill_drone", job.id),
+          onAsk: () => onAct("kill_drone", job.id, own?.id),
+          onCommit: () => onActHeld("kill_drone", job.id, own?.id),
         };
   // **An open task no Drone has run has nothing to reach**: the Job's Drone is
   // not on it, so the panel draws no box rather than one that lands elsewhere.
@@ -530,7 +527,8 @@ export function usePlanReview({
           value: instruction,
           onChange: setInstruction,
           onSend: () => {
-            onRedirect(job.id, instruction);
+            // The task's own Drone where it is still up; the Job's otherwise.
+            onRedirect(job.id, instruction, own?.state === "running" ? own.id : undefined);
             setInstruction("");
           },
           disabled: stale || steering.act === undefined,
