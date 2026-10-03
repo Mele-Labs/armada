@@ -567,6 +567,10 @@ pub struct DispatchOrigin {
     /// head of the request dispatched without any step of it doing so —
     /// [`Job::create_split`](crate::Job::create_split).
     pub step_id: Option<StepId>,
+    /// Which pass over the dispatching step made it, counted from one: an
+    /// Epic's wave. `None` on a split's extra, and on a child dispatched before
+    /// slice 6, which entered `queued` rather than waiting for its wave's press.
+    pub pass: Option<u32>,
 }
 
 /// What a Job is about. Neither sequencing nor provenance.

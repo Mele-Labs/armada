@@ -7,6 +7,11 @@
 //! nothing here is structured, so a name is read off the runner's own words.
 //! A Check whose command is neither answers no names, which is read as
 //! "nothing to compare" rather than as a refusal.
+//!
+//! **Read with its colour taken off.** vitest colours its report with no
+//! terminal attached, so a gate's captured ` FAIL ` line opened with escape
+//! codes and named nothing — every one of Job 3's 41 to 45 failing tests on
+//! 3 Oct 2026.
 
 use crate::run::Output;
 
@@ -20,6 +25,7 @@ pub fn failing_tests(output: &Output) -> Vec<String> {
 /// file `fleet` read back from an earlier attempt. Both halves of a
 /// comparison read through this one function, so a wording change moves both.
 pub fn failing_tests_in(text: &str) -> Vec<String> {
+    let text = &plain(text);
     let mut found = Vec::new();
     for name in nextest_failing(text).chain(vitest_failing(text)) {
         if !found.contains(&name) {
@@ -73,4 +79,29 @@ fn vitest_fail_line(line: &str) -> Option<String> {
     let at = after.rfind('>')?;
     let leaf = after[at + 1..].trim();
     (!leaf.is_empty()).then(|| leaf.to_string())
+}
+
+/// The text with every terminal escape sequence taken out: a CSI sequence
+/// (`ESC [`, its parameters, one final byte) whole, and any other escape with
+/// the one character after it. Text holding none comes back borrowed.
+pub(crate) fn plain(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.contains('\u{1b}') {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    let mut kept = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            kept.push(c);
+            continue;
+        }
+        if chars.next() == Some('[') {
+            for c in chars.by_ref() {
+                if ('\u{40}'..='\u{7e}').contains(&c) {
+                    break;
+                }
+            }
+        }
+    }
+    std::borrow::Cow::Owned(kept)
 }

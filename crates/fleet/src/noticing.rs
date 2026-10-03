@@ -290,6 +290,13 @@ where
             .record_pull_request_read(job, read.title.as_deref(), None)
             .map_err(Adrift::Writing)?;
         store.record_landed(job, &landed).map_err(Adrift::Writing)?;
+        // When it merged, off the same read: the forge's instant, beside the
+        // title and the count. A forge that named none leaves it unsaid.
+        if let (Landing::Merged { .. }, Some(at)) = (&landed, read.merged_at.as_deref()) {
+            store
+                .record_merged_at(job, &Timestamp::from_rfc3339(at))
+                .map_err(Adrift::Writing)?;
+        }
         drop(store);
         let repository = match (&landed, read.base.as_deref()) {
             // **Only a merge, and only where the forge named the branch.**
@@ -537,6 +544,14 @@ where
         let mut summary =
             ipc::JobSummary::of(&job, None, None, None, false, None, started_at, ended_at);
         summary.landed = Some(state);
+        summary.merged_at = self
+            .store()
+            .lock()
+            .await
+            .merged_at(&noticed.job)
+            .map_err(Adrift::Reading)?
+            .as_ref()
+            .map(ipc::Instant::from);
         // A client replaces the row with this one, so it keeps its task counts.
         summary.tasks = self.task_counts(&noticed.job).await?;
         self.publish(ipc::Event::JobLanded(ipc::JobLanded {

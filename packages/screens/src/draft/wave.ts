@@ -1,12 +1,13 @@
 // A Job that dispatched a wave of Jobs, and which of them waits on which.
 // Draft, for `crates/ipc/src/detail.rs`.
 //
-// Source of truth today: `JobSummary.dispatched_by`, the parent's id on every
-// row it dispatched (protocol 14.2). That is a set with no order in it.
+// Source of truth: `JobSummary.dispatched_by`, the parent's id on every row it
+// dispatched (protocol 14.2), and `dispatched_pass`, the pass of its plan that
+// proposed it (23.11, #1692). **The pass is what says a row is a wave's**: a
+// member of a landing order carries none.
 //
-// **The order is the one field missing, and the workflow already asks for
-// it**: `epic.json`'s plan Judge wants "an edge wherever one of them has to
-// wait for another". It is recorded in `plan.md` and lost before the Board.
+// **The order is on each child's `JobDetail.dependencies`**, which the Board
+// row does not carry, so a wave read off the rows alone draws one column.
 // Every other fact a wave draws is served — each Job's status, its delivery,
 // its held command and its Judge question.
 //
@@ -56,11 +57,15 @@ export type WaveJobView = {
   tasks?: { done: number; of: number };
 };
 
-/** One pass of plan, dispatch and roll up, and what its split was for. */
+/** One pass of plan and roll up, and what its split was for. */
 export type WaveRoundView = {
   round: number;
-  /** What this pass split the work into, a few words — the strip's label. */
-  says: string;
+  /**
+   * What this pass split the work into, a few words — the strip's label.
+   * **Absent off the wire**: Fleet stamps no per-pass line yet, and the strip
+   * then names the wave alone rather than a sentence standing in for one.
+   */
+  says?: string;
   /**
    * Whether this is the plan the Job is running now. Every earlier round is
    * history and says so, rather than reading as a second live split.
@@ -86,34 +91,40 @@ export type WaveView = {
 };
 
 /**
- * The wave a Job dispatched, from the Board's own rows.
+ * The wave a Job proposed, from the Board's own rows: each one it dispatched
+ * that carries the pass that proposed it.
  *
- * **A Job with no such row dispatched no wave**, and `undefined` is that
- * answer — never an empty graph, which reads as Jobs that failed to load.
+ * **A Job with no such row proposed no wave**, and `undefined` is that answer —
+ * never an empty graph, which reads as Jobs that failed to load. A row with
+ * no pass is a landing order's member, which is the members band's.
  *
- * **`waits_on` comes back empty and that is honest.** Nothing on the wire
- * records the order, so every Job reads as one that may start at once and the
- * graph draws one column. The mock's own moment fills it until Fleet does.
+ * **`waits_on` comes back empty and that is honest.** The order is on each
+ * child's `JobDetail.dependencies`, which no row carries, so every Job reads
+ * as one that may start at once and the graph draws one column.
  */
 export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveView | undefined {
-  const jobs = board
-    .filter((row) => row.dispatched_by === detail.job.id)
-    .map(
-      (row): WaveJobView => ({
-        job: row.id,
-        title: row.title,
-        status: row.status,
-        handle: row.handle,
-        round: 1,
-        waits_on: [],
-        ...(row.landed === undefined ? {} : { landed: row.landed }),
-      }),
-    );
+  const jobs = board.flatMap((row): WaveJobView[] =>
+    row.dispatched_by !== detail.job.id || row.dispatched_pass === undefined
+      ? []
+      : [
+          {
+            job: row.id,
+            title: row.title,
+            status: row.status,
+            handle: row.handle,
+            round: row.dispatched_pass,
+            waits_on: [],
+            ...(row.landed === undefined ? {} : { landed: row.landed }),
+          },
+        ],
+  );
   if (jobs.length === 0) return undefined;
+  const passes = [...new Set(jobs.map((one) => one.round))].sort((one, two) => one - two);
+  const latest = passes.at(-1);
   return {
     job: detail.job.id,
     title: detail.job.title,
-    rounds: [{ round: 1, says: detail.job.title, live: true }],
+    rounds: passes.map((round) => ({ round, live: round === latest })),
     jobs,
   };
 }

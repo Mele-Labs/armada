@@ -330,7 +330,7 @@ where
             .collect();
         // Read before the loop consumes the board, because every waiting Job
         // asks the same question of it.
-        let children = children_standing(&loaded.jobs);
+        let children = children_standing(&loaded.jobs, &self.merges_owed().await?);
         let mut waiting = Vec::new();
         for job in loaded.jobs {
             if job.status() != JobStatus::Queued || short_on_volume.contains(job.id()) {
@@ -356,7 +356,7 @@ where
             // Beside `clear_to_run` and before the budget for the same reason
             // it is: both are a Job whose turn has not come, and neither has
             // spent anything on this attempt.
-            if waiting_on_children(&job, &children) {
+            if waiting_on_children(&job, &children, self.waits_on_merges(&job).await) {
                 continue;
             }
             // Approved and already past what it may spend. **Skipped and not

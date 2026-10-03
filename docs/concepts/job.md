@@ -82,7 +82,7 @@ The full set of Job statuses — each with its meaning, its reason values and wh
 
 ## Transitions
 
-A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `queued`, already approved as part of its parent. A Job dispatched from a request enters at `proposing`, before either.
+A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `awaiting_approval` too, one Job of its parent's wave, and is released with the wave by `approve_wave`; one made before 23.13 entered at `queued`. A Job dispatched from a request enters at `proposing`, before either.
 
 ### Reading the request is a status, and approval is what locks
 
@@ -181,7 +181,9 @@ refusal afterwards. `gate_undecided` stays refused because the gate never
 weighed the work at all, so there is no decision to disagree with; whether that
 wants an act of its own is open. **A failed mechanical Check is handed back to the Drone that
 produced the work**, with the Check's own output, and the step retries under its
-gate-failure retry limit. `build` failing is not a matter of opinion — which is
+gate-failure retry limit. A red the gate can confirm is first run again alone,
+and only one that is still red alone reaches the Drone ([Manifest](manifest.md),
+Confirming a red). `build` failing is not a matter of opinion — which is
 why it cannot be overruled, and not a reason to end the Job over it. A failing
 test is work, and the Drone that wrote the code is the thing that should fix it.
 

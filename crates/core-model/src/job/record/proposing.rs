@@ -153,6 +153,7 @@ impl Job {
         let by = DispatchOrigin {
             job_id: head,
             step_id: None,
+            pass: None,
         };
         Job::create(
             new,

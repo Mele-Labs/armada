@@ -279,6 +279,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(approve_dispatch::<D>),
         )
         .route("/jobs/:job_id/edit", post(crate::commands::edit_job::<D>))
+        .route(
+            "/jobs/:job_id/approve_wave",
+            post(crate::commands::approve_wave::<D>),
+        )
         .route("/jobs/:job_id/raise_cost_cap", post(raise_cost_cap::<D>))
         .route("/jobs/:job_id/raise_turn_cap", post(raise_turn_cap::<D>))
         .route("/jobs/:job_id/kill_drone", post(kill_drone::<D>))

@@ -25,18 +25,7 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
-  { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
 ];
-
-/**
- * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan
- * gate: every Job of the proposed wave, each at `awaiting_approval` and
- * dispatched by the Epic, released together. Fleet has not agreed a body yet,
- * so this is what Bridge sends and the debug info carries.
- */
-export type ApproveWave = {
-  jobs: readonly string[];
-};
 
 /**
  * A request body as the debug info carries it: each top-level field, a string

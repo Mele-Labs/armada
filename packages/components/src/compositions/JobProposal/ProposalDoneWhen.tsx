@@ -3,6 +3,8 @@ import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_CRITERIA } from "../../guides";
+import { CriterionMovedMark, CriterionOriginMark } from "../CriterionOrigin/CriterionOrigin";
+import type { CriterionOriginKind } from "../CriterionOrigin/CriterionOrigin";
 
 /**
  * One thing the Job is held to, with where its words came from.
@@ -17,10 +19,11 @@ export type ProposalCriterion = {
   id?: string;
   text: string;
   /**
-   * Where the words came from, as a person reads it. **Absent draws nothing**
-   * where nothing names it — a Job no person dispatched (`#1748` row 17).
+   * Where the words came from, drawn as its mark with its name on hover.
+   * **Absent draws nothing** where nothing names it — a Job no person
+   * dispatched (`#1748` row 17).
    */
-  origin?: string;
+  origin?: CriterionOriginKind;
   /**
    * The issue those words came from, where they came from one.
    *
@@ -36,10 +39,11 @@ export type ProposalCriterion = {
    */
   decidedBy: string;
   /**
-   * The issue these words came from has been edited since the Job froze them.
+   * When the issue these words came from was last edited, where that is after
+   * Fleet read it. Drawn as `diff` beside the reference, the date on hover.
    *
-   * **The Job keeps what it froze** (#1530, 22 Sep). This says the source has
-   * moved; it never replaces the words, and nothing here re-reads the issue.
+   * **The Job keeps the words it was given** (#1530, 22 Sep). This says the
+   * source has moved; it never replaces them, and nothing here re-reads the issue.
    */
   movedSince?: string;
 };
@@ -129,11 +133,6 @@ export function ProposalDoneWhen({
                 )}
                 <span>{criterion.decidedBy}</span>
               </p>
-              {criterion.movedSince === undefined ? null : (
-                <p className="armada-proposal__moved" role="note">
-                  {`The issue has been edited since these words were frozen — last on ${criterion.movedSince}. The Job is held to the words above.`}
-                </p>
-              )}
             </li>
           ))}
         </ul>
@@ -150,7 +149,8 @@ export function ProposalDoneWhen({
 }
 
 /**
- * Where one criterion's words came from.
+ * Where one criterion's words came from: its mark, the issue's reference where
+ * there is one, and the issue having moved since Fleet read it.
  *
  * **The reference opens the issue where an address is known, and reads as
  * text where none is.** Bridge opens nothing it was handed as a string from a
@@ -166,7 +166,14 @@ function Origin({
   onOpenIssue?: (ref: string) => void;
 }) {
   const issue = criterion.issue;
-  if (issue === undefined) return <span>{criterion.origin}</span>;
+  const mark = criterion.origin === undefined ? null : <CriterionOriginMark origin={criterion.origin} />;
+  const moved = criterion.movedSince === undefined ? null : <CriterionMovedMark at={criterion.movedSince} />;
+  if (issue === undefined) return (
+    <>
+      {mark}
+      {moved}
+    </>
+  );
   const ref =
     issue.url === undefined || onOpenIssue === undefined ? (
       <span className="armada-proposal__criterion-ref">{issue.ref}</span>
@@ -181,7 +188,9 @@ function Origin({
     );
   return (
     <span className="armada-proposal__criterion-from">
-      {criterion.origin} {ref}
+      {mark}
+      {ref}
+      {moved}
     </span>
   );
 }

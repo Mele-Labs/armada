@@ -356,6 +356,7 @@ async fn opening_a_finished_job_says_whether_its_pull_request_merged() {
             unpushed: None,
             pull_request_title: None,
             pull_request_comments: None,
+            merged_at: None,
         },
     );
 
@@ -394,6 +395,7 @@ async fn a_pull_request_nobody_has_settled_says_nothing_rather_than_open() {
             unpushed: None,
             pull_request_title: None,
             pull_request_comments: None,
+            merged_at: None,
         },
     );
 

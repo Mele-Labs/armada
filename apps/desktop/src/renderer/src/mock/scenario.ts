@@ -73,6 +73,7 @@ import { retroFixtures } from "./job-3-retro";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
+import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -499,6 +500,10 @@ export const SCENARIOS: readonly Scenario[] = [
   ...ARC_MOMENTS.map((one) => moment("arc", one)),
   // The arc's request dispatched, on a Fleet whose proposer fills its Job in a field at a time.
   fillingIn(moment("arc", dispatchTyping())),
+  // The same, with a Job at its gate beside it whose criteria came from an issue and the request.
+  originsAndPanel(
+    fillingIn(moment("arc", { ...dispatchTyping(), fixtures: [...dispatchTyping().fixtures, proposalFromAnIssue()] })),
+  ),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
   // A Check's log, from both strips that draw one: group three's boundary running its Checks, and

@@ -456,6 +456,10 @@ Rules that follow:
 - **A run against main gates nothing.** A test that fails there drafts a Job
   that waits for a person, and the Drone's own step is still decided by its
   Checks.
+- **The gate runs it too, before a red is ruled on.** Each failing test runs
+  alone in the Job's worktree; where every one passes, the whole Check runs
+  again alone and decides. Added 3 October 2026; `docs/concepts/manifest.md`,
+  Confirming a red.
 - **It is frozen with the workflow**, and `after_merge` drops it for the reason
   it drops `narrow`.
 

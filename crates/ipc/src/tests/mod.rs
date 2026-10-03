@@ -65,6 +65,8 @@ mod studio_zones;
 mod summaries;
 mod turns;
 mod version;
+/// An Epic's wave: each pass's line, and each member's waits-on edges.
+mod waves;
 mod work_plan;
 
 use core_model::{

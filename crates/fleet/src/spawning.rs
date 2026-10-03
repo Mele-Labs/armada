@@ -108,6 +108,9 @@ where
         // asks this and answers no. `crate::landing` owns the rest, including
         // why a branch that would not go does not stop the step.
         self.sent_out_on_entry(job, step, &worktree).await;
+        // A step that proposes Jobs, starting again, proposes again: what its
+        // last attempt proposed and nobody released goes first. `crate::waving`.
+        self.proposals_withdrawn(job, step).await?;
         // What a landed fix held is free once this copy has it, and the news
         // rides the peer block below. #1673.
         self.holds_caught_up(&job_id, moved.as_ref()).await;

@@ -283,3 +283,23 @@ fn a_temporary_repository_leaves_nothing_beside_it() {
     assert!(left.is_empty(), "left behind: {left:?}");
     assert!(!root.exists(), "the repository itself is gone too");
 }
+
+// ------------------------------------------------------------ when it merged
+
+/// **Only a merged pull request has an instant**, and the forge's null crosses
+/// as `-` because a blank field refuses the whole line. Spike 022, slice 6.
+#[test]
+fn when_it_merged_is_read_off_a_merged_pull_request_and_nothing_else() {
+    use crate::landing::merged_at;
+    assert_eq!(
+        merged_at("MERGED", "2026-10-02T12:00:00Z").as_deref(),
+        Some("2026-10-02T12:00:00Z")
+    );
+    assert_eq!(
+        merged_at("MERGED", "-"),
+        None,
+        "a forge that named no instant"
+    );
+    assert_eq!(merged_at("OPEN", "-"), None);
+    assert_eq!(merged_at("CLOSED", "2026-10-02T12:00:00Z"), None);
+}

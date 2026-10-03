@@ -116,6 +116,19 @@ export type JobSummary = {
    */
   dispatched_by?: string;
   /**
+   * Which pass of its parent's plan proposed it, counted from one: an Epic's
+   * wave. Since 23.13 (#1692). Absent beside `dispatched_by` is a child
+   * dispatched before 23.13, or a split's extra.
+   */
+  dispatched_pass?: number;
+  /**
+   * The Jobs this one waits on, by id: its `depends_on` edges, which
+   * `JobDetail.dependencies` serves whole. Since 23.14 (#1692), so a wave read
+   * off the Board draws its order without a `get_job` per child. Absent is a
+   * Job that waits on nothing.
+   */
+  waits_on?: string[];
+  /**
    * Whether this job's drone is waiting on an answer from a person. Since
    * protocol 5.7.
    *
@@ -143,6 +156,11 @@ export type JobSummary = {
    * the same thing whether the change is in `main` or has sat unread a week.
    */
   landed?: Settled;
+  /**
+   * When its pull request merged, as the forge said. Since 23.13. Absent
+   * beside a `merged` is a merge Fleet noticed before 23.13.
+   */
+  merged_at?: string;
   /**
    * When the Job was created. Not what a whole-Job elapsed is measured from
    * — `started_at` below is — but on the row for the same reason that one is:

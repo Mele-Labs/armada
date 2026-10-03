@@ -288,6 +288,9 @@ pub struct Delivering {
     /// Whether the forge can merge it as it stands. `Yes` by default, the
     /// shape a Job that goes the whole way runs against.
     pub mergeable: Mergeable,
+    /// When it merged, as the forge says. `None` by default, which is also
+    /// what the forge says about one that has not.
+    pub merged_at: Option<String>,
     /// What the forge says about the pull request while it is still open.
     /// Unreadable by default, which is the answer on a machine with no forge —
     /// and the one every case that is not about reviews should get, so that
@@ -334,6 +337,7 @@ impl Default for Delivering {
             number: Some(1),
             title: Some(String::from("a job's pull request")),
             mergeable: Mergeable::Yes,
+            merged_at: None,
             under_review: UnderReview::unreadable(),
             inline_remarks: Some(Vec::new()),
             pull_request_diff: None,
@@ -452,6 +456,15 @@ impl FakeVcs {
     /// consuming builder could not express the case at all.
     pub fn now_landed(&self, landed: Landing) {
         self.delivery.lock().expect("not poisoned").landed = landed;
+    }
+
+    /// Say the pull request merged, and when, as the forge would.
+    ///
+    /// `&self` for [`now_landed`](FakeVcs::now_landed)'s reason.
+    pub fn now_merged_at(&self, landed: Landing, at: &str) {
+        let mut delivery = self.delivery.lock().expect("not poisoned");
+        delivery.landed = landed;
+        delivery.merged_at = Some(at.to_string());
     }
 
     /// Say what the forge says about the open pull request: who has looked at
@@ -757,6 +770,7 @@ impl Delivery for FakeVcs {
             number: delivery.number,
             title: delivery.title.clone(),
             mergeable: delivery.mergeable,
+            merged_at: delivery.merged_at.clone(),
         }
     }
 

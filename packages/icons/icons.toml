@@ -186,6 +186,14 @@
   status = "Specified"
   notes = "The square-with-radiating-ticks outline is unique in the system, which is what matters at 12px."
 
+[icons.diff]
+  means = "A plus over a rule: what was, and something more"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "The issue a criterion was read from has been edited since Fleet read it, beside that criterion's origin only. Never a change count, a diff view or a produced file's change: `file-diff` holds that, and a diff's gutter draws `+` and `-` as signs. Never on a canvas."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`git-compare` and `asterisk` refused). Says *differs* in three strokes. It takes the caution hue of the moved state, which is the state's and not the glyph's; rule 4 holds against the other marks in that hue, none of which is a plus over a rule. Kept off canvases because on its own it reads as add, and the canvas rail's `+` is a sign in a square. It replaced the sentence slice 4 drew, which said the issue moved *since these words were frozen*: wrong at the gate, where nothing is frozen yet. Its tooltip names it and the date the issue moved."
+
 [icons.download]
   means = "An arrow entering an open tray \u2014 what is behind an address, brought in"
   group = "Node bar"
@@ -533,6 +541,14 @@
   reserved = "The Studios surface only. Never a node, a slide, a report or a preview."
   notes = "Added 2026-09-17 with the Studios surface (#1287), accepted by the owner with the surface's place in the rail. The only Navigation glyph that is a board on legs, which keeps it clear of clipboard-list (an upright board with a clip and no stand), layout-dashboard (a grid of panes), hard-drive (a horizontal vessel) and the outline-with-something-inside family. Refused before it was proposed: waypoints is Graph's view toggle, and workflow and network would each name something Armada already has — a workflow, and the fleet."
 
+[icons.quote]
+  means = "A pair of opening quotation marks"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "A criterion whose words came from the request a person typed at dispatch, on its origin line only. Never a citation of an issue or a document, never Helm's words, and never a Drone's or a Judge's text."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`text-cursor-input` and `text-quote` refused). Your own words, quoted back to you. Two filled-weight marks with no interior detail, so it is the heaviest small silhouette of the three and holds at 12px; nothing else in the set is drawn as punctuation. It draws in `--fg-muted` on a `--fg-subtle` line (rule 6), and its tooltip names it. A criterion's origin is a different field from its verification source and its actor, which stay words: `docs/contracts/iconography.md`, Where the answer is no icon."
+
 [icons.refresh-cw]
   means = "Two arrows chasing each other round a closed loop"
   group = "Escalation reason"
@@ -625,6 +641,14 @@
   status = "Proposed"
   notes = "Within the shield reservation — the family means gates and checks. Its counterpart shield-x is already spoken for as failed a check."
 
+[icons.shield-ellipsis]
+  means = "A pointed-base pentagon with three dots inside — the Check family's outline, its answer not in yet"
+  group = "Step phase"
+  size = "12px"
+  status = "Specified"
+  reserved = "The Checks part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: filled once done, lit while the gate runs them, hollow while to come. Never a Check's result, which shield-check, shield-x, shield-minus and shield-off say, and never a loading indicator anywhere else."
+  notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`; proposed the same day for his annotation `ouqa` (\"I had no idea it was running checks\"). It was first a mark on the state pill, which he found too easy to miss, and is now a part of the phase track he drew, named by its tooltip, `Checks running`. Within the shield reservation, so the family still reads as gates and checks; the dots are the one interior mark, and they say *not answered yet* the way a typing indicator does. **The objection to expect is rule 3**, since at 12px the dots are interior detail: the shield outline carries *a Check* and the dots only *still going*, which the pulse says too. Refused: bare `shield`, the Record's kind mark under a rule-4 waiver that is its alone; `shield-check`, a result; `circle-dot`, which is a Drone working and the track's Drones part; `loader` and `loader-circle`, a spinner, which iconography refuses as a progress indicator with no object."
+
 [icons.shield-minus]
   means = "A pointed-base pentagon with a minus inside"
   group = "Step and Verdict"
@@ -710,6 +734,14 @@
   status = "Specified"
   reserved = "Pilot only."
 
+[icons.text-cursor]
+  means = "An I-beam text cursor, blinking"
+  group = "Proposing"
+  size = "12px"
+  status = "Specified"
+  reserved = "A field on a proposing Job's row or page that the proposer has not written yet, blinking. Never a text field, a rename or an edit, never a Job status, which is `scan-line`, and never a loading or busy mark anywhere else."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`ellipsis` and `loader` refused). The proposer is writing the answer, and a blinking caret is what writing looks like. The I-beam is the only outline in the set that is a cursor, so it collides with nothing. It blinks at `--duration-pulse` and holds still under reduced motion, where the cell holding it still reads as unsettled. Its tooltip names the field it stands in for."
+
 [icons.text-wrap]
   means = "Ruled lines, the longest bending back under itself onto the line below"
   group = "Console"
@@ -733,6 +765,14 @@
   status = "Specified"
   reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
   notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."
+
+[icons.ticket]
+  means = "A ticket stub, notched at both ends and perforated down its length"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "A criterion whose words were read out of an issue, on that criterion's origin line only. Never a Job, a request or a dispatch, never a pull request, which is `git-pull-request`, and never a place in a queue."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`hash` and `square-dot` refused). The forge's own issue mark is a ring around a dot, which is `circle-dot`, running's by reservation, so the issue is drawn as the thing it is called rather than the forge's picture of it. A notched stub is the only outline in the set with bites out of both short edges, so it holds at 12px. The issue's reference follows it on the line. Refused: `circle-dot` (running), `file-*` (evidence), `message-square` (Helm), `scroll-text` (a workflow)."
 
 [icons.trash-2]
   means = "A bin with its lid lifted clear"
@@ -794,6 +834,14 @@
     size = "12px"
     status = "Proposed"
     notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). Whose way an item got in is a mark with its word on hover, the owner's standing rule; the person's is this glyph because its own reservation is actor=human, which is what `who = owner` says. --fg-muted, never a status hue: the mark says who, not how bad. Tooltip: You."
+
+[icons.user-pen]
+  means = "A head and shoulders, with a pen across the lower right"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "Actor=human, as a person having written a criterion: one a person added or reworded at the gate, on its origin line only. Never a person required, which is `user-check`, never an attestation verdict, and never rename or edit, which are `square-pen`'s."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`signature` and `pen-line` refused). The human-figure family is reserved to `human required, or actor=human`, and **the owner accepted that actor=human covers a person having written this criterion**: a person who wrote the line is its actor. Against `user-check` rule 4 holds: that one is an amber 12px badge, this one a `--fg-muted` origin mark. The pen is detail and may blur at 12px; the figure is the silhouette, and it is what says a person."
 
 [icons.waypoints]
   means = "the graph view toggle"
@@ -945,6 +993,14 @@
   status = "Specified"
   reserved = "A Record row the Judge produced: a criterion answered, a pattern flagged. Never a verdict, which is circle-check, circle-x and circle-minus; never a comparison or a diff; never a person deciding."
   notes = "Minted 2026-09-29 for [record-kind-marks]. A Judge weighs work against criteria, and a balance is that act. It carries no verdict: circle-* says what the Judge concluded and stays the only family that does, so the mark says who produced the row and the Outcome column says what it came to. Refused: a bare `circle`, a ring that at 12px is circle-dot and circle-dashed with their one distinguishing element gone; `gavel`, which `signpost`'s row already refused as reading judgement, and which says a ruling was struck rather than weighed."
+
+  [[icons.scale.usage]]
+    means = "The Judge reading a running step's work — a call out now"
+    group = "Step phase"
+    size = "12px"
+    status = "Specified"
+    reserved = "The Judge part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: lit while `judging` is present and named `Judge reading`, filled once done, hollow while to come. Never a verdict, which circle-check, circle-x and circle-minus say."
+    notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`, which widens the Record-kind reservation above to this one use; proposed the same day for his annotation `ouqa`. The row above already says a balance is the act of a Judge weighing work against criteria; this is that act while it is under way rather than the Record row it leaves. Refused: `circle-ellipsis`, since `circle-*` is the verdict family and an ellipsis in a ring is `circle-dot` at 12px; `eye`, reserved to Review; `scan-line`, the proposer reading a request."
 
 [icons.bot]
   means = "A robot's head \u2014 a rounded box with an antenna and a stub either side"

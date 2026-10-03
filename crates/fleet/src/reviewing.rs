@@ -73,6 +73,14 @@ where
     /// Rebasing on the way *in* buys nothing: the base moves while a person
     /// reads, and a conflict would put markers into the diff being judged.
     pub async fn approve_review(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        // An Epic's plan holding a wave is approved by `approve_wave`, which
+        // releases the wave with it. `crate::waving`.
+        let job = self.load(job_id).await?;
+        if let Some(step) = job.current_step_id() {
+            if job.status() == JobStatus::AwaitingReview {
+                self.no_wave_held(&job, step).await?;
+            }
+        }
         self.approved(job_id, Actor::Human).await
     }
 
@@ -114,6 +122,11 @@ where
         // Before the Job moves and never after: the inner machine is frozen
         // beneath every status but the two that advance, and `awaiting_review`
         // is one of them only until this call leaves it.
+        // A Job that finishes on its members' merges does not finish before
+        // them, by a person's press or Fleet's. `crate::waving`.
+        if next.is_none() {
+            self.members_landed(&job).await?;
+        }
         let job = self.move_step(&job, &step, StepTarget::Advanced).await?;
         let told = OutcomeTurn::approved(&passed, next.as_ref());
         let Some(next) = next else {

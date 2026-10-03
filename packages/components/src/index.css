@@ -369,6 +369,12 @@
 @import "./compositions/StudioFrame/StudioFrame.css";
 /* A pull request, small: the review gate's The work. #1680. */
 @import "./compositions/PullRequestCard/PullRequestCard.css";
+/* A criterion's origin and its issue having moved; a field still settling. */
+@import "./compositions/CriterionOrigin/CriterionOrigin.css";
+@import "./compositions/SettlingMark/SettlingMark.css";
+
+/* A running step's parts in order, on its card and in its panel. */
+@import "./compositions/StepPhaseTrack/StepPhaseTrack.css";
 /* Whose way a retro item got in, the Lessons list and one Job's retro. 23.12. */
 @import "./compositions/WhoMark/WhoMark.css";
 @import "./compositions/LessonList/LessonList.css";

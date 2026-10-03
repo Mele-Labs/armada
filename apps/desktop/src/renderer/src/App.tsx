@@ -817,10 +817,9 @@ export function App({ draft }: AppProps = {}) {
                   }
                   onSetModel={(jobId, model) => void commands.setModel(jobId, model)}
                   onSetReviewModel={(jobId, model) => void commands.setReviewModel(jobId, model)}
-                  onRemoveAllowedCommand={(jobId, run) =>
-                    void commands.removeAllowedCommand(jobId, run)
-                  }
+                  onRemoveAllowedCommand={(jobId, run) => void commands.removeAllowedCommand(jobId, run)}
                   models={state.holds.models}
+                  machineCap={state.limits?.concurrency ?? null}
                   onOverrule={(jobId, reason) => void commands.overrule(jobId, reason)}
                   // The card's Send it back: the restart act, with the note typed there.
                   onSendBack={(jobId, note) => void commands.act("restart_step", jobId, note)}

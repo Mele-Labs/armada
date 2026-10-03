@@ -320,11 +320,11 @@ names the resource — with ready becoming the null rather than a value.
 label and icon; `awaiting_approval` left grey for amber. See Job.
 
 **The symptom that forced this is a rendering bug, which is why this
-document carries it.** A sub-dispatched Job inherits its parent's
-approval. Under a single four-value field, one out of headroom computed
-as `pre_approved_queued` and never rendered on the Job Board at all.
-Under the current set it enters at `queued` with its reason naming the
-resource, so no combination computes to an unrenderable label.
+document carries it.** A sub-dispatched Job inherited its parent's
+approval before 23.13. Under a single four-value field, one out of
+headroom computed as `pre_approved_queued` and never rendered on the Job
+Board at all. Under the current set a `queued` Job carries its reason
+naming the resource, so no combination computes to an unrenderable label.
 
 > Long-term intent: generate these token names from `core-model`'s Rust
 > enum via the same codegen step that emits the `ipc` TypeScript types,
@@ -677,6 +677,16 @@ There was a rule that one thing animates per screen; it was retired on
 travelling and a mark breathing in the same header are two things saying
 one word, and a reader has to decide which of them they were watching. So
 where a card sweeps, every mark inside its header holds still.
+
+**A running step's card carries a phase track instead, and then the track is
+its one loop.** Along its bottom edge, the step's parts in order — its
+Drones, its gate's Checks, its Judge, and a person where one holds it — done
+filled, now lit, next hollow. The part now breathes, a person's turn as much
+as a machine's, so a step waiting on him is as easy to spot; the sweep does not run beside it, because
+a bar along the top would say *still working* a second time about the same
+card. The step panel's header draws the same track. The owner chose it on
+3 Oct 2026, over a mark on the state pill that was too easy to miss.
+`StepPhaseTrack`.
 
 **A control waiting on Fleet sweeps a bar along its bottom edge**, from
 the press until Fleet answers or refuses. Its label says what it is

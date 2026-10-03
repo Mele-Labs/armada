@@ -7,7 +7,6 @@ import {
   criterionViewsOf,
   criterionWritten,
   decidedSaidOf,
-  originLineOf,
   originSaidOf,
 } from "./criterion";
 import type { CriterionView } from "./criterion";
@@ -50,7 +49,6 @@ describe("where the words came from", () => {
       const view = criterionViewOf(criterion("judge"), origin);
       expect(view.origin).toEqual({ origin: "unsaid" });
       expect(originSaidOf(view)).toBeUndefined();
-      expect(originLineOf(view)).toBeUndefined();
     }
   });
 
@@ -97,7 +95,7 @@ describe("what a criterion says about itself", () => {
   it("names an issue as an issue, and hands the reference over whole", () => {
     const said = originSaidOf(written({ origin: { origin: "issue", ref: "armada/1162" } }));
 
-    expect(said?.said).toBe("From issue");
+    expect(said?.kind).toBe("issue");
     expect(said?.issue).toEqual({ ref: "armada/1162" });
   });
 
@@ -110,19 +108,8 @@ describe("what a criterion says about itself", () => {
   });
 
   it("gives the other two origins no reference, because they are not places", () => {
-    expect(originSaidOf(written({ origin: { origin: "prompt" } }))).toEqual({
-      said: "From your prompt",
-    });
-    expect(originSaidOf(written({ origin: { origin: "person" } }))).toEqual({
-      said: "You wrote this",
-    });
-  });
-
-  it("flattens to one line for a surface that draws no link", () => {
-    expect(originLineOf(written({ origin: { origin: "issue", ref: "armada/1162" } }))).toBe(
-      "From issue armada/1162",
-    );
-    expect(originLineOf(written())).toBe("From your prompt");
+    expect(originSaidOf(written({ origin: { origin: "prompt" } }))).toEqual({ kind: "prompt" });
+    expect(originSaidOf(written({ origin: { origin: "person" } }))).toEqual({ kind: "person" });
   });
 });
 

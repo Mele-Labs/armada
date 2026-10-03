@@ -166,10 +166,18 @@ where
             .await
             .landed_by_job()
             .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+        // When each merged, for the same reason and in the same one read.
+        let merged_at = self
+            .store()
+            .lock()
+            .await
+            .merged_at_by_job()
+            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
         let mut jobs = Vec::new();
         for job in loaded.jobs.iter().filter(|job| owned(job) && keep(job)) {
             let mut summary = self.summarised(job).await?;
             summary.landed = landed.get(job.id()).and_then(crate::noticing::settled);
+            summary.merged_at = merged_at.get(job.id()).map(ipc::Instant::from);
             jobs.push(summary);
         }
         if newest_first {

@@ -224,6 +224,14 @@ async function pointAt(element: HTMLElement): Promise<void> {
 
 /** A field filled as typing fills it: React hears an input with the new value. */
 function fill(element: HTMLElement, words: string): void {
+  // A select takes the option whose value is the words, and says so with
+  // `change`, which is the event React reads a select's `onChange` from.
+  if (element instanceof HTMLSelectElement) {
+    element.focus();
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(element, words);
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
     throw new Error(`${element.tagName.toLowerCase()} is not a field a walk can type into`);
   }

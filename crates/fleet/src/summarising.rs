@@ -166,7 +166,9 @@ where
         // is held for work that has to finish first, which is what the
         // dependency label says. The mechanism differs — provenance rather than
         // an edge — and that difference is not a Board fact.
-        if waiting_on_children(job, &crate::sub_dispatch::children_standing(&loaded.jobs)) {
+        let owed = self.merges_owed().await.map_err(|why| self.refusal(why))?;
+        let children = crate::sub_dispatch::children_standing(&loaded.jobs, &owed);
+        if waiting_on_children(job, &children, self.waits_on_merges(job).await) {
             return Ok(Waiting::on(Some(CoreQueuedReason::BlockedByDependency)));
         }
         // **Before the machine reading, and not only because admission asks it

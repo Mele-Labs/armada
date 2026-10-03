@@ -123,7 +123,9 @@ describe("what a person may still change", () => {
 
       // A Check is the workflow's and is frozen at creation, so a line typed
       // here has no Check to run against it and says the Judge instead.
-      await expect.element(heldTo()).toHaveTextContent("You wrote this");
+      await expect
+        .element(heldTo().getByRole("img", { name: "Written or reworded by a person" }))
+        .toBeVisible();
       await expect.element(heldTo()).toHaveTextContent("The Judge will decide it");
 
       await criterion(3).fill("The stat stays live while a Drone starts and stops");
@@ -250,8 +252,10 @@ describe("what each criterion says about itself", () => {
       open();
 
       // `from armada/1162` read as a repository, a path or a branch as
-      // readily as an issue, which is what the owner asked (`u7y9`).
-      await expect.element(heldTo()).toHaveTextContent("From issue armada/1162");
+      // readily as an issue, which is what the owner asked (`u7y9`): the
+      // issue's mark leads it, named on hover.
+      await expect.element(heldTo().getByRole("img", { name: "From an issue" }).first()).toBeVisible();
+      await expect.element(heldTo()).toHaveTextContent("armada/1162");
       // `answered by the check` read as a verdict already in, on a Job that
       // has not started (`f9yw`).
       await expect.element(heldTo()).toHaveTextContent("A Check will decide it");
@@ -273,7 +277,7 @@ describe("what each criterion says about itself", () => {
   test("the reference is text until an address for it is known", async () => {
     open();
 
-    await expect.element(heldTo()).toHaveTextContent("From issue armada/1162");
+    await expect.element(heldTo().getByText("armada/1162").first()).toBeVisible();
     // Nothing on the wire carries the issue's forge address, and main opens
     // no address it is not already holding — so the reference reads as the
     // reference it is rather than as a control that presses into nothing.

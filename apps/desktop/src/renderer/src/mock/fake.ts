@@ -5,7 +5,7 @@
 // kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import { PROTOCOL_VERSION, refusedWith, sentOf } from "@armada/protocol";
+import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
 import type { JobSummary, Outcome, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
@@ -219,9 +219,20 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       );
       return answer.ok ? OK : answer.outcome;
     },
-    // An Epic's plan approved with its wave, #1694 — answered as the move is.
-    approveWave: async (jobId, wave) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, "/approve_wave"), sent: sentOf(wave) }),
+    // An Epic's plan approved with its wave, served since 23.11 (#1694): every
+    // Job named leaves its gate, and the Epic is queued behind them.
+    approveWave: async (jobId, wave) => {
+      wave.jobs.forEach((one) => move(one, { status: "queued" }));
+      move(jobId, { status: "queued" });
+      const drawn = draft?.wave;
+      if (drawn !== undefined) {
+        const released = (one: (typeof drawn.jobs)[number]) =>
+          wave.jobs.includes(one.job) ? { ...one, status: "queued" } : one;
+        draft = { ...draft, wave: { ...drawn, jobs: drawn.jobs.map(released) } };
+        queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
+      }
+      return OK;
+    },
     // A proposal's words saved without releasing it (`edit_job`, 23.8): on the
     // row, on the Job where it is open, and on the wave's panel that sent it.
     editJob: async (jobId, edit) => {

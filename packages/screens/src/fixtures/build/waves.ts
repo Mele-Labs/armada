@@ -269,24 +269,28 @@ function planStep(): StepDetail {
  */
 function rollUpStep(): StepDetail {
   return {
-    ...arcStep("roll_up", "Roll up the wave", 3),
+    ...arcStep("roll_up", "Roll up the wave", 2),
     pass: { number: 2, of: 5 },
     verdict_routing_target: "plan",
   };
 }
 
-/** The wave's parent, on the three steps `epic.json` declares. */
+/**
+ * The wave's parent, on the two steps `epic.json` declares. **Queued, standing
+ * after its plan**: Approve the plan released the wave and the parent waits on
+ * it, holding no Drone, as Fleet holds it since 23.11.
+ */
 export function waveParent(): JobFixture {
   return lightFixture(
     {
       id: WAVE_ID,
       handle: "31-carry-the-error-contract-everywhere",
       title: "Carry the error contract through every surface",
-      status: "running",
+      status: "queued",
       workflow: epicWorkflow(),
-      at: "dispatch",
-      steps: [planStep(), arcStep("dispatch", "Dispatch the wave", 2), rollUpStep()],
-      says: "running — the second pass of its wave, three Jobs waiting on you",
+      at: "plan",
+      steps: [planStep(), rollUpStep()],
+      says: "queued — waiting on the second pass of its wave, three Jobs waiting on you",
       created_at: "2026-09-22T05:10:00Z",
       started_at: "2026-09-22T05:12:00Z",
     },
@@ -529,6 +533,10 @@ function waveChildren(
           row: {
             origin: "sub_dispatched",
             dispatched_by: WAVE_ID,
+            // The pass that proposed it, which is what says it is a wave's
+            // (23.11), and when its pull request merged, where it did.
+            dispatched_pass: round,
+            ...(child.landed === "merged" ? { merged_at: ended } : {}),
             ...(child.landed === undefined ? {} : { landed: child.landed }),
             // The flag that lifts a row into Needs you, and what tells a running
             // Job with a Drone inside a call apart from one simply working.
@@ -618,7 +626,6 @@ function waveParentAtItsGate(): JobFixture {
           attempts: [{ attempt: 2, outcome: "awaiting_human", started_at: "2026-09-22T07:12:00Z" }],
           verdicts: [],
         },
-        arcStep("dispatch", "Dispatch the wave", 2),
         rollUpStep(),
       ],
       says: "awaiting_review — the second pass's split is waiting on you",

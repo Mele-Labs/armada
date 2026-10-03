@@ -69,6 +69,7 @@ mod task_drones;
 mod timings;
 mod tmp;
 mod tracing;
+mod waves;
 mod work_plan;
 
 use std::collections::BTreeMap;
@@ -380,6 +381,7 @@ pub fn sub_dispatched(id: &str) -> Job {
         DispatchOrigin {
             job_id: job_id("01PARENT"),
             step_id: Some(StepId::new("plan")),
+            pass: None,
         },
         created_at(),
     )
