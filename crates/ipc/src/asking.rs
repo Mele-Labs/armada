@@ -50,8 +50,8 @@ pub struct JudgeQuestion {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JudgeAnswer {
-    /// The refusal stands. The step fails exactly as it does where the
-    /// criterion is marked `refuse`.
+    /// The refusal stands, and the step goes back to a Drone carrying the
+    /// Judge's finding — `restart_step`'s road, with the finding as its note.
     Agree,
     /// The step advances. The next Job's gate asks about this criterion
     /// again.
@@ -79,8 +79,9 @@ pub struct JudgeAnswered {
     /// is open — the whole of what it did before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asked_at: Option<Instant>,
-    /// Never required. Rides along for whoever reads the record later; Fleet
-    /// asks nothing further of it.
+    /// Never required. Rides along for whoever reads the record later, and
+    /// on [`JudgeAnswer::Agree`] into the next Drone's brief beside the
+    /// finding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }

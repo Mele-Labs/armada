@@ -10,6 +10,7 @@
 
 import type {
   BranchDeleted,
+  Branches,
   BriefContents,
   CheckOutput,
   CommandExplained,
@@ -294,6 +295,13 @@ export type CheckOutputRead =
  * `refused` is the Job standing and no brief of it under that name.
  */
 export type BriefRead = { ok: true; brief: BriefContents } | { ok: false; outcome: Outcome };
+
+/**
+ * What `list_branches` came back as (#1605, since 23.8): `BriefRead`'s shape.
+ * A refusal is said where the branch field is, and the field still takes a
+ * name typed by hand.
+ */
+export type BranchesRead = { ok: true; branches: Branches } | { ok: false; outcome: Outcome };
 
 /**
  * What one frame came back as: the bytes, and what they are.

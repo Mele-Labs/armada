@@ -97,7 +97,7 @@ describe("dispatch", () => {
       // what Armada has met rather than the repository's own.
       const from = page.getByRole("combobox", { name: "Base branch" });
       await from.fill("release/17");
-      await expect.element(page.getByText(/No branch Armada has met matches/)).toBeVisible();
+      await expect.element(page.getByText(/No branch matches/)).toBeVisible();
       await expect
         .element(page.getByRole("option", { name: /new branch/ }))
         .not.toBeInTheDocument();

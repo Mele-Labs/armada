@@ -130,7 +130,8 @@ function servedGroupsOf(detail: JobDetail, served: readonly PlanGroup[]): GroupV
         ordinal: index + 1,
         tasks: own,
         scope,
-        concurrent: false,
+        // Its tasks run at once where any names another beside it (23.10).
+        concurrent: own.some((task) => task.concurrent_with.length > 0),
         state: groupStateServed(group.state),
         checks_selected: checksReaching(worksAt, scope),
         cases_at_boundary: [],

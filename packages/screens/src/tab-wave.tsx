@@ -26,7 +26,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type {
   CommandAnswer,
-  EditJobAsSent,
+  EditJob,
   JobDetail as JobWhole,
   JobSummary,
   JudgeAnswer,
@@ -83,7 +83,7 @@ export type WaveRegionProps = {
    * Edit this Job. **Only a Job at `awaiting_approval` offers it** — the owner,
    * 30 Sep 2026: a proposed Job is edited in its panel, never by opening it.
    */
-  onEditJob?: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
 };
 
 /**
