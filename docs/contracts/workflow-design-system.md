@@ -24,9 +24,11 @@ actually need it.
 Every workflow is a `WorkflowDef`: an ordered (or loop-capable) set of
 steps.
 
-**The resolved WorkflowDef is frozen into the Job at creation** — the same
-treatment `acceptance_criteria[]` gets, and for the same reason: the
-yardstick must not move under the work. A Manifest may shadow a built-in
+**The resolved WorkflowDef is copied into the Job when the proposer answers,
+and freezes at the approval press** — the same treatment
+`acceptance_criteria[]` gets, and for the same reason: the yardstick must not
+move under the work. Until the press a person may pick another workflow or
+set each step's gate on the Job's own copy (#1581). A Manifest may shadow a built-in
 workflow, so `workflow_id` alone does not identify what was run. See the
 open question on what a Job records about the workflow it runs, in Armada
 Decisions.
@@ -94,10 +96,10 @@ by hand stays available and is the override, not the path. That page owns
 the call; what belongs here is what it means for a workflow.
 
 **What is proposed is not what is stored.** The resolved `WorkflowDef` is
-frozen into the Job at creation, as below. The proposal chooses which one;
-freezing is what stops it moving afterwards — so a workflow edited in the
-repo between the proposal and the dispatch reaches no Job already created
-against it.
+copied into the Job when the proposer answers and frozen at the approval
+press, as below. The proposal chooses which one, and a person may choose
+another before the press; freezing is what stops it moving afterwards — so a
+workflow edited in the repo after the copy reaches no Job already holding one.
 
 Per-workflow detail — the instantiated `WorkflowDef` where a sample
 exists, and the shape, gate profile and status where one does not; policy
@@ -114,8 +116,8 @@ about what the tests now cover is answered by a Judge reading the diff.
 
 A Job instance references `workflow_id` and carries its own `status`,
 `current_step`, `retry_count` and `iteration_count` per step,
-`acceptance_criteria[]` (frozen at Job creation), `facts[]`
-(append-only), and `escalations[]` (using the trigger taxonomy below) — a
+`acceptance_criteria[]` (frozen at the approval press), `facts[]`
+(append-only once approved), and `escalations[]` (using the trigger taxonomy below) — a
 `WorkflowDef` is the template; the Job is the running instance against it.
 Those counters live in `job_steps`, one row per step, on Job.
 

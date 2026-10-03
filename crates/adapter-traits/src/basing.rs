@@ -200,6 +200,16 @@ impl BaseSpec {
     }
 }
 
+/// One local branch of a repository, as [`Vcs::branches`](crate::Vcs::branches)
+/// lists it. #1605.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchListed {
+    pub name: String,
+    /// The branch a worktree is cut from where nobody names another: the
+    /// Manifest's `base:`, or the one the implementation infers. One at most.
+    pub base: bool,
+}
+
 /// A base checkout that exists.
 ///
 /// **The receipt, and a different type from

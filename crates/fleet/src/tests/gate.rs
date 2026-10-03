@@ -60,6 +60,7 @@ pub(super) fn running_job() -> Job {
                 criterion_id: CriterionId::new("c1"),
                 text: "the suite passes".into(),
                 source: CriterionSource::Check,
+                origin: core_model::CriterionOrigin::Unsaid,
             }],
             steps: vec![
                 StepSeed {

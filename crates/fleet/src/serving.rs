@@ -941,4 +941,30 @@ where
             paths: crate::files::search(root, &query),
         })
     }
+
+    /// The repository's branches, through the Vcs adapter. #1605.
+    async fn list_branches(
+        &self,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::Branches, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let listed = self
+            .vcs()
+            .branches(served.root(), served.manifest().base())
+            .map_err(|why| {
+                self.refusal(Adrift::BranchesUnread {
+                    job: None,
+                    why: why.to_string(),
+                })
+            })?;
+        Ok(ipc::Branches {
+            branches: listed
+                .into_iter()
+                .map(|branch| ipc::BranchRow {
+                    name: branch.name,
+                    base: branch.base,
+                })
+                .collect(),
+        })
+    }
 }

@@ -8,7 +8,7 @@
 
 use std::sync::Mutex;
 
-use adapter_traits::{LinkLookup, LookupCall};
+use adapter_traits::{IssueAddress, LinkLookup, LookupCall};
 
 /// Matches every request against one fragment and answers with one script.
 ///
@@ -22,6 +22,9 @@ pub struct FakeLinkLookup {
     script: &'static str,
     prints: Option<String>,
     calls: Mutex<usize>,
+    /// The issue a matching request links, and when it was last edited.
+    issue: Option<IssueAddress>,
+    edited_at: Mutex<Option<String>>,
 }
 
 impl FakeLinkLookup {
@@ -33,6 +36,8 @@ impl FakeLinkLookup {
             script: "",
             prints: None,
             calls: Mutex::new(0),
+            issue: None,
+            edited_at: Mutex::new(None),
         }
     }
 
@@ -44,6 +49,8 @@ impl FakeLinkLookup {
             script: "printf %s \"$0\"",
             prints: Some(text.to_string()),
             calls: Mutex::new(0),
+            issue: None,
+            edited_at: Mutex::new(None),
         }
     }
 
@@ -55,6 +62,8 @@ impl FakeLinkLookup {
             script: "exit 7",
             prints: None,
             calls: Mutex::new(0),
+            issue: None,
+            edited_at: Mutex::new(None),
         }
     }
 
@@ -63,6 +72,19 @@ impl FakeLinkLookup {
     /// Job a multi-Job plan mints from it.
     pub fn resolved_count(&self) -> usize {
         *self.calls.lock().expect("not poisoned")
+    }
+
+    /// The same fake, saying a matching request links this issue. Spike 022,
+    /// slice 4.
+    pub fn linking(mut self, reference: &str, url: &str) -> FakeLinkLookup {
+        self.issue = Some(IssueAddress::at(reference, url));
+        self
+    }
+
+    /// From now on the issue reads as last edited at `instant`, as the forge
+    /// would answer after somebody edits it.
+    pub fn edit_issue_at(&self, instant: &str) {
+        *self.edited_at.lock().expect("not poisoned") = Some(instant.to_string());
     }
 }
 
@@ -77,6 +99,24 @@ impl LinkLookup for FakeLinkLookup {
         if let Some(text) = &self.prints {
             args.push(text.clone());
         }
+        Some(LookupCall::rendered("/bin/sh", args))
+    }
+
+    fn issue(&self, request: &str) -> Option<IssueAddress> {
+        let fragment = self.fragment?;
+        request.contains(fragment).then(|| self.issue.clone())?
+    }
+
+    /// Prints the instant [`edit_issue_at`](FakeLinkLookup::edit_issue_at)
+    /// last set, or fails where nobody set one — a forge that will not say.
+    fn edited(&self, issue: &IssueAddress) -> Option<LookupCall> {
+        if self.issue.as_ref() != Some(issue) {
+            return None;
+        }
+        let args = match self.edited_at.lock().expect("not poisoned").clone() {
+            Some(instant) => vec!["-c".to_string(), "printf %s \"$0\"".to_string(), instant],
+            None => vec!["-c".to_string(), "exit 7".to_string()],
+        };
         Some(LookupCall::rendered("/bin/sh", args))
     }
 }
