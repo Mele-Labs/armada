@@ -25,13 +25,9 @@ export type PendingRoute = {
 
 export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
-  // Served since 23.2. Deleted with the mock answering both, which a person
-  // walks first: the Bridge half of #1763.
-  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
   // Served since 23.6, with `EditTask` moved to `work-plan.ts`. Deleted with
   // the mock answering it, which a person walks first: the Bridge half of #1764.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
-  { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
   // Served since 23.8 with the lock's body, `EditJob` in `approving.ts`.
   // Deleted with Edit this Job sending it, which is #1699's rest (slice 6).
