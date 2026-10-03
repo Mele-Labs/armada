@@ -1321,9 +1321,9 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person agrees with a judge's refusal, disagrees for this step, or disagrees and stands the criterion down for the repository"
 notes = """
-`docs/concepts/judge.md`'s asking design: a Judge criterion that refuses and is not marked `refuse` holds the step open at a question rather than stopping it. The body is `answer` -- `agree`, `disagree_once` or `disagree_always` -- and an optional `note` that rides along for the record and nothing else.
+`docs/concepts/judge.md`'s asking design: a Judge criterion that refuses and is not marked `refuse` holds the step open at a question rather than stopping it. The body is `answer` -- `agree`, `disagree_once` or `disagree_always` -- and an optional `note` that rides along for the record, and on `agree` into the next Drone's brief.
 
-`agree` fails the step exactly as it would have if the criterion were marked `refuse`. `disagree_once` advances the step, and the next Job's gate asks about the same criterion again. `disagree_always` advances it and also stands the criterion down for the repository, so no later Job is asked about it either.
+`agree` sends the step back to a Drone carrying the Judge's finding: the step stops, then takes `restart_step`'s road with a note built from the criterion's `expected`, `produced` and `consequence` and the person's `note`, so the Job lands `queued` and the next Drone's opening brief carries it. No retry budget is read -- a person's answer is not a retry. Where the restart is refused the Job stays `escalated` with the restart offered, and the refusal is the answer. `disagree_once` advances the step, and the next Job's gate asks about the same criterion again. `disagree_always` advances it and also stands the criterion down for the repository, so no later Job is asked about it either.
 
 Refused with a 409 where the Job is not holding a question open.
 
