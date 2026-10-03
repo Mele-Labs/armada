@@ -37,7 +37,7 @@ pub fn one_test_ran(exit: &Exit, output: &Output, expect_exit_code: i64) -> OneT
 /// How many tests [`crate::one_test`]'s command ran, from the runner's own
 /// summary: a bare name can match several. `None` where no summary was read.
 pub fn one_test_count(output: &Output) -> Option<u32> {
-    let combined = format!("{}\n{}", output.stdout, output.stderr);
+    let combined = combined(output);
     nextest_ran_count(&combined).or_else(|| {
         combined.lines().find_map(|line| {
             let after = line.trim().strip_prefix("Tests")?;
@@ -55,7 +55,7 @@ fn matched_nothing(output: &Output) -> bool {
 /// wording is the more specific signal and the count is what survives it
 /// changing.
 fn nextest_matched_nothing(output: &Output) -> bool {
-    let combined = format!("{}\n{}", output.stdout, output.stderr);
+    let combined = combined(output);
     combined.contains("error: no tests to run") || nextest_ran_count(&combined) == Some(0)
 }
 
@@ -77,11 +77,15 @@ fn nextest_ran_count(text: &str) -> Option<u32> {
 /// skipped, which is what a `-t` filter matching no test case does — vitest
 /// still visits every file and skips each one rather than reporting zero.
 fn vitest_matched_nothing(output: &Output) -> bool {
-    output
-        .stdout
+    combined(output)
         .lines()
-        .chain(output.stderr.lines())
         .any(vitest_summary_line_is_all_skipped)
+}
+
+/// Both streams, joined, with their colour off — `crate::failing::plain`'s
+/// reason: vitest colours its summary line with no terminal attached.
+fn combined(output: &Output) -> String {
+    crate::failing::plain(&format!("{}\n{}", output.stdout, output.stderr)).into_owned()
 }
 
 fn vitest_summary_line_is_all_skipped(line: &str) -> bool {

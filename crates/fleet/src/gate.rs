@@ -79,6 +79,8 @@ impl CheckBudget {
 pub struct CheckOutput {
     pub check: String,
     pub output: Output,
+    /// Where this Check's red was run again alone, and `output` is that run's.
+    pub alone: Option<crate::confirming::Confirmed>,
 }
 
 /// Where `diff_nonempty` measures this step's change from.
@@ -280,9 +282,28 @@ where
             output.push(CheckOutput {
                 check,
                 output: printed,
+                alone: None,
             });
         }
     }
+    // **Before anything reads a red**: one the gate's own contention made is
+    // not the work's, so it is run alone and ruled on that. `crate::confirming`.
+    crate::confirming::confirmed(
+        step.checks(),
+        &mut observed,
+        &mut output,
+        crate::confirming::Again {
+            touched: &touched,
+            worktree: Path::new(at.worktree().path()),
+            budget: budget.duration(),
+            room,
+            ports,
+            env: port_env,
+            holding_handoff: at.holds_handoff(),
+            attempt: at.attempt(),
+        },
+    )
+    .await;
 
     // **Both streams, joined, in the order a terminal shows them.** A check
     // says why on stderr and what it was doing on stdout, and neither reader —

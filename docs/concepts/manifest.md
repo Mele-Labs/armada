@@ -358,7 +358,7 @@ Rules that follow:
 
 ### Running one test by name
 
-**A Check may declare `one_test`, and it is what Fleet runs against a checkout of main before a Drone's `draft_fix` drafts anything.** The Configuration contract holds the syntax.
+**A Check may declare `one_test`, and it is what Fleet runs against a checkout of main before a Drone's `draft_fix` drafts anything, and in the Job's worktree before a red at the gate is ruled against the step** — Confirming a red, below. The Configuration contract holds the syntax.
 
 ```yaml
 checks:
@@ -372,12 +372,28 @@ Decided 13 Sep 2026 for #999, after several running Jobs each fixed the same fla
 
 Rules that follow:
 
-- **Absent means a report cannot be confirmed.** A Check with no `one_test` gives Fleet no way to run one test, so a Drone naming a test under it is refused and nothing is drafted.
+- **Absent means a report cannot be confirmed.** A Check with no `one_test` gives Fleet no way to run one test, so a Drone naming a test under it is refused and nothing is drafted, and a red at the gate is ruled on as it stands.
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
 - **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
+
+### Confirming a red
+
+**Before a red Check at the gate is ruled against the step, Fleet asks whether it is the work's or the machine's.** Each failing test runs alone by `one_test`, one at a time; where every one passes, the whole Check runs again alone and the step is ruled on that run. `crates/fleet/src/confirming.rs`.
+
+Decided 3 Oct 2026, from Job 3 (`3-make-branch-inputs-searchable-comboboxes-w`). Its `implement` step failed `desktop_test` on all three attempts with 41 to 45 failing tests each, every one a timeout, a different set each time, in files its diff never touched, and the Job stopped out of retries over work that was fine. The gate runs a step's Checks up to `checks-at-once` at a time, and that `desktop_test` ran beside the step's own `components_test` and full Rust `test`: 376 s against the merge line's 59 s in the same minutes. Its failing tests passed alone, and plain `main` failed the same way under the same load. Nothing told a red the gate's own contention made from a regression, so each was handed to the Drone as its own.
+
+Rules that follow:
+
+- **Only where every red can be confirmed.** Each must have exited with a code, declare `one_test`, and name its failing tests in the summary shape nextest or vitest prints, read with its colour off. A step with any other red fails whatever the rest would show, so nothing runs and the step is ruled on as it stands.
+- **Alone is every place on the machine.** Each run asks for every place, which the clamp in `places` makes the limit in force, so no other Check of Fleet's starts beside it. A Check's prerequisites are not run again: the gate's own run met them in this worktree.
+- **A test that fails alone, matches nothing or never runs is the work's**, and the red is handed back exactly as it was, against the retry budget.
+- **A few failing tests run one by one, and past `ONE_BY_ONE` in that file none do**: only the whole Check runs alone. Each one-test run of a browser suite still starts the browser and collects every file, so past a handful the tests cost more than the run that decides; a regression usually names a few tests, and the contention named dozens.
+- **The whole run alone is what decides.** A test passing alone advances nothing by itself, so a wrong name, a no-match read as a pass, or a test that only fails beside its neighbours is caught by that run. A `runs_at: handoff` Check the red held back runs with it.
+- **Once per ruling**, which is once per attempt. Nothing here loops.
+- **It is written down.** The Check's row is the run alone, and the Job's log says under the step that the red was run again alone, how many tests failed and whether the run alone passed. A retro reads that line as Fleet's friction, not the Drone's.
 
 ### Proving what merged
 

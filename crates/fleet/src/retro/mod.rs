@@ -41,6 +41,9 @@ pub(crate) mod lines {
         "a person answered a command the drone was waiting on";
     pub(crate) const A_DRONE_RAN_CHECKS: &str =
         "the Drone asked for the step's checks and they were run";
+    /// A gate's red run again alone before it was ruled on — `crate::confirming`.
+    pub(crate) const A_RED_RUN_ALONE: &str =
+        "a check failed with other checks running beside it, and was run again alone";
     /// The start of the line a restart with a note writes; the note follows.
     pub(crate) const A_PERSON_RESTARTED: &str = "a person restarted the step";
 }

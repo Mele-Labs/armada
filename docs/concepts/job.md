@@ -181,7 +181,9 @@ refusal afterwards. `gate_undecided` stays refused because the gate never
 weighed the work at all, so there is no decision to disagree with; whether that
 wants an act of its own is open. **A failed mechanical Check is handed back to the Drone that
 produced the work**, with the Check's own output, and the step retries under its
-gate-failure retry limit. `build` failing is not a matter of opinion — which is
+gate-failure retry limit. A red the gate can confirm is first run again alone,
+and only one that is still red alone reaches the Drone ([Manifest](manifest.md),
+Confirming a red). `build` failing is not a matter of opinion — which is
 why it cannot be overruled, and not a reason to end the Job over it. A failing
 test is work, and the Drone that wrote the code is the thing that should fix it.
 
