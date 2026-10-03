@@ -178,6 +178,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         redispatched_from: None,
         dispatched_by: None,
         dispatched_pass: None,
+        waits_on: Vec::new(),
         asking: false,
         landed: None,
         merged_at: None,
@@ -371,6 +372,8 @@ pub fn detail(job: JobSummary) -> JobDetail {
         from_studio: None,
         // And the other end of that one column, for the same reason.
         replaces: None,
+        // The fake records no plan, so no pass has a line.
+        wave_rounds: Vec::new(),
     }
 }
 

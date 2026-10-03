@@ -221,6 +221,7 @@ mod under_review;
 mod underway;
 mod verify_runs;
 mod watching;
+mod wave_rounds;
 mod waves;
 mod widening;
 mod workflow_promise;

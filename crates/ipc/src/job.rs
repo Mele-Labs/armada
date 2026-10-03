@@ -213,6 +213,16 @@ pub struct JobSummary {
     /// pass made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatched_pass: Option<u32>,
+    /// The Jobs this one waits on, by id: its `depends_on` edges, which
+    /// `JobDetail.dependencies` serves whole. Since 23.14 (#1692), so a wave
+    /// read off the Board draws its order without a `get_job` per child.
+    /// **Empty is a Job that waits on nothing**, which is most of them.
+    ///
+    /// **One direction only.** The `blocks` end is the same edge read from the
+    /// other Job, and its row carries it here; two directions on a row would be
+    /// one fact written twice.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waits_on: Vec<JobId>,
     /// Whether this Job's Drone is waiting on an answer from a person.
     ///
     /// # A flag, and deliberately not the question
@@ -340,6 +350,12 @@ impl JobSummary {
             redispatched_from: job.redispatched_from().map(JobId::from),
             dispatched_by: job.dispatched_by().map(|by| JobId::from(&by.job_id)),
             dispatched_pass: job.dispatched_by().and_then(|by| by.pass),
+            waits_on: job
+                .dependencies()
+                .iter()
+                .filter(|edge| edge.direction == core_model::DependencyDirection::DependsOn)
+                .map(|edge| JobId::from(&edge.peer))
+                .collect(),
             reclaimed_at: job.reclaimed_at().map(Instant::from),
             asking,
             // Filled by the caller that has it, and `None` here on purpose:

@@ -93,6 +93,7 @@ impl FakeDaemon {
             redispatched_from: None,
             dispatched_by: None,
             dispatched_pass: None,
+            waits_on: Vec::new(),
             // No slot, so nothing is waiting. See `Tools::ask_question`.
             asking: false,
             landed: None,

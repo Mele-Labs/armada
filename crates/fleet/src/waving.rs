@@ -16,7 +16,11 @@
 use std::collections::BTreeMap;
 
 use adapter_traits::{AgentHarness, Delivery, Landing, Vcs, WorkProduct};
-use core_model::{Actor, CompleteWhen, Job, JobId, JobStatus, Origin, StepId, StepTarget, Target};
+use core_model::{
+    Actor, CompleteWhen, Job, JobId, JobStatus, Origin, PlanAuthor, PlanChange, PlanEntry, StepId,
+    StepState, StepTarget, Target, Timestamp,
+};
+use store::{Moved, RecordedEvent};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -180,6 +184,56 @@ pub fn unlanded(parent: &JobId, board: &[Job], landed: &BTreeMap<JobId, Landing>
         .collect()
 }
 
+/// What each pass over a step that proposes Jobs split the work into, oldest
+/// first: the approach its plan last recorded in that pass (#1692).
+///
+/// **A pass is counted the way `store::Store::pass_over` counts it** when it
+/// stamps a member: one, plus every return the roll-up sent onto the step. A
+/// recording belongs to the pass the returns before it opened, so a Judge's
+/// rerun inside one pass replaces that pass's line and a return starts the
+/// next. A pass that recorded nothing has no line, and the strip names its
+/// wave alone.
+pub fn rounds(
+    proposing: &[StepId],
+    events: &[RecordedEvent],
+    history: &[PlanEntry],
+) -> Vec<ipc::WaveRound> {
+    let returns: Vec<(&StepId, &Timestamp)> = events
+        .iter()
+        .filter_map(|event| match event.moved() {
+            Moved::Step {
+                step_id,
+                from: StepState::Advanced,
+                to: StepState::Running,
+                returned_by: Some(_),
+                ..
+            } => Some((step_id, event.at())),
+            _ => None,
+        })
+        .collect();
+    let mut by_pass: BTreeMap<u32, String> = BTreeMap::new();
+    for entry in history {
+        let (PlanChange::Recorded { approach, .. }, PlanAuthor::Step { step_id, .. }) =
+            (&entry.change, &entry.by)
+        else {
+            continue;
+        };
+        if !proposing.contains(step_id) {
+            continue;
+        }
+        let before = returns
+            .iter()
+            .filter(|(onto, at)| *onto == step_id && *at <= &entry.at)
+            .count();
+        let pass = u32::try_from(before).unwrap_or(u32::MAX).saturating_add(1);
+        by_pass.insert(pass, approach.as_str().to_string());
+    }
+    by_pass
+        .into_iter()
+        .map(|(pass, approach)| ipc::WaveRound { pass, approach })
+        .collect()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -278,6 +332,28 @@ where
             true => Ok(()),
             false => Err(refused(job.id(), Refused::MembersNotLanded { unlanded })),
         }
+    }
+
+    /// [`rounds`] for one Job. **No read at all for a Job whose workflow has no
+    /// step that proposes Jobs**, which is every Job but an Epic, so an open of
+    /// any other Job costs what it did.
+    pub(crate) async fn wave_rounds_of(&self, job: &Job) -> Result<Vec<ipc::WaveRound>, Adrift> {
+        let proposing: Vec<StepId> = job
+            .workflow()
+            .steps()
+            .iter()
+            .filter(|step| step.may_dispatch_jobs())
+            .map(|step| step.id().clone())
+            .collect();
+        if proposing.is_empty() {
+            return Ok(Vec::new());
+        }
+        let store = self.store().lock().await;
+        let events = store
+            .events_for(job.id())
+            .map_err(|why| Adrift::Reading(store::LoadJobError::Unreadable(why)))?;
+        let history = store.plan_history(job.id()).map_err(Adrift::Reading)?;
+        Ok(rounds(&proposing, &events, &history))
     }
 
     /// **A step that proposes Jobs, starting again, proposes its wave again**:
