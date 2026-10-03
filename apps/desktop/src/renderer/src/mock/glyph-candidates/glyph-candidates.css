@@ -1,0 +1,183 @@
+/* The glyph candidate sheet. SCRATCH, deleted once the owner has picked. */
+
+#root:has(.gc-sheet) {
+  height: 100vh;
+  overflow: auto;
+  background: var(--bg-base);
+}
+
+.gc-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  color: var(--fg-default);
+}
+
+.gc-sheet__title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.gc-meaning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gc-meaning__title {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.gc-meaning__candidates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* A Board row wants the width a Board gives it, so these stack. */
+.gc-meaning[data-where="row"] .gc-meaning__candidates {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gc-candidate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.gc-candidate__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.gc-candidate__name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+}
+
+.gc-candidate__motion {
+  font-size: var(--text-2xs);
+}
+
+.gc-candidate__bare {
+  display: inline-flex;
+}
+
+.gc-surfaces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.gc-surface {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+.gc-entry {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.gc-entry dt {
+  font-family: var(--font-mono);
+}
+
+.gc-entry dd {
+  margin: 0;
+}
+
+.gc-together {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* A glyph and its words on one line. */
+.gc-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* A note that wraps keeps its mark on the first line. */
+.gc-moved {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* The mark is never --fg-subtle (iconography rule 6), so on an origin line,
+   whose words are subtle, it lifts to --fg-muted. On the moved note it
+   inherits the note's own colour. */
+.gc-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 1lh;
+}
+
+.armada-proposal__criterion-origin .gc-mark,
+.armada-plan-tab__criterion-origin .gc-mark,
+.armada-job-row .gc-mark {
+  color: var(--fg-muted);
+}
+
+/* --- Settling, the three motions ------------------------------------------ */
+
+.gc-mark[data-motion="blink"] > svg {
+  animation: gc-blink var(--duration-pulse) steps(1, end) infinite;
+}
+
+@keyframes gc-blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.gc-mark[data-motion="sequence"] > svg > circle {
+  animation: gc-sequence var(--duration-pulse) var(--ease) infinite;
+}
+
+/* lucide draws the middle dot first, then the right, then the left. */
+.gc-mark[data-motion="sequence"] > svg > circle:nth-child(3) { animation-delay: 0ms; }
+.gc-mark[data-motion="sequence"] > svg > circle:nth-child(1) { animation-delay: 200ms; }
+.gc-mark[data-motion="sequence"] > svg > circle:nth-child(2) { animation-delay: 400ms; }
+
+@keyframes gc-sequence {
+  0%, 60%, 100% { opacity: 0.35; }
+  30% { opacity: 1; }
+}
+
+.gc-mark[data-motion="turn"] > svg {
+  animation: gc-turn var(--duration-pulse) steps(8, end) infinite;
+}
+
+@keyframes gc-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-mark[data-motion] > svg,
+  .gc-mark[data-motion] > svg > circle {
+    animation: none;
+  }
+}

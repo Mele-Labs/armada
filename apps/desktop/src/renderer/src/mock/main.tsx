@@ -3,6 +3,7 @@
 // root whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { GLYPH_CANDIDATES, mountGlyphCandidates } from "./glyph-candidates/GlyphCandidates";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -17,8 +18,10 @@ const script = walking === null ? undefined : EVERY_WALK.get(walking);
 const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
+// SCRATCH: the glyph candidate sheet stands in for the app, until the owner picks.
+const candidates = asked === GLYPH_CANDIDATES;
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
-if (asked !== null && asked !== scenario.name) {
+if (asked !== null && asked !== scenario.name && !candidates) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
 
@@ -31,10 +34,11 @@ if (script !== undefined) {
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
 if (root !== null && picker !== null) {
-  mountApp(scenario, root);
+  if (candidates) mountGlyphCandidates(root);
+  else mountApp(scenario, root);
   if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker);
   else if (walking !== null) mountNoWalk(walking, picker);
-  else if (!framing) mountPicker(scenario.name, picker);
+  else if (!framing && !candidates) mountPicker(scenario.name, picker);
 }
 
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a frame.
