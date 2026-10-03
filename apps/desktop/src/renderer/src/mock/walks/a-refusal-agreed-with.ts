@@ -8,7 +8,7 @@ import { button, card, inside, region, role, tab, text, walk } from "../walk";
 const why = region("Why it stopped");
 
 export const aRefusalAgreedWith = walk("judge/refusal-agreed", [
-  { look: role("heading", "A Judge refused 1 of 2 criteria"), say: "What stopped the step" },
+  { look: role("heading", "Stopped on a Judge refusal"), say: "What stopped the step" },
   { look: button("Overrule the verdict"), say: "Overrule the Judge and keep the plan" },
   { look: button("Restart step"), say: "Plan again, on the same worktree" },
   { press: tab("Workflow"), say: "The run, top to bottom" },

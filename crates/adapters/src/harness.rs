@@ -302,6 +302,20 @@ impl AgentHarness for HeadlessAgent {
     fn read(&self, line: &str) -> Vec<DroneEvent> {
         transcript::read(line)
     }
+
+    /// The path out of an edit call's detail, which [`transcript`] composed
+    /// as the path then the size; the whole of it where the row was cut.
+    fn edited(&self, event: &DroneEvent) -> Option<String> {
+        let DroneEvent::Called { tool, detail, .. } = event else {
+            return None;
+        };
+        if !crate::conversing::wrote_the_checkout(tool) {
+            return None;
+        }
+        let said = detail.whole().unwrap_or(detail.shown());
+        let path = crate::conversing::path_written(said).trim();
+        (!path.is_empty()).then(|| path.to_string())
+    }
 }
 
 /// The `--allowedTools` value: Armada's own tools first, then each grant.

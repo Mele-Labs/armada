@@ -14,6 +14,7 @@
 // quietly stops matching what Fleet sends.
 
 import type {
+  Branches,
   BriefRead,
   CheckOutputRead,
   Crewed,
@@ -63,6 +64,11 @@ export type JobFixture = {
    * one Fleet no longer holds.
    */
   briefs?: Record<string, BriefRead>;
+  /**
+   * `GET /manifest/branches` for this Job's repository (#1605, 23.8), as Fleet
+   * answers it. Absent answers the read as nothing behind the window.
+   */
+  branches?: Branches;
   /**
    * Answers to `onReadFrame`, keyed by `KeptFrame.kept` — the run's directory
    * and file name, joined, exactly as Fleet sent it on the step's `frames[]`.

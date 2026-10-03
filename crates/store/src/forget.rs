@@ -115,9 +115,11 @@ pub struct Forgotten {
     pub fix_waiters: usize,
     /// The submission waiting for the gate when the Job ended, if any. #796.
     pub pending_evidence: usize,
-    /// Each Drone put on one of the Job's tasks, one row each. Spike 022, 1b.
+    /// Each Drone put on one of the Job's tasks, one row each, and each file
+    /// one's edit calls named, one row each. Spike 022, 1b and 5.
     pub task_drones: usize,
-    /// Each start and end of a run of one of the plan's groups. Spike 022, 2.
+    /// Each start and end of a run of one of the plan's groups, and each pair
+    /// of its tasks run apart. Spike 022, 2 and 5.
     pub group_runs: usize,
     /// The Job's tier map, one row per tier it names, and the model each of
     /// its Drones ran, one row each. Spike 022, 3.
@@ -125,6 +127,9 @@ pub struct Forgotten {
     /// How the Job lands, its Drone cap, its policy overrides and the issue
     /// it came from, one row each at most. Spike 022, 4.
     pub approval: usize,
+    /// The Job's retro and its items, its Drones' notes on what got in their
+    /// way, and the door each of its moves came through. `docs/concepts/retro.md`.
+    pub retros: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -184,11 +189,14 @@ impl Forgotten {
             "job_breakage_claims" | "job_breakage_claim_files" => &mut self.breakage_claims,
             "job_fix_waiters" | "job_landed_holds" => &mut self.fix_waiters,
             "job_pending_evidence" => &mut self.pending_evidence,
-            "job_task_drones" => &mut self.task_drones,
-            "job_group_runs" => &mut self.group_runs,
+            "job_task_drones" | "job_task_edits" => &mut self.task_drones,
+            "job_group_runs" | "job_group_apart" => &mut self.group_runs,
             "job_tier_models" | "job_drone_models" => &mut self.models,
             "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources" => {
                 &mut self.approval
+            }
+            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
+                &mut self.retros
             }
             _ => return None,
         })

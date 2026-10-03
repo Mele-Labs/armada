@@ -118,6 +118,9 @@ pub struct Turned {
     /// The Jobs admitted because the bound had room. Ordinarily empty, and
     /// longer than one only where several came free at once.
     pub admitted: Vec<JobId>,
+    /// The Drones started beside a Job's kept one, on tasks marked safe to
+    /// run at once. Spike 022, slice 5.
+    pub beside: Vec<core_model::DroneId>,
     /// What the repository's own Checks said about a commit that merged,
     /// written down this turn. **Ordinarily empty, and never longer than one**
     /// — a repository that names no `after_merge` Checks proves nothing, and at
@@ -311,6 +314,8 @@ where
         // the only watcher here whose subject is a Job rather than a Drone.
         turned.unattended = self.watch_unattended().await?;
         turned.admitted = self.admit_next().await?;
+        // After admission, so a Job waiting to start had the room first.
+        turned.beside = self.crew_next().await?;
         Ok(turned)
     }
 
@@ -358,6 +363,9 @@ where
         // **Outside the block, because its one look is a Judge call.** It takes
         // the slot for what the look is shown and lets it go across the call.
         let wandering = self.watch_convergence(slot).await?;
+        // The Drones beside the kept one first, so one that handed in is
+        // ended before the kept Drone looks for its next task. `crate::crew`.
+        self.crew_turn(&job).await?;
         // Before the gate and the reap: a task's Drone that handed in is ended
         // here and the next task's put on, so neither reads it. `crate::tasking`.
         self.next_task_drone(slot).await?;
@@ -433,6 +441,9 @@ where
                 Ok(turned) => fleet.probed(&turned),
                 Err(why) => adrift(why),
             }
+            // After the turn, with the `Arc` only this loop holds: an ended
+            // Job's retro is written on a task of its own. `crate::retro`.
+            crate::retro::reflected(&fleet);
         }
     });
     Turning {

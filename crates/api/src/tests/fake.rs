@@ -19,6 +19,7 @@
 mod commands;
 mod conversing;
 mod queries;
+mod retros;
 mod studios;
 mod tools;
 
@@ -114,6 +115,8 @@ pub struct FakeDaemon {
     pub added_by: Mutex<Vec<crate::Redirector>>,
     /// The repository each `list_checkout_runs` named, in order. `#1288`.
     pub checkout_runs_named: Mutex<Vec<Option<ipc::ManifestId>>>,
+    /// The door each retro read came through, as `api::via` named it.
+    pub read_via: Mutex<Vec<Option<ipc::Via>>>,
 }
 
 impl FakeDaemon {
@@ -152,6 +155,7 @@ impl FakeDaemon {
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),
             checkout_runs_named: Mutex::new(Vec::new()),
+            read_via: Mutex::new(Vec::new()),
         }
     }
 
@@ -171,6 +175,12 @@ impl FakeDaemon {
     /// same as a Drone exiting under Fleet.
     pub fn dispatching(&self, job_id: &JobId) -> Feed {
         self.turns.feeding(job_id)
+    }
+
+    /// The Job's channel, as Fleet's roster holds it from admission to the
+    /// Job's end. Dropping it, with no Drone feeding, ends the watching.
+    pub fn admitted(&self, job_id: &JobId) -> crate::Channel {
+        self.turns.opening(job_id)
     }
 
     fn fault(&self, message: &str) -> Refusal {

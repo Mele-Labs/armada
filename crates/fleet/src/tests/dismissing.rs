@@ -63,6 +63,7 @@ async fn reviewed(fleet: &Fixture, home: &TempDir) -> JobId {
                 claimed: "The review of the CPU change".to_string(),
                 shown_by: "the review's areas and findings".to_string(),
                 not_claimed: String::new(),
+                in_the_way: None,
                 review: Some(review),
             },
         )

@@ -110,6 +110,15 @@ fn packed(paths: &[core_model::RepoPath]) -> String {
         .join("\n")
 }
 
+/// The places a recorded task runs beside, as `beside` packs them: `2,3`.
+/// A part that is not a number is no place, and is left out.
+fn numbers(packed: &str) -> Vec<u32> {
+    packed
+        .split(',')
+        .filter_map(|part| part.trim().parse().ok())
+        .collect()
+}
+
 fn unpacked(packed: &str) -> Vec<String> {
     packed
         .lines()
@@ -413,7 +422,8 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
         for (ordinal, task) in tasks.iter().enumerate() {
             conn.execute(
                 "INSERT INTO job_work_plan_tasks (job_id, seq, ordinal, title, detail, \
-                 scope, expects, grp, tier) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                 scope, expects, grp, tier, beside) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 rusqlite::params![
                     job_id.as_str(),
                     seq,
@@ -424,6 +434,11 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
                     task.expects(),
                     task.group(),
                     task.tier().map(|tier| tier.as_wire()),
+                    task.runs_beside()
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(","),
                 ],
             )
             .map_err(fault("appending a recorded task"))?;
@@ -436,8 +451,8 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
     let reading = "reading a plan's recorded tasks";
     let mut asked = conn
         .prepare(
-            "SELECT seq, title, detail, scope, expects, grp, tier FROM job_work_plan_tasks \
-             WHERE job_id = ?1 ORDER BY seq, ordinal",
+            "SELECT seq, title, detail, scope, expects, grp, tier, beside \
+             FROM job_work_plan_tasks WHERE job_id = ?1 ORDER BY seq, ordinal",
         )
         .map_err(fault(reading))
         .map_err(RowError::Database)?;
@@ -452,12 +467,13 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
                 string(row, "expects"),
                 row.get::<_, Option<u32>>("grp"),
                 row.get::<_, Option<String>>("tier"),
+                string(row, "beside"),
             ))
         })
         .map_err(fault(reading))
         .map_err(RowError::Database)?
     {
-        let (seq, title, note, scope, expects, group, tier) =
+        let (seq, title, note, scope, expects, group, tier, beside) =
             row.map_err(fault(reading)).map_err(RowError::Database)?;
         let seq = seq.map_err(column("job_work_plan_tasks", "seq"))?;
         let scope = unpacked(&scope?);
@@ -473,7 +489,8 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
         let task = NewTask::new(&title?, &note?, &scope, &expects?)
             .ok_or_else(|| malformed("title", "a recorded task has no title"))?
             .in_group(group.unwrap_or(0))
-            .at_tier(tier);
+            .at_tier(tier)
+            .beside(&numbers(&beside?));
         recorded.push((seq, task));
     }
 

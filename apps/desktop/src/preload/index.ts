@@ -24,7 +24,8 @@ import type { FileReport } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { AddTask, ApproveWave, DropTask, EditJobAsSent, EditTask, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
+import type { ApproveDispatch, BranchesRead } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
@@ -111,14 +112,17 @@ const api: BridgeApi = {
   searchFiles: (query: string): Promise<string[]> =>
     ipcRenderer.invoke(CHANNELS.searchFiles, query),
 
-  approveDispatch: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.approveDispatch, jobId),
+  approveDispatch: (jobId: string, approval?: ApproveDispatch): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.approveDispatch, jobId, approval),
+
+  listBranches: (manifestId: string): Promise<BranchesRead> =>
+    ipcRenderer.invoke(CHANNELS.listBranches, manifestId),
 
   redispatchJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.redispatchJob, jobId),
 
-  killDrone: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.killDrone, jobId),
+  killDrone: (jobId: string, droneId?: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.killDrone, jobId, droneId),
 
   killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
 
@@ -143,7 +147,7 @@ const api: BridgeApi = {
   approveWave: (jobId: string, wave: ApproveWave): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.approveWave, jobId, wave),
 
-  editJob: (jobId: string, edit: EditJobAsSent): Promise<Outcome> =>
+  editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
 
   // The disk, never the record — every row this reaches stays on the board,
@@ -176,8 +180,8 @@ const api: BridgeApi = {
   forgetJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.forgetJob, jobId),
 
-  redirectDrone: (jobId: string, instruction: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.redirectDrone, jobId, instruction),
+  redirectDrone: (jobId: string, instruction: string, droneId?: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.redirectDrone, jobId, instruction, droneId),
   answerQuestion: (
     jobId: string,
     questionId: string,

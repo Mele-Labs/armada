@@ -25,6 +25,8 @@ import { StepPhaseMark, type StepPhase } from "../StepPhaseMark/StepPhaseMark";
 export type WorkflowStepFact = {
   value: string;
   named?: FactChipNamed;
+  /** What the fact leaves out, named on hover. Absent draws a bare chip. */
+  hint?: string;
 };
 
 /** One thing waiting on a person, or gone wrong. A value, never a sentence. */
@@ -178,11 +180,19 @@ export function WorkflowStepCard({
       {below}
       {facts.length === 0 ? null : (
         <span className="armada-wf-card__facts">
-          {facts.map((fact) => (
-            <FactChip key={fact.value} named={fact.named}>
-              {fact.value}
-            </FactChip>
-          ))}
+          {facts.map((fact) =>
+            fact.hint === undefined ? (
+              <FactChip key={fact.value} named={fact.named}>
+                {fact.value}
+              </FactChip>
+            ) : (
+              <Tooltip key={fact.value} asChild label={fact.hint}>
+                <span>
+                  <FactChip named={fact.named}>{fact.value}</FactChip>
+                </span>
+              </Tooltip>
+            ),
+          )}
         </span>
       )}
       {/* The board's outlined chip on a step of the run, which draws no facts

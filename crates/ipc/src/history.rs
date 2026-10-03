@@ -72,6 +72,11 @@ pub struct Recorded {
     /// Which run of that group. Present exactly where `group` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_attempt: Option<u32>,
+    /// Which door the request that made this move came through. **Absent on a
+    /// move Fleet made on its own**, and on every move older than 23.12. A
+    /// person's act from anywhere but Bridge reads `actor: helm` beside it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<crate::enums::Via>,
 }
 
 /// What the row says moved. The three shapes the log admits, and no fourth.

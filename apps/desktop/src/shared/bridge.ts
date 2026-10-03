@@ -496,6 +496,7 @@ export const CHANNELS = {
   stageAttachment: "bridge:stage-attachment",
   searchFiles: "bridge:search-files",
   approveDispatch: "bridge:approve-dispatch",
+  listBranches: "bridge:list-branches",
   redispatchJob: "bridge:redispatch-job",
   killDrone: "bridge:kill-drone",
   killJob: "bridge:kill-job",

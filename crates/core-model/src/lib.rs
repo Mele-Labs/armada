@@ -31,6 +31,9 @@ mod envelope;
 mod job;
 /// Kit's MCP servers and the two tiers that reach a Drone. `docs/concepts/kit.md`.
 mod kit;
+/// Which door an act came through, and whom friction got in the way of.
+/// `docs/concepts/retro.md`.
+mod retro;
 /// A Studio, its nodes and its edges. `docs/concepts/studio.md`.
 mod studio;
 
@@ -67,14 +70,15 @@ pub use job::{
     EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
 };
 pub use job::{
-    Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns,
-    GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused, PlanTask,
-    Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels, WorkPlan,
-    WorkingWindow, PLAN_RECORDED,
+    Apart, Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove,
+    GroupRuns, GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
+    PlanTask, Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels,
+    WorkPlan, WorkingWindow, PLAN_RECORDED,
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };
+pub use retro::{Via, Whose};
 pub use studio::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow,
     ContradictionOutcome, Drawing, EdgeRefused, EndedFinding, EpicRead, EpicTake, ForgeFacts,

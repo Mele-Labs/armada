@@ -27,7 +27,7 @@ async function opened(): Promise<void> {
 
 test("Overview's lead asks nothing, and offers what Fleet's recourse does", async () => {
   await opened();
-  await expect.element(page.getByRole("heading", { name: "A Judge refused 1 of 2 criteria" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Stopped on a Judge refusal" })).toBeVisible();
   expect(page.getByRole("button", { name: "Answer it" }).query()).toBeNull();
   expect(page.getByText(/until you answer/).query()).toBeNull();
   const lead = document.querySelector(".armada-lead");

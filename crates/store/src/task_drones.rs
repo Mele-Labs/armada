@@ -56,6 +56,17 @@ pub struct TaskDrone {
     pub spawned_at: Timestamp,
     /// `None` until it hands in, and on a Drone that never did.
     pub handed_in: Option<TaskHandIn>,
+    /// Whether it ran beside the Job's kept Drone rather than as it. Slice 5.
+    pub extra: bool,
+    /// The process a Drone beside the kept one ran as, and when it started,
+    /// so a Fleet that restarts can end it. `None` on the kept Drone's rows,
+    /// whose process is `job_drone_process`.
+    pub process: Option<(u32, String)>,
+    /// When its edit calls were kept, at its first hand-in. `None` before.
+    pub edits_at: Option<Timestamp>,
+    /// When a Drone beside the kept one left, and how. `None` on the kept
+    /// Drone's rows, whose leaving is on the Job's record.
+    pub left: Option<(Timestamp, crate::ExtraEnded)>,
 }
 
 impl Store {
@@ -126,8 +137,8 @@ impl Store {
             .conn
             .prepare(
                 "SELECT drone_id, step_id, task_id, spawned_at, handed_in_at, claimed, \
-                 shown_by, not_claimed FROM job_task_drones WHERE job_id = ?1 \
-                 ORDER BY spawned_at, rowid",
+                 shown_by, not_claimed, extra, pid, process_started_at, edits_at, left_at, \
+                 ended FROM job_task_drones WHERE job_id = ?1 ORDER BY spawned_at, rowid",
             )
             .map_err(fault(reading))
             .map_err(LoadJobError::Database)?;
@@ -170,12 +181,35 @@ fn read_task_drone(row: &rusqlite::Row<'_>) -> Result<TaskDrone, RowError> {
             at: Timestamp::from_rfc3339(at),
         }),
     };
+    let extra: i64 = row.get("extra").map_err(column(TABLE, "extra"))?;
+    let pid: Option<u32> = row.get("pid").map_err(column(TABLE, "pid"))?;
+    let process = match (pid, maybe("process_started_at")?) {
+        (Some(pid), Some(started)) => Some((pid, started)),
+        _ => None,
+    };
+    let left = match (maybe("left_at")?, maybe("ended")?) {
+        (Some(at), Some(ended)) => Some((
+            Timestamp::from_rfc3339(at),
+            crate::crew::ExtraEnded::from_column(&ended).ok_or_else(|| {
+                RowError::MalformedColumn {
+                    table: TABLE,
+                    column: "ended",
+                    detail: format!("`{ended}` is not how a Drone left"),
+                }
+            })?,
+        )),
+        _ => None,
+    };
     Ok(TaskDrone {
         drone_id: DroneId::carried(Ulid::carried(text("drone_id")?)),
         step_id: StepId::new(text("step_id")?),
         task,
         spawned_at: Timestamp::from_rfc3339(text("spawned_at")?),
         handed_in,
+        extra: extra == 1,
+        process,
+        edits_at: maybe("edits_at")?.map(Timestamp::from_rfc3339),
+        left,
     })
 }
 

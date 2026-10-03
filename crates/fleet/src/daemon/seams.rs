@@ -60,6 +60,10 @@ where
     pub(crate) fn store(&self) -> &Mutex<Store> {
         &self.store
     }
+    /// Whether a retro is being written — `crate::retro`.
+    pub(crate) fn reflecting(&self) -> &crate::retro::Reflecting {
+        &self.reflecting
+    }
     pub(crate) fn harness(&self) -> &Arc<H> {
         &self.harness
     }
@@ -583,8 +587,16 @@ where
     /// lock once is what makes which-Job, which-step and which-type one
     /// decision rather than three reads a turn can interleave with. **Which
     /// slot is `crate::peer`'s answer** — the Drone does not name it.
+    ///
+    /// **A Drone beside the kept one is answered with its own slot** where a
+    /// tool call named it (`crate::crew::as_caller`), and with nothing where
+    /// it has gone: its call must not land in the kept Drone's slot.
     pub(crate) async fn slot_of(&self, job: &JobId) -> Option<Slot> {
-        self.slots.lock().await.slot_of(job)
+        let slots = self.slots.lock().await;
+        match crate::crew::calling() {
+            Some(drone) => slots.crew_slot(job, &drone),
+            None => slots.slot_of(job),
+        }
     }
 
     /// One Job's slot, made if it has none.

@@ -308,6 +308,7 @@ where
         // will not start: `Store::open` already refused a damaged file, and the
         // next save writes the whole row again.
         let in_force = shipped.overlaid_by(&fittings.store.saved_limits().unwrap_or_default());
+        let turns = api::Turns::new();
         Fleet {
             store: Mutex::new(fittings.store),
             harness: Arc::new(fittings.harness),
@@ -360,12 +361,12 @@ where
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
             events: fittings.events,
-            turns: api::Turns::new(),
+            turns: turns.clone(),
             helm,
             scouts,
             inbox: EvidenceInbox::new(),
             delivered: Mutex::new(BTreeMap::new()),
-            slots: Mutex::new(Slots::bounded_by(in_force.concurrency)),
+            slots: Mutex::new(Slots::bounded_by(in_force.concurrency, turns)),
             names: Arc::new(crate::naming::Names::new()),
             machine: fittings.machine,
             copy_on_write: fittings.copy_on_write,
@@ -398,6 +399,7 @@ where
             drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,
             merge_end: Mutex::new(()),
+            reflecting: crate::retro::Reflecting::default(),
             run,
         }
     }

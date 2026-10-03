@@ -143,6 +143,9 @@ export function route(jobId: string, operation: string): string {
   return `/jobs/${encodeURIComponent(jobId)}/${operation}`;
 }
 
+/** Bridge names itself on every request, so Fleet tells a press here from an agent's (23.12). */
+export const CALLER = { "x-armada-caller": "bridge" } as const;
+
 /** A Manifest-scoped call on a repository with no `armada.yml` yet — `Picked.manifest` answered `null`. */
 export const NOT_SET_UP = { ok: false, why: "not_set_up" } as const;
 
@@ -178,7 +181,7 @@ export async function ask(
   try {
     const answer = await fetch(`http://${HOST}:${port}${path}`, {
       method,
-      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      headers: body === undefined ? CALLER : { ...CALLER, "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
       // Zero is no signal at all rather than an immediate abort — see
       // `NO_WAIT`. `AbortSignal.timeout(0)` would fire on the next tick.
@@ -470,6 +473,7 @@ async function fileAt(port: number, path: string): Promise<FrameRead> {
   try {
     const answer = await fetch(`http://${HOST}:${port}${asked.path}`, {
       method: "GET",
+      headers: CALLER,
       signal: AbortSignal.timeout(FRAME_MS),
     });
     if (!answer.ok) {

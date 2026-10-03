@@ -187,6 +187,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/jobs/:job_id", get(get_job::<D>))
         .route("/jobs/:job_id/events", get(get_job_events::<D>))
+        .route(
+            "/jobs/:job_id/retro",
+            get(crate::retros::get_job_retro::<D>),
+        )
+        .route("/lessons", get(crate::retros::list_lessons::<D>))
         .route("/jobs/:job_id/evidence", get(get_evidence::<D>))
         .route("/jobs/:job_id/diff", get(get_diff::<D>))
         .route("/jobs/:job_id/remarks", get(get_remarks::<D>))
@@ -280,6 +285,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/kill_job", post(kill_job::<D>))
         .route("/jobs/:job_id/processes/:pid/kill", post(kill_process::<D>))
         .route("/jobs/:job_id/processes/kill", post(kill_processes::<D>))
+        .route(
+            "/jobs/:job_id/drones/:drone_id/kill",
+            post(crate::one_drone::kill_one_drone::<D>),
+        )
+        .route(
+            "/jobs/:job_id/drones/:drone_id/redirect",
+            post(crate::one_drone::redirect_one_drone::<D>),
+        )
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",
@@ -412,4 +425,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         // one, and the inventory this table is checked against is Bridge's.
         .merge(crate::mcp::mounted::<D>())
         .with_state(served)
+        // Over every route on both copies of the surface, so a call the door
+        // makes is named as the door's and not as a request that named nobody.
+        .layer(axum::middleware::from_fn(crate::acting::named_the_door))
 }

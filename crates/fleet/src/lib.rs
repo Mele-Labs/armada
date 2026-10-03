@@ -66,6 +66,8 @@ mod configured;
 pub mod conflict_resolution;
 pub mod converging;
 mod coupling;
+/// A Job's Drones beside the one it keeps. Spike 022, slice 5.
+pub mod crew;
 pub mod crossing;
 pub mod currency;
 pub mod daemon;
@@ -86,6 +88,8 @@ pub mod drone;
 mod drone_moves;
 mod drones_had;
 pub mod dry_run;
+/// Which task wrote which file, off its Drone's edit calls. Slice 5.
+pub mod edit_calls;
 /// The Manifest file itself, read and written — the half of Journey 9's
 /// *Editing* a person acts with. Save stops at the bytes.
 mod editing;
@@ -158,10 +162,12 @@ mod naming;
 /// An open one is asked a second question on the same rotation —
 /// `crate::under_review`.
 pub mod noticing;
-/// Which of a step's Checks starts first, from this repository's past runs.
-mod ordering;
 /// Where two Jobs claim the same paths, worked out at read time. **A
 /// warning and nothing else** — no dispatch path reaches it.
+/// A message or a stop addressed to one Drone of a Job. #1666.
+mod one_drone;
+/// Which of a step's Checks starts first, from this repository's past runs.
+mod ordering;
 pub mod overlap;
 pub mod overruling;
 pub mod peer;
@@ -227,6 +233,8 @@ mod rerunning;
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;
 pub mod resume;
+/// A Job's retro: what got in the way while it ran. `docs/concepts/retro.md`.
+mod retro;
 mod reuse;
 mod review;
 mod review_term;

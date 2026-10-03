@@ -165,6 +165,7 @@ pub(crate) fn recorded(event: &RecordedEvent, coords: &[store::GroupCoord]) -> i
     ipc::Recorded {
         group: coord.map(|coord| coord.group.to_string()),
         group_attempt: coord.map(|coord| coord.run),
+        via: None,
         seq: event.seq(),
         status: event.under().into(),
         moved: match event.moved() {

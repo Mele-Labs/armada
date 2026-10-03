@@ -74,6 +74,14 @@ export class Picked {
   }
 
   /**
+   * A route on a Manifest named outright — a Job's own, which is its repository
+   * whatever the rail has picked (`list_branches` for a Job's proposal, #1605).
+   */
+  manifestNamed(path: string, manifestId: string): string {
+    return named(path, "manifest_id", manifestId);
+  }
+
+  /**
    * Verify and what its panel reads: the main checkout, which may have no root Manifest. Named by
    * `?manifest_id=` where it has one, and by root where it has none. `null` on All.
    */

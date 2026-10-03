@@ -143,6 +143,9 @@ mod repositories;
 /// What one Job holds on this machine, and what came of asking whether it is
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
+/// A Job's retro and the record it was read from, and the Lessons listing.
+/// Since 23.12.
+mod retro;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -228,7 +231,7 @@ pub use enums::{
     DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, ManifestReach, Origin,
     PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState,
     StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
-    StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
+    StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency, Via, Whose,
 };
 pub use error::{RunId, WireError, WireValue};
 pub use event::{
@@ -313,6 +316,11 @@ pub use repositories::{AddRepository, CloneRepository, RepositoryList, Repositor
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
     Look, WorktreeOnDisk,
+};
+pub use retro::{
+    AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
+    RecordAsked, RecordCheck, RecordNotMet, RecordRefusal, RecordSaid, RecordWaited, RetroItem,
+    RetroRecord, RetroState, RetroWritten,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,

@@ -156,10 +156,12 @@ where
         }
         let this = Arc::clone(&self);
         let on = job_id.clone();
-        let running = tokio::spawn(async move {
+        // With the door the request came through: the move back to `running`
+        // is the person's, and `crate::retro::signed` reads it.
+        let running = tokio::spawn(api::carrying(api::via(), async move {
             let _held = held;
             this.checks_run_again(&on, &step, stopped_by).await
-        });
+        }));
         match running.await {
             Ok(came_to) => came_to,
             Err(_) => Err(Adrift::RecheckAbandoned {

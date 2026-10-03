@@ -65,7 +65,7 @@ const judgeRefusal: DockQuestion = {
   detail: "A customer with a valid code is still charged the full price.",
   waiting: "22m",
   answers: [
-    { id: "agree", label: "Agree with the refusal", consequence: "The step fails, as it would where the criterion is marked refuse." },
+    { id: "agree", label: "Agree with the refusal", consequence: "The step goes back to a Drone with the Judge's finding." },
     { id: "disagree_once", label: "Disagree, just this step", consequence: "The step advances. The next job is asked about this criterion again." },
     { id: "disagree_always", label: "Always disagree", consequence: "The step advances, and no later job in this repository is asked about this criterion." },
   ],

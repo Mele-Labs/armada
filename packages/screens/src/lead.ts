@@ -469,10 +469,10 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   // his Job 3, 2 Oct 2026, and the lead went on offering `Answer it` over
   // *do not start until you answer*. The refusal is still why it stopped; what
   // can be done is Fleet's `stuck.recourse`, drawn as `StepActs` in the act's
-  // place by `tab-overview.tsx`.
+  // place by `tab-overview.tsx`. The headline says it stopped (owner, 3 Oct).
   if (refused !== undefined && step?.state === "stopped") {
     return {
-      said: `A Judge refused ${refused.count} of ${refused.of} ${refused.of === 1 ? "criterion" : "criteria"}`,
+      said: "Stopped on a Judge refusal",
       because: refused.said,
       tone: "completed-failed",
     };

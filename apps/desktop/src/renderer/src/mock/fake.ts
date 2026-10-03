@@ -16,14 +16,17 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
+import { approvedAs, edited, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
   groupsDropping,
+  groupsEditing,
   groupsMoving,
   groupsRestarting,
   nextTaskId,
   planAdding,
   planDropping,
+  planEditing,
   planMoving,
   planRestarting,
 } from "./plan-fleet";
@@ -146,7 +149,26 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     stageAttachment: async (_bytes, filename) => ({ path: filename }),
     searchFiles: async () => [],
 
-    approveDispatch: async (jobId) => (move(jobId, { status: "queued" }), OK),
+    // The body applied as Fleet applies it (23.8), on the Job open; a row not
+    // open only moves to `queued`, which is all the Board draws of it.
+    approveDispatch: async (jobId, approval) => {
+      const watched = state.watched;
+      if (watched.state !== "read" || watched.jobId !== jobId) return (move(jobId, { status: "queued" }), OK);
+      const detail = approvedAs(watched.detail, approval, new Date().toISOString());
+      publish({
+        jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...detail.job } : job)),
+        watched: { ...watched, detail },
+      });
+      return OK;
+    },
+    // The repository's branches, where a Job of it carries them (#1605).
+    listBranches: async (manifestId) => {
+      const held = Object.values(scenario.reads).find(
+        (one) => one.job.owner_manifest_id === manifestId && one.branches !== undefined,
+      );
+      const asked = `/manifest/branches?manifest_id=${encodeURIComponent(manifestId)}`;
+      return held?.branches === undefined ? refused(asked) : { ok: true, branches: held.branches };
+    },
     redispatchJob: async () => OK,
     killDrone: async () => OK,
     killJob: async (jobId) => (move(jobId, { status: "killed" }), OK),
@@ -154,7 +176,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // takes no second reading, so the row stays where Fleet's would drop.
     killProcess: async () => OK,
     killProcesses: async () => OK,
-    // A failed task's acts, #250 and #1657 — not served by Fleet yet, so
+    // A failed task's Pilot, #250 — not served by Fleet yet, so
     // answered as Fleet's router answers a route it has none for: a bare 404,
     // through the parser main's `ask` uses.
     pilotTask: async (jobId, taskId) =>
@@ -173,8 +195,20 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       );
       return answer.ok ? OK : answer.outcome;
     },
-    editTask: async (jobId, taskId, edit) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, `/tasks/${taskId}/edit`), sent: sentOf(edit) }),
+    // Served since 23.6 (#1657): the fields sent, over the task's own.
+    editTask: async (jobId, taskId, edit) => {
+      const editableInDraft =
+        draft?.groups?.some((group) =>
+          group.tasks.some((task) => task.id === taskId && (task.state === "open" || task.state === "failed")),
+        ) ?? false;
+      const answer = editPlan(
+        jobId,
+        `/tasks/${taskId}/edit`,
+        (was) => planEditing(was, taskId, edit, editableInDraft),
+        (was) => groupsEditing(was, taskId, edit),
+      );
+      return answer.ok ? OK : answer.outcome;
+    },
     // A drop on the plan, served since 23.4 (#1685): placed by `after`.
     movePlan: async (jobId, move) => {
       const answer = editPlan(
@@ -188,9 +222,21 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // An Epic's plan approved with its wave, #1694 — answered as the move is.
     approveWave: async (jobId, wave) =>
       refusedWith(404, "", { method: "POST", path: path(jobId, "/approve_wave"), sent: sentOf(wave) }),
-    // One Job of the proposed wave edited, #1699 — answered as the approve is.
-    editJob: async (jobId, edit) =>
-      refusedWith(404, "", { method: "POST", path: path(jobId, "/edit"), sent: sentOf(edit) }),
+    // A proposal's words saved without releasing it (`edit_job`, 23.8): on the
+    // row, on the Job where it is open, and on the wave's panel that sent it.
+    editJob: async (jobId, edit) => {
+      if (edit.title !== undefined) move(jobId, { title: edit.title });
+      const watched = state.watched;
+      if (watched.state === "read" && watched.jobId === jobId) {
+        publish({ watched: { ...watched, detail: edited(watched.detail, edit) } });
+      }
+      const wave = draft?.wave;
+      if (wave !== undefined) {
+        draft = { ...draft, wave: { ...wave, jobs: wave.jobs.map((one) => (one.job === jobId ? waveJobEdited(one, edit) : one)) } };
+        queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
+      }
+      return OK;
+    },
     clearTerminalJobs: async (jobIds) => {
       const at = new Date().toISOString();
       jobIds.forEach((jobId) => move(jobId, { reclaimed_at: at }));
