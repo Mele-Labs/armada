@@ -118,9 +118,19 @@ describe("the headline names the thing and stops", () => {
     expect(leadFor(arcJobAt("executingSequential")).said).toBe("Implement · 1h 58m in");
   });
 
-  it("a Judge refusal counts the criteria and quotes the first", () => {
+  it("a Judge refusal on a stopped step says it stopped", () => {
     const lead = leadFor(withoutFlags(named("escalated · evidence_suspect")));
-    expect(lead.said).toBe("A Judge refused 1 of 2 criteria");
+    expect(lead.said).toBe("Stopped on a Judge refusal");
+  });
+
+  // Owner, Job 3, 2 Oct 2026: he agreed with the refusal, the step stopped,
+  // and the lead went on asking with `Answer it` and *do not start until you
+  // answer*. A stopped step has no question open; Fleet's recourse is the act.
+  it("a Judge refusal on a stopped step asks nothing", () => {
+    const lead = leadFor(withoutFlags(named("escalated · evidence_suspect")));
+    expect(lead.act).toBeUndefined();
+    expect(lead.because).not.toContain("until you answer");
+    expect(lead.tone).toBe("completed-failed");
   });
 
   // **What the Drone did, not where the Job stopped** (owner, 2 Oct 2026,

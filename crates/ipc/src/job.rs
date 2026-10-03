@@ -208,8 +208,8 @@ pub struct JobSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatched_by: Option<JobId>,
     /// Which pass of its parent's plan proposed it, counted from one: an
-    /// Epic's wave. Since 23.11 (#1692). **Absent beside `dispatched_by`** is a
-    /// child dispatched before 23.11, or one of a split's extras, which no
+    /// Epic's wave. Since 23.13 (#1692). **Absent beside `dispatched_by`** is a
+    /// child dispatched before 23.13, or one of a split's extras, which no
     /// pass made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatched_pass: Option<u32>,
@@ -262,9 +262,9 @@ pub struct JobSummary {
     /// in `main` or has been sitting unread for a week.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landed: Option<Settled>,
-    /// When its pull request merged, as the forge said. Since 23.11: what a
+    /// When its pull request merged, as the forge said. Since 23.13: what a
     /// parent's members are read as landed by, beside the instant. **Absent
-    /// beside a `merged`** is a merge Fleet noticed before 23.11. Filled by the
+    /// beside a `merged`** is a merge Fleet noticed before 23.13. Filled by the
     /// caller that holds the store, for [`landed`](JobSummary::landed)'s reason.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_at: Option<Instant>,

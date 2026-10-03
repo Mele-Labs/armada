@@ -670,7 +670,7 @@ fn dispatched_by(row: &Row<'_>) -> Result<Option<DispatchOrigin>, RowError> {
             job_id: JobId::carried(Ulid::carried(job_id)),
             // Null on one of a split's extras, which no step dispatched.
             step_id: step_id.map(StepId::new),
-            // Null on every child made before V100, and on a split's extra.
+            // Null on every child made before V101, and on a split's extra.
             pass: maybe_number(row, "dispatched_by_pass")?,
         })),
         (None, None) => Ok(None),
@@ -710,7 +710,7 @@ fn constructed(
             value: by.job_id.as_str().to_string(),
         }),
         // A pass is a wave's member, which entered `awaiting_approval`; a
-        // child made before V100 has none and entered `queued`.
+        // child made before V101 has none and entered `queued`.
         (None, Some(by)) if by.step_id.is_some() && by.pass.is_some() => {
             Ok(Job::create_proposed_member(new, by, created_at))
         }

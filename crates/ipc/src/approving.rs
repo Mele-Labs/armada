@@ -104,7 +104,7 @@ pub enum LandingUnit {
 }
 
 /// What has to happen before a Job counts as finished. **`delivered` is
-/// honoured from 23.8 and `all_members_landed` from 23.11** (`landing.ts`,
+/// honoured from 23.8 and `all_members_landed` from 23.13** (`landing.ts`,
 /// `COMPLETE_WHEN_SERVED`); the approval refuses the other two rather than
 /// keeping a setting nothing reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,7 +150,7 @@ pub struct LandingRule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ref: Option<String>,
     pub pr_mode: crate::PrMode,
-    /// What finishes the Job. Since 23.11, when `all_members_landed` became one
+    /// What finishes the Job. Since 23.13, when `all_members_landed` became one
     /// Fleet runs; absent is a Fleet before it, whose Jobs finished delivered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub complete_when: Option<CompleteWhen>,

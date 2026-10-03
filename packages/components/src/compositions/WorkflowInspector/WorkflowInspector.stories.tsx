@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
+import { Button } from "../../primitives/Button/Button";
+import { CriterionVerdicts } from "../CriterionVerdicts/CriterionVerdicts";
 import { WorkflowInspector } from "./WorkflowInspector";
 
 const meta: Meta<typeof WorkflowInspector> = {
@@ -129,5 +131,52 @@ export const OneDroneAndTwoLists: Story = {
     await expect(boundaryChecks).toHaveTextContent("screens_test");
     await expect(boundaryChecks).not.toHaveTextContent("not covered");
     await expect(boundaryTests).toHaveTextContent("not covered");
+  },
+};
+
+/**
+ * A step stopped on a Judge's refusal: the refused criterion's finding, and the
+ * acts Fleet offers for it, in one region near the top.
+ *
+ * **A `play`, because the acts belong with the reason.** The panel of the
+ * owner's stopped step said nothing about why, and offered nothing (Job 3,
+ * 2 Oct 2026).
+ */
+export const AStepStoppedOnARefusal: Story = {
+  args: {
+    name: "Plan the change",
+    kind: "step",
+    state: { activity: "stopped", said: "stopped" },
+    checks: [{ name: "plan_recorded", outcome: "passed", named: "passed" as const }],
+    stopped: {
+      why: (
+        <CriterionVerdicts
+          rows={[
+            {
+              ordinal: 1,
+              criterionId: "addresses_the_request",
+              text: "The plan addresses what was asked, and nothing beyond it",
+              named: "not_met",
+              verdict: "refused",
+              expected: "Tasks to retire guides 8 and 20, and a rule that guides' pieces are drawn somewhere",
+              produced: "T4 adds documentation updates to design-system.md",
+              consequence: "Scope expands beyond what was requested",
+            },
+          ]}
+        />
+      ),
+      acts: (
+        <>
+          <Button variant="secondary">Overrule the verdict</Button>
+          <Button variant="secondary">Restart step</Button>
+        </>
+      ),
+    },
+  },
+  play: async ({ canvas }) => {
+    const why = canvas.getByRole("region", { name: "Why it stopped" });
+    await expect(why).toHaveTextContent("The plan addresses what was asked");
+    await expect(why).toHaveTextContent("T4 adds documentation updates");
+    await expect(within(why).getByRole("button", { name: "Restart step" })).toBeVisible();
   },
 };

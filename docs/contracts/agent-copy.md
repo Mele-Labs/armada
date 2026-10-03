@@ -223,6 +223,13 @@ tone.
 | `shown_by` | The artifact demonstrating it — a named test, a command and exit code, a rendered string |
 | `not_claimed` | Everything the claim does not assert — the gap, and the side effect |
 | `what_changed` | Attempts after the first only |
+| `in_the_way` | Optional. One line on what got in the Drone's way |
+
+### Not evidence
+
+`in_the_way` is the one field the gate, the Judge and a reviewer of the work
+never read. It is kept for the Job's [retro](../concepts/retro.md), so a
+Drone saying what slowed it costs the work nothing.
 
 ### Not circular
 

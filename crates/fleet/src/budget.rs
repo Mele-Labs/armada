@@ -26,6 +26,9 @@ where
     T: Send + 'static,
 {
     let waited = budget.duration();
+    // The door the request came through goes with the work onto its task, so
+    // a move the command makes is signed for it. `crate::retro::signed`.
+    let work = api::carrying(api::via(), work);
     match tokio::time::timeout(waited, tokio::spawn(work)).await {
         Ok(Ok(answered)) => answered,
         // Resumed rather than folded into a refusal a caller might retry: a

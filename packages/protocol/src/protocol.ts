@@ -117,8 +117,8 @@ export type JobSummary = {
   dispatched_by?: string;
   /**
    * Which pass of its parent's plan proposed it, counted from one: an Epic's
-   * wave. Since 23.11 (#1692). Absent beside `dispatched_by` is a child
-   * dispatched before 23.11, or a split's extra.
+   * wave. Since 23.13 (#1692). Absent beside `dispatched_by` is a child
+   * dispatched before 23.13, or a split's extra.
    */
   dispatched_pass?: number;
   /**
@@ -150,8 +150,8 @@ export type JobSummary = {
    */
   landed?: Settled;
   /**
-   * When its pull request merged, as the forge said. Since 23.11. Absent
-   * beside a `merged` is a merge Fleet noticed before 23.11.
+   * When its pull request merged, as the forge said. Since 23.13. Absent
+   * beside a `merged` is a merge Fleet noticed before 23.13.
    */
   merged_at?: string;
   /**

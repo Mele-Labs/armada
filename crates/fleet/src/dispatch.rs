@@ -29,7 +29,7 @@ use adapter_traits::{
 };
 use core_model::{
     Actor, Branch, Component, Envelope, EscalationTrigger, FieldValue, Job, JobId, Level, StepId,
-    StepLevelTrigger, StepState, StepTarget, Target, Transitioned,
+    StepLevelTrigger, StepState, StepTarget, Target, Transitioned, Via,
 };
 use verification::OutcomeTurn;
 
@@ -739,18 +739,23 @@ where
     }
 
     /// Move the Job, write the event, publish it. **The only path.**
+    ///
+    /// A person's act is signed for the door the request came through —
+    /// [`crate::retro::signed`] — and the door is kept against the row.
     pub(crate) async fn move_job(&self, job: &Job, to: Target, by: Actor) -> Result<Job, Adrift> {
+        let (by, via) = crate::retro::signed(by);
         let moved = job
             .transition(to, by, self.now())
             .map_err(Adrift::IllegalMove)?;
-        self.record(moved).await
+        self.record(moved, via).await
     }
 
     /// The Job move a ruling implies, where it implies one.
     pub(crate) async fn applied(&self, job: &Job, ruling: &Ruling) -> Result<(), Adrift> {
         match apply(job, ruling, self.now()) {
             Some(moved) => {
-                self.record(moved.map_err(Adrift::IllegalMove)?).await?;
+                self.record(moved.map_err(Adrift::IllegalMove)?, None)
+                    .await?;
                 Ok(())
             }
             None => Ok(()),
@@ -771,12 +776,12 @@ where
     /// [`kept_footprint`](Fleet::kept_footprint) answers nothing and refuses
     /// nothing: the move has already landed, and a Job that ended is over
     /// whether or not its worktree could be read.
-    async fn record(&self, moved: Transitioned) -> Result<Job, Adrift> {
-        self.store()
-            .lock()
-            .await
-            .record_transition(&moved)
-            .map_err(Adrift::Writing)?;
+    async fn record(&self, moved: Transitioned, via: Option<Via>) -> Result<Job, Adrift> {
+        {
+            let mut store = self.store().lock().await;
+            let seq = store.record_transition(&moved).map_err(Adrift::Writing)?;
+            crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
+        }
         if moved.job.status().is_terminal() {
             self.kept_footprint(&moved.job).await;
             // **After teardown, never on a timer.** `docs/concepts/fleet.md`,
@@ -906,14 +911,17 @@ where
         to: StepTarget,
         by: Actor,
     ) -> Result<Job, Adrift> {
+        let (by, via) = crate::retro::signed(by);
         let moved = job
             .transition_step(step, to, by, self.now())
             .map_err(Adrift::IllegalStepMove)?;
-        self.store()
-            .lock()
-            .await
-            .record_step_transition(&moved)
-            .map_err(Adrift::Writing)?;
+        {
+            let mut store = self.store().lock().await;
+            let seq = store
+                .record_step_transition(&moved)
+                .map_err(Adrift::Writing)?;
+            crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
+        }
         // The row whole, so a client replaces it rather than re-reading it —
         // with the reason its last transition stored, for `published`'s
         // reason: a redirect can revisit a step on a Job still `escalated`

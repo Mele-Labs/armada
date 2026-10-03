@@ -340,3 +340,13 @@ impl<'de> Deserialize<'de> for TopLevelOrigin {
             })
     }
 }
+wire_enum! {
+    /// Which door a request that moved a Job came through: `bridge`, `helm`,
+    /// `door` or `http`. Since 23.12. `docs/concepts/retro.md`.
+    Via, core_model::Via, "a door a request came through"
+}
+wire_enum! {
+    /// Whom one item of a retro got in the way of: `drone`, `owner` or
+    /// `fleet`. Since 23.12.
+    Whose, core_model::Whose, "whom a retro item got in the way of"
+}

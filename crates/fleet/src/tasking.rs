@@ -5,8 +5,9 @@
 //! - **Fleet writes every state**, because two of eleven Drones told to call
 //!   `update_task` did (#1752): working at the spawn, handed in at the task's
 //!   `submit_evidence`, done when the step's Checks pass.
-//! - **A hand-in fills no inbox.** The next turn ends that Drone and spawns the
-//!   next task's, asking neither the cap nor headroom (answer 2).
+//! - **A hand-in fills no inbox.** The first turn after that Drone comes to
+//!   rest ends it and spawns the next task's, asking neither the cap nor
+//!   headroom (answer 2). `Working::settled` says why it waits.
 //! - **The last hand-in fills it once**, with every task's claim, and its Drone
 //!   stays for the outcome, as a step retry is one Drone today.
 //! - **Since slice 2 that is per group**, and `crate::grouping` decides what
@@ -262,7 +263,7 @@ where
             .kept_hand_in(&job, &step, &drone, task, call, &at)
             .await
             .map_err(NotSubmitted::NotKept)?;
-        at_work.task_handed_in();
+        at_work.task_handed_in(at.clone());
         self.task_moved(&job, &plan, task, &at);
         let runs = self
             .group_runs_of(&job)
@@ -365,15 +366,18 @@ where
         Ok(next_task(&plan, &runs).is_some())
     }
 
-    /// End a task's Drone that handed in, and put the next task's on the same
-    /// worktree, from the step's baseline and every path declared so far.
+    /// End a task's Drone that handed in, once it has come to rest, and put the
+    /// next task's on the same worktree, from the step's baseline and every
+    /// path declared so far.
     pub(crate) async fn next_task_drone(&self, slot: &Slot) -> Result<(), Adrift> {
         let mut held = slot.lock().await;
         let working = &mut *held;
         let Some(at_work) = working.as_ref() else {
             return Ok(());
         };
-        if !self.between_tasks(at_work).await? {
+        if !self.between_tasks(at_work).await?
+            || !at_work.settled(&self.now(), self.norms().report_grace())
+        {
             return Ok(());
         }
         // A task left may be one a Drone beside this one is on, or one not
@@ -463,15 +467,19 @@ where
         Ok(())
     }
 
-    /// The task an adopted Drone was put on, and whether it handed it in, off
+    /// The task an adopted Drone was put on, and when it handed it in, off
     /// the record. `None` for a Drone that worked its step, and where the
     /// record will not say.
-    pub(crate) async fn task_of(&self, job: &JobId, drone: &DroneId) -> Option<(TaskId, bool)> {
+    pub(crate) async fn task_of(
+        &self,
+        job: &JobId,
+        drone: &DroneId,
+    ) -> Option<(TaskId, Option<Timestamp>)> {
         let bound = self.store().lock().await.task_drones(job).ok()?;
         bound
             .into_iter()
             .find(|bound| &bound.drone_id == drone)
-            .map(|bound| (bound.task, bound.handed_in.is_some()))
+            .map(|bound| (bound.task, bound.handed_in.map(|hand_in| hand_in.at)))
     }
 
     /// `job.plan_changed`, naming the task Fleet just marked and its state.

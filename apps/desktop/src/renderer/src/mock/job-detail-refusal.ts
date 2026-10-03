@@ -61,3 +61,46 @@ export function featureAtAPlanRefusal(): JobFixture {
   };
   return { ...base, job, watched: { ...base.watched, detail } };
 }
+
+/**
+ * The same Job once he answered *Agree with the refusal*, **as Fleet served it
+ * on 2 Oct 2026**: the plan step `stopped`, the Job `escalated`, the question
+ * gone, and `stuck` offering `override_verdict`, `restart_step` and
+ * `redispatch_job`. The Judge's rows are unchanged — the answer stops the
+ * step, it does not rewrite the verdict.
+ */
+export function featureAfterAgreeing(): JobFixture {
+  const base = featureAtAPlanRefusal();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const answeredAt = "2026-10-01T20:31:04.000Z";
+  const steps = whole.steps.map((one): StepDetail =>
+    one.step_id !== "plan"
+      ? one
+      : {
+          ...one,
+          state: "stopped",
+          attempts: [{ attempt: 1, outcome: "stopped", why: "gate_failure", started_at: one.entered_at, ended_at: answeredAt }],
+          verdicts: [{ attempt: 1, named: "failed", trigger: "gate_failure" }],
+          last_verdict: { attempt: 1, named: "failed", trigger: "gate_failure" },
+          updated_at: answeredAt,
+        },
+  );
+  const job = { ...base.job, status: "escalated" };
+  const { judge_question: _answered, ...rest } = whole;
+  const detail = {
+    ...rest,
+    job,
+    steps,
+    stuck: {
+      stopped_by: "gate_failure",
+      step_id: "plan",
+      recourse: ["override_verdict", "restart_step", "redispatch_job"],
+      worktree_on_disk: true,
+      drone_unheard: false,
+      refused: [],
+      refusals: 0,
+    },
+  };
+  return { ...base, job, watched: { ...base.watched, detail } };
+}

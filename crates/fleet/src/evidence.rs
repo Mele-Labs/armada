@@ -511,8 +511,15 @@ where
             not_claimed: NotClaimed(&submission.not_claimed),
             review: accepted.as_ref().map(|accepted| accepted.review()),
         };
+        // What got in the Drone's way is kept for the retro once the
+        // submission is taken, and never read by the gate. `crate::retro`.
+        let in_the_way = submission.in_the_way.as_deref();
         if at_work.task().is_some() {
-            return self.hand_in_task(&mut working, call, at).await;
+            let handed = self.hand_in_task(&mut working, call, at.clone()).await;
+            if handed.is_ok() {
+                self.kept_note(&job, &step, in_the_way, &at).await;
+            }
+            return handed;
         }
         self.kept_pending(&job, &step, call, &at).await?;
         let recorded = EvidenceTool::for_job(job.clone(), self.inbox())
@@ -520,6 +527,7 @@ where
             .map_err(NotSubmitted::Malformed)?;
         cut_short(&mut working, &at);
         self.published_submission(&job, &step, evidence_type, &at);
+        self.kept_note(&job, &step, in_the_way, &at).await;
         Ok(recorded)
     }
 

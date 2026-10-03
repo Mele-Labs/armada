@@ -129,7 +129,7 @@ impl Store {
                     // A person changes it after, through `set_when_blocked`.
                     WhenBlocked::AskMe.as_wire(),
                     // The wave that made a member, beside the two columns
-                    // `dispatched_by` already has. V100.
+                    // `dispatched_by` already has. V101.
                     job.dispatched_by().and_then(|by| by.pass),
                 ],
             )

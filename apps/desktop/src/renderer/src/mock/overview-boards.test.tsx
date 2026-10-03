@@ -340,14 +340,26 @@ describe("the lead's act — what the press reaches", () => {
     await expect.element(page.getByRole("tabpanel", { name: "Overview" })).toBeVisible();
   });
 
-  // **Nothing to press where nothing is built.** Fleet serves neither status,
-  // so the sentence is all there is — `#1675` found four buttons reaching
-  // nothing and the owner kept one route of the four.
-  test("job/awaitingRepair and job/awaitingAttestation offer a sentence and no act", async () => {
+  // **The step's own recovery, where the lead says it is out of retries.**
+  // Fleet offers `rerun_checks` and `restart_step` in `stuck.recourse`, and the
+  // reframe of 29 Sep 2026 unmounted the only control that drew them — so the
+  // owner's Job read *Out of retries* with nothing anywhere to press.
+  test("job/awaitingRepair: the lead offers Run Checks again and Restart step", async () => {
     await drawn("job/awaitingRepair", ".armada-lead");
     await expect.element(page.getByRole("heading", { name: "Out of retries" })).toBeVisible();
-    expect(document.querySelectorAll(".armada-lead button")).toHaveLength(0);
+    const lead = document.querySelector(".armada-lead");
+    const rerun = page.getByRole("button", { name: "Run Checks again" });
+    await expect.element(rerun).toBeVisible();
+    expect(lead?.contains(await rerun.element())).toBe(true);
+    const restart = page.getByRole("button", { name: "Restart step" });
+    await expect.element(restart).toBeVisible();
+    expect(lead?.contains(await restart.element())).toBe(true);
+  });
 
+  // **Nothing to press where nothing is built.** Fleet serves no attestation,
+  // so the sentence is all there is — `#1675` found four buttons reaching
+  // nothing and the owner kept one route of the four.
+  test("job/awaitingAttestation offers a sentence and no act", async () => {
     await drawn("job/awaitingAttestation", ".armada-lead");
     await expect
       .element(page.getByRole("heading", { name: "A criterion needs your attestation" }))

@@ -271,11 +271,12 @@ where
             .next_press(job_id)
             .map_err(Adrift::Reading)?;
         let this = Arc::clone(&self);
-        let running = tokio::spawn(async move {
+        // With the door the request came through, for `crate::rechecking`'s reason.
+        let running = tokio::spawn(api::carrying(api::via(), async move {
             // Given back when the task ends, however it ends.
             let _held = held;
             this.pressed(&job, &harness, &worktree, &named, press).await
-        });
+        }));
         match running.await {
             Ok(came_to) => came_to,
             // Only a panic reaches here — nothing aborts this task. The Job is

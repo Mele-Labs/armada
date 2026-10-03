@@ -25,6 +25,7 @@ mod observing;
 mod preferences;
 mod processes;
 mod reference;
+mod retros;
 mod served;
 mod shapes;
 mod stream;

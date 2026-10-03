@@ -157,7 +157,7 @@ impl Store {
             from_ref: core_model::branch_named(from_ref.as_deref()),
             // The table's check admits nothing else.
             pr_mode: PrMode::from_wire(&mode).unwrap_or_default(),
-            // Null on a row kept before V100, which completed when delivered.
+            // Null on a row kept before V101, which completed when delivered.
             complete_when: when
                 .as_deref()
                 .and_then(CompleteWhen::from_wire)

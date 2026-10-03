@@ -740,20 +740,28 @@ where
         Ok((report, kept))
     }
 
-    /// Write the run into the Job's log, as fields a query can count.
+    /// Write the run into the Job's log, as fields a query can count, and the
+    /// names of the Checks that failed, which a retro reads — `crate::retro`.
     fn noted_dry_run(&self, plan: &Plan, report: &CheckReport) {
+        let failed: Vec<&str> = report
+            .ran
+            .iter()
+            .filter(|check| check.stopped.is_none() && !check.outcome.domain().advances())
+            .map(|check| check.name.as_str())
+            .collect();
         let envelope = Envelope::new(
             self.now(),
             Level::Info,
             Component::Fleet,
             self.run().clone(),
-            "the Drone asked for the step's checks and they were run",
+            crate::retro::lines::A_DRONE_RAN_CHECKS,
         )
         .in_job(plan.record.id().as_ulid().clone())
         .at_step(plan.step.as_str())
         .with_field("ran", FieldValue::Int(report.ran.len() as i64))
         .with_field("failed", FieldValue::Int(report.failed() as i64))
-        .with_field("narrowed", FieldValue::Bool(report.narrowed));
+        .with_field("narrowed", FieldValue::Bool(report.narrowed))
+        .with_field("failed_checks", FieldValue::Str(failed.join(", ")));
         // A line that will not write fails nothing: the Drone has its answer.
         self.noted_in_the_log(plan.record.id(), &envelope);
     }

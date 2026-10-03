@@ -370,6 +370,14 @@ where
             at_work.waiting(self.now());
             return Ok(None);
         }
+        // **Nor is a task's Drone that has handed in and is owed a successor.**
+        // It is finishing its last message, or at rest having finished it,
+        // and `crate::tasking::next_task_drone` ends it either way, within the
+        // report grace. Read as at rest here, it escalated as `stalled`.
+        if self.between_tasks(at_work).await? {
+            at_work.waiting(self.now());
+            return Ok(None);
+        }
         // **And a Drone whose run has ended is not quiet either — it is
         // finished.** Read before the clock and not after it, because it is not
         // a question about elapsed time: nothing is outstanding for the process,

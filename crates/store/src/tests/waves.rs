@@ -46,7 +46,7 @@ fn a_proposed_member_keeps_its_pass_and_its_gate_through_a_reopen() {
     );
 }
 
-/// A child made before V100 has no pass and still rebuilds at `queued`.
+/// A child made before V101 has no pass and still rebuilds at `queued`.
 #[test]
 fn a_child_made_before_waves_still_rebuilds_queued() {
     let dir = TempDir::new();

@@ -120,6 +120,7 @@ fn handed_in(review: Option<SubmittedReview>) -> SubmitEvidence {
         claimed: "The review of the CPU change".to_string(),
         shown_by: "the review's areas, tests and findings".to_string(),
         not_claimed: String::new(),
+        in_the_way: None,
         review,
     }
 }

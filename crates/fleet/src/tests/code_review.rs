@@ -67,6 +67,7 @@ fn a_review_naming(file: &str) -> SubmitEvidence {
         claimed: "The review of the reader's bound".to_string(),
         shown_by: "the review's areas and findings".to_string(),
         not_claimed: String::new(),
+        in_the_way: None,
         review: Some(SubmittedReview {
             says: Confidence::NotConfident,
             reasons: vec!["The bound moved and nothing tests it.".to_string()],

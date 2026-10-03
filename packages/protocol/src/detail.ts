@@ -668,7 +668,7 @@ export type JobDelivery = {
    * comments not counted. Since 23.6. **Absent is unknown, never 0.**
    */
   pull_request_comments?: number;
-  /** When the pull request merged, as the forge said. Since 23.11. */
+  /** When the pull request merged, as the forge said. Since 23.13. */
   merged_at?: string;
 };
 
